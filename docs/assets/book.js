@@ -14,7 +14,7 @@
   const save = (key, value) => { try { localStorage.setItem(key, value); } catch {} };
   const savedTheme = read('fibril-theme');
   if (['light', 'dark'].includes(savedTheme)) root.dataset.theme = savedTheme;
-  let size = Number(read('fibril-font-size')) || 18;
+  let size = Number(read('fibril-font-size')) || 20;
   const applySize = () => root.style.setProperty('--reading-size', `${size}px`);
   applySize();
   theme.hidden = false;

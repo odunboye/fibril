@@ -77,6 +77,14 @@ class TextbookTests(unittest.TestCase):
             self.assertIn(str(path.relative_to(OUT)), urls)
         self.assertTrue(all(entry["title"] and entry["text"] for entry in entries))
 
+    def test_typography_separates_prose_ui_and_code(self):
+        css = (OUT / "assets/book.css").read_text()
+        for declaration in ('--font-reading:', '--font-ui:', '--font-code:',
+                            '--reading-size:20px', 'max-width:66ch',
+                            'font-variant-ligatures:none', 'text-wrap:balance'):
+            self.assertIn(declaration, css)
+        self.assertNotIn('@import', css)
+
     def test_theme_control_has_accessible_sun_icon(self):
         content = self.chapters[0].read_text()
         self.assertIn('id="theme" aria-label="Toggle light and dark theme"', content)
@@ -98,9 +106,9 @@ class TextbookTests(unittest.TestCase):
             return (bright + 0.05) / (dark + 0.05)
 
         for selector in (':root', ':root[data-theme=dark]'):
-            match = re.search(re.escape(selector) + r'\{([^}]+)\}', css)
+            match = re.search(re.escape(selector) + r'\s*\{([^}]+)\}', css)
             self.assertIsNotNone(match)
-            palette = dict(re.findall(r'--([a-z-]+):#([0-9a-fA-F]{6});', match.group(1)))
+            palette = dict(re.findall(r'--([a-z-]+):\s*#([0-9a-fA-F]{6});', match.group(1)))
             for surface in ('paper', 'panel', 'code'):
                 with self.subTest(theme=selector, surface=surface):
                     self.assertGreaterEqual(contrast(palette['ink'], palette[surface]), 7)

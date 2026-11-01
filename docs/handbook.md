@@ -34,8 +34,9 @@ landing-page links. Browser rendering and fragment targets remain manual checks.
 
 The offline theme is Kanagawa-inspired rather than pure black and white:
 soft parchment in light mode, blue-black ink backgrounds with warm text in dark
-mode, and restrained slate accents. A 70-character reading measure, spacious
-line height, subtle borders, and serif headings support extended reading.
+mode, and restrained slate accents. A 66-character reading measure, 20px default
+serif prose, generous line height, and balanced chapter headings support extended
+reading. Compact sans-serif navigation stays visually separate from the text.
 Diagrams adapt to dark mode. This is an original adaptation, not the official
 Kanagawa theme or a claim that any palette prevents eye strain.
 
@@ -58,6 +59,17 @@ With JavaScript enabled:
 Without JavaScript, chapter content, navigation, source links, and system-theme
 styling remain available. Print styling removes navigation and controls.
 Reduced-motion preferences disable animated scrolling/transitions.
+
+Typography uses local system fonts: Iowan/Palatino/Georgia for prose, system
+sans-serif for navigation and tables, and monospace for code. No font downloads
+are required. Font availability affects the exact appearance. Code disables
+ligatures and uses lining numerals; tables and source lines use tabular numerals.
+Paragraphs and lists use consistent relative spacing, headings request balanced
+wrapping, and print rules avoid stranded headings. Browser support for advanced
+wrapping varies; ordinary wrapping remains the fallback.
+
+Saved text-size preferences are preserved; use A+ if an earlier 18px setting is
+still active. New readers start at 20px, with controls allowing 15–23px.
 
 Theme assets live in docs/assets/book.css and book.js. The builder generates
 a local search-data.js, so search needs neither a server API nor a CDN.
