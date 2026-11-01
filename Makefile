@@ -49,7 +49,7 @@ handbook: docs
 	python3 tools/test_handbook.py
 
 serve-docs: handbook
-	python3 -m http.server 8000 --bind 127.0.0.1 --directory build/handbook
+	python3 tools/serve_handbook.py
 
 clean:
 	rm -rf build test/build examples/build bench/build

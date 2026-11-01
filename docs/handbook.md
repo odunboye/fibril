@@ -15,6 +15,23 @@ make serve-docs
 Open http://127.0.0.1:8000. Alternatively open `build/handbook/index.html`
 directly for offline browsing. The server binds only to localhost.
 
+## Refreshing rebuilt pages
+
+`make serve-docs` serves on loopback with `Cache-Control: no-cache`, so browsers
+revalidate HTML and assets. CSS and UI-script URLs also contain content hashes,
+which change when those files change. This prevents old styles from masking a
+new build; it does not require clearing the browser's entire cache.
+
+If an older server/session is still open, rebuild, restart the server, and reload
+once with Cmd+Shift+R (macOS) or Ctrl+Shift+R. An added URL query such as
+`?refresh=1` also requests a fresh page. Browser reader/dark-mode/custom-style
+extensions can still alter colors; disable those for localhost when diagnosing.
+Current highlighting uses different keyword/type/comment colors in both themes.
+
+To serve an existing build on another port without rebuilding, use
+`python3 tools/serve_handbook.py --port 8001`. The helper is a local development
+server, not a production hosting/security boundary.
+
 ## Textbook organization
 
 The landing page, **Building Fibril**, introduces eight ordered implementation

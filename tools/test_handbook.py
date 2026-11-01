@@ -7,6 +7,9 @@ import re
 from pathlib import Path
 import unittest
 import build_handbook
+import serve_handbook
+import threading
+from urllib.request import urlopen
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "build/handbook"
@@ -224,6 +227,29 @@ class TextbookTests(unittest.TestCase):
         self.assertIn('<span class="sc">\\n</span>', rendered)
         self.assertIn('<span class="er">\\q</span>', rendered)
         self.assertNotIn('<span class="kw">if</span>\'', rendered)
+
+    def test_presentation_asset_urls_use_content_hashes(self):
+        content = self.chapters[0].read_text()
+        for name in ("book.css", "book.js"):
+            digest = hashlib.sha256((OUT / "assets" / name).read_bytes()).hexdigest()[:12]
+            self.assertIn(f"assets/{name}?v={digest}", content)
+
+    def test_local_server_revalidates_html_and_styles(self):
+        with serve_handbook.make_server(port=0) as server:
+            thread = threading.Thread(target=server.serve_forever,
+                                      kwargs={"poll_interval": 0.05}, daemon=True)
+            thread.start()
+            try:
+                for path in ("/index.html", "/assets/book.css?v=test"):
+                    url = f"http://127.0.0.1:{server.server_address[1]}{path}"
+                    with urlopen(url, timeout=5) as response:
+                        self.assertEqual(response.status, 200)
+                        self.assertEqual(response.headers["Cache-Control"], "no-cache")
+                        self.assertTrue(response.read())
+            finally:
+                server.shutdown()
+                thread.join(timeout=5)
+            self.assertFalse(thread.is_alive())
 
     def test_landing_page_links_every_chapter(self):
         content = (OUT / "index.html").read_text()

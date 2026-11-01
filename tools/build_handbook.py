@@ -6,12 +6,14 @@ Call graphs are curated DOT files, not inferred correctness evidence.
 """
 from pathlib import Path
 import html
+import hashlib
 import json
 import os
 import re
 import shutil
 import subprocess
 from html.parser import HTMLParser
+from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "build/handbook"
@@ -110,6 +112,10 @@ def main():
     chapters = [destinations[(ROOT / e["path"]).resolve()]
                 for e in parts[0]["pages"]]
     shutil.copytree(ROOT / "docs/assets", OUT / "assets")
+    asset_versions = {
+        name: hashlib.sha256((OUT / "assets" / name).read_bytes()).hexdigest()[:12]
+        for name in ("book.css", "book.js")
+    }
     search_index = []
 
     def write_page(path, title, body):
@@ -131,13 +137,15 @@ def main():
         prefix = relative(OUT, path) + "/"
         page_class = "contents" if path == OUT / "index.html" else "source-page" if OUT / "source" in path.parents else "chapter"
         badge = "The implementation textbook" if path in chapters or page_class == "contents" else "Fibril · Technical reference"
+        css_url = prefix + "assets/book.css?v=" + asset_versions["book.css"]
+        js_url = prefix + "assets/book.js?v=" + asset_versions["book.js"]
         path.write_text(f'<!doctype html><html lang="en"><head><meta charset="utf-8">'
                         f'<meta name="viewport" content="width=device-width,initial-scale=1">'
                         f'<meta name="color-scheme" content="light dark">'
                         f'<title>{html.escape(title)} — Fibril</title>'
-                        f'<link rel="stylesheet" href="{prefix}assets/book.css">'
+                        f'<link rel="stylesheet" href="{css_url}">'
                         f'<script defer src="{prefix}assets/search-data.js"></script>'
-                        f'<script defer src="{prefix}assets/book.js"></script></head>'
+                        f'<script defer src="{js_url}"></script></head>'
                         f'<body class="{page_class}" data-root="{prefix}">'
                         f'<a class="skip" href="#content">Skip to content</a>'
                         f'<header class="topbar"><a class="brand" href="{prefix}index.html">'
@@ -225,7 +233,7 @@ def main():
         for url in parser.urls:
             if ":" in url or url.startswith("#"):
                 continue
-            target = url.split("#", 1)[0]
+            target = urlsplit(url).path
             if target and not (page.parent / target).exists():
                 raise SystemExit(f"Broken local link: {page}: {url}")
     print(f"Handbook built and local file links checked: {OUT / 'index.html'}")
