@@ -1,0 +1,12 @@
+digraph Renaming {
+  rankdir=LR;
+  node [shape=box];
+  source [label="Term n"];
+  shifted [label="Term (S n)"];
+  target [label="Term m"];
+  shiftedTarget [label="Term (S m)"];
+  source -> shifted [label="weaken"];
+  source -> target [label="rename env"];
+  shifted -> shiftedTarget [label="rename (liftRenaming env)"];
+  target -> shiftedTarget [label="weaken"];
+}

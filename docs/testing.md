@@ -6,7 +6,8 @@
    erasure policy, scope checks, beta budgets, and erased checker failures.
 2. Hedgehog properties: randomized structural laws with integrated shrinking.
 3. Runnable bootstrap examples and generated handbook/API checks.
-4. Future formal proofs and broader differential/typed-generation tests.
+4. Host-checked finite permission and structural renaming proofs; broader
+   term-metatheory proofs and differential/typed-generation coverage remain future.
 
 Run `make test` or `pack test fibril`. Both deterministic checks and properties
 must pass; a failure exits nonzero. Run `make examples` and `make handbook`
@@ -72,6 +73,11 @@ errors, and absence of guessed source spans for core failures.
 payloads in closed/open scopes, branch and shape errors, rendering without
 normalization, typed driver propagation, and distinct evaluation exhaustion.
 Existing rejection tests now check constructor payloads as well as outcomes.
+
+[Renaming laws](renaming.md) prove identity, composition, pointwise congruence,
+and weakening commutation structurally in Idris 2. Tests.Renaming checks concrete
+witness instantiations across every constructor and noninjective maps. Existing
+sampled structural tests remain, with no increase to the 23-property count.
 
 ## Hedgehog dependency
 

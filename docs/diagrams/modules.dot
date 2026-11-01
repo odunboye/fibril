@@ -19,6 +19,7 @@ Pretty -> {Quantity Term};
 Term -> Quantity; Usage -> Quantity; Context -> {Quantity Term Usage};
 Reduction -> Term; WeakHead -> Term;
 Compatibility -> {Term Reduction};
+Renaming -> Term;
 Erased -> {Quantity Term Pretty Context Compatibility WeakHead Reduction};
 Runtime -> {Quantity Term Context Usage WeakHead Erased};
 label="Implemented direct Fibril imports (importer → dependency)";

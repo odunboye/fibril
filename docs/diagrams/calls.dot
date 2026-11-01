@@ -79,5 +79,12 @@ rankdir=LR; node [shape=box,style=rounded,fontsize=10];
 "Check.prepareRuntimeSource" -> "Check.prepareRuntimeSourceDetailed";
 "Check.prepareRuntimeSourceDetailed" -> {"Check.resolveSource" "Check.prepareTerm"};
 "Check.prepareTerm" -> "Runtime.inferRuntime";
+subgraph cluster_renaming {
+  label="Host-checked structural proof dependencies (not runtime)";
+  "Renaming.renameIdentity" -> "Renaming.renameCongruent";
+  "Renaming.renameComposition" -> {"Renaming.renameCongruent" "Renaming.liftComposition"};
+  "Renaming.renameCongruent" -> "Renaming.liftAgreement";
+  "Renaming.renameWeakening" -> {"Renaming.renameComposition" "Renaming.renameCongruent"};
+}
 label="Selected static calls — curated, not exhaustive";
 }

@@ -14,6 +14,7 @@ Implemented:
 - `src/Fibril/Source/File.idr`: bounded raw-file IO, exact-read/growth checks, decoding and control validation, represented-result cleanup.
 - `src/Fibril/Source/Text.idr`: decoded-source validation with scalar positions; not byte decoding, lexing, or identifier approval.
 
+- `src/Fibril/Core/Renaming.idr`: total host-checked structural laws, separate from runtime checking/reduction.
 - `src/Fibril/Core/Pretty.idr`: shared explicit-term diagnostics; no parsing or evaluation.
 - `src/Fibril/Core/Runtime.idr`: experimental ordinary runtime usage checking layered over erased typing; not backend execution or cubical checking.
 - `src/Fibril/Core/Erased.idr`: experimental erased ordinary context formation, inference/checking, and bounded beta type comparison; no runtime or cubical term checking.

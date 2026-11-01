@@ -173,7 +173,10 @@ not be well typed, terminating, or quantity-correct merely because they are scop
 
 Regression tests cover identity operations, weakening/instantiation, capture
 avoidance, binder-domain scope, and structural-versus-computational equality.
-They are finite tests, not general proofs of substitution laws.
+[Renaming](renaming.md) now proves identity, composition, pointwise congruence,
+and weakening commutation for every current scoped term in Idris 2. Substitution
+laws remain sampled, not generally proved. Neither form of evidence establishes
+typed/quantitative preservation or a combined calculus.
 
 See [ordinary checking plan](ordinary-checking.md) for context formation,
 dependent lookup, proposed rules, and explicit conversion/subusage gates.

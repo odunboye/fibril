@@ -20,7 +20,8 @@ indices, not bad typing.
 ## The grammar
 
 Universe stores a literal level. Pi and Lambda store a quantity, domain, and
-body. Apply stores function and argument.
+body. Apply stores function and argument. Unit/Bool atoms and their case nodes
+are also present; case children remain in the same scope.
 
 A binder domain has scope n; its body has scope S n. Its own variable cannot
 occur in its domain. The body may refer to it at FZ.
@@ -60,6 +61,17 @@ liftSubstitution therefore:
 rename performs the corresponding index transformation. weaken inserts a newest
 variable; instantiateTerm removes it by substitution. No evaluation is performed
 by these functions.
+
+## Prove that renaming behaves structurally
+
+[Renaming laws](../renaming.md) are now total Idris 2 proofs, not just sampled
+properties: identity preserves every scoped term, sequential maps compose, and
+lifted renaming commutes with weakening. Pointwise map agreement is sufficient;
+no function-extensionality axiom is used. Binder cases distinguish the outer
+annotation scope from the extended body scope.
+
+The results concern raw syntax, including ill-typed terms. They are checked by
+Idris 2 and do not establish Fibril typing or quantitative preservation.
 
 ## Inspecting syntax
 

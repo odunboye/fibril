@@ -116,6 +116,10 @@
         "path": "docs/reduction.md"
       },
       {
+        "title": "Structural renaming laws",
+        "path": "docs/renaming.md"
+      },
+      {
         "title": "Cubical baseline",
         "path": "docs/foundation-baseline.md"
       },
