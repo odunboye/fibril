@@ -68,6 +68,42 @@ forgetFace (SEndpoint i b) = Endpoint (finToNat i) b
 forgetFace (SConjunction x y) = Conjunction (forgetFace x) (forgetFace y)
 forgetFace (SDisjunction x y) = Disjunction (forgetFace x) (forgetFace y)
 
+||| Extract boundaries without leaving the dimension scope.
+public export
+scopedEndpoint : ScopedInterval n -> Bool -> ScopedFace n
+scopedEndpoint Zero False = STop
+scopedEndpoint Zero True = SBottom
+scopedEndpoint One False = SBottom
+scopedEndpoint One True = STop
+scopedEndpoint (Var i) b = SEndpoint i b
+scopedEndpoint (Reverse x) b = scopedEndpoint x (not b)
+scopedEndpoint (Meet x y) False = SDisjunction (scopedEndpoint x False) (scopedEndpoint y False)
+scopedEndpoint (Meet x y) True = SConjunction (scopedEndpoint x True) (scopedEndpoint y True)
+scopedEndpoint (Join x y) False = SConjunction (scopedEndpoint x False) (scopedEndpoint y False)
+scopedEndpoint (Join x y) True = SDisjunction (scopedEndpoint x True) (scopedEndpoint y True)
+
+public export
+substituteScopedFace : (Fin n -> ScopedInterval m) -> ScopedFace n -> ScopedFace m
+substituteScopedFace env SBottom = SBottom
+substituteScopedFace env STop = STop
+substituteScopedFace env (SEndpoint i b) = scopedEndpoint (env i) b
+substituteScopedFace env (SConjunction x y) =
+  SConjunction (substituteScopedFace env x) (substituteScopedFace env y)
+substituteScopedFace env (SDisjunction x y) =
+  SDisjunction (substituteScopedFace env x) (substituteScopedFace env y)
+
+public export
+weakenFace : ScopedFace n -> ScopedFace (S n)
+weakenFace = substituteScopedFace (Var . FS)
+
+public export
+instantiateFace : ScopedInterval n -> ScopedFace (S n) -> ScopedFace n
+instantiateFace value = substituteScopedFace replace
+  where
+    replace : Fin (S n) -> ScopedInterval n
+    replace FZ = value
+    replace (FS older) = Var older
+
 ||| Reuse the reference solver only after obtaining a well-scoped face.
 public export
 entailsScoped : ScopedFace n -> ScopedFace n -> Bool

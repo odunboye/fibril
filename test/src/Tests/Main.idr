@@ -5,6 +5,7 @@ import Fibril.Foundation.DeMorgan.Interval
 import Fibril.Foundation.DeMorgan.NormalForm
 import Fibril.Foundation.DeMorgan.Face
 import Fibril.Foundation.DeMorgan.Scope
+import Fibril.Foundation.DeMorgan.Restriction
 import Data.Fin
 import Data.Maybe
 import System
@@ -37,7 +38,30 @@ endpointDisjointLaw =
 
 checks : List (String, Bool)
 checks =
-  [ ("closed interval accepts constants", isJust (scopeInterval 0 (Meet Zero One)))
+  [ ("scoped face instantiate endpoint", entailsScoped
+      STop (instantiateFace (the (ScopedInterval 0) Zero) (SEndpoint FZ False)))
+  , ("scoped face instantiate opposite", entailsScoped
+      (instantiateFace (the (ScopedInterval 0) Zero) (SEndpoint FZ True)) SBottom)
+  , ("scoped face weakening", equivalentFace
+      (forgetFace (weakenFace (the (ScopedFace 1) (SEndpoint FZ False))))
+      (Endpoint 1 False))
+  , ("restriction assumption available", holds
+      (restrict (the (Restriction 1) unrestricted) (SEndpoint FZ False))
+      (SEndpoint FZ False))
+  , ("restriction does not invent assumption", not (holds
+      (the (Restriction 1) unrestricted) (SEndpoint FZ False)))
+  , ("restriction contradiction", isEmptyRestriction
+      (restrict (restrict (the (Restriction 1) unrestricted) (SEndpoint FZ False))
+                (SEndpoint FZ True)))
+  , ("empty face entails arbitrary goal", holds
+      (Under (the (ScopedFace 1) SBottom)) (SEndpoint FZ True))
+  , ("restriction substitution", isEmptyRestriction
+      (substituteRestriction (\i => the (ScopedInterval 0) One)
+        (Under (the (ScopedFace 1) (SEndpoint FZ False)))))
+  , ("restriction weakening keeps older assumption", holds
+      (weakenRestriction (Under (the (ScopedFace 1) (SEndpoint FZ True))))
+      (SEndpoint (FS FZ) True))
+  , ("closed interval accepts constants", isJust (scopeInterval 0 (Meet Zero One)))
   , ("closed interval rejects variable", isNothing (scopeInterval 0 (Var 0)))
   , ("dimension boundary accepted", isJust (scopeInterval 2 (Var 1)))
   , ("dimension boundary rejected", isNothing (scopeInterval 2 (Var 2)))

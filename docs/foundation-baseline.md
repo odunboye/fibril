@@ -42,8 +42,11 @@ checked conversion from raw Nat-labelled syntax, interval weakening, scoped
 substitution, and instantiation of the newest dimension. Index 0 denotes the
 newest dimension. Raw validation checks even algebraically redundant branches,
 so simplification cannot hide invalid references. Scoped face entailment reuses
-the reference solver after forgetting indices. Scoped face substitution remains
-future work; no term binding or computational-variable usage rules exist yet.
+the reference solver after forgetting indices. Scoped face substitution, weakening, and instantiation now preserve scope
+through endpoint extraction. Restriction.idr accumulates face assumptions and
+checks entailment under them, including empty (contradictory) faces. These are
+dimension restrictions, not term contexts or arbitrary logical assumptions.
+No term binding or computational-variable usage rules exist yet.
 
 These structures are not yet integrated with term typing. There is no
 term conversion procedure, universe checking, composition, or Glue.
@@ -75,7 +78,7 @@ checker a sound quantitative cubical theory without supporting arguments.
 ## Next implementation gates
 
 1. Symbolic interval equality: implemented with law/regression tests; formal verification and broader property testing remain open.
-2. Face syntax, entailment, interval-to-face substitution, and basic scoped dimensions: implemented with regression tests. Scoped face substitution and term contexts remain open.
+2. Face syntax, entailment, scoped substitution, and restriction contexts: implemented with regression tests. Term contexts remain open.
 3. A documented core grammar, contexts, universes, and ordinary typing rules.
 4. Path checking and evaluation, with quantities gated on explicit rules.
 5. Composition, Glue, and a computational univalence example.

@@ -8,6 +8,7 @@ Implemented:
 - `src/Fibril/Foundation/DeMorgan/NormalForm.idr`: reference symbolic interval equality.
 - `src/Fibril/Foundation/DeMorgan/Face.idr`: separate face lattice, entailment, endpoint extraction, and substitution.
 - `src/Fibril/Foundation/DeMorgan/Scope.idr`: checked dimension scoping, interval weakening/substitution/instantiation, and scoped face entailment.
+- `src/Fibril/Foundation/DeMorgan/Restriction.idr`: accumulated face assumptions, entailment, weakening, and substitution.
 - `test/src/Tests/Main.idr`: quantity, interval, and face regression tests.
 
 Planned boundaries:
