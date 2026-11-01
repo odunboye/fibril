@@ -79,7 +79,9 @@ Idris 2 and do not establish Fibril typing or quantitative preservation.
 variable-only substitution agrees with renaming. Identity substitution follows
 from that correspondence and renameIdentity. The proofs track both binder scopes;
 a concrete capture-avoidance witness checks a free replacement below a lambda.
-Full substitution composition and typed preservation remain unproved.
+[Full structural composition](../substitution-composition.md) and mixed fusion
+are now proved as well, using weakening to bridge lifted replacement maps.
+Typed and quantitative preservation remain unproved.
 
 ## Inspecting syntax
 

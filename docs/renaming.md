@@ -74,6 +74,7 @@ map followed by weakening. Existing Hedgehog structural properties remain useful
 as independent operational regressions, but identity is no longer only sampled.
 
 [Basic substitution laws](substitution.md) now prove pointwise congruence,
-identity, and variable-only correspondence. Future composition/fusion laws can use renameWeakening to relate shifted replacement
-terms under binders. That work must still address lifted substitutions explicitly;
-these renaming theorems are not a substitute for proving those laws.
+identity, and variable-only correspondence. [Composition/fusion proofs](substitution-composition.md)
+now use renameWeakening to relate shifted replacement terms under binders,
+then handle lifted substitution maps through pointwise congruence. These remain
+raw-syntax theorems rather than typed substitution or preservation results.

@@ -66,11 +66,11 @@ The package checks proofs under %default total, with no holes, postulates,
 unsafe casts, or totality escape hatches. Existing Hedgehog properties remain
 operational regressions; this adds no new randomized-property count.
 
-## Still unproved
+## Proof boundary
 
-Full substitution composition, mixed renaming/substitution fusion, and general
-weakening/instantiation laws remain future proofs. Their existing sampled tests
-are not a substitute for those theorems. In particular, nothing here establishes
+[Composition and mixed fusion](substitution-composition.md) are now proved in a
+separate module, along with substitution weakening and instantiation after
+weakening. The basic laws above are its prerequisites. Nothing here establishes
 typed substitution, quantitative permissions under substitution, beta
 preservation, normalization, erasure correctness, or cubical soundness.
 

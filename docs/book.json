@@ -124,6 +124,10 @@
         "path": "docs/substitution.md"
       },
       {
+        "title": "Substitution composition",
+        "path": "docs/substitution-composition.md"
+      },
+      {
         "title": "Cubical baseline",
         "path": "docs/foundation-baseline.md"
       },

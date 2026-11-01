@@ -1,0 +1,15 @@
+digraph SubstitutionComposition {
+  rankdir=BT;
+  node [shape=box];
+  renameWeakening [label="renameWeakening"];
+  renameFusion [label="renameAfterSubstitution"];
+  substituteFusion [label="substituteAfterRenaming"];
+  substituteWeakening [label="substituteWeakening"];
+  composition [label="substituteComposition"];
+  identity [label="substituteIdentity"];
+  instantiation [label="instantiateWeakening"];
+  renameFusion -> renameWeakening [label="uses"];
+  substituteWeakening -> {renameFusion substituteFusion};
+  composition -> substituteWeakening;
+  instantiation -> {substituteFusion identity};
+}

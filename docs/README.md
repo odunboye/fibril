@@ -11,6 +11,8 @@ The generated homepage separates teaching chapters, references, and project reco
 
 ## Reference index
 
+- [Substitution composition](substitution-composition.md): mixed fusion and weakening/instantiation proofs.
+
 - [Basic substitution laws](substitution.md): congruence, variable correspondence, and identity.
 
 - [Structural renaming laws](renaming.md): host-checked proofs and their exact scope.

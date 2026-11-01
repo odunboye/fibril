@@ -87,15 +87,18 @@ substituteTerm env (Apply f x) = Apply (substituteTerm env f) (substituteTerm en
 substituteTerm env (UnitCase scrutinee body) =
   UnitCase (substituteTerm env scrutinee) (substituteTerm env body)
 
+||| Replacement map for removing the newest variable from a scope.
+||| Factored out so structural proofs use the exact same map as instantiation.
+public export
+replaceNewest : Term n -> Fin (S n) -> Term n
+replaceNewest value FZ = value
+replaceNewest value (FS i) = Variable i
+
 ||| Replace the newest free variable; older indices shift down.
 ||| This is a syntactic operation, not a checked beta-reduction rule.
 public export
 instantiateTerm : Term n -> Term (S n) -> Term n
-instantiateTerm value = substituteTerm replace
-  where
-    replace : Fin (S n) -> Term n
-    replace FZ = value
-    replace (FS i) = Variable i
+instantiateTerm value = substituteTerm (replaceNewest value)
 
 ||| Structural syntax equality only, not definitional equality or path equality.
 public export

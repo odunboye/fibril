@@ -12,7 +12,7 @@ rankdir=LR; node [shape=box,style=rounded,fontsize=10];
 "NormalForm.normal" -> {"NormalForm.joinDNF" "NormalForm.meetDNF"};
 "NormalForm.joinDNF" -> "NormalForm.reduce";
 "NormalForm.meetDNF" -> "NormalForm.reduce";
-"Term.instantiateTerm" -> "Term.substituteTerm";
+"Term.instantiateTerm" -> {"Term.substituteTerm" "Term.replaceNewest"};
 "Term.substituteTerm" -> "Term.liftSubstitution";
 "Term.liftSubstitution" -> "Term.weaken";
 "Term.weaken" -> "Term.rename"; "Term.rename" -> "Term.liftRenaming";
@@ -79,6 +79,16 @@ rankdir=LR; node [shape=box,style=rounded,fontsize=10];
 "Check.prepareRuntimeSource" -> "Check.prepareRuntimeSourceDetailed";
 "Check.prepareRuntimeSourceDetailed" -> {"Check.resolveSource" "Check.prepareTerm"};
 "Check.prepareTerm" -> "Runtime.inferRuntime";
+subgraph cluster_composition {
+  label="Host-checked substitution fusion/composition (not runtime)";
+  "Composition.renameAfterSubstitution" -> {"Substitution.substituteCongruent" "Composition.liftRenameSubstitution"};
+  "Composition.liftRenameSubstitution" -> "Renaming.renameWeakening";
+  "Composition.substituteAfterRenaming" -> {"Substitution.substituteCongruent" "Composition.liftSubstituteRenaming"};
+  "Composition.substituteWeakening" -> {"Composition.substituteAfterRenaming" "Composition.renameAfterSubstitution"};
+  "Composition.substituteComposition" -> {"Substitution.substituteCongruent" "Composition.liftComposition"};
+  "Composition.liftComposition" -> "Composition.substituteWeakening";
+  "Composition.instantiateWeakening" -> {"Composition.substituteAfterRenaming" "Substitution.substituteIdentity" "Term.replaceNewest"};
+}
 subgraph cluster_substitution {
   label="Host-checked basic substitution proofs (not runtime)";
   "Substitution.substituteIdentity" -> {"Substitution.renameAsSubstitution" "Renaming.renameIdentity"};

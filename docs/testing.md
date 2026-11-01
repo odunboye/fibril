@@ -81,8 +81,11 @@ sampled structural tests remain, with no increase to the 23-property count.
 
 [Substitution laws](substitution.md) now prove congruence, identity, and variable-only
 renaming correspondence. Tests.Substitution instantiates the signatures and a
-concrete binder/domain capture witness. Full composition/fusion laws remain
-sampled, not proved; there are still 23 Hedgehog properties.
+concrete binder/domain capture witness.
+[Composition/fusion laws](substitution-composition.md) now also have total host
+proofs. Tests.SubstitutionComposition checks their instantiated signatures and
+the shared replaceNewest map. The existing sampled composition/instantiation
+properties remain regressions; there are still 23 Hedgehog properties.
 
 ## Hedgehog dependency
 
