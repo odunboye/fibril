@@ -51,6 +51,7 @@ termGen (S depth) n =
     , Lambda <$> quantityGen <*> termGen depth n <*> termGen depth (S n)
     , Apply <$> termGen depth n <*> termGen depth n
     , UnitCase <$> termGen depth n <*> termGen depth n
+    , StringAppend <$> termGen depth n <*> termGen depth n
     , BoolCase <$> termGen depth n <*> termGen depth n <*> termGen depth n
     , IOType <$> termGen depth n
     , IOPure <$> termGen depth n

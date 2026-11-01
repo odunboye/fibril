@@ -39,6 +39,9 @@ primitiveGlobals =
             (Pi Linear (Variable (FS (FS FZ))) (IOType (Variable (FS (FS FZ)))))
             (IOType (Variable (FS (FS FZ))))))))
       bindConstructor
+  , Global "primStringAppend" (Pi Linear StringType (Pi Linear StringType StringType))
+      (Lambda Linear StringType (Lambda Linear StringType
+        (StringAppend (Variable (FS FZ)) (Variable FZ))))
   , Global "primWriteLine" (Pi Linear StringType (IOType UnitType))
       (Lambda Linear StringType (WriteLine (Variable FZ)))
   ]

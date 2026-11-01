@@ -81,11 +81,12 @@ WriteLine is the operand's usage. Bind adds action and continuation usage; the
 continuation's result parameter is exact-once. Inputs/outputs of bind are
 nondependent; dependent motives are not provided.
 
-The source primitive table exposes IO, primPure, primBind, and primWriteLine.
+The source primitive table exposes IO, primPure, primBind, primWriteLine, and
+the pure data operation primStringAppend.
 The current source/prelude interface quantifies A/B : Type0 only. The core IOType
 formation rule does not collapse higher universes or introduce Type : Type.
 
-The only new computation rule is a **pure description** rule:
+The IO-specific computation rule is a **pure description** rule:
 
     IOBind A B (IOPure value) next --> Apply next value
 

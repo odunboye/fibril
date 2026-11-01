@@ -22,6 +22,7 @@ renderTerm BoolTrue = "True"
 renderTerm BoolFalse = "False"
 renderTerm StringType = "String"
 renderTerm (StringValue value) = show value
+renderTerm (StringAppend left right) = "(StringAppend " ++ renderTerm left ++ " " ++ renderTerm right ++ ")"
 renderTerm (IOType ty) = "(IO " ++ renderTerm ty ++ ")"
 renderTerm (IOPure value) = "(Pure " ++ renderTerm value ++ ")"
 renderTerm (WriteLine text) = "(WriteLine " ++ renderTerm text ++ ")"

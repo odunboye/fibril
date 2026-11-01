@@ -50,6 +50,9 @@ renameCongruent left right agree (Lambda q domain body) =
 renameCongruent left right agree (Apply function argument) =
   rewrite renameCongruent left right agree function in
   rewrite renameCongruent left right agree argument in Refl
+renameCongruent left right agree (StringAppend function argument) =
+  rewrite renameCongruent left right agree function in
+  rewrite renameCongruent left right agree argument in Refl
 renameCongruent left right agree (UnitCase scrutinee body) =
   rewrite renameCongruent left right agree scrutinee in
   rewrite renameCongruent left right agree body in Refl
@@ -91,6 +94,9 @@ renameIdentity (Lambda q domain body) =
   rewrite renameCongruent (liftRenaming Prelude.id) Prelude.id liftIdentity body in
   rewrite renameIdentity body in Refl
 renameIdentity (Apply function argument) =
+  rewrite renameIdentity function in
+  rewrite renameIdentity argument in Refl
+renameIdentity (StringAppend function argument) =
   rewrite renameIdentity function in
   rewrite renameIdentity argument in Refl
 renameIdentity (UnitCase scrutinee body) =
@@ -144,6 +150,9 @@ renameComposition first second (Lambda q domain body) =
                          (liftRenaming (second . first))
                          (liftComposition first second) body in Refl
 renameComposition first second (Apply function argument) =
+  rewrite renameComposition first second function in
+  rewrite renameComposition first second argument in Refl
+renameComposition first second (StringAppend function argument) =
   rewrite renameComposition first second function in
   rewrite renameComposition first second argument in Refl
 renameComposition first second (UnitCase scrutinee body) =

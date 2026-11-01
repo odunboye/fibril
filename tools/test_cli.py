@@ -193,6 +193,31 @@ class CLITests(unittest.TestCase):
         self.assertEqual(result.stdout, "")
         self.assertIn("use eval", result.stderr)
 
+    def test_pure_string_append(self):
+        result = run("run", "examples/core/string-append.fib")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout, "Hello, Fibril!\n")
+        result = run("check", "examples/core/string-append.fib")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertNotIn("Hello, Fibril!", result.stdout)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "append.fib"
+            path.write_text('main : String\nmain = appendString "λ " "🌍"\n', encoding="utf-8")
+            result = run("eval", str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn('Normal: "\\955 \\127757"', result.stdout)
+            result = run("eval", "--fuel", "0", str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertNotIn("Normal:", result.stdout)
+            for expression in ('appendString True "bad"',
+                               r'(\(1 x : String) => appendString x x) "twice"',
+                               r'(\(0 x : String) => appendString x "suffix") "erased"'):
+                path.write_text('main : IO Unit\nmain = do\n  putStrLn "must not print"\n'
+                                '  putStrLn (' + expression + ')\n', encoding="utf-8")
+                result = run("run", str(path))
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(result.stdout, "")
+
     def test_rename_preview(self):
         # ^ marks exactly the sites that may be edited; @ marks the query.
         accepted = [

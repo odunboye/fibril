@@ -20,7 +20,7 @@ base =
 
 sample : Term 2
 sample = IOBind (IOType UnitType) StringType (IOPure base)
-                (WriteLine (StringValue "request"))
+                (WriteLine (StringAppend (StringValue "re") (StringValue "quest")))
 
 first : Fin 2 -> Term 1
 first FZ = Apply (Variable FZ) BoolTrue

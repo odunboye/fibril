@@ -204,6 +204,14 @@ Unicode/combining prefixes. They verify the read-only scratch diff, simultaneous
 same-line replacements, unchanged string literals/source buffers/cursors, command
 and Plug cleanup, and refusal of no-op/keyword/modified/malformed requests.
 
+String append extends raw and constructed typed generators, binding witnesses,
+and the closed-String result recipe without adding checker-driven filtering.
+Deterministic tests check both-operand typing, exact Unicode concatenation,
+linear-use addition, pre-reduction quantity errors, head forcing, and fuel limits.
+CLI tests verify computed greetings and empty stdout after late argument errors.
+Existing host structural and fuel proofs compile over the extended datatype;
+this is not a quantitative preservation or string memory-safety theorem.
+
 ## Hedgehog dependency
 
 Repository: https://github.com/stefan-hoeck/idris2-hedgehog

@@ -40,6 +40,7 @@ examples: build
 	./build/exec/fibril run examples/core/do-bindings.fib
 	./build/exec/fibril run examples/core/do-let.fib
 	./build/exec/fibril run examples/core/do-result.fib
+	./build/exec/fibril run examples/core/string-append.fib
 
 bench:
 	python3 tools/benchmark.py

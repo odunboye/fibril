@@ -54,7 +54,7 @@ Parsing and checking retain their independent fixed budgets (256 parsing depth,
 512 checking depth, 128 reduction fuel per type operation). Raising evaluation fuel does not
 raise these other budgets. All errors propagate; none admit obligations.
 
-Fuel bounds beta/data-case contractions only. Step discovery, substitution, full annotation
+Fuel bounds beta/data-case/pure-primitive contractions only. Step discovery, substitution, full annotation
 normalization, and rechecking may use substantial time/memory. This is not a
 sandbox, a service-level timeout, or hard-real-time execution.
 

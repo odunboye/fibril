@@ -22,7 +22,7 @@ base =
 
 sample : Term 2
 sample = IOBind (IOType UnitType) StringType (IOPure base)
-                (WriteLine (StringValue "request"))
+                (WriteLine (StringAppend (StringValue "re") (StringValue "quest")))
 
 collapse : Fin 2 -> Fin 1
 collapse _ = FZ

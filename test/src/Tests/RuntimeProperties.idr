@@ -173,6 +173,8 @@ stringPrograms Z = stringSeed
 stringPrograms (S depth) =
   choice
     [ stringSeed
+    , (\left, right => StringProgram (StringAppend left.term right.term)
+                      (left.expected ++ right.expected)) <$> stringPrograms depth <*> stringPrograms depth
     , (\sample => StringProgram
          (Apply (Lambda Linear StringType (Variable FZ)) sample.term) sample.expected) <$>
         stringPrograms depth

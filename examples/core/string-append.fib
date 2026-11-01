@@ -1,0 +1,8 @@
+-- appendString is a checked Fibril function over a pure primitive operation.
+greet : (1 name : String) -> IO Unit
+greet = \(1 name : String) => putStrLn (appendString "Hello, " (appendString name "!"))
+
+main : IO Unit
+main = do
+  let (1 name : String) = "Fibril"
+  greet name

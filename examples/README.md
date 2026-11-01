@@ -85,6 +85,10 @@ block. Pure bindings retain ordinary quantities and do not execute descriptions.
 from a helper, then consumes that result in main : IO Unit. The annotation is
 checked using existing core IO rules; it does not perform effects or infer types.
 
+`string-append.fib` composes pure appendString calls in a linear helper to print
+a computed greeting. Concatenation is checked core computation, not parser syntax
+or IO; its host allocation/copying costs are not bounded by reduction fuel.
+
 ## Proposed Fibril programs
 
 `proposed/` illustrates the intended user experience, from hello world and

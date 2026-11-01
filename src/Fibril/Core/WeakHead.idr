@@ -6,7 +6,7 @@ import Fibril.Core.Term
 
 %default total
 
-||| One head beta/data-case step. Do not inspect binder bodies, annotations, or arguments.
+||| One head beta/data-case step. Do not inspect binder bodies or annotations; force primitive operands as needed.
 ||| A variable-headed application is stuck and needs no head step.
 public export
 stepHead : Term n -> Maybe (Term n)
@@ -22,6 +22,10 @@ stepHead (BoolCase condition yes no) =
   map (\next => BoolCase next yes no) (stepHead condition)
 stepHead (IOBind a b (IOPure value) next) = Just (Apply next value)
 stepHead (IOBind a b action next) = map (\result => IOBind a b result next) (stepHead action)
+stepHead (StringAppend (StringValue left) (StringValue right)) = Just (StringValue (left ++ right))
+stepHead (StringAppend left right) = case stepHead left of
+  Just next => Just (StringAppend next right)
+  Nothing => map (StringAppend left) (stepHead right)
 stepHead _ = Nothing
 
 ||| Exposed outer syntax is not necessarily in full beta normal form.
