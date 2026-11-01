@@ -31,6 +31,7 @@ axioms, or unsafe primitives enter this initial logical fragment.
             | UnitCase Term Term
             | BoolType | BoolTrue | BoolFalse
             | BoolCase Term Term Term
+            | StringType | StringValue text
             | Pi Quantity Term Term
             | Lam Quantity Term Term
             | App Term Term
@@ -65,6 +66,13 @@ Runtime branches use a pointwise [permission join](alternatives.md); the
 condition's usage is added to that join, not both alternatives. Matching 1/1
 observations stay linear; differing observations require unrestricted permission.
 The finite permission law is proved in Idris 2, not a term preservation theorem.
+
+## Implemented pure String
+
+[String](strings.md) adds StringType : Universe 0 and StringValue text : StringType.
+Both are scope-independent atoms; literals contribute zero runtime usage and
+compare by exact literal data. There is no new reduction, eliminator, Unicode
+normalization, IO behavior, or implicit quantity coercion.
 
 ## Proposed quantity accounting
 

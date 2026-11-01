@@ -28,7 +28,7 @@ Show RuntimeError where
     "Binder usage: expected " ++ show expected ++ ", observed " ++ show observed
   show (ContextUsage i expected observed) =
     "Variable " ++ show i ++ ": expected " ++ show expected ++ ", observed " ++ show observed
-  show RuntimeTypeExpression = "Runtime type expressions (universe/Pi/Unit/Bool) are not supported"
+  show RuntimeTypeExpression = "Runtime type expressions (universe/Pi/Unit/Bool/String) are not supported"
 
 liftTyping : Either CheckError a -> Either RuntimeError a
 liftTyping (Left err) = Left (TypingError err)
@@ -46,6 +46,8 @@ analyze (S depth) reduction context UnitValue = Right zeroUsage
 analyze (S depth) reduction context BoolType = Left RuntimeTypeExpression
 analyze (S depth) reduction context BoolTrue = Right zeroUsage
 analyze (S depth) reduction context BoolFalse = Right zeroUsage
+analyze (S depth) reduction context StringType = Left RuntimeTypeExpression
+analyze (S depth) reduction context (StringValue _) = Right zeroUsage
 analyze (S depth) reduction context (BoolCase condition yes no) = do
   conditionUsage <- analyze depth reduction context condition
   yesUsage <- analyze depth reduction context yes

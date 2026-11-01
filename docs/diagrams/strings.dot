@@ -1,0 +1,15 @@
+digraph Strings {
+  rankdir=LR;
+  node [shape=box];
+  source [label="Quoted source spelling"];
+  decoder [label="Shared literal decoder"];
+  pure [label="Ordinary StringValue : StringType"];
+  normal [label="Pure reference normal form"];
+  action [label="Separate console PrintLine request"];
+  host [label="Hosted stdout effect"];
+  source -> decoder;
+  decoder -> pure [label="ordinary parser"];
+  pure -> normal [label="existing computation"];
+  decoder -> action [label="console profile"];
+  action -> host [label="run only"];
+}

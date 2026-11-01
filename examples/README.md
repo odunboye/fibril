@@ -59,6 +59,10 @@ modules, and C/JS backends remain unimplemented; see [the exact profile](../docs
 literal print requests before execution and is run by make examples. This is not
 general monadic IO or a new core typing rule.
 
+`string-identity.fib` uses first-class pure String values in ordinary declarations
+and a linear function. make examples evaluates it to a quoted normal form; this
+does not execute console printing.
+
 ## Proposed Fibril programs
 
 `proposed/` illustrates the intended user experience, from hello world and

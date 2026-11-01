@@ -22,7 +22,8 @@ kinds source expected =
 public export
 checks : List (String, Bool)
 checks =
-  [ ("lexer Boolean keywords exact", kinds "Bool True False if then else iffy" ["Bool", "True", "False", "if", "then", "else", "name"])
+  [ ("lexer String keyword exact", kinds "String StringValue string" ["String", "name", "name"])
+  , ("lexer Boolean keywords exact", kinds "Bool True False if then else iffy" ["Bool", "True", "False", "if", "then", "else", "name"])
   , ("lexer case keywords exact", kinds "case of cases offset" ["case", "of", "name", "name"])
   , ("lexer Unit keyword is exact", kinds "Unit UnitValue unit" ["Unit", "name", "name"])
   , ("lexer let keywords are exact", kinds "let in letter inner =" ["let", "in", "name", "name", "="])

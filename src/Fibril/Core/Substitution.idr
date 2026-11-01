@@ -28,6 +28,8 @@ substituteCongruent left right agree UnitValue = Refl
 substituteCongruent left right agree BoolType = Refl
 substituteCongruent left right agree BoolTrue = Refl
 substituteCongruent left right agree BoolFalse = Refl
+substituteCongruent left right agree StringType = Refl
+substituteCongruent left right agree (StringValue _) = Refl
 substituteCongruent left right agree (BoolCase condition yes no) =
   rewrite substituteCongruent left right agree condition in
   rewrite substituteCongruent left right agree yes in
@@ -64,6 +66,8 @@ renameAsSubstitution env UnitValue = Refl
 renameAsSubstitution env BoolType = Refl
 renameAsSubstitution env BoolTrue = Refl
 renameAsSubstitution env BoolFalse = Refl
+renameAsSubstitution env StringType = Refl
+renameAsSubstitution env (StringValue _) = Refl
 renameAsSubstitution env (BoolCase condition yes no) =
   rewrite renameAsSubstitution env condition in
   rewrite renameAsSubstitution env yes in

@@ -127,6 +127,18 @@ class CLITests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("Parsing:", result.stdout)
 
+    def test_pure_string_program(self):
+        result = run("check", "examples/core/string-identity.fib")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Type: String", result.stdout)
+        result = run("eval", "examples/core/string-identity.fib")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn('Normal: "Hello from pure Fibril."', result.stdout)
+        result = run("run", "examples/core/string-identity.fib")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(result.stdout, "")
+        self.assertIn("use eval", result.stderr)
+
     def test_console_do_sequence(self):
         result = run("run", "examples/core/console-sequence.fib")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

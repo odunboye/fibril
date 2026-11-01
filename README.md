@@ -29,6 +29,7 @@ pack test fibril
 ./build/exec/fibril check examples/core/identity.fib
 ./build/exec/fibril eval examples/core/evaluate-identity.fib
 ./build/exec/fibril eval examples/core/unit.fib
+./build/exec/fibril eval examples/core/string-identity.fib
 ./build/exec/fibril eval examples/core/declarations.fib
 ```
 

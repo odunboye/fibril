@@ -15,7 +15,8 @@ sample =
       (BoolCase (Variable (FS (FS FZ)))
         (UnitCase UnitValue (Apply (Variable FZ) BoolTrue))
         (BoolCase BoolFalse (Variable (FS (FS (FS FZ))))
-          (Pi Unrestricted UnitType BoolType))))
+          (Apply (Pi Unrestricted UnitType BoolType)
+                 (Lambda Linear StringType (StringValue "data"))))))
 
 first : Fin 2 -> Term 1
 first FZ = Apply (Variable FZ) BoolTrue

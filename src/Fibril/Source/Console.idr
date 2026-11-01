@@ -4,7 +4,6 @@ module Fibril.Source.Console
 import Fibril.Effect.Console
 import Fibril.Source.Text
 import Fibril.Source.Lexer
-import Fibril.Source.StringLiteral
 import Fibril.Source.Parser
 
 %default total
@@ -44,13 +43,9 @@ parseAction : Position -> List Token -> Either ParseError ParsedAction
 parseAction end tokens = do
   (primitive, rest) <- named "putStrLn" end tokens
   (literal, rest) <- expect StringToken end rest
-  decoded <- case scanLiteral literal.span.start (unpack literal.spelling) of
-    Left err => Left (ParseFailure err.position err.message)
-    Right decoded => Right decoded
-  case decoded.remaining of
-    [] => Right (Parsed (Between primitive.span.start literal.span.finish)
-                        literal.span.start (PrintLine decoded.value) rest)
-    _ => Left (ParseFailure literal.span.start "Malformed console string token")
+  value <- literalValue literal
+  Right (Parsed (Between primitive.span.start literal.span.finish)
+                literal.span.start (PrintLine value) rest)
 
 -- Every source action is a whole physical line at the first action's column.
 -- Explicit budget recursion bounds actions independently of the file-byte cap.

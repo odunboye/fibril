@@ -29,6 +29,7 @@ FIXTURE = [
     "name' : Bool",
     "main = do",
     "do'",
+    "message : String",
 ]
 
 
@@ -86,6 +87,7 @@ QUERIES = [
     (point(15, "name'"), "fibrilDeclaration"),
     (point(16, "do"), "fibrilConsoleKeyword"),
     (point(17, "do'"), ""),
+    (point(18, "String"), "fibrilType"),
 ]
 
 

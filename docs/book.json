@@ -92,6 +92,10 @@
         "path": "docs/unit.md"
       },
       {
+        "title": "Pure String values",
+        "path": "docs/strings.md"
+      },
+      {
         "title": "Booleans and conservative branching",
         "path": "docs/boolean.md"
       },

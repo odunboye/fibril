@@ -25,7 +25,10 @@ Show TypedSample where
 
 seed : Gen TypedSample
 seed = element
-  [ Sample BoolType (Universe 0)
+  [ Sample StringType (Universe 0)
+  , Sample (StringValue "") StringType
+  , Sample (StringValue "λ 🌍") StringType
+  , Sample BoolType (Universe 0)
   , Sample BoolTrue BoolType
   , Sample BoolFalse BoolType
   , Sample UnitType (Universe 0)
@@ -111,7 +114,7 @@ headCompatibility = property $ do
 rejectWrongType : Property
 rejectWrongType = property $ do
   sample <- forAll (typedGen 3)
-  -- Unit : Type0 is now a valid seed. Choose a known incompatible, well-formed
+  -- Primitive types at Type0 are valid seeds. Choose a known incompatible, well-formed
   -- expectation from the construction recipe, not by filtering with the checker.
   let wrong = if sameSyntax sample.expected (Universe 0) then UnitType else Universe 0
   case checkErased 100 100 Empty sample.term wrong of

@@ -70,7 +70,7 @@ continues to exhaust. The loop is not accepted as a checked Fibril program.
 
 A Hedgehog property independently compares combined and split runs over small
 raw scoped terms and budgets, with explicit exhaustion classification. The suite
-now has 24 properties / 2,400 generated cases.
+includes this regression alongside the current property count in [testing](testing.md).
 
 These host-checked evaluator identities do not prove type/resource preservation,
 normalization of the language, canonicity, confluence, erasure, compiler/backend

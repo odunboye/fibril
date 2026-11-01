@@ -29,6 +29,8 @@ renameAfterSubstitution env sigma UnitValue = Refl
 renameAfterSubstitution env sigma BoolType = Refl
 renameAfterSubstitution env sigma BoolTrue = Refl
 renameAfterSubstitution env sigma BoolFalse = Refl
+renameAfterSubstitution env sigma StringType = Refl
+renameAfterSubstitution env sigma (StringValue _) = Refl
 renameAfterSubstitution env sigma (BoolCase condition yes no) =
   rewrite renameAfterSubstitution env sigma condition in
   rewrite renameAfterSubstitution env sigma yes in
@@ -72,6 +74,8 @@ substituteAfterRenaming env sigma UnitValue = Refl
 substituteAfterRenaming env sigma BoolType = Refl
 substituteAfterRenaming env sigma BoolTrue = Refl
 substituteAfterRenaming env sigma BoolFalse = Refl
+substituteAfterRenaming env sigma StringType = Refl
+substituteAfterRenaming env sigma (StringValue _) = Refl
 substituteAfterRenaming env sigma (BoolCase condition yes no) =
   rewrite substituteAfterRenaming env sigma condition in
   rewrite substituteAfterRenaming env sigma yes in
@@ -125,6 +129,8 @@ substituteComposition first second UnitValue = Refl
 substituteComposition first second BoolType = Refl
 substituteComposition first second BoolTrue = Refl
 substituteComposition first second BoolFalse = Refl
+substituteComposition first second StringType = Refl
+substituteComposition first second (StringValue _) = Refl
 substituteComposition first second (BoolCase condition yes no) =
   rewrite substituteComposition first second condition in
   rewrite substituteComposition first second yes in

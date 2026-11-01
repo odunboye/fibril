@@ -1,4 +1,4 @@
--- Scoped ordinary dependent-function, Unit, and Boolean syntax. This is not a type checker.
+-- Scoped ordinary dependent-function, Unit, Boolean, and String syntax. This is not a type checker.
 -- See docs/core-draft.md; cubical resource rules remain unresolved.
 -- Theory: DEBRUIJN72 (nameless indices); ATKEY18 sec. 2 (QTT background, not implemented typing).
 -- Bibliography and limitations: docs/references.md.
@@ -23,6 +23,9 @@ data Term : Nat -> Type where
   BoolType : Term n
   BoolTrue : Term n
   BoolFalse : Term n
+  ||| Primitive String : Type0 and opaque literal data; no string computation yet.
+  StringType : Term n
+  StringValue : String -> Term n
   ||| Nondependent branches; runtime checking joins their resource permissions.
   BoolCase : Term n -> Term n -> Term n -> Term n
   Pi : Quantity -> Term n -> Term (S n) -> Term n
@@ -47,6 +50,8 @@ rename env UnitValue = UnitValue
 rename env BoolType = BoolType
 rename env BoolTrue = BoolTrue
 rename env BoolFalse = BoolFalse
+rename env StringType = StringType
+rename env (StringValue value) = StringValue value
 rename env (BoolCase condition yes no) =
   BoolCase (rename env condition) (rename env yes) (rename env no)
 rename env (Pi q domain body) =
@@ -77,6 +82,8 @@ substituteTerm env UnitValue = UnitValue
 substituteTerm env BoolType = BoolType
 substituteTerm env BoolTrue = BoolTrue
 substituteTerm env BoolFalse = BoolFalse
+substituteTerm env StringType = StringType
+substituteTerm env (StringValue value) = StringValue value
 substituteTerm env (BoolCase condition yes no) =
   BoolCase (substituteTerm env condition) (substituteTerm env yes) (substituteTerm env no)
 substituteTerm env (Pi q domain body) =
@@ -110,6 +117,8 @@ sameSyntax UnitValue UnitValue = True
 sameSyntax BoolType BoolType = True
 sameSyntax BoolTrue BoolTrue = True
 sameSyntax BoolFalse BoolFalse = True
+sameSyntax StringType StringType = True
+sameSyntax (StringValue left) (StringValue right) = left == right
 sameSyntax (BoolCase c t e) (BoolCase d u f) =
   sameSyntax c d && sameSyntax t u && sameSyntax e f
 sameSyntax (Pi q a b) (Pi r c d) = q == r && sameSyntax a c && sameSyntax b d

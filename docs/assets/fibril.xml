@@ -3,7 +3,7 @@
 <language name="Fibril" version="1" kateversion="2.4" section="Other" extensions="*.fib">
   <highlighting>
     <list name="keywords"><item>let</item><item>in</item><item>case</item><item>of</item><item>if</item><item>then</item><item>else</item></list>
-    <list name="types"><item>Type</item><item>Unit</item><item>Bool</item><item>IO</item></list>
+    <list name="types"><item>Type</item><item>Unit</item><item>Bool</item><item>String</item><item>IO</item></list>
     <list name="constructors"><item>True</item><item>False</item></list>
     <list name="console"><item>putStrLn</item></list>
     <list name="consoleKeywords"><item>do</item></list>

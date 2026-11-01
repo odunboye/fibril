@@ -37,7 +37,7 @@ This checks source; it does not compile or run a Fibril executable.
     quantity    ::= "0" | "1"
     application ::= atom { atom }
     atom        ::= name | "Type" digits | "Unit" | "(" ")"
-                  | "Bool" | "True" | "False"
+                  | "Bool" | "True" | "False" | "String" | quotedString
                   | "(" expr ")" | "(" expr ":" expr ")"
 
 Omitted quantity means unrestricted. Universe levels require 1..6 decimal digits.
@@ -52,9 +52,10 @@ Underscore is a wildcard, never a referenceable name.
 This grammar is an explicitly annotated stepping stone, not a final syntax
 promise or an indentation-based declaration implementation.
 
-Quoted strings now lex as tokens, but this ordinary expression parser rejects
-them. The separate [restricted console profile](console-runner.md) accepts a
-literal putStrLn entry without introducing IO/string terms into this grammar.
+Quoted strings are now ordinary [String values](strings.md); String is a builtin
+type in Type0. The parser shares literal decoding with the separate console
+profile. This does not introduce IO terms or permit arbitrary core expressions
+as putStrLn arguments in that restricted profile.
 
 ## Primitive data
 

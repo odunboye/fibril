@@ -81,7 +81,7 @@ language normalization or extend the CLI with a resume protocol.
 - There is no eval --erased mode.
 - Erased arguments/types remain present during this reference computation.
   This is not a compiler erasure implementation.
-- Primitive [Unit](unit.md), [Bool](boolean.md), and small source-ordered
+- Primitive [Unit](unit.md), [Bool](boolean.md), [String](strings.md), and small source-ordered
   [declaration programs](declarations.md) are supported; no imports, recursion, effects,
   Python calls, general inductive definitions, cubical computation,
   or backend runtime are implemented by this command.

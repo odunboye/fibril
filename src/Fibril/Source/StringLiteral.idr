@@ -1,4 +1,4 @@
--- Quoted console string data, not a core type or normalization primitive.
+-- Quoted data decoding shared by ordinary and console source parsing.
 module Fibril.Source.StringLiteral
 
 import Fibril.Source.Text

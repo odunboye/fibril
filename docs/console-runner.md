@@ -97,13 +97,14 @@ source-wide scalar/control policy. Supported escapes:
 
 Raw tabs/line breaks, unterminated strings, and unsupported escapes fail with
 located lexical diagnostics. There are no Unicode/numeric escape forms,
-interpolation, multiline strings, string operations, or a core String type yet.
+interpolation, multiline strings, or string operations. Ordinary pure String
+values are now supported separately; see [String rules](strings.md).
 A -- inside quotes is data, not a comment.
 
 [Source.StringLiteral](../src/Fibril/Source/StringLiteral.idr) retains original
 spelling separately from decoded data. The shared lexer emits a string token,
-but the ordinary expression parser explicitly rejects it. Decoded data is not
-evaluated as code.
+and Parser.literalValue shares decoding with ordinary String expression atoms.
+Decoded data is not evaluated as code.
 
 ## Validation before execution
 
@@ -130,8 +131,9 @@ This is not a sandbox or real-time profile.
 ## Trust and current boundaries
 
 [Effect.Console](../src/Fibril/Effect/Console.idr) contains pure action data,
-separate from Term. No string/IO constructor, axiom, or new typing/reduction rule
-was added to the ordinary core. Console action/entry constructors are host data,
+separate from Term. No IO constructor or effectful typing/reduction rule is added
+to the ordinary core. Pure StringType/StringValue now exist there, independently
+of this action profile. Console action/entry constructors are host data,
 not unforgeable certificates. The file runner validates fresh source rather than
 accepting caller-constructed action tags as checked programs.
 

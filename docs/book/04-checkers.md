@@ -56,6 +56,13 @@ Infer the function, normalize its type to expose Pi, check the argument's inferr
 type against the domain, then substitute the argument into the codomain.
 No admitted holes or arbitrary axioms fill failed obligations.
 
+## Work with pure text
+
+`fibril eval examples/core/string-identity.fib` checks ordinary String declarations
+and returns a quoted literal normal form. [Strings](../strings.md) are pure atoms,
+not IO requests; a linear String input still cannot be discarded or extracted
+from an erased binder. The hosted print profile remains separate.
+
 ## Inspect a rejection
 
 `(True : Unit)` reports inferred: Bool and expected: Unit. The core now preserves

@@ -6,6 +6,7 @@ import Fibril.Core.Quantity
 import Fibril.Source.Text
 import Fibril.Source.Lexer
 import Fibril.Source.Syntax
+import Fibril.Source.StringLiteral
 
 %default total
 
@@ -58,6 +59,8 @@ binderAhead _ = False
 startsAtom : TokenKind -> Bool
 startsAtom Name = True
 startsAtom TypeKeyword = True
+startsAtom StringToken = True
+startsAtom StringKeyword = True
 startsAtom UnitKeyword = True
 startsAtom BoolKeyword = True
 startsAtom TrueKeyword = True
@@ -97,6 +100,20 @@ record ParsedBinder where
   name : String
   domain : Expr
   remaining : List Token
+
+||| Decode a validated string token, shared by core and console parsing.
+public export
+literalValue : Token -> Either ParseError String
+literalValue token = do
+  if token.kind /= StringToken
+     then Left (ParseFailure token.span.start "Expected string token")
+     else Right ()
+  decoded <- case scanLiteral token.span.start (unpack token.spelling) of
+    Left err => Left (ParseFailure err.position err.message)
+    Right decoded => Right decoded
+  case decoded.remaining of
+    [] => Right decoded.value
+    _ => Left (ParseFailure token.span.start "Malformed string token")
 
 mutual
   expression : Nat -> Position -> List Token -> Either ParseError (Expr, List Token)
@@ -185,7 +202,10 @@ mutual
   atom (S depth) end (token :: rest) =
     case token.kind of
       Name => Right (NRef token.span token.spelling, rest)
-      StringToken => Left (ParseFailure token.span.start "String literals are not ordinary core terms; use a supported IO entry")
+      StringToken => do
+        value <- literalValue token
+        Right (NStringValue token.span value, rest)
+      StringKeyword => Right (NStringType token.span, rest)
       UnitKeyword => Right (NUnitType token.span, rest)
       BoolKeyword => Right (NBoolType token.span, rest)
       TrueKeyword => Right (NBoolValue token.span True, rest)
@@ -195,7 +215,7 @@ mutual
         value <- levelValue level
         Right (NSort (Between token.span.start level.span.finish) value, remaining)
       OpenParen => grouped depth end token rest
-      _ => Left (ParseFailure token.span.start "Expected name, Type LEVEL, Unit, (), Bool, True, False, or grouped expression")
+      _ => Left (ParseFailure token.span.start "Expected name, Type LEVEL, String/literal, Unit, (), Bool, True, False, or grouped expression")
 
   grouped : Nat -> Position -> Token -> List Token -> Either ParseError (Expr, List Token)
   grouped depth end opening (closing :: remaining) =

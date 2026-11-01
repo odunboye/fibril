@@ -25,6 +25,8 @@ renameCongruent left right agree UnitValue = Refl
 renameCongruent left right agree BoolType = Refl
 renameCongruent left right agree BoolTrue = Refl
 renameCongruent left right agree BoolFalse = Refl
+renameCongruent left right agree StringType = Refl
+renameCongruent left right agree (StringValue _) = Refl
 renameCongruent left right agree (BoolCase condition yes no) =
   rewrite renameCongruent left right agree condition in
   rewrite renameCongruent left right agree yes in
@@ -58,6 +60,8 @@ renameIdentity UnitValue = Refl
 renameIdentity BoolType = Refl
 renameIdentity BoolTrue = Refl
 renameIdentity BoolFalse = Refl
+renameIdentity StringType = Refl
+renameIdentity (StringValue _) = Refl
 renameIdentity (BoolCase condition yes no) =
   rewrite renameIdentity condition in
   rewrite renameIdentity yes in
@@ -97,6 +101,8 @@ renameComposition first second UnitValue = Refl
 renameComposition first second BoolType = Refl
 renameComposition first second BoolTrue = Refl
 renameComposition first second BoolFalse = Refl
+renameComposition first second StringType = Refl
+renameComposition first second (StringValue _) = Refl
 renameComposition first second (BoolCase condition yes no) =
   rewrite renameComposition first second condition in
   rewrite renameComposition first second yes in

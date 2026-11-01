@@ -1,0 +1,6 @@
+-- Pure String data: eval reports a normal form; it performs no program IO.
+identity : (1 text : String) -> String
+identity = \(1 text : String) => text
+
+main : String
+main = identity "Hello from pure Fibril."

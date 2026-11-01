@@ -13,6 +13,8 @@ data Expr
   | NSort SourceSpan Nat
   | NUnitType SourceSpan
   | NUnitValue SourceSpan
+  | NStringType SourceSpan
+  | NStringValue SourceSpan String
   | NBoolType SourceSpan
   | NBoolValue SourceSpan Bool
   | NIf SourceSpan Expr Expr Expr
@@ -30,6 +32,8 @@ extent (NRef span _) = span
 extent (NSort span _) = span
 extent (NUnitType span) = span
 extent (NUnitValue span) = span
+extent (NStringType span) = span
+extent (NStringValue span _) = span
 extent (NBoolType span) = span
 extent (NBoolValue span _) = span
 extent (NIf span _ _ _) = span
@@ -47,6 +51,8 @@ withExtent span (NRef _ name) = NRef span name
 withExtent span (NSort _ level) = NSort span level
 withExtent span (NUnitType _) = NUnitType span
 withExtent span (NUnitValue _) = NUnitValue span
+withExtent span (NStringType _) = NStringType span
+withExtent span (NStringValue _ value) = NStringValue span value
 withExtent span (NBoolType _) = NBoolType span
 withExtent span (NBoolValue _ value) = NBoolValue span value
 withExtent span (NIf _ condition yes no) = NIf span condition yes no

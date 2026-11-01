@@ -123,6 +123,12 @@ normalization. IORef-backed fault injection verifies the production sequencer's
 order and first-error stopping behavior without stdout. CLI tests ensure late
 source errors execute no prefix. Randomized-property counts are unchanged.
 
+[Tests.String](../test/src/Tests/String.idr) covers primitive String typing,
+literal equality/rendering, Unicode/escapes, quantities, and pure computation.
+Structural/erased generators include both String constructors; binding theorem
+witnesses now include them. A new closed-String runtime recipe checks expected
+literal normal forms without checker filtering. Console isolation tests remain.
+
 ## Hedgehog dependency
 
 Repository: https://github.com/stefan-hoeck/idris2-hedgehog
@@ -216,7 +222,7 @@ not arbitrary runtime derivations or cubical resource rules. The unrestricted
 mutation is intentionally rejected even if its body uses its input once:
 the caller obeys the declared argument quantity, not an optimization guess.
 
-The default suite now runs 24 properties / 2,400 generated cases, alongside
+The default suite now runs 25 properties / 2,500 generated cases, alongside
 deterministic regressions. Sampling counts are not proof coverage.
 
 ## Reproducing failures

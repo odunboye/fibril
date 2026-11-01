@@ -153,12 +153,54 @@ preserveBranchPermissions = property $ do
     OutOfFuel _ => failure
     Normal reduced => assert (underPermissions reduced)
 
+record StringSample where
+  constructor StringProgram
+  term : Term 0
+  expected : String
+
+Show StringSample where
+  show sample = renderTerm sample.term ++ " expected " ++ show sample.expected
+
+stringSeed : Gen StringSample
+stringSeed =
+  (\value => StringProgram (StringValue value) value) <$>
+    element ["", "hello", "λ 🌍", "line\nquote: \""]
+
+stringPrograms : Nat -> Gen StringSample
+stringPrograms Z = stringSeed
+stringPrograms (S depth) =
+  choice
+    [ stringSeed
+    , (\sample => StringProgram
+         (Apply (Lambda Linear StringType (Variable FZ)) sample.term) sample.expected) <$>
+        stringPrograms depth
+    , (\sample => StringProgram (UnitCase UnitValue sample.term) sample.expected) <$>
+        stringPrograms depth
+    , (\yes, no => StringProgram (BoolCase BoolFalse yes.term no.term) no.expected) <$>
+        stringPrograms depth <*> stringPrograms depth
+    ]
+
+closedStringPrograms : Property
+closedStringPrograms = property $ do
+  sample <- forAll (stringPrograms 4)
+  case checkRuntime 100 100 Empty sample.term StringType of
+    Left _ => failure
+    Right checked => assert (checked.usage == [])
+  case normalize 100 sample.term of
+    OutOfFuel _ => failure
+    Normal result => do
+      assert (sameSyntax result (StringValue sample.expected))
+      case checkRuntime 100 100 Empty result StringType of
+        Left _ => failure
+        Right checked => assert (checked.usage == [])
+
 ||| Sample ordinary resource properties over narrow open-context grammars.
 ||| These are not proofs of quantitative subject reduction or erasure correctness.
 public export
 runRuntimeProperties : IO Bool
 runRuntimeProperties = checkGroup (MkGroup "Fibril runtime usage properties"
-  [ ("branch permissions survive sampled reduction", preserveBranchPermissions)
+  [ ("closed String programs check and normalize", closedStringPrograms)
+  , ("branch permissions survive sampled reduction", preserveBranchPermissions)
   , ("closed Unit programs check and normalize to unit", unitPrograms)
   , ("constructed terms capture linear input once", acceptConstructed)
   , ("one beta step preserves linear capture", preserveStep)

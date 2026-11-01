@@ -35,8 +35,10 @@ quantityGen : Gen Quantity
 quantityGen = element [Erased, Linear, Unrestricted]
 
 atom : (n : Nat) -> Gen (Term n)
-atom Z = element [Universe 0, Universe 1, UnitType, UnitValue, BoolType, BoolTrue, BoolFalse]
-atom (S n) = choice [element [Universe 0, Universe 1, UnitType, UnitValue, BoolType, BoolTrue, BoolFalse], Variable <$> finGen n]
+atom Z = element [Universe 0, Universe 1, UnitType, UnitValue, BoolType, BoolTrue, BoolFalse,
+                  StringType, StringValue "", StringValue "λ 🌍"]
+atom (S n) = choice [element [Universe 0, Universe 1, UnitType, UnitValue, BoolType, BoolTrue, BoolFalse,
+                                StringType, StringValue "", StringValue "λ 🌍"], Variable <$> finGen n]
 
 -- Bounds and binders are constructed together: shrinking never creates
 -- dangling indices. These are scoped, not necessarily well-typed terms.

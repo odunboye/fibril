@@ -9,13 +9,14 @@ import Fibril.Source.StringLiteral
 
 ||| Token categories for the initial explicitly annotated expression grammar.
 public export
-data TokenKind = Name | Number | StringToken | TypeKeyword | UnitKeyword | BoolKeyword | TrueKeyword | FalseKeyword | IfKeyword | ThenKeyword | ElseKeyword | CaseKeyword | OfKeyword | LetKeyword | InKeyword | Equals | OpenParen | CloseParen | Colon | Arrow | BodyArrow | Lambda
+data TokenKind = Name | Number | StringToken | StringKeyword | TypeKeyword | UnitKeyword | BoolKeyword | TrueKeyword | FalseKeyword | IfKeyword | ThenKeyword | ElseKeyword | CaseKeyword | OfKeyword | LetKeyword | InKeyword | Equals | OpenParen | CloseParen | Colon | Arrow | BodyArrow | Lambda
 
 public export
 Show TokenKind where
   show Name = "name"
   show Number = "number"
   show StringToken = "string"
+  show StringKeyword = "String"
   show TypeKeyword = "Type"
   show UnitKeyword = "Unit"
   show BoolKeyword = "Bool"
@@ -41,6 +42,7 @@ Eq TokenKind where
   Name == Name = True
   Number == Number = True
   StringToken == StringToken = True
+  StringKeyword == StringKeyword = True
   TypeKeyword == TypeKeyword = True
   UnitKeyword == UnitKeyword = True
   BoolKeyword == BoolKeyword = True
@@ -145,6 +147,7 @@ scan (S fuel) at (c :: rest) =
        let (suffix, remaining) = span nameRest rest
        let chars = c :: suffix
        let kind = case pack chars of
+             "String" => StringKeyword
              "Type" => TypeKeyword
              "Unit" => UnitKeyword
              "Bool" => BoolKeyword

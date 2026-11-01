@@ -27,6 +27,7 @@ examples: build
 	./build/exec/fibril check examples/core/hello-world.fib
 	./build/exec/fibril run examples/core/hello-world.fib
 	./build/exec/fibril run examples/core/console-sequence.fib
+	./build/exec/fibril eval examples/core/string-identity.fib
 
 bench:
 	python3 tools/benchmark.py

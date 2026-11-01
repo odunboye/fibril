@@ -9,7 +9,7 @@ set cpo&vim
 syntax iskeyword @,48-57,_,39
 
 syntax keyword fibrilKeyword let in case of if then else
-syntax keyword fibrilType Type Unit Bool
+syntax keyword fibrilType Type Unit Bool String
 syntax keyword fibrilBoolean True False
 " These names only have builtin meaning in the restricted console profile.
 syntax keyword fibrilConsoleKeyword do

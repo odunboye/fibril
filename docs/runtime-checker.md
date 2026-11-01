@@ -61,11 +61,17 @@ for the local host-checked law and [Boolean branching](boolean.md) for semantics
 The former unrestricted-beta counterexample now evaluates and rechecks, but no
 general quantitative preservation theorem is claimed.
 
+## Pure strings
+
+StringValue contributes zero usage; StringType is rejected as runtime type data.
+String parameters obey the same binder/context permissions as other ordinary
+values: literals cannot consume an unused linear parameter. See [Strings](strings.md).
+
 ## Supported boundary
 
-Universe, Pi, Unit, and Bool type expressions are rejected as direct computational
+Universe, Pi, Unit, Bool, and String type expressions are rejected as direct computational
 values. They are permitted in annotations, types, and erased arguments.
-Primitive Unit and Boolean values are supported; general inductive definitions and effects
+Primitive Unit, Boolean, and String values are supported; general inductive definitions and effects
 are not. Examples include Unit programs, polymorphic functions, and open
 contexts with abstract values.
 

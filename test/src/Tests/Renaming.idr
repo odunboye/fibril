@@ -18,7 +18,7 @@ sample =
                (UnitCase UnitValue (Variable (FS (FS (FS FZ))))))
         (BoolCase BoolFalse
           (Pi Unrestricted UnitType BoolType)
-          (Variable FZ))))
+          (Apply (Variable FZ) (Lambda Linear StringType (StringValue "λ"))))))
 
 collapse : Fin 2 -> Fin 1
 collapse _ = FZ

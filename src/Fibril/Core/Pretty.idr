@@ -20,6 +20,8 @@ renderTerm UnitValue = "()"
 renderTerm BoolType = "Bool"
 renderTerm BoolTrue = "True"
 renderTerm BoolFalse = "False"
+renderTerm StringType = "String"
+renderTerm (StringValue value) = show value
 renderTerm (BoolCase condition yes no) =
   "(If " ++ renderTerm condition ++ " " ++ renderTerm yes ++ " " ++ renderTerm no ++ ")"
 renderTerm (Pi q domain body) =

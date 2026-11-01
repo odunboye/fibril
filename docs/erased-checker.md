@@ -9,6 +9,7 @@ against a separately validated expected type.
 ## Supported rules
 
 - Universe l has type Universe (l+1), with literal levels and upward universe compatibility.
+- String : Type0 and string literals : String; literal content is opaque data.
 - Bool : Type0 and True/False : Bool; conditionals require Bool conditions and
   equal normalized branch types, not an inferred cumulative join.
 - Pi formation checks both domains as types and takes the maximum level.

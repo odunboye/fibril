@@ -108,7 +108,10 @@ checks =
       case lexSource "\"x\tx\"" of
         Left (BadString _) => True
         _ => False)
-  , ("strings never become ordinary core expressions", rejects "\"message\"")
+  , ("strings can be ordinary values without becoming IO",
+      case prepareSource "\"message\"" of
+        Right (CoreSource (StringValue value)) => value == "message"
+        _ => False)
   , ("strings source-wide control policy preserved",
       case lexSource ("\"" ++ pack [chr 0x202E] ++ "\"") of
         Left (InvalidSource _) => True

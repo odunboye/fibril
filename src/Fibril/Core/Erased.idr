@@ -63,6 +63,8 @@ mutual
   infer (S depth) reduction context BoolType = Right (Universe 0)
   infer (S depth) reduction context BoolTrue = Right BoolType
   infer (S depth) reduction context BoolFalse = Right BoolType
+  infer (S depth) reduction context StringType = Right (Universe 0)
+  infer (S depth) reduction context (StringValue _) = Right StringType
   infer (S depth) reduction context (BoolCase condition yes no) = do
     conditionType <- infer depth reduction context condition
     requireCompatible reduction conditionType BoolType
