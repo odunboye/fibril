@@ -73,6 +73,7 @@ nested scopes, with every constructor, an outer-variable swap, and a many-to-one
 map followed by weakening. Existing Hedgehog structural properties remain useful
 as independent operational regressions, but identity is no longer only sampled.
 
-Future substitution laws can use renameWeakening to relate shifted replacement
+[Basic substitution laws](substitution.md) now prove pointwise congruence,
+identity, and variable-only correspondence. Future composition/fusion laws can use renameWeakening to relate shifted replacement
 terms under binders. That work must still address lifted substitutions explicitly;
 these renaming theorems are not a substitute for proving those laws.

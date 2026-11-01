@@ -73,6 +73,14 @@ annotation scope from the extended body scope.
 The results concern raw syntax, including ill-typed terms. They are checked by
 Idris 2 and do not establish Fibril typing or quantitative preservation.
 
+## Substitute without a new identity induction
+
+[Substitution laws](../substitution.md) prove pointwise congruence and that
+variable-only substitution agrees with renaming. Identity substitution follows
+from that correspondence and renameIdentity. The proofs track both binder scopes;
+a concrete capture-avoidance witness checks a free replacement below a lambda.
+Full substitution composition and typed preservation remain unproved.
+
 ## Inspecting syntax
 
 [Pretty](../../src/Fibril/Core/Pretty.idr) gives terms a shared diagnostic

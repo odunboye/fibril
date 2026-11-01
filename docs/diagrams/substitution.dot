@@ -1,0 +1,15 @@
+digraph Substitution {
+  rankdir=LR;
+  node [shape=box];
+  old [label="i : Fin n"];
+  shifted [label="FS i : Fin (S n)"];
+  replacement [label="sigma i : Term m"];
+  shiftedReplacement [label="weaken (sigma i) : Term (S m)"];
+  fresh [label="FZ : Fin (S n)"];
+  freshVariable [label="Variable FZ : Term (S m)"];
+  old -> shifted [label="FS"];
+  old -> replacement [label="sigma"];
+  shifted -> shiftedReplacement [label="liftSubstitution sigma"];
+  replacement -> shiftedReplacement [label="weaken"];
+  fresh -> freshVariable [label="liftSubstitution sigma"];
+}

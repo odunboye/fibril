@@ -120,6 +120,10 @@
         "path": "docs/renaming.md"
       },
       {
+        "title": "Basic substitution laws",
+        "path": "docs/substitution.md"
+      },
+      {
         "title": "Cubical baseline",
         "path": "docs/foundation-baseline.md"
       },

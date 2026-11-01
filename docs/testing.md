@@ -6,7 +6,7 @@
    erasure policy, scope checks, beta budgets, and erased checker failures.
 2. Hedgehog properties: randomized structural laws with integrated shrinking.
 3. Runnable bootstrap examples and generated handbook/API checks.
-4. Host-checked finite permission and structural renaming proofs; broader
+4. Host-checked finite permission and structural binding proofs; broader
    term-metatheory proofs and differential/typed-generation coverage remain future.
 
 Run `make test` or `pack test fibril`. Both deterministic checks and properties
@@ -78,6 +78,11 @@ Existing rejection tests now check constructor payloads as well as outcomes.
 and weakening commutation structurally in Idris 2. Tests.Renaming checks concrete
 witness instantiations across every constructor and noninjective maps. Existing
 sampled structural tests remain, with no increase to the 23-property count.
+
+[Substitution laws](substitution.md) now prove congruence, identity, and variable-only
+renaming correspondence. Tests.Substitution instantiates the signatures and a
+concrete binder/domain capture witness. Full composition/fusion laws remain
+sampled, not proved; there are still 23 Hedgehog properties.
 
 ## Hedgehog dependency
 

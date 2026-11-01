@@ -1,6 +1,6 @@
 package fibril
 version = 0.1.0
 sourcedir = "src"
-modules = Fibril.Core.Renaming, Fibril.Source.Diagnostic, Fibril.Driver.Evaluate, Fibril.Core.Compatibility, Fibril.Driver.Check, Fibril.Source.Syntax, Fibril.Source.Parser, Fibril.Source.Resolve, Fibril.Source.Lexer, Fibril.Source.File, Fibril.Source.UTF8, Fibril.Source.Text, Fibril.Core.WeakHead, Fibril.Foundation.DeMorgan.Sorted, Fibril.Driver.Demo, Fibril.Core.Pretty, Fibril.Core.Runtime, Fibril.Core.Erased, Fibril.Core.Reduction, Fibril.Core.Context, Fibril.Core.Usage, Fibril.Core.Term, Fibril.Foundation.DeMorgan.Restriction, Fibril.Foundation.DeMorgan.Scope, Fibril.Foundation.DeMorgan.Face, Fibril.Foundation.DeMorgan.NormalForm, Fibril.Foundation.DeMorgan.Interval, Fibril.Core.Quantity, Main
+modules = Fibril.Core.Substitution, Fibril.Core.Renaming, Fibril.Source.Diagnostic, Fibril.Driver.Evaluate, Fibril.Core.Compatibility, Fibril.Driver.Check, Fibril.Source.Syntax, Fibril.Source.Parser, Fibril.Source.Resolve, Fibril.Source.Lexer, Fibril.Source.File, Fibril.Source.UTF8, Fibril.Source.Text, Fibril.Core.WeakHead, Fibril.Foundation.DeMorgan.Sorted, Fibril.Driver.Demo, Fibril.Core.Pretty, Fibril.Core.Runtime, Fibril.Core.Erased, Fibril.Core.Reduction, Fibril.Core.Context, Fibril.Core.Usage, Fibril.Core.Term, Fibril.Foundation.DeMorgan.Restriction, Fibril.Foundation.DeMorgan.Scope, Fibril.Foundation.DeMorgan.Face, Fibril.Foundation.DeMorgan.NormalForm, Fibril.Foundation.DeMorgan.Interval, Fibril.Core.Quantity, Main
 main = Main
 executable = fibril
