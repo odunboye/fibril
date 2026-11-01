@@ -108,6 +108,11 @@ restricted console-entry profile without executing effects. CLI tests assert exa
 hello-world/Unicode output, complete validation before execution, stdout/stderr
 separation, and rejection by eval/erased checking. No new randomized-property count.
 
+Optional `make editor-test` runs [real headless Neovim/Vim checks](editor-highlighting.md)
+for lexical group positions, filetype detection, quoted data, Unicode, reloads,
+and option undo. It needs no compiler, plugin manager, or network, and is not a
+prerequisite of the default suite. The handbook includes the Vimscript sources.
+
 ## Hedgehog dependency
 
 Repository: https://github.com/stefan-hoeck/idris2-hedgehog

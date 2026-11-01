@@ -35,6 +35,7 @@ Implemented:
 - `src/Fibril/Core/Context.idr`: scoped telescope storage, dependent lookup, and whole-context coefficient validation; no well-formedness checker.
 - `src/Fibril/Core/Usage.idr`: mode coefficients, scope-length-indexed usage vectors, and local binder discharge; not a term checker.
 - `src/Fibril/Core/Term.idr`: scoped ordinary terms, renaming, capture-avoiding substitution, and structural equality; no typing or conversion checker.
+- `editors/vim/`: optional file detection, buffer settings, and lexical syntax only; no compiler or LSP invocation.
 - `src/Main.idr`: CLI argument dispatch and IO.
 - `src/Fibril/Driver/Demo.idr`: built-in checking/algebra demo orchestration outside the core.
 - `src/Fibril/Core/Quantity.idr`: quantity coefficients, arithmetic, and local binder policy; not a usage checker.

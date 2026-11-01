@@ -11,6 +11,8 @@ The generated homepage separates teaching chapters, references, and project reco
 
 ## Reference index
 
+- [Neovim/Vim highlighting](editor-highlighting.md): local runtime setup, lexical scope, and optional tests.
+
 - [Hello world / hosted console](console-runner.md): first run command and its explicit effect boundary.
 
 - [Source-ordered declarations](declarations.md): explicit headers lowered to typed lets, not transparent globals.

@@ -1,0 +1,12 @@
+digraph EditorHighlighting {
+  rankdir=LR;
+  node [shape=box];
+  buffer [label=".fib editor buffer"];
+  detection [label="Filetype detection"];
+  syntax [label="Lexical Vim syntax groups"];
+  theme [label="Standard highlight links\nuser theme"];
+  settings [label="Local comments / word motion\nwith undo"];
+  buffer -> detection;
+  detection -> {syntax settings};
+  syntax -> theme;
+}

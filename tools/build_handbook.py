@@ -38,7 +38,8 @@ def main():
         (ROOT / "bench/src").rglob("*.idr")) + sorted(
         (ROOT / "examples").rglob("*.fib")) + sorted(
         (ROOT / "experiments").rglob("*.c")) + sorted(
-        (ROOT / "experiments").rglob("*.h"))
+        (ROOT / "experiments").rglob("*.h")) + sorted(
+        (ROOT / "editors/vim").rglob("*.vim"))
     destinations = {p: OUT / p.relative_to(ROOT).with_suffix(".html") for p in pages}
     destinations.update({p: OUT / "source" / (str(p.relative_to(ROOT)) + ".html")
                          for p in sources})

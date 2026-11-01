@@ -52,6 +52,10 @@
         "path": "docs/cli.md"
       },
       {
+        "title": "Neovim and Vim highlighting",
+        "path": "docs/editor-highlighting.md"
+      },
+      {
         "title": "Project and dependency format",
         "path": "docs/packages.md"
       },

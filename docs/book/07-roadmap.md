@@ -26,7 +26,11 @@ definitions, imports, and recursive groups remain future work.
 A future Idris-like elaborator will translate names, implicit arguments, interfaces,
 and patterns into explicit core terms. Tactics must also produce checked terms.
 
-Neovim comes first through a shared compiler service and language server.
+The first [Neovim/Vim lexical runtime](../editor-highlighting.md) now supplies
+syntax colors and file detection. It is separate from compiler checking and is
+not semantic highlighting or navigation.
+
+Neovim comes first for the future shared compiler service and language server.
 VS Code should reuse that protocol later. Editor interaction must not introduce
 its own checking logic or silently accept unfinished goals.
 
