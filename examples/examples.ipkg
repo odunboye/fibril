@@ -1,0 +1,7 @@
+package fibril-examples
+version = 0.1.0
+sourcedir = "src"
+depends = fibril
+modules = Examples.Basics, Examples.Proofs, Examples.Cubical, Main
+main = Main
+executable = fibril-examples

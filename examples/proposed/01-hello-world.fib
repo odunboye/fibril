@@ -1,0 +1,5 @@
+-- PROPOSED FIBRIL: not executable; parser and IO library do not exist yet.
+module HelloWorld
+
+main : IO ()
+main = putStrLn "Hello, Fibril!"

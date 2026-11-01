@@ -1,5 +1,7 @@
 # Documentation
 
+- [Examples](../examples/README.md): runnable bootstrap project and proposed language scenarios.
+
 - [Design discussion record](design.md): decisions, recommendations, open questions.
 - [Foundation baseline](foundation-baseline.md): CCHM reference and unresolved quantitative obligations.
 - [First milestone](milestone-01.md): core-checker scope and acceptance criteria.

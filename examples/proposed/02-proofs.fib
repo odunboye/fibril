@@ -1,0 +1,13 @@
+-- PROPOSED FIBRIL: not executable. Intended Idris-like syntax.
+module Proofs
+
+%default total
+
+linearIdentity : (1 value : a) -> a
+linearIdentity value = value
+
+plusZeroRight : (n : Nat) -> n + 0 = n
+plusZeroRight Z = Refl
+plusZeroRight (S n) = cong S (plusZeroRight n)
+
+-- Ordinary equality syntax and its cubical elaboration remain to be specified.

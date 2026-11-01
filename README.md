@@ -31,4 +31,7 @@ in the compiler's source tree.
 remains possible, but bypasses collection selection. Review and test collection
 upgrades explicitly; do not use a floating collection for project builds.
 
+See [examples](examples/README.md) for runnable bootstrap programs and clearly
+labeled proposed Fibril scenarios, including proofs.
+
 See [documentation](docs/README.md) and [first milestone](docs/milestone-01.md).
