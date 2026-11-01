@@ -1,6 +1,7 @@
 # Initial term core and quantity rules
 
-Status: proposal for implementation. Not a completed calculus or soundness proof.
+Status: proposed typing rules with implemented scoped syntax and structural operations.
+Not a completed calculus or soundness proof.
 
 ## Staging and trust
 
@@ -87,8 +88,21 @@ Until those obligations are addressed, describe this work as an experimental
 ordinary quantitative fragment beside cubical infrastructure, not a finished
 quantitative cubical kernel.
 
+## Implemented syntax layer
+
+`src/Fibril/Core/Term.idr` implements the grammar with Fin-indexed variables,
+renaming, weakening, simultaneous capture-avoiding substitution, and newest-binder
+instantiation. Domain annotations remain outside the newly introduced binder.
+Lifting a substitution weakens its replacements and preserves the bound variable.
+Structural equality is deliberately distinct from conversion; these terms need
+not be well typed, terminating, or quantity-correct merely because they are scoped.
+
+Regression tests cover identity operations, weakening/instantiation, capture
+avoidance, binder-domain scope, and structural-versus-computational equality.
+They are finite tests, not general proofs of substitution laws.
+
 ## Immediate next task
 
-Implement scope-indexed term syntax and structural renaming/substitution for
-the proposed grammar. Then build the erased/type-checking judgment explicitly
-before implementing bidirectional checking.
+Specify the erased/type-checking judgment and usage-vector operations before
+implementing bidirectional checking. An evaluator for arbitrary scoped terms
+must not claim total normalization: scoped syntax still admits divergent terms.

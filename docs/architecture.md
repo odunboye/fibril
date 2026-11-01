@@ -2,6 +2,7 @@
 
 Implemented:
 
+- `src/Fibril/Core/Term.idr`: scoped ordinary terms, renaming, capture-avoiding substitution, and structural equality; no typing or conversion checker.
 - `src/Main.idr`: bootstrap CLI.
 - `src/Fibril/Core/Quantity.idr`: quantity coefficients, arithmetic, and local binder policy; not a usage checker.
 - `src/Fibril/Foundation/DeMorgan/Interval.idr`: interval syntax, substitution, endpoint interpretation.

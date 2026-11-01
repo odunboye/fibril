@@ -1,6 +1,7 @@
 module Tests.Main
 
 import Fibril.Core.Quantity
+import Fibril.Core.Term
 import Fibril.Foundation.DeMorgan.Interval
 import Fibril.Foundation.DeMorgan.NormalForm
 import Fibril.Foundation.DeMorgan.Face
@@ -51,9 +52,40 @@ quantityAlgebra =
     multiply a Linear == a &&
     multiply a Erased == Erased) quantities) quantities) quantities
 
+termSamples : List (Term 1)
+termSamples =
+  [ Variable FZ, Universe 0
+  , Pi Linear (Universe 0) (Variable FZ)
+  , Lambda Linear (Variable FZ) (Variable (FS FZ))
+  , Apply (Variable FZ) (Universe 1)
+  ]
+
 checks : List (String, Bool)
 checks =
-  [ ("quantity semiring exhaustive laws", quantityAlgebra)
+  [ ("term rename identity", all (\t => sameSyntax (rename id t) t) termSamples)
+  , ("term substitution identity",
+      all (\t => sameSyntax (substituteTerm Variable t) t) termSamples)
+  , ("term weakening followed by instantiation",
+      all (\t => sameSyntax (instantiateTerm (Universe 0) (weaken t)) t) termSamples)
+  , ("term replacement avoids capture", sameSyntax
+      (substituteTerm (\i => the (Term 1) (Variable FZ))
+        (the (Term 1) (Lambda Linear (Universe 0) (Variable (FS FZ)))))
+      (Lambda Linear (Universe 0) (Variable (FS FZ))))
+  , ("term bound variable preserved", sameSyntax
+      (substituteTerm (\i => the (Term 0) (Universe 2))
+        (the (Term 1) (Lambda Linear (Universe 0) (Variable FZ))))
+      (Lambda Linear (Universe 0) (Variable FZ)))
+  , ("term domain outside binder", sameSyntax
+      (instantiateTerm (the (Term 0) (Universe 2))
+        (Lambda Linear (Variable FZ) (Variable FZ)))
+      (Lambda Linear (Universe 2) (Variable FZ)))
+  , ("term quantities differ", not (sameSyntax
+      (the (Term 0) (Pi Linear (Universe 0) (Universe 0)))
+      (Pi Erased (Universe 0) (Universe 0))))
+  , ("term syntax equality does not reduce", not (sameSyntax
+      (the (Term 0) (Apply (Lambda Linear (Universe 0) (Variable FZ)) (Universe 0)))
+      (Universe 0)))
+  , ("quantity semiring exhaustive laws", quantityAlgebra)
   , ("linear binder cannot discard", not (allows Linear Erased))
   , ("linear binder cannot duplicate", not (allows Linear (add Linear Linear)))
   , ("linear binder accepts exact use", allows Linear Linear)
@@ -184,7 +216,7 @@ main : IO ()
 main = do
   let failed = filter (not . snd) checks
   case failed of
-    [] => putStrLn "Bootstrap quantity, interval, and face tests passed."
+    [] => putStrLn "Bootstrap term, quantity, interval, and face tests passed."
     _ => do
       traverse_ (putStrLn . fst) failed
       exitFailure
