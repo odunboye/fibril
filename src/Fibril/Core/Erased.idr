@@ -5,7 +5,7 @@ module Fibril.Core.Erased
 import Fibril.Core.Quantity
 import Fibril.Core.Term
 import Fibril.Core.Context
-import Fibril.Core.Reduction
+import Fibril.Core.Compatibility
 import Fibril.Core.WeakHead
 
 %default total
@@ -25,7 +25,7 @@ Show CheckError where
   show ReductionLimit = "Reduction budget exhausted"
   show ExpectedUniverse = "Expected a universe"
   show ExpectedFunction = "Expected a dependent function type"
-  show TypeMismatch = "Types have different beta normal forms"
+  show TypeMismatch = "Inferred type is not compatible with expected type"
 
 -- Inspect only the outer type shape; comparison still uses full normalization.
 exposeType : Nat -> Term n -> Either CheckError (Term n)
@@ -34,12 +34,12 @@ exposeType budget term =
     HeadForm result => Right result
     HeadLimit _ => Left ReductionLimit
 
-compareTypes : Nat -> Term n -> Term n -> Either CheckError ()
-compareTypes budget actual expected =
-  case betaCompare budget actual expected of
-    EqualNormalForms => Right ()
-    DifferentNormalForms => Left TypeMismatch
-    Inconclusive => Left ReductionLimit
+requireCompatible : Nat -> Term n -> Term n -> Either CheckError ()
+requireCompatible budget actual expected =
+  case compatibleTypes budget actual expected of
+    Compatible => Right ()
+    Incompatible => Left TypeMismatch
+    CompatibilityLimit => Left ReductionLimit
 
 -- Internal inference assumes context formation has already been checked.
 -- Every recursive typing call decreases depth. Reduction has a separate budget.
@@ -62,7 +62,7 @@ mutual
     case exposed of
       Pi q domain body => do
         argumentType <- infer depth reduction context argument
-        compareTypes reduction argumentType domain
+        requireCompatible reduction argumentType domain
         Right (instantiateTerm argument body)
       _ => Left ExpectedFunction
 
@@ -97,8 +97,8 @@ inferErased depth reduction context term = do
   formation depth reduction context
   infer depth reduction context term
 
-||| Check both the expected type's formation and the term, then beta-compare.
-||| Quantity annotations are compared structurally; there is no subtyping.
+||| Validate expected type formation, infer the term, then check compatibility.
+||| Literal universes lift upwards; Pi/quantity structure remains invariant.
 public export
 checkErased : (depth : Nat) -> (reduction : Nat) -> Context n ->
               (term : Term n) -> (expected : Term n) -> Either CheckError ()
@@ -106,4 +106,4 @@ checkErased depth reduction context term expected = do
   formation depth reduction context
   _ <- sortOf depth reduction context expected
   actual <- infer depth reduction context term
-  compareTypes reduction actual expected
+  requireCompatible reduction actual expected

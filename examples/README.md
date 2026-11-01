@@ -33,7 +33,8 @@ Run `./build/exec/fibril check examples/core/identity.fib` from the root.
 Use `lex-source` instead of `check` to inspect tokens. This is not yet a full module
 or compiled program. `identity-unicode.fib` checks the same expression using
 λ/⇒, and `identity-type.fib` checks its dependent function type with `--erased`.
-`make examples` now checks all three source examples as well as the Idris project.
+`universe-lift.fib` exercises upward literal-universe compatibility.
+`make examples` checks all four source examples as well as the Idris project.
 
 ## Proposed Fibril programs
 

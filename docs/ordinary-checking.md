@@ -49,7 +49,8 @@ validate completed scopes/derivations at their appropriate boundaries.
 ### Universes
 
 Infer Type l : Type (l+1), consuming no resources. Reject Type : Type.
-Literal levels are the initial proposal; cumulativity is not implicit.
+Literal levels are implemented. [Upward literal-universe compatibility](cumulativity-rewriting.md)
+now exists separately from equality; symbolic levels and Pi covariance do not.
 
 ### Pi
 
@@ -83,8 +84,9 @@ when the argument is erased.
 
 ### Conversion and checking
 
-A general checking fallback infers a type and compares it with the expected type
-in erased mode. Structural syntax equality alone is insufficient: beta computation
+A general checking fallback infers a type and checks directional compatibility
+with the expected type in erased mode. Literal universes can lift; other pairs
+currently require equal beta normal forms. Structural syntax equality alone is insufficient: beta computation
 must be handled. Eta, universe conversion, and quantity equality need explicit rules.
 
 A [bounded reference beta comparison service](reduction.md) now exists.

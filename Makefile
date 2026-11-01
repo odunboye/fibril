@@ -14,6 +14,7 @@ examples: build
 	./build/exec/fibril check examples/core/identity.fib
 	./build/exec/fibril check examples/core/identity-unicode.fib
 	./build/exec/fibril check --erased examples/core/identity-type.fib
+	./build/exec/fibril check examples/core/universe-lift.fib
 
 bench:
 	python3 tools/benchmark.py

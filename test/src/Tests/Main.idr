@@ -11,6 +11,7 @@ import Tests.SourceText
 import Tests.UTF8
 import Tests.Lexer
 import Tests.Frontend
+import Tests.Compatibility
 import Tests.Runtime
 import Tests.Properties
 import Tests.TypedProperties
@@ -298,7 +299,7 @@ checks =
 
 main : IO ()
 main = do
-  let failed = filter (not . snd) (Tests.Main.checks ++ Tests.Reduction.checks ++ Tests.Erased.checks ++ Tests.Runtime.checks ++ Tests.Pretty.checks ++ Tests.SourceText.checks ++ Tests.UTF8.checks ++ Tests.Lexer.checks ++ Tests.Frontend.checks)
+  let failed = filter (not . snd) (Tests.Main.checks ++ Tests.Reduction.checks ++ Tests.Erased.checks ++ Tests.Runtime.checks ++ Tests.Pretty.checks ++ Tests.SourceText.checks ++ Tests.UTF8.checks ++ Tests.Lexer.checks ++ Tests.Frontend.checks ++ Tests.Compatibility.checks)
   case failed of
     [] => do
       putStrLn "Deterministic bootstrap regressions passed."

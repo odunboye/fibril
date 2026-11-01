@@ -1,7 +1,7 @@
 # Cumulativity and dependent rewriting
 
-Status: staged design. Literal-level compatibility is the next implementation
-step; symbolic levels, constructor propagation, and dependent rewriting are not
+Status: literal-level compatibility is implemented experimentally in the ordinary
+checker. Symbolic levels, constructor propagation, and dependent rewriting are not
 implemented. This is not a soundness proof of a quantitative cubical extension.
 
 ## Universe cumulativity, not equality
@@ -29,7 +29,22 @@ In particular, Pi codomain covariance and substitution/preservation need explici
 rules. Do not advertise general subtyping or infer the consistency of the combined
 system from an ordinary universe rule.
 
-## Tests required
+## Current implementation
+
+[Compatibility](../src/Fibril/Core/Compatibility.idr) normalizes both types and
+returns Compatible, Incompatible, or CompatibilityLimit. Erased checking and
+application obligations now use it; runtime checking inherits that type layer.
+The betaCompare API is unchanged. Pi structures remain invariant.
+
+[The universe-lift example](../examples/core/universe-lift.fib) passes Type 0,
+whose inferred type is Type 1, to an erased parameter expecting Type 2. Run
+`fibril check examples/core/universe-lift.fib`.
+
+[Tests.Compatibility](../test/src/Tests/Compatibility.idr) exercises upward/
+downward checking, universe separation, unchanged conversion, exhaustion, and
+invariant Pi/quantity structure. Full cumulative preservation remains unproved.
+
+## Tests required and current regressions
 
 - Checking into a larger literal universe succeeds.
 - Checking down a universe and Type : Type fail.

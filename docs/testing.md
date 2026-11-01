@@ -81,7 +81,8 @@ with 100 cases each:
 - Constructed term/type pairs are accepted.
 - One beta step preserves checking against the supplied type.
 - A typed identity application remains beta-convertible to its argument.
-- Replacing the expected type with a deliberately wrong universe is rejected.
+- Replacing the expected type with too-small Type 0 is rejected (higher universes
+  are now compatible with universe-valued samples).
 
 Generation starts with two universes and a polymorphic identity, then recursively
 adds constant lambdas or identity applications. Expected types are constructed

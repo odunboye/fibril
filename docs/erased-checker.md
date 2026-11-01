@@ -8,16 +8,18 @@ against a separately validated expected type.
 
 ## Supported rules
 
-- Universe l has type Universe (l+1), with literal levels and no cumulativity.
+- Universe l has type Universe (l+1), with literal levels and upward universe compatibility.
 - Pi formation checks both domains as types and takes the maximum level.
 - Lambda inference checks its annotation and infers its body's type.
 - Variable lookup shifts dependent domains into the current scope.
 - Application weak-head exposes a Pi, checks the argument, and substitutes into its codomain.
 - Sort inspection weak-head exposes a universe; full beta comparison remains separate.
-- Checking compares inferred/expected types by bounded full beta normalization.
+- Checking normalizes inferred/expected types, then applies directional compatibility;
+  literal universes lift upwards, while other types require equal normal forms.
 
 Binder quantities remain in types and must match structurally during comparison.
-No eta conversion, implicit quantity coercions, or subtyping is provided.
+No eta conversion, implicit quantity coercions, Pi covariance, or general
+subtyping is provided. See [cumulativity scope](cumulativity-rewriting.md).
 
 ## Why erased first?
 

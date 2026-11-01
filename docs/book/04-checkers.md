@@ -35,8 +35,17 @@ Using the term from chapter 2:
 - Extending with x lets its body infer A at the correctly shifted index.
 - The two inferred function layers reconstruct the expected Pi type.
 
-Universes are stratified: Type l : Type (l+1). No Type : Type or implicit
-cumulativity is implemented. Pi levels take the maximum of domain/codomain levels.
+Universes are stratified: Type l : Type (l+1). No Type : Type is allowed.
+Literal universe compatibility now permits checking upwards without making
+levels definitionally equal; [the plan](../cumulativity-rewriting.md) explains
+why this is not general function subtyping. Pi levels take the maximum of domain/codomain levels.
+
+### Compatibility is not equality
+
+[Compatibility](../../src/Fibril/Core/Compatibility.idr) accepts normalized
+Universe i at Universe j when i <= j. Other types still require equal normal
+forms. betaCompare remains exact; Pi domains, quantities, and codomains do not
+silently coerce. Dependent rewriting remains future transport-based work.
 
 ### Application
 

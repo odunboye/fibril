@@ -103,9 +103,9 @@ headCompatibility = property $ do
 rejectWrongUniverse : Property
 rejectWrongUniverse = property $ do
   sample <- forAll (typedGen 3)
-  -- Seeds and wrappers have types which cannot beta-reduce to Type 8.
-  -- Type 8 is itself valid, so rejection must be an actual type mismatch.
-  case checkErased 100 100 Empty sample.term (Universe 8) of
+  -- Seeds have universe types >= 1 or Pi types; none can check down to Type 0.
+  -- Higher universes are now valid expectations for the universe-valued seeds.
+  case checkErased 100 100 Empty sample.term (Universe 0) of
     Left TypeMismatch => success
     _ => failure
 

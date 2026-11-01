@@ -22,7 +22,7 @@ not machine execution or compiled runtime behavior.
 Subterms do not independently have to consume every ambient linear resource:
 their usages are combined before final validation.
 
-checkRuntime additionally validates an expected type and beta-compares before
+checkRuntime additionally validates an expected type and checks compatibility before
 resource checking. Success returns the ordinary inferred type and usage vector.
 
 ![Selected static calls](diagrams/calls.svg)

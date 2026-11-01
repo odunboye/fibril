@@ -1,6 +1,6 @@
 package fibril-tests
 sourcedir = "src"
 depends = fibril, hedgehog
-modules = Tests.Frontend, Tests.Lexer, Tests.UTF8, Tests.SourceText, Tests.Reference.Interval, Tests.Reference.Face, Tests.Pretty, Tests.RuntimeProperties, Tests.Runtime, Tests.TypedProperties, Tests.Properties, Tests.Erased, Tests.Reduction, Tests.Main
+modules = Tests.Compatibility, Tests.Frontend, Tests.Lexer, Tests.UTF8, Tests.SourceText, Tests.Reference.Interval, Tests.Reference.Face, Tests.Pretty, Tests.RuntimeProperties, Tests.Runtime, Tests.TypedProperties, Tests.Properties, Tests.Erased, Tests.Reduction, Tests.Main
 main = Tests.Main
 executable = fibril-tests

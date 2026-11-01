@@ -35,8 +35,10 @@ extend the term scope; their domain annotations do not. Domain annotations on
 lambdas simplify explicit core checking before surface inference exists.
 
 Universe levels initially are literal natural numbers, with Type l : Type (l+1)
-and Pi formation at max of domain/codomain levels. No Type : Type. Cumulativity,
-level polymorphism, and impredicativity are not implicitly included.
+and Pi formation at max of domain/codomain levels. No Type : Type.
+[Literal universe compatibility](cumulativity-rewriting.md) is now implemented
+separately from conversion. Constructor propagation, level polymorphism, and
+impredicativity are not implicitly included.
 
 Core syntax, substitution, evaluation, conversion, and typing must each receive
 tests. Representation alone is not a checker.
