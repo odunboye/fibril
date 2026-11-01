@@ -1,5 +1,7 @@
 # Documentation
 
+- [Theoretical references](references.md): bibliography and code-to-theory map.
+
 - [Browsable handbook](handbook.md): build, serve, and maintain the offline book.
 - [Implementation tour](implementation-tour.md): completed work, diagrams, and selected call graph.
 

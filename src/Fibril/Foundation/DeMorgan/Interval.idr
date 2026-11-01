@@ -1,5 +1,7 @@
 -- Raw interval syntax and structural substitution. Vertex evaluation is not
 -- a conversion procedure; see docs/foundation-baseline.md.
+-- Theory: CCHM18 (free De Morgan interval algebra and dimension substitution).
+-- Bibliography and limitations: docs/references.md.
 module Fibril.Foundation.DeMorgan.Interval
 
 %default total

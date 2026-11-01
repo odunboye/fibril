@@ -5,6 +5,10 @@ algebra infrastructure, **not a working Fibril language checker or compiler**.
 
 ![Implemented module dependencies](diagrams/modules.svg)
 
+See [theoretical references and code correspondence](references.md) alongside
+this tour. Each citation distinguishes implemented infrastructure from background
+and future proof obligations.
+
 ## Read the implementation in this order
 
 1. [**Quantity**](../src/Fibril/Core/Quantity.idr) defines 0, 1, and unrestricted coefficients, arithmetic, and a

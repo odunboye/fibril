@@ -1,5 +1,7 @@
 -- Usage coefficient arithmetic and a proposed local binder policy. Not a typing
 -- checker; see docs/core-draft.md for unresolved judgments.
+-- Theory: ATKEY18 sec. 2.1.1 (zero/one/many semiring); MCBRIDE16 (erasure motivation).
+-- Bibliography and limitations: docs/references.md.
 module Fibril.Core.Quantity
 
 %default total

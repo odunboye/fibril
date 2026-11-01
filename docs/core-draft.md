@@ -3,6 +3,14 @@
 Status: proposed typing rules with implemented scoped syntax and structural operations.
 Not a completed calculus or soundness proof.
 
+## Theoretical correspondence
+
+See [ATKEY18](references.md#atkey18), especially §§2.1–2.3, for semiring usage,
+erased/present judgments, and the substitution pitfall. See
+[DEBRUIJN72](references.md#debruijn72) for nameless binding background.
+Our scoped representation and local allows policy do not implement the paper's
+full judgments. These references justify design questions, not Fibril soundness.
+
 ## Staging and trust
 
 Implement a deliberately small ordinary dependent-function fragment before

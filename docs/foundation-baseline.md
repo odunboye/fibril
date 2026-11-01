@@ -2,6 +2,11 @@
 
 Status: selected reference for initial engineering, not a completed Fibril calculus.
 
+See the [code-to-theory map](references.md#code-to-theory-map) for per-module
+correspondences and the limits of each citation. Quantity integration additionally
+requires [ATKEY18](references.md#atkey18); neither reference establishes the
+soundness of their combination.
+
 ## Reference
 
 Cyril Cohen, Thierry Coquand, Simon Huber, Anders Mörtberg,

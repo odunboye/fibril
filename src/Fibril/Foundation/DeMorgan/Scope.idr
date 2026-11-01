@@ -1,5 +1,7 @@
 -- Scope-indexed dimension infrastructure. Dimension scopes do not track
 -- computational resource use; see docs/foundation-baseline.md.
+-- Theory: DEBRUIJN72 (indices); CCHM18 (dimension contexts). Fin encoding is our choice.
+-- Bibliography and limitations: docs/references.md.
 module Fibril.Foundation.DeMorgan.Scope
 
 import Data.Fin

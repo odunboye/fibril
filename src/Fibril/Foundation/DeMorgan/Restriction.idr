@@ -1,5 +1,7 @@
 -- Face assumptions for a dimension context. Empty restrictions are legitimate;
 -- this module does not supply arbitrary propositions or term typing.
+-- Theory: CCHM18 (face-restricted contexts); this is not the complete context judgment.
+-- Bibliography and limitations: docs/references.md.
 module Fibril.Foundation.DeMorgan.Restriction
 
 import Data.Fin

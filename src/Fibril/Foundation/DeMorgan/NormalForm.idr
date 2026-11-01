@@ -1,5 +1,7 @@
 -- Reference free De Morgan algebra equality via absorbed DNF. Exponential
 -- growth is possible. No Boolean complement laws or face rules apply here.
+-- Theory: CCHM18 specifies the algebra; absorbed DNF is our unverified algorithm choice.
+-- Bibliography and limitations: docs/references.md.
 module Fibril.Foundation.DeMorgan.NormalForm
 
 import Data.List

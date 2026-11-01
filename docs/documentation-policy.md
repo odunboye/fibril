@@ -8,6 +8,9 @@ Documentation is part of each meaningful task and commit.
   inputs, invariants, failure behavior, and limitations where applicable.
 - Explain constructor/record semantics when not obvious from the enclosing type.
 - Add a module overview describing responsibility, dependencies, and trust boundary.
+- Cite stable bibliography keys from `docs/references.md` in relevant code,
+  and link theory sections from design pages. Distinguish background, adopted
+  rules, and algorithm provenance; a citation is not a correctness proof.
 - Explain why non-obvious implementation choices exist; link relevant specification
   sections or published sources. Avoid comments that only restate syntax.
 - Distinguish checked proofs, executable tests, proposals, and unsupported features.

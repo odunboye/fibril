@@ -1,5 +1,7 @@
 -- Reference face lattice, endpoint extraction, and substitution. Opposite
 -- endpoints are disjoint but not exhaustive. Not a term conversion checker.
+-- Theory: CCHM18 (face lattice, endpoint constraints, and restricted judgments).
+-- Bibliography and limitations: docs/references.md.
 module Fibril.Foundation.DeMorgan.Face
 
 import Data.List

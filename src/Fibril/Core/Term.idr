@@ -1,5 +1,7 @@
 -- Scoped ordinary dependent-function syntax. This is not a type checker.
 -- See docs/core-draft.md; cubical resource rules remain unresolved.
+-- Theory: DEBRUIJN72 (nameless indices); ATKEY18 sec. 2 (QTT background, not implemented typing).
+-- Bibliography and limitations: docs/references.md.
 module Fibril.Core.Term
 
 import Data.Fin
