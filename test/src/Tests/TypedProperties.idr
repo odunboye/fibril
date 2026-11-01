@@ -8,6 +8,7 @@ import Fibril.Core.Term
 import Fibril.Core.Pretty
 import Fibril.Core.Context
 import Fibril.Core.Reduction
+import Fibril.Core.WeakHead
 import Fibril.Core.Erased
 
 %default total
@@ -89,6 +90,16 @@ betaWrapperPreserves = property $ do
     EqualNormalForms => success
     _ => failure
 
+headCompatibility : Property
+headCompatibility = property $ do
+  sample <- forAll (typedGen 3)
+  case weakHead 100 sample.term of
+    HeadLimit _ => failure
+    HeadForm exposed =>
+      case (normalize 100 sample.term, normalize 100 exposed) of
+        (Normal original, Normal afterHead) => assert (sameSyntax original afterHead)
+        _ => failure
+
 rejectWrongUniverse : Property
 rejectWrongUniverse = property $ do
   sample <- forAll (typedGen 3)
@@ -103,7 +114,8 @@ rejectWrongUniverse = property $ do
 public export
 runTypedProperties : IO Bool
 runTypedProperties = checkGroup (MkGroup "Fibril erased typing properties"
-  [ ("constructed erased terms accepted", acceptConstructed)
+  [ ("head reduction agrees with full normal forms", headCompatibility)
+  , ("constructed erased terms accepted", acceptConstructed)
   , ("one beta step preserves erased checking", stepPreserves)
   , ("typed identity application preserves conversion", betaWrapperPreserves)
   , ("wrong universe expectation rejected", rejectWrongUniverse)

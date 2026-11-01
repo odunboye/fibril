@@ -5,6 +5,7 @@ Implemented:
 - `src/Fibril/Core/Pretty.idr`: shared explicit-term diagnostics; no parsing or evaluation.
 - `src/Fibril/Core/Runtime.idr`: experimental ordinary runtime usage checking layered over erased typing; not backend execution or cubical checking.
 - `src/Fibril/Core/Erased.idr`: experimental erased ordinary context formation, inference/checking, and bounded beta type comparison; no runtime or cubical term checking.
+- `src/Fibril/Core/WeakHead.idr`: bounded outer type exposure without reducing annotations/bodies; used for checker shape inspection only.
 - `src/Fibril/Core/Reduction.idr`: reference beta stepping and bounded comparison with explicit inconclusive results; not typed conversion.
 - `src/Fibril/Core/Context.idr`: scoped telescope storage, dependent lookup, and whole-context coefficient validation; no well-formedness checker.
 - `src/Fibril/Core/Usage.idr`: mode coefficients, scope-length-indexed usage vectors, and local binder discharge; not a term checker.

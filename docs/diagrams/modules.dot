@@ -7,8 +7,8 @@ Demo -> {Quantity Term Context Usage Pretty Erased Runtime Interval NormalForm F
 Main -> Demo;
 Pretty -> {Quantity Term};
 Term -> Quantity; Usage -> Quantity; Context -> {Quantity Term Usage};
-Reduction -> Term;
-Erased -> {Quantity Term Context Reduction};
-Runtime -> {Quantity Term Context Usage Reduction Erased};
+Reduction -> Term; WeakHead -> Term;
+Erased -> {Quantity Term Context Reduction WeakHead};
+Runtime -> {Quantity Term Context Usage WeakHead Erased};
 label="Implemented direct Fibril imports (importer → dependency)";
 }

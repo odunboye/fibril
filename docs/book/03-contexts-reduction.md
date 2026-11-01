@@ -51,6 +51,13 @@ betaCompare normalizes both terms with separate equal-sized budgets.
 Identical divergent syntax can still produce Inconclusive. We deliberately do
 not turn exhaustion into an accepted equality or a rejection as unequal.
 
+## Stop when the outer shape is enough
+
+[WeakHead](../../src/Fibril/Core/WeakHead.idr) follows only head applications.
+A Pi is already exposed even if its codomain is not normal. Checkers use this
+for shape inspection, then still fully compare types when equality is required.
+HeadForm and Normal are different result constructors to prevent confusion.
+
 ## Exercises
 
 - Follow an identity application through one step.

@@ -5,6 +5,7 @@ import Fibril.Core.Quantity
 import Fibril.Core.Term
 import Fibril.Core.Context
 import Fibril.Core.Reduction
+import Fibril.Core.WeakHead
 import Fibril.Core.Erased
 import Fibril.Core.Runtime
 import Fibril.Foundation.DeMorgan.Interval
@@ -15,7 +16,7 @@ import Fibril.Foundation.DeMorgan.Face
 
 ||| Fixed workload identifiers; all expect a successful observable check.
 public export
-data Workload = Substitution | Reduction | ErasedChecking | RuntimeChecking | IntervalEquality | FaceEntailment
+data Workload = Substitution | Reduction | ErasedChecking | RuntimeChecking | IntervalEquality | FaceEntailment | FullExposure | HeadExposure
 
 public export
 parseWorkload : String -> Maybe Workload
@@ -25,6 +26,8 @@ parseWorkload "erased" = Just ErasedChecking
 parseWorkload "runtime" = Just RuntimeChecking
 parseWorkload "interval" = Just IntervalEquality
 parseWorkload "face" = Just FaceEntailment
+parseWorkload "expose-full" = Just FullExposure
+parseWorkload "expose-head" = Just HeadExposure
 parseWorkload _ = Nothing
 
 spine : Nat -> Term n -> Term n -> Term n
@@ -80,5 +83,15 @@ runWorkload RuntimeChecking size seed =
 runWorkload IntervalEquality size seed =
   let term = intervalProduct size seed
    in equivalent term (Reverse (Reverse term))
+runWorkload FullExposure size seed =
+  case normalize size (Pi Linear (Universe 0)
+         (weaken (wrap size (Universe (S seed)) (Universe seed)))) of
+    Normal (Pi _ _ _) => True
+    _ => False
+runWorkload HeadExposure size seed =
+  case weakHead 0 (Pi Linear (Universe 0)
+         (weaken (wrap size (Universe (S seed)) (Universe seed)))) of
+    HeadForm (Pi _ _ _) => True
+    _ => False
 runWorkload FaceEntailment size seed =
   entails (faceProduct size seed) (Disjunction (Endpoint seed False) (Endpoint (S seed) False))

@@ -61,9 +61,10 @@ until it happens to type-check.
 
 ## Constructively generated erased typing
 
-[Tests.TypedProperties](../test/src/Tests/TypedProperties.idr) adds four properties
+[Tests.TypedProperties](../test/src/Tests/TypedProperties.idr) adds five properties
 with 100 cases each:
 
+- Weak-head exposure agrees with full normal forms on the bounded typed corpus.
 - Constructed term/type pairs are accepted.
 - One beta step preserves checking against the supplied type.
 - A typed identity application remains beta-convertible to its argument.
@@ -108,7 +109,7 @@ not arbitrary runtime derivations or cubical resource rules. The unrestricted
 mutation is intentionally rejected even if its body uses its input once:
 the caller obeys the declared argument quantity, not an optimization guess.
 
-The default suite now runs 20 properties / 2,000 generated cases, alongside
+The default suite now runs 21 properties / 2,100 generated cases, alongside
 deterministic regressions. Sampling counts are not proof coverage.
 
 ## Reproducing failures

@@ -8,7 +8,7 @@ import Fibril.Core.Quantity
 import Fibril.Core.Term
 import Fibril.Core.Context
 import Fibril.Core.Usage
-import Fibril.Core.Reduction
+import Fibril.Core.WeakHead
 import Fibril.Core.Erased
 
 %default total
@@ -49,9 +49,9 @@ analyze (S depth) reduction context (Lambda q domain body) = do
     Left err => Left (BoundUsage err.expected err.observed)
 analyze (S depth) reduction context (Apply function argument) = do
   functionType <- liftTyping (inferErased depth reduction context function)
-  exposed <- case normalize reduction functionType of
-    Normal ty => Right ty
-    OutOfFuel _ => Left (TypingError ReductionLimit)
+  exposed <- case weakHead reduction functionType of
+    HeadForm ty => Right ty
+    HeadLimit _ => Left (TypingError ReductionLimit)
   case exposed of
     Pi q domain body => do
       functionUsage <- analyze depth reduction context function

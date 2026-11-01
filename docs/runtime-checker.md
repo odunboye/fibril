@@ -13,7 +13,7 @@ not machine execution or compiled runtime behavior.
    - Variable: one use at its index.
    - Lambda: analyze the body and discharge its newest binder; retain captured
      outer usage.
-   - Application: infer/expose the function's Pi, combine function usage with
+   - Application: infer/weak-head expose the function's Pi, combine function usage with
      argument usage scaled by the binder quantity.
    - Erased argument: use zero runtime usage. Erased inference already checked its
      complete ordinary type; it is not an unchecked hole.

@@ -33,6 +33,8 @@ and validates its result within the timed batch.
 | runtime | Check closed polymorphic identities wrapped in linear identity applications |
 | interval | Product of disjoint two-generator joins; compare against double reversal |
 | face | Product of two-endpoint disjunctions; entail its first factor |
+| expose-full | Fully normalize a Pi with nested codomain redexes and confirm Pi shape |
+| expose-head | Expose the same Pi shape without entering its codomain |
 
 The products produce up to 2^size DNF clauses before absorption; they deliberately
 expose solver growth. Size is currently restricted to 1..6 and iteration count
@@ -103,7 +105,9 @@ proof. DNF expansion and pairwise absorption remain potentially exponential.
   definitions and compare matching source/toolchain hashes.
 - Increase durations, add in-process warmup/calibration and deeper term fixtures,
   and collect supported memory metrics before making strong speed claims.
-- Benchmark head-only type exposure and repeated checking before optimizing them.
+- Head-only exposure workloads now exist; small sizes remain overhead-sensitive.
+  Add deeper/calibrated fixtures before claiming a measured speedup. Repeated
+  checking remains a candidate for investigation.
 - Keep stable reference implementations as differential oracles.
 - Do not add noisy timing thresholds until a repeatable environment exists.
 

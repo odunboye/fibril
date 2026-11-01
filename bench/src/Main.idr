@@ -42,4 +42,4 @@ main = do
                if passed == iterations then pure () else exitFailure
              else fail "Require size 1..6 and iterations 1..1000."
         _ => fail "Invalid workload or numeric arguments."
-    _ => fail "Usage: fibril-bench substitution|reduction|erased|runtime|interval|face SIZE ITERATIONS"
+    _ => fail "Usage: fibril-bench substitution|reduction|erased|runtime|interval|face|expose-full|expose-head SIZE ITERATIONS"

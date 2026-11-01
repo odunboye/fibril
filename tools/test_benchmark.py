@@ -15,7 +15,7 @@ class BenchmarkTests(unittest.TestCase):
         self.assertEqual(report["code_generator"], "chez")
         self.assertTrue(report["source_sha256"])
         expected = {(case, size) for case in
-                    ("substitution", "reduction", "erased", "runtime", "interval", "face")
+                    ("substitution", "reduction", "erased", "runtime", "interval", "face", "expose-full", "expose-head")
                     for size in report["sizes"]}
         self.assertEqual({(r["workload"], r["size"]) for r in report["results"]}, expected)
         for row in report["results"]:

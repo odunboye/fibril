@@ -10,7 +10,7 @@ import statistics
 import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
-CASES = ("substitution", "reduction", "erased", "runtime", "interval", "face")
+CASES = ("substitution", "reduction", "erased", "runtime", "interval", "face", "expose-full", "expose-head")
 
 
 def command(*args):

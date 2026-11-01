@@ -6,6 +6,7 @@ import Fibril.Core.Quantity
 import Fibril.Core.Term
 import Fibril.Core.Context
 import Fibril.Core.Reduction
+import Fibril.Core.WeakHead
 
 %default total
 
@@ -26,11 +27,12 @@ Show CheckError where
   show ExpectedFunction = "Expected a dependent function type"
   show TypeMismatch = "Types have different beta normal forms"
 
-normalType : Nat -> Term n -> Either CheckError (Term n)
-normalType budget term =
-  case normalize budget term of
-    Normal result => Right result
-    OutOfFuel _ => Left ReductionLimit
+-- Inspect only the outer type shape; comparison still uses full normalization.
+exposeType : Nat -> Term n -> Either CheckError (Term n)
+exposeType budget term =
+  case weakHead budget term of
+    HeadForm result => Right result
+    HeadLimit _ => Left ReductionLimit
 
 compareTypes : Nat -> Term n -> Term n -> Either CheckError ()
 compareTypes budget actual expected =
@@ -56,7 +58,7 @@ mutual
     Right (Pi q domain bodyType)
   infer (S depth) reduction context (Apply function argument) = do
     functionType <- infer depth reduction context function
-    exposed <- normalType reduction functionType
+    exposed <- exposeType reduction functionType
     case exposed of
       Pi q domain body => do
         argumentType <- infer depth reduction context argument
@@ -67,7 +69,7 @@ mutual
   sortOf : Nat -> Nat -> Context n -> Term n -> Either CheckError Nat
   sortOf depth reduction context term = do
     ty <- infer depth reduction context term
-    exposed <- normalType reduction ty
+    exposed <- exposeType reduction ty
     case exposed of
       Universe level => Right level
       _ => Left ExpectedUniverse

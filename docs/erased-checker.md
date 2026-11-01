@@ -12,7 +12,8 @@ against a separately validated expected type.
 - Pi formation checks both domains as types and takes the maximum level.
 - Lambda inference checks its annotation and infers its body's type.
 - Variable lookup shifts dependent domains into the current scope.
-- Application exposes a Pi, checks the argument, and substitutes into its codomain.
+- Application weak-head exposes a Pi, checks the argument, and substitutes into its codomain.
+- Sort inspection weak-head exposes a universe; full beta comparison remains separate.
 - Checking compares inferred/expected types by bounded full beta normalization.
 
 Binder quantities remain in types and must match structurally during comparison.

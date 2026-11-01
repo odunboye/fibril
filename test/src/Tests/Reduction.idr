@@ -4,6 +4,7 @@ import Data.Fin
 import Fibril.Core.Quantity
 import Fibril.Core.Term
 import Fibril.Core.Reduction
+import Fibril.Core.WeakHead
 
 %default total
 
@@ -30,7 +31,36 @@ exhausted _ = False
 public export
 checks : List (String, Bool)
 checks =
-  [ ("reduction normal at zero fuel", isNormal (Universe 0) (normalize 0 (the (Term 0) (Universe 0))))
+  [ ("head exact one-step budget",
+      case weakHead 1 redex of
+        HeadForm term => sameSyntax term (Universe 0)
+        _ => False)
+  , ("head redex with zero fuel exhausts",
+      case weakHead 0 redex of
+        HeadLimit _ => True
+        _ => False)
+  , ("head divergence remains explicit",
+      case weakHead 8 omega of
+        HeadLimit _ => True
+        _ => False)
+  , ("head does not inspect lambda body",
+      case weakHead 0 (Lambda Linear (Universe 0) (weaken omega)) of
+        HeadForm _ => True
+        _ => False)
+  , ("head does not inspect Pi codomain",
+      case weakHead 0 (Pi Linear (Universe 0) (weaken omega)) of
+        HeadForm _ => True
+        _ => False)
+  , ("head leaves neutral argument untouched",
+      case weakHead 0 (the (Term 1) (Apply (Variable FZ) (weaken omega))) of
+        HeadForm _ => True
+        _ => False)
+  , ("head follows function spine",
+      case weakHead 2
+        (Apply (Apply (Lambda Linear (Universe 0) (weaken identity)) (Universe 0)) (Universe 1)) of
+        HeadForm term => sameSyntax term (Universe 1)
+        _ => False)
+  , ("reduction normal at zero fuel", isNormal (Universe 0) (normalize 0 (the (Term 0) (Universe 0))))
   , ("reduction zero fuel rejects redex", exhausted (normalize 0 redex))
   , ("reduction exact one-step budget", isNormal (Universe 0) (normalize 1 redex))
   , ("reduction divergent syntax exhausts", exhausted (normalize 8 omega))

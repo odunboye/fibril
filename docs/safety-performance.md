@@ -46,7 +46,7 @@ unmeasured speed or needless abstractions.
 | Interval/face DNF | Exponential normal-form growth | Work/node budgets and alternative symbolic representations |
 | Substitution | Copies syntax and can enlarge terms | Sharing, environments, or delayed substitution |
 | Runtime analysis | Repeats erased inference/context formation | Reuse checked evidence with a clear trust boundary |
-| Type exposure | Full normalization when only Pi/Universe head is needed | Weak-head evaluation with regression/differential tests |
+| Type exposure | Full normalization does unnecessary inner work | Weak-head exposure now implemented for shape inspection; full conversion still normalizes |
 | Fuel | Does not bound wall time, stack, or memory | Cancellation, work budgets, process isolation where needed |
 
 An [exploratory benchmark suite](benchmarks.md) now measures these operations

@@ -19,6 +19,28 @@ domain before body, reducing under binders.
 
 ![Selected static calls](diagrams/calls.svg)
 
+## Weak-head exposure for checking
+
+[WeakHead.idr](../src/Fibril/Core/WeakHead.idr) adds stepHead and weakHead.
+They reduce only along the function spine until the outer constructor is exposed.
+They do not enter Pi/lambda domains or bodies, or neutral arguments.
+
+A Pi can therefore be exposed at zero fuel even if its codomain contains redexes.
+The result is HeadForm, not Normal: it must never be mistaken for a full normal
+form. HeadLimit explicitly records exhaustion. Erased and runtime checkers now
+use this service only to inspect type shape; betaCompare still fully normalizes
+both sides for type comparison.
+
+Tests include divergence on the head spine, ignored divergent bodies/arguments,
+and generated compatibility with full normalization over the erased typed corpus.
+These are not a confluence or typed conversion proof. Exposing outer syntax does
+not skip context/domain validation, and sameSyntax is not used as conversion.
+
+The benchmark suite includes expose-full and expose-head on identical constructed
+Pi inputs; current small fixtures are overhead-sensitive and establish no general
+speedup. The concrete improvement is avoiding irrelevant reductions for shape
+inspection, not a measured universal performance claim.
+
 ## Fuel is not a timeout
 
 Each unit permits one beta step. The reducer checks whether a step is available
