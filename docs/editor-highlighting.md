@@ -168,8 +168,7 @@ read/new-buffer events without replacing an already assigned filetype.
 
 [ftplugin/fibril.vim](../editors/vim/ftplugin/fibril.vim) sets commentstring to
 -- %s, line-comment metadata, and apostrophe-aware word motion. It supplies the
-standard undo hook and optional FibrilDefinition/FibrilReferences commands and
-Plug mappings. It does
+standard undo hook and optional FibrilDefinition/FibrilReferences/FibrilRenamePreview commands and Plug mappings. It does
 not change indentation/formatting or override user keys such as gd.
 
 [syntax/fibril.vim](../editors/vim/syntax/fibril.vim) contains only lexical rules.
@@ -311,7 +310,7 @@ candidate. This is a prototype bound, not a time/allocation guarantee.
 These checks use the current parser and lexical navigation model. They are not
 a formal rename-correctness proof, type checking, or a project reference index.
 Complete but ill-typed source may receive a preview. Prelude/cross-file targets,
-imports/exports/API compatibility, editor rename UI, file mutation, and
+imports/exports/API compatibility, editor rename application, file mutation, and
 transactional application against versioned buffers remain unimplemented.
 A fresh preview and review are still required before applying any edits.
 
@@ -368,9 +367,25 @@ encoding, snapshot, compiler, and protocol checks.
 Location-list results describe the queried snapshot, not a live reference index.
 After source edits, save and re-run the query before relying on old results.
 
-The runtime adds buffer-local <Plug>(FibrilDefinition) and
-<Plug>(FibrilReferences) mappings but does not override gd/gr or LazyVim's
-mappings. Optional Neovim setup:
+To review a rename, place the cursor on the binding or a local reference:
+
+~~~vim
+:FibrilRenamePreview greetingText
+~~~
+
+This invokes the compiler's capture-checked preview and opens a read-only,
+nonmodifiable scratch diff. Only changed source lines are shown; source buffers
+and files are never modified. Close it with :close. All edits are validated
+before the window is created and applied only to an in-memory copy in descending
+order. Multiple edits on one line and Unicode/CRLF source snapshots are supported.
+A no-op, invalid/capturing name, stale/modified source, or malformed response does
+not open a preview. This is review UI, not a patch-application command or formal
+rename-correctness guarantee. Re-query after edits; previews are not live.
+
+The runtime adds buffer-local <Plug>(FibrilDefinition), <Plug>(FibrilReferences),
+and <Plug>(FibrilRenamePreview) mappings but does not override user/LazyVim keys.
+The rename Plug mapping starts the command line for a name to be entered; it does
+not apply changes. Optional Neovim setup: Optional Neovim setup:
 
 ~~~lua
 vim.api.nvim_create_autocmd("FileType", {
@@ -392,6 +407,9 @@ The equivalent optional Vim setup is:
 autocmd FileType fibril nmap <buffer> gd <Plug>(FibrilDefinition)
 autocmd FileType fibril nmap <buffer> gr <Plug>(FibrilReferences)
 ~~~
+
+You may additionally map a key to <Plug>(FibrilRenamePreview) if desired; no
+rename key is assigned by default.
 
 The ftplugin undo hook removes its commands and Plug mappings. User-created
 gd/gr mappings remain the user's responsibility. The pure compiler APIs accept unsaved
@@ -418,7 +436,9 @@ no gd override, stale/modified refusal, missing compiler/malformed JSON, misses,
 and command/mapping undo. Reference UI tests additionally check source cursor
 preservation, byte-accurate list entries, location-window opening, and preserving
 prior lists on misses/malformed or partially invalid responses. Those tests skip
-when the compiler is absent.
+when the compiler is absent. Rename-preview tests additionally check read-only
+scratch UI, multiple same-line edits without changing string data, unchanged
+source buffers/cursors/files, no-op/keyword/modified-buffer refusal, and cleanup.
 Editor columns in these tests are UTF-8 bytes, unlike compiler scalar positions.
 
 Normal make test/build has no editor dependency. Future work is a grammar-backed

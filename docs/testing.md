@@ -199,6 +199,11 @@ invalid/oversized names, and UTF-8 byte-limit crossings. CLI tests apply preview
 only to temporary test strings and assert the command itself never writes source.
 These are deterministic regressions, not a formal alpha-renaming theorem.
 
+Editor rename-preview tests exercise real Neovim/Vim with Unix/CRLF sources and
+Unicode/combining prefixes. They verify the read-only scratch diff, simultaneous
+same-line replacements, unchanged string literals/source buffers/cursors, command
+and Plug cleanup, and refusal of no-op/keyword/modified/malformed requests.
+
 ## Hedgehog dependency
 
 Repository: https://github.com/stefan-hoeck/idris2-hedgehog

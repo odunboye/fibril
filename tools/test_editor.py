@@ -143,10 +143,13 @@ def inspect_navigation(name, executable, line_ending="\n"):
     with tempfile.TemporaryDirectory(prefix="fibril editor ") as directory:
         directory = Path(directory)
         fixture = directory / "saved 'quoted'; input.fib"
-        source = 'let (0 ignored : String) = "🌍e\u0301" in let (1 text : String) = "x" in text'
+        source = 'let (0 ignored : String) = "text 🌍e\u0301" in let (1 text : String) = "x" in text'
         fixture.write_bytes((source + line_ending).encode("utf-8"))
         origin = len(source[:source.rindex("text")].encode("utf-8")) + 1
         target = len(source[:source.index("(1 text") + 3].encode("utf-8")) + 1
+        begin = source.index("(1 text") + 3
+        end = source.rindex("text")
+        proposed = source[:begin] + "renamed" + source[begin + 4:end] + "renamed" + source[end + 4:]
         report = directory / "navigation.json"
         invalid = directory / "invalid response"
         invalid.write_text("#!/bin/sh\nprintf '%s\\n' 'not-json'\n", encoding="utf-8")
@@ -177,6 +180,23 @@ def inspect_navigation(name, executable, line_ending="\n"):
             "FibrilDefinition\n"
             "let report.command_target = col('.')\n"
             f"call cursor(1, {origin})\n"
+            "let rename_window = win_getid()\n"
+            f"let rename_disk = readfile({vim_literal(fixture)}, 'b')\n"
+            "let report.rename_success = fibril#rename_preview('renamed')\n"
+            "let report.rename_lines = getline(1, '$')\n"
+            "let report.rename_readonly = &readonly && !&modifiable && &buftype ==# 'nofile' && &filetype ==# 'diff'\n"
+            "close\n"
+            "let report.rename_source_unmodified = !&modified\n"
+            f"let report.rename_disk_unchanged = readfile({vim_literal(fixture)}, 'b') ==# rename_disk\n"
+            f"let report.rename_source_unchanged = getline(1) ==# {vim_literal(source)}\n"
+            "let report.rename_source_cursor = col('.')\n"
+            "FibrilRenamePreview renamed\n"
+            "let report.rename_command = &buftype ==# 'nofile'\n"
+            "close\n"
+            "let report.rename_noop = fibril#rename_preview('text')\n"
+            "let report.rename_keyword = fibril#rename_preview('Bool')\n"
+            "let report.rename_rejection_window = win_getid() == rename_window\n"
+            f"call cursor(1, {origin})\n"
             "let source_window = win_getid()\n"
             "let report.reference_success = fibril#references()\n"
             "let report.reference_window = getwininfo(win_getid())[0].loclist\n"
@@ -196,6 +216,7 @@ def inspect_navigation(name, executable, line_ending="\n"):
             "call setline(1, getline(1) . ' ')\n"
             "let report.modified = fibril#definition()\n"
             "let report.reference_modified = fibril#references()\n"
+            "let report.rename_modified = fibril#rename_preview('renamed')\n"
             "edit!\n"
             f"let saved_disk = readfile({vim_literal(fixture)}, 'b')\n"
             f"call writefile(['different disk contents'], {vim_literal(fixture)})\n"
@@ -207,12 +228,15 @@ def inspect_navigation(name, executable, line_ending="\n"):
             f"let g:fibril_executable = {vim_literal(invalid)}\n"
             "let report.invalid = fibril#definition()\n"
             "let report.reference_invalid = fibril#references()\n"
+            "let report.rename_invalid = fibril#rename_preview('renamed')\n"
             f"call writefile({partial_lines}, {vim_literal(invalid)})\n"
             "let report.reference_partial = fibril#references()\n"
             "let report.reference_preserved_error = getloclist(0, {'id': 0}).id == reference_id\n"
             "execute b:undo_ftplugin\n"
             "let report.undo_command = exists(':FibrilDefinition')\n"
             "let report.undo_reference_command = exists(':FibrilReferences')\n"
+            "let report.undo_rename_command = exists(':FibrilRenamePreview')\n"
+            "let report.undo_rename_plug = maparg('<Plug>(FibrilRenamePreview)', 'n')\n"
             "let report.undo_reference_plug = maparg('<Plug>(FibrilReferences)', 'n')\n"
             "let report.undo_plug = maparg('<Plug>(FibrilDefinition)', 'n')\n"
             f"call writefile([json_encode(report)], {vim_literal(report)})\n"
@@ -223,7 +247,9 @@ def inspect_navigation(name, executable, line_ending="\n"):
                                 capture_output=True, text=True, timeout=30, cwd=ROOT)
         if result.returncode or not report.exists():
             raise AssertionError(f"{name} navigation failed: {result.stdout}\n{result.stderr}")
-        return json.loads(report.read_text(encoding="utf-8")), target
+        data = json.loads(report.read_text(encoding="utf-8"))
+        data["expected_rename_line"] = "+" + proposed
+        return data, target
 
 
 class EditorTests(unittest.TestCase):
@@ -258,6 +284,19 @@ class EditorTests(unittest.TestCase):
                     self.assertTrue(report["reference_preserved_error"])
                     self.assertEqual(report["undo_reference_command"], 0)
                     self.assertEqual(report["undo_reference_plug"], "")
+                    self.assertEqual(report["rename_success"], 1)
+                    self.assertIn(report["expected_rename_line"], report["rename_lines"])
+                    self.assertTrue(report["rename_readonly"])
+                    self.assertTrue(report["rename_source_unmodified"])
+                    self.assertTrue(report["rename_disk_unchanged"])
+                    self.assertTrue(report["rename_source_unchanged"])
+                    self.assertEqual(report["rename_source_cursor"], report["reference_origin"])
+                    self.assertTrue(report["rename_command"])
+                    self.assertTrue(report["rename_rejection_window"])
+                    for field in ("rename_noop", "rename_keyword", "rename_modified", "rename_invalid"):
+                        self.assertEqual(report[field], 0, field)
+                    self.assertEqual(report["undo_rename_command"], 0)
+                    self.assertEqual(report["undo_rename_plug"], "")
 
     def test_runtime_in_installed_editors(self):
         if not EDITORS:

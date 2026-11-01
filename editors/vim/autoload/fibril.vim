@@ -24,7 +24,7 @@ function! s:buffer_snapshot() abort
   return text
 endfunction
 
-function! s:request(query) abort
+function! s:request(query, ...) abort
   if &l:modified || empty(expand('%:p')) || !filereadable(expand('%:p'))
     return s:warn('save this buffer before requesting navigation')
   endif
@@ -55,7 +55,8 @@ function! s:request(query) abort
       return s:warn('buffer differs from disk; reload or save it before navigation')
     endif
     let scalar_column = strchars(strpart(getline('.'), 0, col('.') - 1)) + 1
-    let args = [binary, a:query, string(line('.')), string(scalar_column), path]
+    let args = [binary, a:query, string(line('.')), string(scalar_column)] + a:000 + [path]
+    let field = a:query ==# 'rename-preview' ? 'edits' : a:query
     " String-form system() is portable across Vim and Neovim. Quote each argument;
     " the configuration is an executable path, never a shell command fragment.
     let output = system(join(map(args, 'shellescape(v:val)'), ' '))
@@ -69,10 +70,10 @@ function! s:request(query) abort
     let result = json_decode(output)
     if type(result) != v:t_dict || get(result, 'version', 0) != 1 ||
           \ get(result, 'coordinates', '') !=# 'unicode-scalars;offset=0;line=1;column=1' ||
-          \ !has_key(result, a:query)
+          \ !has_key(result, field)
       return s:warn('unsupported ' . a:query . ' response')
     endif
-    return {'value': result[a:query]}
+    return {'value': result[field], 'path': path}
   catch
     return s:warn(a:query . ' request could not be read or decoded')
   endtry
@@ -144,5 +145,66 @@ function! fibril#references() abort
     return 1
   catch
     return s:warn('invalid references response or unavailable location window')
+  endtry
+endfunction
+
+function! fibril#rename_preview(name) abort
+  let response = s:request('rename-preview', a:name)
+  if empty(response)
+    return 0
+  endif
+  if type(response.value) != v:t_list
+    return s:warn('invalid rename preview response')
+  endif
+  if empty(response.value)
+    return s:warn('rename preview has no changes')
+  endif
+  try
+    let original = getline(1, '$')
+    let proposed = copy(original)
+    let edits = []
+    let previous_row = 0
+    let previous_end = 0
+    for edit in response.value
+      if type(edit) != v:t_dict || type(get(edit, 'newText', 0)) != v:t_string ||
+            \ edit.newText !=# a:name ||
+            \ type(get(edit, 'range', 0)) != v:t_dict ||
+            \ a:name !~# "^[A-Za-z_][A-Za-z0-9_']*$" || strlen(a:name) > 256 || a:name ==# '_'
+        return s:warn('invalid rename preview edit')
+      endif
+      let item = s:location(edit.range)
+      if item.lnum < previous_row || (item.lnum == previous_row && item.col <= previous_end)
+        return s:warn('rename preview edits overlap or are not in source order')
+      endif
+      let previous_row = item.lnum
+      let previous_end = item.end_col
+      call add(edits, item)
+    endfor
+    " Every range refers to the original snapshot. Apply descending byte positions
+    " to an in-memory copy only, never to the source buffer.
+    for item in reverse(edits)
+      let text = proposed[item.lnum - 1]
+      let proposed[item.lnum - 1] = strpart(text, 0, item.col - 1) . a:name .
+            \ strpart(text, item.end_col)
+    endfor
+    let lines = ['Fibril rename preview — source unchanged',
+          \ 'Source: ' . strtrans(response.path),
+          \ 'Review only; close this window with :close.', '',
+          \ '--- original', '+++ proposed']
+    for index in range(len(original))
+      if original[index] !=# proposed[index]
+        call extend(lines, ['@@ -' . (index + 1) . ' +' . (index + 1) . ' @@',
+              \ '-' . original[index], '+' . proposed[index]])
+      endif
+    endfor
+    let s:preview_number = get(s:, 'preview_number', 0) + 1
+    new
+    setlocal buftype=nofile bufhidden=wipe noswapfile nomodeline
+    execute 'file ' . fnameescape('[Fibril rename preview ' . s:preview_number . ']')
+    call setline(1, lines)
+    setlocal filetype=diff nomodified readonly nomodifiable
+    return 1
+  catch
+    return s:warn('invalid rename preview or unavailable preview window')
   endtry
 endfunction
