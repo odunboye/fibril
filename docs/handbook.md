@@ -30,6 +30,37 @@ the generator rejects missing, duplicate, or unlisted pages. Markdown owns conte
 Navigation regression tests verify current-page markers, chapter ordering, and
 landing-page links. Browser rendering and fragment targets remain manual checks.
 
+## Reading experience
+
+The offline theme uses a warm paper background, restrained teal accents,
+comfortable reading width, spacious type, and a distinct serif chapter heading.
+A grouped sidebar separates the teaching path from references and records.
+
+With JavaScript enabled:
+
+- Search local documentation text with the search box or the / shortcut.
+- Use the page outline to jump between sections.
+- Change reading size and light/dark theme; preferences are stored locally
+  when browser storage is available. Otherwise the controls still work per page.
+- Copy code blocks (clipboard permission/security restrictions may require
+  manual selection instead).
+- Use the mobile Menu control; Escape closes it.
+- See estimated reading time and scroll progress.
+
+Without JavaScript, chapter content, navigation, source links, and system-theme
+styling remain available. Print styling removes navigation and controls.
+Reduced-motion preferences disable animated scrolling/transitions.
+
+Theme assets live in docs/assets/book.css and book.js. The builder generates
+a local search-data.js, so search needs neither a server API nor a CDN.
+Search covers documentation text, not the full source tree or generated API.
+API pages retain the Idris documentation generator's own presentation.
+
+Automated checks cover local asset presence, search-index chapter inclusion,
+and navigation. JavaScript syntax is checked with Node during development;
+actual browser rendering, interaction, and accessibility are not yet covered
+by automated browser tests.
+
 ## Included material
 
 - A responsive sidebar across the documentation pages.

@@ -57,13 +57,8 @@ def main():
             ("API reference", OUT / "api/index.html")]
     chapters = [destinations[(ROOT / e["path"]).resolve()]
                 for e in parts[0]["pages"]]
-    style = """body{margin:0;font:17px/1.65 system-ui;color:#17212b;background:#fafbfc}
-nav{position:fixed;box-sizing:border-box;width:260px;height:100vh;overflow:auto;padding:24px;background:#eaf0f5}
-nav a{display:block;margin:7px 0}nav h3{font-size:.85em;margin-top:24px}nav a[aria-current]{font-weight:bold}footer{display:flex;justify-content:space-between;gap:20px;border-top:1px solid #ccd;padding-top:20px;margin-top:40px}main{max-width:1000px;margin-left:280px;padding:30px}
-a{color:#075ca8}pre{background:#edf1f5;padding:16px;overflow:auto}code{font-size:.9em}
-img{max-width:100%;height:auto;background:white}table{border-collapse:collapse}td,th{border:1px solid #ccc;padding:8px}
-@media(max-width:800px){nav{position:static;width:auto;height:auto}main{margin:0;padding:18px}}
-"""
+    shutil.copytree(ROOT / "docs/assets", OUT / "assets")
+    search_index = []
 
     def write_page(path, title, body):
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -81,10 +76,33 @@ img{max-width:100%;height:auto;background:white}table{border-collapse:collapse}t
             body += (f'<footer aria-label="Chapter navigation"><a href="{relative(previous, path)}">← Previous</a>'
                      f'<span>Chapter {position + 1} of {len(chapters)}</span>'
                      f'<a href="{relative(following, path)}">Next →</a></footer>')
+        prefix = relative(OUT, path) + "/"
+        page_class = "contents" if path == OUT / "index.html" else "source-page" if OUT / "source" in path.parents else "chapter"
+        badge = "The implementation textbook" if path in chapters or page_class == "contents" else "Fibril · Technical reference"
         path.write_text(f'<!doctype html><html lang="en"><head><meta charset="utf-8">'
                         f'<meta name="viewport" content="width=device-width,initial-scale=1">'
-                        f'<title>{html.escape(title)} — Fibril</title><style>{style}</style></head>'
-                        f'<body><nav><h2>Fibril handbook</h2>{links}</nav><main>{body}</main></body></html>')
+                        f'<meta name="color-scheme" content="light dark">'
+                        f'<title>{html.escape(title)} — Fibril</title>'
+                        f'<link rel="stylesheet" href="{prefix}assets/book.css">'
+                        f'<script defer src="{prefix}assets/search-data.js"></script>'
+                        f'<script defer src="{prefix}assets/book.js"></script></head>'
+                        f'<body class="{page_class}" data-root="{prefix}">'
+                        f'<a class="skip" href="#content">Skip to content</a>'
+                        f'<header class="topbar"><a class="brand" href="{prefix}index.html">'
+                        f'<span class="mark" aria-hidden="true">f</span> fibril <small>Build. Understand. Prove.</small></a>'
+                        f'<div class="controls"><button hidden class="menu-button" id="menu" aria-controls="sidebar" aria-expanded="false">Menu</button>'
+                        f'<button hidden id="smaller" aria-label="Decrease reading text size">A−</button>'
+                        f'<button hidden id="larger" aria-label="Increase reading text size">A+</button>'
+                        f'<button hidden id="theme" aria-label="Toggle light and dark theme">Theme</button></div></header>'
+                        f'<div class="progress" aria-hidden="true"></div>'
+                        f'<nav class="sidebar" id="sidebar" aria-label="Book navigation">'
+                        f'<div id="search-box" hidden><label class="search-label" for="search">SEARCH THE BOOK · /</label>'
+                        f'<input class="search-input" id="search" type="search" placeholder="Paths, substitution, usage…" autocomplete="off">'
+                        f'<div class="search-results" id="search-results" aria-live="polite"></div></div>{links}</nav>'
+                        f'<main id="content" tabindex="-1"><div class="eyebrow">{badge}</div>'
+                        f'<div class="reading-meta"></div><article>{body}</article></main>'
+                        f'<aside class="outline" aria-label="On this page"><h2>On this page</h2><div id="outline-links"></div></aside>'
+                        f'</body></html>')
 
     diagrams = OUT / "docs/diagrams"
     diagrams.mkdir(parents=True)
@@ -110,6 +128,10 @@ img{max-width:100%;height:auto;background:white}table{border-collapse:collapse}t
         rendered = subprocess.run(["pandoc", "--from=gfm", "--to=html5"], input=content,
                                   text=True, capture_output=True, check=True).stdout
         write_page(destinations[page], titles[page], rendered)
+        plain_text = html.unescape(re.sub(r"<[^>]+>", " ", rendered))
+        search_index.append({"title": titles[page],
+                             "url": str(destinations[page].relative_to(OUT)),
+                             "text": " ".join(plain_text.split())})
     for source in sources:
         lines = source.read_text().splitlines()
         body = f'<h1>{html.escape(str(source.relative_to(ROOT)))}</h1><pre><code>'
@@ -131,6 +153,9 @@ img{max-width:100%;height:auto;background:white}table{border-collapse:collapse}t
             contents += f'<li><a href="{relative(dest, OUT / "index.html")}">{html.escape(entry["title"])}</a></li>'
         contents += '</ol>'
     write_page(OUT / "index.html", "Building Fibril", contents)
+
+    (OUT / "assets/search-data.js").write_text(
+        "window.FIBRIL_SEARCH = " + json.dumps(search_index, ensure_ascii=True) + ";\n")
 
     class Links(HTMLParser):
         def __init__(self):

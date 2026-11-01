@@ -56,6 +56,26 @@ class TextbookTests(unittest.TestCase):
                 self.assertEqual([(path.parent / link).resolve() for link in links],
                                  [p.resolve() for p in expected])
 
+    def test_reading_assets_are_local_and_present(self):
+        for name in ("book.css", "book.js", "search-data.js"):
+            self.assertTrue((OUT / "assets" / name).is_file())
+        for path in self.chapters:
+            content = path.read_text()
+            self.assertIn('class="skip"', content)
+            self.assertIn('aria-label="Book navigation"', content)
+            self.assertIn('id="search"', content)
+            self.assertIn('id="outline-links"', content)
+
+    def test_search_index_contains_every_chapter(self):
+        script = (OUT / "assets/search-data.js").read_text()
+        prefix = "window.FIBRIL_SEARCH = "
+        self.assertTrue(script.startswith(prefix))
+        entries = json.loads(script[len(prefix):].strip().removesuffix(";"))
+        urls = {entry["url"] for entry in entries}
+        for path in self.chapters:
+            self.assertIn(str(path.relative_to(OUT)), urls)
+        self.assertTrue(all(entry["title"] and entry["text"] for entry in entries))
+
     def test_landing_page_links_every_chapter(self):
         content = (OUT / "index.html").read_text()
         for path in self.chapters:

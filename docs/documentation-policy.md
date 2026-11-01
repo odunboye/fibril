@@ -35,7 +35,10 @@ guarantees without supporting evidence. Keep proposal status visible.
 - Include learning goals, source-reading exercises, and theory links.
 - Preserve detailed references and historical decisions separately.
 - Update teaching chapters when behavior changes; they complement API contracts.
-- Run `make handbook` for local file-link and chapter-navigation checks.
+- Run `make handbook` for local file-link, chapter-navigation, and search-index checks.
+- Keep reading assets local and progressively enhanced; core content must remain
+  usable without JavaScript. Preserve focus visibility, reduced-motion support,
+  and readable mobile/print layouts when changing the theme.
 
 ## Generated reference
 
