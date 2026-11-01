@@ -15,6 +15,21 @@ make serve-docs
 Open http://127.0.0.1:8000. Alternatively open `build/handbook/index.html`
 directly for offline browsing. The server binds only to localhost.
 
+## Textbook organization
+
+The landing page, **Building Fibril**, introduces eight ordered implementation
+chapters: orientation, binding, quantities, contexts/reduction, checking, cubical
+infrastructure, testing/maintenance, and the roadmap. Each includes learning
+goals, explanations, source-reading exercises, and references. Previous/next
+links follow this sequence.
+
+Part II holds technical references; Part III preserves project records.
+`docs/book.json` owns part labels, titles, and order. New pages must be listed;
+the generator rejects missing, duplicate, or unlisted pages. Markdown owns content.
+
+Navigation regression tests verify current-page markers, chapter ordering, and
+landing-page links. Browser rendering and fragment targets remain manual checks.
+
 ## Included material
 
 - A responsive sidebar across the documentation pages.

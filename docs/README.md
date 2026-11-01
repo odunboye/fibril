@@ -1,5 +1,16 @@
 # Documentation
 
+## Start with the textbook
+
+Begin with [Chapter 1: Orientation](book/00-orientation.md), then follow
+[binding](book/01-binding.md), [resources](book/02-resources.md),
+[contexts/reduction](book/03-contexts-reduction.md), [checking](book/04-checkers.md),
+[cubical infrastructure](book/05-cubical.md),
+[testing/maintenance](book/06-testing-contributing.md), and [roadmap](book/07-roadmap.md).
+The generated homepage separates teaching chapters, references, and project records.
+
+## Reference index
+
 - [Testing](testing.md): deterministic regressions, Hedgehog properties, and replay.
 
 - [Theoretical references](references.md): bibliography and code-to-theory map.

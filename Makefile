@@ -17,6 +17,7 @@ docs: build
 
 handbook: docs
 	python3 tools/build_handbook.py
+	python3 tools/test_handbook.py
 
 serve-docs: handbook
 	python3 -m http.server 8000 --bind 127.0.0.1 --directory build/handbook

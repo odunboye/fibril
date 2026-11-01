@@ -39,6 +39,9 @@ upgrades explicitly; do not use a floating collection for project builds.
 See [examples](examples/README.md) for runnable bootstrap programs and clearly
 labeled proposed Fibril scenarios, including proofs.
 
+Learn the implementation through the [Building Fibril textbook](docs/book/00-orientation.md):
+eight ordered chapters with exercises, diagrams, and linked source.
+
 Build the browsable handbook with `make handbook`, or use `make serve-docs`
 to browse at http://127.0.0.1:8000. It includes diagrams, a curated call graph,
 linked source pages, API reference, and the full design record.

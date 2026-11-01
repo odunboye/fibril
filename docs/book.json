@@ -1,0 +1,133 @@
+[
+  {
+    "title": "Part I · Read the implementation",
+    "pages": [
+      {
+        "title": "1. Orientation",
+        "path": "docs/book/00-orientation.md"
+      },
+      {
+        "title": "2. Binding and substitution",
+        "path": "docs/book/01-binding.md"
+      },
+      {
+        "title": "3. Resource accounting",
+        "path": "docs/book/02-resources.md"
+      },
+      {
+        "title": "4. Contexts and reduction",
+        "path": "docs/book/03-contexts-reduction.md"
+      },
+      {
+        "title": "5. Experimental checkers",
+        "path": "docs/book/04-checkers.md"
+      },
+      {
+        "title": "6. Cubical infrastructure",
+        "path": "docs/book/05-cubical.md"
+      },
+      {
+        "title": "7. Testing and maintenance",
+        "path": "docs/book/06-testing-contributing.md"
+      },
+      {
+        "title": "8. Roadmap and boundaries",
+        "path": "docs/book/07-roadmap.md"
+      }
+    ]
+  },
+  {
+    "title": "Part II · Reference",
+    "pages": [
+      {
+        "title": "Implementation tour",
+        "path": "docs/implementation-tour.md"
+      },
+      {
+        "title": "Architecture",
+        "path": "docs/architecture.md"
+      },
+      {
+        "title": "Ordinary core draft",
+        "path": "docs/core-draft.md"
+      },
+      {
+        "title": "Checking rules",
+        "path": "docs/ordinary-checking.md"
+      },
+      {
+        "title": "Erased checker",
+        "path": "docs/erased-checker.md"
+      },
+      {
+        "title": "Runtime usage checker",
+        "path": "docs/runtime-checker.md"
+      },
+      {
+        "title": "Reference reduction",
+        "path": "docs/reduction.md"
+      },
+      {
+        "title": "Cubical baseline",
+        "path": "docs/foundation-baseline.md"
+      },
+      {
+        "title": "Theory bibliography",
+        "path": "docs/references.md"
+      },
+      {
+        "title": "Testing guide",
+        "path": "docs/testing.md"
+      }
+    ]
+  },
+  {
+    "title": "Part III · Project records",
+    "pages": [
+      {
+        "title": "Design decisions",
+        "path": "docs/design.md"
+      },
+      {
+        "title": "Guarantees and limits",
+        "path": "docs/guarantees.md"
+      },
+      {
+        "title": "Milestone plan",
+        "path": "docs/milestone-01.md"
+      },
+      {
+        "title": "Pipelines evaluation",
+        "path": "docs/pipelines-evaluation.md"
+      },
+      {
+        "title": "Documentation policy",
+        "path": "docs/documentation-policy.md"
+      },
+      {
+        "title": "Contributing",
+        "path": "CONTRIBUTING.md"
+      },
+      {
+        "title": "Build this book",
+        "path": "docs/handbook.md"
+      },
+      {
+        "title": "Project README",
+        "path": "README.md"
+      },
+      {
+        "title": "Examples",
+        "path": "examples/README.md"
+      },
+      {
+        "title": "Proposed univalence example",
+        "path": "examples/proposed/03-univalence.md"
+      },
+      {
+        "title": "Documentation index",
+        "path": "docs/README.md"
+      }
+    ]
+  }
+]

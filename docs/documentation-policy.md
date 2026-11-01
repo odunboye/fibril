@@ -28,6 +28,15 @@ Documentation is part of each meaningful task and commit.
 Do not claim logical consistency, verified erasure, bounded stack, or timing
 guarantees without supporting evidence. Keep proposal status visible.
 
+## Textbook maintenance
+
+- Keep teaching chapters in `docs/book/` and navigation in `docs/book.json`.
+- Explain motivation, representation, algorithms, and boundaries.
+- Include learning goals, source-reading exercises, and theory links.
+- Preserve detailed references and historical decisions separately.
+- Update teaching chapters when behavior changes; they complement API contracts.
+- Run `make handbook` for local file-link and chapter-navigation checks.
+
 ## Generated reference
 
 `make docs` runs Idris 2's `--mkdoc fibril.ipkg` after a pack build.
