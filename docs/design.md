@@ -337,7 +337,16 @@ transport, and resource-safe rules before rewrite automation. No equality reflec
 blanket path irrelevance, or automatic proof erasure. See the
 [cumulativity/rewriting plan](cumulativity-rewriting.md) for scope and open obligations.
 
-## 19. Readiness and immediate open design work
+## 19. Python interoperability
+
+Support explicit Python interop rather than a Python backend: worker protocol
+first for applications, optional embedded CPython adapter for future generated C.
+Keep effects, validation, ownership, interpreter configuration, and dependency
+installation explicit. Python cannot silently establish proofs or enter trusted
+normalization. No Python calls in hard-real-time critical paths. See
+[Python interop](python-interop.md); no Fibril integration exists yet.
+
+## 20. Readiness and immediate open design work
 
 - Write precise guarantees/non-guarantees for total, safe, erased, linear, and real-time.
 - Select the published De Morgan calculus and formalize quantitative interactions.

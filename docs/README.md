@@ -11,6 +11,8 @@ The generated homepage separates teaching chapters, references, and project reco
 
 ## Reference index
 
+- [Python interoperability](python-interop.md): worker and optional embedded CPython architecture.
+
 - [Cumulativity and dependent rewriting](cumulativity-rewriting.md): staged rules, implementation gates, and safeguards.
 
 - [Expression parser/checking](parser.md): implemented source-to-core checking slice.
