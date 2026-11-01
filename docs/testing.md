@@ -191,6 +191,14 @@ byte conversions, location-window creation, source cursor preservation, and both
 command/Plug cleanup paths. Misses, stale/modified buffers, malformed JSON, and a
 partly valid result array must not replace prior location lists.
 
+Rename-preview tests cover local/top-level/do binders, nonrecursive RHS scope,
+polymorphic result annotations, growth/shrinkage and no-op edits, Unicode/CRLF
+preservation, and exact original-source ranges. Negative cases cover capture of
+resolved/unresolved/prelude names, duplicate declarations, entry-point changes,
+invalid/oversized names, and UTF-8 byte-limit crossings. CLI tests apply previews
+only to temporary test strings and assert the command itself never writes source.
+These are deterministic regressions, not a formal alpha-renaming theorem.
+
 ## Hedgehog dependency
 
 Repository: https://github.com/stefan-hoeck/idris2-hedgehog

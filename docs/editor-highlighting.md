@@ -274,7 +274,46 @@ lexical scope service, not type checking or prelude/project reference indexing.
 
 The service accepts unsaved source Strings, but this command reads a bounded
 file. The optional editor adapter below displays these results in a location
-list. There is no rename preview, capture-checking, or source-edit command yet. These ranges alone do not make a rename safe.
+list. These ranges alone do not make a rename safe; the separate conservative
+preview service below checks candidate scope changes.
+
+## Capture-checked rename previews
+
+~~~sh
+./build/exec/fibril rename-preview 12 12 greetingText examples/core/do-result.fib
+~~~
+
+This produces version-1 JSON with edits, each containing an original-source range
+and newText. It **does not write files**. All ranges use the same scalar coordinate
+convention as navigation and refer to the original snapshot. Consumers applying
+offset-based edits must use descending offset order or an equivalent simultaneous
+edit operation; never apply them against an unrelated/stale buffer.
+
+[Source.Rename](../src/Fibril/Source/Rename.idr) exposes the pure previewRename API.
+It selects one same-file lexical target, proposes all of its declaration/use
+edits, reparses the candidate, and compares every original resolved occurrence
+and target after shifting their offsets. The resolved-reference count must also
+stay unchanged, rejecting formerly unresolved/prelude names newly captured by
+the renamed binder. Other shadowed groups are not edited.
+
+The preview rejects malformed source, missing targets, duplicate declarations,
+and changes in lexical resolution. The new name must be an ASCII identifier of
+1..256 characters, not a keyword or underscore wildcard. Top-level main cannot
+be renamed, nor can another top-level declaration be renamed to main; local names
+do not acquire entry-point status. Same-name requests for ordinary bindings
+return an empty edit list.
+
+Both the input and the proposed result must fit 65,536 UTF-8 bytes. Replacement
+length and offset shifting use scalar spans; unchanged Unicode strings/comments
+and CRLF bytes are preserved. Size checks run before constructing an expanded
+candidate. This is a prototype bound, not a time/allocation guarantee.
+
+These checks use the current parser and lexical navigation model. They are not
+a formal rename-correctness proof, type checking, or a project reference index.
+Complete but ill-typed source may receive a preview. Prelude/cross-file targets,
+imports/exports/API compatibility, editor rename UI, file mutation, and
+transactional application against versioned buffers remain unimplemented.
+A fresh preview and review are still required before applying any edits.
 
 ## Navigation from Neovim/Vim
 

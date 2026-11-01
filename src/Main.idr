@@ -23,6 +23,7 @@ Usage:
   fibril --version
   fibril demo       Run built-in ordinary checking and cubical algebra examples
   fibril validate-source PATH   Validate UTF-8 and source controls (not typing)
+  fibril rename-preview LINE COLUMN NEWNAME PATH  Capture-checked same-file edits (no writes)
   fibril references LINE COLUMN PATH  Same-file lexical occurrences, including declarations
   fibril definition LINE COLUMN PATH  Same-file lexical target (scalar coordinates)
   fibril symbols PATH           JSON declaration ranges (syntax only, not checking)
@@ -98,6 +99,7 @@ main = do
         Nothing => do
           putStrLn "Fuel must be decimal 0..4096."
           exitFailure
+    ["rename-preview", line, column, name, path] => runLocationQuery (\row, col, file => renameFile row col name file) line column path
     ["definition", line, column, path] => runLocationQuery definitionFile line column path
     ["references", line, column, path] => runLocationQuery referencesFile line column path
     ["symbols", path] => do

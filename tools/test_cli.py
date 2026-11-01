@@ -193,6 +193,86 @@ class CLITests(unittest.TestCase):
         self.assertEqual(result.stdout, "")
         self.assertIn("use eval", result.stderr)
 
+    def test_rename_preview(self):
+        # ^ marks exactly the sites that may be edited; @ marks the query.
+        accepted = [
+            ('\\(1 ^x : Bool) => @^x', "flag"),
+            ('let (^x : String) = "x 🌍" in (\\(first : String) => \\(1 second : String) => second) ^x @^x', "message"),
+            ('let (1 y : String) = "outer" in let (1 ^x : String) = y in @^x', "y"),
+            ('let (1 ^veryLongName : String) = "🌍" in @^veryLongName', "x"),
+            ('^helper : Bool\n^helper = True\nmain : Bool\nmain = @^helper\n', "renamed"),
+            ('main : IO Unit\nmain = do\n  (1 ^text : String) <- pure String "x"\n  putStrLn @^text\n', "message"),
+            ('main : IO Unit\nmain = do\n  let (^text : String) = "x"\n  putStrLn ^text\n  putStrLn @^text\n', "value"),
+            ('f : (0 A : Type 0) -> IO A\nf = \\(0 ^A : Type 0) => do (@^A)\n  let (A : Bool) = True\n  pure Unit ()\n', "Result"),
+            ('-- λ 🌍\r\nlet (1 ^text : String) = "🌍" in @^text -- text\r\n', "renamed"),
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "rename.fib"
+            for marked, replacement in accepted:
+                with self.subTest(source=marked, replacement=replacement):
+                    chars, sites, cursor = [], [], None
+                    for char in marked:
+                        if char == "^":
+                            sites.append(len(chars))
+                        elif char == "@":
+                            cursor = len(chars)
+                        else:
+                            chars.append(char)
+                    source = "".join(chars)
+                    raw = source.encode("utf-8")
+                    path.write_bytes(raw)
+                    line = source[:cursor].count("\n") + 1
+                    column = cursor - source.rfind("\n", 0, cursor)
+                    result = run("rename-preview", str(line), str(column), replacement, str(path))
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    edits = json.loads(result.stdout)["edits"]
+                    self.assertEqual([edit["range"]["start"]["offset"] for edit in edits], sites)
+                    changed = source
+                    for edit in reversed(edits):
+                        span = edit["range"]
+                        changed = changed[:span["start"]["offset"]] + edit["newText"] + changed[span["end"]["offset"]:]
+                    self.assertEqual(path.read_bytes(), raw, "preview must not write source")
+                    path.write_bytes(changed.encode("utf-8"))
+                    result = run("symbols", str(path))
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            rejected = [
+                ('let (x : Bool) = True in let (y : Bool) = False in x', 1, 6, "y"),
+                ('let (y : Bool) = True in let (x : Bool) = False in y', 1, 31, "y"),
+                ('let (x : String) = "x" in putStrLn x', 1, 6, "putStrLn"),
+                ('let (x : Bool) = True in unknown x', 1, 6, "unknown"),
+                ('helper : Bool\nhelper = True\nother : Bool\nother = helper', 1, 1, "other"),
+                ('main : Bool\nmain = True', 1, 1, "entry"),
+                ('helper : Bool\nhelper = True', 1, 1, "main"),
+                ('missing', 1, 1, "value"),
+            ]
+            for source, line, column, replacement in rejected:
+                with self.subTest(source=source, replacement=replacement):
+                    path.write_text(source, encoding="utf-8")
+                    before = path.read_bytes()
+                    result = run("rename-preview", str(line), str(column), replacement, str(path))
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertEqual(result.stdout, "")
+                    self.assertEqual(path.read_bytes(), before)
+                    if source.startswith("let") or replacement == "other":
+                        self.assertIn("lexical resolution", result.stderr)
+            source = "\\(1 x : Bool) => x"
+            path.write_text(source, encoding="utf-8")
+            for replacement in ("", "_", "Bool", "let", "bad name", "λ", "x" * 257):
+                result = run("rename-preview", "1", "5", replacement, str(path))
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(result.stdout, "")
+            result = run("rename-preview", "1", "5", "x", str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(json.loads(result.stdout)["edits"], [])
+            # Enforce UTF-8 bytes, not scalar counts, on the proposed result.
+            prefix = 'let (1 x : String) = "🌍" in x --'
+            for size, succeeds in ((65534, True), (65535, False)):
+                source = prefix + "a" * (size - len(prefix.encode("utf-8")))
+                path.write_bytes(source.encode("utf-8"))
+                result = run("rename-preview", "1", "8", "xx", str(path))
+                self.assertEqual(result.returncode == 0, succeeds, result.stdout + result.stderr)
+                self.assertEqual(path.stat().st_size, size)
+
     def test_same_file_lexical_references(self):
         # ^ marks every expected site; @ marks the query point.
         fixtures = [

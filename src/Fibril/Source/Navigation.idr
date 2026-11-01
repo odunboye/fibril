@@ -81,8 +81,9 @@ walk tokens env (NLet span q name domain value body) =
 declarations : List Token -> Environment -> List Declaration -> List Reference
 declarations tokens env [] = []
 declarations tokens env (decl :: rest) =
-  [RefersTo decl.nameSpan decl.definitionNameSpan,
-   RefersTo decl.definitionNameSpan decl.definitionNameSpan] ++
+  (if decl.name == "_" then [] else
+    [RefersTo decl.nameSpan decl.definitionNameSpan,
+     RefersTo decl.definitionNameSpan decl.definitionNameSpan]) ++
   walk tokens env decl.expected ++ walk tokens env decl.value ++
   declarations tokens ((decl.name, Just decl.definitionNameSpan) :: env) rest
 
