@@ -10,6 +10,7 @@ import Fibril.Source.Lexer
 public export
 data Expr
   = NRef SourceSpan String
+  | NQualifiedRef SourceSpan String
   | NSort SourceSpan Nat
   | NUnitType SourceSpan
   | NUnitValue SourceSpan
@@ -32,6 +33,7 @@ data Expr
 public export
 extent : Expr -> SourceSpan
 extent (NRef span _) = span
+extent (NQualifiedRef span _) = span
 extent (NSort span _) = span
 extent (NUnitType span) = span
 extent (NUnitValue span) = span
@@ -54,6 +56,7 @@ extent (NLet span _ _ _ _ _) = span
 public export
 withExtent : SourceSpan -> Expr -> Expr
 withExtent span (NRef _ name) = NRef span name
+withExtent span (NQualifiedRef _ name) = NQualifiedRef span name
 withExtent span (NSort _ level) = NSort span level
 withExtent span (NUnitType _) = NUnitType span
 withExtent span (NUnitValue _) = NUnitValue span

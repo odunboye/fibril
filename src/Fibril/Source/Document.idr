@@ -41,11 +41,7 @@ record ParsedDocument where
   body : DocumentBody
 
 component : String -> Bool
-component text = case unpack text of
-  [] => False
-  first :: rest => first >= 'A' && first <= 'Z' &&
-    all (\c => (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
-               (c >= '0' && c <= '9') || c == '_') rest
+component = validModuleComponent
 
 parts : Nat -> Position -> Nat -> List Token ->
         Either ParseError (List String, SourceSpan, List Token)

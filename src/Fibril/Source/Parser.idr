@@ -115,6 +115,37 @@ literalValue token = do
     [] => Right decoded.value
     _ => Left (ParseFailure token.span.start "Malformed string token")
 
+qualifiedAhead : List Token -> Bool
+qualifiedAhead (dot :: _) = dot.kind == Dot
+qualifiedAhead _ = False
+
+-- Prefix components occupy the module namespace; the final value name is an
+-- ordinary identifier. Dots are not general value/member projection.
+qualifiedReference : Nat -> Position -> Token -> Token -> List String -> List Token ->
+            Either ParseError (Expr, List Token)
+qualifiedReference Z end first current segments rest =
+  Left (ParseFailure current.span.start "Qualified name component budget exhausted")
+qualifiedReference (S budget) end first current segments rest =
+  case rest of
+    dot :: next :: remaining =>
+      if dot.kind == Dot then
+        if not (validModuleComponent current.spelling)
+           then Left (ParseFailure current.span.start "Expected uppercase module qualifier")
+        else if dot.span.start.line /= first.span.start.line ||
+                next.span.start.line /= first.span.start.line
+           then Left (ParseFailure dot.span.start "Qualified names must occupy one source line")
+        else qualifiedReference budget end first next (current.spelling :: segments) remaining
+      else finish
+    [dot] => if dot.kind == Dot then Left (ParseFailure end "Expected qualified value name") else finish
+    [] => finish
+  where
+    finish : Either ParseError (Expr, List Token)
+    finish =
+      if current.kind == Name && current.spelling /= "_" && not (null segments)
+         then Right (NQualifiedRef (Between first.span.start current.span.finish)
+                         (concat (intersperse "." (reverse (current.spelling :: segments)))), rest)
+         else Left (ParseFailure current.span.start "Expected qualified value identifier")
+
 data DoStatement = Action Expr | Binding SourceSpan String Expr Expr
                  | LocalBinding SourceSpan Quantity String Expr Expr
 
@@ -302,6 +333,7 @@ mutual
   atom Z end tokens = limit end tokens
   atom (S depth) end [] = Left (ParseFailure end "Expected expression atom")
   atom (S depth) end (token :: rest) =
+    if qualifiedAhead rest then qualifiedReference 17 end token token [] rest else
     case token.kind of
       Name => Right (NRef token.span token.spelling, rest)
       StringToken => do

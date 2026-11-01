@@ -58,7 +58,9 @@ checks =
   , ("putStrLn is an ordinary checked global",
       case preludeGlobals of
         Right globals => case lookupGlobal "putStrLn" globals of
-          Just (Lambda Linear StringType _) => True
+          Just term => case normalize 128 term of
+            Normal (Lambda Linear StringType _) => True
+            _ => False
           _ => False
         Left _ => False)
   , ("IO type preserves level zero",

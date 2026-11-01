@@ -251,6 +251,13 @@ limits, and no execution or partial JSON. UTF-8/quoted root paths and actual byt
 counts exercise the POSIX canonical-path adapter. This is not imported type
 checking or an adversarial-filesystem/sandbox proof.
 
+Qualified-name tests cover keyword module components, component budgets,
+one-line spelling, rejection of member projection/wildcards, and separation from
+local prefix names. Explicit supplied-global tests check linear application,
+upward declared-signature preservation, transparent conversion, and rejection of
+invalid metadata. CLI graph inspection parses qualified bodies without claiming
+checking; ordinary checking still rejects modules or reports unbound qualifiers.
+
 ## Hedgehog dependency
 
 Repository: https://github.com/stefan-hoeck/idris2-hedgehog

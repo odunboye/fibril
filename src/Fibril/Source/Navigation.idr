@@ -49,6 +49,8 @@ walk tokens env (NRef span name) =
   case (nameToken name span tokens, lexicalTarget name env) of
     (Just origin, Just target) => [RefersTo origin target]
     _ => []
+-- Module-qualified targets need the checked project graph, not local-name lookup.
+walk tokens env (NQualifiedRef _ _) = []
 walk tokens env (NSort _ _) = []
 walk tokens env (NUnitType _) = []
 walk tokens env (NUnitValue _) = []

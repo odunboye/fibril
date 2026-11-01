@@ -193,6 +193,33 @@ class CLITests(unittest.TestCase):
         self.assertEqual(result.stdout, "")
         self.assertIn("use eval", result.stderr)
 
+    def test_qualified_reference_syntax(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "Library.fib").write_text(
+                "module Library\nexport\nvalue : String\nvalue = \"data\"\n", encoding="utf-8")
+            entry = root / "Main.fib"
+            entry.write_text(
+                "module Main\nimport Library\nmain : String\nmain = Library.value\n", encoding="utf-8")
+            result = run("module-graph", str(root), str(entry))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertFalse(json.loads(result.stdout)["checked"])
+            result = run("symbols", str(entry))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            result = run("definition", "4", "8", str(entry))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIsNone(json.loads(result.stdout)["definition"])
+            result = run("check", str(entry))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Module checking is not implemented", result.stdout)
+            entry.write_text("Library.value\n", encoding="utf-8")
+            result = run("check", "--json", str(entry))
+            self.assertNotEqual(result.returncode, 0)
+            diagnostic = json.loads(result.stdout)["diagnostics"][0]
+            self.assertEqual(diagnostic["stage"], "resolution")
+            self.assertIn("Library.value", diagnostic["message"])
+            self.assertEqual(diagnostic["position"]["column"], 1)
+
     def test_module_graph_discovery(self):
         with tempfile.TemporaryDirectory(prefix="fibril graph ") as directory:
             base = Path(directory)

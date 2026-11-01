@@ -41,6 +41,10 @@ mutual
            Nothing => Left (Unbound span.start name)
            Just value => Right (rename absurd value)
          Just index => Right (Variable index)
+  resolveInWith globals env (NQualifiedRef span name) =
+    case lookupGlobal name globals of
+      Nothing => Left (Unbound span.start name)
+      Just value => Right (rename absurd value)
   resolveInWith globals env (NSort span level) = Right (Universe level)
   resolveInWith globals env (NUnitType span) = Right UnitType
   resolveInWith globals env (NUnitValue span) = Right UnitValue

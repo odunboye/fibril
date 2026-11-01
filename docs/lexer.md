@@ -32,7 +32,7 @@ Errors exit nonzero. Token output is diagnostic text, not a machine protocol.
 | Function arrow | -> or → |
 | Body arrow | => or ⇒ |
 | IO result binding | <- |
-| Module-name separator | . (header metadata only; no value projection yet) |
+| Module-name separator | . (module headers/qualified references; not value projection) |
 
 Unicode notation aliases share a token category but retain original spelling.
 No global rewriting occurs. Unsupported characters fail explicitly.

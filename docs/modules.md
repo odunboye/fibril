@@ -1,8 +1,8 @@
 # First local module/import implementation contract
 
 Status: shared **syntax/metadata parsing** and **read-only POSIX dependency
-discovery** are implemented. **Qualified value references, imported checking,
-source-dir flags, semantic visibility rules, and executable multi-file support
+discovery** are implemented, alongside qualified syntax/explicit-global lookup.
+**Imported checking, source-dir flags, semantic visibility rules, and executable multi-file support
 remain unimplemented.** check/eval/run explicitly reject module/import documents
 rather than treating headers as ignored metadata.
 
@@ -29,16 +29,38 @@ the modifier, but its selection remains the actual name token. symbols JSON now
 adds an exported Boolean indicating the parsed marker, not checked accessibility.
 
 Local declarations/parameters can be inspected with symbols/definition/references
-in a module document whose body uses the existing expression grammar. Imported/
-qualified targets are not resolved. Rename previews reject all module/import
-documents until project-aware scope/interface checks exist. The new reserved
-words are module, import, and export; dots currently belong to header names, not
-value projection or qualified value expressions.
+in a module document whose body uses the existing expression grammar. Imported/qualified targets are not resolved by same-file navigation. Rename previews reject all module/import
+documents until project-aware scope/interface checks exist. The new reserved words are module, import, and export; dots separate module
+qualifiers, not value/member projections.
 
 These services do not validate module/file identity, load dependencies, type-check
-modules, enforce private access, or accept the qualified call in the full proposed
-example below. The existing headerless program path still uses ordinary core
+modules, enforce private access, or check the imported call in the full proposed example below. The existing headerless program path still uses ordinary core
 checking and retains its regression suite.
+
+## Qualified references and declared signatures
+
+The expression parser now accepts full module-qualified names such as
+Text.Greeting.greet. Prefix components follow the same uppercase ASCII rule as
+module headers (including keyword components such as String); the final value is
+an ordinary identifier, not a keyword or underscore wildcard. Names occupy one
+physical line and have at most 16 module components plus the value name.
+
+A qualified reference is a distinct AST form, not value projection or a string
+looked up among local variables. A local value named Text cannot capture
+Text.Greeting.greet. The explicit-global resolver can resolve such a reference
+when its full name is supplied; it does not discover imports automatically.
+
+Every global lookup, including prelude lookup, now enforces its declared type
+with the checked identity ascription described below. A synthetic erased-mode
+upward-universe regression demonstrates that inference returns the declared
+signature rather than the narrower raw value type. Invalid supplied metadata
+still fails core checking; global records are not axioms.
+
+This prepares the import-binding boundary. No filesystem export table is yet
+installed into check/eval/run; those commands still reject module/import
+documents. Same-file navigation does not misidentify qualified names as local
+variables and returns no cross-file target. Project-aware imported checking,
+privacy enforcement, expansion admission, and diagnostics are still required.
 
 ## Dependency discovery is now inspectable
 
@@ -63,8 +85,8 @@ or exported declarations can be ill typed here: no interface is installed and no
 Fibril expression or IO description is executed.
 
 The diamond-shaped [graph fixture](../examples/modules/graph/Main.fib) demonstrates
-reusing Shared through Left and Right. Its imports deliberately are not used as
-qualified value expressions yet; that grammar/checking phase is still pending.
+reusing Shared through Left and Right. Its imports deliberately are not used for execution yet; qualified syntax now
+parses, but imported checking is still pending.
 The existing check/eval/run commands do not invoke this discovery service.
 
 Canonical paths use POSIX realpath through a small
@@ -177,10 +199,10 @@ inert descriptions; only the checked entry's run path can execute a plan.
 
 ## Declared types and conversion are separate obligations
 
-The current prelude resolver embeds closed values. A module loader must **not**
-blindly treat that as a complete interface system. In particular, checking a value
-against a declared type and then inferring the raw inlined value at a use site
-can expose a narrower type than the published signature.
+Global resolution now embeds closed values through checked ascriptions. The prior
+raw-value lookup could expose a narrower inferred type than a published signature.
+The new lookup fixes that boundary, but is **not** a complete interface system:
+the module loader still must check every definition before installing it.
 
 For the first closed-global implementation, imported occurrences must enforce
 the declared type using the existing checked-ascription elaboration:

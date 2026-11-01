@@ -5,7 +5,7 @@ Implemented:
 - `src/Fibril/Source/Diagnostic.idr`: bounded, escaped scalar-point excerpts; no invented core spans or LSP coordinates.
 - `src/Fibril/Source/Syntax.idr`: named expression AST with spans.
 - `src/Fibril/Source/StringLiteral.idr`: shared quoted-data decoding for ordinary String atoms and console literals; retains spelling/escapes and located failures.
-- `src/Fibril/Source/Global.idr`: closed definitions and lexical/global resolution.
+- `src/Fibril/Source/Global.idr`: closed definitions and declared-signature-preserving lookup through checked ascriptions.
 - `src/Fibril/Source/Primitive.idr`: small IO primitive boundary, without putStrLn.
 - `src/Fibril/Driver/Prelude.idr`: parse/core-check bundled library definitions.
 - `stdlib/Prelude.fib`: actual Fibril putStrLn/pure/bind definitions.

@@ -116,6 +116,15 @@ digit c = c >= '0' && c <= '9'
 nameStart : Char -> Bool
 nameStart c = asciiLetter c || c == '_'
 
+||| Shared module-qualifier spelling; keywords such as String are valid components.
+public export
+validModuleComponent : String -> Bool
+validModuleComponent text = case unpack text of
+  [] => False
+  first :: rest => first >= 'A' && first <= 'Z' &&
+    all (\c => (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+               (c >= '0' && c <= '9') || c == '_') rest
+
 nameRest : Char -> Bool
 nameRest c = nameStart c || digit c || c == '\''
 

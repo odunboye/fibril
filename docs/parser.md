@@ -39,9 +39,14 @@ This checks source; it does not compile or run a Fibril executable.
     binder      ::= "(" [quantity] name ":" expr ")"
     quantity    ::= "0" | "1"
     application ::= atom { atom }
-    atom        ::= name | "Type" digits | "Unit" | "(" ")"
+    atom        ::= name | qualifiedName | "Type" digits | "Unit" | "(" ")"
                   | "Bool" | "True" | "False" | "String" | quotedString
                   | "(" expr ")" | "(" expr ":" expr ")"
+
+qualifiedName uses uppercase module components separated by dots, followed by an
+ordinary value identifier, for example Text.String.identity. It is not member
+projection; it requires one source line and at most 16 module components. Explicit
+global environments can resolve it, but imported checking is not wired yet.
 
 Omitted quantity means unrestricted. Universe levels require 1..6 decimal digits.
 Lambda and both arrows have the [lexer's Unicode aliases](lexer.md).
@@ -188,7 +193,8 @@ headers, import lists, and export markers around the existing body parsers.
 See [module parsing progress](modules.md#parsing-progress) for accepted metadata
 syntax and its limits. Checking, symbols, and local navigation share this parser.
 A separate read-only module-graph command can discover dependencies; imported
-checking and qualified value references are not implemented;
+checking is not implemented; qualified reference syntax and explicit-environment
+resolution are available;
 check/eval/run reject these documents explicitly. Headerless programs keep their
 existing expression/declaration behavior. Export markers require a named module.
 
