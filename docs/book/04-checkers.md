@@ -53,6 +53,14 @@ Infer the function, normalize its type to expose Pi, check the argument's inferr
 type against the domain, then substitute the argument into the codomain.
 No admitted holes or arbitrary axioms fill failed obligations.
 
+## State the expected type in source
+
+Use `(expression : expectedType)` to make an obligation explicit. The
+[annotated identity example](../../examples/core/identity-annotated.fib) checks
+a polymorphic function against its dependent Pi type. The resolver inserts a
+linear identity application, so existing checking enforces the obligation without
+an unchecked cast or a new kernel rule. See [ascriptions](../parser.md#explicit-type-ascriptions).
+
 ## Add runtime accounting
 
 [Runtime](../../src/Fibril/Core/Runtime.idr) reuses erased typing, then runs a

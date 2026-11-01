@@ -36,7 +36,8 @@ or compiled program. `identity-unicode.fib` checks the same expression using
 `universe-lift.fib` exercises upward literal-universe compatibility.
 `evaluate-identity.fib` runs through checked reference evaluation with `fibril eval`.
 `make examples` checks the four checking examples and evaluates this fifth source
-example as well as running the Idris project.
+example as well as running the Idris project. It also checks
+`identity-annotated.fib`, which states an explicit dependent type using an ascription.
 
 ## Proposed Fibril programs
 

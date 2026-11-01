@@ -50,6 +50,11 @@ Fuel bounds beta steps only. Step discovery, substitution, full annotation
 normalization, and rechecking may use substantial time/memory. This is not a
 sandbox, a service-level timeout, or hard-real-time execution.
 
+Source type ascriptions elaborate to linear identity applications. They therefore
+consume beta fuel and are checked before reduction, rather than being dropped as
+unverified annotations. Tests confirm an ascribed identity reduces to the same
+normal form.
+
 ## Current boundaries
 
 - Only closed ordinary expressions are supported.

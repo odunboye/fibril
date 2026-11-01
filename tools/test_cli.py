@@ -125,6 +125,17 @@ class CLITests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("Parsing:", result.stdout)
 
+    def test_source_ascription(self):
+        result = run("check", "examples/core/identity-annotated.fib")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("(Pi 0 Type0 (Pi 1 v0 v1))", result.stdout)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "ascription.fib"
+            path.write_text("(Type 0 : Type 0)", encoding="utf-8")
+            result = run("check", "--erased", str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("not compatible", result.stdout)
+
     def test_checked_reference_evaluation(self):
         path = "examples/core/evaluate-identity.fib"
         result = run("eval", path)

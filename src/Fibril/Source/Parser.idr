@@ -30,9 +30,27 @@ expect kind end (token :: rest) =
   if token.kind == kind then Right (token, rest)
      else Left (ParseFailure token.span.start ("Expected " ++ show kind ++ ", found " ++ show token.kind))
 
+-- A binder-looking group is a Pi only when its matching close is followed by
+-- an arrow. Otherwise (name : type) is an ordinary expression ascription.
+groupArrow : Nat -> List Token -> Bool
+groupArrow depth [] = False
+groupArrow depth (token :: rest) =
+  case token.kind of
+    OpenParen => groupArrow (S depth) rest
+    CloseParen =>
+      case depth of
+        Z => False
+        S Z => case rest of
+          next :: _ => next.kind == Arrow
+          [] => False
+        S remaining => groupArrow remaining rest
+    _ => groupArrow depth rest
+
 binderAhead : List Token -> Bool
-binderAhead (Located OpenParen _ _ :: Located Name _ _ :: Located Colon _ _ :: _) = True
-binderAhead (Located OpenParen _ _ :: Located Number _ _ :: Located Name _ _ :: Located Colon _ _ :: _) = True
+binderAhead (Located OpenParen _ _ :: rest@(Located Name _ _ :: Located Colon _ _ :: _)) =
+  groupArrow 1 rest
+binderAhead (Located OpenParen _ _ :: rest@(Located Number _ _ :: Located Name _ _ :: Located Colon _ _ :: _)) =
+  groupArrow 1 rest
 binderAhead _ = False
 
 startsAtom : TokenKind -> Bool
@@ -142,8 +160,16 @@ mutual
         Right (NSort (Between token.span.start level.span.finish) value, remaining)
       OpenParen => do
         (inner, afterInner) <- expression depth end rest
-        (closing, remaining) <- expect CloseParen end afterInner
-        Right (withExtent (Between token.span.start closing.span.finish) inner, remaining)
+        case afterInner of
+          colon :: afterColon =>
+            if colon.kind == Colon then do
+              (expected, afterType) <- expression depth end afterColon
+              (closing, remaining) <- expect CloseParen end afterType
+              Right (NAscribe (Between token.span.start closing.span.finish) inner expected, remaining)
+            else do
+              (closing, remaining) <- expect CloseParen end afterInner
+              Right (withExtent (Between token.span.start closing.span.finish) inner, remaining)
+          [] => Left (ParseFailure end "Expected )")
       _ => Left (ParseFailure token.span.start "Expected name, Type LEVEL, or grouped expression")
 
 ||| Parse one complete token stream; trailing tokens are errors.

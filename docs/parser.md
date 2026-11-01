@@ -31,7 +31,7 @@ This checks source; it does not compile or run a Fibril executable.
     binder      ::= "(" [quantity] name ":" expr ")"
     quantity    ::= "0" | "1"
     application ::= atom { atom }
-    atom        ::= name | "Type" digits | "(" expr ")"
+    atom        ::= name | "Type" digits | "(" expr ")" | "(" expr ":" expr ")"
 
 Omitted quantity means unrestricted. Universe levels require 1..6 decimal digits.
 Lambda and both arrows have the [lexer's Unicode aliases](lexer.md).
@@ -44,6 +44,37 @@ Underscore is a wildcard, never a referenceable name.
 
 This grammar is an explicitly annotated stepping stone, not a final syntax
 promise or an indentation-based declaration implementation.
+
+## Explicit type ascriptions
+
+Parenthesized (expression : expectedType) checks against an explicit type. The
+[annotated identity](../examples/core/identity-annotated.fib) states its complete
+dependent function type:
+
+```text
+(\(0 A : Type 0) => \(1 x : A) => x
+  : (0 A : Type 0) -> (1 x : A) -> A)
+```
+
+Resolution elaborates an ascription into an application of a linear identity:
+
+    (term : expected)  ~~>  (lambda (1 x : expected). x) term
+
+This uses existing domain formation, argument compatibility, and runtime usage
+rules. There is no unchecked cast or new core constructor. The synthetic binder
+uses its argument exactly once and captures no resources from the term itself.
+Expected types are resolved in the original environment, outside that binder.
+
+A successful ascription reports the expected type, including permitted upward
+literal-universe compatibility. Quantities and Pi structure do not silently coerce.
+The extra identity application is an actual beta redex in reference evaluation;
+it consumes fuel. No backend optimization/erasure is implied.
+
+A group shaped (name : type) immediately followed by -> is a dependent Pi binder.
+For an ascribed expression as an anonymous arrow domain, add another pair of
+parentheses: ((expression : type)) -> result. Matching-parenthesis lookahead
+disambiguates these cases; it is bounded by the input, not a claimed optimized
+incremental parsing strategy.
 
 ## Separate representations and passes
 
@@ -83,7 +114,9 @@ implicit conversion, declaration axiom, or global-name fallback.
 
 [Tests.Frontend](../test/src/Tests/Frontend.idr) covers quantities, Unicode aliases,
 application/arrow associativity, shadowing, domain scope, wildcard references,
-trailing tokens, numeric bounds, EOF positions, parser exhaustion, and checking.
+trailing tokens, numeric bounds, EOF positions, parser exhaustion, ascriptions,
+and checking. Ascription tests cover dependent scopes, universe compatibility,
+invalid expected types, quantity disagreement, and erased extraction.
 CLI tests check actual files and explicit erased-mode behavior.
 
 The initial parser is total through a decreasing recursion budget. It is not an

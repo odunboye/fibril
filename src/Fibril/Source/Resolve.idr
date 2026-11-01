@@ -4,6 +4,7 @@ module Fibril.Source.Resolve
 import Data.Fin
 import Data.Vect
 import Fibril.Core.Term
+import Fibril.Core.Quantity
 import Fibril.Source.Text
 import Fibril.Source.Lexer
 import Fibril.Source.Syntax
@@ -47,6 +48,12 @@ resolveIn env (NLambda span q name domain body) = do
   Right (Lambda q domain body)
 resolveIn env (NApply span function argument) =
   [| Apply (resolveIn env function) (resolveIn env argument) |]
+-- Checking an identity application enforces the expected domain using existing
+-- typing/compatibility rules. Linear use preserves the term's runtime usage.
+resolveIn env (NAscribe span term expected) = do
+  term <- resolveIn env term
+  ty <- resolveIn env expected
+  Right (Apply (Lambda Linear ty (Variable FZ)) term)
 
 ||| Resolve a closed expression; no global definitions/imports exist yet.
 public export

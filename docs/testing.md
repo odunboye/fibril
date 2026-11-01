@@ -26,7 +26,7 @@ Python's strict decoder; neither suite establishes full decoder correctness.
 
 [Tests.Frontend](../test/src/Tests/Frontend.idr) now checks expression parsing,
 name resolution, associativity, shadowing/domain scope, budgets, source extents,
-and erased/runtime integration. `make examples` checks ASCII/Unicode identity
+ascriptions, and erased/runtime integration. `make examples` checks ASCII/Unicode identity
 sources and an erased type expression. These are ordinary expressions, not full
 module/elaboration or cubical-source coverage.
 

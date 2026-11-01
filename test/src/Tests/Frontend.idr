@@ -33,7 +33,29 @@ accepted mode source =
 public export
 checks : List (String, Bool)
 checks =
-  [ ("frontend universe", resolves "Type 2" "Type2")
+  [ ("ascription ordinary variable",
+      resolves "\\(0 A : Type 0) => \\(1 x : A) => (x : A)"
+      "(Lam 0 Type0 (Lam 1 v0 ((Lam 1 v1 v0) @ v0)))")
+  , ("ascription universe lift", accepted True "(Type 0 : Type 2)")
+  , ("ascription does not allow downward universe",
+      not (accepted True "(Type 0 : Type 0)"))
+  , ("ascription nested", accepted True "((Type 0 : Type 2) : Type 3)")
+  , ("ascription cannot make illformed expected type valid",
+      not (accepted True "(Type 0 : Type 0 Type 0)"))
+  , ("ascription checks supplied function type",
+      accepted False
+        "(\\(0 A : Type 0) => \\(1 x : A) => x : (0 A : Type 0) -> (1 x : A) -> A)")
+  , ("ascription rejects wrong quantity",
+      not (accepted False
+        "(\\(0 A : Type 0) => \\(1 x : A) => x : (0 A : Type 0) -> (0 x : A) -> A)"))
+  , ("ascription does not hide erased extraction",
+      not (accepted False "\\(0 A : Type 0) => \\(0 x : A) => (x : A)"))
+  , ("ascription arrow disambiguation",
+      resolves "\\(0 A : Type 0) => \\(1 x : A) => ((x : A)) -> A"
+      "(Lam 0 Type0 (Lam 1 v0 (Pi unrestricted ((Lam 1 v1 v0) @ v0) v2)))")
+  , ("ascription missing type", fails "(Type 0 :)")
+  , ("ascription missing close", fails "(Type 0 : Type 2")
+  , ("frontend universe", resolves "Type 2" "Type2")
   , ("frontend grouping", resolves "((Type 0))" "Type0")
   , ("frontend polymorphic identity",
       resolves "\\(0 A : Type 0) => \\(1 x : A) => x"
