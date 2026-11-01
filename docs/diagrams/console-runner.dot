@@ -3,10 +3,11 @@ digraph ConsoleRunner {
   node [shape=box];
   source [label="Bounded validated source"];
   lexer [label="Shared lexer\nstrings + escapes"];
-  profile [label="Complete console-entry validation"];
+  profile [label="Complete console syntax / layout"];
+  planning [label="All String arguments\nresolve / check / reduce / recheck"];
   action [label="Complete list of PrintLine requests"];
   host [label="Host stdout adapter\nordered, stop on represented error"];
   core [label="Ordinary core checking / normalization"];
-  source -> lexer -> profile -> action -> host;
+  source -> lexer -> profile -> planning -> action -> host;
   lexer -> core [label="ordinary source only"];
 }

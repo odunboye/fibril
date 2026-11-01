@@ -16,6 +16,8 @@ import Fibril.Core.Context
 import Fibril.Core.Pretty
 import Fibril.Core.Erased
 import Fibril.Core.Runtime
+import Fibril.Driver.Console
+import Fibril.Effect.Console
 
 %default total
 
@@ -40,6 +42,7 @@ data DriverError
   | PostReductionFailure RuntimeError
   | EffectfulEvaluation
   | ErasedConsole
+  | ConsoleFailure ConsoleArgumentError
 
 public export
 Show DriverError where
@@ -50,6 +53,7 @@ Show DriverError where
   show (PostReductionFailure err) = "Post-reduction checking failed: " ++ show err
   show EffectfulEvaluation = "Console IO requires fibril run; reference evaluation does not execute effects"
   show ErasedConsole = "Console IO entries are not ordinary erased proofs"
+  show (ConsoleFailure err) = show err
 
 frontendPoint : FrontendError -> Maybe Diagnostic
 frontendPoint (Parsing err) = Just (AtPoint err.position ("Parsing: " ++ err.message))
@@ -70,14 +74,20 @@ renderDriverError path source (FrontendFailure err) =
   case frontendPoint err of
     Just diagnostic => renderDiagnostic path source diagnostic
     Nothing => renderFileError path (show err)
+renderDriverError path source (ConsoleFailure err) =
+  case err.cause of
+    ArgumentResolution problem => renderDiagnostic path source
+      (AtPoint problem.position ("Resolution: Unbound name " ++ show problem.name))
+    _ => renderFileError path (show err)
 renderDriverError path source err = renderFileError path (show err)
 
-||| Separate console action data from ordinary core terms; neither is a certificate.
+||| Keep parsed console expressions separate from ordinary core programs.
+||| Source preparation does not certify console arguments or produce IO terms.
 public export
 data SourceProgram = CoreSource (Term 0) | ConsoleSource ConsoleEntry
 
-||| Load-independent validation. Console entries are a restricted separate profile,
-||| never an IO term or axiom inserted into trusted ordinary checking.
+||| Load-independent frontend preparation. Console entries retain unchecked
+||| argument expressions; pure console planning is a separate required stage.
 public export
 prepareSource : String -> Either FrontendError SourceProgram
 prepareSource source = do
@@ -147,10 +157,12 @@ checkSourceDetailed erasedOnly source = do
     Left err => Left (FrontendFailure err)
     Right prepared => Right prepared
   case prepared of
-    ConsoleSource _ =>
+    ConsoleSource entry =>
       if erasedOnly then Left ErasedConsole
-         else Right ["Console entry checking: accepted (restricted profile, not ordinary core checking)",
-                     "Type: IO Unit"]
+         else case prepareConsole 128 entry of
+           Left err => Left (ConsoleFailure err)
+           Right _ => Right ["Console entry checking: accepted (restricted profile; pure String arguments core-checked)",
+                             "Type: IO Unit"]
     CoreSource term =>
       if erasedOnly
          then case inferErased 256 128 Empty term of

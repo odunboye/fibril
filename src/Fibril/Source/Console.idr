@@ -1,7 +1,8 @@
--- Validate the entire restricted main : IO Unit console entry before execution.
+-- Parse the complete restricted console entry; arguments are checked separately.
 module Fibril.Source.Console
 
-import Fibril.Effect.Console
+import Data.List
+import Fibril.Source.Syntax
 import Fibril.Source.Text
 import Fibril.Source.Lexer
 import Fibril.Source.Parser
@@ -13,13 +14,13 @@ public export
 maximumConsoleActions : Nat
 maximumConsoleActions = 64
 
+||| Unchecked source expressions, not executable actions or typing certificates.
 public export
 record ConsoleEntry where
   constructor ConsoleMain
   span : SourceSpan
-  actions : List ConsoleAction
+  arguments : List Expr
 
-||| Only a leading explicit IO signature selects this separate console profile.
 public export
 consoleAhead : List Token -> Bool
 consoleAhead (Located Name _ _ :: Located Colon _ _ :: Located Name name _ :: _) =
@@ -35,22 +36,25 @@ named name end tokens = do
 record ParsedAction where
   constructor Parsed
   span : SourceSpan
-  literalStart : Position
-  action : ConsoleAction
+  argument : Expr
   remaining : List Token
 
-parseAction : Position -> List Token -> Either ParseError ParsedAction
-parseAction end tokens = do
-  (primitive, rest) <- named "putStrLn" end tokens
-  (literal, rest) <- expect StringToken end rest
-  value <- literalValue literal
-  Right (Parsed (Between primitive.span.start literal.span.finish)
-                literal.span.start (PrintLine value) rest)
+tokenEnd : Position -> List Token -> Position
+tokenEnd fallback [] = fallback
+tokenEnd fallback (token :: rest) = tokenEnd token.span.finish rest
 
--- Every source action is a whole physical line at the first action's column.
--- Explicit budget recursion bounds actions independently of the file-byte cap.
+parseAction : Bool -> Position -> List Token -> Either ParseError ParsedAction
+parseAction oneLine end tokens = do
+  (primitive, afterPrimitive) <- named "putStrLn" end tokens
+  let chunks : (List Token, List Token) =
+        if oneLine then Data.List.span (\token => token.span.start.line == primitive.span.start.line) afterPrimitive
+                   else (afterPrimitive, [])
+  let (argumentTokens, remaining) = chunks
+  argument <- parseExpression 256 (tokenEnd primitive.span.finish argumentTokens) argumentTokens
+  Right (Parsed (Between primitive.span.start (extent argument).finish) argument remaining)
+
 parseActions : Nat -> Position -> Nat -> Nat -> Position -> List Token ->
-               Either ParseError (List ConsoleAction, Position)
+               Either ParseError (List Expr, Position)
 parseActions budget end column previous finish [] = Right ([], finish)
 parseActions Z end column previous finish (token :: _) =
   Left (ParseFailure token.span.start "Console action count budget exhausted")
@@ -59,16 +63,13 @@ parseActions (S budget) end column previous finish tokens@(token :: _) = do
      then Left (ParseFailure token.span.start
                 "Console actions must occupy separate equally indented lines")
      else Right ()
-  parsed <- parseAction end tokens
-  if parsed.span.start.line /= parsed.span.finish.line
-     then Left (ParseFailure parsed.span.start "A do-block print must fit on one source line")
-     else Right ()
+  parsed <- parseAction True end tokens
   (rest, final) <- parseActions budget end column parsed.span.finish.line
                                parsed.span.finish parsed.remaining
-  Right (parsed.action :: rest, final)
+  Right (parsed.argument :: rest, final)
 
 parseBody : Nat -> Position -> Token -> List Token ->
-            Either ParseError (List ConsoleAction, Position)
+            Either ParseError (List Expr, Position)
 parseBody budget end definition (doToken :: rest) =
   if doToken.kind == Name && doToken.spelling == "do"
      then do
@@ -88,18 +89,16 @@ parseBody budget end definition (doToken :: rest) =
      else case budget of
        Z => Left (ParseFailure doToken.span.start "Console action count budget exhausted")
        S _ => do
-         parsed <- parseAction end (doToken :: rest)
-         if (parsed.span.start.line > definition.span.start.line && parsed.span.start.column == 1) ||
-            (parsed.literalStart.line > definition.span.start.line && parsed.literalStart.column == 1)
-            then Left (ParseFailure parsed.span.start "Console continuation lines must be indented")
+         if not (all (\token => token.span.start.line == definition.span.start.line ||
+                                token.span.start.column > 1) (doToken :: rest))
+            then Left (ParseFailure doToken.span.start "Console continuation lines must be indented")
             else Right ()
-         case parsed.remaining of
-           extra :: _ => Left (ParseFailure extra.span.start "Unexpected tokens after console entry")
-           [] => Right ([parsed.action], parsed.span.finish)
+         parsed <- parseAction False end (doToken :: rest)
+         Right ([parsed.argument], parsed.span.finish)
 parseBody budget end definition [] = Left (ParseFailure end "Expected console action")
 
-||| Restricted literal printing, optionally in a nonempty flat do block.
-||| Complete validation precedes execution; no variables, bind, or general IO.
+||| Parse ordinary arguments, optionally in a bounded nonempty flat do block.
+||| Syntax only: the driver must check and prepare all arguments before executing.
 public export
 parseConsoleWithBudget : Nat -> Position -> List Token -> Either ParseError ConsoleEntry
 parseConsoleWithBudget budget end tokens = do
@@ -117,8 +116,8 @@ parseConsoleWithBudget budget end tokens = do
      equals.span.start.line /= definition.span.start.line
      then Left (ParseFailure definition.span.start "Console definition requires its own column-one main = header")
      else Right ()
-  (actions, finish) <- parseBody budget end definition rest
-  Right (ConsoleMain (Between mainName.span.start finish) actions)
+  (arguments, finish) <- parseBody budget end definition rest
+  Right (ConsoleMain (Between mainName.span.start finish) arguments)
 
 public export
 parseConsole : Position -> List Token -> Either ParseError ConsoleEntry

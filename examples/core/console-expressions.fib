@@ -1,0 +1,6 @@
+-- Pure arguments are all checked and reduced before the first print.
+main : IO Unit
+main = do
+  putStrLn ((\(1 text : String) => text) "Hello from a pure function!")
+  putStrLn (if False then "not selected" else "String computation works.")
+  putStrLn (let (1 greeting : String) = "Local bindings work too." in greeting)

@@ -129,6 +129,12 @@ Structural/erased generators include both String constructors; binding theorem
 witnesses now include them. A new closed-String runtime recipe checks expected
 literal normal forms without checker filtering. Console isolation tests remain.
 
+[Tests.ConsoleArguments](../test/src/Tests/ConsoleArguments.idr) checks the pure
+console planning boundary: closed String applications/lets/conditionals,
+normalization exhaustion, and rejection before reduction can hide type/resource
+violations. CLI late-argument failures must leave stdout empty; name errors keep
+real source carets while core errors stay unlocated at the subterm level.
+
 ## Hedgehog dependency
 
 Repository: https://github.com/stefan-hoeck/idris2-hedgehog

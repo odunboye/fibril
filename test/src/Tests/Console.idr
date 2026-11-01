@@ -8,6 +8,8 @@ import Fibril.Source.Text
 import Fibril.Source.Lexer
 import Fibril.Source.StringLiteral
 import Fibril.Driver.Check
+import Fibril.Driver.Console
+import Fibril.Source.Syntax
 import Fibril.Driver.Evaluate
 
 %default total
@@ -16,7 +18,7 @@ hello : String
 hello = "main : IO Unit\nmain = putStrLn \"Hello, world!\""
 
 rejects : String -> Bool
-rejects source = case prepareSource source of
+rejects source = case checkSource False source of
   Left _ => True
   Right _ => False
 
@@ -25,14 +27,14 @@ checks : List (String, Bool)
 checks =
   [ ("console hello produces action data",
       case prepareSource hello of
-        Right (ConsoleSource entry) => case entry.actions of
-          [PrintLine value] => value == "Hello, world!"
+        Right (ConsoleSource entry) => case prepareConsole 128 entry of
+          Right [PrintLine value] => value == "Hello, world!"
           _ => False
         _ => False)
   , ("console check is explicitly separate profile",
       case checkSource False hello of
         Right lines => elem "Type: IO Unit" lines &&
-          elem "Console entry checking: accepted (restricted profile, not ordinary core checking)" lines
+          elem "Console entry checking: accepted (restricted profile; pure String arguments core-checked)" lines
         Left _ => False)
   , ("console cannot be checked as an erased proof",
       case checkSourceDetailed True hello of
@@ -66,8 +68,8 @@ checks =
       rejects "main : IO Unit main = putStrLn \"message\"")
   , ("console multiline body with comments",
       case prepareSource "-- entry\r\nmain : IO Unit\r\nmain =\r\n  putStrLn \"λ 🌍 -- text\" -- done\r\n" of
-        Right (ConsoleSource entry) => case entry.actions of
-          [PrintLine value] => value == "λ 🌍 -- text"
+        Right (ConsoleSource entry) => case prepareConsole 128 entry of
+          Right [PrintLine value] => value == "λ 🌍 -- text"
           _ => False
         _ => False)
   , ("console no raw unindented body",
@@ -88,8 +90,8 @@ checks =
         Left _ => False)
   , ("strings empty literal allowed",
       case prepareSource "main : IO Unit\nmain = putStrLn \"\"" of
-        Right (ConsoleSource entry) => case entry.actions of
-          [PrintLine value] => value == ""
+        Right (ConsoleSource entry) => case prepareConsole 128 entry of
+          Right [PrintLine value] => value == ""
           _ => False
         _ => False)
   , ("strings unknown escape is located",

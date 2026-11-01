@@ -71,11 +71,12 @@ introduce implicit quantity coercions, dropping, borrowing, or allocation bounds
 
 ## Relationship to console IO
 
-Console literal printing remains supported, and its parser now shares
-Parser.literalValue with the ordinary parser. Its action data still does not
-contain a core IO term. Pure String values do not make arbitrary core expressions
-valid console arguments: printing variables, calling a pure helper from a do
-block, and general effect composition remain future design/implementation work.
+Console arguments now use ordinary expression parsing and a separate pure
+planning stage. Closed String expressions, including local let/lambda bindings
+and applications, can be checked/reduced before becoming PrintLine requests.
+Its action data still does not contain a core IO term. File-level helpers,
+shared bindings between actions, and general effect composition remain future
+work; see [console arguments](console-runner.md#compute-a-string-argument).
 
 There is no concatenation, length/index operation, interpolation, runtime input,
 native/web representation, memory-management contract, or string FFI yet.

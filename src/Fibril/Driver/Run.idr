@@ -8,6 +8,7 @@ import Fibril.Source.Diagnostic
 import Fibril.Effect.Console
 import Fibril.Runtime.Console
 import Fibril.Driver.Check
+import Fibril.Driver.Console
 
 %default total
 
@@ -24,8 +25,11 @@ runFile path = do
         Left err => pure (Left (renderDriverError path source (FrontendFailure err)))
         Right (CoreSource _) => pure (Left (renderFileError path
           "run currently requires a main : IO Unit console entry; use eval for ordinary programs"))
-        Right (ConsoleSource entry) => do
-          result <- executeConsoleActions entry.actions
-          pure $ case result of
-            Left err => Left (renderFileError path err)
-            Right () => Right ()
+        Right (ConsoleSource entry) =>
+          case prepareConsole 128 entry of
+            Left err => pure (Left (renderDriverError path source (ConsoleFailure err)))
+            Right actions => do
+              result <- executeConsoleActions actions
+              pure $ case result of
+                Left err => Left (renderFileError path err)
+                Right () => Right ()

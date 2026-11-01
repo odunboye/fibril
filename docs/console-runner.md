@@ -28,25 +28,54 @@ foreign code.
 ## The supported profile
 
 The entire file must be one explicit main : IO Unit signature and matching
-definition. Its body is either one putStrLn STRING call or a nonempty flat do
-block of those calls. Both headers start in column one on separate lines. The
+definition. Its body is either one putStrLn EXPRESSION call or a nonempty flat
+do block of those calls. Every argument must be a closed ordinary expression
+that checks as String and normalizes to a literal. Both headers start in column one on separate lines. The
 signature is on one line; the body may continue on indented lines. Whitespace
 and line comments are supported.
 
-There are no helper declarations, aliases, variables as print arguments, arbitrary
-applications, parentheses around arguments, bind/result extraction, callbacks,
-imports, argument parsing, or other console primitives. IO, do, and putStrLn have
+Arguments support ordinary applications, local let/lambda bindings, conditionals,
+and parentheses. There are still no file-level helper declarations/aliases,
+statement-level bindings, bind/result extraction, callbacks, imports, process
+argument parsing, or other console primitives. IO, do, and putStrLn have
 profile-specific meaning, not general core or monadic functionality.
 
 check validates this complete grammar and reports:
 
-    Console entry checking: accepted (restricted profile, not ordinary core checking)
+    Console entry checking: accepted (restricted profile; pure String arguments core-checked)
     Type: IO Unit
 
-This is structural validation of a fixed primitive signature and literal argument,
-not ordinary core typing or a quantitative effect-system proof. No action occurs
+The IO wrapper has a fixed validated signature, not a general effect-system
+judgment. Its pure arguments now undergo ordinary core typing/resource checking,
+normalization, and post-reduction checking before action data is produced. No action occurs
 during check. check --erased rejects the profile, as does eval: reference
 normalization never prints or admits IO as proof evidence.
+
+## Compute a String argument
+
+Run [the expression example](../examples/core/console-expressions.fib):
+
+~~~fib
+main : IO Unit
+main = do
+  putStrLn ((\(1 text : String) => text) "Hello from a pure function!")
+  putStrLn (if False then "not selected" else "String computation works.")
+  putStrLn (let (1 greeting : String) = "Local bindings work too." in greeting)
+~~~
+
+Each argument has its own empty outer context; local bindings inside it work,
+but names do not leak between actions. This does not enable a helper declaration
+before main, or an IO do-level let/bind. Erased extraction and linear discard
+inside arguments are rejected before beta reduction can hide the violation.
+Both branches must type-check, even when the condition is a literal.
+
+[Driver.Console](../src/Fibril/Driver/Console.idr) is a pure planning service:
+it resolves the argument, checks it against String, normalizes it, rechecks the
+result, and requires an actual StringValue before constructing PrintLine. The
+default normalization budget is 128 per argument; parser/checking depth is 256,
+with independent type-reduction fuel 128. Exhaustion rejects the plan, never
+executes a prefix, and is not a time/memory bound. The explicit prepareConsole
+budget parameter is a host API, not a new CLI flag.
 
 ## Sequence console actions
 
@@ -64,7 +93,7 @@ main = do
 ~~~
 
 Actions execute in source order. All action lines must follow do, be indented,
-and start at the same logical column. Each putStrLn and its literal must fit on
+and start at the same logical column. Each putStrLn and its expression must fit on
 one physical source line. Blank lines/comments may separate actions. A do on its
 own continuation line is supported, with actions further indented. Empty blocks,
 nested do, semicolons, mismatched indentation, and trailing expressions fail.
@@ -79,8 +108,9 @@ earlier valid messages. Once execution begins, a represented output failure stop
 the sequence; prior output is not rolled back. Buffered/OS failures retain the
 limitations below.
 
-This is sequencing of closed literal requests, not general monadic desugaring,
-effect inference, runtime variable binding, or quantitative effect checking.
+This is sequencing of closed pure computations prepared into print requests,
+not general monadic desugaring, effect inference, runtime variable binding, or
+quantitative effect checking across shared action contexts.
 
 ## String data
 
@@ -113,10 +143,12 @@ Decoded data is not evaluated as code.
 1. The existing bounded loader reads, strictly decodes, and validates the file.
 2. Shared lexing checks the **entire** source, including string escapes.
 3. [Source.Console](../src/Fibril/Source/Console.idr) consumes all tokens, checks
-   action count/layout, and produces a separate ConsoleEntry/action list.
-4. [Driver.Run](../src/Fibril/Driver/Run.idr) invokes
-   [Runtime.Console](../src/Fibril/Runtime/Console.idr) only after validation.
-5. The adapter executes each PrintLine through host stdout, in order and stopping
+   action count/layout, and retains ordinary named argument expressions.
+4. [Driver.Console](../src/Fibril/Driver/Console.idr) prepares the entire checked,
+   normalized String argument list into separate action data, without IO.
+5. [Driver.Run](../src/Fibril/Driver/Run.idr) invokes the
+   [runtime](../src/Fibril/Runtime/Console.idr) only after the full plan succeeds.
+6. The adapter executes each PrintLine through host stdout, in order and stopping
    on the first represented failure.
 
 Malformed/trailing source cannot execute a valid prefix. Program output goes to
@@ -138,6 +170,8 @@ not unforgeable certificates. The file runner validates fresh source rather than
 accepting caller-constructed action tags as checked programs.
 
 The SourceProgram dispatcher distinguishes CoreSource from ConsoleSource.
+ConsoleSource contains parsed, unchecked expressions until planning succeeds;
+prepareSource alone does not authorize executing any action.
 resolveSource cannot turn a console entry into Term 0, and runtime-source
 preparation refuses console entries before normalization. The core modules do not
 import the console parser, action type, or executor.
@@ -155,8 +189,10 @@ decoding/spans, full consumption, malformed input, and the erased/core boundary.
 count limits, and order. A host callback fault-injection test exercises the actual
 sequencer without touching stdout and verifies that later actions are skipped.
 CLI tests assert exact output, Unicode/escapes, stderr failures with empty stdout,
-and no printing from check/eval. They include late failures and exact/over-budget
-blocks. make examples checks/runs hello world and runs the sequence example.
+and no printing from check/eval. [Tests.ConsoleArguments](../test/src/Tests/ConsoleArguments.idr)
+adds pure applications/lets, argument type/resource failures, and explicit
+normalization exhaustion. Tests include late parse/type/resolution failures and
+exact/over-budget blocks. make examples checks/runs hello world and runs the sequence example.
 
 Next: design the general effect/string representation, variable/bind semantics,
 and real backends without moving effects into trusted normalization.

@@ -63,6 +63,10 @@ general monadic IO or a new core typing rule.
 and a linear function. make examples evaluates it to a quoted normal form; this
 does not execute console printing.
 
+`console-expressions.fib` prints results of pure closed String applications,
+conditionals, and local bindings. All arguments are core-checked, reduced and
+rechecked before the first output; it does not enable file-level IO helpers.
+
 ## Proposed Fibril programs
 
 `proposed/` illustrates the intended user experience, from hello world and

@@ -127,6 +127,35 @@ class CLITests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("Parsing:", result.stdout)
 
+    def test_console_pure_arguments(self):
+        result = run("run", "examples/core/console-expressions.fib")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout, "Hello from a pure function!\nString computation works.\nLocal bindings work too.\n")
+        self.assertEqual(result.stderr, "")
+        result = run("check", "examples/core/console-expressions.fib")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("pure String arguments core-checked", result.stdout)
+        self.assertNotIn("Hello from a pure function!", result.stdout)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "arguments.fib"
+            start = 'main : IO Unit\nmain = do\n  putStrLn "must not print"\n'
+            for expression in ('True', 'missing', r'((\(1 x : String) => "discard") "input")',
+                               r'((\(0 x : String) => x) "input")'):
+                with self.subTest(expression=expression):
+                    path.write_text(start + "  putStrLn " + expression + "\n", encoding="utf-8")
+                    result = run("run", str(path))
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertEqual(result.stdout, "")
+                    self.assertIn(str(path), result.stderr)
+            path.write_text(start + "  putStrLn missing\n", encoding="utf-8")
+            result = run("run", str(path))
+            self.assertIn(f"{path}:4:12: Resolution:", result.stderr)
+            self.assertIn("^", result.stderr)
+            path.write_text(start + "  putStrLn True\n", encoding="utf-8")
+            result = run("run", str(path))
+            self.assertIn("inferred: Bool; expected: String", result.stderr)
+            self.assertNotIn("^", result.stderr)
+
     def test_pure_string_program(self):
         result = run("check", "examples/core/string-identity.fib")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

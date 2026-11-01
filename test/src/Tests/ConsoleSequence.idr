@@ -9,6 +9,8 @@ import Fibril.Source.Lexer
 import Fibril.Source.Parser
 import Fibril.Source.Text
 import Fibril.Driver.Check
+import Fibril.Driver.Console
+import Fibril.Source.Syntax
 import Fibril.Driver.Evaluate
 import Fibril.Runtime.Console
 
@@ -20,8 +22,13 @@ block = "main : IO Unit\nmain = do\n  putStrLn \"first\"\n  putStrLn \"second\"\
 message : ConsoleAction -> String
 message (PrintLine value) = value
 
+plannedMessages : ConsoleEntry -> List String
+plannedMessages entry = case prepareConsole 128 entry of
+  Left _ => []
+  Right actions => map message actions
+
 rejects : String -> Bool
-rejects source = case prepareSource source of
+rejects source = case checkSource False source of
   Left _ => True
   Right _ => False
 
@@ -34,7 +41,7 @@ checks : List (String, Bool)
 checks =
   [ ("console do plan preserves source order",
       case prepareSource block of
-        Right (ConsoleSource entry) => map message entry.actions == ["first", "second"]
+        Right (ConsoleSource entry) => plannedMessages entry == ["first", "second"]
         _ => False)
   , ("console do does not enter normalization",
       case evaluateSourceDetailed 128 block of
@@ -46,11 +53,11 @@ checks =
         _ => False)
   , ("console do next-line body allowed",
       case prepareSource "main : IO Unit\nmain =\n  do\n    putStrLn \"ok\"" of
-        Right (ConsoleSource entry) => map message entry.actions == ["ok"]
+        Right (ConsoleSource entry) => plannedMessages entry == ["ok"]
         _ => False)
   , ("console do comments blank lines CRLF",
       case prepareSource "main : IO Unit\r\nmain = do\r\n  -- before\r\n  putStrLn \"a\"\r\n\r\n  putStrLn \"b\" -- after\r\n" of
-        Right (ConsoleSource entry) => map message entry.actions == ["a", "b"]
+        Right (ConsoleSource entry) => plannedMessages entry == ["a", "b"]
         _ => False)
   , ("console do empty rejected", rejects "main : IO Unit\nmain = do\n")
   , ("console do inline statement rejected",
@@ -69,7 +76,7 @@ checks =
       rejects "main : IO Unit\nmain = do\n  do\n    putStrLn \"a\"")
   , ("console do action cap exact",
       case prepareSource ("main : IO Unit\nmain = do\n" ++ commands 64) of
-        Right (ConsoleSource entry) => length entry.actions == 64
+        Right (ConsoleSource entry) => length entry.arguments == 64
         _ => False)
   , ("console do action cap exhaustion",
       rejects ("main : IO Unit\nmain = do\n" ++ commands 65))
