@@ -1,0 +1,6 @@
+-- Both binders are unrestricted. Branch uses can differ after normalization.
+-- This used to fail evaluation's post-check under exact branch-vector equality.
+\(flag : Bool) => \(x : Unit) =>
+  if flag
+    then (\(ignored : Unit) => ()) x
+    else (\(y : Unit) => y) x

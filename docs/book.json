@@ -84,6 +84,10 @@
         "path": "docs/boolean.md"
       },
       {
+        "title": "Permission joins for alternatives",
+        "path": "docs/alternatives.md"
+      },
+      {
         "title": "Ordinary core draft",
         "path": "docs/core-draft.md"
       },

@@ -119,12 +119,47 @@ unitPrograms = property $ do
         Left _ => failure
         Right checked => assert (checked.usage == [])
 
-||| Sample ordinary resource properties over a narrow open-context grammar.
+-- Both ambient variables are unrestricted; branches may observe 0, 1, or omega.
+permissionContext : Context 2
+permissionContext = Extend (Extend Empty Unrestricted BoolType) Unrestricted UnitType
+
+permissionGen : Nat -> Gen (Term 2)
+permissionGen Z = element [UnitValue, Variable FZ]
+permissionGen (S depth) =
+  choice
+    [ element [UnitValue, Variable FZ]
+    , Apply (Lambda Linear UnitType (Variable FZ)) <$> permissionGen depth
+    , (\body => Apply (Lambda Unrestricted UnitType (weaken body)) (Variable FZ)) <$>
+        permissionGen depth
+    , UnitCase (Variable FZ) <$> permissionGen depth
+    , BoolCase <$> element [BoolTrue, BoolFalse, Variable (FS FZ)] <*>
+        permissionGen depth <*> permissionGen depth
+    ]
+
+underPermissions : Term 2 -> Bool
+underPermissions term =
+  case checkRuntime 100 100 permissionContext term UnitType of
+    Right _ => True
+    Left _ => False
+
+preserveBranchPermissions : Property
+preserveBranchPermissions = property $ do
+  term <- forAll (permissionGen 4)
+  assert (underPermissions term)
+  case step term of
+    Nothing => success
+    Just reduced => assert (underPermissions reduced)
+  case normalize 100 term of
+    OutOfFuel _ => failure
+    Normal reduced => assert (underPermissions reduced)
+
+||| Sample ordinary resource properties over narrow open-context grammars.
 ||| These are not proofs of quantitative subject reduction or erasure correctness.
 public export
 runRuntimeProperties : IO Bool
 runRuntimeProperties = checkGroup (MkGroup "Fibril runtime usage properties"
-  [ ("closed Unit programs check and normalize to unit", unitPrograms)
+  [ ("branch permissions survive sampled reduction", preserveBranchPermissions)
+  , ("closed Unit programs check and normalize to unit", unitPrograms)
   , ("constructed terms capture linear input once", acceptConstructed)
   , ("one beta step preserves linear capture", preserveStep)
   , ("normalization preserves linear capture", preserveNormal)

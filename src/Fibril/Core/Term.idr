@@ -23,7 +23,7 @@ data Term : Nat -> Type where
   BoolType : Term n
   BoolTrue : Term n
   BoolFalse : Term n
-  ||| Nondependent branches; runtime checking requires matching usage vectors.
+  ||| Nondependent branches; runtime checking joins their resource permissions.
   BoolCase : Term n -> Term n -> Term n -> Term n
   Pi : Quantity -> Term n -> Term (S n) -> Term n
   Lambda : Quantity -> Term n -> Term (S n) -> Term n

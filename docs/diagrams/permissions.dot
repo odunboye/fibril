@@ -1,0 +1,9 @@
+digraph Permissions {
+  rankdir=BT;
+  node [shape=box];
+  erased [label="0: admits only observed 0"];
+  linear [label="1: admits only observed 1"];
+  unrestricted [label="unrestricted: admits all observations"];
+  erased -> unrestricted;
+  linear -> unrestricted;
+}

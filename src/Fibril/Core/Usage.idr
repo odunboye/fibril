@@ -36,6 +36,12 @@ public export
 combineUsage : Usage n -> Usage n -> Usage n
 combineUsage = zipWith add
 
+||| Pointwise least common permission for alternative branches.
+||| Unlike addition, joining two exact-once uses remains exact-once.
+public export
+joinUsage : Usage n -> Usage n -> Usage n
+joinUsage = zipWith joinQuantity
+
 ||| Scale resource requirements, for example by an application binder quantity.
 public export
 scaleUsage : Quantity -> Usage n -> Usage n

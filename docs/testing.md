@@ -51,12 +51,18 @@ uses the recipe's expected type to avoid falsely rejecting the new Unit : Type0 
 [Tests.UnitCase](../test/src/Tests/UnitCase.idr) tests explicit Unit elimination,
 including scrutinee validation, resource accounting, exact fuel and weak/full
 reduction differences. Structural, erased typed, and runtime generators include
-UnitCase wrappers in their existing 22 properties.
+UnitCase wrappers in their existing typing/structural properties.
 
 [Tests.Boolean](../test/src/Tests/Boolean.idr) checks both constructors, branch
 selection/types/resources, constant-condition negative cases, nested syntax,
 computational type conversion, and comparison exhaustion. Existing scoped, erased,
-and runtime recipes now include conditionals; the suite remains 22 properties.
+and runtime recipes now include conditionals; an additional permission-preservation recipe brings the suite to 23 properties.
+
+[Tests.Alternatives](../test/src/Tests/Alternatives.idr) exhausts the finite
+permission algebra and validates ambient permissions. The former branch-equality
+counterexample must now evaluate and recheck. A generated two-variable context
+exercises branch discrepancies under unrestricted permissions before/after
+one step and full normalization; this samples admissibility, not exact usage equality.
 
 ## Hedgehog dependency
 
@@ -151,7 +157,7 @@ not arbitrary runtime derivations or cubical resource rules. The unrestricted
 mutation is intentionally rejected even if its body uses its input once:
 the caller obeys the declared argument quantity, not an optimization guess.
 
-The default suite now runs 22 properties / 2,200 generated cases, alongside
+The default suite now runs 23 properties / 2,300 generated cases, alongside
 deterministic regressions. Sampling counts are not proof coverage.
 
 ## Reproducing failures

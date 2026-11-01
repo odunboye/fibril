@@ -44,6 +44,8 @@ first ordinary data primitive; this remains reference evaluation, not compiled I
 `consume-unit.fib` explicitly eliminates a linear Unit with case/of and is also
 evaluated by `make examples`. `boolean.fib` defines linear negation using a
 conditional and evaluates to True. Both alternatives are checked before evaluation.
+`branch-permissions.fib` retains the former branch-equality counterexample; it now
+normalizes and passes post-reduction checking under unrestricted permissions.
 
 ## Proposed Fibril programs
 

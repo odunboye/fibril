@@ -61,9 +61,10 @@ No dependent motive, eta rule, or implicit linear discard is provided.
 
 [Bool](boolean.md) adds a type in Universe 0, two zero-usage constructors,
 and a nondependent conditional. Both branches must have equal normalized types.
-Runtime branches must have exactly equal usage vectors; the condition's usage is
-added to one shared branch vector, not both alternatives. This conservative rule
-is a local prototype policy, not a claimed general quantitative branch join.
+Runtime branches use a pointwise [permission join](alternatives.md); the
+condition's usage is added to that join, not both alternatives. Matching 1/1
+observations stay linear; differing observations require unrestricted permission.
+The finite permission law is proved in Idris 2, not a term preservation theorem.
 
 ## Proposed quantity accounting
 
@@ -82,7 +83,9 @@ Coefficients are 0, 1, and omega (unrestricted):
 - Unrestricted binders permit any observed coefficient.
 
 Quantity.idr implements coefficient arithmetic and this local binder policy.
-It does not implement context checking, branch joining, erasure, or normalization.
+It also implements a finite alternative-permission join and its local admission
+identity. This alone does not implement term/context checking, cubical branch
+accounting, erasure, or normalization.
 
 Type annotations and types must be checked in a separate erased judgment:
 references there do not consume runtime resources. The exact judgment and its

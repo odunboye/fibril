@@ -61,7 +61,8 @@ binders; both children resolve in the same scope. Only the () pattern is support
 
 [Booleans](boolean.md) add Bool, True, False, and `if condition then yes else no`.
 Branches introduce no binders. Both must resolve/type-check, and runtime branches
-must have exactly equal resource usage. Nested conditionals associate through their
+use a pointwise permission join: a possible branch discrepancy requires
+unrestricted permission, while matching exact-once observations remain linear. Nested conditionals associate through their
 explicit then/else delimiters; a conditional used as an application atom needs
 parentheses, like lambdas and lets.
 

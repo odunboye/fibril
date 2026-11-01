@@ -20,7 +20,6 @@ data RuntimeError
   | BoundUsage Quantity Quantity
   | ContextUsage Nat Quantity Quantity
   | RuntimeTypeExpression
-  | BranchUsageMismatch
 
 public export
 Show RuntimeError where
@@ -30,7 +29,6 @@ Show RuntimeError where
   show (ContextUsage i expected observed) =
     "Variable " ++ show i ++ ": expected " ++ show expected ++ ", observed " ++ show observed
   show RuntimeTypeExpression = "Runtime type expressions (universe/Pi/Unit/Bool) are not supported"
-  show BranchUsageMismatch = "Conditional branches use different resources"
 
 liftTyping : Either CheckError a -> Either RuntimeError a
 liftTyping (Left err) = Left (TypingError err)
@@ -52,9 +50,7 @@ analyze (S depth) reduction context (BoolCase condition yes no) = do
   conditionUsage <- analyze depth reduction context condition
   yesUsage <- analyze depth reduction context yes
   noUsage <- analyze depth reduction context no
-  if yesUsage == noUsage
-     then Right (combineUsage conditionUsage yesUsage)
-     else Left BranchUsageMismatch
+  Right (combineUsage conditionUsage (joinUsage yesUsage noUsage))
 analyze (S depth) reduction context (Pi _ _ _) = Left RuntimeTypeExpression
 analyze (S depth) reduction context (Lambda q domain body) = do
   bodyUsage <- analyze depth reduction (Extend context q domain) body

@@ -54,12 +54,12 @@ rule or implicit discard. See [Unit rules](unit.md).
 ## Boolean alternatives
 
 BoolTrue and BoolFalse contribute zero usage; BoolType is a type expression.
-Conditionals require exactly equal branch usage vectors, then add condition usage
-to one shared branch vector. They do not add both alternatives. Mismatched vectors
-are rejected even under a constant condition or unrestricted ambient permissions.
-See [Boolean branching](boolean.md) for the conservative rule and limits,
-including a concrete unrestricted-beta counterexample to reduction stability.
-Reference evaluation rejects that counterexample at its post-reduction check.
+Conditionals pointwise join branch permissions, then add condition usage. They
+do not add both alternatives. Equal exact-once observations remain exact-once;
+a 0/1 discrepancy requires unrestricted permission. See [permission joins](alternatives.md)
+for the local host-checked law and [Boolean branching](boolean.md) for semantics.
+The former unrestricted-beta counterexample now evaluates and rechecks, but no
+general quantitative preservation theorem is claimed.
 
 ## Supported boundary
 

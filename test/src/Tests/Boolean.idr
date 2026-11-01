@@ -24,11 +24,10 @@ normalIs fuel source expected = case evaluateSource fuel source of
   Right lines => elem ("Normal: " ++ expected) lines
   Left _ => False
 
--- Known limitation: unrestricted application overapproximates both branches by
--- omega; normalization exposes 0 versus 1. Do not mistake equality for a proved
--- reduction-stable branch policy. The driver must reject its post-check.
-unstable : String
-unstable = "\\(flag : Bool) => \\(x : Unit) => if flag then (\\(ignored : Unit) => ()) x else (\\(y : Unit) => y) x"
+-- Regression for the former exact-vector policy: beta reduction exposes 0/1
+-- from two omega approximations. Permission joining must accept both stages.
+formerEqualityCounterexample : String
+formerEqualityCounterexample = "\\(flag : Bool) => \\(x : Unit) => if flag then (\\(ignored : Unit) => ()) x else (\\(y : Unit) => y) x"
 
 public export
 checks : List (String, Bool)
@@ -55,10 +54,8 @@ checks =
       not (accepted True "if True then () else unknown"))
   , ("boolean linear value shared across alternatives",
       accepted False "\\(1 flag : Bool) => \\(1 x : Unit) => if flag then x else x")
-  , ("boolean unequal branch resource usage rejected",
-      case checkSource False "\\(x : Unit) => if True then x else ()" of
-        Left err => err == "Runtime checking: Conditional branches use different resources"
-        Right _ => False)
+  , ("boolean unequal branch use allowed by unrestricted permission",
+      accepted False "\\(x : Unit) => if True then x else ()")
   , ("boolean cannot hide unused linear branch",
       not (accepted False "\\(1 x : Unit) => if True then x else ()"))
   , ("boolean erased condition rejected",
@@ -76,12 +73,10 @@ checks =
       accepted False "(True : if True then Bool else Unit)")
   , ("boolean rejected computational type mismatch",
       not (accepted False "(() : if True then Bool else Unit)"))
-  , ("boolean known conservative policy accepts pre-reduction recipe",
-      accepted False unstable)
-  , ("boolean known branch-policy gap rejected by post-check",
-      case evaluateSource 2 unstable of
-        Left err => err == "Post-reduction checking failed: Conditional branches use different resources"
-        Right _ => False)
+  , ("boolean former branch-policy counterexample checks",
+      accepted False formerEqualityCounterexample)
+  , ("boolean former branch-policy counterexample evaluates and rechecks",
+      normalIs 2 formerEqualityCounterexample "(Lam unrestricted Bool (Lam unrestricted Unit (If v1 () v0)))")
   , ("boolean missing else rejected", not (accepted True "if True then True"))
   , ("boolean scrutinee head reduction",
       case weakHead 2 (BoolCase (Apply (Lambda Linear BoolType (Variable FZ)) BoolFalse)

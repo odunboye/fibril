@@ -48,33 +48,28 @@ assumptions. Runtime type expressions themselves remain unsupported.
 ## Runtime resource rule
 
 The constructors use no variables. The condition is evaluated once. Alternatives
-must have exactly identical observed usage vectors:
+use a pointwise permission join, not simultaneous addition:
 
-    usage(yes) = usage(no) = shared
-    usage(if condition then yes else no) = usage(condition) + shared
+    usage(if condition then yes else no)
+      = usage(condition) + joinUsage(usage(yes), usage(no))
 
-Do **not** add the two branch vectors: alternatives are not both executed.
-For example:
+The [join](alternatives.md) keeps 0/0 erased and 1/1 linear; differing observations
+require unrestricted permission. Thus
 
 ```text
 \(1 flag : Bool) => \(1 x : Unit) => if flag then x else x
 ```
 
-uses flag once and x once, not x twice. Conversely, if one branch ignores x,
-checking rejects the program. A runtime condition cannot extract an erased flag.
-A linear flag used as both condition and branch result is also rejected.
+uses flag once and x once. If one branch ignores x, the join requires unrestricted
+permission, so a linear x is rejected. An unrestricted x may be used differently
+in the alternatives. An erased value cannot be extracted on either path, and a
+linear flag used as both condition and branch result is rejected.
 
-Exact vector equality is intentionally conservative, including for unrestricted
-ambient variables: a zero-versus-one branch discrepancy is rejected even if both
-uses would separately satisfy unrestricted permission. We do not implement a
-general subusage join or claim this policy is the final QTT branching rule.
-The selected branch is checked before normalization can erase an invalid
-alternative.
+Branch types still require equality: joining resource permissions does **not**
+join or coerce types. Both alternatives are fully checked even under a literal
+condition.
 
-### Known reduction-stability gap
-
-Exact observed-vector equality is not preserved by every beta contraction in
-the existing unrestricted application policy. For example:
+### Former reduction-stability counterexample
 
 ```text
 \(flag : Bool) => \(x : Unit) =>
@@ -83,16 +78,14 @@ the existing unrestricted application policy. For example:
     else (\(y : Unit) => y) x
 ```
 
-Before normalization both branches count x as unrestricted because application
-scales its argument by the binder's unrestricted quantity. Afterwards the
-branches use x zero times and once respectively. The original checks, but the
-normal form fails this strict branch-equality policy.
+The old exact-vector policy accepted the original (both branch observations were
+unrestricted), but rejected its normal form (zero versus one). Permission joining
+now accepts both stages under unrestricted permissions. The example and tests
+retain this former counterexample as a positive regression.
 
-The reference evaluation driver reports a post-reduction checking failure rather
-than returning that normal form as accepted. Tests explicitly retain this
-counterexample. This is a known limitation, not merely an unproved theorem:
-a future branch-permission/join design must resolve it before claiming
-quantitative subject reduction or relying on unchecked backend preservation.
+This fixes the specific failure, not the entire quantitative metatheory. The
+evaluator keeps its post-reduction check. See [permission joins](alternatives.md)
+for the host-checked coefficient identity and remaining proof boundaries.
 
 ## Computation and fuel
 
