@@ -1,7 +1,7 @@
 PACK ?= pack
 IDRIS2 ?= idris2
 
-.PHONY: build test examples bench bench-smoke docs handbook serve-docs clean
+.PHONY: build test examples bench bench-smoke python-embed-test docs handbook serve-docs clean
 build:
 	$(PACK) build fibril
 
@@ -23,6 +23,9 @@ bench:
 bench-smoke:
 	python3 tools/benchmark.py --quick
 	python3 tools/test_benchmark.py
+
+python-embed-test:
+	python3 tools/test_python_embed.py
 
 docs: build
 	$(IDRIS2) --mkdoc fibril.ipkg

@@ -37,6 +37,12 @@ Implemented:
 - `test/src/Tests/Properties.idr`: bounded scope-correct generators and structural laws; test-only Hedgehog dependency.
 - `test/src/Tests/Erased.idr` and `Reduction.idr`: ordinary checking and reduction regressions.
 
+Optional foreign-runtime experiment:
+
+- `experiments/python-embed/`: standalone CPython C adapter and embedding tests;
+  no core imports, generated-C integration, or mandatory Python runtime dependency.
+- `tools/test_python_embed.py`: explicit opt-in build; no package installation.
+
 Benchmark infrastructure:
 
 - `bench/bench.ipkg`: separate pack project depending on the core library.

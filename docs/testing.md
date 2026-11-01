@@ -30,6 +30,11 @@ and erased/runtime integration. `make examples` checks ASCII/Unicode identity
 sources and an erased type expression. These are ordinary expressions, not full
 module/elaboration or cubical-source coverage.
 
+Optional `make python-embed-test` compiles/runs standalone C embedding tests
+against the selected CPython development installation. It is not part of make
+test or pack test and does not establish Fibril FFI support. See
+[Python interoperability](python-interop.md).
+
 ## Hedgehog dependency
 
 Repository: https://github.com/stefan-hoeck/idris2-hedgehog
