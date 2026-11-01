@@ -58,8 +58,9 @@ There is no published remote plugin repository to install yet.
    elsewhere, `:echo stdpath('config')` shows its root; use its `lua/plugins/`
    directory instead.
 2. Build the compiler with make build in the Fibril checkout. Add the following,
-   replacing both absolute paths with your checkout location. The gd/gr mappings
-   are optional and affect only Fibril buffers:
+   replacing both absolute paths with your checkout location. The gd/gr and
+   <leader>cr mappings are optional and affect only Fibril buffers. The latter
+   replaces LazyVim's usual rename action in those buffers with a preview:
 
 ~~~lua
 return {
@@ -81,6 +82,9 @@ return {
           vim.keymap.set("n", "gr", "<Plug>(FibrilReferences)", {
             buffer = true, remap = true, desc = "Fibril: references",
           })
+          vim.keymap.set("n", "<leader>cr", "<Plug>(FibrilRenamePreview)", {
+            buffer = true, remap = true, desc = "Fibril: preview rename",
+          })
         end,
       })
     end,
@@ -97,8 +101,11 @@ fetching a plugin. Keeping the checkout updated also updates the runtime files.
    On line 12, place the cursor on message. In a saved, unmodified buffer, gd
    jumps to its binding on line 11; gr opens its declaration/use location list.
    Press Enter on a result to navigate, or :lclose to close the list. Without
-   mappings, use :FibrilDefinition and :FibrilReferences. These queries are
-   same-file only and do not type-check the source.
+   mappings, use :FibrilDefinition and :FibrilReferences. Press <leader>cr to
+   start :FibrilRenamePreview, type a new name, and press Enter. For example,
+   :FibrilRenamePreview greetingText opens a read-only scratch diff; :close
+   dismisses it. No source is modified or saved. These queries are same-file
+   only and do not type-check the source.
 4. Run `:Lazy` and confirm `fibril-syntax` is loaded. Then check:
 
 ~~~vim
