@@ -1,3 +1,5 @@
+-- Scope-indexed dimension infrastructure. Dimension scopes do not track
+-- computational resource use; see docs/foundation-baseline.md.
 module Fibril.Foundation.DeMorgan.Scope
 
 import Data.Fin
@@ -11,6 +13,7 @@ public export
 ScopedInterval : Nat -> Type
 ScopedInterval n = Interval (Fin n)
 
+||| Face formulas whose dimension references are bounded by n.
 public export
 data ScopedFace : Nat -> Type where
   SBottom : ScopedFace n
@@ -29,6 +32,7 @@ scopeInterval n (Meet x y) = [| Meet (scopeInterval n x) (scopeInterval n y) |]
 scopeInterval n (Join x y) = [| Join (scopeInterval n x) (scopeInterval n y) |]
 scopeInterval n (Reverse x) = map Reverse (scopeInterval n x)
 
+||| Validate raw face indices before simplification; invalid dead branches fail too.
 public export
 scopeFace : (n : Nat) -> Face -> Maybe (ScopedFace n)
 scopeFace n Bottom = Just SBottom
@@ -56,10 +60,12 @@ instantiate value = substitute replace
     replace FZ = value
     replace (FS older) = Var older
 
+||| Forget the static bound for reference algebra operations; indices are unchanged.
 public export
 forgetInterval : ScopedInterval n -> Interval Nat
 forgetInterval = substitute (Var . finToNat)
 
+||| Forget the static bound without changing the face formula.
 public export
 forgetFace : ScopedFace n -> Face
 forgetFace SBottom = Bottom
@@ -82,6 +88,7 @@ scopedEndpoint (Meet x y) True = SConjunction (scopedEndpoint x True) (scopedEnd
 scopedEndpoint (Join x y) False = SConjunction (scopedEndpoint x False) (scopedEndpoint y False)
 scopedEndpoint (Join x y) True = SDisjunction (scopedEndpoint x True) (scopedEndpoint y True)
 
+||| Replace dimensions by scoped intervals, extracting their endpoint faces.
 public export
 substituteScopedFace : (Fin n -> ScopedInterval m) -> ScopedFace n -> ScopedFace m
 substituteScopedFace env SBottom = SBottom
@@ -92,10 +99,12 @@ substituteScopedFace env (SConjunction x y) =
 substituteScopedFace env (SDisjunction x y) =
   SDisjunction (substituteScopedFace env x) (substituteScopedFace env y)
 
+||| Add a newest dimension and shift all existing face references.
 public export
 weakenFace : ScopedFace n -> ScopedFace (S n)
 weakenFace = substituteScopedFace (Var . FS)
 
+||| Replace the newest dimension and shift older references down.
 public export
 instantiateFace : ScopedInterval n -> ScopedFace (S n) -> ScopedFace n
 instantiateFace value = substituteScopedFace replace

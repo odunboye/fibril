@@ -1,3 +1,5 @@
+-- Reference face lattice, endpoint extraction, and substitution. Opposite
+-- endpoints are disjoint but not exhaustive. Not a term conversion checker.
 module Fibril.Foundation.DeMorgan.Face
 
 import Data.List
@@ -79,6 +81,7 @@ entails : Face -> Face -> Bool
 entails premise conclusion =
   all (\p => any (\q => subset q p) (normal conclusion)) (normal premise)
 
+||| Compare absorbed face normal forms; potentially exponential in formula size.
 public export
 equivalentFace : Face -> Face -> Bool
 equivalentFace x y = normal x == normal y

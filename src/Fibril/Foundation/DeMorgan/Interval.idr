@@ -1,3 +1,5 @@
+-- Raw interval syntax and structural substitution. Vertex evaluation is not
+-- a conversion procedure; see docs/foundation-baseline.md.
 module Fibril.Foundation.DeMorgan.Interval
 
 %default total

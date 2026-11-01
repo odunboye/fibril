@@ -1,3 +1,5 @@
+-- Reference free De Morgan algebra equality via absorbed DNF. Exponential
+-- growth is possible. No Boolean complement laws or face rules apply here.
 module Fibril.Foundation.DeMorgan.NormalForm
 
 import Data.List

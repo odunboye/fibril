@@ -1,5 +1,9 @@
 # Documentation
 
+- [Documentation policy](documentation-policy.md): per-task requirements and API generation.
+- [Contributing](../CONTRIBUTING.md): development checklist.
+- Generated API reference: run `make docs`, then open `build/docs/index.html`.
+
 - [Examples](../examples/README.md): runnable bootstrap project and proposed language scenarios.
 
 - [Design discussion record](design.md): decisions, recommendations, open questions.

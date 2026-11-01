@@ -34,4 +34,8 @@ upgrades explicitly; do not use a floating collection for project builds.
 See [examples](examples/README.md) for runnable bootstrap programs and clearly
 labeled proposed Fibril scenarios, including proofs.
 
+Generate API documentation with `make docs` (`build/docs/index.html`);
+use the matching Idris 2 compiler as explained in the
+[documentation policy](docs/documentation-policy.md).
+
 See [documentation](docs/README.md) and [first milestone](docs/milestone-01.md).
