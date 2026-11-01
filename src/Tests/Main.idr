@@ -2,6 +2,7 @@ module Tests.Main
 
 import Fibril.Core.Quantity
 import Fibril.Foundation.DeMorgan.Interval
+import Fibril.Foundation.DeMorgan.NormalForm
 import System
 import Data.List
 
@@ -9,7 +10,19 @@ import Data.List
 
 checks : List (String, Bool)
 checks =
-  [ ("erased notation", show Erased == "0")
+  [ ("symbolic involution", equivalent (Reverse (Reverse (Var 0))) (Var 0))
+  , ("symbolic De Morgan", equivalent (Reverse (Meet (Var 0) (Var 1)))
+      (Join (Reverse (Var 0)) (Reverse (Var 1))))
+  , ("symbolic absorption", equivalent (Join (Var 0) (Meet (Var 0) (Var 1))) (Var 0))
+  , ("symbolic distribution", equivalent (Meet (Var 0) (Join (Var 1) (Var 2)))
+      (Join (Meet (Var 0) (Var 1)) (Meet (Var 0) (Var 2))))
+  , ("symbolic commutativity", equivalent (Meet (Var 0) (Var 1)) (Meet (Var 1) (Var 0)))
+  , ("symbolic idempotence", equivalent (Join (Var 0) (Var 0)) (Var 0))
+  , ("symbolic bounds", equivalent (Meet (Var 0) One) (Join Zero (Var 0)))
+  , ("no excluded middle", not (equivalent (Join (Var 0) (Reverse (Var 0))) One))
+  , ("no complement cancellation", not (equivalent (Meet (Var 0) (Reverse (Var 0))) Zero))
+  , ("distinct generators", not (equivalent (Var 0) (Var 1)))
+  , ("erased notation", show Erased == "0")
   , ("linear notation", show Linear == "1")
   , ("unrestricted notation", show Unrestricted == "unrestricted")
   , ("distinct quantities", not (Erased == Linear) && not (Linear == Unrestricted))

@@ -20,8 +20,14 @@ refinements explicitly. Do not silently combine rules from different systems.
 Interval syntax with endpoints, variables, meet, join, and reversal; structural
 substitution; interpretation under Boolean endpoint assignments.
 
+Symbolic interval equality is implemented separately in NormalForm.idr using
+absorbed disjunctive normal forms of signed generators. Reversal is pushed to
+generators using De Morgan laws. Complementary literals are not cancelled.
+This reference algorithm can grow exponentially; it is not a performance claim
+or a formal proof of correctness.
+
 This syntax is not yet integrated with term typing. It supplies no face solver,
-normalization/conversion procedure, universe rules, composition, or Glue.
+term conversion procedure, universe rules, composition, or Glue.
 
 The interval is a free De Morgan algebra, not a Boolean algebra. In particular,
 do not add the general equations i ∨ ~i = 1 or i ∧ ~i = 0. Checking all Boolean
@@ -49,7 +55,7 @@ checker a sound quantitative cubical theory without supporting arguments.
 
 ## Next implementation gates
 
-1. Symbolic interval equality respecting the De Morgan laws (not Boolean tests).
+1. Symbolic interval equality: implemented with law/regression tests; formal verification and broader property testing remain open.
 2. Explicit face syntax and a justified entailment procedure.
 3. A documented core grammar, contexts, universes, and ordinary typing rules.
 4. Path checking and evaluation, with quantities gated on explicit rules.
