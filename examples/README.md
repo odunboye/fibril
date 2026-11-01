@@ -76,10 +76,14 @@ output order and does not execute effects during checking/reference evaluation.
 
 `do-bindings.fib` names String/Bool IO results with `(1 name : Type) <- action`.
 Names scope over subsequent statements, are consumed exactly once, and lower to
-existing core Bind. Bound blocks currently return IO Unit.
+existing core Bind. Unannotated bound blocks return IO Unit; do (B) checks a block returning IO B.
 
 `do-let.fib` combines typed pure let statements with IO result bindings in one
 block. Pure bindings retain ordinary quantities and do not execute descriptions.
+
+`do-result.fib` uses an explicitly annotated do (String) block to return a String
+from a helper, then consumes that result in main : IO Unit. The annotation is
+checked using existing core IO rules; it does not perform effects or infer types.
 
 ## Proposed Fibril programs
 

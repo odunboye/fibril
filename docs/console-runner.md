@@ -141,13 +141,52 @@ A binding cannot be the final statement.
 
 This syntax lowers to IOBind A Unit action (Lambda Linear A body), using the
 same core rules as explicit bind; it adds no primitive or trusted inference.
-Consequently blocks containing a result binding currently return IO Unit.
-For other final result types, use explicit bind. Bare sequencing likewise requires
-Unit intermediate results. General result inference, dependent bind, unannotated
-bindings, and nested/multiline statements remain future work.
+Without a block result annotation, blocks containing a result binding return
+IO Unit. Bare sequencing likewise requires Unit intermediate results. For other
+final result types, annotate the block as below or use explicit bind. General
+result inference, dependent bind, unannotated bindings, and nested/multiline
+statements remain future work.
 
 [do-bindings.fib](../examples/core/do-bindings.fib) demonstrates String and Bool
 bindings, mixing named results with bare actions and consuming a mapped result.
+
+### Explicit block result types
+
+A parenthesized result type after do supplies the type of its returned value:
+
+~~~fib
+greeting : IO String
+greeting = do (String)
+  putStrLn "Preparing a result."
+  (1 message : String) <- pure String "Hello!"
+  pure String message
+
+main : IO Unit
+main = do
+  (1 message : String) <- greeting
+  putStrLn message
+~~~
+
+do (String) means the block has type IO String, not String. The header supplies
+the result type for every sequencing/binding continuation, and an ordinary core
+ascription checks the entire block, including single-action blocks. Pure let
+statements preserve this expected result under their binders.
+
+The annotation resolves in the environment outside the block and is weakened,
+not re-resolved, as statement bindings are introduced. Thus a shadowing local
+name cannot capture a polymorphic result type. An annotation cannot depend on
+a name first introduced by the block. It must be a type, and final actions must
+produce exactly the declared IO result under existing conversion rules.
+
+The annotation's opening parenthesis must be on the do header line; action
+statements start on following indented lines. Empty blocks, final bindings, and
+nested/multiline statements remain unsupported. Plain do keeps its existing
+Unit-result sequencing rules; no implicit result inference was added. A plain
+single-action block still has that action's type.
+
+[do-result.fib](../examples/core/do-result.fib) returns a String from a helper and
+consumes it in main. run still requires main : IO Unit; check/eval can process
+IO String descriptions without executing their writes.
 
 ### Pure let statements
 

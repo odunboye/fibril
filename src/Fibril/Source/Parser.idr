@@ -144,20 +144,34 @@ mutual
   expression (S depth) end tokens =
     case tokens of
       token :: rest =>
-        if token.kind == DoKeyword then
-          case rest of
+        if token.kind == DoKeyword then do
+          (resultType, statements) <- the (Either ParseError (Maybe Expr, List Token)) $ case rest of
+            opening :: _ =>
+              if opening.kind == OpenParen && opening.span.start.line == token.span.start.line
+                 then do
+                   (ty, remaining) <- atom depth end rest
+                   Right (Just ty, remaining)
+                 else Right (Nothing, rest)
+            [] => Right (Nothing, [])
+          let headerLine : Nat = case resultType of
+                Nothing => token.span.start.line
+                Just ty => (extent ty).finish.line
+          case statements of
             [] => Left (ParseFailure end "do block requires at least one action")
             first :: _ =>
-              if first.span.start.line <= token.span.start.line || first.span.start.column <= 1
+              if first.span.start.line <= headerLine || first.span.start.column <= 1
                  then Left (ParseFailure first.span.start "do actions require indented following lines")
                  else do
                    (actions, remaining) <- doActions depth 64 end first.span.start.column
-                                                      token.span.start.line rest
+                                                      headerLine statements
                    case actions of
                      [] => Left (ParseFailure end "do block requires at least one action")
                      first :: rest => do
                        body <- sequenceExpressions token.span.start first rest
-                       Right (body, remaining)
+                       Right (case resultType of
+                         Nothing => body
+                         Just ty => NDoResult (Between token.span.start (extent body).finish) ty body,
+                         remaining)
         else if token.kind == IfKeyword then do
           (condition, afterCondition) <- expression depth end rest
           (_, afterThen) <- expect ThenKeyword end afterCondition

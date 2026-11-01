@@ -155,6 +155,12 @@ nonrecursive RHS/annotation scope, wrong value types, quantity violations, erase
 unused descriptions, final-let rejection, and compatibility with complete let-in
 actions. CLI failures after an earlier write must still execute no output prefix.
 
+Explicit do-result regressions cover single-action ascriptions, general result
+threading through bare actions/let/result bindings, invalid result types, wrong
+continuation results, and linear use. Polymorphic and type-name-shadowing examples
+exercise weakening rather than re-resolving the block's annotation. CLI tests
+check output order, inert eval, non-Unit main rejection, and no late-error prefix.
+
 ## Hedgehog dependency
 
 Repository: https://github.com/stefan-hoeck/idris2-hedgehog

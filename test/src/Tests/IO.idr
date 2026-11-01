@@ -134,7 +134,7 @@ checks =
       not (accepted False "main : IO Unit\nmain = do\n  (1 text : String) <- pure String \"twice\"\n  putStrLn text\n  putStrLn text"))
   , ("IO do validates the annotated action result",
       not (accepted False "main : IO Unit\nmain = do\n  (1 text : String) <- pure Bool True\n  putStrLn text"))
-  , ("IO do bound blocks currently return Unit",
+  , ("IO unannotated bound blocks return Unit",
       not (accepted False "main : IO Bool\nmain = do\n  (1 flag : Bool) <- pure Bool True\n  pure Bool flag"))
   , ("IO do Unit bindings need explicit consumption",
       planned "main : IO Unit\nmain = do\n  (1 done : Unit) <- putStrLn \"first\"\n  case done of () => putStrLn \"second\"" == Just ["first", "second"])
@@ -162,6 +162,27 @@ checks =
       not (accepted False "main : IO Unit\nmain = do\n  let (text : String) = \"last\""))
   , ("IO do complete let-in action remains supported",
       planned "main : IO Unit\nmain = do\n  let (1 text : String) = \"complete\" in putStrLn text\n  putStrLn \"next\"" == Just ["complete", "next"])
+  , ("IO annotated do returns a bound String",
+      planned "greeting : IO String\ngreeting = do (String)\n  (1 text : String) <- pure String \"returned\"\n  pure String text\nmain : IO Unit\nmain = bind String Unit greeting putStrLn" == Just ["returned"])
+  , ("IO annotated do threads its result through bare actions",
+      planned "greeting : IO String\ngreeting = do (String)\n  putStrLn \"first\"\n  pure String \"result\"\nmain : IO Unit\nmain = bind String Unit greeting putStrLn" == Just ["first", "result"])
+  , ("IO annotated do checks a single final action",
+      accepted False "main : IO Bool\nmain = do (Bool)\n  pure Bool True" &&
+      not (accepted False "main : IO Bool\nmain = do (String)\n  pure Bool True"))
+  , ("IO annotated do validates the result as a type",
+      not (accepted False "main : IO Unit\nmain = do (True)\n  pure Unit ()"))
+  , ("IO annotated do rejects a wrong continuation result",
+      not (accepted False "main : IO String\nmain = do (String)\n  (1 flag : Bool) <- pure Bool True\n  pure Bool flag"))
+  , ("IO annotated do retains linear result checking",
+      not (accepted False "main : IO String\nmain = do (String)\n  (1 text : String) <- pure String \"unused\"\n  pure String \"discard\""))
+  , ("IO annotated do preserves polymorphic scope through let and bind",
+      planned "echo : (0 A : Type 0) -> (1 value : A) -> IO A\necho = \\(0 A : Type 0) => \\(1 value : A) => do (A)\n  let (1 moved : A) = value\n  (1 result : A) <- pure A moved\n  pure A result\nmain : IO Unit\nmain = bind String Unit (echo String \"polymorphic\") putStrLn" == Just ["polymorphic"])
+  , ("IO do result type is not captured by a shadowing let",
+      planned "keep : (0 A : Type 0) -> (1 action : IO A) -> IO A\nkeep = \\(0 A : Type 0) => \\(1 action : IO A) => do (A)\n  let (A : Bool) = True\n  action\nmain : IO Unit\nmain = bind String Unit (keep String (pure String \"outer type\")) putStrLn" == Just ["outer type"])
+  , ("IO annotated do still requires a final action",
+      not (accepted False "main : IO String\nmain = do (String)\n  (1 text : String) <- pure String \"last\""))
+  , ("IO do annotation does not permit inline actions",
+      not (accepted False "main : IO Unit\nmain = do (Unit) pure Unit ()"))
   , ("IO helpers are ordinary declarations",
       planned "say : (1 x : String) -> IO Unit\nsay = \\(1 x : String) => putStrLn x\nmain : IO Unit\nmain = say \"helper\"" == Just ["helper"])
   , ("IO linear result cannot be discarded",

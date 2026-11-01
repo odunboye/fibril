@@ -192,6 +192,39 @@ class CLITests(unittest.TestCase):
         self.assertEqual(result.stdout, "")
         self.assertIn("use eval", result.stderr)
 
+    def test_annotated_do_results(self):
+        result = run("run", "examples/core/do-result.fib")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout,
+                         "Preparing a String result.\n"
+                         "Typed do blocks can return values.\n")
+        self.assertEqual(result.stderr, "")
+        result = run("check", "examples/core/do-result.fib")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Type: (IO Unit)", result.stdout)
+        result = run("eval", "examples/core/do-result.fib")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Normal:", result.stdout)
+        self.assertNotIn("\nPreparing a String result.\n", result.stdout)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "result.fib"
+            path.write_text(
+                'main : IO Unit\nmain = do (Unit)\n'
+                '  putStrLn "must not print"\n'
+                '  (1 text : String) <- pure String "wrong result"\n'
+                '  pure String text\n', encoding="utf-8")
+            result = run("run", str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, "")
+            path.write_text('main : IO String\nmain = do (String)\n'
+                            '  pure String "returned"\n', encoding="utf-8")
+            result = run("eval", str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn('Normal: (Pure "returned")', result.stdout)
+            result = run("run", str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, "")
+
     def test_do_let_statements(self):
         result = run("run", "examples/core/do-let.fib")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

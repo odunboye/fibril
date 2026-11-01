@@ -24,6 +24,7 @@ data Expr
   | NApply SourceSpan Expr Expr
   | NSequence SourceSpan Expr Expr
   | NDoBind SourceSpan String Expr Expr Expr
+  | NDoResult SourceSpan Expr Expr
   | NAscribe SourceSpan Expr Expr
   | NLet SourceSpan Quantity String Expr Expr Expr
 
@@ -45,6 +46,7 @@ extent (NLambda span _ _ _ _) = span
 extent (NApply span _ _) = span
 extent (NSequence span _ _) = span
 extent (NDoBind span _ _ _ _) = span
+extent (NDoResult span _ _) = span
 extent (NAscribe span _ _) = span
 extent (NLet span _ _ _ _ _) = span
 
@@ -66,5 +68,6 @@ withExtent span (NLambda _ q name domain body) = NLambda span q name domain body
 withExtent span (NApply _ function argument) = NApply span function argument
 withExtent span (NSequence _ first rest) = NSequence span first rest
 withExtent span (NDoBind _ name domain action body) = NDoBind span name domain action body
+withExtent span (NDoResult _ result body) = NDoResult span result body
 withExtent span (NAscribe _ term expected) = NAscribe span term expected
 withExtent span (NLet _ q name expected value body) = NLet span q name expected value body

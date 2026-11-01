@@ -1,0 +1,12 @@
+-- The parenthesized do header declares the returned value's type, not IO String.
+greeting : IO String
+greeting = do (String)
+  putStrLn "Preparing a String result."
+  let (1 original : String) = "Typed do blocks can return values."
+  (1 text : String) <- pure String original
+  pure String text
+
+main : IO Unit
+main = do
+  (1 message : String) <- greeting
+  putStrLn message

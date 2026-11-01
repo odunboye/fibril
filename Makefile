@@ -39,6 +39,7 @@ examples: build
 	./build/exec/fibril run examples/core/io-map.fib
 	./build/exec/fibril run examples/core/do-bindings.fib
 	./build/exec/fibril run examples/core/do-let.fib
+	./build/exec/fibril run examples/core/do-result.fib
 
 bench:
 	python3 tools/benchmark.py
