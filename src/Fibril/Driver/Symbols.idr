@@ -10,30 +10,22 @@ import Fibril.Source.Rename
 import Fibril.Source.File
 import Fibril.Source.Diagnostic
 import Fibril.Driver.Check
+import Fibril.Driver.JSON
 
 %default total
 
-positionJSON : Position -> String
-positionJSON at = "{\"offset\":" ++ show at.offset ++ ",\"line\":" ++ show at.line ++
-                  ",\"column\":" ++ show at.column ++ "}"
-
 spanJSON : SourceSpan -> String
-spanJSON span = "{\"start\":" ++ positionJSON span.start ++
-                ",\"end\":" ++ positionJSON span.finish ++ "}"
+spanJSON span = jsonObject [("start", jsonPosition span.start), ("end", jsonPosition span.finish)]
 
 symbolJSON : DocumentSymbol -> String
-symbolJSON symbol =
-  -- Names are lexer-validated ASCII identifiers; no JSON quote/control characters.
-  "{\"name\":\"" ++ symbol.name ++ "\",\"quantity\":\"" ++ show symbol.quantity ++
-  "\",\"range\":" ++ spanJSON symbol.range ++
-  ",\"selection\":" ++ spanJSON symbol.selection ++
-  ",\"definitionSelection\":" ++ spanJSON symbol.definitionSelection ++ "}"
+symbolJSON symbol = jsonObject
+  [("name", jsonString symbol.name), ("quantity", jsonString (show symbol.quantity)),
+   ("range", spanJSON symbol.range), ("selection", spanJSON symbol.selection),
+   ("definitionSelection", spanJSON symbol.definitionSelection)]
 
 public export
 renderSymbols : List DocumentSymbol -> String
-renderSymbols symbols =
-  "{\"version\":1,\"coordinates\":\"unicode-scalars;offset=0;line=1;column=1\",\"symbols\":[" ++
-  concat (intersperse "," (map symbolJSON symbols)) ++ "]}"
+renderSymbols symbols = protocolJSON [("symbols", jsonArray (map symbolJSON symbols))]
 
 renameMessage : RenameError -> String
 renameMessage InvalidRenameName = "New name must be an ASCII identifier of 1..256 characters, not a keyword or wildcard"
@@ -56,10 +48,9 @@ renameFile line column name path = do
         Left (renderDriverError path source (FrontendFailure (Parsing err)))
       Left err => Left (renderFileError path (renameMessage err))
       Right preview => Right
-        ["{\"version\":1,\"coordinates\":\"unicode-scalars;offset=0;line=1;column=1\",\"edits\":[" ++
-         concat (intersperse "," (map
-           (\span => "{\"range\":" ++ spanJSON span ++ ",\"newText\":\"" ++
-                     preview.replacement ++ "\"}") preview.edits)) ++ "]}"]
+        [protocolJSON [("edits", jsonArray (map
+          (\span => jsonObject [("range", spanJSON span),
+                                ("newText", jsonString preview.replacement)]) preview.edits))]]
 
 public export
 referencesFile : Nat -> Nat -> String -> IO (Either String (List String))
@@ -69,8 +60,7 @@ referencesFile line column path = do
     Left err => Left (renderFileError path (show err))
     Right source => case referencesAt source line column of
       Right references => Right
-        ["{\"version\":1,\"coordinates\":\"unicode-scalars;offset=0;line=1;column=1\",\"references\":[" ++
-         concat (intersperse "," (map spanJSON references)) ++ "]}"]
+        [protocolJSON [("references", jsonArray (map spanJSON references))]]
       Left (SymbolLexical err) =>
         Left (renderDriverError path source (FrontendFailure (Lexical err)))
       Left (SymbolParsing err) =>
@@ -84,8 +74,7 @@ definitionFile line column path = do
     Left err => Left (renderFileError path (show err))
     Right source => case definitionAt source line column of
       Right target => Right
-        ["{\"version\":1,\"coordinates\":\"unicode-scalars;offset=0;line=1;column=1\",\"definition\":" ++
-         maybe "null" spanJSON target ++ "}"]
+        [protocolJSON [("definition", maybe "null" spanJSON target)]]
       Left (SymbolLexical err) =>
         Left (renderDriverError path source (FrontendFailure (Lexical err)))
       Left (SymbolParsing err) =>

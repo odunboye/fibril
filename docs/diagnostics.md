@@ -99,6 +99,48 @@ return the same plain-string result types, with richer mismatch messages. Future
 consume structured failures, but must implement an explicit UTF-16 mapping and
 cannot treat current core messages as exact source ranges.
 
+## Structured runtime-check reports
+
+~~~sh
+./build/exec/fibril check --json examples/core/string-equal.fib
+~~~
+
+This emits one version-1 JSON object on stdout, including on represented checking
+or file-loading failures. Exit status is 0 for acceptance and nonzero for rejection.
+Normal represented failures leave stderr empty; a client must decode the report
+rather than assuming every nonzero exit means malformed JSON. Unexpected process
+termination or host failures are not guaranteed to produce a report.
+
+The fields are:
+
+- coordinates: unicode-scalars;offset=0;line=1;column=1, matching navigation.
+- accepted: the experimental runtime checker's decision, not a soundness proof.
+- report: informational lines on success; empty on rejection.
+- diagnostics: empty on success, otherwise the first failure. Recovery and
+  multiple-error accumulation are not implemented.
+
+Each diagnostic has severity ("error"), stage, message, position, and byteOffset.
+position is either a real scalar point or null. Core type/resource errors and
+file-level failures remain **unlocated**, with no invented line-one range.
+Decoding errors instead provide a zero-based byteOffset and null scalar position;
+these offsets must not be treated as UTF-16/scalar editor columns. Source-policy
+failures after decoding can retain their real scalar point.
+
+Stages currently distinguish loading, decoding, source-validation, lexing,
+parsing, resolution, prelude, and runtime-checking. The report representation can
+also render existing erased/evaluation/post-reduction/IO-planning driver errors;
+the new command itself runs ordinary runtime checking only, not those services.
+
+[Driver.CheckReport](../src/Fibril/Driver/CheckReport.idr) exposes checkReport for
+unsaved source Strings, checkFileReport for bounded files, and structured outcome
+constructors retaining DriverError/LoadError. The public data constructors are
+not checking certificates. JSON string escaping and protocol metadata are shared
+with the navigation commands through [Driver.JSON](../src/Fibril/Driver/JSON.idr).
+
+The old human-readable check and check --erased interfaces are unchanged.
+check --json never executes IO descriptions, writes source, or invokes a backend.
+It is not an LSP, UTF-16 adapter, incremental checker, or editor diagnostic UI.
+
 ## Tests and next work
 
 [Tests.Diagnostic](../test/src/Tests/Diagnostic.idr) covers line endings, tabs,

@@ -225,6 +225,12 @@ and reject duplication, erased extraction, and wrong operand types. CLI tests
 exercise combined String/Boolean output and verify that a constant-result path
 cannot hide a late type error. No new primitive or metatheory claim is introduced.
 
+Structured check-report tests cover acceptance, type/resource rejection, source
+points versus unlocated core errors, and inert IO descriptions. JSON tests cover
+quotes, backslashes, controls, and Unicode. CLI tests parse accepted/rejected
+reports, check scalar positions with Unicode/CRLF, keep decoding byte offsets
+separate, and cover source-policy and missing-file failures without program output.
+
 ## Hedgehog dependency
 
 Repository: https://github.com/stefan-hoeck/idris2-hedgehog

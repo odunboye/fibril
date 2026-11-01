@@ -193,6 +193,66 @@ class CLITests(unittest.TestCase):
         self.assertEqual(result.stdout, "")
         self.assertIn("use eval", result.stderr)
 
+    def test_json_check_reports(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "checking.fib"
+            for source in ("True", 'main : IO Unit\nmain = putStrLn "never printed"\n'):
+                path.write_text(source, encoding="utf-8")
+                result = run("check", "--json", str(path))
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                report = json.loads(result.stdout)
+                self.assertEqual(report["version"], 1)
+                self.assertTrue(report["accepted"])
+                self.assertEqual(report["diagnostics"], [])
+                self.assertTrue(report["report"])
+                self.assertNotIn("never printed", result.stdout)
+                self.assertEqual(result.stderr, "")
+            for source, stage, located in (
+                ("missing", "resolution", True),
+                ("\\(1 x : Bool) =>", "parsing", True),
+                ("@", "lexing", True),
+                ("(True : String)", "runtime-checking", False),
+                ('(\\(1 x : String) => "discard") "input"', "runtime-checking", False),
+            ):
+                with self.subTest(source=source):
+                    path.write_text(source, encoding="utf-8")
+                    result = run("check", "--json", str(path))
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertEqual(result.stderr, "")
+                    report = json.loads(result.stdout)
+                    self.assertFalse(report["accepted"])
+                    self.assertEqual(report["report"], [])
+                    diagnostic = report["diagnostics"][0]
+                    self.assertEqual(diagnostic["stage"], stage)
+                    self.assertEqual(diagnostic["severity"], "error")
+                    self.assertEqual(diagnostic["position"] is not None, located)
+                    self.assertIsNone(diagnostic["byteOffset"])
+            source = '-- 🌍\r\nmain : String\r\nmain = missing\r\n'
+            path.write_bytes(source.encode("utf-8"))
+            result = run("check", "--json", str(path))
+            point = json.loads(result.stdout)["diagnostics"][0]["position"]
+            self.assertEqual(point, {"offset": source.index("missing"), "line": 3, "column": 8})
+            for raw, byte_offset in ((b"\xff", 0), ("🌍".encode("utf-8") + b"\xff", 4)):
+                path.write_bytes(raw)
+                result = run("check", "--json", str(path))
+                diagnostic = json.loads(result.stdout)["diagnostics"][0]
+                self.assertEqual(diagnostic["stage"], "decoding")
+                self.assertIsNone(diagnostic["position"])
+                self.assertEqual(diagnostic["byteOffset"], byte_offset)
+            path.write_text('"🌍"\n\u202e', encoding="utf-8")
+            result = run("check", "--json", str(path))
+            diagnostic = json.loads(result.stdout)["diagnostics"][0]
+            self.assertEqual(diagnostic["stage"], "source-validation")
+            self.assertEqual(diagnostic["position"], {"offset": 4, "line": 2, "column": 1})
+            self.assertIsNone(diagnostic["byteOffset"])
+            path.unlink()
+            result = run("check", "--json", str(path))
+            self.assertNotEqual(result.returncode, 0)
+            diagnostic = json.loads(result.stdout)["diagnostics"][0]
+            self.assertEqual(diagnostic["stage"], "loading")
+            self.assertIsNone(diagnostic["position"])
+            self.assertEqual(result.stderr, "")
+
     def test_boolean_library(self):
         result = run("run", "examples/core/boolean-library.fib")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

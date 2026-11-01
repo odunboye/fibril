@@ -67,6 +67,12 @@ frontendPoint (Lexical (BadString err)) = Just (AtPoint err.position ("Lexing: "
 frontendPoint (Lexical ScanLimit) = Nothing
 frontendPoint (PreludeUnavailable _) = Nothing
 
+||| Only genuine frontend source points; core failures remain unlocated.
+public export
+driverDiagnostic : DriverError -> Maybe Diagnostic
+driverDiagnostic (FrontendFailure err) = frontendPoint err
+driverDiagnostic _ = Nothing
+
 public export
 renderDriverError : String -> String -> DriverError -> String
 renderDriverError path source (FrontendFailure err) =

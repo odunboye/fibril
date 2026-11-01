@@ -10,6 +10,7 @@ Build with `pack build fibril`, then invoke `./build/exec/fibril`.
 | eval PATH | Check then reference-normalize an expression or declaration program (default fuel 128) |
 | eval --fuel N PATH | Same with evaluation fuel 0..4096; not compiled execution |
 | check PATH | Parse/resolve an expression or declaration file with main, then check typing/runtime usage |
+| check --json PATH | Structured runtime-check report; JSON on stdout even on represented rejection, with nonzero status |
 | check --erased PATH | Parse/resolve/check the erased ordinary fragment only |
 | rename-preview LINE COLUMN NEWNAME PATH | Conservative capture-checked same-file edit preview as JSON; never writes files |
 | references LINE COLUMN PATH | Same-file lexical occurrences, including declaration sites, as JSON |

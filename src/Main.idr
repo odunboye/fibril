@@ -5,6 +5,7 @@ import System.File
 import Data.List
 import Fibril.Driver.Demo
 import Fibril.Driver.Check
+import Fibril.Driver.CheckReport
 import Fibril.Driver.Evaluate
 import Fibril.Driver.Run
 import Fibril.Driver.Symbols
@@ -29,6 +30,7 @@ Usage:
   fibril symbols PATH           JSON declaration ranges (syntax only, not checking)
   fibril lex-source PATH        Print source tokens/spans (not parsing/checking)
   fibril check PATH             Check a closed source program and runtime usage
+  fibril check --json PATH      JSON runtime-check report (no effect execution)
   fibril check --erased PATH    Check only the erased ordinary fragment
   fibril run PATH              Check main : IO Unit, then execute prepared stdout requests
   fibril eval PATH              Checked reference normalization (128 reduction steps)
@@ -111,6 +113,10 @@ main = do
           exitFailure
     ["check", path] => runCheck False path
     ["check", "--erased", path] => runCheck True path
+    ["check", "--json", path] => do
+      report <- checkFileReport path
+      putStrLn (renderCheckReport report)
+      if isAccepted report then pure () else exitFailure
     ["lex-source", path] => do
       loaded <- loadSource path
       case loaded of
