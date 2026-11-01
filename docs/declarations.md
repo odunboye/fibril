@@ -105,6 +105,10 @@ type aliases/type functions and global delta conversion need a separately
 designed definition environment. The parser does not silently inline names or
 perform capture-prone textual substitution to conceal this limitation.
 
+The next [module/import slice](modules.md) deliberately specifies imported/global
+signature preservation and transparent closed conversion separately from these
+local-let semantics. It remains a design contract, not accepted source syntax.
+
 ## Budgets, diagnostics, and trust
 
 The driver allows at most 64 declarations and uses parser depth 256 independently

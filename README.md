@@ -10,7 +10,8 @@ compiler backends, and real-time guarantees are not implemented.
 [Checked Fibril prelude functions](docs/console-runner.md) provide putStrLn,
 pure, and bind over experimental IO descriptions. A hosted runner executes stdout
 plans; a complete effect calculus and compiler backends remain future work.
-See [checker scope and limits](docs/erased-checker.md).
+See [checker scope and limits](docs/erased-checker.md). The next step is the
+[local module/import contract](docs/modules.md), explicitly still unimplemented.
 
 Optional [Neovim/Vim highlighting, checking, and same-file navigation](docs/editor-highlighting.md),
 including [LazyVim installation](docs/editor-highlighting.md#install-in-lazyvim),

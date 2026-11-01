@@ -1,0 +1,13 @@
+digraph ModulePlan {
+  rankdir=LR;
+  node [shape=box];
+  label="Planned local modules — not implemented";
+  source [label="Explicit source root\ncanonical module/file identity"];
+  parse [label="Shared parsed document\nheader + imports + exports + declarations"];
+  dependencies [label="Bounded acyclic graph\nreal import-edge provenance"];
+  check [label="Dependencies checked first\nclosed unrestricted definitions"];
+  signature [label="Direct qualified exports only\nascribed declared types"];
+  entry [label="Check entry snapshot\nno execution on graph failure"];
+  runtime [label="run only: prepare full IO plan\nthen host stdout"];
+  source -> parse -> dependencies -> check -> signature -> entry -> runtime;
+}

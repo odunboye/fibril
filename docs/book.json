@@ -80,6 +80,10 @@
         "path": "docs/declarations.md"
       },
       {
+        "title": "Local module/import implementation contract",
+        "path": "docs/modules.md"
+      },
+      {
         "title": "Hello world and hosted console execution",
         "path": "docs/console-runner.md"
       },

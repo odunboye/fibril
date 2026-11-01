@@ -37,6 +37,10 @@ This example is not a runnable dependency configuration. Target-specific
 dependencies also need an explicit schema, so browser packages do not contaminate
 an unrelated embedded build.
 
+The first [local module/import contract](modules.md) precedes package resolution:
+one explicit source root, checked qualified exports, an acyclic graph, and no
+network or manifest reader. Its design is not implemented module loading yet.
+
 ## Minimal implementation sequence
 
 1. Local-path packages and a deterministic module/dependency graph.
