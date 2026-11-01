@@ -1,0 +1,10 @@
+-- map is written in Fibril using bind/pure; it adds no primitive operation.
+finished : IO Bool
+finished = map Unit Bool
+             (\(1 done : Unit) => case done of () => True)
+             (putStrLn "The first action runs before its result is mapped.")
+
+main : IO Unit
+main = bind Bool Unit finished
+         (\(1 ok : Bool) => if ok then putStrLn "Mapped result received."
+                                 else putStrLn "Unexpected result.")

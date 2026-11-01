@@ -192,6 +192,22 @@ class CLITests(unittest.TestCase):
         self.assertEqual(result.stdout, "")
         self.assertIn("use eval", result.stderr)
 
+    def test_io_map_is_a_checked_library_function(self):
+        result = run("check", "examples/core/io-map.fib")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Type: (IO Unit)", result.stdout)
+        self.assertNotIn("Mapped result received.", result.stdout)
+        result = run("run", "examples/core/io-map.fib")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout,
+                         "The first action runs before its result is mapped.\n"
+                         "Mapped result received.\n")
+        self.assertEqual(result.stderr, "")
+        result = run("eval", "examples/core/io-map.fib")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Normal:", result.stdout)
+        self.assertNotIn("\nMapped result received.\n", result.stdout)
+
     def test_expanded_io_plan_limit_has_no_output_prefix(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "expanded.fib"

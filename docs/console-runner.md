@@ -13,7 +13,7 @@ putStrLn : (1 text : String) -> IO Unit
 putStrLn = \(1 text : String) => primWriteLine text
 ~~~
 
-The same file defines pure and bind. These definitions are parsed, resolved, and
+The same file defines pure, bind, and map. These definitions are parsed, resolved, and
 core-checked before becoming available through an implicit bundled prelude.
 putStrLn is not a primitive name or a parser pattern. Local declarations can
 shadow it, and helpers can call it through ordinary function application.
@@ -37,6 +37,34 @@ Run [that example](../examples/core/io-functions.fib):
 The final primitive write still uses [host stdout](../src/Fibril/Runtime/Console.idr).
 A standard-library function ultimately calling an OS/host primitive is expected;
 the removed shortcut was treating its *name* as print syntax.
+
+## Mapping an IO result in Fibril
+
+The prelude's map takes explicit small types A/B, a linear pure function
+transform : (1 value : A) -> B, and an action : IO A, returning IO B.
+Its implementation is ordinary Fibril:
+
+~~~fib
+map : (0 A : Type 0) -> (0 B : Type 0) -> (1 transform : (1 value : A) -> B) -> (1 action : IO A) -> IO B
+map = \(0 A : Type 0) => \(0 B : Type 0) => \(1 transform : (1 value : A) -> B) => \(1 action : IO A) => bind A B action (\(1 value : A) => pure B (transform value))
+~~~
+
+There is no map primitive or special typing/reduction rule. Its function argument
+is used once, and that function must consume its result parameter once. Mapping a
+Unit result therefore uses explicit Unit elimination rather than silent discard.
+The action still describes its original writes before supplying the mapped result.
+
+[io-map.fib](../examples/core/io-map.fib) maps a write's Unit result to Bool, then
+uses that Bool to choose a second write. check validates it without printing;
+eval displays the inert description; run prints the two lines in order.
+
+If B itself is IO C, the result is IO (IO C), not IO C. map does not implicitly
+flatten descriptions or execute a returned action. Use an explicit bind to pass
+that description to a continuation. Runtime input remains unimplemented.
+
+Tests cover identity/composition examples, ordering, captured linear values,
+discard/duplication rejection, invariant function quantities, and explicit nested
+IO handling. These finite regressions are not a proof of functor or monad laws.
 
 ## Core IO descriptions
 

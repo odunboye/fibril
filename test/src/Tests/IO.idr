@@ -78,6 +78,29 @@ checks =
       planned "main : IO Unit\nmain = pure Unit ()" == Just [])
   , ("IO bind passes a typed result to a library function",
       planned "main : IO Unit\nmain = bind String Unit (pure String \"bound\") (\\(1 text : String) => putStrLn text)" == Just ["bound"])
+  , ("IO map is not a primitive",
+      case lookupGlobal "map" primitiveGlobals of Nothing => True; _ => False)
+  , ("IO map transforms a returned value",
+      planned "main : IO Unit\nmain = bind Bool Unit (map Unit Bool (\\(1 done : Unit) => case done of () => True) (pure Unit ())) (\\(1 ok : Bool) => if ok then putStrLn \"mapped\" else putStrLn \"wrong\")" == Just ["mapped"])
+  , ("IO map identity preserves a String result",
+      planned "main : IO Unit\nmain = bind String Unit (map String String (\\(1 text : String) => text) (pure String \"identity\")) putStrLn" == Just ["identity"])
+  , ("IO map composes ordinary pure helpers",
+      planned "flip : (1 flag : Bool) -> Bool\nflip = \\(1 flag : Bool) => if flag then False else True\nmain : IO Unit\nmain = bind Bool Unit (map Bool Bool flip (map Bool Bool flip (pure Bool True))) (\\(1 flag : Bool) => if flag then putStrLn \"original\" else putStrLn \"wrong\")" == Just ["original"])
+  , ("IO map preserves prior output order",
+      planned "main : IO Unit\nmain = bind Bool Unit (map Unit Bool (\\(1 done : Unit) => case done of () => True) (putStrLn \"first\")) (\\(1 ok : Bool) => if ok then putStrLn \"second\" else putStrLn \"wrong\")" == Just ["first", "second"])
+  , ("IO map can move a captured linear value",
+      accepted False "main : (1 text : String) -> IO String\nmain = \\(1 text : String) => map Unit String (\\(1 done : Unit) => case done of () => text) (pure Unit ())")
+  , ("IO map rejects discarded linear results",
+      not (accepted False "map String String (\\(1 text : String) => \"discard\") (pure String \"input\")"))
+  , ("IO map rejects duplicated linear results before reduction",
+      not (accepted False "map Bool Bool (\\(1 flag : Bool) => if flag then flag else flag) (pure Bool True)"))
+  , ("IO map requires a linear function argument type",
+      not (accepted False "map String String (\\(text : String) => text) (pure String \"input\")"))
+  , ("IO map does not implicitly flatten returned descriptions",
+      accepted False "map String (IO Unit) putStrLn (pure String \"nested\")" &&
+      not (accepted False "main : IO Unit\nmain = map String (IO Unit) putStrLn (pure String \"nested\")"))
+  , ("IO map returned descriptions need explicit bind",
+      planned "main : IO Unit\nmain = bind (IO Unit) Unit (map String (IO Unit) putStrLn (pure String \"nested\")) (\\(1 action : IO Unit) => action)" == Just ["nested"])
   , ("IO helpers are ordinary declarations",
       planned "say : (1 x : String) -> IO Unit\nsay = \\(1 x : String) => putStrLn x\nmain : IO Unit\nmain = say \"helper\"" == Just ["helper"])
   , ("IO linear result cannot be discarded",

@@ -36,6 +36,7 @@ examples: build
 	./build/exec/fibril eval examples/core/string-identity.fib
 	./build/exec/fibril run examples/core/console-expressions.fib
 	./build/exec/fibril run examples/core/io-functions.fib
+	./build/exec/fibril run examples/core/io-map.fib
 
 bench:
 	python3 tools/benchmark.py

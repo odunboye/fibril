@@ -8,3 +8,7 @@ pure = \(0 A : Type 0) => \(1 value : A) => primPure A value
 
 bind : (0 A : Type 0) -> (0 B : Type 0) -> (1 action : IO A) -> (1 next : (1 value : A) -> IO B) -> IO B
 bind = \(0 A : Type 0) => \(0 B : Type 0) => \(1 action : IO A) => \(1 next : (1 value : A) -> IO B) => primBind A B action next
+
+-- Transform a returned value without extracting it from IO or adding a primitive.
+map : (0 A : Type 0) -> (0 B : Type 0) -> (1 transform : (1 value : A) -> B) -> (1 action : IO A) -> IO B
+map = \(0 A : Type 0) => \(0 B : Type 0) => \(1 transform : (1 value : A) -> B) => \(1 action : IO A) => bind A B action (\(1 value : A) => pure B (transform value))

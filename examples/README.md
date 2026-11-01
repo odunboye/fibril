@@ -70,6 +70,10 @@ rechecked before the first output. File-level IO helpers are now supported.
 `io-functions.fib` uses an ordinary helper and actual Fibril pure/bind/putStrLn
 functions. Only run executes the IO description's prepared stdout requests.
 
+`io-map.fib` transforms a write's Unit result to Bool using the ordinary Fibril
+map function, then branches on it to produce a second write. Mapping preserves
+output order and does not execute effects during checking/reference evaluation.
+
 ## Proposed Fibril programs
 
 `proposed/` illustrates the intended user experience, from hello world and

@@ -140,6 +140,9 @@ installation, name shadowing, universe levels, linear/erased failures, and inert
 normalization. CLI tests run ordinary helpers and shadowed putStrLn outside the
 repository. A generated IO-description property compares plans before/after
 normalization without executing writes. make build checks the generated prelude.
+IO map regressions additionally cover ordinary-library identity/composition examples,
+output order, captured linear values, invalid result usage/function quantities, and
+explicit rather than implicit flattening of nested IO descriptions.
 
 ## Hedgehog dependency
 
