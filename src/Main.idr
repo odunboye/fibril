@@ -1,10 +1,12 @@
 module Main
 
 import System
+import System.File
 import Data.List
 import Fibril.Driver.Demo
 import Fibril.Driver.Check
 import Fibril.Driver.Evaluate
+import Fibril.Driver.Run
 import Fibril.Source.File
 import Fibril.Source.Lexer
 import Fibril.Source.Diagnostic
@@ -20,9 +22,10 @@ Usage:
   fibril --version
   fibril demo       Run built-in ordinary checking and cubical algebra examples
   fibril validate-source PATH   Validate UTF-8 and source controls (not typing)
-  fibril lex-source PATH        Print tokens/spans for the expression subset
+  fibril lex-source PATH        Print source tokens/spans (not parsing/checking)
   fibril check PATH             Check a closed source program and runtime usage
   fibril check --erased PATH    Check only the erased ordinary fragment
+  fibril run PATH              Execute a restricted main : IO Unit console entry
   fibril eval PATH              Checked reference normalization (128 reduction steps)
   fibril eval --fuel N PATH     Reference normalization with fuel 0..4096
 
@@ -57,6 +60,13 @@ main = do
     [] => putStrLn help
     ["--help"] => putStrLn help
     ["--version"] => putStrLn "Fibril 0.1.0-dev (Idris 2 bootstrap)"
+    ["run", path] => do
+      result <- runFile path
+      case result of
+        Right () => pure ()
+        Left err => do
+          _ <- fPutStrLn stderr err
+          exitFailure
     ["eval", path] => runEval 128 path
     ["eval", "--fuel", text, path] =>
       case fuelValue text of

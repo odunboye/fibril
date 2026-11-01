@@ -127,6 +127,48 @@ class CLITests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("Parsing:", result.stdout)
 
+    def test_hello_world_runner(self):
+        result = run("run", "examples/core/hello-world.fib")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout, "Hello, world!\n")
+        self.assertEqual(result.stderr, "")
+        result = run("check", "examples/core/hello-world.fib")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("restricted profile", result.stdout)
+        self.assertNotIn("Hello, world!", result.stdout)
+        for args in (("eval",), ("check", "--erased")):
+            result = run(*args, "examples/core/hello-world.fib")
+            self.assertNotEqual(result.returncode, 0)
+            self.assertNotIn("Hello, world!", result.stdout)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "hello.fib"
+            path.write_text('main : IO Unit\nmain =\n  putStrLn "λ 🌍\\nquote: \\" slash: \\\\ tab:\\t"\n', encoding="utf-8")
+            result = run("run", str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'λ 🌍\nquote: " slash: \\ tab:\t\n')
+            bad_sources = [
+                'main : IO Unit\nmain = putStrLn "must not print"\nmain = putStrLn "extra"',
+                'main : IO Unit\nmain = putStrLn "must not print" ()',
+                'main : IO Unit\nmain = putStrLn "unterminated',
+                'main : IO Unit\nmain = putStrLn "bad\\q"',
+                'main : IO Unit\nmain = unknown "must not print"',
+                'main : IO Bool\nmain = putStrLn "must not print"',
+                'main : Bool\nmain = True',
+                'main : IO Unit\nmain = putStrLn "raw\nnewline"',
+            ]
+            for source in bad_sources:
+                with self.subTest(source=source):
+                    path.write_text(source, encoding="utf-8")
+                    result = run("run", str(path))
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertEqual(result.stdout, "")
+                    self.assertIn(str(path), result.stderr)
+            path.unlink()
+            result = run("run", str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, "")
+            self.assertIn(str(path), result.stderr)
+
     def test_declaration_files(self):
         result = run("eval", "--fuel", "4", "examples/core/declarations.fib")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

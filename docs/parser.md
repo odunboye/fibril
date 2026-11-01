@@ -52,6 +52,10 @@ Underscore is a wildcard, never a referenceable name.
 This grammar is an explicitly annotated stepping stone, not a final syntax
 promise or an indentation-based declaration implementation.
 
+Quoted strings now lex as tokens, but this ordinary expression parser rejects
+them. The separate [restricted console profile](console-runner.md) accepts a
+literal putStrLn entry without introducing IO/string terms into this grammar.
+
 ## Primitive data
 
 Unit names the first ordinary data type; () is its value. Both are source atoms,

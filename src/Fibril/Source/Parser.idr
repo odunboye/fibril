@@ -185,6 +185,7 @@ mutual
   atom (S depth) end (token :: rest) =
     case token.kind of
       Name => Right (NRef token.span token.spelling, rest)
+      StringToken => Left (ParseFailure token.span.start "String literals are not ordinary core terms; use a supported IO entry")
       UnitKeyword => Right (NUnitType token.span, rest)
       BoolKeyword => Right (NBoolType token.span, rest)
       TrueKeyword => Right (NBoolValue token.span True, rest)

@@ -76,6 +76,10 @@
         "path": "docs/declarations.md"
       },
       {
+        "title": "Hello world and hosted console execution",
+        "path": "docs/console-runner.md"
+      },
+      {
         "title": "Checked reference evaluation",
         "path": "docs/evaluation.md"
       },

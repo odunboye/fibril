@@ -12,7 +12,9 @@ resolution failures and render them against the original loaded text:
       1 | missing
         | ^
 
-Failures still exit nonzero and use the CLI's existing stdout reporting.
+These commands still exit nonzero on failure and use their existing stdout
+reporting. The separate run command reserves stdout for program output and
+reports failures on stderr.
 IO/UTF-8/text-loading failures include the filename but have no source excerpt:
 the loader did not return validated text.
 
@@ -77,6 +79,8 @@ truncated. Constructing/rendering a large payload is not a bounded-work promise.
 - FrontendFailure retains LexError, ParseError, or ResolveError.
 - ErasedFailure retains CheckError; RuntimeFailure retains RuntimeError.
 - EvaluationLimit distinguishes evaluation exhaustion.
+- EffectfulEvaluation and ErasedConsole reject console actions at the ordinary
+  normalization/erased-proof boundaries; malformed strings retain lexical points.
 - PostReductionFailure retains the runtime error from final rechecking.
 
 RuntimeError's TypingError in turn retains the structured CheckError. No core

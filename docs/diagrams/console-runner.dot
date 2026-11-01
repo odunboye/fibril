@@ -1,0 +1,12 @@
+digraph ConsoleRunner {
+  rankdir=LR;
+  node [shape=box];
+  source [label="Bounded validated source"];
+  lexer [label="Shared lexer\nstrings + escapes"];
+  profile [label="Complete console-entry validation"];
+  action [label="Separate PrintLine data"];
+  host [label="Host stdout adapter"];
+  core [label="Ordinary core checking / normalization"];
+  source -> lexer -> profile -> action -> host;
+  lexer -> core [label="ordinary source only"];
+}

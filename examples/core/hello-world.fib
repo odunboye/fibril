@@ -1,0 +1,3 @@
+-- Hosted console entry: printing is never part of core normalization.
+main : IO Unit
+main = putStrLn "Hello, world!"

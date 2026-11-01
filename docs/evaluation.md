@@ -3,6 +3,9 @@
 Status: implemented for the ordinary expression subset. This is **not compiled
 execution**, an IO interpreter, or a C/JavaScript backend.
 
+For effectful [hello world](console-runner.md), use fibril run. Console entries
+are rejected before reference normalization; eval never executes printing.
+
 ## Try it
 
 ```sh

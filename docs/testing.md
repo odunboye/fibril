@@ -103,6 +103,11 @@ and demonstrate why arbitrary Normal tags are not certificates.
 signature/definition framing, source order, nonrecursion, entry presence, budgets,
 quantities, dependent signatures, and the explicit opaque-let limitation.
 
+[Tests.Console](../test/src/Tests/Console.idr) covers string literals and the
+restricted console-entry profile without executing effects. CLI tests assert exact
+hello-world/Unicode output, complete validation before execution, stdout/stderr
+separation, and rejection by eval/erased checking. No new randomized-property count.
+
 ## Hedgehog dependency
 
 Repository: https://github.com/stefan-hoeck/idris2-hedgehog

@@ -6,6 +6,7 @@ Build with `pack build fibril`, then invoke `./build/exec/fibril`.
 | --- | --- |
 | --help (or no arguments) | Show available commands and implementation limits |
 | --version | Show bootstrap version |
+| run PATH | Validate and execute the restricted main : IO Unit console profile through the host adapter |
 | eval PATH | Check then reference-normalize an expression or declaration program (default fuel 128) |
 | eval --fuel N PATH | Same with evaluation fuel 0..4096; not compiled execution |
 | check PATH | Parse/resolve an expression or declaration file with main, then check typing/runtime usage |
@@ -15,8 +16,8 @@ Build with `pack build fibril`, then invoke `./build/exec/fibril`.
 | validate-source PATH | Strictly decode a bounded UTF-8 file and validate source controls; not parsing/typing |
 
 Unsupported commands and arguments exit nonzero. File-based expression checking
-now exists; build/run commands for Fibril source do not. Pack builds the Idris
-implementation. See the [expression grammar and checking guide](parser.md).
+now exists, and run executes the restricted console profile. A Fibril source
+build/backend command does not exist. Pack builds the Idris implementation. See the [expression grammar and checking guide](parser.md).
 
 The [Unicode source guide](unicode-source.md) specifies byte/scalar offsets,
 control policy, file-size limits, and concurrent-read limitations.
@@ -27,6 +28,11 @@ post-reduction checks, and why this is not a backend runtime.
 Files may contain a single expression or [source-ordered declarations](declarations.md)
 with explicit signatures and a main entry. These lower to typed lets, not
 transparent globals; all limitations and column-one framing rules are explicit.
+
+For [hello world](console-runner.md), use run: check validates the console profile
+without printing, while eval and check --erased reject effects. run reserves
+stdout for program output and sends failures to stderr. It is hosted execution,
+not generated C/JS or general IO typing.
 
 ## Source diagnostics
 
@@ -54,7 +60,8 @@ boundaries. Closed usage [] means no free variables are consumed.
 
 [Driver.Demo](../src/Fibril/Driver/Demo.idr) orchestrates these calls. It returns
 an error instead of printing unchecked success if an expectation fails.
-[Main](../src/Main.idr) handles arguments and IO only. Core modules do not import
+[Main](../src/Main.idr) handles argument dispatch; the separate console runtime
+adapter performs the new hosted printing. Core modules do not import
 the driver. These examples are not a parser, backend, or proof of soundness.
 
 [Pretty](../src/Fibril/Core/Pretty.idr) supplies the diagnostic notation shared

@@ -11,6 +11,8 @@ The generated homepage separates teaching chapters, references, and project reco
 
 ## Reference index
 
+- [Hello world / hosted console](console-runner.md): first run command and its explicit effect boundary.
+
 - [Source-ordered declarations](declarations.md): explicit headers lowered to typed lets, not transparent globals.
 
 - [Fuel and resumable normalization](reduction-fuel.md): exact budget laws and raw-tag boundaries.

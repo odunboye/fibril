@@ -3,17 +3,19 @@ module Fibril.Source.Lexer
 
 import Data.List
 import Fibril.Source.Text
+import Fibril.Source.StringLiteral
 
 %default total
 
 ||| Token categories for the initial explicitly annotated expression grammar.
 public export
-data TokenKind = Name | Number | TypeKeyword | UnitKeyword | BoolKeyword | TrueKeyword | FalseKeyword | IfKeyword | ThenKeyword | ElseKeyword | CaseKeyword | OfKeyword | LetKeyword | InKeyword | Equals | OpenParen | CloseParen | Colon | Arrow | BodyArrow | Lambda
+data TokenKind = Name | Number | StringToken | TypeKeyword | UnitKeyword | BoolKeyword | TrueKeyword | FalseKeyword | IfKeyword | ThenKeyword | ElseKeyword | CaseKeyword | OfKeyword | LetKeyword | InKeyword | Equals | OpenParen | CloseParen | Colon | Arrow | BodyArrow | Lambda
 
 public export
 Show TokenKind where
   show Name = "name"
   show Number = "number"
+  show StringToken = "string"
   show TypeKeyword = "Type"
   show UnitKeyword = "Unit"
   show BoolKeyword = "Bool"
@@ -38,6 +40,7 @@ public export
 Eq TokenKind where
   Name == Name = True
   Number == Number = True
+  StringToken == StringToken = True
   TypeKeyword == TypeKeyword = True
   UnitKeyword == UnitKeyword = True
   BoolKeyword == BoolKeyword = True
@@ -81,12 +84,13 @@ Show Token where
 
 ||| Distinguish text-policy errors from lexically unsupported characters.
 public export
-data LexError = InvalidSource TextError | UnexpectedChar Position Char | ScanLimit
+data LexError = InvalidSource TextError | UnexpectedChar Position Char | BadString LiteralError | ScanLimit
 
 public export
 Show LexError where
   show (InvalidSource err) = show err
   show (UnexpectedChar at char) = show at ++ ": Unexpected character " ++ show char
+  show (BadString err) = show err
   show ScanLimit = "Internal lexer progress budget exhausted"
 
 asciiLetter : Char -> Bool
@@ -114,6 +118,13 @@ emit at kind chars =
 scan : Nat -> Position -> List Char -> Either LexError (List Token)
 scan fuel at [] = Right []
 scan Z at (_ :: _) = Left ScanLimit
+scan (S fuel) at chars@('"' :: _) = do
+  literal <- case scanLiteral at chars of
+    Left err => Left (BadString err)
+    Right literal => Right literal
+  let token = emit at StringToken literal.original
+  tokens <- scan fuel token.span.finish literal.remaining
+  Right (token :: tokens)
 scan (S fuel) at ('-' :: '-' :: rest) =
   let (comment, remaining) = span (\c => c /= '\n' && c /= '\r') rest
    in scan fuel (advancePosition at ('-' :: '-' :: comment)) remaining

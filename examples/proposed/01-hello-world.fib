@@ -1,4 +1,5 @@
--- PROPOSED FIBRIL: not executable; parser and IO library do not exist yet.
+-- PROPOSED full module syntax: not executable; general IO/modules do not exist yet.
+-- A runnable restricted console entry is in ../core/hello-world.fib.
 module HelloWorld
 
 main : IO ()

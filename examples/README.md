@@ -51,6 +51,10 @@ normalizes and passes post-reduction checking under unrestricted permissions.
 files with explicit signature/definition pairs and a main entry. Both are included
 in make examples. See [declaration rules and opacity limits](../docs/declarations.md).
 
+`hello-world.fib` now runs with `fibril run` through the restricted hosted console
+profile. make examples checks it without printing, then executes it. General IO,
+modules, and C/JS backends remain unimplemented; see [the exact profile](../docs/console-runner.md).
+
 ## Proposed Fibril programs
 
 `proposed/` illustrates the intended user experience, from hello world and

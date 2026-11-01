@@ -24,6 +24,8 @@ examples: build
 	./build/exec/fibril eval examples/core/branch-permissions.fib
 	./build/exec/fibril eval examples/core/declarations.fib
 	./build/exec/fibril eval examples/core/declarations-polymorphic.fib
+	./build/exec/fibril check examples/core/hello-world.fib
+	./build/exec/fibril run examples/core/hello-world.fib
 
 bench:
 	python3 tools/benchmark.py

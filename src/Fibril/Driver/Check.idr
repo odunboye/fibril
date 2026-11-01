@@ -1,4 +1,4 @@
--- Orchestrate the expression frontend; core checking remains independent.
+-- Dispatch ordinary core checking and separate restricted console validation.
 module Fibril.Driver.Check
 
 import Fibril.Source.Text
@@ -6,6 +6,8 @@ import Fibril.Source.Lexer
 import Fibril.Source.Syntax
 import Fibril.Source.Parser
 import Fibril.Source.Declaration
+import Fibril.Source.Console
+import Fibril.Source.StringLiteral
 import Fibril.Source.Resolve
 import Fibril.Source.File
 import Fibril.Source.Diagnostic
@@ -36,6 +38,8 @@ data DriverError
   | RuntimeFailure RuntimeError
   | EvaluationLimit
   | PostReductionFailure RuntimeError
+  | EffectfulEvaluation
+  | ErasedConsole
 
 public export
 Show DriverError where
@@ -44,6 +48,8 @@ Show DriverError where
   show (RuntimeFailure err) = "Runtime checking: " ++ show err
   show EvaluationLimit = "Evaluation budget exhausted; no normal form reported"
   show (PostReductionFailure err) = "Post-reduction checking failed: " ++ show err
+  show EffectfulEvaluation = "Console IO requires fibril run; reference evaluation does not execute effects"
+  show ErasedConsole = "Console IO entries are not ordinary erased proofs"
 
 frontendPoint : FrontendError -> Maybe Diagnostic
 frontendPoint (Parsing err) = Just (AtPoint err.position ("Parsing: " ++ err.message))
@@ -54,6 +60,7 @@ frontendPoint (Lexical (UnexpectedChar position char)) =
 frontendPoint (Lexical (InvalidSource err)) =
   Just (AtPoint err.position ("Lexing: " ++ show err.problem ++
                              " (code point " ++ show err.codePoint ++ ")"))
+frontendPoint (Lexical (BadString err)) = Just (AtPoint err.position ("Lexing: " ++ err.message))
 frontendPoint (Lexical ScanLimit) = Nothing
 
 ||| Contextual file diagnostics without reparsing or assigning core source spans.
@@ -65,20 +72,40 @@ renderDriverError path source (FrontendFailure err) =
     Nothing => renderFileError path (show err)
 renderDriverError path source err = renderFileError path (show err)
 
-||| Resolve an expression or source-ordered declaration file with fixed budgets.
-||| Declarations lower to typed lets; no imports, implicit inference, or recursion.
+||| Separate console action data from ordinary core terms; neither is a certificate.
 public export
-resolveSource : String -> Either FrontendError (Term 0)
-resolveSource source = do
+data SourceProgram = CoreSource (Term 0) | ConsoleSource ConsoleEntry
+
+||| Load-independent validation. Console entries are a restricted separate profile,
+||| never an IO term or axiom inserted into trusted ordinary checking.
+public export
+prepareSource : String -> Either FrontendError SourceProgram
+prepareSource source = do
   tokens <- case lexSource source of
     Left err => Left (Lexical err)
     Right tokens => Right tokens
-  syntax <- case parseSource 64 256 (advancePosition (At 0 1 1) (unpack source)) tokens of
-    Left err => Left (Parsing err)
-    Right syntax => Right syntax
-  case resolveClosed syntax of
-    Left err => Left (Resolving err)
-    Right term => Right term
+  let end = advancePosition (At 0 1 1) (unpack source)
+  if consoleAhead tokens
+     then case parseConsole end tokens of
+       Left err => Left (Parsing err)
+       Right entry => Right (ConsoleSource entry)
+     else do
+       syntax <- case parseSource 64 256 end tokens of
+         Left err => Left (Parsing err)
+         Right syntax => Right syntax
+       case resolveClosed syntax of
+         Left err => Left (Resolving err)
+         Right term => Right (CoreSource term)
+
+||| Resolve ordinary source only; console action data cannot become a core term.
+public export
+resolveSource : String -> Either FrontendError (Term 0)
+resolveSource source = do
+  prepared <- prepareSource source
+  case prepared of
+    CoreSource term => Right term
+    ConsoleSource entry => Left (Parsing (ParseFailure entry.span.start
+      "Console IO entries are not ordinary core terms"))
 
 ||| Prepared diagnostic data, not an unforgeable kernel certificate.
 public export
@@ -97,10 +124,12 @@ prepareTerm term =
 public export
 prepareRuntimeSourceDetailed : String -> Either DriverError RuntimeSource
 prepareRuntimeSourceDetailed source = do
-  term <- case resolveSource source of
+  prepared <- case prepareSource source of
     Left err => Left (FrontendFailure err)
-    Right term => Right term
-  prepareTerm term
+    Right prepared => Right prepared
+  case prepared of
+    CoreSource term => prepareTerm term
+    ConsoleSource _ => Left EffectfulEvaluation
 
 ||| Compatibility presentation for callers that only need a plain error string.
 public export
@@ -114,17 +143,23 @@ prepareRuntimeSource source =
 public export
 checkSourceDetailed : Bool -> String -> Either DriverError (List String)
 checkSourceDetailed erasedOnly source = do
-  term <- case resolveSource source of
+  prepared <- case prepareSource source of
     Left err => Left (FrontendFailure err)
-    Right term => Right term
-  if erasedOnly
-     then case inferErased 256 128 Empty term of
-       Left err => Left (ErasedFailure err)
-       Right ty => Right ["Erased checking: accepted (no runtime-use guarantee)",
-                          "Type: " ++ renderTerm ty]
-     else do
-       checked <- prepareTerm term
-       Right ["Runtime checking: accepted", "Type: " ++ renderTerm checked.inferredType]
+    Right prepared => Right prepared
+  case prepared of
+    ConsoleSource _ =>
+      if erasedOnly then Left ErasedConsole
+         else Right ["Console entry checking: accepted (restricted profile, not ordinary core checking)",
+                     "Type: IO Unit"]
+    CoreSource term =>
+      if erasedOnly
+         then case inferErased 256 128 Empty term of
+           Left err => Left (ErasedFailure err)
+           Right ty => Right ["Erased checking: accepted (no runtime-use guarantee)",
+                              "Type: " ++ renderTerm ty]
+         else do
+           checked <- prepareTerm term
+           Right ["Runtime checking: accepted", "Type: " ++ renderTerm checked.inferredType]
 
 ||| Plain source checking preserves its existing single-message API.
 public export

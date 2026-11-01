@@ -7,6 +7,8 @@ quantitative De Morgan cubical core, C/JavaScript backends, and embedded profile
 files, with erased typing and an ordinary runtime-usage prototype. Full modules,
 transparent global definitions, cubical term checking,
 compiler backends, and real-time guarantees are not implemented.
+A [restricted hosted console runner](docs/console-runner.md) now runs hello world;
+it is not a general IO calculus or a compiler backend.
 See [checker scope and limits](docs/erased-checker.md).
 
 ## Build
@@ -18,6 +20,7 @@ pack build fibril
 pack test fibril
 ./build/exec/fibril --help
 ./build/exec/fibril demo
+./build/exec/fibril run examples/core/hello-world.fib
 ./build/exec/fibril check examples/core/identity.fib
 ./build/exec/fibril eval examples/core/evaluate-identity.fib
 ./build/exec/fibril eval examples/core/unit.fib

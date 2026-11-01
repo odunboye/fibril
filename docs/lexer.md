@@ -24,6 +24,7 @@ Errors exit nonzero. Token output is diagnostic text, not a machine protocol.
 | Kind | Accepted spelling |
 | --- | --- |
 | Identifier | ASCII letter or underscore, followed by ASCII letters/digits/underscore/apostrophe |
+| String | Double quotes with quote/backslash/n/r/t escapes; raw line breaks/tabs and unknown escapes fail |
 | Natural digit sequence | One or more ASCII digits; spelling retained without integer conversion |
 | Keywords | Exactly Type, Unit, Bool, True, False, if, then, else, let, in, case, of; Type0, UnitValue, letter, inner remain identifiers |
 | Grouping/annotation/binding | ( ) : = |
@@ -36,8 +37,10 @@ No global rewriting occurs. Unsupported characters fail explicitly.
 
 Whitespace (space/tab/LF/CR/CRLF) and -- line comments are skipped. Comments may
 contain ordinary Unicode text, but source-wide forbidden controls are still
-rejected. There are no strings, operators beyond this table, block comments,
-indentation tokens, or general Unicode identifiers yet.
+rejected. Strings retain raw spelling and are currently data only for the
+[console profile](console-runner.md); the ordinary core parser rejects them.
+There are no operators beyond this table, block comments, indentation tokens,
+or general Unicode identifiers yet.
 
 ## Spans and progress
 

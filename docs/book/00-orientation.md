@@ -12,6 +12,9 @@ It is not the same language as the future Fibril surface syntax.
 Today you can check a small annotated expression source file, construct core
 terms as Idris values, and run tests. You cannot compile Fibril source to C or JS.
 Try `fibril check examples/core/identity.fib`; see the [grammar](../parser.md).
+You can now also run `fibril run examples/core/hello-world.fib` through a
+[restricted hosted console adapter](../console-runner.md), separate from core
+normalization and not a general IO calculus or backend.
 
 ## The three layers to keep separate
 
