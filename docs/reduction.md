@@ -1,0 +1,64 @@
+# Ordinary reference reduction and beta comparison
+
+Status: implemented on scoped syntax; not a typed evaluator or the final
+definitional equality judgment.
+
+## Operations
+
+[Reduction.idr](../src/Fibril/Core/Reduction.idr) provides:
+
+- step: one deterministic full beta step, or no step for a normal form.
+- normalize: bounded repeated stepping, returning Normal or OutOfFuel.
+- betaCompare: normalize both inputs and return EqualNormalForms,
+  DifferentNormalForms, or Inconclusive.
+
+The reducer uses the capture-avoiding substitution in Term.idr. It contracts a
+head lambda application before inspecting its argument or annotation, otherwise
+searches function before argument. In standalone Pi/Lambda terms it searches
+domain before body, reducing under binders.
+
+![Selected static calls](diagrams/calls.svg)
+
+## Fuel is not a timeout
+
+Each unit permits one beta step. The reducer checks whether a step is available
+even at zero fuel, so a normal input succeeds at zero and a one-step expression
+succeeds with one unit.
+
+Finding a step, substitution, syntax comparison, and term growth can be costly.
+Fuel does not bound wall-clock time, allocation, stack, or output size; it is not
+a sandbox or a hard-real-time mechanism.
+
+OutOfFuel retains the unfinished term. DifferentNormalForms is returned only
+when both sides reach distinct structural normal forms. If either side exhausts,
+comparison is Inconclusive—even for syntactically identical divergent inputs.
+
+## Limits and trust
+
+- There is no eta rule, cubical computation, unfolding of definitions, or
+  universe cumulativity.
+- Arbitrary scope-correct terms include divergent self-application and ill-typed
+  annotations. The reducer does not certify their validity.
+- Beta steps preserve scope by the types of structural operations; type
+  preservation and quantitative preservation have not been proved.
+- Normal-form comparison treats annotations and quantities structurally. Its
+  relationship to a future typed conversion judgment needs explicit rules.
+- OutOfFuel must never be treated as acceptance or proof of inequality.
+- No complete evaluator for the intended total language is claimed.
+
+## Theory correspondence
+
+[DEBRUIJN72](references.md#debruijn72) is background for substitution under
+nameless binders. [ATKEY18](references.md#atkey18) motivates the separate
+quantitative preservation obligations. The deterministic strategy and fuel API
+are our engineering choices, not algorithms verified by those references.
+
+## Validation
+
+Tests in [Tests.Reduction](../test/src/Tests/Reduction.idr) cover exact/zero
+budgets, reduction under binders, capture avoidance, discarded divergent
+arguments, divergent inputs, and all three comparison outcomes.
+
+Next: settle ordinary subusage and typed conversion rules before connecting
+this reference service to inference. Inconclusive conversion needs a structured
+checker diagnostic rather than a Boolean coercion.

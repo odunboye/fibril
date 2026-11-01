@@ -4,6 +4,7 @@ import Fibril.Core.Quantity
 import Fibril.Core.Term
 import Fibril.Core.Usage
 import Fibril.Core.Context
+import Tests.Reduction
 import Data.Vect
 import Fibril.Foundation.DeMorgan.Interval
 import Fibril.Foundation.DeMorgan.NormalForm
@@ -287,7 +288,7 @@ checks =
 
 main : IO ()
 main = do
-  let failed = filter (not . snd) checks
+  let failed = filter (not . snd) (Tests.Main.checks ++ Tests.Reduction.checks)
   case failed of
     [] => putStrLn "Bootstrap term, quantity, interval, and face tests passed."
     _ => do

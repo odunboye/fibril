@@ -60,6 +60,13 @@ types during lookup, and validates complete usage vectors. Its constructors do
 not prove domains are types. The [checking plan](ordinary-checking.md) explains
 how future inference differs from final context-permission validation.
 
+## Reference computation
+
+[Reduction](../src/Fibril/Core/Reduction.idr) performs bounded full beta reduction
+and three-way normal-form comparison. [The reduction guide](reduction.md)
+explains why exhaustion is inconclusive and why fuel is not a timing bound.
+The language still has no typed conversion or inference checker.
+
 ## Trust and current limits
 
 All these modules are implemented in Idris 2. Tests cover examples and finite

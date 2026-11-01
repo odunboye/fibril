@@ -22,5 +22,8 @@ rankdir=LR; node [shape=box,style=rounded,fontsize=10];
 "Usage.scaleUsage" -> "Quantity.multiply";
 "Context.lookupType" -> "Term.weaken";
 "Context.validateUsage" -> {"Usage.modeCoefficient" "Quantity.multiply" "Quantity.allows"};
+"Reduction.betaCompare" -> {"Reduction.normalize" "Term.sameSyntax"};
+"Reduction.normalize" -> "Reduction.step";
+"Reduction.step" -> "Term.instantiateTerm";
 label="Selected static calls — curated, not exhaustive";
 }

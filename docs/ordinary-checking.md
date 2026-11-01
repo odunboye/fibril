@@ -85,7 +85,8 @@ A general checking fallback infers a type and compares it with the expected type
 in erased mode. Structural syntax equality alone is insufficient: beta computation
 must be handled. Eta, universe conversion, and quantity equality need explicit rules.
 
-Conversion is an outstanding implementation gate. Arbitrary scoped terms can
+A [bounded reference beta comparison service](reduction.md) now exists.
+Typed conversion and its quantity/annotation rules remain an outstanding gate. Arbitrary scoped terms can
 diverge, so a total host-language evaluator cannot assume normalization merely
 from scope indices. A bounded evaluator must distinguish exhaustion from
 inequality and must never accept an obligation because it ran out of fuel.
@@ -106,6 +107,6 @@ accounting for path boundaries, composition systems, or Glue.
 ## Next gates
 
 1. Settle the ordinary fragment's subusage and conversion rules.
-2. Implement a reference reduction/conversion service with explicit failure modes.
+2. Reference beta reduction/comparison is implemented with explicit exhaustion; integrate only after typed conversion rules are settled.
 3. Implement inference/checking with negative tests and no admitted obligations.
 4. Only then connect cubical term constructors under specified usage rules.
