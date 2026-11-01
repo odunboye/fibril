@@ -35,7 +35,13 @@ program = "not : (1 flag : Bool) -> Bool\nnot = \\(1 flag : Bool) => if flag the
 public export
 checks : List (String, Bool)
 checks =
-  [ ("navigation API accepts unsaved source",
+  [ ("references API includes binding and uses in source order",
+      case referencesAt "\\(1 x : Bool) => x" 1 18 of
+        Right [binding, use] => binding.start.column == 5 && use.start.column == 18
+        _ => False)
+  , ("references API does not invent unresolved uses",
+      case referencesAt "unknown" 1 1 of Right [] => True; _ => False)
+  , ("navigation API accepts unsaved source",
       case definitionAt "\\(1 x : Bool) => x" 1 18 of
         Right (Just target) => target.start.column == 5
         _ => False)

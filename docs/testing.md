@@ -180,6 +180,12 @@ conversion, CRLF/Unix snapshots, quoted filenames, refusal of modified/stale
 buffers, malformed responses, missing executable, cursor preservation on misses,
 and buffer-local command/mapping cleanup without overriding gd.
 
+Same-file reference fixtures mark every expected occurrence and query point.
+They check source-ordered signature/definition/binder inclusion, shadowed groups,
+nonrecursive RHSs, do bindings/result annotations, Unicode/CRLF source slices,
+and exclusion of comments, literals, unresolved/forward names, and wildcards.
+The pure API is also tested; malformed-file and coordinate errors return no JSON.
+
 ## Hedgehog dependency
 
 Repository: https://github.com/stefan-hoeck/idris2-hedgehog

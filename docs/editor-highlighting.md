@@ -233,6 +233,28 @@ the exact snapshot and convert coordinates before integrating with LSP.
 Token lookup during scope traversal is bounded by source/parser limits but is
 not optimized or a latency guarantee.
 
+## Same-file references
+
+~~~sh
+./build/exec/fibril references 12 12 examples/core/do-result.fib
+~~~
+
+The references command uses the same one-based scalar coordinates and JSON
+version as definition. Its references array contains exact name-token spans in
+source order, **including declaration sites**. A top-level binding includes its
+signature and definition headers; a local binding includes its binder token.
+A miss produces an empty array. Errors leave stdout empty and go to stderr.
+
+The pure referencesAt API groups entries by their resolved same-document target,
+not by matching spelling. Thus a shadowing binder has a different result set,
+a nonrecursive RHS may refer to an outer binder, and comments/string contents
+are never included. Declarations still obey source order. This uses the current
+lexical scope service, not type checking or prelude/project reference indexing.
+
+The service accepts unsaved source Strings, but this command reads a bounded
+file. There is no editor reference-list UI, rename preview, capture-checking,
+or source-edit command yet. These ranges alone do not make a rename safe.
+
 ## Navigation from Neovim/Vim
 
 Build the compiler first, then configure its executable path:

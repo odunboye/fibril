@@ -23,6 +23,7 @@ Usage:
   fibril --version
   fibril demo       Run built-in ordinary checking and cubical algebra examples
   fibril validate-source PATH   Validate UTF-8 and source controls (not typing)
+  fibril references LINE COLUMN PATH  Same-file lexical occurrences, including declarations
   fibril definition LINE COLUMN PATH  Same-file lexical target (scalar coordinates)
   fibril symbols PATH           JSON declaration ranges (syntax only, not checking)
   fibril lex-source PATH        Print source tokens/spans (not parsing/checking)
@@ -64,6 +65,18 @@ coordinate text =
                in if value > 0 && value <= 65537 then Just value else Nothing
          else Nothing
 
+runLocationQuery : (Nat -> Nat -> String -> IO (Either String (List String))) ->
+                   String -> String -> String -> IO ()
+runLocationQuery query line column path = do
+  result <- case (coordinate line, coordinate column) of
+    (Just line, Just column) => query line column path
+    _ => pure (Left "Coordinates must be decimal 1..65537 (Unicode scalars).")
+  case result of
+    Right lines => traverse_ putStrLn lines
+    Left err => do
+      _ <- fPutStrLn stderr err
+      exitFailure
+
 main : IO ()
 main = do
   args <- getArgs
@@ -85,15 +98,8 @@ main = do
         Nothing => do
           putStrLn "Fuel must be decimal 0..4096."
           exitFailure
-    ["definition", line, column, path] => do
-      result <- case (coordinate line, coordinate column) of
-        (Just line, Just column) => definitionFile line column path
-        _ => pure (Left "Coordinates must be decimal 1..65537 (Unicode scalars).")
-      case result of
-        Right lines => traverse_ putStrLn lines
-        Left err => do
-          _ <- fPutStrLn stderr err
-          exitFailure
+    ["definition", line, column, path] => runLocationQuery definitionFile line column path
+    ["references", line, column, path] => runLocationQuery referencesFile line column path
     ["symbols", path] => do
       result <- symbolsFile path
       case result of

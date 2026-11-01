@@ -35,6 +35,21 @@ renderSymbols symbols =
   concat (intersperse "," (map symbolJSON symbols)) ++ "]}"
 
 public export
+referencesFile : Nat -> Nat -> String -> IO (Either String (List String))
+referencesFile line column path = do
+  loaded <- loadSource path
+  pure $ case loaded of
+    Left err => Left (renderFileError path (show err))
+    Right source => case referencesAt source line column of
+      Right references => Right
+        ["{\"version\":1,\"coordinates\":\"unicode-scalars;offset=0;line=1;column=1\",\"references\":[" ++
+         concat (intersperse "," (map spanJSON references)) ++ "]}"]
+      Left (SymbolLexical err) =>
+        Left (renderDriverError path source (FrontendFailure (Lexical err)))
+      Left (SymbolParsing err) =>
+        Left (renderDriverError path source (FrontendFailure (Parsing err)))
+
+public export
 definitionFile : Nat -> Nat -> String -> IO (Either String (List String))
 definitionFile line column path = do
   loaded <- loadSource path

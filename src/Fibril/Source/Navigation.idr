@@ -109,6 +109,25 @@ contains : Nat -> Nat -> SourceSpan -> Bool
 contains line column span = line == span.start.line &&
   column >= span.start.column && column < span.finish.column
 
+sameTarget : SourceSpan -> SourceSpan -> Bool
+sameTarget left right = left.start.offset == right.start.offset &&
+                        left.finish.offset == right.finish.offset
+
+sourceOrder : SourceSpan -> SourceSpan -> Ordering
+sourceOrder left right = compare left.start.offset right.start.offset
+
+||| Include declaration sites and uses of the same lexical target, in source order.
+||| Top-level signature/definition headers count as declaration sites.
+||| Unknown/prelude names and punctuation return an empty list, not text matches.
+public export
+referencesAt : String -> Nat -> Nat -> Either SymbolError (List SourceSpan)
+referencesAt source line column = do
+  references <- documentReferences source
+  case find (\reference => contains line column reference.origin) references of
+    Nothing => Right []
+    Just selected => Right (sortBy sourceOrder (map origin
+      (filter (\reference => sameTarget reference.target selected.target) references)))
+
 ||| One-based scalar line/column; punctuation, whitespace, and unknown names miss.
 public export
 definitionAt : String -> Nat -> Nat -> Either SymbolError (Maybe SourceSpan)
