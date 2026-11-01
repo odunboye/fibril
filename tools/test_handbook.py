@@ -77,6 +77,13 @@ class TextbookTests(unittest.TestCase):
             self.assertIn(str(path.relative_to(OUT)), urls)
         self.assertTrue(all(entry["title"] and entry["text"] for entry in entries))
 
+    def test_theme_control_has_accessible_sun_icon(self):
+        content = self.chapters[0].read_text()
+        self.assertIn('id="theme" aria-label="Toggle light and dark theme"', content)
+        self.assertIn('<svg class="theme-icon"', content)
+        self.assertIn('aria-hidden="true" focusable="false"', content)
+        self.assertNotIn('>Theme</button>', content)
+
     def test_theme_palette_is_monochrome(self):
         css = (OUT / "assets/book.css").read_text()
         colors = re.findall(r"#([0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?)\b", css)
