@@ -11,6 +11,9 @@ The generated homepage separates teaching chapters, references, and project reco
 
 ## Reference index
 
+- [Safety and performance](safety-performance.md): present safeguards, risks, and planned benchmarks.
+- [Lessons from Zig](zig-lessons.md): allocation, errors, cleanup, specialization, and target design.
+
 - [Prototype CLI](cli.md): built-in checking demo and command limits.
 
 - [Testing](testing.md): deterministic regressions, Hedgehog properties, and replay.

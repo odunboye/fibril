@@ -82,6 +82,14 @@
       {
         "title": "Testing guide",
         "path": "docs/testing.md"
+      },
+      {
+        "title": "Safety and performance",
+        "path": "docs/safety-performance.md"
+      },
+      {
+        "title": "Lessons from Zig",
+        "path": "docs/zig-lessons.md"
       }
     ]
   },

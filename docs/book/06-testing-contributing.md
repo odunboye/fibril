@@ -54,6 +54,14 @@ make examples
 make handbook
 ```
 
+## Measure without weakening guarantees
+
+The [safety/performance plan](../safety-performance.md) names current costs:
+DNF growth, repeated checking, full normalization, and copying substitution.
+Establish benchmark baselines before optimizing. [Zig's lessons](../zig-lessons.md)
+encourage explicit allocation/failure and readable resource contracts, without
+making fast builds less trustworthy.
+
 ## Exercise
 
 Propose a failing test that distinguishes an erased-valid function from a

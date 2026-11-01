@@ -17,6 +17,10 @@ Use the collection pinned in `pack.toml`; avoid unrelated toolchain upgrades.
 - Passing `make test`, `make examples`, and `make docs`.
 - A meaningful commit containing code, tests, and related documentation.
 
+For performance-sensitive changes, follow the
+[safety/performance checklist](docs/safety-performance.md): measure first,
+preserve reference behavior, and report trade-offs. Benchmarks remain planned.
+
 No unchecked holes or unsafe axioms should be introduced as completed proofs.
 Experimental rules must be labeled and separated from established guarantees.
 Keep generated build/API artifacts out of commits.

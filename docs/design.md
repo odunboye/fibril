@@ -191,7 +191,19 @@ Recommended lessons, not all finalized language features:
 - Borrow Rust's actionable diagnostics and integrated build/test/doc workflow.
 - Avoid copying lifetime complexity and trait-resolution machinery without demonstrated need.
 
+### Zig
+
+See [Zig lessons](zig-lessons.md) for recommendations on explicit allocation and
+failure, cleanup, typed errors, compile-time computation, C ABI/targets, and
+readability. These are design lessons, not implemented features. Do not copy
+unchecked undefined/unreachable into proofs or silently weaken guarantees in
+optimized builds.
+
 ## 11. Cross-cutting recommendations
+
+The [safety/performance plan](safety-performance.md) records current bottlenecks,
+benchmarking requirements, and trust/resource boundaries. No measured performance
+baseline or soundness claim follows from that plan.
 
 - Clear errors for quantities, totality, cubical constraints, and inference.
 - Bounded implicit search; inspectable search and elaboration results.
