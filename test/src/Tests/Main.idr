@@ -9,9 +9,55 @@ import Data.List
 
 %default total
 
+-- Small exhaustive corpus checks catch polarity/substitution mistakes.
+samples : List (Interval Nat)
+samples =
+  let atoms = [Zero, One, Var 0, Var 1]
+   in atoms ++ map Reverse atoms ++
+      concatMap (\x => concatMap (\y => [Meet x y, Join x y]) atoms) atoms
+
+replacement : Nat -> Interval Nat
+replacement Z = Reverse (Var 1)
+replacement (S _) = Meet (Var 0) (Var 1)
+
+endpointSubstitutionLaw : Bool
+endpointSubstitutionLaw =
+  all (\term => all (\b =>
+    equivalentFace
+      (endpointFace (substitute replacement term) b)
+      (substituteFace replacement (endpointFace term b))) [False, True]) samples
+
+endpointDisjointLaw : Bool
+endpointDisjointLaw =
+  all (\term => equivalentFace
+    (Conjunction (endpointFace term False) (endpointFace term True)) Bottom) samples
+
 checks : List (String, Bool)
 checks =
-  [ ("face contradiction", equivalentFace
+  [ ("endpoint substitution corpus", endpointSubstitutionLaw)
+  , ("endpoint disjointness corpus", endpointDisjointLaw)
+  , ("endpoint of zero", equivalentFace (endpointFace Zero False) Top)
+  , ("endpoint of one", equivalentFace (endpointFace One False) Bottom)
+  , ("meet zero face", equivalentFace (endpointFace (Meet (Var 0) (Var 1)) False)
+      (Disjunction (Endpoint 0 False) (Endpoint 1 False)))
+  , ("join one face", equivalentFace (endpointFace (Join (Var 0) (Var 1)) True)
+      (Disjunction (Endpoint 0 True) (Endpoint 1 True)))
+  , ("reverse swaps endpoints", equivalentFace (endpointFace (Reverse (Var 0)) False)
+      (Endpoint 0 True))
+  , ("face identity substitution", equivalentFace
+      (substituteFace Var (Conjunction (Endpoint 0 False) (Endpoint 1 True)))
+      (Conjunction (Endpoint 0 False) (Endpoint 1 True)))
+  , ("face endpoint substitution", equivalentFace
+      (substituteFace (const Zero) (Endpoint 0 False)) Top)
+  , ("face compound substitution", equivalentFace
+      (substituteFace (\n => Meet (Var n) (Var 2)) (Endpoint 0 True))
+      (Conjunction (Endpoint 0 True) (Endpoint 2 True)))
+  , ("substitution preserves contradiction", equivalentFace
+      (substituteFace (const (Join (Var 0) (Var 1)))
+        (Conjunction (Endpoint 0 False) (Endpoint 0 True))) Bottom)
+  , ("boundary excluded middle still not top", not (equivalentFace
+      (endpointFace (Join (Var 0) (Reverse (Var 0))) True) Top))
+  , ("face contradiction", equivalentFace
       (Conjunction (Endpoint 0 False) (Endpoint 0 True)) Bottom)
   , ("face endpoints not exhaustive", not (equivalentFace
       (Disjunction (Endpoint 0 False) (Endpoint 0 True)) Top))

@@ -1,6 +1,7 @@
 module Fibril.Foundation.DeMorgan.Face
 
 import Data.List
+import Fibril.Foundation.DeMorgan.Interval
 
 %default total
 
@@ -12,6 +13,33 @@ data Face
   | Endpoint Nat Bool
   | Conjunction Face Face
   | Disjunction Face Face
+
+||| Face where an interval expression reaches the specified endpoint.
+||| A meet is 0 when either factor is 0, and 1 when both factors are 1.
+||| A join has the dual behavior. This is not Boolean evaluation.
+public export
+endpointFace : Interval Nat -> Bool -> Face
+endpointFace Zero False = Top
+endpointFace Zero True = Bottom
+endpointFace One False = Bottom
+endpointFace One True = Top
+endpointFace (Var n) b = Endpoint n b
+endpointFace (Reverse x) b = endpointFace x (not b)
+endpointFace (Meet x y) False = Disjunction (endpointFace x False) (endpointFace y False)
+endpointFace (Meet x y) True = Conjunction (endpointFace x True) (endpointFace y True)
+endpointFace (Join x y) False = Conjunction (endpointFace x False) (endpointFace y False)
+endpointFace (Join x y) True = Disjunction (endpointFace x True) (endpointFace y True)
+
+||| Replace dimension names by interval expressions, including in boundaries.
+public export
+substituteFace : (Nat -> Interval Nat) -> Face -> Face
+substituteFace env Bottom = Bottom
+substituteFace env Top = Top
+substituteFace env (Endpoint n b) = endpointFace (env n) b
+substituteFace env (Conjunction x y) =
+  Conjunction (substituteFace env x) (substituteFace env y)
+substituteFace env (Disjunction x y) =
+  Disjunction (substituteFace env x) (substituteFace env y)
 
 Atom : Type
 Atom = (Nat, Bool)

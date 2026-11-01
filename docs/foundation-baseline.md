@@ -32,6 +32,11 @@ is not Top. Entailment checks that each premise clause contains a conclusion
 clause. This is a reference algorithm with potentially exponential growth;
 formal verification and broader property testing remain open.
 
+Endpoint extraction now maps interval expressions to faces using De Morgan
+endpoint rules. Face substitution replaces dimension names by interval
+expressions. Tests check endpoint/substitution compatibility and endpoint
+disjointness over a small generated corpus; these are not formal proofs.
+
 These structures are not yet integrated with term typing. There is no
 term conversion procedure, universe checking, composition, or Glue.
 
@@ -62,7 +67,7 @@ checker a sound quantitative cubical theory without supporting arguments.
 ## Next implementation gates
 
 1. Symbolic interval equality: implemented with law/regression tests; formal verification and broader property testing remain open.
-2. Face syntax and DNF entailment: implemented with regression tests; interval-to-face substitution and scoped dimensions remain to be added.
+2. Face syntax, entailment, and interval-to-face substitution: implemented with regression tests; scoped dimensions remain to be added.
 3. A documented core grammar, contexts, universes, and ordinary typing rules.
 4. Path checking and evaluation, with quantities gated on explicit rules.
 5. Composition, Glue, and a computational univalence example.
