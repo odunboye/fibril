@@ -97,6 +97,17 @@ not Unicode normalization or a dependent equality/path proof.
 String comparison to choose output. Binary operations consume both inputs once;
 they are deliberately not conventional short-circuit operators.
 
+## Module graph fixtures (discovery only)
+
+`modules/graph/` forms a diamond dependency graph. Inspect it with:
+
+~~~sh
+./build/exec/fibril module-graph examples/modules/graph examples/modules/graph/Main.fib
+~~~
+
+This parses and loads snapshots only; JSON reports checked: false. These named
+module files are not yet accepted by check/eval/run, and no greeting executes.
+
 ## Proposed Fibril programs
 
 `proposed/` illustrates the intended user experience, from hello world and

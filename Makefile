@@ -43,6 +43,7 @@ examples: build
 	./build/exec/fibril run examples/core/string-append.fib
 	./build/exec/fibril run examples/core/string-equal.fib
 	./build/exec/fibril run examples/core/boolean-library.fib
+	./build/exec/fibril module-graph examples/modules/graph examples/modules/graph/Main.fib
 
 bench:
 	python3 tools/benchmark.py

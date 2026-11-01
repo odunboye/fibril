@@ -187,7 +187,8 @@ closed globals; lexical bindings take precedence. Unknown names still fail.
 headers, import lists, and export markers around the existing body parsers.
 See [module parsing progress](modules.md#parsing-progress) for accepted metadata
 syntax and its limits. Checking, symbols, and local navigation share this parser.
-Module/import loading and qualified value references are not implemented;
+A separate read-only module-graph command can discover dependencies; imported
+checking and qualified value references are not implemented;
 check/eval/run reject these documents explicitly. Headerless programs keep their
 existing expression/declaration behavior. Export markers require a named module.
 

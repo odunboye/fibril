@@ -1,0 +1,6 @@
+module Left
+import Shared
+
+export
+left : Bool
+left = True

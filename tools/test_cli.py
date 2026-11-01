@@ -193,6 +193,113 @@ class CLITests(unittest.TestCase):
         self.assertEqual(result.stdout, "")
         self.assertIn("use eval", result.stderr)
 
+    def test_module_graph_discovery(self):
+        with tempfile.TemporaryDirectory(prefix="fibril graph ") as directory:
+            base = Path(directory)
+            root = base / "source '🌍'"
+            root.mkdir()
+            def module(name, imports=(), body=""):
+                path = root.joinpath(*name.split(".")).with_suffix(".fib")
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("module " + name + "\n" +
+                                "".join("import " + value + "\n" for value in imports) + body,
+                                encoding="utf-8")
+                return path
+            shared = module("Shared", body='value : String\nvalue = "🌍"\n')
+            module("Left", ("Shared",))
+            module("Right", ("Shared",))
+            entry = module("Main", ("Left", "Right"),
+                           'main : IO Unit\nmain = putStrLn "must not execute"\n')
+            result = run("module-graph", str(root), str(entry))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            graph = json.loads(result.stdout)
+            self.assertFalse(graph["checked"])
+            self.assertEqual(graph["root"], str(root.resolve()))
+            self.assertEqual([n["module"] for n in graph["modules"]], ["Shared", "Left", "Right", "Main"])
+            self.assertEqual(graph["modules"][0]["bytes"], len(shared.read_bytes()))
+            self.assertNotIn("must not execute", result.stdout)
+            self.assertEqual(result.stderr, "")
+            # No kernel admission: syntactically valid, ill-typed modules can be inspected.
+            module("Shared", body="value : Bool\nvalue = missing\n")
+            self.assertEqual(run("module-graph", str(root), str(entry)).returncode, 0)
+            module("Shared", ("Main",))
+            result = run("module-graph", str(root), str(entry))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, "")
+            self.assertIn("Import cycle", result.stderr)
+            module("Shared")
+            module("Main", ("Absent",))
+            result = run("module-graph", str(root), str(entry))
+            self.assertIn(f"{entry.resolve()}:2:1:", result.stderr)
+            self.assertIn("exact-case", result.stderr)
+            self.assertEqual(result.stdout, "")
+            module("Main", ("Wrong",))
+            wrong = module("Wrong")
+            wrong.write_text("module Different\n", encoding="utf-8")
+            result = run("module-graph", str(root), str(entry))
+            self.assertIn(str(wrong.resolve()), result.stderr)
+            self.assertIn("does not match", result.stderr)
+            wrong.write_text("value : Bool\nvalue = True\n", encoding="utf-8")
+            result = run("module-graph", str(root), str(entry))
+            self.assertIn("require a module header", result.stderr)
+            # Canonical aliases must not claim a second logical module name.
+            wrong.unlink()
+            wrong.symlink_to(shared)
+            module("Main", ("Shared", "Wrong"))
+            result = run("module-graph", str(root), str(entry))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("does not match", result.stderr)
+            # Check case using directory entries, even on case-insensitive filesystems.
+            case = module("Case")
+            case.rename(root / "case.fib")
+            module("Main", ("Case",))
+            result = run("module-graph", str(root), str(entry))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("exact-case", result.stderr)
+            outside = base / "outside.fib"
+            outside.write_text("module Escape\n", encoding="utf-8")
+            (root / "Escape.fib").symlink_to(outside)
+            module("Main", ("Escape",))
+            result = run("module-graph", str(root), str(entry))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("escapes canonical source root", result.stderr)
+            self.assertEqual(result.stdout, "")
+            result = run("module-graph", str(root), str(outside))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Entry escapes", result.stderr)
+            # Named entries must map back to their canonical file.
+            entry.write_text("module Unrelated\n", encoding="utf-8")
+            result = run("module-graph", str(root), str(entry))
+            self.assertNotEqual(result.returncode, 0)
+            # Anonymous legacy entries remain inspectable, but not importable.
+            entry.write_text("True\n", encoding="utf-8")
+            result = run("module-graph", str(root), str(entry))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIsNone(json.loads(result.stdout)["modules"][0]["module"])
+
+    def test_module_graph_budgets(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            entry = root / "Main.fib"
+            for count, accepted in ((31, True), (32, False)):
+                for index in range(count):
+                    (root / f"M{index}.fib").write_text(f"module M{index}\n", encoding="utf-8")
+                entry.write_text("module Main\n" +
+                                 "".join(f"import M{i}\n" for i in range(count)), encoding="utf-8")
+                result = run("module-graph", str(root), str(entry))
+                self.assertEqual(result.returncode == 0, accepted, result.stdout + result.stderr)
+                if not accepted:
+                    self.assertEqual(result.stdout, "")
+                    self.assertIn("count budget", result.stderr)
+            entry.write_text("module Main\n" + "".join(f"import M{i}\n" for i in range(9)), encoding="utf-8")
+            for index in range(9):
+                header = f"module M{index}\n--"
+                (root / f"M{index}.fib").write_text(header + "a" * (65536 - len(header)), encoding="utf-8")
+            result = run("module-graph", str(root), str(entry))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Aggregate", result.stderr)
+            self.assertEqual(result.stdout, "")
+
     def test_module_document_metadata(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "metadata.fib"
@@ -221,7 +328,7 @@ class CLITests(unittest.TestCase):
             for args in (("check",), ("eval",), ("run",)):
                 result = run(*args, str(path))
                 self.assertNotEqual(result.returncode, 0)
-                self.assertIn("Module loading is not implemented", result.stdout + result.stderr)
+                self.assertIn("Module checking is not implemented", result.stdout + result.stderr)
             result = run("check", "--json", str(path))
             diagnostic = json.loads(result.stdout)["diagnostics"][0]
             self.assertEqual(diagnostic["position"]["line"], 2)

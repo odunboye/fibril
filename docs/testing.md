@@ -244,6 +244,13 @@ symbols/visibility-marker JSON and local navigation with Unicode/CRLF, explicit
 module execution refusal, and conservative module rename rejection. Metadata
 parsing is not evidence of filesystem loading or semantic export enforcement.
 
+Module-graph CLI tests cover dependency-first diamond reuse, syntax-only
+acceptance, canonical/header identity, aliases, exact-case lookup, missing imports,
+cycles, root/symlink escape rejection, anonymous entries, count/aggregate byte
+limits, and no execution or partial JSON. UTF-8/quoted root paths and actual byte
+counts exercise the POSIX canonical-path adapter. This is not imported type
+checking or an adversarial-filesystem/sandbox proof.
+
 ## Hedgehog dependency
 
 Repository: https://github.com/stefan-hoeck/idris2-hedgehog

@@ -8,6 +8,7 @@ import Fibril.Driver.Check
 import Fibril.Driver.CheckReport
 import Fibril.Driver.Evaluate
 import Fibril.Driver.Run
+import Fibril.Driver.ModuleGraph
 import Fibril.Driver.Symbols
 import Fibril.Source.File
 import Fibril.Source.Lexer
@@ -22,6 +23,7 @@ Fibril — experimental language bootstrap
 Usage:
   fibril --help
   fibril --version
+  fibril module-graph ROOT ENTRY  Inspect local dependency graph (syntax only, POSIX)
   fibril demo       Run built-in ordinary checking and cubical algebra examples
   fibril validate-source PATH   Validate UTF-8 and source controls (not typing)
   fibril rename-preview LINE COLUMN NEWNAME PATH  Capture-checked same-file edits (no writes)
@@ -87,6 +89,13 @@ main = do
     [] => putStrLn help
     ["--help"] => putStrLn help
     ["--version"] => putStrLn "Fibril 0.1.0-dev (Idris 2 bootstrap)"
+    ["module-graph", root, entry] => do
+      graph <- loadModuleGraph root entry
+      case graph of
+        Right graph => putStrLn (renderModuleGraph graph)
+        Left err => do
+          _ <- fPutStrLn stderr (renderGraphError err)
+          exitFailure
     ["run", path] => do
       result <- runFile path
       case result of

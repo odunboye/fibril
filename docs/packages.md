@@ -39,7 +39,8 @@ an unrelated embedded build.
 
 The first [local module/import contract](modules.md) precedes package resolution:
 one explicit source root, checked qualified exports, an acyclic graph, and no
-network or manifest reader. Its design is not implemented module loading yet.
+network or manifest reader. Syntax/discovery are implemented; imported checking
+and package resolution remain future work.
 
 ## Minimal implementation sequence
 

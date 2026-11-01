@@ -1,10 +1,10 @@
 # First local module/import implementation contract
 
-Status: the shared **syntax/metadata parser** now recognizes module headers,
-imports, and export markers. **The filesystem loader, qualified value references,
-flags, semantic visibility rules, and graph budgets remain unimplemented.**
-check/eval/run explicitly reject module/import documents rather than treating
-headers as ignored metadata. This is not yet executable multi-file support.
+Status: shared **syntax/metadata parsing** and **read-only POSIX dependency
+discovery** are implemented. **Qualified value references, imported checking,
+source-dir flags, semantic visibility rules, and executable multi-file support
+remain unimplemented.** check/eval/run explicitly reject module/import documents
+rather than treating headers as ignored metadata.
 
 ## Parsing progress
 
@@ -39,6 +39,53 @@ These services do not validate module/file identity, load dependencies, type-che
 modules, enforce private access, or accept the qualified call in the full proposed
 example below. The existing headerless program path still uses ordinary core
 checking and retains its regression suite.
+
+## Dependency discovery is now inspectable
+
+~~~sh
+./build/exec/fibril module-graph examples/modules/graph examples/modules/graph/Main.fib
+~~~
+
+ROOT and ENTRY are explicit filesystem paths interpreted from the process working
+directory. The command returns version-1 JSON on stdout only after the entire
+reachable graph loads. checked is always false: this is **not core checking**.
+modules is dependency-first, with each canonical file once; entries include the
+canonical path, declared name (or null for an anonymous entry), UTF-8 byte count,
+and direct import names. Represented failures go to stderr with nonzero status
+and no partial graph JSON.
+
+[Driver.ModuleGraph](../src/Fibril/Driver/ModuleGraph.idr) retains each loaded
+source String and shared parsed document. It checks canonical root containment,
+exact-case directory components, requested/header names, named-entry mapping,
+canonical-file aliases, cycles, and admission budgets. Libraries require a module
+header but need no main. Headerless anonymous entries remain inspectable. Private
+or exported declarations can be ill typed here: no interface is installed and no
+Fibril expression or IO description is executed.
+
+The diamond-shaped [graph fixture](../examples/modules/graph/Main.fib) demonstrates
+reusing Shared through Left and Right. Its imports deliberately are not used as
+qualified value expressions yet; that grammar/checking phase is still pending.
+The existing check/eval/run commands do not invoke this discovery service.
+
+Canonical paths use POSIX realpath through a small
+[bootstrap host adapter](../src/Fibril/Runtime/Path.idr), not shell commands, cwd
+mutation, or a Fibril foreign interface. This adapter targets the current POSIX
+bootstrap; a Windows/non-POSIX implementation is not provided.
+
+Current discovery limits are 32 distinct files/depth 32, 65,536 bytes per file,
+and 524,288 aggregate UTF-8 bytes, counting reused snapshots once. A path-component
+lookup examines at most 4,096 directory entries and stops on an exact match.
+In oversized directories, whether a lookup exhausts that limit can depend on OS
+enumeration order; do not treat that profile as deterministic admission for
+arbitrarily large directories. Represented directory handles are closed on
+success/failure.
+
+Containment is checked at canonicalization time, not enforced with descriptor-
+relative/no-follow opens. Concurrent filesystem/symlink replacement is **not**
+sandboxed or transactionally detected. These are source-loading safeguards for
+a trusted local filesystem snapshot, not an adversarial-filesystem security
+boundary. Core expansion limits below remain planned because no inlining occurs
+in this discovery command.
 
 ## Why this comes next
 

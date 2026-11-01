@@ -1,0 +1,7 @@
+module Main
+import Left
+import Right
+
+-- Graph inspection parses this description but never executes its output.
+main : IO Unit
+main = putStrLn "This is not executed by module-graph."

@@ -107,7 +107,8 @@ perform capture-prone textual substitution to conceal this limitation.
 
 The next [module/import slice](modules.md) deliberately specifies imported/global
 signature preservation and transparent closed conversion separately from these
-local-let semantics. It remains a design contract, not accepted source syntax.
+local-let semantics. Header metadata and dependency discovery now exist, but
+imported checking and execution remain unimplemented.
 
 ## Budgets, diagnostics, and trust
 

@@ -1,0 +1,5 @@
+module Shared
+
+export
+greeting : String
+greeting = "Dependency discovery does not execute Fibril."
