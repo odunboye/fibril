@@ -2,6 +2,7 @@
 """Regression checks for generated textbook navigation; standard library only."""
 from html.parser import HTMLParser
 import json
+import re
 from pathlib import Path
 import unittest
 
@@ -75,6 +76,17 @@ class TextbookTests(unittest.TestCase):
         for path in self.chapters:
             self.assertIn(str(path.relative_to(OUT)), urls)
         self.assertTrue(all(entry["title"] and entry["text"] for entry in entries))
+
+    def test_theme_palette_is_monochrome(self):
+        css = (OUT / "assets/book.css").read_text()
+        colors = re.findall(r"#([0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?)\b", css)
+        self.assertTrue(colors)
+        for color in colors:
+            with self.subTest(color=color):
+                self.assertEqual(color[0:2], color[2:4])
+                self.assertEqual(color[2:4], color[4:6])
+        self.assertIn(':root[data-theme=dark]', css)
+        self.assertIn('prefers-color-scheme:dark', css)
 
     def test_landing_page_links_every_chapter(self):
         content = (OUT / "index.html").read_text()

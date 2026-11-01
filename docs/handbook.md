@@ -32,8 +32,10 @@ landing-page links. Browser rendering and fragment targets remain manual checks.
 
 ## Reading experience
 
-The offline theme uses a warm paper background, restrained teal accents,
-comfortable reading width, spacious type, and a distinct serif chapter heading.
+The offline theme is strictly monochrome: white paper and black ink in light
+mode, near-black paper and light ink in dark mode. Neutral grays, spacious type,
+comfortable reading width, subtle borders, and serif chapter headings provide
+hierarchy without colored accents. Diagrams adapt to the dark background.
 A grouped sidebar separates the teaching path from references and records.
 
 With JavaScript enabled:
