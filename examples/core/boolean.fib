@@ -1,0 +1,4 @@
+-- A linear Boolean is consumed as the condition; only one branch is selected.
+let (1 not : (1 flag : Bool) -> Bool) =
+  \(1 flag : Bool) => if flag then False else True
+in not False

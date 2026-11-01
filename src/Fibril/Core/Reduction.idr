@@ -6,7 +6,7 @@ import Fibril.Core.Term
 
 %default total
 
-||| One leftmost full beta/unit-case step, including domain annotations and binder bodies.
+||| One leftmost full beta/data-case step, including domain annotations and binder bodies.
 ||| Nothing means beta normal form for this grammar, not well typed or valid.
 public export
 step : Term n -> Maybe (Term n)
@@ -14,6 +14,17 @@ step (Variable i) = Nothing
 step (Universe l) = Nothing
 step UnitType = Nothing
 step UnitValue = Nothing
+step BoolType = Nothing
+step BoolTrue = Nothing
+step BoolFalse = Nothing
+step (BoolCase BoolTrue yes no) = Just yes
+step (BoolCase BoolFalse yes no) = Just no
+step (BoolCase condition yes no) =
+  case step condition of
+    Just next => Just (BoolCase next yes no)
+    Nothing => case step yes of
+      Just next => Just (BoolCase condition next no)
+      Nothing => map (BoolCase condition yes) (step no)
 step (Pi q domain body) =
   case step domain of
     Just next => Just (Pi q next body)
@@ -41,7 +52,7 @@ data ReductionResult : Nat -> Type where
   Normal : Term n -> ReductionResult n
   OutOfFuel : Term n -> ReductionResult n
 
-||| Fuel bounds beta/unit-case contractions, not time, allocation, or term size.
+||| Fuel bounds beta/data-case contractions, not time, allocation, or term size.
 ||| Even at zero fuel, a normal input is recognized by inspecting its next step.
 public export
 normalize : Nat -> Term n -> ReductionResult n
@@ -53,7 +64,7 @@ normalize fuel term =
         Z => OutOfFuel term
         S rest => normalize rest next
 
-||| Reference beta/unit-case conversion outcome; no eta or cubical conversion is included.
+||| Reference beta/data-case conversion outcome; no eta or cubical conversion is included.
 public export
 data ConversionResult = EqualNormalForms | DifferentNormalForms | Inconclusive
 

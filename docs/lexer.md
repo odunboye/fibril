@@ -23,7 +23,7 @@ Errors exit nonzero. Token output is diagnostic text, not a machine protocol.
 | --- | --- |
 | Identifier | ASCII letter or underscore, followed by ASCII letters/digits/underscore/apostrophe |
 | Natural digit sequence | One or more ASCII digits; spelling retained without integer conversion |
-| Keywords | Exactly Type, Unit, let, in, case, of; Type0, UnitValue, letter, inner remain identifiers |
+| Keywords | Exactly Type, Unit, Bool, True, False, if, then, else, let, in, case, of; Type0, UnitValue, letter, inner remain identifiers |
 | Grouping/annotation/binding | ( ) : = |
 | Lambda | Backslash or λ |
 | Function arrow | -> or → |

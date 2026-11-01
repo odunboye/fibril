@@ -42,7 +42,8 @@ example as well as running the Idris project. It also checks
 `make examples` too. `unit.fib` evaluates a checked local Unit value, the
 first ordinary data primitive; this remains reference evaluation, not compiled IO.
 `consume-unit.fib` explicitly eliminates a linear Unit with case/of and is also
-evaluated by `make examples`.
+evaluated by `make examples`. `boolean.fib` defines linear negation using a
+conditional and evaluates to True. Both alternatives are checked before evaluation.
 
 ## Proposed Fibril programs
 

@@ -40,6 +40,11 @@ resolveIn env (NRef span name) =
 resolveIn env (NSort span level) = Right (Universe level)
 resolveIn env (NUnitType span) = Right UnitType
 resolveIn env (NUnitValue span) = Right UnitValue
+resolveIn env (NBoolType span) = Right BoolType
+resolveIn env (NBoolValue span True) = Right BoolTrue
+resolveIn env (NBoolValue span False) = Right BoolFalse
+resolveIn env (NIf span condition yes no) =
+  [| BoolCase (resolveIn env condition) (resolveIn env yes) (resolveIn env no) |]
 resolveIn env (NUnitCase span scrutinee body) =
   [| UnitCase (resolveIn env scrutinee) (resolveIn env body) |]
 resolveIn env (NPi span q name domain body) = do

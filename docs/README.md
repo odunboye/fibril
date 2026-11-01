@@ -11,6 +11,8 @@ The generated homepage separates teaching chapters, references, and project reco
 
 ## Reference index
 
+- [Booleans and conservative branching](boolean.md): checked alternatives without general subusage joining.
+
 - [Primitive Unit](unit.md): first data value and explicit quantity limitations.
 
 - [Checked reference evaluation](evaluation.md): source checking followed by bounded normalization.

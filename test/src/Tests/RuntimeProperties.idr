@@ -46,6 +46,8 @@ runtimeGen (S depth) =
     , capture <$> runtimeGen depth
     , identityApplication Linear <$> runtimeGen depth
     , (\sample => MkSample (UnitCase UnitValue sample.term) sample.expected) <$> runtimeGen depth
+    , (\sample => MkSample (BoolCase BoolFalse sample.term (identityApplication Linear sample).term)
+                           sample.expected) <$> runtimeGen depth
     ]
 
 hasLinearCapture : Either RuntimeError (RuntimeResult 2) -> Bool
@@ -98,6 +100,7 @@ unitGen (S depth) =
   choice
     [ pure UnitValue
     , UnitCase UnitValue <$> unitGen depth
+    , BoolCase <$> element [BoolTrue, BoolFalse] <*> unitGen depth <*> unitGen depth
     , Apply (Lambda Linear UnitType (Variable FZ)) <$> unitGen depth
     , (\body => Apply (Lambda Erased UnitType (weaken body)) UnitValue) <$> unitGen depth
     ]

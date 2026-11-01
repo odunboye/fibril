@@ -64,6 +64,14 @@ may supply type information but cannot be returned as a runtime value. The
 [parser guide](../parser.md#typed-local-bindings) shows how lets elaborate into
 ordinary lambda/application nodes, reusing these resource rules.
 
+## Alternatives share resources
+
+`\\(1 flag : Bool) => \\(1 x : Unit) => if flag then x else x` uses x once:
+only one alternative is selected. We require identical observed branch vectors
+and add the condition's usage to one shared vector. Different vectors are rejected,
+even when an unrestricted permission could allow either separately. This is a
+[conservative prototype rule](../boolean.md), not a general subusage join.
+
 ## Exercises
 
 - Compute [1, 0] + [1, 0].

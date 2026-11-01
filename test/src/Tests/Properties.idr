@@ -33,8 +33,8 @@ quantityGen : Gen Quantity
 quantityGen = element [Erased, Linear, Unrestricted]
 
 atom : (n : Nat) -> Gen (Term n)
-atom Z = element [Universe 0, Universe 1, UnitType, UnitValue]
-atom (S n) = choice [element [Universe 0, Universe 1, UnitType, UnitValue], Variable <$> finGen n]
+atom Z = element [Universe 0, Universe 1, UnitType, UnitValue, BoolType, BoolTrue, BoolFalse]
+atom (S n) = choice [element [Universe 0, Universe 1, UnitType, UnitValue, BoolType, BoolTrue, BoolFalse], Variable <$> finGen n]
 
 -- Bounds and binders are constructed together: shrinking never creates
 -- dangling indices. These are scoped, not necessarily well-typed terms.
@@ -47,6 +47,7 @@ termGen (S depth) n =
     , Lambda <$> quantityGen <*> termGen depth n <*> termGen depth (S n)
     , Apply <$> termGen depth n <*> termGen depth n
     , UnitCase <$> termGen depth n <*> termGen depth n
+    , BoolCase <$> termGen depth n <*> termGen depth n <*> termGen depth n
     ]
 
 intervalAtom : Gen (Interval Nat)

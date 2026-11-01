@@ -17,6 +17,11 @@ renderTerm (Variable i) = "v" ++ show (finToNat i)
 renderTerm (Universe level) = "Type" ++ show level
 renderTerm UnitType = "Unit"
 renderTerm UnitValue = "()"
+renderTerm BoolType = "Bool"
+renderTerm BoolTrue = "True"
+renderTerm BoolFalse = "False"
+renderTerm (BoolCase condition yes no) =
+  "(If " ++ renderTerm condition ++ " " ++ renderTerm yes ++ " " ++ renderTerm no ++ ")"
 renderTerm (Pi q domain body) =
   "(Pi " ++ show q ++ " " ++ renderTerm domain ++ " " ++ renderTerm body ++ ")"
 renderTerm (Lambda q domain body) =

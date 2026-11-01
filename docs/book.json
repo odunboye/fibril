@@ -80,6 +80,10 @@
         "path": "docs/unit.md"
       },
       {
+        "title": "Booleans and conservative branching",
+        "path": "docs/boolean.md"
+      },
+      {
         "title": "Ordinary core draft",
         "path": "docs/core-draft.md"
       },

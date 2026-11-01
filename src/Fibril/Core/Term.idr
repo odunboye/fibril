@@ -1,4 +1,4 @@
--- Scoped ordinary dependent-function and Unit syntax. This is not a type checker.
+-- Scoped ordinary dependent-function, Unit, and Boolean syntax. This is not a type checker.
 -- See docs/core-draft.md; cubical resource rules remain unresolved.
 -- Theory: DEBRUIJN72 (nameless indices); ATKEY18 sec. 2 (QTT background, not implemented typing).
 -- Bibliography and limitations: docs/references.md.
@@ -19,6 +19,12 @@ data Term : Nat -> Type where
   UnitType : Term n
   ||| Closed constructor () : Unit; zero runtime usage, not linear discard.
   UnitValue : Term n
+  ||| Primitive Bool : Type0; distinct from cubical dimensions (docs/boolean.md).
+  BoolType : Term n
+  BoolTrue : Term n
+  BoolFalse : Term n
+  ||| Nondependent branches; runtime checking requires matching usage vectors.
+  BoolCase : Term n -> Term n -> Term n -> Term n
   Pi : Quantity -> Term n -> Term (S n) -> Term n
   Lambda : Quantity -> Term n -> Term (S n) -> Term n
   Apply : Term n -> Term n -> Term n
@@ -38,6 +44,11 @@ rename env (Variable i) = Variable (env i)
 rename env (Universe l) = Universe l
 rename env UnitType = UnitType
 rename env UnitValue = UnitValue
+rename env BoolType = BoolType
+rename env BoolTrue = BoolTrue
+rename env BoolFalse = BoolFalse
+rename env (BoolCase condition yes no) =
+  BoolCase (rename env condition) (rename env yes) (rename env no)
 rename env (Pi q domain body) =
   Pi q (rename env domain) (rename (liftRenaming env) body)
 rename env (Lambda q domain body) =
@@ -63,6 +74,11 @@ substituteTerm env (Variable i) = env i
 substituteTerm env (Universe l) = Universe l
 substituteTerm env UnitType = UnitType
 substituteTerm env UnitValue = UnitValue
+substituteTerm env BoolType = BoolType
+substituteTerm env BoolTrue = BoolTrue
+substituteTerm env BoolFalse = BoolFalse
+substituteTerm env (BoolCase condition yes no) =
+  BoolCase (substituteTerm env condition) (substituteTerm env yes) (substituteTerm env no)
 substituteTerm env (Pi q domain body) =
   Pi q (substituteTerm env domain) (substituteTerm (liftSubstitution env) body)
 substituteTerm env (Lambda q domain body) =
@@ -88,6 +104,11 @@ sameSyntax (Variable i) (Variable j) = i == j
 sameSyntax (Universe l) (Universe k) = l == k
 sameSyntax UnitType UnitType = True
 sameSyntax UnitValue UnitValue = True
+sameSyntax BoolType BoolType = True
+sameSyntax BoolTrue BoolTrue = True
+sameSyntax BoolFalse BoolFalse = True
+sameSyntax (BoolCase c t e) (BoolCase d u f) =
+  sameSyntax c d && sameSyntax t u && sameSyntax e f
 sameSyntax (Pi q a b) (Pi r c d) = q == r && sameSyntax a c && sameSyntax b d
 sameSyntax (Lambda q a b) (Lambda r c d) = q == r && sameSyntax a c && sameSyntax b d
 sameSyntax (Apply f x) (Apply g y) = sameSyntax f g && sameSyntax x y

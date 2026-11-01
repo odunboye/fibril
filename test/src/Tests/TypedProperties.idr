@@ -25,7 +25,10 @@ Show TypedSample where
 
 seed : Gen TypedSample
 seed = element
-  [ Sample UnitType (Universe 0)
+  [ Sample BoolType (Universe 0)
+  , Sample BoolTrue BoolType
+  , Sample BoolFalse BoolType
+  , Sample UnitType (Universe 0)
   , Sample UnitValue UnitType
   , Sample (Universe 0) (Universe 1)
   , Sample (Universe 1) (Universe 2)
@@ -53,6 +56,8 @@ typedGen (S depth) =
     , wrapLambda <$> element [Erased, Linear, Unrestricted] <*> typedGen depth
     , wrapBeta <$> element [Erased, Linear, Unrestricted] <*> typedGen depth
     , (\sample => Sample (UnitCase UnitValue sample.term) sample.expected) <$> typedGen depth
+    , (\sample => Sample (BoolCase BoolFalse sample.term (wrapBeta Linear sample).term)
+                         sample.expected) <$> typedGen depth
     ]
 
 accepted : Either CheckError () -> Bool

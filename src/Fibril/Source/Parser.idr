@@ -57,6 +57,9 @@ startsAtom : TokenKind -> Bool
 startsAtom Name = True
 startsAtom TypeKeyword = True
 startsAtom UnitKeyword = True
+startsAtom BoolKeyword = True
+startsAtom TrueKeyword = True
+startsAtom FalseKeyword = True
 startsAtom OpenParen = True
 startsAtom _ = False
 
@@ -97,7 +100,14 @@ mutual
   expression (S depth) end tokens =
     case tokens of
       token :: rest =>
-        if token.kind == CaseKeyword then do
+        if token.kind == IfKeyword then do
+          (condition, afterCondition) <- expression depth end rest
+          (_, afterThen) <- expect ThenKeyword end afterCondition
+          (yes, afterYes) <- expression depth end afterThen
+          (_, afterElse) <- expect ElseKeyword end afterYes
+          (no, remaining) <- expression depth end afterElse
+          Right (NIf (Between token.span.start (extent no).finish) condition yes no, remaining)
+        else if token.kind == CaseKeyword then do
           (scrutinee, afterScrutinee) <- expression depth end rest
           (_, afterOf) <- expect OfKeyword end afterScrutinee
           (_, afterOpen) <- expect OpenParen end afterOf
@@ -172,12 +182,15 @@ mutual
     case token.kind of
       Name => Right (NRef token.span token.spelling, rest)
       UnitKeyword => Right (NUnitType token.span, rest)
+      BoolKeyword => Right (NBoolType token.span, rest)
+      TrueKeyword => Right (NBoolValue token.span True, rest)
+      FalseKeyword => Right (NBoolValue token.span False, rest)
       TypeKeyword => do
         (level, remaining) <- expect Number end rest
         value <- levelValue level
         Right (NSort (Between token.span.start level.span.finish) value, remaining)
       OpenParen => grouped depth end token rest
-      _ => Left (ParseFailure token.span.start "Expected name, Type LEVEL, Unit, (), or grouped expression")
+      _ => Left (ParseFailure token.span.start "Expected name, Type LEVEL, Unit, (), Bool, True, False, or grouped expression")
 
   grouped : Nat -> Position -> Token -> List Token -> Either ParseError (Expr, List Token)
   grouped depth end opening (closing :: remaining) =

@@ -51,11 +51,21 @@ unused ambient linear variable. Explicit UnitCase combines scrutinee and body
 usage, providing a checked way to consume a linear Unit. There is still no eta
 rule or implicit discard. See [Unit rules](unit.md).
 
+## Boolean alternatives
+
+BoolTrue and BoolFalse contribute zero usage; BoolType is a type expression.
+Conditionals require exactly equal branch usage vectors, then add condition usage
+to one shared branch vector. They do not add both alternatives. Mismatched vectors
+are rejected even under a constant condition or unrestricted ambient permissions.
+See [Boolean branching](boolean.md) for the conservative rule and limits,
+including a concrete unrestricted-beta counterexample to reduction stability.
+Reference evaluation rejects that counterexample at its post-reduction check.
+
 ## Supported boundary
 
-Universe, Pi, and Unit type expressions are rejected as direct computational
+Universe, Pi, Unit, and Bool type expressions are rejected as direct computational
 values. They are permitted in annotations, types, and erased arguments.
-Primitive Unit values are supported; general inductive definitions and effects
+Primitive Unit and Boolean values are supported; general inductive definitions and effects
 are not. Examples include Unit programs, polymorphic functions, and open
 contexts with abstract values.
 

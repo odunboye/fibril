@@ -20,6 +20,7 @@ examples: build
 	./build/exec/fibril eval examples/core/local-identity.fib
 	./build/exec/fibril eval examples/core/unit.fib
 	./build/exec/fibril eval examples/core/consume-unit.fib
+	./build/exec/fibril eval examples/core/boolean.fib
 
 bench:
 	python3 tools/benchmark.py

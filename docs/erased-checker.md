@@ -9,6 +9,8 @@ against a separately validated expected type.
 ## Supported rules
 
 - Universe l has type Universe (l+1), with literal levels and upward universe compatibility.
+- Bool : Type0 and True/False : Bool; conditionals require Bool conditions and
+  equal normalized branch types, not an inferred cumulative join.
 - Pi formation checks both domains as types and takes the maximum level.
 - Lambda inference checks its annotation and infers its body's type.
 - Variable lookup shifts dependent domains into the current scope.
@@ -38,7 +40,7 @@ It does not resolve quantitative cubical soundness.
 - checkErased also verifies that the supplied expected type is itself a type.
 
 Typing depth bounds recursive checking calls. Reduction fuel separately bounds
-beta/unit-case contractions per normalization request. Neither budget bounds total time or memory.
+beta/data-case contractions per normalization request. Neither budget bounds total time or memory.
 CheckingLimit and ReductionLimit are explicit failures, distinct from actual type
 mismatch. Repeated checks may repeat context validation and normalization; this is
 reference code, not an optimized incremental elaborator.

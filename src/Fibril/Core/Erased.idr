@@ -1,6 +1,6 @@
 -- Experimental erased ordinary-fragment checker, not the Fibril kernel.
 -- Theory: ATKEY18 sec. 2.1.3; details/departures in docs/erased-checker.md.
--- Primitive Unit rules are a restricted local design; see docs/unit.md.
+-- Primitive Unit/Bool rules are local designs; see docs/unit.md, docs/boolean.md.
 module Fibril.Core.Erased
 
 import Fibril.Core.Quantity
@@ -8,6 +8,7 @@ import Fibril.Core.Term
 import Fibril.Core.Context
 import Fibril.Core.Compatibility
 import Fibril.Core.WeakHead
+import Fibril.Core.Reduction
 
 %default total
 
@@ -19,6 +20,7 @@ data CheckError
   | ExpectedUniverse
   | ExpectedFunction
   | TypeMismatch
+  | BranchTypeMismatch
 
 public export
 Show CheckError where
@@ -27,6 +29,7 @@ Show CheckError where
   show ExpectedUniverse = "Expected a universe"
   show ExpectedFunction = "Expected a dependent function type"
   show TypeMismatch = "Inferred type is not compatible with expected type"
+  show BranchTypeMismatch = "Conditional branch types are not equal"
 
 -- Inspect only the outer type shape; comparison still uses full normalization.
 exposeType : Nat -> Term n -> Either CheckError (Term n)
@@ -51,6 +54,18 @@ mutual
   infer (S depth) reduction context (Universe level) = Right (Universe (S level))
   infer (S depth) reduction context UnitType = Right (Universe 0)
   infer (S depth) reduction context UnitValue = Right UnitType
+  infer (S depth) reduction context BoolType = Right (Universe 0)
+  infer (S depth) reduction context BoolTrue = Right BoolType
+  infer (S depth) reduction context BoolFalse = Right BoolType
+  infer (S depth) reduction context (BoolCase condition yes no) = do
+    conditionType <- infer depth reduction context condition
+    requireCompatible reduction conditionType BoolType
+    yesType <- infer depth reduction context yes
+    noType <- infer depth reduction context no
+    case betaCompare reduction yesType noType of
+      EqualNormalForms => Right yesType
+      DifferentNormalForms => Left BranchTypeMismatch
+      Inconclusive => Left ReductionLimit
   infer (S depth) reduction context (Pi q domain body) = do
     domainLevel <- sortOf depth reduction context domain
     bodyLevel <- sortOf depth reduction (Extend context q domain) body

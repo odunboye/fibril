@@ -8,7 +8,7 @@ import Fibril.Source.Text
 
 ||| Token categories for the initial explicitly annotated expression grammar.
 public export
-data TokenKind = Name | Number | TypeKeyword | UnitKeyword | CaseKeyword | OfKeyword | LetKeyword | InKeyword | Equals | OpenParen | CloseParen | Colon | Arrow | BodyArrow | Lambda
+data TokenKind = Name | Number | TypeKeyword | UnitKeyword | BoolKeyword | TrueKeyword | FalseKeyword | IfKeyword | ThenKeyword | ElseKeyword | CaseKeyword | OfKeyword | LetKeyword | InKeyword | Equals | OpenParen | CloseParen | Colon | Arrow | BodyArrow | Lambda
 
 public export
 Show TokenKind where
@@ -16,6 +16,12 @@ Show TokenKind where
   show Number = "number"
   show TypeKeyword = "Type"
   show UnitKeyword = "Unit"
+  show BoolKeyword = "Bool"
+  show TrueKeyword = "True"
+  show FalseKeyword = "False"
+  show IfKeyword = "if"
+  show ThenKeyword = "then"
+  show ElseKeyword = "else"
   show CaseKeyword = "case"
   show OfKeyword = "of"
   show LetKeyword = "let"
@@ -34,6 +40,12 @@ Eq TokenKind where
   Number == Number = True
   TypeKeyword == TypeKeyword = True
   UnitKeyword == UnitKeyword = True
+  BoolKeyword == BoolKeyword = True
+  TrueKeyword == TrueKeyword = True
+  FalseKeyword == FalseKeyword = True
+  IfKeyword == IfKeyword = True
+  ThenKeyword == ThenKeyword = True
+  ElseKeyword == ElseKeyword = True
   CaseKeyword == CaseKeyword = True
   OfKeyword == OfKeyword = True
   LetKeyword == LetKeyword = True
@@ -124,6 +136,12 @@ scan (S fuel) at (c :: rest) =
        let kind = case pack chars of
              "Type" => TypeKeyword
              "Unit" => UnitKeyword
+             "Bool" => BoolKeyword
+             "True" => TrueKeyword
+             "False" => FalseKeyword
+             "if" => IfKeyword
+             "then" => ThenKeyword
+             "else" => ElseKeyword
              "case" => CaseKeyword
              "of" => OfKeyword
              "let" => LetKeyword

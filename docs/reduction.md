@@ -7,7 +7,7 @@ definitional equality judgment.
 
 [Reduction.idr](../src/Fibril/Core/Reduction.idr) provides:
 
-- step: one deterministic full beta/unit-case step, or no step for a normal form.
+- step: one deterministic full beta/data-case step, or no step for a normal form.
 - normalize: bounded repeated stepping, returning Normal or OutOfFuel.
 - betaCompare: normalize both inputs and return EqualNormalForms,
   DifferentNormalForms, or Inconclusive.
@@ -21,6 +21,10 @@ single-constructor computation rule but no eta rule. Other cases reduce their
 scrutinee first, then their body when the scrutinee is stuck.
 
 ![Selected static calls](diagrams/calls.svg)
+
+Boolean cases contract directly on True/False. Otherwise full reduction searches
+condition, then true branch, then false branch. Weak-head exposure searches only
+the condition until selecting a branch. See [Boolean rules](boolean.md).
 
 ## Weak-head exposure for checking
 
@@ -46,7 +50,7 @@ inspection, not a measured universal performance claim.
 
 ## Fuel is not a timeout
 
-Each fuel unit permits one beta or Unit-case contraction. The reducer checks whether a step is available
+Each fuel unit permits one beta, Unit-case, or Boolean-case contraction. The reducer checks whether a step is available
 even at zero fuel, so a normal input succeeds at zero and a one-step expression
 succeeds with one unit.
 

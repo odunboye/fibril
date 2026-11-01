@@ -125,6 +125,18 @@ class CLITests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("Parsing:", result.stdout)
 
+    def test_boolean_program(self):
+        result = run("eval", "examples/core/boolean.fib")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Type: Bool", result.stdout)
+        self.assertIn("Normal: True", result.stdout)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "branches.fib"
+            path.write_text(r"\(x : Unit) => if True then x else ()", encoding="utf-8")
+            result = run("check", str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("different resources", result.stdout)
+
     def test_unit_elimination(self):
         result = run("eval", "--fuel", "2", "examples/core/consume-unit.fib")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

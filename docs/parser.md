@@ -25,7 +25,8 @@ This checks source; it does not compile or run a Fibril executable.
 
 ## Grammar
 
-    expr        ::= caseExpr | letExpr | lambda | dependentPi | application [ "->" expr ]
+    expr        ::= ifExpr | caseExpr | letExpr | lambda | dependentPi | application [ "->" expr ]
+    ifExpr      ::= "if" expr "then" expr "else" expr
     caseExpr    ::= "case" expr "of" "(" ")" "=>" expr
     letExpr     ::= "let" binder "=" expr "in" expr
     lambda      ::= "\" binder "=>" expr
@@ -34,6 +35,7 @@ This checks source; it does not compile or run a Fibril executable.
     quantity    ::= "0" | "1"
     application ::= atom { atom }
     atom        ::= name | "Type" digits | "Unit" | "(" ")"
+                  | "Bool" | "True" | "False"
                   | "(" expr ")" | "(" expr ":" expr ")"
 
 Omitted quantity means unrestricted. Universe levels require 1..6 decimal digits.
@@ -56,6 +58,12 @@ now denotes a constructor rather than an absent expression. See [Unit](unit.md)
 for precise typing, usage, explicit single-case elimination, and omitted
 eta/dependent-eliminator rules. `case value of () => body` introduces no pattern
 binders; both children resolve in the same scope. Only the () pattern is supported.
+
+[Booleans](boolean.md) add Bool, True, False, and `if condition then yes else no`.
+Branches introduce no binders. Both must resolve/type-check, and runtime branches
+must have exactly equal resource usage. Nested conditionals associate through their
+explicit then/else delimiters; a conditional used as an application atom needs
+parentheses, like lambdas and lets.
 
 ## Explicit type ascriptions
 

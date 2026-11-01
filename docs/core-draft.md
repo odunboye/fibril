@@ -29,6 +29,8 @@ axioms, or unsafe primitives enter this initial logical fragment.
             | UnitType
             | UnitValue
             | UnitCase Term Term
+            | BoolType | BoolTrue | BoolFalse
+            | BoolCase Term Term Term
             | Pi Quantity Term Term
             | Lam Quantity Term Term
             | App Term Term
@@ -54,6 +56,14 @@ UnitValue uses no variables; UnitType, like other type expressions, cannot be
 executed as a value. UnitCase explicitly consumes a Unit scrutinee before its
 body, adding their usage; it introduces no binder and contracts on UnitValue.
 No dependent motive, eta rule, or implicit linear discard is provided.
+
+## Implemented Boolean branching
+
+[Bool](boolean.md) adds a type in Universe 0, two zero-usage constructors,
+and a nondependent conditional. Both branches must have equal normalized types.
+Runtime branches must have exactly equal usage vectors; the condition's usage is
+added to one shared branch vector, not both alternatives. This conservative rule
+is a local prototype policy, not a claimed general quantitative branch join.
 
 ## Proposed quantity accounting
 

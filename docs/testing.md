@@ -53,6 +53,11 @@ including scrutinee validation, resource accounting, exact fuel and weak/full
 reduction differences. Structural, erased typed, and runtime generators include
 UnitCase wrappers in their existing 22 properties.
 
+[Tests.Boolean](../test/src/Tests/Boolean.idr) checks both constructors, branch
+selection/types/resources, constant-condition negative cases, nested syntax,
+computational type conversion, and comparison exhaustion. Existing scoped, erased,
+and runtime recipes now include conditionals; the suite remains 22 properties.
+
 ## Hedgehog dependency
 
 Repository: https://github.com/stefan-hoeck/idris2-hedgehog
