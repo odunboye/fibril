@@ -3,6 +3,7 @@ module Tests.Main
 import Fibril.Core.Quantity
 import Fibril.Core.Term
 import Fibril.Core.Usage
+import Fibril.Core.Context
 import Data.Vect
 import Fibril.Foundation.DeMorgan.Interval
 import Fibril.Foundation.DeMorgan.NormalForm
@@ -62,9 +63,45 @@ termSamples =
   , Apply (Variable FZ) (Universe 1)
   ]
 
+dependentContext : Context 2
+dependentContext = Extend (Extend Empty Erased (Universe 0)) Linear (Variable FZ)
+
 checks : List (String, Bool)
 checks =
-  [ ("usage variable position",
+  [ ("context dependent lookup shifts domain",
+      sameSyntax (lookupType FZ dependentContext) (Variable (FS FZ)))
+  , ("context older lookup shifts through entries",
+      sameSyntax (lookupType (FS FZ) dependentContext) (Universe 0))
+  , ("context quantity lookup",
+      lookupQuantity FZ dependentContext == Linear &&
+      lookupQuantity (FS FZ) dependentContext == Erased)
+  , ("context valid runtime usage",
+      case validateUsage RuntimeMode dependentContext [Linear, Erased] of
+        Right () => True
+        Left _ => False)
+  , ("context rejects erased outer extraction",
+      case validateUsage RuntimeMode dependentContext [Linear, Linear] of
+        Left err => finToNat err.variable == 1 &&
+                    err.mismatch.expected == Erased &&
+                    err.mismatch.observed == Linear
+        Right () => False)
+  , ("context rejects unused linear entry",
+      case validateUsage RuntimeMode dependentContext [Erased, Erased] of
+        Left err => finToNat err.variable == 0
+        Right () => False)
+  , ("context erased mode permits type dependence",
+      case validateUsage ErasedMode dependentContext [Erased, Erased] of
+        Right () => True
+        Left _ => False)
+  , ("context erased mode checks entire vector",
+      case validateUsage ErasedMode dependentContext [Erased, Linear] of
+        Left err => finToNat err.variable == 1
+        Right () => False)
+  , ("context empty usage",
+      case validateUsage RuntimeMode Empty [] of
+        Right () => True
+        Left _ => False)
+  , ("usage variable position",
       variableUsage {n=3} RuntimeMode (FS FZ) == [Erased, Linear, Erased])
   , ("usage erased variable",
       variableUsage {n=2} ErasedMode FZ == [Erased, Erased])

@@ -20,5 +20,7 @@ rankdir=LR; node [shape=box,style=rounded,fontsize=10];
 "Usage.variableUsage" -> {"Usage.modeCoefficient" "Usage.zeroUsage"};
 "Usage.combineUsage" -> "Quantity.add";
 "Usage.scaleUsage" -> "Quantity.multiply";
+"Context.lookupType" -> "Term.weaken";
+"Context.validateUsage" -> {"Usage.modeCoefficient" "Quantity.multiply" "Quantity.allows"};
 label="Selected static calls — curated, not exhaustive";
 }

@@ -148,6 +148,11 @@ Regression tests cover identity operations, weakening/instantiation, capture
 avoidance, binder-domain scope, and structural-versus-computational equality.
 They are finite tests, not general proofs of substitution laws.
 
+See [ordinary checking plan](ordinary-checking.md) for context formation,
+dependent lookup, proposed rules, and explicit conversion/subusage gates.
+Context.idr now implements telescope storage and whole-vector local validation,
+not context well-formedness or inference.
+
 ## Immediate next task
 
 Refine context formation, subusage, and erased/runtime rules into a complete

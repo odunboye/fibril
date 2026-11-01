@@ -13,6 +13,7 @@
 
 - [Design discussion record](design.md): decisions, recommendations, open questions.
 - [Pipelines evaluation](pipelines-evaluation.md): dependency inspection, findings, and adoption gate.
+- [Ordinary checking plan](ordinary-checking.md): context formation, dependent lookup, typing outline, and conversion gates.
 - [Initial core draft](core-draft.md): proposed grammar, quantity accounting, and unresolved rules.
 - [Foundation baseline](foundation-baseline.md): CCHM reference and unresolved quantitative obligations.
 - [First milestone](milestone-01.md): core-checker scope and acceptance criteria.

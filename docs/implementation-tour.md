@@ -53,6 +53,13 @@ The [core draft](core-draft.md#erased-and-runtime-relevant-judgments) describes
 how a future checker should use these helpers. They do not yet traverse or type
 terms, and local binder checks alone do not guarantee safe closure capture.
 
+## Context infrastructure
+
+[Context](../src/Fibril/Core/Context.idr) stores scoped telescopes, shifts dependent
+types during lookup, and validates complete usage vectors. Its constructors do
+not prove domains are types. The [checking plan](ordinary-checking.md) explains
+how future inference differs from final context-permission validation.
+
 ## Trust and current limits
 
 All these modules are implemented in Idris 2. Tests cover examples and finite
