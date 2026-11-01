@@ -11,6 +11,8 @@ The generated homepage separates teaching chapters, references, and project reco
 
 ## Reference index
 
+- [Project/dependency format](packages.md): pubspec-style future manifests; pack remains the bootstrap.
+
 - [Unicode source text](unicode-source.md): validation, positions, and proposed identifier/notation rules.
 
 - [Reference benchmarks](benchmarks.md): reproducible exploratory measurements and limits.

@@ -36,6 +36,12 @@ Embedded profiles target Cortex-M and selected ESP32 variants. Predictable
 bare-metal execution is not a verified deadline guarantee; hard-real-time claims
 require target/application-specific timing evidence.
 
+## Lightweight project management
+
+The [package plan](../packages.md) uses fibril.yaml and fibril.lock for future
+user projects, inspired by Dart pub. Local packages come first; pack still builds
+the Idris implementation. Manifest parsing/resolution does not exist yet.
+
 ## Extensibility and self-hosting
 
 Foundation choice is project-wide; switching requires rechecking. Plugins may

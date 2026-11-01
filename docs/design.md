@@ -319,7 +319,16 @@ confusable diagnostics, and aliases are not.
 Never globally rewrite strings or silently normalize full source. Position
 encodings must be explicit at file/editor boundaries.
 
-## 17. Readiness and immediate open design work
+## 17. Lightweight package-management direction
+
+Future user projects use a pubspec-style fibril.yaml plus fibril.lock. Keep pack
+for the Idris implementation. Start with local packages, then pinned Git sources,
+shared caches, and offline/reproducible builds; defer registries/advanced solving.
+No automatic dependency scripts. See [package design](packages.md) for the proposed
+schema, YAML restrictions, target conditions, and unresolved identity/lock rules.
+This is not implemented yet.
+
+## 18. Readiness and immediate open design work
 
 - Write precise guarantees/non-guarantees for total, safe, erased, linear, and real-time.
 - Select the published De Morgan calculus and formalize quantitative interactions.

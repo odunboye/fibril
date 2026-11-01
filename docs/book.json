@@ -52,6 +52,10 @@
         "path": "docs/cli.md"
       },
       {
+        "title": "Project and dependency format",
+        "path": "docs/packages.md"
+      },
+      {
         "title": "Unicode source text",
         "path": "docs/unicode-source.md"
       },
