@@ -1,7 +1,7 @@
 PACK ?= pack
 IDRIS2 ?= idris2
 
-.PHONY: build test examples docs clean
+.PHONY: build test examples docs handbook serve-docs clean
 build:
 	$(PACK) build fibril
 
@@ -14,6 +14,12 @@ examples:
 
 docs: build
 	$(IDRIS2) --mkdoc fibril.ipkg
+
+handbook: docs
+	python3 tools/build_handbook.py
+
+serve-docs: handbook
+	python3 -m http.server 8000 --bind 127.0.0.1 --directory build/handbook
 
 clean:
 	rm -rf build test/build examples/build

@@ -34,6 +34,11 @@ upgrades explicitly; do not use a floating collection for project builds.
 See [examples](examples/README.md) for runnable bootstrap programs and clearly
 labeled proposed Fibril scenarios, including proofs.
 
+Build the browsable handbook with `make handbook`, or use `make serve-docs`
+to browse at http://127.0.0.1:8000. It includes diagrams, a curated call graph,
+linked source pages, API reference, and the full design record.
+See [handbook prerequisites](docs/handbook.md).
+
 Generate API documentation with `make docs` (`build/docs/index.html`);
 use the matching Idris 2 compiler as explained in the
 [documentation policy](docs/documentation-policy.md).

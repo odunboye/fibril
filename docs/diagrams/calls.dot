@@ -1,0 +1,20 @@
+digraph Calls {
+rankdir=LR; node [shape=box,style=rounded,fontsize=10];
+"Restriction.holds" -> "Scope.entailsScoped";
+"Scope.entailsScoped" -> {"Scope.forgetFace" "Face.entails"};
+"Face.entails" -> "Face.normal"; "Face.equivalentFace" -> "Face.normal";
+"Face.normal" -> "Face.reduce";
+"Face.substituteFace" -> "Face.endpointFace";
+"Scope.substituteScopedFace" -> "Scope.scopedEndpoint";
+"Scope.instantiateFace" -> "Scope.substituteScopedFace";
+"Scope.weakenFace" -> "Scope.substituteScopedFace";
+"NormalForm.equivalent" -> "NormalForm.normal";
+"NormalForm.normal" -> {"NormalForm.joinDNF" "NormalForm.meetDNF"};
+"NormalForm.joinDNF" -> "NormalForm.reduce";
+"NormalForm.meetDNF" -> "NormalForm.reduce";
+"Term.instantiateTerm" -> "Term.substituteTerm";
+"Term.substituteTerm" -> "Term.liftSubstitution";
+"Term.liftSubstitution" -> "Term.weaken";
+"Term.weaken" -> "Term.rename"; "Term.rename" -> "Term.liftRenaming";
+label="Selected static calls — curated, not exhaustive";
+}

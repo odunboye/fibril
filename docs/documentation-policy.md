@@ -42,8 +42,10 @@ Generated API pages complement tutorials, design records, and the specification.
 Implemented: API generation, test execution, and runnable bootstrap examples.
 
 Review-time policy: public documentation coverage and link accuracy.
-Automated undocumented-export and broken-link checks are not implemented.
+The handbook build checks local file links outside API internals. External URLs,
+fragments, and undocumented-export coverage are not automatically checked.
 Documentation generation alone does not enforce complete documentation coverage.
+Run `make handbook` when changing handbook text, source links, or diagrams.
 Proposed Fibril examples remain explicitly unexecutable until the compiler exists.
 Future CI should run the same commands and add reliable coverage/link checks.
 

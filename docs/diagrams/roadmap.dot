@@ -1,0 +1,8 @@
+digraph Roadmap {
+rankdir=LR; node [shape=box,style=dashed];
+Source -> Parser -> Elaborator -> Checker -> Erasure -> IR;
+IR -> C; IR -> JavaScript;
+"Existing scoped syntax and algebras" [style=solid];
+"Existing scoped syntax and algebras" -> Checker [style=dotted,label="infrastructure for"];
+label="Intended architecture — dashed stages are not implemented";
+}

@@ -1,5 +1,8 @@
 # Documentation
 
+- [Browsable handbook](handbook.md): build, serve, and maintain the offline book.
+- [Implementation tour](implementation-tour.md): completed work, diagrams, and selected call graph.
+
 - [Documentation policy](documentation-policy.md): per-task requirements and API generation.
 - [Contributing](../CONTRIBUTING.md): development checklist.
 - Generated API reference: run `make docs`, then open `build/docs/index.html`.
