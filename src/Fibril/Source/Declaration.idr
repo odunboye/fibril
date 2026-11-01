@@ -15,6 +15,8 @@ public export
 record Declaration where
   constructor Defined
   span : SourceSpan
+  nameSpan : SourceSpan
+  definitionNameSpan : SourceSpan
   quantity : Quantity
   name : String
   expected : Expr
@@ -62,7 +64,7 @@ parseOne expressionBudget end tokens@(first :: _) = do
   let (valueTokens, remaining) = expressionChunk definedName.span.start.line afterEquals
   value <- parseExpression expressionBudget (nextPosition end remaining) valueTokens
   Right (Defined (Between first.span.start (extent value).finish)
-                 q name.spelling expected value, remaining)
+                 name.span definedName.span q name.spelling expected value, remaining)
 
 parseAll : Nat -> Nat -> Position -> List String -> List Token ->
            Either ParseError (List Declaration)
@@ -93,6 +95,7 @@ lowerDeclarations end (decl :: rest) =
   NLet (Between decl.span.start end) decl.quantity decl.name decl.expected decl.value
        (lowerDeclarations end rest)
 
+public export
 declarationAhead : List Token -> Bool
 declarationAhead (Located Name _ _ :: Located Colon _ _ :: _) = True
 declarationAhead (Located Name _ _ :: Located Equals _ _ :: _) = True

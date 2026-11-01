@@ -7,6 +7,7 @@ import Fibril.Source.Text
 import Fibril.Source.Lexer
 import Fibril.Source.Parser
 import Fibril.Source.Declaration
+import Fibril.Source.Symbol
 import Fibril.Driver.Check
 import Fibril.Driver.Evaluate
 
@@ -33,7 +34,27 @@ program = "not : (1 flag : Bool) -> Bool\nnot = \\(1 flag : Bool) => if flag the
 public export
 checks : List (String, Bool)
 checks =
-  [ ("declarations minimal main", accepted False "main : Bool\nmain = True")
+  [ ("symbols retain signature and definition name spans",
+      case documentSymbols "0 item : Bool\nitem = True\n" of
+        Right [symbol] => symbol.name == "item" &&
+          symbol.range.start.column == 1 && symbol.selection.start.column == 3 &&
+          symbol.selection.finish.column == 7 &&
+          symbol.definitionSelection.start.line == 2 &&
+          symbol.definitionSelection.start.column == 1
+        _ => False)
+  , ("symbols are syntax only, including unbound names",
+      case documentSymbols "helper : Missing\nhelper = unknown\n" of
+        Right [symbol] => symbol.name == "helper"
+        _ => False)
+  , ("symbols accept empty editor buffers",
+      case documentSymbols "" of Right [] => True; _ => False)
+  , ("symbols accept standalone expressions without declarations",
+      case documentSymbols "True" of Right [] => True; _ => False)
+  , ("symbols fail atomically on incomplete later declarations",
+      case documentSymbols "first : Bool\nfirst = True\nlater : Bool" of
+        Left (SymbolParsing _) => True
+        _ => False)
+  , ("declarations minimal main", accepted False "main : Bool\nmain = True")
   , ("declarations prior function available", accepted False program)
   , ("declarations dependent function signature",
       accepted False

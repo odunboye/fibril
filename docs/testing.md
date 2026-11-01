@@ -161,6 +161,12 @@ continuation results, and linear use. Polymorphic and type-name-shadowing exampl
 exercise weakening rather than re-resolving the block's annotation. CLI tests
 check output order, inert eval, non-Unit main rejection, and no late-error prefix.
 
+Document-symbol tests check signature/definition name selections, quantities,
+source order, library fragments without main, empty/expression documents, atomic
+failure, and independence from resolution/typing. CLI tests parse the versioned
+JSON, verify original-source slices with Unicode/CRLF, and ensure errors produce
+no partial JSON on stdout.
+
 ## Hedgehog dependency
 
 Repository: https://github.com/stefan-hoeck/idris2-hedgehog

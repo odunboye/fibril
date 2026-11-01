@@ -157,6 +157,43 @@ The [offline handbook](handbook.md#code-highlighting) also highlights Fibril and
 Idris snippets/source pages. Its local Pandoc grammar is a separate presentation
 layer, not this Vim runtime or a shared semantic language service.
 
+## Parsed document symbols
+
+The compiler now exposes a syntax-only declaration service:
+
+~~~sh
+./build/exec/fibril symbols examples/core/io-map.fib
+./build/exec/fibril symbols stdlib/Prelude.fib
+~~~
+
+On success, stdout contains one JSON object with version 1, an explicit
+coordinates label, and a symbols array in source order. Each symbol has name,
+quantity ("0", "1", or "unrestricted"), range, selection, and definitionSelection.
+range covers the signature/definition pair, including a signature quantity but
+excluding trailing whitespace/comments. selection selects the signature's actual
+name token; definitionSelection selects its definition's actual name token.
+
+Each range is half-open, with start/end positions containing zero-based scalar
+offset and one-based line/column. Unicode scalars are not UTF-8 bytes, terminal
+cells, or LSP UTF-16 units. CRLF consumes two offsets but advances one line.
+An editor must convert coordinates against the exact source snapshot.
+
+[Source.Symbol](../src/Fibril/Source/Symbol.idr) accepts a source String, so future
+editor integrations can use unsaved buffers without temporary files. It reuses
+the real lexer/declaration/expression parsers, retaining token spans directly.
+Empty/comment-only documents and valid single expressions return an empty list.
+Library fragments need no main. Malformed/incomplete declarations fail atomically;
+there is no partial-outline recovery yet. File commands retain the bounded
+UTF-8 loader and parser/declaration budgets; errors go to stderr with nonzero
+status and leave stdout empty.
+
+This service performs no name resolution, prelude installation, type checking,
+normalization, or execution. A syntactically complete but ill-typed declaration
+can appear in the outline. Entries are declarations, not guessed semantic
+function/type kinds. This is not an LSP, reference index, stable symbol identity,
+cross-file navigation, or semantic rename. The supplied definition-name span is
+a future navigation target, not resolution of references at cursor positions.
+
 ## Tests and next work
 
 ~~~sh

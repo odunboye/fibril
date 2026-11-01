@@ -5,6 +5,7 @@ import subprocess
 import tempfile
 import random
 import unittest
+import json
 
 ROOT = Path(__file__).resolve().parents[1]
 EXE = ROOT / "build/exec/fibril"
@@ -191,6 +192,50 @@ class CLITests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(result.stdout, "")
         self.assertIn("use eval", result.stderr)
+
+    def test_document_symbols(self):
+        result = run("symbols", "examples/core/io-map.fib")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["version"], 1)
+        self.assertEqual([s["name"] for s in payload["symbols"]], ["finished", "main"])
+        self.assertEqual(result.stderr, "")
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "symbols.fib"
+            source = '-- λ 🌍\r\n0 item : String\r\nitem = "🌍"\r\n\r\nhelper : Missing\r\nhelper = unknown\r\n'
+            path.write_bytes(source.encode("utf-8"))
+            result = run("symbols", str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            symbols = json.loads(result.stdout)["symbols"]
+            self.assertEqual([s["name"] for s in symbols], ["item", "helper"])
+            self.assertEqual(symbols[0]["quantity"], "0")
+            self.assertEqual(symbols[0]["selection"]["start"]["column"], 3)
+            for symbol in symbols:
+                for field in ("selection", "definitionSelection"):
+                    span = symbol[field]
+                    self.assertEqual(source[span["start"]["offset"]:span["end"]["offset"]],
+                                     symbol["name"])
+                self.assertLessEqual(symbol["range"]["start"]["offset"],
+                                     symbol["selection"]["start"]["offset"])
+                self.assertGreaterEqual(symbol["range"]["end"]["offset"],
+                                        symbol["definitionSelection"]["end"]["offset"])
+            for source in ("", "-- comment\n", "True"):
+                path.write_text(source, encoding="utf-8")
+                result = run("symbols", str(path))
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(json.loads(result.stdout)["symbols"], [])
+            for source in ("first : Bool\nfirst = True\nlater : Bool",
+                           "name : Bool\nwrong = True", "\u202e"):
+                path.write_text(source, encoding="utf-8")
+                result = run("symbols", str(path))
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(result.stdout, "")
+                self.assertIn(str(path), result.stderr)
+            path.unlink()
+            result = run("symbols", str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, "")
+            self.assertIn(str(path), result.stderr)
 
     def test_annotated_do_results(self):
         result = run("run", "examples/core/do-result.fib")

@@ -11,6 +11,7 @@ Build with `pack build fibril`, then invoke `./build/exec/fibril`.
 | eval --fuel N PATH | Same with evaluation fuel 0..4096; not compiled execution |
 | check PATH | Parse/resolve an expression or declaration file with main, then check typing/runtime usage |
 | check --erased PATH | Parse/resolve/check the erased ordinary fragment only |
+| symbols PATH | JSON declaration ranges, syntax only; errors on stderr |
 | demo | Run built-in ordinary checking and cubical algebra examples |
 | lex-source PATH | Print tokens and scalar spans for the minimal expression subset; not parsing/typing |
 | validate-source PATH | Strictly decode a bounded UTF-8 file and validate source controls; not parsing/typing |

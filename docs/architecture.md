@@ -14,6 +14,8 @@ Implemented:
 - `src/Fibril/Effect/Console.idr`: pure action data, separate from ordinary terms.
 - `src/Fibril/Runtime/Console.idr`: host stdout adapter and first-error action sequencer; no core normalization hooks.
 - `src/Fibril/Driver/Run.idr`: validate whole source, then execute console actions; failures do not execute prefixes.
+- `src/Fibril/Source/Symbol.idr`: reusable syntax-only document symbols over source Strings, preserving real name-token spans.
+- `src/Fibril/Driver/Symbols.idr`: bounded-file symbols service and versioned JSON output; no semantic checking.
 - `src/Fibril/Source/Declaration.idr`: column-one signature/definition framing, source-order scope, fixed main entry, and typed-let lowering; no transparent globals/modules.
 - `src/Fibril/Source/Parser.idr`: bounded expression grammar with flat Unit-result do sequencing.
 - `src/Fibril/Source/Resolve.idr`: lexical/global names to scoped core, ascriptions, typed lets, and do lowering.

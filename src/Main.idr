@@ -7,6 +7,7 @@ import Fibril.Driver.Demo
 import Fibril.Driver.Check
 import Fibril.Driver.Evaluate
 import Fibril.Driver.Run
+import Fibril.Driver.Symbols
 import Fibril.Source.File
 import Fibril.Source.Lexer
 import Fibril.Source.Diagnostic
@@ -22,6 +23,7 @@ Usage:
   fibril --version
   fibril demo       Run built-in ordinary checking and cubical algebra examples
   fibril validate-source PATH   Validate UTF-8 and source controls (not typing)
+  fibril symbols PATH           JSON declaration ranges (syntax only, not checking)
   fibril lex-source PATH        Print source tokens/spans (not parsing/checking)
   fibril check PATH             Check a closed source program and runtime usage
   fibril check --erased PATH    Check only the erased ordinary fragment
@@ -73,6 +75,13 @@ main = do
         Just fuel => runEval fuel path
         Nothing => do
           putStrLn "Fuel must be decimal 0..4096."
+          exitFailure
+    ["symbols", path] => do
+      result <- symbolsFile path
+      case result of
+        Right lines => traverse_ putStrLn lines
+        Left err => do
+          _ <- fPutStrLn stderr err
           exitFailure
     ["check", path] => runCheck False path
     ["check", "--erased", path] => runCheck True path
