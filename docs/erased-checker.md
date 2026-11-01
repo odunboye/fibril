@@ -61,5 +61,10 @@ application/lookup, beta conversion, universe separation, invalid contexts,
 invalid expected types, quantity disagreement, and explicit budget failures.
 Successful tests are not a metatheoretic proof.
 
-Next: strengthen substitution/conversion property tests and design the runtime
-judgment without conflating erased checking with resource-safe execution.
+[Constructive typing properties](../test/src/Tests/TypedProperties.idr) now test
+acceptance, one-step preservation, identity-application conversion, and wrong
+universe rejection over a bounded closed-term grammar. Expected types come from
+generation recipes, not checker inference. This remains sampled evidence.
+
+Next: expand dependent/open-context properties and design the runtime judgment
+without conflating erased checking with resource-safe execution.

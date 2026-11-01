@@ -75,6 +75,9 @@ ordinary fragment; runtime quantitative and cubical checking remain absent.
 renaming, interval laws, and endpoint compatibility with bounded scope-correct
 generators and shrinking. See [testing](testing.md) for dependency revisions,
 replay instructions, and what these samples do not prove.
+[Constructive erased typing properties](../test/src/Tests/TypedProperties.idr)
+also test accepted term/type pairs, beta-step preservation, conversion, and
+invalid expected types without filtering arbitrary syntax through the checker.
 
 ## Trust and current limits
 

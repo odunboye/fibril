@@ -7,6 +7,7 @@ import Fibril.Core.Context
 import Tests.Reduction
 import Tests.Erased
 import Tests.Properties
+import Tests.TypedProperties
 import Data.Vect
 import Fibril.Foundation.DeMorgan.Interval
 import Fibril.Foundation.DeMorgan.NormalForm
@@ -295,7 +296,11 @@ main = do
     [] => do
       putStrLn "Deterministic bootstrap regressions passed."
       ok <- runProperties
-      if ok then pure () else exitFailure
+      if ok
+         then do
+           typedOk <- runTypedProperties
+           if typedOk then pure () else exitFailure
+         else exitFailure
     _ => do
       traverse_ (putStrLn . fst) failed
       exitFailure

@@ -28,7 +28,7 @@ README lists no state-machine testing or parallel execution.
 
 ## Current properties
 
-[Tests.Properties](../test/src/Tests/Properties.idr) runs eight properties, with
+[Tests.Properties](../test/src/Tests/Properties.idr) runs eight structural properties, with
 100 cases each under the current runner defaults:
 
 - Term renaming identity.
@@ -52,11 +52,36 @@ Independent constructor children use applicative composition; dependent
 generators use explicit scope parameters. We do not filter random raw syntax
 until it happens to type-check.
 
+## Constructively generated erased typing
+
+[Tests.TypedProperties](../test/src/Tests/TypedProperties.idr) adds four properties
+with 100 cases each:
+
+- Constructed term/type pairs are accepted.
+- One beta step preserves checking against the supplied type.
+- A typed identity application remains beta-convertible to its argument.
+- Replacing the expected type with a deliberately wrong universe is rejected.
+
+Generation starts with two universes and a polymorphic identity, then recursively
+adds constant lambdas or identity applications. Expected types are constructed
+alongside terms, not obtained by calling the checker as a generation oracle.
+Mapping each wrapper over the whole pair preserves this relationship during
+shrinking. This is a generator-side recipe, not a formal derivation certificate.
+
+Depth is capped at 3; checker depth/reduction budgets are 100. All exhaustion is
+a test failure, not a discarded case. Classification reports root applications,
+lambdas, and reducible versus already-normal inputs; no minimum coverage
+threshold is enforced yet.
+
+This narrow closed-term grammar does not cover arbitrary dependent contexts,
+all substitutions, or runtime resource usage. In particular, erased lambdas may
+discard linear inputs; they must not be reused as runtime-valid samples.
+
 ## Reproducing failures
 
 Keep the failing property's name, shrunk input, reported size, seed, toolchain,
 and pack collection. Hedgehog prints a recheck expression on failure. Load
-`test/src/Tests/Properties.idr` in a pack-managed REPL and use that expression
+`test/src/Tests/Properties.idr` (or `TypedProperties.idr`) in a pack-managed REPL and use that expression
 in the module's scope. The runProperties wrapper does not currently expose
 a command-line seed option.
 
@@ -66,10 +91,10 @@ regression, so coverage does not depend on random discovery again.
 ## Limits and next steps
 
 Passing sampled properties is not a proof of soundness or algorithm correctness.
-Coverage thresholds, typed-term generators, independent oracle comparisons, and
-shrinking-quality regression tests are not yet implemented. Composition tests
+Coverage thresholds, general typed-derivation generators, independent oracle
+comparisons, and shrinking-quality regression tests are not yet implemented. Composition tests
 currently use one bounded scope/replacement shape, not every possible telescope.
 
-Next: expand scoped/typed generator coverage, record classifications, and test
-the ordinary checker's substitution/conversion relationships. Keep impossible
+Next: expand generators to dependent open contexts and general substitutions,
+and add enforced coverage and independent-oracle checks. Keep impossible
 or exhausted evaluations distinct from rejected typing obligations.
