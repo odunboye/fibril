@@ -128,6 +128,10 @@
         "path": "docs/substitution-composition.md"
       },
       {
+        "title": "Instantiation and root beta laws",
+        "path": "docs/beta-laws.md"
+      },
+      {
         "title": "Cubical baseline",
         "path": "docs/foundation-baseline.md"
       },

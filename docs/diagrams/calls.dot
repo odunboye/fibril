@@ -79,6 +79,14 @@ rankdir=LR; node [shape=box,style=rounded,fontsize=10];
 "Check.prepareRuntimeSource" -> "Check.prepareRuntimeSourceDetailed";
 "Check.prepareRuntimeSourceDetailed" -> {"Check.resolveSource" "Check.prepareTerm"};
 "Check.prepareTerm" -> "Runtime.inferRuntime";
+subgraph cluster_beta {
+  label="Host-checked instantiation/root beta proofs (not runtime)";
+  "Beta.renameBetaStep" -> "Instantiation.renameInstantiation";
+  "Beta.substituteBetaStep" -> "Instantiation.substituteInstantiation";
+  "Instantiation.renameInstantiation" -> {"Composition.renameAfterSubstitution" "Substitution.substituteCongruent" "Instantiation.renameReplacement" "Composition.substituteAfterRenaming"};
+  "Instantiation.substituteInstantiation" -> {"Composition.substituteComposition" "Substitution.substituteCongruent" "Instantiation.substituteReplacement"};
+  "Instantiation.substituteReplacement" -> "Composition.instantiateWeakening";
+}
 subgraph cluster_composition {
   label="Host-checked substitution fusion/composition (not runtime)";
   "Composition.renameAfterSubstitution" -> {"Substitution.substituteCongruent" "Composition.liftRenameSubstitution"};

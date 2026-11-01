@@ -87,6 +87,11 @@ proofs. Tests.SubstitutionComposition checks their instantiated signatures and
 the shared replaceNewest map. The existing sampled composition/instantiation
 properties remain regressions; there are still 23 Hedgehog properties.
 
+[Tests.Beta](../test/src/Tests/Beta.idr) checks instantiated host proofs for
+instantiation naturality and known-root beta compatibility. Counterexamples
+ensure nobody generalizes this to false arbitrary step/substitution commutation.
+These are theorem-witness regressions; the 23 Hedgehog properties are unchanged.
+
 ## Hedgehog dependency
 
 Repository: https://github.com/stefan-hoeck/idris2-hedgehog

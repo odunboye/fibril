@@ -58,6 +58,14 @@ A Pi is already exposed even if its codomain is not normal. Checkers use this
 for shape inspection, then still fully compare types when equality is required.
 HeadForm and Normal are different result constructors to prevent confusion.
 
+## Connect binding algebra to a beta contraction
+
+[Root-beta laws](../beta-laws.md) now prove that renaming/substitution of a known
+root lambda application contracts to the mapped result in Reduction.step itself.
+The instantiation proof uses lifted maps for the body, not for the argument.
+This says nothing about the term's type. A general step-commutation equation for
+substitution is false: replacement can create an earlier redex.
+
 ## Evaluate a checked source expression
 
 Run `fibril eval examples/core/evaluate-identity.fib`. The

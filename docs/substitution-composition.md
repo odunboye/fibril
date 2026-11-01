@@ -64,6 +64,14 @@ replacements are their original variables. substituteIdentity completes the
 instantiation theorem. The replacement value is irrelevant because the removed
 variable does not occur.
 
+## Application: instantiation and beta
+
+[Naturality/root-beta laws](beta-laws.md) now use these fusion/composition results
+to commute renaming/substitution with instantiateTerm, then prove compatibility
+of a known root beta contraction in the actual reducer. The broader equation
+claiming arbitrary substitution commutes with the deterministic step strategy
+is false and has explicit counterexample regressions.
+
 ## Evidence, tests, and limits
 
 [Tests.SubstitutionComposition](../test/src/Tests/SubstitutionComposition.idr)

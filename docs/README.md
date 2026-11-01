@@ -11,6 +11,8 @@ The generated homepage separates teaching chapters, references, and project reco
 
 ## Reference index
 
+- [Instantiation and root beta laws](beta-laws.md): structural proofs tied to the actual reducer.
+
 - [Substitution composition](substitution-composition.md): mixed fusion and weakening/instantiation proofs.
 
 - [Basic substitution laws](substitution.md): congruence, variable correspondence, and identity.

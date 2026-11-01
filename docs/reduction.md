@@ -26,6 +26,14 @@ Boolean cases contract directly on True/False. Otherwise full reduction searches
 condition, then true branch, then false branch. Weak-head exposure searches only
 the condition until selecting a branch. See [Boolean rules](boolean.md).
 
+## A proved root beta compatibility law
+
+[Instantiation/root-beta proofs](beta-laws.md) now connect structural substitution
+laws to the actual step function. Renaming/substituting a known root lambda
+application yields the correspondingly mapped contractum. This is not typed
+preservation or a proof for arbitrary contextual steps; unrestricted substitution
+can create earlier redexes and change the selected step.
+
 ## Weak-head exposure for checking
 
 [WeakHead.idr](../src/Fibril/Core/WeakHead.idr) adds stepHead and weakHead.

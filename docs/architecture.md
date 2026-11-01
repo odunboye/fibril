@@ -14,6 +14,8 @@ Implemented:
 - `src/Fibril/Source/File.idr`: bounded raw-file IO, exact-read/growth checks, decoding and control validation, represented-result cleanup.
 - `src/Fibril/Source/Text.idr`: decoded-source validation with scalar positions; not byte decoding, lexing, or identifier approval.
 
+- `src/Fibril/Core/Substitution/Instantiation.idr`: naturality of instantiation under renaming/substitution.
+- `src/Fibril/Core/Reduction/Beta.idr`: host-checked compatibility for the actual known-root beta step, not general strategy commutation.
 - `src/Fibril/Core/Substitution/Composition.idr`: total mixed-fusion, composition, and weakening/instantiation syntax laws.
 - `src/Fibril/Core/Substitution.idr`: total pointwise/variable-correspondence laws; derives substitution identity from renaming.
 - `src/Fibril/Core/Renaming.idr`: total host-checked structural laws, separate from runtime checking/reduction.

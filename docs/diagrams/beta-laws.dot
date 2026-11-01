@@ -1,0 +1,12 @@
+digraph BetaLaws {
+  rankdir=LR;
+  node [shape=box];
+  redex [label="Known root beta redex"];
+  contractum [label="instantiate argument body"];
+  mappedRedex [label="rename/substitute redex"];
+  mappedContractum [label="rename/substitute contractum"];
+  redex -> contractum [label="Reduction.step: Just"];
+  redex -> mappedRedex [label="rename env / substitute sigma"];
+  mappedRedex -> mappedContractum [label="Reduction.step: Just"];
+  contractum -> mappedContractum [label="rename env / substitute sigma"];
+}
