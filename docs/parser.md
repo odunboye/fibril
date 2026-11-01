@@ -14,7 +14,7 @@ pack build fibril
 
 The [example](../examples/core/identity.fib) contains:
 
-```text
+```fib
 \(0 A : Type 0) => \(1 x : A) => x
 ```
 
@@ -78,7 +78,7 @@ Parenthesized (expression : expectedType) checks against an explicit type. The
 [annotated identity](../examples/core/identity-annotated.fib) states its complete
 dependent function type:
 
-```text
+```fib
 (\(0 A : Type 0) => \(1 x : A) => x
   : (0 A : Type 0) -> (1 x : A) -> A)
 ```
@@ -107,7 +107,7 @@ incremental parsing strategy.
 
 The [local identity example](../examples/core/local-identity.fib) uses:
 
-```text
+```fib
 let (1 id : (1 x : Type 0) -> Type 0) =
   \(1 x : Type 0) => x
 in id

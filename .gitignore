@@ -4,3 +4,4 @@ examples/build/
 bench/build/
 *.ttc
 *.ttm
+__pycache__/

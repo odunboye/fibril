@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Local Skylighting grammar: lexical presentation, not compiler validation. -->
+<language name="Fibril" version="1" kateversion="2.4" section="Other" extensions="*.fib">
+  <highlighting>
+    <list name="keywords"><item>let</item><item>in</item><item>case</item><item>of</item><item>if</item><item>then</item><item>else</item></list>
+    <list name="types"><item>Type</item><item>Unit</item><item>Bool</item><item>IO</item></list>
+    <list name="constructors"><item>True</item><item>False</item></list>
+    <list name="console"><item>putStrLn</item></list>
+    <contexts>
+      <context name="Normal" attribute="Normal" lineEndContext="#stay">
+        <StringDetect String="--" attribute="Comment" context="Comment"/>
+        <DetectChar char="&quot;" attribute="String" context="String"/>
+        <keyword String="keywords" attribute="Keyword"/>
+        <keyword String="types" attribute="Type"/>
+        <keyword String="constructors" attribute="Constructor"/>
+        <keyword String="console" attribute="Function"/>
+        <RegExpr String="\b[01](?=\s+[A-Za-z_][A-Za-z0-9_']*\s*:)" attribute="Quantity"/>
+        <RegExpr String="[0-9]+" attribute="Number"/>
+        <RegExpr String="-&gt;|=&gt;|[\\=:λ→⇒]" attribute="Operator"/>
+        <RegExpr String="[A-Za-z_][A-Za-z0-9_']*" attribute="Normal"/>
+      </context>
+      <context name="Comment" attribute="Comment" lineEndContext="#pop"/>
+      <context name="String" attribute="String" lineEndContext="#pop">
+        <RegExpr String="\\[&quot;\\nrt]" attribute="Escape"/>
+        <RegExpr String="\\." attribute="Error"/>
+        <DetectChar char="&quot;" attribute="String" context="#pop"/>
+      </context>
+    </contexts>
+    <itemDatas>
+      <itemData name="Normal" defStyleNum="dsNormal"/>
+      <itemData name="Keyword" defStyleNum="dsKeyword"/>
+      <itemData name="Type" defStyleNum="dsDataType"/>
+      <itemData name="Constructor" defStyleNum="dsConstant"/>
+      <itemData name="Function" defStyleNum="dsFunction"/>
+      <itemData name="Quantity" defStyleNum="dsSpecialChar"/>
+      <itemData name="Number" defStyleNum="dsDecVal"/>
+      <itemData name="Operator" defStyleNum="dsOperator"/>
+      <itemData name="Comment" defStyleNum="dsComment"/>
+      <itemData name="String" defStyleNum="dsString"/>
+      <itemData name="Escape" defStyleNum="dsSpecialChar"/>
+      <itemData name="Error" defStyleNum="dsError"/>
+    </itemDatas>
+  </highlighting>
+  <general><keywords casesensitive="1" weakDeliminator="'"/></general>
+</language>

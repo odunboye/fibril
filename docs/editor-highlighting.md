@@ -91,6 +91,10 @@ standard undo hook. It does not change indentation/formatting or add keybindings
 Reload guards avoid duplicate setup. No editor code modifies core checking rules,
 accepts proofs, or writes source files.
 
+The [offline handbook](handbook.md#code-highlighting) also highlights Fibril and
+Idris snippets/source pages. Its local Pandoc grammar is a separate presentation
+layer, not this Vim runtime or a shared semantic language service.
+
 ## Tests and next work
 
 ~~~sh

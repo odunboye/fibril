@@ -12,7 +12,7 @@ pack build fibril
 
 [The source](../examples/core/hello-world.fib):
 
-~~~text
+~~~fib
 main : IO Unit
 main = putStrLn "Hello, world!"
 ~~~

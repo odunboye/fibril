@@ -94,6 +94,48 @@ references, search-index chapter inclusion, and navigation. JavaScript syntax is
 actual browser rendering, interaction, and accessibility are not yet covered
 by automated browser tests.
 
+## Code highlighting
+
+Both fenced examples and the linked source browser now have offline syntax colors:
+
+- Use `fib` or `fibril` fences for Fibril. A local Skylighting grammar recognizes
+  current keywords, quantities, Unicode operators, comments, strings, and escapes.
+- Use `idr` or `idris` fences for Idris. Pandoc supplies its built-in Idris grammar.
+- `.fib` and `.idr` source pages select the appropriate grammar automatically.
+  Other source formats retain their escaped plain-text rendering.
+
+For example:
+
+```fib
+main : IO Unit
+main = putStrLn "Hello, world!"
+```
+
+```idris
+executeConsole (PrintLine text) = do
+  result <- fPutStrLn stdout text
+  pure $ case result of
+    Left err => Left ("Console output failed: " ++ show err)
+    Right () => Right ()
+```
+
+The handbook's Pearl/Ink palettes style the generated token spans, including
+system/explicit dark mode. Token colors are tested for at least 4.5:1 contrast on
+the code surface. Fonts, copying, source line numbers, and existing #L-number
+links are retained. Highlighting happens during the build: no browser highlighter,
+CDN, or extra package is needed.
+
+This is lexical presentation, not compiler checking or semantic symbol coloring.
+The local Fibril grammar and editor runtime are separate presentation definitions;
+compiler diagnostics remain authoritative. An IO-looking name being colored does
+not make it available in the ordinary core. The Idris appearance depends on the
+installed Pandoc grammar, not a Fibril checker.
+
+Source rendering protects fence delimiters and HTML data, restores Pandoc-trimmed
+trailing blank lines, and fails if expected line anchors cannot be preserved.
+Handbook tests cover both languages, logical source text/anchors (including tabs), escapes/comments,
+HTML/fence handling, and theme contrast.
+
 ## Included material
 
 - A responsive sidebar across the documentation pages.

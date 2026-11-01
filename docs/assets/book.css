@@ -36,6 +36,13 @@
   --accent:#435d89;
   --line:#cacac7;
   --code:#e2e1df;
+  --syntax-keyword:#624c83;
+  --syntax-type:#435d89;
+  --syntax-string:#3d6245;
+  --syntax-number:#80512e;
+  --syntax-comment:#5c6068;
+  --syntax-function:#65542f;
+  --syntax-error:#923d45;
   --focus:#624c83;
   --shadow:0 12px 40px #1f1f2808;
   --diagram-filter:grayscale(1);
@@ -55,6 +62,13 @@
     --accent:#8ba4b0;
     --line:#393b44;
     --code:#22262d;
+    --syntax-keyword:#b3a6ce;
+    --syntax-type:#8ba4b0;
+    --syntax-string:#a6b790;
+    --syntax-number:#c4a77d;
+    --syntax-comment:#a4a7a4;
+    --syntax-function:#b7baa3;
+    --syntax-error:#e49b9b;
     --focus:#c4b28a;
     --shadow:none;
     --diagram-filter:grayscale(1) invert(.86)
@@ -70,6 +84,13 @@
   --accent:#8ba4b0;
   --line:#393b44;
   --code:#22262d;
+  --syntax-keyword:#b3a6ce;
+  --syntax-type:#8ba4b0;
+  --syntax-string:#a6b790;
+  --syntax-number:#c4a77d;
+  --syntax-comment:#a4a7a4;
+  --syntax-function:#b7baa3;
+  --syntax-error:#e49b9b;
   --focus:#c4b28a;
   --shadow:none;
   --diagram-filter:grayscale(1) invert(.86)
@@ -456,6 +477,16 @@ pre code {
   font-size:inherit;
   overflow-wrap:normal
 }
+
+/* Pandoc/Skylighting token classes: shared by snippets and linked source pages. */
+pre code .kw, pre code .cf { color:var(--syntax-keyword) }
+pre code .dt, pre code .ot { color:var(--syntax-type) }
+pre code .st, pre code .ch, pre code .vs { color:var(--syntax-string) }
+pre code .dv, pre code .bn, pre code .fl, pre code .cn { color:var(--syntax-number) }
+pre code .co, pre code .do, pre code .cv { color:var(--syntax-comment); font-style:italic }
+pre code .fu { color:var(--syntax-function) }
+pre code .op, pre code .sc { color:var(--syntax-keyword) }
+pre code .er, pre code .al { color:var(--syntax-error); text-decoration:underline }
 
 pre:has(.copy-code) {
   padding-top:46px

@@ -8,7 +8,7 @@ definitions or a completed quantitative unit calculus.
 Unit is a reserved type name. Its constructor is the empty parenthesized value
 (), including whitespace/comment-separated parentheses.
 
-```text
+```fib
 let (1 value : Unit) = () in value
 ```
 
@@ -46,7 +46,7 @@ in erased mode. This does not make () a type or a function.
 The literal uses no ambient variables. Thus a linear variable cannot silently
 disappear merely because its type is Unit:
 
-```text
+```fib
 \(1 x : Unit) => ()  -- rejected: x was not consumed
 \(1 x : Unit) => x   -- accepted: exactly one use
 \(0 x : Unit) => ()  -- accepted: erased binder
@@ -58,7 +58,7 @@ this feature does not authorize dropping arbitrary linear resources or effects.
 
 ## Explicit case elimination
 
-```text
+```fib
 \(1 x : Unit) => case x of () => ()
 ```
 

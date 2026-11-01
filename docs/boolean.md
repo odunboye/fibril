@@ -12,7 +12,7 @@ dimensions**, face formulas, or a combined quantitative/cubical calculus.
 [The program](../examples/core/boolean.fib) defines and applies a local linear
 negation function:
 
-```text
+```fib
 let (1 not : (1 flag : Bool) -> Bool) =
   \(1 flag : Bool) => if flag then False else True
 in not False
@@ -56,7 +56,7 @@ use a pointwise permission join, not simultaneous addition:
 The [join](alternatives.md) keeps 0/0 erased and 1/1 linear; differing observations
 require unrestricted permission. Thus
 
-```text
+```fib
 \(1 flag : Bool) => \(1 x : Unit) => if flag then x else x
 ```
 
@@ -71,7 +71,7 @@ condition.
 
 ### Former reduction-stability counterexample
 
-```text
+```fib
 \(flag : Bool) => \(x : Unit) =>
   if flag
     then (\(ignored : Unit) => ()) x

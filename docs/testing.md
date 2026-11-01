@@ -113,6 +113,10 @@ for lexical group positions, filetype detection, quoted data, Unicode, reloads,
 and option undo. It needs no compiler, plugin manager, or network, and is not a
 prerequisite of the default suite. The handbook includes the Vimscript sources.
 
+Handbook highlighting regressions cover Idris/Fibril token spans, stable source
+line anchors and exact text (including blank lines), HTML/fence safety, and
+light/dark token contrast. These use the existing local Pandoc prerequisite.
+
 ## Hedgehog dependency
 
 Repository: https://github.com/stefan-hoeck/idris2-hedgehog

@@ -6,6 +6,7 @@ import hashlib
 import re
 from pathlib import Path
 import unittest
+import build_handbook
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "build/handbook"
@@ -31,6 +32,42 @@ class Page(HTMLParser):
     def handle_endtag(self, tag):
         if tag == "footer":
             self.in_footer = False
+
+
+class Code(HTMLParser):
+    """Read source code without line-number labels; detect unescaped markup."""
+    def __init__(self, fragment):
+        super().__init__()
+        self.inside = False
+        self.line_number = False
+        self.text = []
+        self.ids = []
+        self.scripts = []
+        self.feed(fragment)
+
+    def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+        if tag == "code":
+            self.inside = True
+        if "id" in attrs:
+            self.ids.append(attrs["id"])
+        if tag == "a" and "line-number" in attrs.get("class", "").split():
+            self.line_number = True
+        if tag == "script":
+            self.scripts.append(attrs)
+
+    def handle_endtag(self, tag):
+        if tag == "code":
+            self.inside = False
+        if tag == "a":
+            self.line_number = False
+
+    def handle_data(self, data):
+        if self.inside and not self.line_number:
+            self.text.append(data)
+
+    def source_lines(self):
+        return [line.removeprefix(" ") for line in "".join(self.text).splitlines()]
 
 
 class TextbookTests(unittest.TestCase):
@@ -132,7 +169,61 @@ class TextbookTests(unittest.TestCase):
                     self.assertGreaterEqual(contrast(palette['ink'], palette[surface]), 7)
                     self.assertGreaterEqual(contrast(palette['muted'], palette[surface]), 4.5)
                     self.assertGreaterEqual(contrast(palette['accent'], palette[surface]), 4.5)
+            for token in ("keyword", "type", "string", "number", "comment", "function", "error"):
+                with self.subTest(theme=selector, token=token):
+                    self.assertGreaterEqual(contrast(palette["syntax-" + token], palette["code"]), 4.5)
         self.assertIn('prefers-color-scheme:dark', css)
+
+    def test_idris_and_fibril_source_pages_are_highlighted(self):
+        cases = [
+            ("examples/core/hello-world.fib", "fibril"),
+            ("src/Fibril/Core/Term.idr", "idris"),
+        ]
+        for path, language in cases:
+            with self.subTest(path=path):
+                rendered = (OUT / "source" / (path + ".html")).read_text()
+                self.assertIn(f'class="sourceCode {language}"', rendered)
+                self.assertRegex(rendered, r'<span class="(?:kw|dt|st)">')
+                count = len((ROOT / path).read_text().splitlines())
+                self.assertEqual(re.findall(r'\bid="L(\d+)"', rendered),
+                                 [str(n) for n in range(1, count + 1)])
+                self.assertIn('href="#L1"', rendered)
+
+    def test_fenced_examples_have_both_languages(self):
+        fibril = (OUT / "docs/console-runner.html").read_text()
+        idris = (OUT / "docs/book/01-binding.html").read_text()
+        self.assertIn('class="sourceCode fibril"', fibril)
+        self.assertIn('<span class="st">', fibril)
+        self.assertIn('class="sourceCode idris"', idris)
+        self.assertIn('<span class="dt">', idris)
+
+    def test_highlighted_source_preserves_text_anchors_and_escaping(self):
+        samples = [
+            'main : IO Unit\nmain = putStrLn "<script> & \\"quoted\\""\n\n',
+            '-- fence follows\n~~~~~~~~\n<script>not executable</script>\n',
+            '\n\n',
+            'main\n  \n\t\n',
+            '',
+        ]
+        for suffix in (".fib", ".idr"):
+            for text in samples:
+                with self.subTest(suffix=suffix, text=text):
+                    rendered = build_handbook.render_source(ROOT / ("sample" + suffix), text)
+                    code = Code(rendered)
+                    self.assertEqual(code.source_lines(), text.splitlines())
+                    self.assertEqual([i for i in code.ids if re.fullmatch(r"L\d+", i)],
+                                     [f"L{i}" for i in range(1, len(text.splitlines()) + 1)])
+                    self.assertFalse(code.scripts)
+
+    def test_fibril_grammar_handles_keywords_comments_and_escapes(self):
+        rendered = build_handbook.render_markdown(
+            '```fib\nif True then putStrLn "-- Type\\n\\q" else False\n'
+            "-- comment\nif' Type0\n```\n")
+        self.assertIn('<span class="kw">if</span>', rendered)
+        self.assertIn('<span class="co">-- comment</span>', rendered)
+        self.assertIn('<span class="sc">\\n</span>', rendered)
+        self.assertIn('<span class="er">\\q</span>', rendered)
+        self.assertNotIn('<span class="kw">if</span>\'', rendered)
 
     def test_landing_page_links_every_chapter(self):
         content = (OUT / "index.html").read_text()

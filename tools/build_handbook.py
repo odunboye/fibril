@@ -21,6 +21,53 @@ def relative(target, page):
     return os.path.relpath(target, page.parent).replace(os.sep, "/")
 
 
+def render_markdown(content, reader="gfm"):
+    """Use local Pandoc grammars; highlighting is presentation, not validation."""
+    return subprocess.run(
+        ["pandoc", "--from=" + reader, "--to=html5", "--preserve-tabs",
+         "--syntax-definition=" + str(ROOT / "docs/assets/fibril.xml")],
+        input=content, text=True, capture_output=True, check=True).stdout
+
+
+def render_source(source, text):
+    """Retain stable L-number anchors while highlighting complete Idris/Fibril files."""
+    lines = text.splitlines()
+    heading = f'<h1>{html.escape(str(source.relative_to(ROOT)))}</h1>'
+    language = {".idr": "idris", ".fib": "fibril"}.get(source.suffix)
+    if not language or not lines:
+        return heading + '<pre><code>' + "\n".join(
+            f'<span id="L{i}"><a href="#L{i}">{i:4}</a> {html.escape(line)}</span>'
+            for i, line in enumerate(lines, 1)) + '</code></pre>'
+    code = "\n".join(lines)
+    # A source string containing Markdown fences must not escape its code block.
+    longest = max((len(run) for run in re.findall(r"~+", code)), default=0)
+    fence = "~" * max(3, longest + 1)
+    rendered = render_markdown(
+        f"{fence}{{#source .{language}}}\n{code}\n{fence}\n", reader="markdown")
+    rendered = re.sub(r'\bid="source-(\d+)"', r'id="L\1"', rendered)
+
+    def line_link(number):
+        return (f'<a class="line-number" href="#L{number}" '
+                f'aria-label="Line {number}">{number:4}</a> ')
+
+    rendered = re.sub(r'<a href="#source-(\d+)"[^>]*></a>',
+                      lambda match: line_link(int(match.group(1))), rendered)
+    anchors = re.findall(r'\bid="L(\d+)"', rendered)
+    # Pandoc discards trailing blank code lines; restore their text and anchors.
+    if (anchors == [str(i) for i in range(1, len(anchors) + 1)] and
+            len(anchors) < len(lines) and
+            all(not line.strip() for line in lines[len(anchors):])):
+        additions = ("\n" if anchors else "") + "\n".join(
+            f'<span id="L{i}">{line_link(i)}'
+            f'{html.escape(lines[i - 1])}</span>'
+            for i in range(len(anchors) + 1, len(lines) + 1))
+        rendered = rendered.replace("</code>", additions + "</code>", 1)
+        anchors = re.findall(r'\bid="L(\d+)"', rendered)
+    if anchors != [str(i) for i in range(1, len(lines) + 1)]:
+        raise SystemExit(f"Unexpected Pandoc source-line structure: {source}")
+    return heading + rendered
+
+
 def main():
     for tool in ("pandoc", "dot"):
         if not shutil.which(tool):
@@ -133,18 +180,14 @@ def main():
                 url = relative(destinations[target], destinations[page]) + (sep + fragment if sep else "")
             return "](" + url + ")"
         content = re.sub(r"\]\(([^\s)]+)\)", rewrite, content)
-        rendered = subprocess.run(["pandoc", "--from=gfm", "--to=html5"], input=content,
-                                  text=True, capture_output=True, check=True).stdout
+        rendered = render_markdown(content)
         write_page(destinations[page], titles[page], rendered)
         plain_text = html.unescape(re.sub(r"<[^>]+>", " ", rendered))
         search_index.append({"title": titles[page],
                              "url": str(destinations[page].relative_to(OUT)),
                              "text": " ".join(plain_text.split())})
     for source in sources:
-        lines = source.read_text().splitlines()
-        body = f'<h1>{html.escape(str(source.relative_to(ROOT)))}</h1><pre><code>'
-        body += "\n".join(f'<span id="L{i}"><a href="#L{i}">{i:4}</a> {html.escape(line)}</span>'
-                          for i, line in enumerate(lines, 1)) + '</code></pre>'
+        body = render_source(source, source.read_text())
         write_page(destinations[source], source.stem, body)
     index = OUT / "sources.html"
     write_page(index, "Source index", '<h1>Source index</h1><ul>' + ''.join(

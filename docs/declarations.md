@@ -13,7 +13,7 @@ system, transparent global-definition environment, or full Idris layout grammar.
 
 [Negation](../examples/core/declarations.fib) uses familiar explicit headers:
 
-```text
+```fib
 not : (1 flag : Bool) -> Bool
 not = \(1 flag : Bool) => if flag then False else True
 
@@ -48,7 +48,7 @@ by : or =, or a leading numeric quantity, selects declaration framing.
 
 For example:
 
-```text
+```fib
 main :
   Bool
 main =
@@ -93,7 +93,7 @@ assigned values inside that checking context.
 
 Consequently, this currently fails:
 
-```text
+```fib
 0 Bit : Type 0
 Bit = Bool
 main : Bit
