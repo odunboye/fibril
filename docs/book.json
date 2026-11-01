@@ -72,6 +72,10 @@
         "path": "docs/parser.md"
       },
       {
+        "title": "Source-ordered declarations",
+        "path": "docs/declarations.md"
+      },
+      {
         "title": "Checked reference evaluation",
         "path": "docs/evaluation.md"
       },

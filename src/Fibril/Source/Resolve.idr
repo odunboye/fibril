@@ -72,7 +72,8 @@ resolveIn env (NLet span q name expected value body) = do
   body <- resolveIn (name :: env) body
   Right (Apply (Lambda q ty body) value)
 
-||| Resolve a closed expression; no global definitions/imports exist yet.
+||| Resolve a closed expression, including lowered declaration lets.
+||| There is no separate global namespace or import environment.
 public export
 resolveClosed : Expr -> Either ResolveError (Term 0)
 resolveClosed = resolveIn []

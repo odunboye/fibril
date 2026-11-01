@@ -5,6 +5,7 @@ import Fibril.Source.Text
 import Fibril.Source.Lexer
 import Fibril.Source.Syntax
 import Fibril.Source.Parser
+import Fibril.Source.Declaration
 import Fibril.Source.Resolve
 import Fibril.Source.File
 import Fibril.Source.Diagnostic
@@ -64,15 +65,15 @@ renderDriverError path source (FrontendFailure err) =
     Nothing => renderFileError path (show err)
 renderDriverError path source err = renderFileError path (show err)
 
-||| Parse and resolve a single closed expression with a fixed prototype budget.
-||| This is not declaration elaboration, implicit inference, or module loading.
+||| Resolve an expression or source-ordered declaration file with fixed budgets.
+||| Declarations lower to typed lets; no imports, implicit inference, or recursion.
 public export
 resolveSource : String -> Either FrontendError (Term 0)
 resolveSource source = do
   tokens <- case lexSource source of
     Left err => Left (Lexical err)
     Right tokens => Right tokens
-  syntax <- case parseExpression 256 (advancePosition (At 0 1 1) (unpack source)) tokens of
+  syntax <- case parseSource 64 256 (advancePosition (At 0 1 1) (unpack source)) tokens of
     Left err => Left (Parsing err)
     Right syntax => Right syntax
   case resolveClosed syntax of

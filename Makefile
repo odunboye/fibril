@@ -22,6 +22,8 @@ examples: build
 	./build/exec/fibril eval examples/core/consume-unit.fib
 	./build/exec/fibril eval examples/core/boolean.fib
 	./build/exec/fibril eval examples/core/branch-permissions.fib
+	./build/exec/fibril eval examples/core/declarations.fib
+	./build/exec/fibril eval examples/core/declarations-polymorphic.fib
 
 bench:
 	python3 tools/benchmark.py

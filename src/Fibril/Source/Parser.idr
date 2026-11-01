@@ -24,6 +24,8 @@ atInput : Position -> List Token -> Position
 atInput end [] = end
 atInput end (token :: _) = token.span.start
 
+||| Consume one required token; shared by expression and declaration framing.
+public export
 expect : TokenKind -> Position -> List Token -> Either ParseError (Token, List Token)
 expect kind end [] = Left (ParseFailure end ("Expected " ++ show kind ++ ", found end of input"))
 expect kind end (token :: rest) =
@@ -76,6 +78,8 @@ levelValue token =
 limit : Position -> List Token -> Either ParseError a
 limit end tokens = Left (ParseFailure (atInput end tokens) "Parser recursion budget exhausted")
 
+||| Read an optional 0/1 prefix; omitted means unrestricted.
+public export
 binderQuantity : List Token -> Either ParseError (Quantity, List Token)
 binderQuantity [] = Right (Unrestricted, [])
 binderQuantity tokens@(token :: rest) =

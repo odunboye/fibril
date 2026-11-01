@@ -14,7 +14,10 @@ This is a curated selected call graph, not an exhaustive dynamic execution trace
 The [expression frontend](../parser.md) now loads, lexes, parses named syntax,
 and resolves lexical scopes before calling these checkers. The source
 `examples/core/identity.fib` reaches the polymorphic identity below. Full
-Idris-like declarations and implicit elaboration are not implemented.
+Idris-like declarations and implicit elaboration are not implemented. A small
+[source-ordered declaration layer](../declarations.md) now lowers explicit
+signature/definition pairs to typed lets, with a fixed main entry. It does not
+provide transparent globals, recursion, or modules.
 
 ## Erased checking first
 

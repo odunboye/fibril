@@ -11,6 +11,8 @@ The generated homepage separates teaching chapters, references, and project reco
 
 ## Reference index
 
+- [Source-ordered declarations](declarations.md): explicit headers lowered to typed lets, not transparent globals.
+
 - [Fuel and resumable normalization](reduction-fuel.md): exact budget laws and raw-tag boundaries.
 
 - [Instantiation and root beta laws](beta-laws.md): structural proofs tied to the actual reducer.

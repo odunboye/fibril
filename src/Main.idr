@@ -21,13 +21,13 @@ Usage:
   fibril demo       Run built-in ordinary checking and cubical algebra examples
   fibril validate-source PATH   Validate UTF-8 and source controls (not typing)
   fibril lex-source PATH        Print tokens/spans for the expression subset
-  fibril check PATH             Check a closed expression and runtime usage
+  fibril check PATH             Check a closed source program and runtime usage
   fibril check --erased PATH    Check only the erased ordinary fragment
   fibril eval PATH              Checked reference normalization (128 reduction steps)
   fibril eval --fuel N PATH     Reference normalization with fuel 0..4096
 
-An annotated expression subset is supported. Declarations, cubical term checking,
-and C/JavaScript compilation are not implemented yet.
+Annotated expressions and source-ordered nonrecursive declarations are supported.
+Imports, recursive declarations, cubical checking, and C/JS compilation are not implemented yet.
 """
 
 printReport : Either String (List String) -> IO ()

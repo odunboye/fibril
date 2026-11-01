@@ -1,0 +1,10 @@
+digraph Declarations {
+  rankdir=LR;
+  node [shape=box];
+  source [label="Explicit signature/value pairs\ncolumn-one headers"];
+  framing [label="Source-order / unique names\nrequire main"];
+  lets [label="Nested typed NLet nodes\nentry reference at EOF"];
+  core [label="Scoped lambda/application\nearlier bindings abstract"];
+  checking [label="Existing erased / runtime checker"];
+  source -> framing -> lets -> core -> checking;
+}

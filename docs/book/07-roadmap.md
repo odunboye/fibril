@@ -19,6 +19,10 @@ a plausible-looking combination and inherit soundness by citation.
 
 ## Surface language and tooling
 
+Explicit nonrecursive declaration files now lower to typed lets with a main
+entry; their earlier values are opaque during later checking. Transparent global
+definitions, imports, and recursive groups remain future work.
+
 A future Idris-like elaborator will translate names, implicit arguments, interfaces,
 and patterns into explicit core terms. Tactics must also produce checked terms.
 

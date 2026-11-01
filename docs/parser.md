@@ -1,7 +1,9 @@
 # Annotated expressions: parsing, resolution, and checking
 
 Status: implemented end-to-end **ordinary expression subset**, not full Idris-like
-declarations, modules, patterns, implicit arguments, or cubical terms.
+declarations, modules, patterns, implicit arguments, or cubical terms. A separate
+[source-ordered declaration framing layer](declarations.md) now accepts explicit
+signature/definition pairs and lowers them to this expression syntax.
 
 ## Try a real source check
 
@@ -158,7 +160,7 @@ now print bounded [filename/excerpt/caret diagnostics](diagnostics.md) without
 reparsing. Plain-string library APIs remain available alongside structured driver
 errors. Core typing and
 usage errors do not yet map back to exact source spans. The driver uses parser
-budget 256, checking depth 256, and reduction fuel 128. Exhaustion is failure;
+budget 256, declaration count 64, checking depth 256, and reduction fuel 128. Exhaustion is failure;
 these budgets and the file byte limit are not time/memory guarantees.
 
 Every expected type in the core remains checked; there is no admitted placeholder,
@@ -178,5 +180,5 @@ CLI tests check actual files and explicit erased-mode behavior.
 The initial parser is total through a decreasing recursion budget. It is not an
 optimized incremental parser, Unicode identifier implementation, package loader,
 or a formally verified frontend. Next steps include core-to-source provenance, ranged diagnostics, and
-a designed declaration layer, while cubical/quantitative rules remain separate
-foundational work.
+a transparent definition/module environment beyond the initial declaration
+framing layer, while cubical/quantitative rules remain separate foundational work.

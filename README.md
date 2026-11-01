@@ -3,8 +3,9 @@
 An experimental Idris-like language implemented in Idris 2, targeting a
 quantitative De Morgan cubical core, C/JavaScript backends, and embedded profiles.
 
-**Status:** an annotated ordinary expression frontend with erased type checking
-and an ordinary runtime-usage prototype. Full declarations, cubical term checking,
+**Status:** an annotated expression frontend and small nonrecursive declaration
+files, with erased typing and an ordinary runtime-usage prototype. Full modules,
+transparent global definitions, cubical term checking,
 compiler backends, and real-time guarantees are not implemented.
 See [checker scope and limits](docs/erased-checker.md).
 
@@ -20,6 +21,7 @@ pack test fibril
 ./build/exec/fibril check examples/core/identity.fib
 ./build/exec/fibril eval examples/core/evaluate-identity.fib
 ./build/exec/fibril eval examples/core/unit.fib
+./build/exec/fibril eval examples/core/declarations.fib
 ```
 
 `pack.toml` pins collection `nightly-260903`, which selects Idris 2

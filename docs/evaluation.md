@@ -72,12 +72,14 @@ language normalization or extend the CLI with a resume protocol.
 
 ## Current boundaries
 
-- Only closed ordinary expressions are supported.
+- Only closed ordinary programs are supported: expressions or declaration files
+  lowered to typed lets with a main entry.
 - Runtime type expressions remain unsupported; use check --erased for type-only checking.
 - There is no eval --erased mode.
 - Erased arguments/types remain present during this reference computation.
   This is not a compiler erasure implementation.
-- Primitive [Unit](unit.md) and [Bool](boolean.md) values are supported; no declarations, effects,
+- Primitive [Unit](unit.md), [Bool](boolean.md), and small source-ordered
+  [declaration programs](declarations.md) are supported; no imports, recursion, effects,
   Python calls, general inductive definitions, cubical computation,
   or backend runtime are implemented by this command.
 

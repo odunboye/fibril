@@ -1,7 +1,9 @@
 # Minimal expression lexer
 
 Status: implemented tokenization, not parsing or name resolution. The eventual
-Idris-like declaration/layout language is not implemented.
+Idris-like declaration/layout language is not implemented. A separate
+[column-one declaration framing layer](declarations.md) now uses token positions;
+lexing itself still emits no layout/newline tokens.
 
 ## Try it
 

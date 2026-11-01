@@ -99,6 +99,10 @@ splitting property uses raw scoped terms and budgets 0..2 per chunk; it compares
 result tags and exact syntax. Deterministic cases also retain an ill-typed loop
 and demonstrate why arbitrary Normal tags are not certificates.
 
+[Tests.Declaration](../test/src/Tests/Declaration.idr) and CLI tests validate
+signature/definition framing, source order, nonrecursion, entry presence, budgets,
+quantities, dependent signatures, and the explicit opaque-let limitation.
+
 ## Hedgehog dependency
 
 Repository: https://github.com/stefan-hoeck/idris2-hedgehog

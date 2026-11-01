@@ -47,6 +47,10 @@ conditional and evaluates to True. Both alternatives are checked before evaluati
 `branch-permissions.fib` retains the former branch-equality counterexample; it now
 normalizes and passes post-reduction checking under unrestricted permissions.
 
+`declarations.fib` and `declarations-polymorphic.fib` are now runnable program
+files with explicit signature/definition pairs and a main entry. Both are included
+in make examples. See [declaration rules and opacity limits](../docs/declarations.md).
+
 ## Proposed Fibril programs
 
 `proposed/` illustrates the intended user experience, from hello world and

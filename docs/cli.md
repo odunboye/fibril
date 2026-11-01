@@ -6,9 +6,9 @@ Build with `pack build fibril`, then invoke `./build/exec/fibril`.
 | --- | --- |
 | --help (or no arguments) | Show available commands and implementation limits |
 | --version | Show bootstrap version |
-| eval PATH | Check then reference-normalize a closed expression (default fuel 128) |
+| eval PATH | Check then reference-normalize an expression or declaration program (default fuel 128) |
 | eval --fuel N PATH | Same with evaluation fuel 0..4096; not compiled execution |
-| check PATH | Parse/resolve one closed expression, check ordinary typing and runtime usage |
+| check PATH | Parse/resolve an expression or declaration file with main, then check typing/runtime usage |
 | check --erased PATH | Parse/resolve/check the erased ordinary fragment only |
 | demo | Run built-in ordinary checking and cubical algebra examples |
 | lex-source PATH | Print tokens and scalar spans for the minimal expression subset; not parsing/typing |
@@ -23,6 +23,10 @@ control policy, file-size limits, and concurrent-read limitations.
 
 See [checked reference evaluation](evaluation.md) for evaluation modes, budgets,
 post-reduction checks, and why this is not a backend runtime.
+
+Files may contain a single expression or [source-ordered declarations](declarations.md)
+with explicit signatures and a main entry. These lower to typed lets, not
+transparent globals; all limitations and column-one framing rules are explicit.
 
 ## Source diagnostics
 

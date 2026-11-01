@@ -1,0 +1,6 @@
+-- A dependent function signature shared across source-ordered declarations.
+id : (0 A : Type 0) -> (1 x : A) -> A
+id = \(0 A : Type 0) => \(1 x : A) => x
+
+main : Bool
+main = id Bool True

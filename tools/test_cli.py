@@ -127,6 +127,25 @@ class CLITests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("Parsing:", result.stdout)
 
+    def test_declaration_files(self):
+        result = run("eval", "--fuel", "4", "examples/core/declarations.fib")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Type: Bool", result.stdout)
+        self.assertIn("Normal: True", result.stdout)
+        result = run("check", "examples/core/declarations.fib")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "program.fib"
+            path.write_text("main : Bool\nmain = other\n", encoding="utf-8")
+            result = run("check", str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn(f"{path}:2:8: Resolution:", result.stdout)
+            path.write_text("main : Bool\nwrong = True\n", encoding="utf-8")
+            result = run("eval", str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn(f"{path}:2:1: Parsing:", result.stdout)
+            self.assertIn("Expected definition of", result.stdout)
+
     def test_type_mismatch_diagnostics(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "types.fib"
