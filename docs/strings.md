@@ -1,7 +1,7 @@
 # Pure String values
 
-Status: implemented primitive String typing, literal data, and pure concatenation
-in the ordinary core, with a checked Fibril appendString wrapper. This is not a
+Status: implemented primitive String typing, literal data, pure concatenation, and exact Boolean comparison
+in the ordinary core, with checked Fibril appendString/equalString wrappers. This is not a
 complete string library, backend ABI, or general IO/effect system.
 
 ## Try a pure program
@@ -37,8 +37,8 @@ not a supported runtime value, like UnitType and BoolType.
 Literals have no additional reduction rule. Existing beta/Unit/Boolean computation
 can select or pass a literal. Structural conversion compares literal host String
 data exactly: distinct text stays distinct, including canonically equivalent
-Unicode spellings. No NFC normalization, extensional string equality rule, or
-term-level equality function is introduced.
+Unicode spellings. No NFC normalization or extensional/path equality rule is
+introduced. The separate equalString function below computes ordinary Bool data.
 
 These are explicit local prototype rules. No dependent eliminator, cubical
 transport rule, equality reflection, or canonicity theorem follows from them.
@@ -82,6 +82,42 @@ Concatenation allocates host strings. File/fuel limits do **not** bound resultin
 text size, copying cost, total memory, or execution time. Repeated unrestricted
 doubling can grow rapidly; this is not an embedded/no-heap or predictable-time
 string implementation.
+
+## Exact Boolean comparison
+
+~~~fib
+equalString : (1 left : String) -> (1 right : String) -> Bool
+equalString = \(1 left : String) => \(1 right : String) => primStringEqual left right
+~~~
+
+Like appendString, this is an ordinary checked prelude definition, not syntax.
+The primitive boundary constructs StringEqual left right. Both operands require
+String type and their usages are added. Two literals contract to True or False
+using exact host String data comparison. Other reductions compute the operands.
+
+~~~fib
+if equalString (appendString "Fib" "ril") "Fibril"
+   then "matched"
+   else "different"
+~~~
+
+No normalization, case folding, grapheme equivalence, locale collation, or
+cryptographic constant-time behavior is promised. In particular, precomposed é
+and e followed by a combining acute accent compare False. Empty strings compare
+True. One literal comparison spends one contraction regardless of input size;
+fuel does not bound comparison cost or allocation.
+
+The result is Bool, **not a dependent equality/path witness**. No reflection,
+transport, injectivity principle, or HoTT equality rule is added. Neutral operands
+remain neutral; even equalString x x has no reflexivity shortcut for open x.
+The linear type also rejects duplicating a quantity-1 x to make that application.
+
+~~~sh
+./build/exec/fibril run examples/core/string-equal.fib
+~~~
+
+[The example](../examples/core/string-equal.fib) consumes a name through comparison
+and chooses a greeting. check/eval still never execute printing.
 
 ## One source decoder
 
@@ -132,7 +168,7 @@ Tests also cover operand typing, linear-use addition, erased/duplicate rejection
 zero-fuel exhaustion, head forcing, conversion, and decomposed Unicode.
 
 The total host proofs for renaming, basic substitution and composition have new
-atomic and binary append cases. Instantiation/root-beta/fuel results continue to
+atomic and binary append/comparison cases. Instantiation/root-beta/fuel results continue to
 compile against the extended datatype. Concrete binding witnesses include append.
 These host syntax proofs and sampled checking properties are not proofs of
 ordinary typing preservation, quantitative preservation, language normalization,

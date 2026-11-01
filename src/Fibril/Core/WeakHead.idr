@@ -26,6 +26,10 @@ stepHead (StringAppend (StringValue left) (StringValue right)) = Just (StringVal
 stepHead (StringAppend left right) = case stepHead left of
   Just next => Just (StringAppend next right)
   Nothing => map (StringAppend left) (stepHead right)
+stepHead (StringEqual (StringValue left) (StringValue right)) = Just (if left == right then BoolTrue else BoolFalse)
+stepHead (StringEqual left right) = case stepHead left of
+  Just next => Just (StringEqual next right)
+  Nothing => map (StringEqual left) (stepHead right)
 stepHead _ = Nothing
 
 ||| Exposed outer syntax is not necessarily in full beta normal form.

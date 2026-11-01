@@ -82,7 +82,7 @@ continuation's result parameter is exact-once. Inputs/outputs of bind are
 nondependent; dependent motives are not provided.
 
 The source primitive table exposes IO, primPure, primBind, primWriteLine, and
-the pure data operation primStringAppend.
+the pure data operations primStringAppend and primStringEqual.
 The current source/prelude interface quantifies A/B : Type0 only. The core IOType
 formation rule does not collapse higher universes or introduce Type : Type.
 

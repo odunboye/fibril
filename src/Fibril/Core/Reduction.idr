@@ -23,6 +23,10 @@ step (StringAppend (StringValue left) (StringValue right)) = Just (StringValue (
 step (StringAppend left right) = case step left of
   Just next => Just (StringAppend next right)
   Nothing => map (StringAppend left) (step right)
+step (StringEqual (StringValue left) (StringValue right)) = Just (if left == right then BoolTrue else BoolFalse)
+step (StringEqual left right) = case step left of
+  Just next => Just (StringEqual next right)
+  Nothing => map (StringEqual left) (step right)
 step (IOType ty) = map IOType (step ty)
 step (IOPure value) = map IOPure (step value)
 step (WriteLine text) = map WriteLine (step text)

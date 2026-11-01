@@ -193,6 +193,33 @@ class CLITests(unittest.TestCase):
         self.assertEqual(result.stdout, "")
         self.assertIn("use eval", result.stderr)
 
+    def test_pure_string_equality(self):
+        result = run("run", "examples/core/string-equal.fib")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout, "Hello, Fibril!\nHello, guest!\n")
+        result = run("check", "examples/core/string-equal.fib")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertNotIn("Hello, Fibril!", result.stdout)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "equal.fib"
+            for expression, expected in (
+                ('equalString "" ""', "True"),
+                ('equalString "λ 🌍" "λ 🌍"', "True"),
+                ('equalString "é" "é"', "False"),
+                ('equalString "Fibril" "fibril"', "False"),
+            ):
+                path.write_text("main : Bool\nmain = " + expression + "\n", encoding="utf-8")
+                result = run("eval", str(path))
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertIn("Normal: " + expected, result.stdout)
+            path.write_text(
+                'main : IO Unit\nmain = do\n  putStrLn "must not print"\n'
+                '  if (\\(1 x : String) => equalString x x) "same" then putStrLn "yes" else putStrLn "no"\n',
+                encoding="utf-8")
+            result = run("run", str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, "")
+
     def test_pure_string_append(self):
         result = run("run", "examples/core/string-append.fib")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

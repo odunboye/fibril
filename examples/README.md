@@ -89,6 +89,10 @@ checked using existing core IO rules; it does not perform effects or infer types
 a computed greeting. Concatenation is checked core computation, not parser syntax
 or IO; its host allocation/copying costs are not bounded by reduction fuel.
 
+`string-equal.fib` compares a computed String with equalString and branches on
+the Boolean result to choose console output. Comparison is exact text equality,
+not Unicode normalization or a dependent equality/path proof.
+
 ## Proposed Fibril programs
 
 `proposed/` illustrates the intended user experience, from hello world and

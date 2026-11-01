@@ -16,3 +16,7 @@ map = \(0 A : Type 0) => \(0 B : Type 0) => \(1 transform : (1 value : A) -> B) 
 -- Pure String computation; both operands are consumed exactly once.
 appendString : (1 left : String) -> (1 right : String) -> String
 appendString = \(1 left : String) => \(1 right : String) => primStringAppend left right
+
+-- Exact text comparison, returning Bool rather than a dependent equality proof.
+equalString : (1 left : String) -> (1 right : String) -> Bool
+equalString = \(1 left : String) => \(1 right : String) => primStringEqual left right

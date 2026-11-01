@@ -212,6 +212,13 @@ CLI tests verify computed greetings and empty stdout after late argument errors.
 Existing host structural and fuel proofs compile over the extended datatype;
 this is not a quantitative preservation or string memory-safety theorem.
 
+String equality extends raw/typed generators, binding witnesses, and the
+closed-String recipe through generated comparison-driven conditionals. Tests
+cover exact/unequal/empty/decomposed Unicode text, operand typing and linear-use
+addition, erased/duplicated-input rejection, head forcing, fuel, and Bool-only
+results. CLI tests check both greeting branches and no late-error output prefix.
+Host syntax/fuel proofs compile; this is not a dependent equality theorem.
+
 ## Hedgehog dependency
 
 Repository: https://github.com/stefan-hoeck/idris2-hedgehog

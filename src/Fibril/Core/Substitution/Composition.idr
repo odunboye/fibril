@@ -61,6 +61,9 @@ renameAfterSubstitution env sigma (Apply function argument) =
 renameAfterSubstitution env sigma (StringAppend function argument) =
   rewrite renameAfterSubstitution env sigma function in
   rewrite renameAfterSubstitution env sigma argument in Refl
+renameAfterSubstitution env sigma (StringEqual function argument) =
+  rewrite renameAfterSubstitution env sigma function in
+  rewrite renameAfterSubstitution env sigma argument in Refl
 renameAfterSubstitution env sigma (UnitCase scrutinee body) =
   rewrite renameAfterSubstitution env sigma scrutinee in
   rewrite renameAfterSubstitution env sigma body in Refl
@@ -115,6 +118,9 @@ substituteAfterRenaming env sigma (Apply function argument) =
   rewrite substituteAfterRenaming env sigma function in
   rewrite substituteAfterRenaming env sigma argument in Refl
 substituteAfterRenaming env sigma (StringAppend function argument) =
+  rewrite substituteAfterRenaming env sigma function in
+  rewrite substituteAfterRenaming env sigma argument in Refl
+substituteAfterRenaming env sigma (StringEqual function argument) =
   rewrite substituteAfterRenaming env sigma function in
   rewrite substituteAfterRenaming env sigma argument in Refl
 substituteAfterRenaming env sigma (UnitCase scrutinee body) =
@@ -181,6 +187,9 @@ substituteComposition first second (Apply function argument) =
   rewrite substituteComposition first second function in
   rewrite substituteComposition first second argument in Refl
 substituteComposition first second (StringAppend function argument) =
+  rewrite substituteComposition first second function in
+  rewrite substituteComposition first second argument in Refl
+substituteComposition first second (StringEqual function argument) =
   rewrite substituteComposition first second function in
   rewrite substituteComposition first second argument in Refl
 substituteComposition first second (UnitCase scrutinee body) =

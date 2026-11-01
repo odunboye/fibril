@@ -23,10 +23,11 @@ data Term : Nat -> Type where
   BoolType : Term n
   BoolTrue : Term n
   BoolFalse : Term n
-  ||| Primitive String : Type0, literal data, and pure concatenation.
+  ||| Primitive String : Type0, literal data, pure concatenation/comparison.
   StringType : Term n
   StringValue : String -> Term n
   StringAppend : Term n -> Term n -> Term n
+  StringEqual : Term n -> Term n -> Term n
   ||| Pure descriptions of effects; only the external runner performs writes.
   IOType : Term n -> Term n
   IOPure : Term n -> Term n
@@ -59,6 +60,7 @@ rename env BoolFalse = BoolFalse
 rename env StringType = StringType
 rename env (StringValue value) = StringValue value
 rename env (StringAppend left right) = StringAppend (rename env left) (rename env right)
+rename env (StringEqual left right) = StringEqual (rename env left) (rename env right)
 rename env (IOType ty) = IOType (rename env ty)
 rename env (IOPure value) = IOPure (rename env value)
 rename env (WriteLine text) = WriteLine (rename env text)
@@ -98,6 +100,8 @@ substituteTerm env StringType = StringType
 substituteTerm env (StringValue value) = StringValue value
 substituteTerm env (StringAppend left right) =
   StringAppend (substituteTerm env left) (substituteTerm env right)
+substituteTerm env (StringEqual left right) =
+  StringEqual (substituteTerm env left) (substituteTerm env right)
 substituteTerm env (IOType ty) = IOType (substituteTerm env ty)
 substituteTerm env (IOPure value) = IOPure (substituteTerm env value)
 substituteTerm env (WriteLine text) = WriteLine (substituteTerm env text)
@@ -140,6 +144,7 @@ sameSyntax BoolFalse BoolFalse = True
 sameSyntax StringType StringType = True
 sameSyntax (StringValue left) (StringValue right) = left == right
 sameSyntax (StringAppend a b) (StringAppend c d) = sameSyntax a c && sameSyntax b d
+sameSyntax (StringEqual a b) (StringEqual c d) = sameSyntax a c && sameSyntax b d
 sameSyntax (IOType a) (IOType b) = sameSyntax a b
 sameSyntax (IOPure a) (IOPure b) = sameSyntax a b
 sameSyntax (WriteLine a) (WriteLine b) = sameSyntax a b

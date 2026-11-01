@@ -52,6 +52,10 @@ analyze (S depth) reduction context (StringAppend left right) = do
   leftUsage <- analyze depth reduction context left
   rightUsage <- analyze depth reduction context right
   Right (combineUsage leftUsage rightUsage)
+analyze (S depth) reduction context (StringEqual left right) = do
+  leftUsage <- analyze depth reduction context left
+  rightUsage <- analyze depth reduction context right
+  Right (combineUsage leftUsage rightUsage)
 analyze (S depth) reduction context (IOType _) = Left RuntimeTypeExpression
 analyze (S depth) reduction context (IOPure value) = analyze depth reduction context value
 analyze (S depth) reduction context (WriteLine text) = analyze depth reduction context text

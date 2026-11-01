@@ -180,6 +180,10 @@ stringPrograms (S depth) =
         stringPrograms depth
     , (\sample => StringProgram (UnitCase UnitValue sample.term) sample.expected) <$>
         stringPrograms depth
+    , (\left, right => StringProgram
+         (BoolCase (StringEqual left.term right.term) (StringValue "equal") (StringValue "different"))
+         (if left.expected == right.expected then "equal" else "different")) <$>
+        stringPrograms depth <*> stringPrograms depth
     , (\yes, no => StringProgram (BoolCase BoolFalse yes.term no.term) no.expected) <$>
         stringPrograms depth <*> stringPrograms depth
     ]

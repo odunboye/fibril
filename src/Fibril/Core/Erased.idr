@@ -71,6 +71,12 @@ mutual
     rightType <- infer depth reduction context right
     requireCompatible reduction rightType StringType
     Right StringType
+  infer (S depth) reduction context (StringEqual left right) = do
+    leftType <- infer depth reduction context left
+    requireCompatible reduction leftType StringType
+    rightType <- infer depth reduction context right
+    requireCompatible reduction rightType StringType
+    Right BoolType
   infer (S depth) reduction context (IOType ty) = do
     level <- sortOf depth reduction context ty
     Right (Universe level)

@@ -34,6 +34,7 @@ seed = element
   , Sample (StringAppend (StringValue "λ ") (StringValue "🌍")) StringType
   , Sample BoolType (Universe 0)
   , Sample BoolTrue BoolType
+  , Sample (StringEqual (StringValue "same") (StringValue "same")) BoolType
   , Sample BoolFalse BoolType
   , Sample UnitType (Universe 0)
   , Sample UnitValue UnitType

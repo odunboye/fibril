@@ -56,6 +56,9 @@ substituteCongruent left right agree (Apply function argument) =
 substituteCongruent left right agree (StringAppend function argument) =
   rewrite substituteCongruent left right agree function in
   rewrite substituteCongruent left right agree argument in Refl
+substituteCongruent left right agree (StringEqual function argument) =
+  rewrite substituteCongruent left right agree function in
+  rewrite substituteCongruent left right agree argument in Refl
 substituteCongruent left right agree (UnitCase scrutinee body) =
   rewrite substituteCongruent left right agree scrutinee in
   rewrite substituteCongruent left right agree body in Refl
@@ -107,6 +110,9 @@ renameAsSubstitution env (Apply function argument) =
   rewrite renameAsSubstitution env function in
   rewrite renameAsSubstitution env argument in Refl
 renameAsSubstitution env (StringAppend function argument) =
+  rewrite renameAsSubstitution env function in
+  rewrite renameAsSubstitution env argument in Refl
+renameAsSubstitution env (StringEqual function argument) =
   rewrite renameAsSubstitution env function in
   rewrite renameAsSubstitution env argument in Refl
 renameAsSubstitution env (UnitCase scrutinee body) =

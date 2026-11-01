@@ -1,0 +1,10 @@
+-- String comparison returns Bool; it is not a dependent equality witness.
+greet : (1 name : String) -> IO Unit
+greet = \(1 name : String) => if equalString name "Fibril"
+                              then putStrLn "Hello, Fibril!"
+                              else putStrLn "Hello, guest!"
+
+main : IO Unit
+main = do
+  greet (appendString "Fib" "ril")
+  greet "visitor"

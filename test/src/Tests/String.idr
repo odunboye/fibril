@@ -29,7 +29,49 @@ accepted erased source = case checkSource erased source of
 public export
 checks : List (String, Bool)
 checks =
-  [ ("string append library name is not primitive",
+  [ ("string equality library name is not primitive",
+      case lookupGlobal "equalString" primitiveGlobals of Nothing => True; _ => False)
+  , ("string equality returns Bool at one contraction",
+      case normalize 1 (StringEqual (StringValue {n = 0} "same") (StringValue "same")) of
+        Normal BoolTrue => True
+        _ => False)
+  , ("string equality distinguishes literal text",
+      case normalize 1 (StringEqual (StringValue {n = 0} "Fibril") (StringValue "fibril")) of
+        Normal BoolFalse => True
+        _ => False)
+  , ("string equality does not normalize Unicode",
+      case normalize 1 (StringEqual (StringValue {n = 0} "é") (StringValue ("e" ++ pack [chr 0x301]))) of
+        Normal BoolFalse => True
+        _ => False)
+  , ("string equality zero fuel is explicit exhaustion",
+      case normalize 0 (StringEqual (StringValue {n = 0} "") (StringValue "")) of
+        OutOfFuel _ => True
+        _ => False)
+  , ("string equality head reduction forces computed operands",
+      case weakHead 2 (StringEqual
+        (StringAppend (StringValue {n = 0} "a") (StringValue "b")) (StringValue "ab")) of
+        HeadForm BoolTrue => True
+        _ => False)
+  , ("string equality combines linear operand permissions",
+      case inferRuntime 30 30
+        (Extend (Extend Empty Linear StringType) Linear StringType)
+        (StringEqual (Variable (FS FZ)) (Variable FZ)) of
+        Right result => sameSyntax result.inferredType BoolType && result.usage == [Linear, Linear]
+        _ => False)
+  , ("string equality rejects duplicated linear operands",
+      not (accepted False "(\\(1 x : String) => equalString x x) \"same\""))
+  , ("string equality rejects erased extraction",
+      not (accepted False "(\\(0 x : String) => equalString x \"same\") \"same\""))
+  , ("string equality checks both operand types",
+      not (accepted False "equalString True \"text\"") &&
+      not (accepted True "equalString \"text\" ()"))
+  , ("string equality can select pure data",
+      case evaluateSource 128 "if equalString (appendString \"a\" \"b\") \"ab\" then \"yes\" else \"no\"" of
+        Right lines => elem "Normal: \"yes\"" lines
+        _ => False)
+  , ("string equality is not a Unit proof",
+      not (accepted True "(equalString \"x\" \"x\" : Unit)"))
+  , ("string append library name is not primitive",
       case lookupGlobal "appendString" primitiveGlobals of Nothing => True; _ => False)
   , ("string append library name can be shadowed",
       case evaluateSource 4 "let (1 appendString : Bool) = True in appendString" of
