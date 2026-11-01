@@ -1,0 +1,15 @@
+digraph ReductionFuel {
+  rankdir=LR;
+  node [shape=box];
+  source [label="term"];
+  first [label="normalize first term"];
+  normal [label="Normal result"];
+  pending [label="OutOfFuel pending"];
+  final [label="final ReductionResult"];
+  source -> first;
+  first -> normal [label="success"];
+  first -> pending [label="exhaustion"];
+  normal -> final [label="retain result"];
+  pending -> final [label="normalize extra pending"];
+  source -> final [label="normalize (first + extra) term", style=dashed];
+}

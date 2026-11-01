@@ -79,6 +79,16 @@ rankdir=LR; node [shape=box,style=rounded,fontsize=10];
 "Check.prepareRuntimeSource" -> "Check.prepareRuntimeSourceDetailed";
 "Check.prepareRuntimeSourceDetailed" -> {"Check.resolveSource" "Check.prepareTerm"};
 "Check.prepareTerm" -> "Runtime.inferRuntime";
+subgraph cluster_fuel {
+  label="Host-checked fuel algebra (not checker runtime)";
+  "Fuel.continueNormalization" -> "Reduction.normalize";
+  "Fuel.normalizeSplit" -> {"Fuel.splitAt" "Reduction.step"};
+  "Fuel.splitAt" -> {"Fuel.stopped" "Fuel.exhausted" "Fuel.advanced" "Fuel.normalizeSplit"};
+  "Fuel.normalizeMore" -> "Fuel.normalizeSplit";
+  "Fuel.normalizeResume" -> "Fuel.normalizeSplit";
+  "Fuel.normalHasNoStep" -> {"Fuel.noStepAt" "Reduction.step"};
+  "Fuel.noStepAt" -> {"Fuel.stopped" "Fuel.exhausted" "Fuel.advanced" "Fuel.normalHasNoStep"};
+}
 subgraph cluster_beta {
   label="Host-checked instantiation/root beta proofs (not runtime)";
   "Beta.renameBetaStep" -> "Instantiation.renameInstantiation";

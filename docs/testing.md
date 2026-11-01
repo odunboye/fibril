@@ -57,7 +57,8 @@ UnitCase wrappers in their existing typing/structural properties.
 [Tests.Boolean](../test/src/Tests/Boolean.idr) checks both constructors, branch
 selection/types/resources, constant-condition negative cases, nested syntax,
 computational type conversion, and comparison exhaustion. Existing scoped, erased,
-and runtime recipes now include conditionals; an additional permission-preservation recipe brings the suite to 23 properties.
+and runtime recipes now include conditionals; a permission-preservation recipe
+adds coverage of differing branch observations.
 
 [Tests.Alternatives](../test/src/Tests/Alternatives.idr) exhausts the finite
 permission algebra and validates ambient permissions. The former branch-equality
@@ -77,7 +78,7 @@ Existing rejection tests now check constructor payloads as well as outcomes.
 [Renaming laws](renaming.md) prove identity, composition, pointwise congruence,
 and weakening commutation structurally in Idris 2. Tests.Renaming checks concrete
 witness instantiations across every constructor and noninjective maps. Existing
-sampled structural tests remain, with no increase to the 23-property count.
+sampled structural tests remain; those theorem witnesses add no randomized properties.
 
 [Substitution laws](substitution.md) now prove congruence, identity, and variable-only
 renaming correspondence. Tests.Substitution instantiates the signatures and a
@@ -85,12 +86,18 @@ concrete binder/domain capture witness.
 [Composition/fusion laws](substitution-composition.md) now also have total host
 proofs. Tests.SubstitutionComposition checks their instantiated signatures and
 the shared replaceNewest map. The existing sampled composition/instantiation
-properties remain regressions; there are still 23 Hedgehog properties.
+properties remain regressions alongside the host theorems.
 
 [Tests.Beta](../test/src/Tests/Beta.idr) checks instantiated host proofs for
 instantiation naturality and known-root beta compatibility. Counterexamples
 ensure nobody generalizes this to false arbitrary step/substitution commutation.
-These are theorem-witness regressions; the 23 Hedgehog properties are unchanged.
+These are theorem-witness regressions, not additional randomized properties.
+
+[Tests.Fuel](../test/src/Tests/Fuel.idr) instantiates splitting, successful-budget
+stability, exact resumption, and no-next-step theorems. A new randomized fuel
+splitting property uses raw scoped terms and budgets 0..2 per chunk; it compares
+result tags and exact syntax. Deterministic cases also retain an ill-typed loop
+and demonstrate why arbitrary Normal tags are not certificates.
 
 ## Hedgehog dependency
 
@@ -185,7 +192,7 @@ not arbitrary runtime derivations or cubical resource rules. The unrestricted
 mutation is intentionally rejected even if its body uses its input once:
 the caller obeys the declared argument quantity, not an optimization guess.
 
-The default suite now runs 23 properties / 2,300 generated cases, alongside
+The default suite now runs 24 properties / 2,400 generated cases, alongside
 deterministic regressions. Sampling counts are not proof coverage.
 
 ## Reproducing failures

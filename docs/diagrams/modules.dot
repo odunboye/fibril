@@ -24,6 +24,7 @@ Substitution -> {Term Renaming};
 "Substitution.Composition" -> {Term Renaming Substitution};
 "Substitution.Instantiation" -> {Term Substitution "Substitution.Composition"};
 "Reduction.Beta" -> {Quantity Term Reduction "Substitution.Instantiation"};
+"Reduction.Fuel" -> {Term Reduction};
 Erased -> {Quantity Term Pretty Context Compatibility WeakHead Reduction};
 Runtime -> {Quantity Term Context Usage WeakHead Erased};
 label="Implemented direct Fibril imports (importer → dependency)";

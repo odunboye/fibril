@@ -65,6 +65,11 @@ Typed local lets likewise elaborate to lambda applications. The
 and is included in make examples. No separate storage or recursive-let semantics
 are introduced.
 
+The underlying [fuel laws](reduction-fuel.md) now have total host proofs:
+combined and split normalization agree, success remains stable with additional
+fuel, and actual Normal results have no next reference step. These do not prove
+language normalization or extend the CLI with a resume protocol.
+
 ## Current boundaries
 
 - Only closed ordinary expressions are supported.

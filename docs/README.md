@@ -11,6 +11,8 @@ The generated homepage separates teaching chapters, references, and project reco
 
 ## Reference index
 
+- [Fuel and resumable normalization](reduction-fuel.md): exact budget laws and raw-tag boundaries.
+
 - [Instantiation and root beta laws](beta-laws.md): structural proofs tied to the actual reducer.
 
 - [Substitution composition](substitution-composition.md): mixed fusion and weakening/instantiation proofs.

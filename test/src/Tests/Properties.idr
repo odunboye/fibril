@@ -10,6 +10,8 @@ import Fibril.Foundation.DeMorgan.Sorted
 import Fibril.Core.Quantity
 import Fibril.Core.Term
 import Fibril.Core.Pretty
+import Fibril.Core.Reduction
+import Fibril.Core.Reduction.Fuel
 import Fibril.Foundation.DeMorgan.Interval
 import Fibril.Foundation.DeMorgan.NormalForm
 import Fibril.Foundation.DeMorgan.Face
@@ -143,12 +145,27 @@ sortedOracle = property $ do
   left === nub (sort xs)
   subsetSorted left right === all (\x => elem x right) left
 
+sameReduction : ReductionResult n -> ReductionResult n -> Bool
+sameReduction (Normal left) (Normal right) = sameSyntax left right
+sameReduction (OutOfFuel left) (OutOfFuel right) = sameSyntax left right
+sameReduction _ _ = False
+
+fuelSplitting : Property
+fuelSplitting = property $ do
+  term <- forAll (choice [termGen 3 2, UnitCase UnitValue <$> termGen 3 2])
+  [first, extra] <- forAll (vect 2 (element [0, 1, 2]))
+  let initial = normalize first term
+  classify "initial exhaustion" (case initial of OutOfFuel _ => True; _ => False)
+  assert (sameReduction (normalize (first + extra) term)
+                        (continueNormalization extra initial))
+
 ||| Run randomized, shrinking properties in addition to deterministic regressions.
 ||| A successful run is evidence from samples, not a proof of these laws.
 public export
 runProperties : IO Bool
 runProperties = checkGroup (MkGroup "Fibril structural properties"
-  [ ("sorted helpers match simple algorithms", sortedOracle)
+  [ ("normalization fuel splits and resumes", fuelSplitting)
+  , ("sorted helpers match simple algorithms", sortedOracle)
   , ("interval solver matches frozen oracle", intervalOracle)
   , ("face solver matches frozen oracle", faceOracle)
   , ("term renaming identity", renameIdentity)

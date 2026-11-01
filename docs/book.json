@@ -132,6 +132,10 @@
         "path": "docs/beta-laws.md"
       },
       {
+        "title": "Fuel and resumable normalization",
+        "path": "docs/reduction-fuel.md"
+      },
+      {
         "title": "Cubical baseline",
         "path": "docs/foundation-baseline.md"
       },

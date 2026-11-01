@@ -66,6 +66,14 @@ The instantiation proof uses lifted maps for the body, not for the argument.
 This says nothing about the term's type. A general step-commutation equation for
 substitution is false: replacement can create an earlier redex.
 
+## Prove what a budget means
+
+[Fuel laws](../reduction-fuel.md) prove that splitting a reduction budget and
+resuming the exact remainder agrees with a combined run. More fuel cannot undo
+an actual success, whose result has no next reference step. These hold for raw
+syntax without assuming termination; they do not make fuel a time/memory bound.
+Caller-constructed Normal tags remain unchecked data.
+
 ## Evaluate a checked source expression
 
 Run `fibril eval examples/core/evaluate-identity.fib`. The

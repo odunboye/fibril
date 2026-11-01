@@ -56,6 +56,13 @@ Pi inputs; current small fixtures are overhead-sensitive and establish no genera
 speedup. The concrete improvement is avoiding irrelevant reductions for shape
 inspection, not a measured universal performance claim.
 
+## Proved fuel algebra
+
+[Fuel laws](reduction-fuel.md) now prove splitting/resumption, success stability
+under additional fuel, and absence of a next step in an actual successful result.
+continueNormalization exposes the continuation operation as a host API. It is not
+a new CLI mode; raw result tags remain diagnostic data, not certificates.
+
 ## Fuel is not a timeout
 
 Each fuel unit permits one beta, Unit-case, or Boolean-case contraction. The reducer checks whether a step is available

@@ -78,7 +78,7 @@ is false and has explicit counterexample regressions.
 instantiates each public theorem with scope changes, non-variable/free
 replacements, nested binders, and all current constructors. Existing randomized
 composition and weakening/instantiation checks remain independent regressions;
-the 23-property count is unchanged.
+those theorem-witness cases do not add randomized properties.
 
 All results are **host equality of raw syntax**, checked by Idris 2, not Fibril.
 They do not establish typed or quantitative substitution, reduction preservation,

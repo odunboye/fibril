@@ -1,4 +1,4 @@
--- Reference beta reduction for ordinary scoped syntax, not a typed evaluator.
+-- Reference beta/data-case reduction for ordinary scoped syntax, not a typed evaluator.
 -- Binding background: DEBRUIJN72; see docs/references.md and docs/reduction.md.
 module Fibril.Core.Reduction
 
@@ -7,7 +7,7 @@ import Fibril.Core.Term
 %default total
 
 ||| One leftmost full beta/data-case step, including domain annotations and binder bodies.
-||| Nothing means beta normal form for this grammar, not well typed or valid.
+||| Nothing means reference normal form for this grammar, not well typed or valid.
 public export
 step : Term n -> Maybe (Term n)
 step (Variable i) = Nothing
