@@ -45,6 +45,14 @@ Notable flows:
 - Term substitution lifts replacements under binders using weakening/renaming.
 - Symbolic interval equality and face equality use distinct normal forms.
 
+## Usage accounting infrastructure
+
+[Usage](../src/Fibril/Core/Usage.idr) adds erased/runtime modes, vectors of
+coefficients, pointwise combination/scaling, and binder discharge errors.
+The [core draft](core-draft.md#erased-and-runtime-relevant-judgments) describes
+how a future checker should use these helpers. They do not yet traverse or type
+terms, and local binder checks alone do not guarantee safe closure capture.
+
 ## Trust and current limits
 
 All these modules are implemented in Idris 2. Tests cover examples and finite

@@ -68,6 +68,45 @@ the checker. Checking annotations twice must not accidentally count two uses.
 An erased argument still needs checking. Erasure never licenses arbitrary
 untyped terms. Conversely, a runtime term must not extract erased information.
 
+## Erased and runtime-relevant judgments
+
+Proposed judgments are mode-indexed, following ATKEY18 §2:
+
+    Gamma |- term : type @ mode => usage
+
+Mode is erased (coefficient 0) or runtime-relevant (coefficient 1); omega is
+a binder coefficient, not a third judgment mode.
+
+- Type formation and annotations use erased mode and must consume zero runtime
+  resources. They still require full typing and conversion checking.
+- Variable usage is the mode coefficient at that variable's position.
+- A lambda's bound-variable expectation is modeCoefficient * binderQuantity.
+  Runtime mode enforces the local 0/exact-one/unrestricted policy; erased mode
+  expects zero computational use. The remaining vector describes outer capture.
+- Application combines function usage with binder-scaled argument usage. The
+  argument is checked erased when the surrounding mode is erased or the binder
+  quantity is 0; otherwise it is checked runtime-relevant.
+- Conversion compares types in erased mode. No runtime resource use should arise
+  merely from inspecting types.
+- An erased term cannot be promoted to runtime mode without rechecking.
+
+These are proposed algorithmic requirements, not a completed derivation of QTT.
+The unrestricted local policy permits fewer observed uses; its relationship to
+the full subusage/context rules must be justified. Closure duplication must scale
+captured usage at the point of use; checking the lambda binder alone is not enough.
+
+### Implemented accounting helpers
+
+Usage.idr provides scope-length-indexed vectors, zero usage, pointwise addition,
+scaling, variable usage, and local binder discharge with structured mismatch data.
+Matching vector lengths do not establish matching context types. Discharge checks
+only the newest coefficient, not whether the remaining vector is zero in erased
+mode. A future checker must establish that invariant for the entire judgment.
+
+There is intentionally no syntax-only usage traversal: application requires the
+inferred function type to determine its argument coefficient. Cubical alternatives
+and face systems need separately justified accounting, not blind addition.
+
 ## Required negative tests
 
 - Discarding a linear binder in a computational body.
@@ -111,6 +150,7 @@ They are finite tests, not general proofs of substitution laws.
 
 ## Immediate next task
 
-Specify the erased/type-checking judgment and usage-vector operations before
-implementing bidirectional checking. An evaluator for arbitrary scoped terms
+Refine context formation, subusage, and erased/runtime rules into a complete
+checking specification before implementing bidirectional checking. Usage-vector
+helpers and a mode-indexed judgment outline now exist, but no term checker does. An evaluator for arbitrary scoped terms
 must not claim total normalization: scoped syntax still admits divergent terms.

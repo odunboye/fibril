@@ -2,6 +2,8 @@ module Tests.Main
 
 import Fibril.Core.Quantity
 import Fibril.Core.Term
+import Fibril.Core.Usage
+import Data.Vect
 import Fibril.Foundation.DeMorgan.Interval
 import Fibril.Foundation.DeMorgan.NormalForm
 import Fibril.Foundation.DeMorgan.Face
@@ -30,7 +32,7 @@ endpointSubstitutionLaw =
   all (\term => all (\b =>
     equivalentFace
       (endpointFace (substitute replacement term) b)
-      (substituteFace replacement (endpointFace term b))) [False, True]) samples
+      (substituteFace replacement (endpointFace term b))) (the (List Bool) [False, True])) samples
 
 endpointDisjointLaw : Bool
 endpointDisjointLaw =
@@ -62,7 +64,41 @@ termSamples =
 
 checks : List (String, Bool)
 checks =
-  [ ("term rename identity", all (\t => sameSyntax (rename id t) t) termSamples)
+  [ ("usage variable position",
+      variableUsage {n=3} RuntimeMode (FS FZ) == [Erased, Linear, Erased])
+  , ("usage erased variable",
+      variableUsage {n=2} ErasedMode FZ == [Erased, Erased])
+  , ("usage duplicated input saturates",
+      combineUsage (the (Usage 1) [Linear]) [Linear] == [Unrestricted])
+  , ("usage erased scaling",
+      scaleUsage Erased (the (Usage 2) [Linear, Unrestricted]) == [Erased, Erased])
+  , ("usage unrestricted scaling",
+      scaleUsage Unrestricted (the (Usage 2) [Erased, Linear]) == [Erased, Unrestricted])
+  , ("usage linear discharge preserves outer usage",
+      case discharge RuntimeMode Linear (the (Usage 2) [Linear, Unrestricted]) of
+        Right rest => rest == [Unrestricted]
+        Left _ => False)
+  , ("usage linear discard rejected",
+      case discharge RuntimeMode Linear (the (Usage 1) [Erased]) of
+        Left err => err.expected == Linear && err.observed == Erased
+        Right _ => False)
+  , ("usage linear duplication rejected",
+      case discharge RuntimeMode Linear (the (Usage 1) [Unrestricted]) of
+        Left _ => True
+        Right _ => False)
+  , ("usage erased runtime extraction rejected",
+      case discharge RuntimeMode Erased (the (Usage 1) [Linear]) of
+        Left _ => True
+        Right _ => False)
+  , ("usage erased judgment zeros binder expectation",
+      case discharge ErasedMode Linear (the (Usage 1) [Erased]) of
+        Right [] => True
+        Left _ => False)
+  , ("usage erased judgment rejects nonzero bound use",
+      case discharge ErasedMode Unrestricted (the (Usage 1) [Linear]) of
+        Left _ => True
+        Right _ => False)
+  , ("term rename identity", all (\t => sameSyntax (rename id t) t) termSamples)
   , ("term substitution identity",
       all (\t => sameSyntax (substituteTerm Variable t) t) termSamples)
   , ("term weakening followed by instantiation",

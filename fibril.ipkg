@@ -1,6 +1,6 @@
 package fibril
 version = 0.1.0
 sourcedir = "src"
-modules = Fibril.Core.Term, Fibril.Foundation.DeMorgan.Restriction, Fibril.Foundation.DeMorgan.Scope, Fibril.Foundation.DeMorgan.Face, Fibril.Foundation.DeMorgan.NormalForm, Fibril.Foundation.DeMorgan.Interval, Fibril.Core.Quantity, Main
+modules = Fibril.Core.Usage, Fibril.Core.Term, Fibril.Foundation.DeMorgan.Restriction, Fibril.Foundation.DeMorgan.Scope, Fibril.Foundation.DeMorgan.Face, Fibril.Foundation.DeMorgan.NormalForm, Fibril.Foundation.DeMorgan.Interval, Fibril.Core.Quantity, Main
 main = Main
 executable = fibril

@@ -16,5 +16,9 @@ rankdir=LR; node [shape=box,style=rounded,fontsize=10];
 "Term.substituteTerm" -> "Term.liftSubstitution";
 "Term.liftSubstitution" -> "Term.weaken";
 "Term.weaken" -> "Term.rename"; "Term.rename" -> "Term.liftRenaming";
+"Usage.discharge" -> {"Usage.modeCoefficient" "Quantity.multiply" "Quantity.allows"};
+"Usage.variableUsage" -> {"Usage.modeCoefficient" "Usage.zeroUsage"};
+"Usage.combineUsage" -> "Quantity.add";
+"Usage.scaleUsage" -> "Quantity.multiply";
 label="Selected static calls — curated, not exhaustive";
 }

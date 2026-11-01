@@ -3,6 +3,6 @@ rankdir=LR; node [shape=box,style=rounded];
 Quantity; Interval; NormalForm; Face; Scope; Restriction; Term;
 NormalForm -> Interval; Face -> Interval;
 Scope -> {Interval Face}; Restriction -> {Interval Scope};
-Term -> Quantity;
+Term -> Quantity; Usage -> Quantity;
 label="Implemented direct Fibril imports (importer → dependency)";
 }
