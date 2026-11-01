@@ -3,8 +3,8 @@
 Status: implemented for the ordinary expression subset. This is **not compiled
 execution**, an IO interpreter, or a C/JavaScript backend.
 
-For effectful [hello world](console-runner.md), use fibril run. Console entries
-are rejected before reference normalization; eval never executes printing.
+For effectful [hello world](console-runner.md), use fibril run. eval may normalize
+and display IO descriptions, including WriteLine requests, but never executes them.
 
 ## Try it
 
@@ -50,8 +50,8 @@ Default evaluation fuel is 128. The CLI accepts decimal 0..4096 through --fuel;
 already-normal functions can succeed at zero. Fuel exhaustion exits nonzero
 without a Normal report.
 
-Parsing and checking retain their independent fixed budgets (256 parsing/checking
-depth, 128 reduction fuel per type operation). Raising evaluation fuel does not
+Parsing and checking retain their independent fixed budgets (256 parsing depth,
+512 checking depth, 128 reduction fuel per type operation). Raising evaluation fuel does not
 raise these other budgets. All errors propagate; none admit obligations.
 
 Fuel bounds beta/data-case contractions only. Step discovery, substitution, full annotation

@@ -134,8 +134,9 @@ highlight link fibrilQuantity Special
 highlight link fibrilDeclaration Identifier
 ~~~
 
-IO/do/putStrLn highlighting does not make those names available in ordinary core
-terms; they only have builtin meaning in the restricted console profile.
+IO/putStrLn are ordinary resolved prelude/primitive names and can be shadowed;
+do is expression syntax. Their lexical highlighting does not prove which binding
+is in scope or that an expression is well typed.
 Declaration highlighting does not infer whether a name denotes a function,
 type, or value. Invalid source can still receive plausible colors.
 

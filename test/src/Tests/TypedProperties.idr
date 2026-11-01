@@ -25,7 +25,10 @@ Show TypedSample where
 
 seed : Gen TypedSample
 seed = element
-  [ Sample StringType (Universe 0)
+  [ Sample (IOType StringType) (Universe 0)
+  , Sample (IOPure (StringValue "pure")) (IOType StringType)
+  , Sample (WriteLine (StringValue "request")) (IOType UnitType)
+  , Sample StringType (Universe 0)
   , Sample (StringValue "") StringType
   , Sample (StringValue "λ 🌍") StringType
   , Sample BoolType (Universe 0)

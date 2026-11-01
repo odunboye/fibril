@@ -1,0 +1,7 @@
+-- Ordinary Fibril helper functions and checked prelude functions, not print syntax.
+announce : (1 message : String) -> IO Unit
+announce = \(1 message : String) => putStrLn message
+
+main : IO Unit
+main = bind String Unit (pure String "This is a Fibril library function.")
+         (\(1 message : String) => announce message)

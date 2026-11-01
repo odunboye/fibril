@@ -9,6 +9,7 @@ import Fibril.Core.Runtime
 import Fibril.Source.File
 import Fibril.Source.Diagnostic
 import Fibril.Driver.Check
+import Fibril.Driver.Limits
 
 %default total
 
@@ -21,7 +22,7 @@ evaluateSourceDetailed fuel source = do
   normal <- case normalize fuel prepared.term of
     OutOfFuel _ => Left EvaluationLimit
     Normal term => Right term
-  case checkRuntime 256 128 Empty normal prepared.inferredType of
+  case checkRuntime checkingDepth typeReductionFuel Empty normal prepared.inferredType of
     Left err => Left (PostReductionFailure err)
     Right _ => Right ["Reference evaluation: normal form (not compiled execution)",
                       "Type: " ++ renderTerm prepared.inferredType,

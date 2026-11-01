@@ -22,6 +22,7 @@ data Expr
   | NPi SourceSpan Quantity String Expr Expr
   | NLambda SourceSpan Quantity String Expr Expr
   | NApply SourceSpan Expr Expr
+  | NSequence SourceSpan Expr Expr
   | NAscribe SourceSpan Expr Expr
   | NLet SourceSpan Quantity String Expr Expr Expr
 
@@ -41,6 +42,7 @@ extent (NUnitCase span _ _) = span
 extent (NPi span _ _ _ _) = span
 extent (NLambda span _ _ _ _) = span
 extent (NApply span _ _) = span
+extent (NSequence span _ _) = span
 extent (NAscribe span _ _) = span
 extent (NLet span _ _ _ _ _) = span
 
@@ -60,5 +62,6 @@ withExtent span (NUnitCase _ scrutinee body) = NUnitCase span scrutinee body
 withExtent span (NPi _ q name domain body) = NPi span q name domain body
 withExtent span (NLambda _ q name domain body) = NLambda span q name domain body
 withExtent span (NApply _ function argument) = NApply span function argument
+withExtent span (NSequence _ first rest) = NSequence span first rest
 withExtent span (NAscribe _ term expected) = NAscribe span term expected
 withExtent span (NLet _ q name expected value body) = NLet span q name expected value body

@@ -52,6 +52,10 @@ termGen (S depth) n =
     , Apply <$> termGen depth n <*> termGen depth n
     , UnitCase <$> termGen depth n <*> termGen depth n
     , BoolCase <$> termGen depth n <*> termGen depth n <*> termGen depth n
+    , IOType <$> termGen depth n
+    , IOPure <$> termGen depth n
+    , WriteLine <$> termGen depth n
+    , IOBind <$> termGen depth n <*> termGen depth n <*> termGen depth n <*> termGen depth n
     ]
 
 intervalAtom : Gen (Interval Nat)

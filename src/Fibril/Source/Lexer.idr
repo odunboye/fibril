@@ -9,7 +9,7 @@ import Fibril.Source.StringLiteral
 
 ||| Token categories for the initial explicitly annotated expression grammar.
 public export
-data TokenKind = Name | Number | StringToken | StringKeyword | TypeKeyword | UnitKeyword | BoolKeyword | TrueKeyword | FalseKeyword | IfKeyword | ThenKeyword | ElseKeyword | CaseKeyword | OfKeyword | LetKeyword | InKeyword | Equals | OpenParen | CloseParen | Colon | Arrow | BodyArrow | Lambda
+data TokenKind = Name | Number | StringToken | StringKeyword | TypeKeyword | UnitKeyword | BoolKeyword | TrueKeyword | FalseKeyword | IfKeyword | ThenKeyword | ElseKeyword | DoKeyword | CaseKeyword | OfKeyword | LetKeyword | InKeyword | Equals | OpenParen | CloseParen | Colon | Arrow | BodyArrow | Lambda
 
 public export
 Show TokenKind where
@@ -25,6 +25,7 @@ Show TokenKind where
   show IfKeyword = "if"
   show ThenKeyword = "then"
   show ElseKeyword = "else"
+  show DoKeyword = "do"
   show CaseKeyword = "case"
   show OfKeyword = "of"
   show LetKeyword = "let"
@@ -51,6 +52,7 @@ Eq TokenKind where
   IfKeyword == IfKeyword = True
   ThenKeyword == ThenKeyword = True
   ElseKeyword == ElseKeyword = True
+  DoKeyword == DoKeyword = True
   CaseKeyword == CaseKeyword = True
   OfKeyword == OfKeyword = True
   LetKeyword == LetKeyword = True
@@ -156,6 +158,7 @@ scan (S fuel) at (c :: rest) =
              "if" => IfKeyword
              "then" => ThenKeyword
              "else" => ElseKeyword
+             "do" => DoKeyword
              "case" => CaseKeyword
              "of" => OfKeyword
              "let" => LetKeyword

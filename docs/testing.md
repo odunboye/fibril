@@ -104,9 +104,9 @@ signature/definition framing, source order, nonrecursion, entry presence, budget
 quantities, dependent signatures, and the explicit opaque-let limitation.
 
 [Tests.Console](../test/src/Tests/Console.idr) covers string literals and the
-restricted console-entry profile without executing effects. CLI tests assert exact
-hello-world/Unicode output, complete validation before execution, stdout/stderr
-separation, and rejection by eval/erased checking. No new randomized-property count.
+ordinary IO functions without executing effects. CLI tests assert exact
+hello-world/Unicode output, complete planning before execution, stdout/stderr
+separation, and inert eval/erased checking.
 
 Optional `make editor-test` runs [real headless Neovim/Vim checks](editor-highlighting.md)
 for lexical group positions, filetype detection, quoted data, Unicode, reloads,
@@ -134,6 +134,12 @@ console planning boundary: closed String applications/lets/conditionals,
 normalization exhaustion, and rejection before reduction can hide type/resource
 violations. CLI late-argument failures must leave stdout empty; name errors keep
 real source carets while core errors stay unlocated at the subterm level.
+
+[Tests.IO](../test/src/Tests/IO.idr) checks primitive signatures, Fibril prelude
+installation, name shadowing, universe levels, linear/erased failures, and inert
+normalization. CLI tests run ordinary helpers and shadowed putStrLn outside the
+repository. A generated IO-description property compares plans before/after
+normalization without executing writes. make build checks the generated prelude.
 
 ## Hedgehog dependency
 
@@ -228,7 +234,7 @@ not arbitrary runtime derivations or cubical resource rules. The unrestricted
 mutation is intentionally rejected even if its body uses its input once:
 the caller obeys the declared argument quantity, not an optimization guess.
 
-The default suite now runs 25 properties / 2,500 generated cases, alongside
+The default suite now runs 26 properties / 2,600 generated cases, alongside
 deterministic regressions. Sampling counts are not proof coverage.
 
 ## Reproducing failures

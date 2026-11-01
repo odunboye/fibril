@@ -1,4 +1,4 @@
--- Pure action data for the restricted console-entry profile, not core IO typing.
+-- Prepared host-write requests, separate from pure core IO descriptions.
 module Fibril.Effect.Console
 
 %default total

@@ -5,14 +5,18 @@ Implemented:
 - `src/Fibril/Source/Diagnostic.idr`: bounded, escaped scalar-point excerpts; no invented core spans or LSP coordinates.
 - `src/Fibril/Source/Syntax.idr`: named expression AST with spans.
 - `src/Fibril/Source/StringLiteral.idr`: shared quoted-data decoding for ordinary String atoms and console literals; retains spelling/escapes and located failures.
-- `src/Fibril/Source/Console.idr`: complete syntax/layout framing for console entries with ordinary argument expressions.
-- `src/Fibril/Driver/Console.idr`: pure closed-String argument checking/normalization/post-checking before constructing effect actions.
+- `src/Fibril/Source/Global.idr`: closed definitions and lexical/global resolution.
+- `src/Fibril/Source/Primitive.idr`: small IO primitive boundary, without putStrLn.
+- `src/Fibril/Driver/Prelude.idr`: parse/core-check bundled library definitions.
+- `stdlib/Prelude.fib`: actual Fibril putStrLn/pure/bind definitions.
+- `src/Fibril/Driver/Limits.idr`: shared checking/type-reduction budgets.
+- `src/Fibril/Driver/Console.idr`: pure typed IO-description planning before any host action executes.
 - `src/Fibril/Effect/Console.idr`: pure action data, separate from ordinary terms.
 - `src/Fibril/Runtime/Console.idr`: host stdout adapter and first-error action sequencer; no core normalization hooks.
 - `src/Fibril/Driver/Run.idr`: validate whole source, then execute console actions; failures do not execute prefixes.
 - `src/Fibril/Source/Declaration.idr`: column-one signature/definition framing, source-order scope, fixed main entry, and typed-let lowering; no transparent globals/modules.
-- `src/Fibril/Source/Parser.idr`: bounded expression grammar, no declaration/layout parsing.
-- `src/Fibril/Source/Resolve.idr`: lexical names to scoped core and checked-as-identity ascriptions and nonrecursive typed-let elaboration, no globals.
+- `src/Fibril/Source/Parser.idr`: bounded expression grammar with flat Unit-result do sequencing.
+- `src/Fibril/Source/Resolve.idr`: lexical/global names to scoped core, ascriptions, typed lets, and do lowering.
 - `src/Fibril/Driver/Check.idr`: source frontend/checker orchestration and shared runtime-source preparation.
 - `src/Fibril/Driver/Evaluate.idr`: check-before-reduction reference evaluation and post-reduction type/resource validation.
 

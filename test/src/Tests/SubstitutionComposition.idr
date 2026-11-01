@@ -8,8 +8,8 @@ import Fibril.Core.Substitution.Composition
 %default total
 
 -- All constructors, nested binders, and both outer references; no typing claim.
-sample : Term 2
-sample =
+base : Term 2
+base =
   Pi Erased (Universe 0)
     (Lambda Linear (Variable FZ)
       (BoolCase (Variable (FS (FS FZ)))
@@ -17,6 +17,10 @@ sample =
         (BoolCase BoolFalse (Variable (FS (FS (FS FZ))))
           (Apply (Pi Unrestricted UnitType BoolType)
                  (Lambda Linear StringType (StringValue "data"))))))
+
+sample : Term 2
+sample = IOBind (IOType UnitType) StringType (IOPure base)
+                (WriteLine (StringValue "request"))
 
 first : Fin 2 -> Term 1
 first FZ = Apply (Variable FZ) BoolTrue

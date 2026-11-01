@@ -30,6 +30,14 @@ substituteCongruent left right agree BoolTrue = Refl
 substituteCongruent left right agree BoolFalse = Refl
 substituteCongruent left right agree StringType = Refl
 substituteCongruent left right agree (StringValue _) = Refl
+substituteCongruent left right agree (IOType value) = cong IOType (substituteCongruent left right agree value)
+substituteCongruent left right agree (IOPure value) = cong IOPure (substituteCongruent left right agree value)
+substituteCongruent left right agree (WriteLine value) = cong WriteLine (substituteCongruent left right agree value)
+substituteCongruent left right agree (IOBind a b action next) =
+  rewrite substituteCongruent left right agree a in
+  rewrite substituteCongruent left right agree b in
+  rewrite substituteCongruent left right agree action in
+  rewrite substituteCongruent left right agree next in Refl
 substituteCongruent left right agree (BoolCase condition yes no) =
   rewrite substituteCongruent left right agree condition in
   rewrite substituteCongruent left right agree yes in
@@ -68,6 +76,14 @@ renameAsSubstitution env BoolTrue = Refl
 renameAsSubstitution env BoolFalse = Refl
 renameAsSubstitution env StringType = Refl
 renameAsSubstitution env (StringValue _) = Refl
+renameAsSubstitution env (IOType value) = cong IOType (renameAsSubstitution env value)
+renameAsSubstitution env (IOPure value) = cong IOPure (renameAsSubstitution env value)
+renameAsSubstitution env (WriteLine value) = cong WriteLine (renameAsSubstitution env value)
+renameAsSubstitution env (IOBind a b action next) =
+  rewrite renameAsSubstitution env a in
+  rewrite renameAsSubstitution env b in
+  rewrite renameAsSubstitution env action in
+  rewrite renameAsSubstitution env next in Refl
 renameAsSubstitution env (BoolCase condition yes no) =
   rewrite renameAsSubstitution env condition in
   rewrite renameAsSubstitution env yes in

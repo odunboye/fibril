@@ -79,11 +79,11 @@ truncated. Constructing/rendering a large payload is not a bounded-work promise.
 - FrontendFailure retains LexError, ParseError, or ResolveError.
 - ErasedFailure retains CheckError; RuntimeFailure retains RuntimeError.
 - EvaluationLimit distinguishes evaluation exhaustion.
-- ConsoleFailure retains structured argument resolution, typing, reduction, and
-  post-check errors. Name errors keep resolver carets; core failures identify the
-  argument root in their message without pretending to locate the failing subterm.
-- EffectfulEvaluation and ErasedConsole reject console actions at the ordinary
-  normalization/erased-proof boundaries; malformed strings retain lexical points.
+- ConsoleFailure retains IO-planning errors. Source names, including prelude
+  functions, use the ordinary resolver and retain real source points. Core/planner
+  failures remain unlocated rather than acquiring guessed subterm carets.
+- PreludeUnavailable reports bundled library errors without assigning embedded
+  library positions to the user's source file.
 - PostReductionFailure retains the runtime error from final rechecking.
 
 RuntimeError's TypingError in turn retains the structured CheckError. No core

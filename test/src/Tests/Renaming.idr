@@ -9,8 +9,8 @@ import Fibril.Core.Renaming
 
 -- Deliberately scoped, not claimed well typed: proofs apply to raw syntax.
 -- Includes every constructor, annotations, nested binders, and outer references.
-sample : Term 2
-sample =
+base : Term 2
+base =
   Pi Erased (Universe 0)
     (Lambda Linear (Variable FZ)
       (BoolCase BoolTrue
@@ -19,6 +19,10 @@ sample =
         (BoolCase BoolFalse
           (Pi Unrestricted UnitType BoolType)
           (Apply (Variable FZ) (Lambda Linear StringType (StringValue "λ"))))))
+
+sample : Term 2
+sample = IOBind (IOType UnitType) StringType (IOPure base)
+                (WriteLine (StringValue "request"))
 
 collapse : Fin 2 -> Fin 1
 collapse _ = FZ

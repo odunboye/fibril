@@ -25,9 +25,9 @@ The [polymorphic example](../examples/core/declarations-polymorphic.fib) states 
 dependent identity signature, then applies it to Bool and True. Both examples
 evaluate to True through the existing reference evaluator, not a backend runtime.
 
-For effectful [hello world](console-runner.md), a separate restricted console
-profile accepts a sole main : IO Unit entry. That path does not use these typed-let
-rules or enable IO helpers, opaque aliases, or arbitrary declarations.
+For effectful [hello world](console-runner.md), main : IO Unit now uses these
+same declaration rules. Ordinary helper functions may call checked prelude
+functions such as putStrLn; there is no separate console-name parser.
 
 ## Framing rules
 
@@ -108,7 +108,7 @@ perform capture-prone textual substitution to conceal this limitation.
 ## Budgets, diagnostics, and trust
 
 The driver allows at most 64 declarations and uses parser depth 256 independently
-for each signature/value. Checking depth stays 256 and reduction fuel stays 128;
+for each signature/value. Checking depth is 512 and reduction fuel stays 128;
 a file within the declaration limit can still exhaust another budget. The
 65,536-byte loader cap is unchanged. These are not time/memory guarantees.
 

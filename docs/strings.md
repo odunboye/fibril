@@ -71,12 +71,11 @@ introduce implicit quantity coercions, dropping, borrowing, or allocation bounds
 
 ## Relationship to console IO
 
-Console arguments now use ordinary expression parsing and a separate pure
-planning stage. Closed String expressions, including local let/lambda bindings
-and applications, can be checked/reduced before becoming PrintLine requests.
-Its action data still does not contain a core IO term. File-level helpers,
-shared bindings between actions, and general effect composition remain future
-work; see [console arguments](console-runner.md#compute-a-string-argument).
+putStrLn is now an ordinary Fibril prelude function over pure String data.
+Functions and declarations can pass String values to it, including a value
+returned through bind. The core stores pure IO descriptions; only the separate
+host runner executes prepared stdout requests. See [IO functions](console-runner.md).
+General runtime input, module imports, and a complete effect calculus remain future work.
 
 There is no concatenation, length/index operation, interpolation, runtime input,
 native/web representation, memory-management contract, or string FFI yet.

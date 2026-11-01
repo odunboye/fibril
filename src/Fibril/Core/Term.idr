@@ -26,6 +26,11 @@ data Term : Nat -> Type where
   ||| Primitive String : Type0 and opaque literal data; no string computation yet.
   StringType : Term n
   StringValue : String -> Term n
+  ||| Pure descriptions of effects; only the external runner performs writes.
+  IOType : Term n -> Term n
+  IOPure : Term n -> Term n
+  IOBind : Term n -> Term n -> Term n -> Term n -> Term n
+  WriteLine : Term n -> Term n
   ||| Nondependent branches; runtime checking joins their resource permissions.
   BoolCase : Term n -> Term n -> Term n -> Term n
   Pi : Quantity -> Term n -> Term (S n) -> Term n
@@ -52,6 +57,11 @@ rename env BoolTrue = BoolTrue
 rename env BoolFalse = BoolFalse
 rename env StringType = StringType
 rename env (StringValue value) = StringValue value
+rename env (IOType ty) = IOType (rename env ty)
+rename env (IOPure value) = IOPure (rename env value)
+rename env (WriteLine text) = WriteLine (rename env text)
+rename env (IOBind a b action next) =
+  IOBind (rename env a) (rename env b) (rename env action) (rename env next)
 rename env (BoolCase condition yes no) =
   BoolCase (rename env condition) (rename env yes) (rename env no)
 rename env (Pi q domain body) =
@@ -84,6 +94,12 @@ substituteTerm env BoolTrue = BoolTrue
 substituteTerm env BoolFalse = BoolFalse
 substituteTerm env StringType = StringType
 substituteTerm env (StringValue value) = StringValue value
+substituteTerm env (IOType ty) = IOType (substituteTerm env ty)
+substituteTerm env (IOPure value) = IOPure (substituteTerm env value)
+substituteTerm env (WriteLine text) = WriteLine (substituteTerm env text)
+substituteTerm env (IOBind a b action next) =
+  IOBind (substituteTerm env a) (substituteTerm env b)
+         (substituteTerm env action) (substituteTerm env next)
 substituteTerm env (BoolCase condition yes no) =
   BoolCase (substituteTerm env condition) (substituteTerm env yes) (substituteTerm env no)
 substituteTerm env (Pi q domain body) =
@@ -119,6 +135,11 @@ sameSyntax BoolTrue BoolTrue = True
 sameSyntax BoolFalse BoolFalse = True
 sameSyntax StringType StringType = True
 sameSyntax (StringValue left) (StringValue right) = left == right
+sameSyntax (IOType a) (IOType b) = sameSyntax a b
+sameSyntax (IOPure a) (IOPure b) = sameSyntax a b
+sameSyntax (WriteLine a) (WriteLine b) = sameSyntax a b
+sameSyntax (IOBind a b c d) (IOBind e f g h) =
+  sameSyntax a e && sameSyntax b f && sameSyntax c g && sameSyntax d h
 sameSyntax (BoolCase c t e) (BoolCase d u f) =
   sameSyntax c d && sameSyntax t u && sameSyntax e f
 sameSyntax (Pi q a b) (Pi r c d) = q == r && sameSyntax a c && sameSyntax b d

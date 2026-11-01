@@ -115,13 +115,31 @@ literalValue token = do
     [] => Right decoded.value
     _ => Left (ParseFailure token.span.start "Malformed string token")
 
+sequenceExpressions : Position -> Expr -> List Expr -> Expr
+sequenceExpressions start first [] = withExtent (Between start (extent first).finish) first
+sequenceExpressions start first (next :: rest) =
+  let body = sequenceExpressions (extent next).start next rest
+   in NSequence (Between start (extent body).finish) first body
+
 mutual
   expression : Nat -> Position -> List Token -> Either ParseError (Expr, List Token)
   expression Z end tokens = limit end tokens
   expression (S depth) end tokens =
     case tokens of
       token :: rest =>
-        if token.kind == IfKeyword then do
+        if token.kind == DoKeyword then
+          case rest of
+            [] => Left (ParseFailure end "do block requires at least one action")
+            first :: _ =>
+              if first.span.start.line <= token.span.start.line || first.span.start.column <= 1
+                 then Left (ParseFailure first.span.start "do actions require indented following lines")
+                 else do
+                   (actions, remaining) <- doActions depth 64 end first.span.start.column
+                                                      token.span.start.line rest
+                   case actions of
+                     [] => Left (ParseFailure end "do block requires at least one action")
+                     first :: rest => Right (sequenceExpressions token.span.start first rest, remaining)
+        else if token.kind == IfKeyword then do
           (condition, afterCondition) <- expression depth end rest
           (_, afterThen) <- expect ThenKeyword end afterCondition
           (yes, afterYes) <- expression depth end afterThen
@@ -167,6 +185,26 @@ mutual
               else Right (domain, afterDomain)
             [] => Right (domain, [])
       [] => Left (ParseFailure end "Expected expression")
+
+  doActions : Nat -> Nat -> Position -> Nat -> Nat -> List Token ->
+              Either ParseError (List Expr, List Token)
+  doActions depth budget end column previous [] = Right ([], [])
+  doActions depth Z end column previous tokens@(token :: _) =
+    if token.span.start.column < column then Right ([], tokens)
+       else Left (ParseFailure token.span.start "do action count budget exhausted")
+  doActions depth (S budget) end column previous tokens@(token :: _) =
+    if token.span.start.column < column then Right ([], tokens)
+    else if token.span.start.column /= column || token.span.start.line <= previous
+       then Left (ParseFailure token.span.start "do actions must occupy separate equally indented lines")
+       else do
+         let (chunk, remaining) = Data.List.span
+               (\item => item.span.start.line == token.span.start.line) tokens
+         (action, trailing) <- expression depth (atInput end remaining) chunk
+         case trailing of
+           extra :: _ => Left (ParseFailure extra.span.start "Unexpected tokens after do action")
+           [] => do
+             (actions, rest) <- doActions depth budget end column (extent action).finish.line remaining
+             Right (action :: actions, rest)
 
   -- A binder domain is parsed before adding the name to any scope.
   binder : Nat -> Position -> List Token -> Either ParseError ParsedBinder

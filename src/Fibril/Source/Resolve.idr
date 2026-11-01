@@ -8,6 +8,7 @@ import Fibril.Core.Quantity
 import Fibril.Source.Text
 import Fibril.Source.Lexer
 import Fibril.Source.Syntax
+import Fibril.Source.Global
 
 %default total
 
@@ -31,51 +32,66 @@ lookupName name (bound :: rest) =
 ||| bodies see the new binder. Shadowing resolves to the nearest binder.
 ||| Underscore is a wildcard and cannot be referenced.
 public export
-resolveIn : Vect n String -> Expr -> Either ResolveError (Term n)
-resolveIn env (NRef span name) =
+resolveInWith : List GlobalDefinition -> Vect n String -> Expr -> Either ResolveError (Term n)
+resolveInWith globals env (NRef span name) =
   if name == "_" then Left (Unbound span.start name)
      else case lookupName name env of
-       Nothing => Left (Unbound span.start name)
+       Nothing => case lookupGlobal name globals of
+         Nothing => Left (Unbound span.start name)
+         Just value => Right (rename absurd value)
        Just index => Right (Variable index)
-resolveIn env (NSort span level) = Right (Universe level)
-resolveIn env (NUnitType span) = Right UnitType
-resolveIn env (NUnitValue span) = Right UnitValue
-resolveIn env (NStringType span) = Right StringType
-resolveIn env (NStringValue span value) = Right (StringValue value)
-resolveIn env (NBoolType span) = Right BoolType
-resolveIn env (NBoolValue span True) = Right BoolTrue
-resolveIn env (NBoolValue span False) = Right BoolFalse
-resolveIn env (NIf span condition yes no) =
-  [| BoolCase (resolveIn env condition) (resolveIn env yes) (resolveIn env no) |]
-resolveIn env (NUnitCase span scrutinee body) =
-  [| UnitCase (resolveIn env scrutinee) (resolveIn env body) |]
-resolveIn env (NPi span q name domain body) = do
-  domain <- resolveIn env domain
-  body <- resolveIn (name :: env) body
+resolveInWith globals env (NSort span level) = Right (Universe level)
+resolveInWith globals env (NUnitType span) = Right UnitType
+resolveInWith globals env (NUnitValue span) = Right UnitValue
+resolveInWith globals env (NStringType span) = Right StringType
+resolveInWith globals env (NStringValue span value) = Right (StringValue value)
+resolveInWith globals env (NBoolType span) = Right BoolType
+resolveInWith globals env (NBoolValue span True) = Right BoolTrue
+resolveInWith globals env (NBoolValue span False) = Right BoolFalse
+resolveInWith globals env (NIf span condition yes no) =
+  [| BoolCase (resolveInWith globals env condition) (resolveInWith globals env yes) (resolveInWith globals env no) |]
+resolveInWith globals env (NUnitCase span scrutinee body) =
+  [| UnitCase (resolveInWith globals env scrutinee) (resolveInWith globals env body) |]
+resolveInWith globals env (NPi span q name domain body) = do
+  domain <- resolveInWith globals env domain
+  body <- resolveInWith globals (name :: env) body
   Right (Pi q domain body)
-resolveIn env (NLambda span q name domain body) = do
-  domain <- resolveIn env domain
-  body <- resolveIn (name :: env) body
+resolveInWith globals env (NLambda span q name domain body) = do
+  domain <- resolveInWith globals env domain
+  body <- resolveInWith globals (name :: env) body
   Right (Lambda q domain body)
-resolveIn env (NApply span function argument) =
-  [| Apply (resolveIn env function) (resolveIn env argument) |]
+resolveInWith globals env (NApply span function argument) =
+  [| Apply (resolveInWith globals env function) (resolveInWith globals env argument) |]
+resolveInWith globals env (NSequence span first rest) = do
+  action <- resolveInWith globals env first
+  following <- resolveInWith globals env rest
+  Right (IOBind UnitType UnitType action
+    (Lambda Linear UnitType (UnitCase (Variable FZ) (weaken following))))
 -- Checking an identity application enforces the expected domain using existing
 -- typing/compatibility rules. Linear use preserves the term's runtime usage.
-resolveIn env (NAscribe span term expected) = do
-  term <- resolveIn env term
-  ty <- resolveIn env expected
+resolveInWith globals env (NAscribe span term expected) = do
+  term <- resolveInWith globals env term
+  ty <- resolveInWith globals env expected
   Right (Apply (Lambda Linear ty (Variable FZ)) term)
 
 -- The binding is nonrecursive: annotation and value use the outer environment.
 -- A lambda/application enforces the annotation and declared resource quantity.
-resolveIn env (NLet span q name expected value body) = do
-  ty <- resolveIn env expected
-  value <- resolveIn env value
-  body <- resolveIn (name :: env) body
+resolveInWith globals env (NLet span q name expected value body) = do
+  ty <- resolveInWith globals env expected
+  value <- resolveInWith globals env value
+  body <- resolveInWith globals (name :: env) body
   Right (Apply (Lambda q ty body) value)
 
-||| Resolve a closed expression, including lowered declaration lets.
-||| There is no separate global namespace or import environment.
+||| Lexical-only compatibility API.
+public export
+resolveIn : Vect n String -> Expr -> Either ResolveError (Term n)
+resolveIn = resolveInWith []
+
 public export
 resolveClosed : Expr -> Either ResolveError (Term 0)
 resolveClosed = resolveIn []
+
+||| Explicit closed-definition environment; lexical bindings take precedence.
+public export
+resolveClosedWith : List GlobalDefinition -> Expr -> Either ResolveError (Term 0)
+resolveClosedWith globals = resolveInWith globals []

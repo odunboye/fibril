@@ -1,8 +1,14 @@
 PACK ?= pack
 IDRIS2 ?= idris2
 
-.PHONY: build test editor-test examples bench bench-smoke python-embed-test docs handbook serve-docs clean
-build:
+.PHONY: prelude prelude-check build test editor-test examples bench bench-smoke python-embed-test docs handbook serve-docs clean
+prelude:
+	python3 tools/embed_prelude.py
+
+prelude-check:
+	python3 tools/embed_prelude.py --check
+
+build: prelude-check
 	$(PACK) build fibril
 
 test: build
@@ -29,6 +35,7 @@ examples: build
 	./build/exec/fibril run examples/core/console-sequence.fib
 	./build/exec/fibril eval examples/core/string-identity.fib
 	./build/exec/fibril run examples/core/console-expressions.fib
+	./build/exec/fibril run examples/core/io-functions.fib
 
 bench:
 	python3 tools/benchmark.py

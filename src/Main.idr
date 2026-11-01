@@ -25,7 +25,7 @@ Usage:
   fibril lex-source PATH        Print source tokens/spans (not parsing/checking)
   fibril check PATH             Check a closed source program and runtime usage
   fibril check --erased PATH    Check only the erased ordinary fragment
-  fibril run PATH              Execute a restricted main : IO Unit console entry
+  fibril run PATH              Check main : IO Unit, then execute prepared stdout requests
   fibril eval PATH              Checked reference normalization (128 reduction steps)
   fibril eval --fuel N PATH     Reference normalization with fuel 0..4096
 

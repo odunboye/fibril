@@ -27,6 +27,14 @@ renameCongruent left right agree BoolTrue = Refl
 renameCongruent left right agree BoolFalse = Refl
 renameCongruent left right agree StringType = Refl
 renameCongruent left right agree (StringValue _) = Refl
+renameCongruent left right agree (IOType value) = cong IOType (renameCongruent left right agree value)
+renameCongruent left right agree (IOPure value) = cong IOPure (renameCongruent left right agree value)
+renameCongruent left right agree (WriteLine value) = cong WriteLine (renameCongruent left right agree value)
+renameCongruent left right agree (IOBind a b action next) =
+  rewrite renameCongruent left right agree a in
+  rewrite renameCongruent left right agree b in
+  rewrite renameCongruent left right agree action in
+  rewrite renameCongruent left right agree next in Refl
 renameCongruent left right agree (BoolCase condition yes no) =
   rewrite renameCongruent left right agree condition in
   rewrite renameCongruent left right agree yes in
@@ -62,6 +70,14 @@ renameIdentity BoolTrue = Refl
 renameIdentity BoolFalse = Refl
 renameIdentity StringType = Refl
 renameIdentity (StringValue _) = Refl
+renameIdentity (IOType value) = cong IOType (renameIdentity value)
+renameIdentity (IOPure value) = cong IOPure (renameIdentity value)
+renameIdentity (WriteLine value) = cong WriteLine (renameIdentity value)
+renameIdentity (IOBind a b action next) =
+  rewrite renameIdentity a in
+  rewrite renameIdentity b in
+  rewrite renameIdentity action in
+  rewrite renameIdentity next in Refl
 renameIdentity (BoolCase condition yes no) =
   rewrite renameIdentity condition in
   rewrite renameIdentity yes in
@@ -103,6 +119,14 @@ renameComposition first second BoolTrue = Refl
 renameComposition first second BoolFalse = Refl
 renameComposition first second StringType = Refl
 renameComposition first second (StringValue _) = Refl
+renameComposition first second (IOType value) = cong IOType (renameComposition first second value)
+renameComposition first second (IOPure value) = cong IOPure (renameComposition first second value)
+renameComposition first second (WriteLine value) = cong WriteLine (renameComposition first second value)
+renameComposition first second (IOBind a b action next) =
+  rewrite renameComposition first second a in
+  rewrite renameComposition first second b in
+  rewrite renameComposition first second action in
+  rewrite renameComposition first second next in Refl
 renameComposition first second (BoolCase condition yes no) =
   rewrite renameComposition first second condition in
   rewrite renameComposition first second yes in

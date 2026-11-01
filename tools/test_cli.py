@@ -127,6 +127,30 @@ class CLITests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("Parsing:", result.stdout)
 
+    def test_ordinary_io_functions_and_portable_prelude(self):
+        result = run("run", "examples/core/io-functions.fib")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout, "This is a Fibril library function.\n")
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "shadow.fib"
+            path.write_text(
+                "putStrLn : Bool -> IO Unit\n"
+                "putStrLn = \\(flag : Bool) => pure Unit ()\n"
+                "main : IO Unit\nmain = putStrLn True\n", encoding="utf-8")
+            result = subprocess.run([str(EXE), "run", str(path)], cwd=directory,
+                                    text=True, capture_output=True, timeout=20)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, "")
+            path.write_text(
+                "emit : (1 text : String) -> IO Unit\n"
+                "emit = \\(1 text : String) => do\n"
+                "  putStrLn text\n  putStrLn text\n"
+                "main : IO Unit\nmain = emit \"linear\"\n", encoding="utf-8")
+            result = run("run", str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, "")
+            self.assertIn("Binder usage", result.stderr)
+
     def test_console_pure_arguments(self):
         result = run("run", "examples/core/console-expressions.fib")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -134,7 +158,7 @@ class CLITests(unittest.TestCase):
         self.assertEqual(result.stderr, "")
         result = run("check", "examples/core/console-expressions.fib")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertIn("pure String arguments core-checked", result.stdout)
+        self.assertIn("Runtime checking: accepted", result.stdout)
         self.assertNotIn("Hello from a pure function!", result.stdout)
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "arguments.fib"
@@ -167,6 +191,21 @@ class CLITests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(result.stdout, "")
         self.assertIn("use eval", result.stderr)
+
+    def test_expanded_io_plan_limit_has_no_output_prefix(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "expanded.fib"
+            path.write_text(
+                'twice : IO Unit\ntwice = do\n'
+                '  putStrLn "never"\n  putStrLn "never"\n'
+                'main : IO Unit\nmain = do\n' + '  twice\n' * 33,
+                encoding="utf-8")
+            result = run("check", str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            result = run("run", str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, "")
+            self.assertIn("output action count limit", result.stderr)
 
     def test_console_do_sequence(self):
         result = run("run", "examples/core/console-sequence.fib")
@@ -208,12 +247,15 @@ class CLITests(unittest.TestCase):
         self.assertEqual(result.stderr, "")
         result = run("check", "examples/core/hello-world.fib")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertIn("restricted profile", result.stdout)
+        self.assertIn("Runtime checking: accepted", result.stdout)
         self.assertNotIn("Hello, world!", result.stdout)
-        for args in (("eval",), ("check", "--erased")):
-            result = run(*args, "examples/core/hello-world.fib")
-            self.assertNotEqual(result.returncode, 0)
-            self.assertNotIn("Hello, world!", result.stdout)
+        result = run("eval", "examples/core/hello-world.fib")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn('Normal: (WriteLine "Hello, world!")', result.stdout)
+        self.assertNotIn("\nHello, world!\n", result.stdout)
+        result = run("check", "--erased", "examples/core/hello-world.fib")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertNotIn("Hello, world!", result.stdout)
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "hello.fib"
             path.write_text('main : IO Unit\nmain =\n  putStrLn "λ 🌍\\nquote: \\" slash: \\\\ tab:\\t"\n', encoding="utf-8")

@@ -74,6 +74,15 @@ Both are scope-independent atoms; literals contribute zero runtime usage and
 compare by exact literal data. There is no new reduction, eliminator, Unicode
 normalization, IO behavior, or implicit quantity coercion.
 
+## Experimental IO descriptions
+
+[IO rules and the Fibril prelude](console-runner.md) now type pure effect
+descriptions. IOType preserves its operand's universe; Pure packages a value;
+WriteLine consumes a String operand and describes IO Unit; Bind combines an
+IO A action with a linear A -> IO B continuation. Runtime usage adds action and
+continuation usage. Bind over Pure reduces to application; no core operation
+performs host IO or extracts an IO A as trusted evidence of A.
+
 ## Proposed quantity accounting
 
 Coefficients are 0, 1, and omega (unrestricted):

@@ -31,6 +31,14 @@ renameAfterSubstitution env sigma BoolTrue = Refl
 renameAfterSubstitution env sigma BoolFalse = Refl
 renameAfterSubstitution env sigma StringType = Refl
 renameAfterSubstitution env sigma (StringValue _) = Refl
+renameAfterSubstitution env sigma (IOType value) = cong IOType (renameAfterSubstitution env sigma value)
+renameAfterSubstitution env sigma (IOPure value) = cong IOPure (renameAfterSubstitution env sigma value)
+renameAfterSubstitution env sigma (WriteLine value) = cong WriteLine (renameAfterSubstitution env sigma value)
+renameAfterSubstitution env sigma (IOBind a b action next) =
+  rewrite renameAfterSubstitution env sigma a in
+  rewrite renameAfterSubstitution env sigma b in
+  rewrite renameAfterSubstitution env sigma action in
+  rewrite renameAfterSubstitution env sigma next in Refl
 renameAfterSubstitution env sigma (BoolCase condition yes no) =
   rewrite renameAfterSubstitution env sigma condition in
   rewrite renameAfterSubstitution env sigma yes in
@@ -76,6 +84,14 @@ substituteAfterRenaming env sigma BoolTrue = Refl
 substituteAfterRenaming env sigma BoolFalse = Refl
 substituteAfterRenaming env sigma StringType = Refl
 substituteAfterRenaming env sigma (StringValue _) = Refl
+substituteAfterRenaming env sigma (IOType value) = cong IOType (substituteAfterRenaming env sigma value)
+substituteAfterRenaming env sigma (IOPure value) = cong IOPure (substituteAfterRenaming env sigma value)
+substituteAfterRenaming env sigma (WriteLine value) = cong WriteLine (substituteAfterRenaming env sigma value)
+substituteAfterRenaming env sigma (IOBind a b action next) =
+  rewrite substituteAfterRenaming env sigma a in
+  rewrite substituteAfterRenaming env sigma b in
+  rewrite substituteAfterRenaming env sigma action in
+  rewrite substituteAfterRenaming env sigma next in Refl
 substituteAfterRenaming env sigma (BoolCase condition yes no) =
   rewrite substituteAfterRenaming env sigma condition in
   rewrite substituteAfterRenaming env sigma yes in
@@ -131,6 +147,14 @@ substituteComposition first second BoolTrue = Refl
 substituteComposition first second BoolFalse = Refl
 substituteComposition first second StringType = Refl
 substituteComposition first second (StringValue _) = Refl
+substituteComposition first second (IOType value) = cong IOType (substituteComposition first second value)
+substituteComposition first second (IOPure value) = cong IOPure (substituteComposition first second value)
+substituteComposition first second (WriteLine value) = cong WriteLine (substituteComposition first second value)
+substituteComposition first second (IOBind a b action next) =
+  rewrite substituteComposition first second a in
+  rewrite substituteComposition first second b in
+  rewrite substituteComposition first second action in
+  rewrite substituteComposition first second next in Refl
 substituteComposition first second (BoolCase condition yes no) =
   rewrite substituteComposition first second condition in
   rewrite substituteComposition first second yes in

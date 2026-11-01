@@ -22,6 +22,12 @@ renderTerm BoolTrue = "True"
 renderTerm BoolFalse = "False"
 renderTerm StringType = "String"
 renderTerm (StringValue value) = show value
+renderTerm (IOType ty) = "(IO " ++ renderTerm ty ++ ")"
+renderTerm (IOPure value) = "(Pure " ++ renderTerm value ++ ")"
+renderTerm (WriteLine text) = "(WriteLine " ++ renderTerm text ++ ")"
+renderTerm (IOBind a b action next) =
+  "(Bind " ++ renderTerm a ++ " " ++ renderTerm b ++ " " ++ renderTerm action ++
+  " " ++ renderTerm next ++ ")"
 renderTerm (BoolCase condition yes no) =
   "(If " ++ renderTerm condition ++ " " ++ renderTerm yes ++ " " ++ renderTerm no ++ ")"
 renderTerm (Pi q domain body) =

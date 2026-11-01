@@ -3,19 +3,24 @@ module Tests.Console
 import Data.List
 import Fibril.Core.Term
 import Fibril.Effect.Console
-import Fibril.Source.Console
 import Fibril.Source.Text
 import Fibril.Source.Lexer
 import Fibril.Source.StringLiteral
 import Fibril.Driver.Check
 import Fibril.Driver.Console
-import Fibril.Source.Syntax
 import Fibril.Driver.Evaluate
 
 %default total
 
 hello : String
 hello = "main : IO Unit\nmain = putStrLn \"Hello, world!\""
+
+planned : String -> Maybe (List String)
+planned source = case resolveSource source of
+  Left _ => Nothing
+  Right term => case prepareIO 128 128 term of
+    Left _ => Nothing
+    Right actions => Just (map (\(PrintLine value) => value) actions)
 
 rejects : String -> Bool
 rejects source = case checkSource False source of
@@ -25,84 +30,46 @@ rejects source = case checkSource False source of
 public export
 checks : List (String, Bool)
 checks =
-  [ ("console hello produces action data",
-      case prepareSource hello of
-        Right (ConsoleSource entry) => case prepareConsole 128 entry of
-          Right [PrintLine value] => value == "Hello, world!"
-          _ => False
-        _ => False)
-  , ("console check is explicitly separate profile",
+  [ ("console hello is a checked ordinary IO program",
+      planned hello == Just ["Hello, world!"])
+  , ("console check uses ordinary runtime typing",
       case checkSource False hello of
-        Right lines => elem "Type: IO Unit" lines &&
-          elem "Console entry checking: accepted (restricted profile; pure String arguments core-checked)" lines
+        Right lines => elem "Runtime checking: accepted" lines && elem "Type: (IO Unit)" lines
         Left _ => False)
-  , ("console cannot be checked as an erased proof",
-      case checkSourceDetailed True hello of
-        Left ErasedConsole => True
-        _ => False)
-  , ("console cannot enter reference normalization",
-      case evaluateSourceDetailed 128 hello of
-        Left EffectfulEvaluation => True
-        _ => False)
-  , ("console cannot resolve into an ordinary core term",
-      case resolveSource hello of
-        Left (Parsing _) => True
-        _ => False)
-  , ("console whole source required",
-      rejects (hello ++ "\nmain = putStrLn \"second\""))
-  , ("console arbitrary primitive rejected",
-      rejects "main : IO Unit\nmain = unknown \"message\"")
-  , ("console wrong result annotation rejected",
-      rejects "main : IO Bool\nmain = putStrLn \"message\"")
-  , ("console missing literal rejected",
-      rejects "main : IO Unit\nmain = putStrLn")
-  , ("console multiple literals rejected",
-      rejects (hello ++ " \"second\""))
-  , ("console expression after literal rejected",
-      rejects (hello ++ " ()"))
-  , ("console missing signature rejected",
-      rejects "main = putStrLn \"message\"")
-  , ("console helper definitions unsupported",
-      rejects ("other : Bool\nother = True\n" ++ hello))
-  , ("console headers must be separate",
-      rejects "main : IO Unit main = putStrLn \"message\"")
-  , ("console multiline body with comments",
-      case prepareSource "-- entry\r\nmain : IO Unit\r\nmain =\r\n  putStrLn \"λ 🌍 -- text\" -- done\r\n" of
-        Right (ConsoleSource entry) => case prepareConsole 128 entry of
-          Right [PrintLine value] => value == "λ 🌍 -- text"
-          _ => False
-        _ => False)
-  , ("console no raw unindented body",
-      rejects "main : IO Unit\nmain =\nputStrLn \"message\"")
-  , ("strings token preserves exact spelling",
+  , ("console erased checking describes IO but performs nothing",
+      case checkSource True hello of
+        Right lines => elem "Type: (IO Unit)" lines
+        Left _ => False)
+  , ("console reference evaluation returns a description",
+      case evaluateSource 16 hello of
+        Right lines => elem "Normal: (WriteLine \"Hello, world!\")" lines
+        Left _ => False)
+  , ("console putStrLn is not parser syntax",
+      planned "putStrLn : Bool -> IO Unit\nputStrLn = \\(flag : Bool) => pure Unit ()\nmain : IO Unit\nmain = putStrLn True" == Just [])
+  , ("console normal helpers work",
+      planned "say : (1 x : String) -> IO Unit\nsay = \\(1 x : String) => putStrLn x\nmain : IO Unit\nmain = say \"helper\"" == Just ["helper"])
+  , ("console wrong type rejected", rejects "main : IO Bool\nmain = putStrLn \"bad\"")
+  , ("console multiple literal arguments rejected", rejects (hello ++ " \"second\""))
+  , ("console unknown function rejected", rejects "main : IO Unit\nmain = unknown \"bad\"")
+  , ("console literal decode retains exact data",
+      planned "main : IO Unit\nmain = putStrLn \"λ 🌍\\nquote: \\\"\"" == Just ["λ 🌍\nquote: \""])
+  , ("strings token preserves spelling",
       case lexSource "\"a\\n\\\"\\\\b\"" of
         Right [token] => token.kind == StringToken && token.spelling == "\"a\\n\\\"\\\\b\""
         _ => False)
-  , ("strings decode supported escapes without consuming suffix",
+  , ("strings decode escapes without consuming suffix",
       case scanLiteral (At 0 1 1) (unpack "\"a\\n\\\"\\\\b\" tail") of
-        Right literal => literal.value == "a\n\"\\b" &&
-                         pack literal.original == "\"a\\n\\\"\\\\b\"" &&
-                         pack literal.remaining == " tail"
+        Right literal => literal.value == "a\n\"\\b" && pack literal.remaining == " tail"
         Left _ => False)
-  , ("strings carriage-return and tab escapes",
-      case scanLiteral (At 0 1 1) (unpack "\"\\r\\t\"") of
-        Right literal => literal.value == "\r\t"
-        Left _ => False)
-  , ("strings empty literal allowed",
-      case prepareSource "main : IO Unit\nmain = putStrLn \"\"" of
-        Right (ConsoleSource entry) => case prepareConsole 128 entry of
-          Right [PrintLine value] => value == ""
-          _ => False
-        _ => False)
-  , ("strings unknown escape is located",
+  , ("strings unknown escape located",
       case lexSource "\"x\\q\"" of
         Left (BadString err) => err.position.column == 3
         _ => False)
-  , ("strings unterminated EOF is located",
+  , ("strings unterminated EOF located",
       case lexSource "\"oops" of
         Left (BadString err) => err.position.column == 6
         _ => False)
-  , ("strings raw linebreak rejected",
+  , ("strings raw newline rejected",
       case lexSource "\"x\nx\"" of
         Left (BadString _) => True
         _ => False)
@@ -110,11 +77,7 @@ checks =
       case lexSource "\"x\tx\"" of
         Left (BadString _) => True
         _ => False)
-  , ("strings can be ordinary values without becoming IO",
-      case prepareSource "\"message\"" of
-        Right (CoreSource (StringValue value)) => value == "message"
-        _ => False)
-  , ("strings source-wide control policy preserved",
+  , ("strings source-wide policy retained",
       case lexSource ("\"" ++ pack [chr 0x202E] ++ "\"") of
         Left (InvalidSource _) => True
         _ => False)

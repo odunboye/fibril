@@ -1,4 +1,4 @@
--- Pure planning: resolve/check/reduce all print arguments before host execution.
+-- Pure interpretation of checked IO descriptions into a complete stdout plan.
 module Fibril.Driver.Console
 
 import Data.List
@@ -6,63 +6,86 @@ import Fibril.Core.Context
 import Fibril.Core.Term
 import Fibril.Core.Runtime
 import Fibril.Core.Reduction
+import Fibril.Core.WeakHead
 import Fibril.Effect.Console
-import Fibril.Source.Syntax
-import Fibril.Source.Lexer
-import Fibril.Source.Text
-import Fibril.Source.Resolve
-import Fibril.Source.Console
+
+import Fibril.Driver.Limits
 
 %default total
 
 public export
-data ArgumentFailure
-  = ArgumentResolution ResolveError
-  | ArgumentTyping RuntimeError
-  | ArgumentReductionLimit
-  | ArgumentRecheck RuntimeError
-  | ArgumentNotLiteral
+data IOPlanError
+  = PlanTyping RuntimeError
+  | PlanDepthLimit
+  | PlanReductionLimit
+  | PlanActionLimit
+  | PlanExpectedString
+  | PlanExpectedUnit
+  | PlanUnsupported (Term 0)
 
 public export
-Show ArgumentFailure where
-  show (ArgumentResolution err) = "Resolution: " ++ show err
-  show (ArgumentTyping err) = "String checking: " ++ show err
-  show ArgumentReductionLimit = "Console argument normalization budget exhausted"
-  show (ArgumentRecheck err) = "Post-reduction String checking failed: " ++ show err
-  show ArgumentNotLiteral = "Console argument did not normalize to a String literal"
+Show IOPlanError where
+  show (PlanTyping err) = "IO planning check: " ++ show err
+  show PlanDepthLimit = "IO planning depth budget exhausted"
+  show PlanReductionLimit = "IO planning reduction budget exhausted"
+  show PlanActionLimit = "IO output action count limit exceeded"
+  show PlanExpectedString = "IO write argument did not normalize to a String literal"
+  show PlanExpectedUnit = "IO main result did not normalize to Unit"
+  show (PlanUnsupported _) = "Unsupported or neutral IO description"
 
-||| Argument-root provenance is not an exact source map for a core subterm error.
-public export
-record ConsoleArgumentError where
-  constructor InArgument
-  span : SourceSpan
-  cause : ArgumentFailure
+record Planned where
+  constructor Result
+  value : Term 0
+  actions : List ConsoleAction
 
-public export
-Show ConsoleArgumentError where
-  show err = "Console argument at " ++ show err.span.start ++ ": " ++ show err.cause
+validate : Term 0 -> Term 0 -> Either IOPlanError ()
+validate term ty = case checkRuntime checkingDepth typeReductionFuel Empty term ty of
+  Left err => Left (PlanTyping err)
+  Right _ => Right ()
 
-prepareArgument : Nat -> Expr -> Either ConsoleArgumentError ConsoleAction
-prepareArgument fuel expression = do
-  let span = extent expression
-  term <- case resolveClosed expression of
-    Left err => Left (InArgument span (ArgumentResolution err))
-    Right term => Right term
-  _ <- case checkRuntime 256 128 Empty term StringType of
-    Left err => Left (InArgument span (ArgumentTyping err))
+normal : Nat -> Term 0 -> Either IOPlanError (Term 0)
+normal fuel term = case normalize fuel term of
+  OutOfFuel _ => Left PlanReductionLimit
+  Normal result => Right result
+
+plan : Nat -> Nat -> Term 0 -> Either IOPlanError Planned
+plan Z fuel term = Left PlanDepthLimit
+plan (S depth) fuel term = do
+  head <- case weakHead fuel term of
+    HeadLimit _ => Left PlanReductionLimit
+    HeadForm head => Right head
+  _ <- case inferRuntime checkingDepth typeReductionFuel Empty head of
+    Left err => Left (PlanTyping err)
     Right checked => Right checked
-  result <- case normalize fuel term of
-    OutOfFuel _ => Left (InArgument span ArgumentReductionLimit)
-    Normal result => Right result
-  _ <- case checkRuntime 256 128 Empty result StringType of
-    Left err => Left (InArgument span (ArgumentRecheck err))
-    Right checked => Right checked
-  case result of
-    StringValue value => Right (PrintLine value)
-    _ => Left (InArgument span ArgumentNotLiteral)
+  case head of
+    IOPure value => Right (Result value [])
+    WriteLine text => do
+      validate text StringType
+      literal <- normal fuel text
+      validate literal StringType
+      case literal of
+        StringValue value => Right (Result UnitValue [PrintLine value])
+        _ => Left PlanExpectedString
+    IOBind a b action next => do
+      first <- plan depth fuel action
+      validate first.value a
+      following <- plan depth fuel (Apply next first.value)
+      validate following.value b
+      let actions = first.actions ++ following.actions
+      if length actions <= 64 then Right (Result following.value actions)
+         else Left PlanActionLimit
+    _ => Left (PlanUnsupported head)
 
-||| Pure all-or-error planning; never execute a successfully prepared prefix.
-||| Fuel bounds each argument's normalization, not total work or checking.
+||| Validate main : IO Unit, plan every effect, and validate the final Unit value.
+||| Depth/head/pure-normalization budgets are not time/allocation bounds.
+||| This planner performs no host IO, even when a later action fails.
 public export
-prepareConsole : Nat -> ConsoleEntry -> Either ConsoleArgumentError (List ConsoleAction)
-prepareConsole fuel entry = traverse (prepareArgument fuel) entry.arguments
+prepareIO : Nat -> Nat -> Term 0 -> Either IOPlanError (List ConsoleAction)
+prepareIO depth fuel term = do
+  validate term (IOType UnitType)
+  result <- plan depth fuel term
+  value <- normal fuel result.value
+  validate value UnitType
+  case value of
+    UnitValue => Right result.actions
+    _ => Left PlanExpectedUnit

@@ -51,13 +51,13 @@ normalizes and passes post-reduction checking under unrestricted permissions.
 files with explicit signature/definition pairs and a main entry. Both are included
 in make examples. See [declaration rules and opacity limits](../docs/declarations.md).
 
-`hello-world.fib` now runs with `fibril run` through the restricted hosted console
-profile. make examples checks it without printing, then executes it. General IO,
-modules, and C/JS backends remain unimplemented; see [the exact profile](../docs/console-runner.md).
+`hello-world.fib` runs with `fibril run` using a checked Fibril putStrLn function.
+make examples checks it without printing, then executes it. Complete IO semantics,
+modules, and C/JS backends remain future work; see [IO functions](../docs/console-runner.md).
 
 `console-sequence.fib` demonstrates a flat console do block. It validates all
-literal print requests before execution and is run by make examples. This is not
-general monadic IO or a new core typing rule.
+output requests before execution and is run by make examples. This uses new
+experimental core IO-description rules, not a complete effect calculus.
 
 `string-identity.fib` uses first-class pure String values in ordinary declarations
 and a linear function. make examples evaluates it to a quoted normal form; this
@@ -65,7 +65,10 @@ does not execute console printing.
 
 `console-expressions.fib` prints results of pure closed String applications,
 conditionals, and local bindings. All arguments are core-checked, reduced and
-rechecked before the first output; it does not enable file-level IO helpers.
+rechecked before the first output. File-level IO helpers are now supported.
+
+`io-functions.fib` uses an ordinary helper and actual Fibril pure/bind/putStrLn
+functions. Only run executes the IO description's prepared stdout requests.
 
 ## Proposed Fibril programs
 

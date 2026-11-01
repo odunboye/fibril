@@ -10,6 +10,8 @@ import Fibril.Core.Context
 import Fibril.Core.Usage
 import Fibril.Core.Reduction
 import Fibril.Core.Runtime
+import Fibril.Driver.Console
+import Fibril.Effect.Console
 
 %default total
 
@@ -194,12 +196,46 @@ closedStringPrograms = property $ do
         Left _ => failure
         Right checked => assert (checked.usage == [])
 
+record IOSample where
+  constructor IOProgram
+  term : Term 0
+  expected : List String
+
+Show IOSample where
+  show sample = renderTerm sample.term ++ " expected writes " ++ show sample.expected
+
+ioSeed : Gen IOSample
+ioSeed = element [IOProgram (IOPure UnitValue) [],
+                  IOProgram (WriteLine (StringValue "output")) ["output"]]
+
+ioPrograms : Nat -> Gen IOSample
+ioPrograms Z = ioSeed
+ioPrograms (S depth) =
+  choice [ioSeed,
+    (\first, rest => IOProgram
+      (IOBind UnitType UnitType first.term
+        (Lambda Linear UnitType (UnitCase (Variable FZ) (weaken rest.term))))
+      (first.expected ++ rest.expected)) <$> ioPrograms depth <*> ioPrograms depth]
+
+ioPlanning : Property
+ioPlanning = property $ do
+  sample <- forAll (ioPrograms 3)
+  case prepareIO 100 100 sample.term of
+    Left _ => failure
+    Right actions => assert (map (\(PrintLine value) => value) actions == sample.expected)
+  case normalize 100 sample.term of
+    OutOfFuel _ => failure
+    Normal normal => case prepareIO 100 100 normal of
+      Left _ => failure
+      Right actions => assert (map (\(PrintLine value) => value) actions == sample.expected)
+
 ||| Sample ordinary resource properties over narrow open-context grammars.
 ||| These are not proofs of quantitative subject reduction or erasure correctness.
 public export
 runRuntimeProperties : IO Bool
 runRuntimeProperties = checkGroup (MkGroup "Fibril runtime usage properties"
-  [ ("closed String programs check and normalize", closedStringPrograms)
+  [ ("IO descriptions plan without executing writes", ioPlanning)
+  , ("closed String programs check and normalize", closedStringPrograms)
   , ("branch permissions survive sampled reduction", preserveBranchPermissions)
   , ("closed Unit programs check and normalize to unit", unitPrograms)
   , ("constructed terms capture linear input once", acceptConstructed)

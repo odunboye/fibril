@@ -27,7 +27,8 @@ This checks source; it does not compile or run a Fibril executable.
 
 ## Grammar
 
-    expr        ::= ifExpr | caseExpr | letExpr | lambda | dependentPi | application [ "->" expr ]
+    expr        ::= doExpr | ifExpr | caseExpr | letExpr | lambda | dependentPi | application [ "->" expr ]
+    doExpr      ::= "do" newline { alignedIndentedUnitAction }
     ifExpr      ::= "if" expr "then" expr "else" expr
     caseExpr    ::= "case" expr "of" "(" ")" "=>" expr
     letExpr     ::= "let" binder "=" expr "in" expr
@@ -53,9 +54,9 @@ This grammar is an explicitly annotated stepping stone, not a final syntax
 promise or an indentation-based declaration implementation.
 
 Quoted strings are now ordinary [String values](strings.md); String is a builtin
-type in Type0. The parser shares literal decoding with the separate console
-profile. This does not introduce IO terms or permit arbitrary core expressions
-as putStrLn arguments in that restricted profile.
+type in Type0. [IO functions](console-runner.md) use this same expression parser:
+putStrLn is an ordinary checked prelude definition, not syntax. Flat do sequences
+Unit-returning actions through linear core Bind/UnitCase continuations.
 
 ## Primitive data
 
@@ -165,11 +166,12 @@ now print bounded [filename/excerpt/caret diagnostics](diagnostics.md) without
 reparsing. Plain-string library APIs remain available alongside structured driver
 errors. Core typing and
 usage errors do not yet map back to exact source spans. The driver uses parser
-budget 256, declaration count 64, checking depth 256, and reduction fuel 128. Exhaustion is failure;
+budget 256, declaration count 64, checking depth 512, and reduction fuel 128. Exhaustion is failure;
 these budgets and the file byte limit are not time/memory guarantees.
 
 Every expected type in the core remains checked; there is no admitted placeholder,
-implicit conversion, declaration axiom, or global-name fallback.
+implicit conversion or declaration axiom. A checked bundled prelude supplies
+closed globals; lexical bindings take precedence. Unknown names still fail.
 
 ## Tests and limitations
 

@@ -65,6 +65,24 @@ mutual
   infer (S depth) reduction context BoolFalse = Right BoolType
   infer (S depth) reduction context StringType = Right (Universe 0)
   infer (S depth) reduction context (StringValue _) = Right StringType
+  infer (S depth) reduction context (IOType ty) = do
+    level <- sortOf depth reduction context ty
+    Right (Universe level)
+  infer (S depth) reduction context (IOPure value) = do
+    ty <- infer depth reduction context value
+    Right (IOType ty)
+  infer (S depth) reduction context (WriteLine text) = do
+    ty <- infer depth reduction context text
+    requireCompatible reduction ty StringType
+    Right (IOType UnitType)
+  infer (S depth) reduction context (IOBind a b action next) = do
+    _ <- sortOf depth reduction context a
+    _ <- sortOf depth reduction context b
+    actionType <- infer depth reduction context action
+    requireCompatible reduction actionType (IOType a)
+    nextType <- infer depth reduction context next
+    requireCompatible reduction nextType (Pi Linear a (weaken (IOType b)))
+    Right (IOType b)
   infer (S depth) reduction context (BoolCase condition yes no) = do
     conditionType <- infer depth reduction context condition
     requireCompatible reduction conditionType BoolType

@@ -1,198 +1,165 @@
-# Hello world: restricted hosted console execution
+# Fibril IO functions and hosted execution
 
-Status: implemented first executable source slice. This is a **restricted console
-entry profile**, not a general IO/effect calculus or C/JavaScript backend.
+Status: ordinary checked Fibril library functions over experimental core IO
+descriptions. The old name-special-casing console parser has been removed.
+Execution is still hosted; there is no C/JS backend or complete effect calculus.
 
-## Run it
+## putStrLn is now a Fibril definition
+
+[stdlib/Prelude.fib](../stdlib/Prelude.fib) contains:
+
+~~~fib
+putStrLn : (1 text : String) -> IO Unit
+putStrLn = \(1 text : String) => primWriteLine text
+~~~
+
+The same file defines pure and bind. These definitions are parsed, resolved, and
+core-checked before becoming available through an implicit bundled prelude.
+putStrLn is not a primitive name or a parser pattern. Local declarations can
+shadow it, and helpers can call it through ordinary function application.
+
+~~~fib
+announce : (1 message : String) -> IO Unit
+announce = \(1 message : String) => putStrLn message
+
+main : IO Unit
+main = bind String Unit (pure String "This is a Fibril library function.")
+         (\(1 message : String) => announce message)
+~~~
+
+Run [that example](../examples/core/io-functions.fib):
 
 ~~~sh
-pack build fibril
+./build/exec/fibril run examples/core/io-functions.fib
 ./build/exec/fibril run examples/core/hello-world.fib
 ~~~
 
-[The source](../examples/core/hello-world.fib):
+The final primitive write still uses [host stdout](../src/Fibril/Runtime/Console.idr).
+A standard-library function ultimately calling an OS/host primitive is expected;
+the removed shortcut was treating its *name* as print syntax.
 
-~~~fib
-main : IO Unit
-main = putStrLn "Hello, world!"
-~~~
+## Core IO descriptions
 
-Output is exactly:
+The ordinary Term datatype now contains:
 
-    Hello, world!
+- IOType A, formed at the same universe level as A.
+- IOPure value, of type IOType A when value has type A.
+- IOBind A B action next, where action : IO A and
+  next : (1 value : A) -> IO B, producing IO B.
+- WriteLine text, requiring String and producing IO Unit.
 
-The runner uses the compiler's host runtime stdout adapter. It does not generate
-a standalone Fibril executable, invoke a shell, require Node/Python, or execute
-foreign code.
+IOType is a type expression, not runtime data. Runtime usage for Pure and
+WriteLine is the operand's usage. Bind adds action and continuation usage; the
+continuation's result parameter is exact-once. Inputs/outputs of bind are
+nondependent; dependent motives are not provided.
 
-## The supported profile
+The source primitive table exposes IO, primPure, primBind, and primWriteLine.
+The current source/prelude interface quantifies A/B : Type0 only. The core IOType
+formation rule does not collapse higher universes or introduce Type : Type.
 
-The entire file must be one explicit main : IO Unit signature and matching
-definition. Its body is either one putStrLn EXPRESSION call or a nonempty flat
-do block of those calls. Every argument must be a closed ordinary expression
-that checks as String and normalizes to a literal. Both headers start in column one on separate lines. The
-signature is on one line; the body may continue on indented lines. Whitespace
-and line comments are supported.
+The only new computation rule is a **pure description** rule:
 
-Arguments support ordinary applications, local let/lambda bindings, conditionals,
-and parentheses. There are still no file-level helper declarations/aliases,
-statement-level bindings, bind/result extraction, callbacks, imports, process
-argument parsing, or other console primitives. IO, do, and putStrLn have
-profile-specific meaning, not general core or monadic functionality.
+    IOBind A B (IOPure value) next --> Apply next value
 
-check validates this complete grammar and reports:
+Reference normalization also computes inside descriptions, but WriteLine never
+calls stdout there. There is no run/unsafePerformIO primitive in the core.
 
-    Console entry checking: accepted (restricted profile; pure String arguments core-checked)
-    Type: IO Unit
+## check, eval, and run are different
 
-The IO wrapper has a fixed validated signature, not a general effect-system
-judgment. Its pure arguments now undergo ordinary core typing/resource checking,
-normalization, and post-reduction checking before action data is produced. No action occurs
-during check. check --erased rejects the profile, as does eval: reference
-normalization never prints or admits IO as proof evidence.
+- check uses ordinary runtime typing/resource checking, including IO programs.
+- check --erased can check an IO description, but grants no runtime permissions.
+- eval may normalize and display a description such as WriteLine "Hello"; it
+  does not perform the write.
+- run requires a runtime-checked IO Unit program and prepares a complete output
+  plan before performing any host writes.
 
-## Compute a String argument
+An IO A description is not evidence of A. In particular, a write request cannot
+check as a Unit proof just because execution will eventually return Unit.
+Erased extraction and linear discard remain rejected when run checks the program.
 
-Run [the expression example](../examples/core/console-expressions.fib):
+## do notation
 
 ~~~fib
 main : IO Unit
 main = do
-  putStrLn ((\(1 text : String) => text) "Hello from a pure function!")
-  putStrLn (if False then "not selected" else "String computation works.")
-  putStrLn (let (1 greeting : String) = "Local bindings work too." in greeting)
+  putStrLn "first"
+  putStrLn "second"
 ~~~
 
-Each argument has its own empty outer context; local bindings inside it work,
-but names do not leak between actions. This does not enable a helper declaration
-before main, or an IO do-level let/bind. Erased extraction and linear discard
-inside arguments are rejected before beta reduction can hide the violation.
-Both branches must type-check, even when the condition is a literal.
+do is now ordinary expression syntax, not part of a separate console entry
+parser. Flat action lines are aligned, indented beyond column one, and each
+action expression fits on one source line. Comments and blank lines are allowed.
+At most 64 statements are accepted per block; empty/nested blocks and <- syntax
+are not implemented.
 
-[Driver.Console](../src/Fibril/Driver/Console.idr) is a pure planning service:
-it resolves the argument, checks it against String, normalizes it, rechecks the
-result, and requires an actual StringValue before constructing PrintLine. The
-default normalization budget is 128 per argument; parser/checking depth is 256,
-with independent type-reduction fuel 128. Exhaustion rejects the plan, never
-executes a prefix, and is not a time/memory bound. The explicit prepareConsole
-budget parameter is a host API, not a new CLI flag.
+Sequencing lowers to core Bind over Unit, with a linear continuation that
+explicitly consumes the previous Unit through UnitCase. No returned linear
+value is silently dropped. For non-Unit results, use the checked bind function
+and annotate the continuation's result parameter with quantity 1.
 
-## Sequence console actions
+Functions, local bindings, ordinary declaration files, and higher-order
+applications can produce descriptions. User declaration values still have the
+existing opaque-let semantics during checking; this is not a module/import
+implementation or a general transparent user-definition environment.
 
-Run [the sequence example](../examples/core/console-sequence.fib):
+## Planning and the effect boundary
+
+[Driver.Console](../src/Fibril/Driver/Console.idr) checks main against IO Unit,
+head-exposes descriptions, checks residual terms, and interprets them into pure
+PrintLine requests. Pure returns supply values; binds feed checked values to
+continuations. String operands are fully normalized and rechecked before output
+data is accepted, and the final result must check and normalize to Unit.
+
+Only after the entire plan succeeds does [Driver.Run](../src/Fibril/Driver/Run.idr)
+invoke the host adapter. A late type/resource failure, unsupported residual,
+or exhausted planning budget executes no output prefix. Actual output failures
+can still be partial; previous writes are not rolled back.
+
+Planning depth is 128; each head/pure reduction call has fuel 128; output plans
+are capped at 64 writes. Core checking depth is 512 (headroom for elaborated
+continuations/library wrappers), with type-reduction fuel 128. Source parsing
+depth remains 256 and the file cap remains 65,536 bytes. These independent limits
+are not total time, allocation, or real-time guarantees.
+
+Only stdout is implemented, so all requests can currently be planned without
+performing effects. Runtime input, nondeterministic actions, foreign results,
+cancellation, and interactive bind execution need a different explicitly designed
+runtime boundary. There is no shell evaluation, general FFI, or sandbox.
+
+run reserves stdout for program output and reports failures on stderr. Represented
+host-write errors stop the sequence; buffering/flush failures, signals, crashes,
+and OS blocking are not a complete structured-error guarantee.
+
+## Bundling and global resolution
+
+[Source.Global](../src/Fibril/Source/Global.idr) stores closed definitions.
+Lexical bindings take precedence; global values are scope-safely embedded into
+the core, not installed as axioms. Only closed unrestricted prelude definitions
+are accepted. User imports, package/module identities, and source maps for these
+globals are future work.
+
+The compiler embeds the actual Fibril prelude source in a generated Idris module,
+so run works outside the repository without finding a library file at runtime.
+After editing stdlib/Prelude.fib:
 
 ~~~sh
-./build/exec/fibril run examples/core/console-sequence.fib
+make prelude
+make test
 ~~~
 
-~~~fib
-main : IO Unit
-main = do
-  putStrLn "Hello, world!"
-  putStrLn "Fibril can sequence console output."
-~~~
+The generated module is committed. make build checks its source/hash consistency;
+direct pack build uses the committed generated module, so regenerate first after
+library edits. Prelude type errors reject source preparation, not admit unchecked
+globals. No dependency install hooks or external packages were introduced.
 
-Actions execute in source order. All action lines must follow do, be indented,
-and start at the same logical column. Each putStrLn and its expression must fit on
-one physical source line. Blank lines/comments may separate actions. A do on its
-own continuation line is supported, with actions further indented. Empty blocks,
-nested do, semicolons, mismatched indentation, and trailing expressions fail.
+## Evidence and remaining gaps
 
-The default parser cap is 64 actions per console entry; a single-print entry
-counts as one. This cap and the file-byte limit are separate from execution-time
-guarantees. The explicit parseConsoleWithBudget API permits testing the boundary.
+Core renaming/substitution proofs have cases for all new constructors. Tests check
+primitive signatures, library compilation, shadowing, normal helpers, bind results,
+universe levels, linear/erased failures, safe description evaluation, late-failure
+output suppression, and portable prelude loading. Generated IO programs compare
+plans before/after reference normalization without executing writes.
 
-The parser builds the **whole action list before execution**. A malformed 65th
-action, unsupported later primitive, or bad later escape does not print the
-earlier valid messages. Once execution begins, a represented output failure stops
-the sequence; prior output is not rolled back. Buffered/OS failures retain the
-limitations below.
-
-This is sequencing of closed pure computations prepared into print requests,
-not general monadic desugaring, effect inference, runtime variable binding, or
-quantitative effect checking across shared action contexts.
-
-## String data
-
-Strings are double-quoted and preserve Unicode data subject to the existing
-source-wide scalar/control policy. Supported escapes:
-
-| Source escape | Decoded value |
-| --- | --- |
-| `\"` | Quote |
-| `\\` | Backslash |
-| `\n` | Line feed |
-| `\r` | Carriage return |
-| `\t` | Tab |
-
-Raw tabs/line breaks, unterminated strings, and unsupported escapes fail with
-located lexical diagnostics. There are no Unicode/numeric escape forms,
-interpolation, multiline strings, or string operations. Ordinary pure String
-values are now supported separately; see [String rules](strings.md).
-A -- inside quotes is data, not a comment.
-
-[Source.StringLiteral](../src/Fibril/Source/StringLiteral.idr) retains original
-spelling separately from decoded data. The shared lexer emits a string token,
-and Parser.literalValue shares decoding with ordinary String expression atoms.
-Decoded data is not evaluated as code.
-
-## Validation before execution
-
-![Console validation is separate from ordinary normalization](diagrams/console-runner.svg)
-
-1. The existing bounded loader reads, strictly decodes, and validates the file.
-2. Shared lexing checks the **entire** source, including string escapes.
-3. [Source.Console](../src/Fibril/Source/Console.idr) consumes all tokens, checks
-   action count/layout, and retains ordinary named argument expressions.
-4. [Driver.Console](../src/Fibril/Driver/Console.idr) prepares the entire checked,
-   normalized String argument list into separate action data, without IO.
-5. [Driver.Run](../src/Fibril/Driver/Run.idr) invokes the
-   [runtime](../src/Fibril/Runtime/Console.idr) only after the full plan succeeds.
-6. The adapter executes each PrintLine through host stdout, in order and stopping
-   on the first represented failure.
-
-Malformed/trailing source cannot execute a valid prefix. Program output goes to
-stdout; run diagnostics go to stderr with nonzero exits. check/eval retain their
-existing diagnostic stream behavior.
-
-Output is not atomic: host writes may fail after partial output. Represented
-fPutStrLn failures propagate, but host crashes, signals, buffering/flush failures,
-blocking, and OS failures are not a complete structured-error guarantee.
-This is not a sandbox or real-time profile.
-
-## Trust and current boundaries
-
-[Effect.Console](../src/Fibril/Effect/Console.idr) contains pure action data,
-separate from Term. No IO constructor or effectful typing/reduction rule is added
-to the ordinary core. Pure StringType/StringValue now exist there, independently
-of this action profile. Console action/entry constructors are host data,
-not unforgeable certificates. The file runner validates fresh source rather than
-accepting caller-constructed action tags as checked programs.
-
-The SourceProgram dispatcher distinguishes CoreSource from ConsoleSource.
-ConsoleSource contains parsed, unchecked expressions until planning succeeds;
-prepareSource alone does not authorize executing any action.
-resolveSource cannot turn a console entry into Term 0, and runtime-source
-preparation refuses console entries before normalization. The core modules do not
-import the console parser, action type, or executor.
-
-The 65,536-byte input limit remains; it is not a time/memory bound. There is no
-general effect inference, resource accounting for effects, first-class IO, native/
-web backend, general FFI, or compiled erasure. Those require an explicit design,
-not extrapolation from one print primitive.
-
-## Tests and next steps
-
-[Tests.Console](../test/src/Tests/Console.idr) covers action validation, string
-decoding/spans, full consumption, malformed input, and the erased/core boundary.
-[Tests.ConsoleSequence](../test/src/Tests/ConsoleSequence.idr) checks do layout,
-count limits, and order. A host callback fault-injection test exercises the actual
-sequencer without touching stdout and verifies that later actions are skipped.
-CLI tests assert exact output, Unicode/escapes, stderr failures with empty stdout,
-and no printing from check/eval. [Tests.ConsoleArguments](../test/src/Tests/ConsoleArguments.idr)
-adds pure applications/lets, argument type/resource failures, and explicit
-normalization exhaustion. Tests include late parse/type/resolution failures and
-exact/over-budget blocks. make examples checks/runs hello world and runs the sequence example.
-
-Next: design the general effect/string representation, variable/bind semantics,
-and real backends without moving effects into trusted normalization.
+These are prototype typing rules, host syntax proofs, and sampled regressions—
+not a completed quantitative IO semantics, typed subject-reduction theorem,
+monad-law proof, correct-erasure proof, cubical IO integration, or backend.
