@@ -25,7 +25,8 @@ This checks source; it does not compile or run a Fibril executable.
 
 ## Grammar
 
-    expr        ::= letExpr | lambda | dependentPi | application [ "->" expr ]
+    expr        ::= caseExpr | letExpr | lambda | dependentPi | application [ "->" expr ]
+    caseExpr    ::= "case" expr "of" "(" ")" "=>" expr
     letExpr     ::= "let" binder "=" expr "in" expr
     lambda      ::= "\" binder "=>" expr
     dependentPi ::= binder "->" expr
@@ -52,7 +53,9 @@ promise or an indentation-based declaration implementation.
 Unit names the first ordinary data type; () is its value. Both are source atoms,
 so `(\\(1 x : Unit) => x) ()` is a checked value-level application. The empty group
 now denotes a constructor rather than an absent expression. See [Unit](unit.md)
-for precise typing, usage, and deliberately omitted eliminator/eta rules.
+for precise typing, usage, explicit single-case elimination, and omitted
+eta/dependent-eliminator rules. `case value of () => body` introduces no pattern
+binders; both children resolve in the same scope. Only the () pattern is supported.
 
 ## Explicit type ascriptions
 

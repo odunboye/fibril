@@ -22,7 +22,7 @@ Usage:
   fibril lex-source PATH        Print tokens/spans for the expression subset
   fibril check PATH             Check a closed expression and runtime usage
   fibril check --erased PATH    Check only the erased ordinary fragment
-  fibril eval PATH              Checked reference normalization (128 beta steps)
+  fibril eval PATH              Checked reference normalization (128 reduction steps)
   fibril eval --fuel N PATH     Reference normalization with fuel 0..4096
 
 An annotated expression subset is supported. Declarations, cubical term checking,

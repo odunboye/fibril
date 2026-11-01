@@ -28,6 +28,7 @@ axioms, or unsafe primitives enter this initial logical fragment.
             | Universe Level
             | UnitType
             | UnitValue
+            | UnitCase Term Term
             | Pi Quantity Term Term
             | Lam Quantity Term Term
             | App Term Term
@@ -50,7 +51,9 @@ tests. Representation alone is not a checker.
 [Unit](unit.md) adds UnitType : Universe 0 and UnitValue : UnitType. Both are
 closed atoms under renaming/substitution and have no reduction rules. Runtime
 UnitValue uses no variables; UnitType, like other type expressions, cannot be
-executed as a value. No eliminator, eta rule, or linear discard is implicit.
+executed as a value. UnitCase explicitly consumes a Unit scrutinee before its
+body, adding their usage; it introduces no binder and contracts on UnitValue.
+No dependent motive, eta rule, or implicit linear discard is provided.
 
 ## Proposed quantity accounting
 

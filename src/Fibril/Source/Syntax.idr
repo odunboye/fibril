@@ -13,6 +13,7 @@ data Expr
   | NSort SourceSpan Nat
   | NUnitType SourceSpan
   | NUnitValue SourceSpan
+  | NUnitCase SourceSpan Expr Expr
   | NPi SourceSpan Quantity String Expr Expr
   | NLambda SourceSpan Quantity String Expr Expr
   | NApply SourceSpan Expr Expr
@@ -26,6 +27,7 @@ extent (NRef span _) = span
 extent (NSort span _) = span
 extent (NUnitType span) = span
 extent (NUnitValue span) = span
+extent (NUnitCase span _ _) = span
 extent (NPi span _ _ _ _) = span
 extent (NLambda span _ _ _ _) = span
 extent (NApply span _ _) = span
@@ -39,6 +41,7 @@ withExtent span (NRef _ name) = NRef span name
 withExtent span (NSort _ level) = NSort span level
 withExtent span (NUnitType _) = NUnitType span
 withExtent span (NUnitValue _) = NUnitValue span
+withExtent span (NUnitCase _ scrutinee body) = NUnitCase span scrutinee body
 withExtent span (NPi _ q name domain body) = NPi span q name domain body
 withExtent span (NLambda _ q name domain body) = NLambda span q name domain body
 withExtent span (NApply _ function argument) = NApply span function argument

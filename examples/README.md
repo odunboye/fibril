@@ -41,6 +41,8 @@ example as well as running the Idris project. It also checks
 `local-identity.fib` demonstrates a typed linear let and is evaluated by
 `make examples` too. `unit.fib` evaluates a checked local Unit value, the
 first ordinary data primitive; this remains reference evaluation, not compiled IO.
+`consume-unit.fib` explicitly eliminates a linear Unit with case/of and is also
+evaluated by `make examples`.
 
 ## Proposed Fibril programs
 

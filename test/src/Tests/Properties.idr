@@ -46,6 +46,7 @@ termGen (S depth) n =
     , Pi <$> quantityGen <*> termGen depth n <*> termGen depth (S n)
     , Lambda <$> quantityGen <*> termGen depth n <*> termGen depth (S n)
     , Apply <$> termGen depth n <*> termGen depth n
+    , UnitCase <$> termGen depth n <*> termGen depth n
     ]
 
 intervalAtom : Gen (Interval Nat)

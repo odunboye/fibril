@@ -19,6 +19,7 @@ examples: build
 	./build/exec/fibril check examples/core/identity-annotated.fib
 	./build/exec/fibril eval examples/core/local-identity.fib
 	./build/exec/fibril eval examples/core/unit.fib
+	./build/exec/fibril eval examples/core/consume-unit.fib
 
 bench:
 	python3 tools/benchmark.py

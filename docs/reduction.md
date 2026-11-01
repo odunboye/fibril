@@ -7,7 +7,7 @@ definitional equality judgment.
 
 [Reduction.idr](../src/Fibril/Core/Reduction.idr) provides:
 
-- step: one deterministic full beta step, or no step for a normal form.
+- step: one deterministic full beta/unit-case step, or no step for a normal form.
 - normalize: bounded repeated stepping, returning Normal or OutOfFuel.
 - betaCompare: normalize both inputs and return EqualNormalForms,
   DifferentNormalForms, or Inconclusive.
@@ -16,7 +16,9 @@ The reducer uses the capture-avoiding substitution in Term.idr. It contracts a
 head lambda application before inspecting its argument or annotation, otherwise
 searches function before argument. In standalone Pi/Lambda terms it searches
 domain before body, reducing under binders. UnitType and UnitValue are stable
-atomic forms: neither adds a reduction, elimination, or eta rule.
+atomic forms. UnitCase UnitValue body contracts to body, introducing an explicit
+single-constructor computation rule but no eta rule. Other cases reduce their
+scrutinee first, then their body when the scrutinee is stuck.
 
 ![Selected static calls](diagrams/calls.svg)
 
@@ -44,7 +46,7 @@ inspection, not a measured universal performance claim.
 
 ## Fuel is not a timeout
 
-Each unit permits one beta step. The reducer checks whether a step is available
+Each fuel unit permits one beta or Unit-case contraction. The reducer checks whether a step is available
 even at zero fuel, so a normal input succeeds at zero and a one-step expression
 succeeds with one unit.
 

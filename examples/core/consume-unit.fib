@@ -1,0 +1,2 @@
+-- Explicit elimination consumes a linear Unit value exactly once.
+(\(1 value : Unit) => case value of () => ()) ()

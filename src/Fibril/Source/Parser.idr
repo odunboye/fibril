@@ -97,7 +97,15 @@ mutual
   expression (S depth) end tokens =
     case tokens of
       token :: rest =>
-        if token.kind == LetKeyword then do
+        if token.kind == CaseKeyword then do
+          (scrutinee, afterScrutinee) <- expression depth end rest
+          (_, afterOf) <- expect OfKeyword end afterScrutinee
+          (_, afterOpen) <- expect OpenParen end afterOf
+          (_, afterClose) <- expect CloseParen end afterOpen
+          (_, afterArrow) <- expect BodyArrow end afterClose
+          (body, remaining) <- expression depth end afterArrow
+          Right (NUnitCase (Between token.span.start (extent body).finish) scrutinee body, remaining)
+        else if token.kind == LetKeyword then do
           header <- binder depth end rest
           (_, afterEquals) <- expect Equals end header.remaining
           (value, afterValue) <- expression depth end afterEquals

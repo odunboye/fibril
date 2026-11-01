@@ -63,6 +63,11 @@ analyze (S depth) reduction context (Apply function argument) = do
       Right (combineUsage functionUsage (scaleUsage q argumentUsage))
     _ => Left (TypingError ExpectedFunction)
 
+analyze (S depth) reduction context (UnitCase scrutinee body) = do
+  scrutineeUsage <- analyze depth reduction context scrutinee
+  bodyUsage <- analyze depth reduction context body
+  Right (combineUsage scrutineeUsage bodyUsage)
+
 ||| A successful prototype result includes its ordinary type and observed usage.
 ||| It is not a proof of erasure correctness or quantitative preservation.
 public export

@@ -48,6 +48,11 @@ erased typed generators include both atoms; an additional runtime property check
 closed Unit programs and their normal forms. The incompatible-expectation property
 uses the recipe's expected type to avoid falsely rejecting the new Unit : Type0 seed.
 
+[Tests.UnitCase](../test/src/Tests/UnitCase.idr) tests explicit Unit elimination,
+including scrutinee validation, resource accounting, exact fuel and weak/full
+reduction differences. Structural, erased typed, and runtime generators include
+UnitCase wrappers in their existing 22 properties.
+
 ## Hedgehog dependency
 
 Repository: https://github.com/stefan-hoeck/idris2-hedgehog

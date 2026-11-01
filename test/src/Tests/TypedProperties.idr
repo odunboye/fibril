@@ -52,6 +52,7 @@ typedGen (S depth) =
     [ seed
     , wrapLambda <$> element [Erased, Linear, Unrestricted] <*> typedGen depth
     , wrapBeta <$> element [Erased, Linear, Unrestricted] <*> typedGen depth
+    , (\sample => Sample (UnitCase UnitValue sample.term) sample.expected) <$> typedGen depth
     ]
 
 accepted : Either CheckError () -> Bool

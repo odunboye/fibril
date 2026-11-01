@@ -24,6 +24,9 @@ renderTerm (Lambda q domain body) =
 renderTerm (Apply function argument) =
   "(" ++ renderTerm function ++ " @ " ++ renderTerm argument ++ ")"
 
+renderTerm (UnitCase scrutinee body) =
+  "(CaseUnit " ++ renderTerm scrutinee ++ " " ++ renderTerm body ++ ")"
+
 ||| Shared representation for diagnostics, examples, and shrinking counterexamples.
 public export
 Show (Term n) where

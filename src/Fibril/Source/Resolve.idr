@@ -40,6 +40,8 @@ resolveIn env (NRef span name) =
 resolveIn env (NSort span level) = Right (Universe level)
 resolveIn env (NUnitType span) = Right UnitType
 resolveIn env (NUnitValue span) = Right UnitValue
+resolveIn env (NUnitCase span scrutinee body) =
+  [| UnitCase (resolveIn env scrutinee) (resolveIn env body) |]
 resolveIn env (NPi span q name domain body) = do
   domain <- resolveIn env domain
   body <- resolveIn (name :: env) body

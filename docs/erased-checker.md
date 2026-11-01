@@ -38,7 +38,7 @@ It does not resolve quantitative cubical soundness.
 - checkErased also verifies that the supplied expected type is itself a type.
 
 Typing depth bounds recursive checking calls. Reduction fuel separately bounds
-beta steps per normalization request. Neither budget bounds total time or memory.
+beta/unit-case contractions per normalization request. Neither budget bounds total time or memory.
 CheckingLimit and ReductionLimit are explicit failures, distinct from actual type
 mismatch. Repeated checks may repeat context validation and normalization; this is
 reference code, not an optimized incremental elaborator.
@@ -50,7 +50,8 @@ formation merely by supplying a scope-correct telescope.
 
 The additional atomic rules are UnitType : Universe 0 and UnitValue : UnitType.
 Both participate in the existing context-formation, compatibility, and scope
-machinery; they do not introduce a new conversion rule. See [Unit](unit.md).
+machinery. UnitCase additionally requires its scrutinee to have Unit type and
+infers its body's type; conversion contracts a case on UnitValue. See [Unit](unit.md).
 
 ## Current trust boundary
 

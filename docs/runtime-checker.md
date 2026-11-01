@@ -47,8 +47,9 @@ this implementation by citation.
 
 UnitValue is runtime data with the zero usage vector. UnitType is a type
 expression and is rejected as runtime data. A Unit literal cannot consume an
-unused ambient linear variable. There is no special eta/elimination rule allowing
-linear Unit values to be discarded. See [Unit rules](unit.md).
+unused ambient linear variable. Explicit UnitCase combines scrutinee and body
+usage, providing a checked way to consume a linear Unit. There is still no eta
+rule or implicit discard. See [Unit rules](unit.md).
 
 ## Supported boundary
 

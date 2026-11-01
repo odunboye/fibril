@@ -125,6 +125,15 @@ class CLITests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("Parsing:", result.stdout)
 
+    def test_unit_elimination(self):
+        result = run("eval", "--fuel", "2", "examples/core/consume-unit.fib")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Normal: ()", result.stdout)
+        result = run("eval", "--fuel", "1", "examples/core/consume-unit.fib")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("budget exhausted", result.stdout)
+        self.assertNotIn("Normal:", result.stdout)
+
     def test_unit_value_program(self):
         result = run("eval", "examples/core/unit.fib")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

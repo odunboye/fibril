@@ -69,6 +69,11 @@ mutual
         Right (instantiateTerm argument body)
       _ => Left ExpectedFunction
 
+  infer (S depth) reduction context (UnitCase scrutinee body) = do
+    scrutineeType <- infer depth reduction context scrutinee
+    requireCompatible reduction scrutineeType UnitType
+    infer depth reduction context body
+
   sortOf : Nat -> Nat -> Context n -> Term n -> Either CheckError Nat
   sortOf depth reduction context term = do
     ty <- infer depth reduction context term

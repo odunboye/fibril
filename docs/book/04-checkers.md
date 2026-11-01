@@ -58,7 +58,8 @@ No admitted holes or arbitrary axioms fill failed obligations.
 `fibril eval examples/core/unit.fib` checks a typed linear local binding and
 returns `Normal: ()` at type Unit. The literal contributes zero usage; this does
 not allow it to discard an ambient linear variable. See [Unit](../unit.md) for
-the two new atomic typing rules and the omitted eta/elimination principles.
+the atomic typing rules, explicit case elimination, and omitted eta/dependent
+elimination principles.
 
 ## State the expected type in source
 
