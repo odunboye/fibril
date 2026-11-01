@@ -127,6 +127,39 @@ class CLITests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("Parsing:", result.stdout)
 
+    def test_console_do_sequence(self):
+        result = run("run", "examples/core/console-sequence.fib")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout, "Hello, world!\nFibril can sequence console output.\n")
+        self.assertEqual(result.stderr, "")
+        result = run("check", "examples/core/console-sequence.fib")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertNotIn("Hello, world!", result.stdout)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "sequence.fib"
+            prefix = 'main : IO Unit\nmain = do\n  putStrLn "first"\n'
+            invalid = [
+                prefix + '  unknown "must not print"\n',
+                prefix + '   putStrLn "bad indent"\n',
+                prefix + 'putStrLn "dedented"\n',
+                prefix + '  putStrLn "bad\\q"\n',
+                prefix + '  putStrLn "ok" ()\n',
+                'main : IO Unit\nmain = do\n',
+                'main : IO Unit\nmain = do\n' + '  putStrLn "quota"\n' * 65,
+            ]
+            for source in invalid:
+                with self.subTest(source=source):
+                    path.write_text(source, encoding="utf-8")
+                    result = run("run", str(path))
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertEqual(result.stdout, "")
+                    self.assertIn(str(path), result.stderr)
+            path.write_text('main : IO Unit\nmain = do\n' + '  putStrLn "quota"\n' * 64,
+                            encoding="utf-8")
+            result = run("run", str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, "quota\n" * 64)
+
     def test_hello_world_runner(self):
         result = run("run", "examples/core/hello-world.fib")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

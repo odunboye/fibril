@@ -27,6 +27,8 @@ FIXTURE = [
     '"raw\ttab"',
     '  notAHeader : Bool',
     "name' : Bool",
+    "main = do",
+    "do'",
 ]
 
 
@@ -82,6 +84,8 @@ QUERIES = [
     (point(13, "\t"), "fibrilRawControl"),
     (point(14, "notAHeader"), ""),
     (point(15, "name'"), "fibrilDeclaration"),
+    (point(16, "do"), "fibrilConsoleKeyword"),
+    (point(17, "do'"), ""),
 ]
 
 

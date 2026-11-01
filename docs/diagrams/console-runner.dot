@@ -4,8 +4,8 @@ digraph ConsoleRunner {
   source [label="Bounded validated source"];
   lexer [label="Shared lexer\nstrings + escapes"];
   profile [label="Complete console-entry validation"];
-  action [label="Separate PrintLine data"];
-  host [label="Host stdout adapter"];
+  action [label="Complete list of PrintLine requests"];
+  host [label="Host stdout adapter\nordered, stop on represented error"];
   core [label="Ordinary core checking / normalization"];
   source -> lexer -> profile -> action -> host;
   lexer -> core [label="ordinary source only"];

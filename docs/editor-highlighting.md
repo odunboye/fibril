@@ -116,7 +116,7 @@ not a complete LazyVim distribution or its third-party plugins.
 - ASCII and Unicode lambda/arrows, annotations, and delimiters.
 - Numbers, with contextual 0/1 quantity highlighting.
 - Column-one declaration names, including quantity-prefixed headers.
-- Console-profile IO and putStrLn spellings.
+- Console-profile IO, do, and putStrLn spellings.
 - Strings, supported escapes, unknown escapes, and invalid raw tabs.
 - Line comments and TODO/FIXME/NOTE/XXX markers.
 
@@ -134,7 +134,7 @@ highlight link fibrilQuantity Special
 highlight link fibrilDeclaration Identifier
 ~~~
 
-IO/putStrLn highlighting does not make those names available in ordinary core
+IO/do/putStrLn highlighting does not make those names available in ordinary core
 terms; they only have builtin meaning in the restricted console profile.
 Declaration highlighting does not infer whether a name denotes a function,
 type, or value. Invalid source can still receive plausible colors.

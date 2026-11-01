@@ -6,6 +6,7 @@
     <list name="types"><item>Type</item><item>Unit</item><item>Bool</item><item>IO</item></list>
     <list name="constructors"><item>True</item><item>False</item></list>
     <list name="console"><item>putStrLn</item></list>
+    <list name="consoleKeywords"><item>do</item></list>
     <contexts>
       <context name="Normal" attribute="Normal" lineEndContext="#stay">
         <StringDetect String="--" attribute="Comment" context="Comment"/>
@@ -14,6 +15,7 @@
         <keyword String="types" attribute="Type"/>
         <keyword String="constructors" attribute="Constructor"/>
         <keyword String="console" attribute="Function"/>
+        <keyword String="consoleKeywords" attribute="Keyword"/>
         <RegExpr String="\b[01](?=\s+[A-Za-z_][A-Za-z0-9_']*\s*:)" attribute="Quantity"/>
         <RegExpr String="[0-9]+" attribute="Number"/>
         <RegExpr String="-&gt;|=&gt;|[\\=:λ→⇒]" attribute="Operator"/>

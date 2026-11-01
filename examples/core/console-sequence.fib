@@ -1,0 +1,5 @@
+-- All actions are validated before either is executed.
+main : IO Unit
+main = do
+  putStrLn "Hello, world!"
+  putStrLn "Fibril can sequence console output."

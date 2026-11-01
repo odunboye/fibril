@@ -32,7 +32,8 @@ transparent globals; all limitations and column-one framing rules are explicit.
 For [hello world](console-runner.md), use run: check validates the console profile
 without printing, while eval and check --erased reject effects. run reserves
 stdout for program output and sends failures to stderr. It is hosted execution,
-not generated C/JS or general IO typing.
+not generated C/JS or general IO typing. Flat do blocks can sequence up to 64
+literal print requests, with complete validation before any action.
 
 ## Source diagnostics
 

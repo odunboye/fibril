@@ -25,8 +25,9 @@ checks : List (String, Bool)
 checks =
   [ ("console hello produces action data",
       case prepareSource hello of
-        Right (ConsoleSource entry) => case entry.action of
-          PrintLine value => value == "Hello, world!"
+        Right (ConsoleSource entry) => case entry.actions of
+          [PrintLine value] => value == "Hello, world!"
+          _ => False
         _ => False)
   , ("console check is explicitly separate profile",
       case checkSource False hello of
@@ -65,8 +66,9 @@ checks =
       rejects "main : IO Unit main = putStrLn \"message\"")
   , ("console multiline body with comments",
       case prepareSource "-- entry\r\nmain : IO Unit\r\nmain =\r\n  putStrLn \"λ 🌍 -- text\" -- done\r\n" of
-        Right (ConsoleSource entry) => case entry.action of
-          PrintLine value => value == "λ 🌍 -- text"
+        Right (ConsoleSource entry) => case entry.actions of
+          [PrintLine value] => value == "λ 🌍 -- text"
+          _ => False
         _ => False)
   , ("console no raw unindented body",
       rejects "main : IO Unit\nmain =\nputStrLn \"message\"")
@@ -86,8 +88,9 @@ checks =
         Left _ => False)
   , ("strings empty literal allowed",
       case prepareSource "main : IO Unit\nmain = putStrLn \"\"" of
-        Right (ConsoleSource entry) => case entry.action of
-          PrintLine value => value == ""
+        Right (ConsoleSource entry) => case entry.actions of
+          [PrintLine value] => value == ""
+          _ => False
         _ => False)
   , ("strings unknown escape is located",
       case lexSource "\"x\\q\"" of

@@ -221,9 +221,10 @@ class TextbookTests(unittest.TestCase):
     def test_fibril_grammar_handles_keywords_comments_and_escapes(self):
         rendered = build_handbook.render_markdown(
             '```fib\nif True then putStrLn "-- Type\\n\\q" else False\n'
-            "-- comment\nif' Type0\n```\n")
+            "-- comment\nif' Type0\nmain = do\n```\n")
         self.assertIn('<span class="kw">if</span>', rendered)
         self.assertIn('<span class="co">-- comment</span>', rendered)
+        self.assertIn('<span class="kw">do</span>', rendered)
         self.assertIn('<span class="sc">\\n</span>', rendered)
         self.assertIn('<span class="er">\\q</span>', rendered)
         self.assertNotIn('<span class="kw">if</span>\'', rendered)

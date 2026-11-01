@@ -25,6 +25,7 @@ pack test fibril
 ./build/exec/fibril --help
 ./build/exec/fibril demo
 ./build/exec/fibril run examples/core/hello-world.fib
+./build/exec/fibril run examples/core/console-sequence.fib
 ./build/exec/fibril check examples/core/identity.fib
 ./build/exec/fibril eval examples/core/evaluate-identity.fib
 ./build/exec/fibril eval examples/core/unit.fib

@@ -117,6 +117,12 @@ Handbook highlighting regressions cover Idris/Fibril token spans, stable source
 line anchors and exact text (including blank lines), HTML/fence safety, and
 light/dark token contrast. These use the existing local Pandoc prerequisite.
 
+[Tests.ConsoleSequence](../test/src/Tests/ConsoleSequence.idr) checks console do
+blocks, exact/over-budget action counts, layout, and separation from proofs and
+normalization. IORef-backed fault injection verifies the production sequencer's
+order and first-error stopping behavior without stdout. CLI tests ensure late
+source errors execute no prefix. Randomized-property counts are unchanged.
+
 ## Hedgehog dependency
 
 Repository: https://github.com/stefan-hoeck/idris2-hedgehog

@@ -5,9 +5,9 @@ Implemented:
 - `src/Fibril/Source/Diagnostic.idr`: bounded, escaped scalar-point excerpts; no invented core spans or LSP coordinates.
 - `src/Fibril/Source/Syntax.idr`: named expression AST with spans.
 - `src/Fibril/Source/StringLiteral.idr`: raw/decoded quoted data, supported escapes, and located failures; not a core string type.
-- `src/Fibril/Source/Console.idr`: complete validation of the restricted console entry profile.
+- `src/Fibril/Source/Console.idr`: complete validation of restricted literal console entries and bounded flat do blocks.
 - `src/Fibril/Effect/Console.idr`: pure action data, separate from ordinary terms.
-- `src/Fibril/Runtime/Console.idr`: host stdout adapter; no core normalization hooks.
+- `src/Fibril/Runtime/Console.idr`: host stdout adapter and first-error action sequencer; no core normalization hooks.
 - `src/Fibril/Driver/Run.idr`: validate whole source, then execute console actions; failures do not execute prefixes.
 - `src/Fibril/Source/Declaration.idr`: column-one signature/definition framing, source-order scope, fixed main entry, and typed-let lowering; no transparent globals/modules.
 - `src/Fibril/Source/Parser.idr`: bounded expression grammar, no declaration/layout parsing.

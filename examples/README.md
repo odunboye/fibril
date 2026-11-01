@@ -55,6 +55,10 @@ in make examples. See [declaration rules and opacity limits](../docs/declaration
 profile. make examples checks it without printing, then executes it. General IO,
 modules, and C/JS backends remain unimplemented; see [the exact profile](../docs/console-runner.md).
 
+`console-sequence.fib` demonstrates a flat console do block. It validates all
+literal print requests before execution and is run by make examples. This is not
+general monadic IO or a new core typing rule.
+
 ## Proposed Fibril programs
 
 `proposed/` illustrates the intended user experience, from hello world and

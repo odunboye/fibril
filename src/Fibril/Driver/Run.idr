@@ -25,7 +25,7 @@ runFile path = do
         Right (CoreSource _) => pure (Left (renderFileError path
           "run currently requires a main : IO Unit console entry; use eval for ordinary programs"))
         Right (ConsoleSource entry) => do
-          result <- executeConsole entry.action
+          result <- executeConsoleActions entry.actions
           pure $ case result of
             Left err => Left (renderFileError path err)
             Right () => Right ()

@@ -12,6 +12,7 @@ syntax keyword fibrilKeyword let in case of if then else
 syntax keyword fibrilType Type Unit Bool
 syntax keyword fibrilBoolean True False
 " These names only have builtin meaning in the restricted console profile.
+syntax keyword fibrilConsoleKeyword do
 syntax keyword fibrilConsoleType IO
 syntax keyword fibrilConsoleFunction putStrLn
 
@@ -35,6 +36,7 @@ syntax match fibrilComment /--.*$/ contains=fibrilTodo,@Spell
 highlight default link fibrilKeyword Keyword
 highlight default link fibrilType Type
 highlight default link fibrilBoolean Boolean
+highlight default link fibrilConsoleKeyword Keyword
 highlight default link fibrilConsoleType Type
 highlight default link fibrilConsoleFunction Function
 highlight default link fibrilNumber Number

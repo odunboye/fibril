@@ -28,14 +28,15 @@ foreign code.
 ## The supported profile
 
 The entire file must be one explicit main : IO Unit signature and matching
-main = putStrLn STRING definition. Both headers start in column one on separate
-lines. The signature is on one line; the body may continue on indented lines.
-Whitespace and line comments are supported.
+definition. Its body is either one putStrLn STRING call or a nonempty flat do
+block of those calls. Both headers start in column one on separate lines. The
+signature is on one line; the body may continue on indented lines. Whitespace
+and line comments are supported.
 
-There are no helper declarations, aliases, arbitrary applications, parentheses
-around the argument, do blocks, sequencing, callbacks, imports, argument parsing,
-or other console primitives. IO and putStrLn are recognized names in this profile,
-not general core constants or globally available functions.
+There are no helper declarations, aliases, variables as print arguments, arbitrary
+applications, parentheses around arguments, bind/result extraction, callbacks,
+imports, argument parsing, or other console primitives. IO, do, and putStrLn have
+profile-specific meaning, not general core or monadic functionality.
 
 check validates this complete grammar and reports:
 
@@ -46,6 +47,40 @@ This is structural validation of a fixed primitive signature and literal argumen
 not ordinary core typing or a quantitative effect-system proof. No action occurs
 during check. check --erased rejects the profile, as does eval: reference
 normalization never prints or admits IO as proof evidence.
+
+## Sequence console actions
+
+Run [the sequence example](../examples/core/console-sequence.fib):
+
+~~~sh
+./build/exec/fibril run examples/core/console-sequence.fib
+~~~
+
+~~~fib
+main : IO Unit
+main = do
+  putStrLn "Hello, world!"
+  putStrLn "Fibril can sequence console output."
+~~~
+
+Actions execute in source order. All action lines must follow do, be indented,
+and start at the same logical column. Each putStrLn and its literal must fit on
+one physical source line. Blank lines/comments may separate actions. A do on its
+own continuation line is supported, with actions further indented. Empty blocks,
+nested do, semicolons, mismatched indentation, and trailing expressions fail.
+
+The default parser cap is 64 actions per console entry; a single-print entry
+counts as one. This cap and the file-byte limit are separate from execution-time
+guarantees. The explicit parseConsoleWithBudget API permits testing the boundary.
+
+The parser builds the **whole action list before execution**. A malformed 65th
+action, unsupported later primitive, or bad later escape does not print the
+earlier valid messages. Once execution begins, a represented output failure stops
+the sequence; prior output is not rolled back. Buffered/OS failures retain the
+limitations below.
+
+This is sequencing of closed literal requests, not general monadic desugaring,
+effect inference, runtime variable binding, or quantitative effect checking.
 
 ## String data
 
@@ -76,11 +111,12 @@ evaluated as code.
 
 1. The existing bounded loader reads, strictly decodes, and validates the file.
 2. Shared lexing checks the **entire** source, including string escapes.
-3. [Source.Console](../src/Fibril/Source/Console.idr) consumes all tokens and
-   produces a separate ConsoleEntry/action.
+3. [Source.Console](../src/Fibril/Source/Console.idr) consumes all tokens, checks
+   action count/layout, and produces a separate ConsoleEntry/action list.
 4. [Driver.Run](../src/Fibril/Driver/Run.idr) invokes
    [Runtime.Console](../src/Fibril/Runtime/Console.idr) only after validation.
-5. The adapter executes PrintLine through host stdout.
+5. The adapter executes each PrintLine through host stdout, in order and stopping
+   on the first represented failure.
 
 Malformed/trailing source cannot execute a valid prefix. Program output goes to
 stdout; run diagnostics go to stderr with nonzero exits. check/eval retain their
@@ -113,8 +149,12 @@ not extrapolation from one print primitive.
 
 [Tests.Console](../test/src/Tests/Console.idr) covers action validation, string
 decoding/spans, full consumption, malformed input, and the erased/core boundary.
+[Tests.ConsoleSequence](../test/src/Tests/ConsoleSequence.idr) checks do layout,
+count limits, and order. A host callback fault-injection test exercises the actual
+sequencer without touching stdout and verifies that later actions are skipped.
 CLI tests assert exact output, Unicode/escapes, stderr failures with empty stdout,
-and no printing from check/eval. make examples checks and runs hello world.
+and no printing from check/eval. They include late failures and exact/over-budget
+blocks. make examples checks/runs hello world and runs the sequence example.
 
-Next: design the general effect/string representation and sequencing rules, then
-implement real backends without moving effects into trusted normalization.
+Next: design the general effect/string representation, variable/bind semantics,
+and real backends without moving effects into trusted normalization.

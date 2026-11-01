@@ -15,3 +15,21 @@ executeConsole (PrintLine text) = do
   pure $ case result of
     Left err => Left ("Console output failed: " ++ show err)
     Right () => Right ()
+
+||| Sequence host actions left-to-right, stopping on the first represented error.
+||| The callback boundary permits deterministic fault-injection tests; it is not
+||| a source FFI, an atomic transaction, or a core normalization operation.
+public export
+sequenceConsole : (ConsoleAction -> IO (Either String ())) ->
+                  List ConsoleAction -> IO (Either String ())
+sequenceConsole perform [] = pure (Right ())
+sequenceConsole perform (action :: rest) = do
+  result <- perform action
+  case result of
+    Left err => pure (Left err)
+    Right () => sequenceConsole perform rest
+
+||| Execute a fully prepared console plan. Source validation belongs to the driver.
+public export
+executeConsoleActions : List ConsoleAction -> IO (Either String ())
+executeConsoleActions = sequenceConsole executeConsole
