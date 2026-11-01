@@ -25,5 +25,12 @@ rankdir=LR; node [shape=box,style=rounded,fontsize=10];
 "Reduction.betaCompare" -> {"Reduction.normalize" "Term.sameSyntax"};
 "Reduction.normalize" -> "Reduction.step";
 "Reduction.step" -> "Term.instantiateTerm";
+"Erased.inferErased" -> {"Erased.formation" "Erased.infer"};
+"Erased.checkErased" -> {"Erased.formation" "Erased.sortOf" "Erased.infer" "Erased.compareTypes"};
+"Erased.formation" -> "Erased.sortOf";
+"Erased.infer" -> {"Context.lookupType" "Erased.sortOf" "Erased.normalType" "Erased.compareTypes" "Term.instantiateTerm"};
+"Erased.sortOf" -> {"Erased.infer" "Erased.normalType"};
+"Erased.normalType" -> "Reduction.normalize";
+"Erased.compareTypes" -> "Reduction.betaCompare";
 label="Selected static calls — curated, not exhaustive";
 }

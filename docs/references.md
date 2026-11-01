@@ -2,7 +2,8 @@
 
 References explain provenance and intended foundations. **Citing a paper does
 not transfer its soundness results to Fibril.** Our combined quantitative cubical
-calculus is still unresolved; no full checker or correctness proof exists.
+calculus is still unresolved; only an erased ordinary prototype exists, not a
+full checker or correctness proof.
 
 ## Code-to-theory map
 
@@ -13,6 +14,7 @@ as intended rather than existing checker functionality.
 | Code | Reference | Application: what we do with the theory | Purpose and role in Fibril | What is not established |
 | --- | --- | --- | --- | --- |
 | [Quantity](../src/Fibril/Core/Quantity.idr) | ATKEY18 §2.1.1; MCBRIDE16 | Represent erased, exact-once, and unrestricted usage; combine and scale coefficients using the zero/one/many semiring. | Resource-accounting foundation for intended linear checking and erasure: distinguish type-only information from runtime resources and detect duplication or discarding of linear inputs. | The local allows policy is not a complete QTT judgment or justified subusage relation; no program usage checker exists. |
+| [Erased](../src/Fibril/Core/Erased.idr) | ATKEY18 §2.1.3; DEBRUIJN72 | Check context formation, universes, Pi/lambda/application in erased mode using scoped substitution and beta comparison. | First experimental type-checking service for type-only ordinary terms; separates logical checking infrastructure from unresolved runtime usage rules. | No full QTT/CCHM implementation, runtime resource validation, cubical terms, or soundness proof. |
 | [Reduction](../src/Fibril/Core/Reduction.idr) | DEBRUIJN72; ATKEY18 as preservation background | Contract beta redexes using lifted substitution; compare normal forms with explicit fuel exhaustion. | Reference computation service for developing ordinary typed conversion without assuming arbitrary scoped terms terminate. | Fuel strategy is our choice; no eta/cubical conversion, normalization theorem, typed/quantitative preservation proof, or time bound. |
 | [Context](../src/Fibril/Core/Context.idr) | ATKEY18 §2.1.3; DEBRUIJN72 | Store telescopes, shift dependent domains during lookup, and validate complete usage vectors. | Context infrastructure for future formation/inference judgments; preserves scope and identifies resource-policy failures by index. | Stored domains are not yet checked as types; the local permission policy is not a proved subusage calculus. |
 | [Usage](../src/Fibril/Core/Usage.idr) | ATKEY18 §§2.1.1–2.1.3 | Represent mode-indexed variable use and combine/scale usage vectors; discharge the newest binder with a structured mismatch. | Accounting infrastructure for a future checker that distinguishes erased type information from runtime resource consumption. | Local helpers do not establish full context typing, subusage soundness, erased-vector invariants, or cubical resource rules. |

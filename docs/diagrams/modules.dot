@@ -5,5 +5,6 @@ NormalForm -> Interval; Face -> Interval;
 Scope -> {Interval Face}; Restriction -> {Interval Scope};
 Term -> Quantity; Usage -> Quantity; Context -> {Quantity Term Usage};
 Reduction -> Term;
+Erased -> {Quantity Term Context Reduction};
 label="Implemented direct Fibril imports (importer → dependency)";
 }

@@ -1,0 +1,65 @@
+# Experimental erased ordinary checker
+
+Status: implemented prototype, **not the complete Fibril kernel**.
+
+[Erased.idr](../src/Fibril/Core/Erased.idr) checks the ordinary Pi/lambda fragment
+in erased mode. It supplies context formation, type inference, and checking
+against a separately validated expected type.
+
+## Supported rules
+
+- Universe l has type Universe (l+1), with literal levels and no cumulativity.
+- Pi formation checks both domains as types and takes the maximum level.
+- Lambda inference checks its annotation and infers its body's type.
+- Variable lookup shifts dependent domains into the current scope.
+- Application exposes a Pi, checks the argument, and substitutes into its codomain.
+- Checking compares inferred/expected types by bounded full beta normalization.
+
+Binder quantities remain in types and must match structurally during comparison.
+No eta conversion, implicit quantity coercions, or subtyping is provided.
+
+## Why erased first?
+
+The checker allows type-only reasoning without consuming runtime resources.
+It does not invoke runtime usage validation and does not return permission to
+execute, duplicate, or erase values. A linear binder may be discarded in this
+erased judgment; a future runtime judgment must separately reject invalid use.
+
+This keeps the unresolved unrestricted/subusage policy out of the first checker.
+It does not resolve quantitative cubical soundness.
+
+## Entry points and budgets
+
+- checkErasedContext validates the entire telescope.
+- inferErased validates the context before inference.
+- checkErased also verifies that the supplied expected type is itself a type.
+
+Typing depth bounds recursive checking calls. Reduction fuel separately bounds
+beta steps per normalization request. Neither budget bounds total time or memory.
+CheckingLimit and ReductionLimit are explicit failures, distinct from actual type
+mismatch. Repeated checks may repeat context validation and normalization; this is
+reference code, not an optimized incremental elaborator.
+
+The internal inference helper is private, so public callers cannot bypass context
+formation merely by supplying a scope-correct telescope.
+
+## Current trust boundary
+
+No parser, declarations, general recursion, partial escape hatch, axioms, Void,
+inductive definitions, path terms, composition, or Glue is implemented here.
+No normalization, consistency, or checker-correctness proof is claimed.
+
+The [ordinary checking plan](ordinary-checking.md) covers the broader intended
+system. [ATKEY18](references.md#atkey18) motivates erased judgments, but this is
+a small beta-only ordinary prototype, not a verbatim implementation of QTT or
+the CCHM calculus.
+
+## Validation
+
+[Tests.Erased](../test/src/Tests/Erased.idr) checks polymorphic identity, dependent
+application/lookup, beta conversion, universe separation, invalid contexts,
+invalid expected types, quantity disagreement, and explicit budget failures.
+Successful tests are not a metatheoretic proof.
+
+Next: strengthen substitution/conversion property tests and design the runtime
+judgment without conflating erased checking with resource-safe execution.

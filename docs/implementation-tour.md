@@ -1,7 +1,8 @@
 # Implementation tour
 
-Fibril is currently an Idris 2 bootstrap project. It has useful syntax and
-algebra infrastructure, **not a working Fibril language checker or compiler**.
+Fibril is currently an Idris 2 bootstrap project with syntax/algebra infrastructure
+and an **experimental erased ordinary checker**, not a complete Fibril language
+checker or compiler.
 
 ![Implemented module dependencies](diagrams/modules.svg)
 
@@ -65,9 +66,14 @@ how future inference differs from final context-permission validation.
 [Reduction](../src/Fibril/Core/Reduction.idr) performs bounded full beta reduction
 and three-way normal-form comparison. [The reduction guide](reduction.md)
 explains why exhaustion is inconclusive and why fuel is not a timing bound.
-The language still has no typed conversion or inference checker.
+The [erased checker](erased-checker.md) now uses beta comparison for a small
+ordinary fragment; runtime quantitative and cubical checking remain absent.
 
 ## Trust and current limits
+
+The [experimental erased checker](../src/Fibril/Core/Erased.idr) validates
+ordinary types and terms, including context formation, with explicit budgets.
+Its success is not runtime resource permission or cubical proof validation.
 
 All these modules are implemented in Idris 2. Tests cover examples and finite
 corpora; they do not establish metatheory. No quantitative cubical soundness,

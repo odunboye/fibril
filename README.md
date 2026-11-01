@@ -3,8 +3,10 @@
 An experimental Idris-like language implemented in Idris 2, targeting a
 quantitative De Morgan cubical core, C/JavaScript backends, and embedded profiles.
 
-**Status:** bootstrap skeleton only. No Fibril parser, checker, cubical rules,
+**Status:** experimental core infrastructure with an erased ordinary-fragment
+checker. No surface parser, runtime quantitative checker, cubical term checker,
 compiler backend, or real-time guarantees are implemented.
+See [checker scope and limits](docs/erased-checker.md).
 
 ## Build
 

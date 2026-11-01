@@ -1,7 +1,8 @@
 # Ordinary core: context and checking plan
 
-Status: proposed checking specification. Context storage and usage validation
-exist; inference, checking, and conversion do not.
+Status: broader proposed specification. An [experimental erased ordinary
+checker](erased-checker.md) now implements context formation, inference/checking,
+and beta-only comparison. Runtime quantitative and cubical checking remain open.
 
 See [ATKEY18 §§2.1–2.3](references.md#atkey18) for the erased/present distinction
 and substitution requirements. This draft makes implementation obligations
@@ -19,8 +20,8 @@ require that Gamma is well formed and A checks as a type in erased mode.
 The coefficient q records runtime permission; it must not prevent references
 to the variable when checking types.
 
-Context.idr enforces scope structure only. Its constructors can store an ill-typed
-domain; only a future formation judgment may establish well-formedness.
+Context.idr enforces scope structure only; its constructors can store ill-typed
+domains. Erased.checkErasedContext now validates domains in preceding contexts.
 
 ## Dependent lookup
 
