@@ -3,6 +3,7 @@ module Main
 import System
 import Data.List
 import Fibril.Driver.Demo
+import Fibril.Source.File
 
 %default total
 
@@ -14,6 +15,7 @@ Usage:
   fibril --help
   fibril --version
   fibril demo       Run built-in ordinary checking and cubical algebra examples
+  fibril validate-source PATH   Validate UTF-8 and source controls (not typing)
 
 Experimental core checkers exist. Source parsing, cubical term checking,
 and C/JavaScript compilation are not implemented yet.
@@ -26,6 +28,13 @@ main = do
     [] => putStrLn help
     ["--help"] => putStrLn help
     ["--version"] => putStrLn "Fibril 0.1.0-dev (Idris 2 bootstrap)"
+    ["validate-source", path] => do
+      result <- loadSource path
+      case result of
+        Right _ => putStrLn "Source text valid (UTF-8 and control policy only; not type checked)."
+        Left err => do
+          putStrLn (show err)
+          exitFailure
     ["demo"] =>
       case demoReport of
         Right lines => traverse_ putStrLn lines

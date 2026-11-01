@@ -7,9 +7,13 @@ Build with `pack build fibril`, then invoke `./build/exec/fibril`.
 | --help (or no arguments) | Show available commands and implementation limits |
 | --version | Show bootstrap version |
 | demo | Run built-in ordinary checking and cubical algebra examples |
+| validate-source PATH | Strictly decode a bounded UTF-8 file and validate source controls; not parsing/typing |
 
 Unsupported commands and arguments exit nonzero. There is no file-based check,
 build, or run command yet; pack builds the Idris implementation, not Fibril source.
+
+The [Unicode source guide](unicode-source.md) specifies byte/scalar offsets,
+control policy, file-size limits, and concurrent-read limitations.
 
 ## Follow the demo
 

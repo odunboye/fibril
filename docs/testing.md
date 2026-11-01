@@ -19,7 +19,10 @@ as evidence for runtime safety.
 
 [Tests.SourceText](../test/src/Tests/SourceText.idr) covers Unicode preservation,
 selected forbidden controls, CRLF/tab handling, and scalar error locations.
-These tests operate on decoded strings, not malformed UTF-8 bytes or identifiers.
+Those tests operate on decoded strings, not identifiers. Tests.UTF8 separately
+covers malformed bytes and encoding boundaries. CLI tests exercise raw files,
+byte limits, missing paths, and a fixed-seed malformed corpus cross-checked with
+Python's strict decoder; neither suite establishes full decoder correctness.
 
 ## Hedgehog dependency
 

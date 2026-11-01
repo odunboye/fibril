@@ -2,6 +2,8 @@
 
 Implemented:
 
+- `src/Fibril/Source/UTF8.idr`: strict scalar decoding with malformed-byte offsets; no lossy replacement.
+- `src/Fibril/Source/File.idr`: bounded raw-file IO, exact-read/growth checks, decoding and control validation, represented-result cleanup.
 - `src/Fibril/Source/Text.idr`: decoded-source validation with scalar positions; not byte decoding, lexing, or identifier approval.
 
 - `src/Fibril/Core/Pretty.idr`: shared explicit-term diagnostics; no parsing or evaluation.

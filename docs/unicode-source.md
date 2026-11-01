@@ -1,7 +1,7 @@
 # Unicode and source text
 
-Status: decoded-text validation implemented; file decoding, identifiers, and
-notation remain a design proposal. This is not a surface parser.
+Status: strict UTF-8 decoding, bounded file loading, and decoded-text validation
+implemented. Identifiers and notation remain proposals. This is not a parser.
 
 ## Separate three concerns
 
@@ -11,7 +11,37 @@ notation remain a design proposal. This is not a surface parser.
    as tokens, never through blind global replacement.
 
 An already-decoded Idris String does not prove that its original bytes were valid
-UTF-8. A future file loader must validate bytes rather than accept lossy replacement.
+UTF-8. [Source.UTF8](../src/Fibril/Source/UTF8.idr) now validates raw bytes against
+[RFC 3629 §4](https://www.rfc-editor.org/rfc/rfc3629#section-4): shortest encodings,
+valid continuation ranges, no surrogates, and no values above U+10FFFF.
+Malformed input is rejected with a zero-based byte offset, not silently replaced.
+A valid encoding of U+FFFD remains valid data.
+
+For truncated sequences the offset identifies the lead byte. When a full-length
+sequence has a bad continuation, it identifies that bad byte. If the available
+suffix is too short, truncation takes precedence over inspecting its continuation
+values. Decoder success is separate from source-control policy acceptance.
+
+## Bounded file loading
+
+[Source.File](../src/Fibril/Source/File.idr) opens raw bytes, limits input to 65,536
+bytes, reads the expected size and probes for growth, strictly decodes, then calls
+validateText. Handles are closed on every represented result after opening.
+Short reads are rejected rather than retried. Same-size concurrent changes cannot
+be detected; this is not an atomic snapshot or a streaming/network-file interface.
+
+The cap bounds accepted file bytes, not total allocations, stack, decoding time,
+OS blocking, or recovery from host-runtime OOM/crashes. Buffer allocation failure
+has an explicit result where the host API reports it.
+
+Run:
+
+```sh
+./build/exec/fibril validate-source examples/proposed/01-hello-world.fib
+```
+
+This command validates encoding/control policy **only**, not syntax, typing,
+totality, or resource use. Its success message says so explicitly.
 
 ## Implemented boundary
 
@@ -75,5 +105,8 @@ before implementing identifier behavior.
 
 [Tests.SourceText](../test/src/Tests/SourceText.idr) covers preserved spelling,
 non-Latin/combining/astral text, joined emoji, line endings, controls, and positions.
-Raw invalid UTF-8 tests wait for the file decoder; source validation is not yet
-wired to a file-based CLI command.
+[Tests.UTF8](../test/src/Tests/UTF8.idr) now covers encoding boundaries and
+malformed sequences. CLI tests exercise raw files, exact/over-limit sizes,
+missing files, and a fixed-seed malformed-byte corpus also rejected by Python's
+strict decoder. This is finite cross-implementation evidence, not full RFC
+conformance or a proof of decoding correctness.

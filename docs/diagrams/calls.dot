@@ -46,5 +46,10 @@ rankdir=LR; node [shape=box,style=rounded,fontsize=10];
 "Face.entails" -> "Sorted.subsetSorted";
 "Source.Text.validateText" -> "Source.Text.walk";
 "Source.Text.walk" -> "Source.Text.problemAt";
+"Main.main" -> "Source.File.loadSource";
+"Source.File.loadSource" -> "Source.File.readOpened";
+"Source.File.readOpened" -> {"Source.UTF8.decodeUTF8" "Source.Text.validateText" "Source.File.bytesFrom"};
+"Source.UTF8.decodeUTF8" -> "Source.UTF8.decode";
+"Source.UTF8.decode" -> "Source.UTF8.continuations";
 label="Selected static calls — curated, not exhaustive";
 }

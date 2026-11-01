@@ -313,8 +313,9 @@ These are planned deliverables, not a claim that the manuals, generated referenc
 
 See [Unicode source policy](unicode-source.md). UTF-8 files, Unicode identifiers,
 optional mathematical aliases with ASCII alternatives, and Neovim input helpers
-are intended. Decoded-text validation is implemented separately; decoding,
-identifier tables/normalization, confusable diagnostics, and aliases are not.
+are intended. Strict UTF-8 decoding, bounded raw-file loading, and decoded-text
+validation are implemented separately. Identifier tables/normalization,
+confusable diagnostics, and aliases are not.
 Never globally rewrite strings or silently normalize full source. Position
 encodings must be explicit at file/editor boundaries.
 

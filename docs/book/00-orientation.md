@@ -49,8 +49,9 @@ The displayed terms are explicit diagnostic syntax, not parsed source files.
 ## Source text is a separate boundary
 
 [Unicode source validation](../unicode-source.md) now preserves decoded text and
-rejects selected controls with scalar positions. File decoding, Unicode identifier
-rules, normalization, and mathematical token aliases are not implemented. This
+rejects selected controls with scalar positions. Strict UTF-8 decoding and bounded
+file loading are now available through `fibril validate-source PATH`. Unicode
+identifier rules, normalization, and mathematical token aliases are not implemented. This
 boundary sits before future lexing and does not alter the nameless core.
 
 ## A first reading route
