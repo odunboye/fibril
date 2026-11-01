@@ -151,6 +151,15 @@ def inspect_navigation(name, executable, line_ending="\n"):
         invalid = directory / "invalid response"
         invalid.write_text("#!/bin/sh\nprintf '%s\\n' 'not-json'\n", encoding="utf-8")
         invalid.chmod(0o755)
+        partial = json.dumps({
+            "version": 1, "coordinates": "unicode-scalars;offset=0;line=1;column=1",
+            "references": [
+                {"start": {"line": 1, "column": 1}, "end": {"line": 1, "column": 4}},
+                {"start": {"line": 99999, "column": 1}, "end": {"line": 99999, "column": 4}},
+            ],
+        })
+        partial_script = ["#!/bin/sh", "printf '%s\\n' '" + partial + "'"]
+        partial_lines = "[" + ", ".join(vim_literal(line) for line in partial_script) + "]"
         script = directory / "navigate.vim"
         script.write_text(
             "set nocompatible\nset encoding=utf-8\nset nomore\n"
@@ -167,22 +176,44 @@ def inspect_navigation(name, executable, line_ending="\n"):
             f"call cursor(1, {origin})\n"
             "FibrilDefinition\n"
             "let report.command_target = col('.')\n"
+            f"call cursor(1, {origin})\n"
+            "let source_window = win_getid()\n"
+            "let report.reference_success = fibril#references()\n"
+            "let report.reference_window = getwininfo(win_getid())[0].loclist\n"
+            "call win_gotoid(source_window)\n"
+            "let report.reference_items = getloclist(0)\n"
+            "let report.reference_origin = col('.')\n"
+            "lclose\n"
+            "FibrilReferences\n"
+            "call win_gotoid(source_window)\n"
+            "let reference_id = getloclist(0, {'id': 0}).id\n"
+            "lclose\n"
             "call cursor(1, 1)\n"
             "let report.miss = fibril#definition()\n"
             "let report.miss_position = col('.')\n"
+            "let report.reference_miss = fibril#references()\n"
+            "let report.reference_preserved_miss = getloclist(0, {'id': 0}).id == reference_id\n"
             "call setline(1, getline(1) . ' ')\n"
             "let report.modified = fibril#definition()\n"
+            "let report.reference_modified = fibril#references()\n"
             "edit!\n"
             f"let saved_disk = readfile({vim_literal(fixture)}, 'b')\n"
             f"call writefile(['different disk contents'], {vim_literal(fixture)})\n"
             "let report.stale = fibril#definition()\n"
+            "let report.reference_stale = fibril#references()\n"
             f"call writefile(saved_disk, {vim_literal(fixture)}, 'b')\n"
             "let g:fibril_executable = '/nonexistent/fibril'\n"
             "let report.missing = fibril#definition()\n"
             f"let g:fibril_executable = {vim_literal(invalid)}\n"
             "let report.invalid = fibril#definition()\n"
+            "let report.reference_invalid = fibril#references()\n"
+            f"call writefile({partial_lines}, {vim_literal(invalid)})\n"
+            "let report.reference_partial = fibril#references()\n"
+            "let report.reference_preserved_error = getloclist(0, {'id': 0}).id == reference_id\n"
             "execute b:undo_ftplugin\n"
             "let report.undo_command = exists(':FibrilDefinition')\n"
+            "let report.undo_reference_command = exists(':FibrilReferences')\n"
+            "let report.undo_reference_plug = maparg('<Plug>(FibrilReferences)', 'n')\n"
             "let report.undo_plug = maparg('<Plug>(FibrilDefinition)', 'n')\n"
             f"call writefile([json_encode(report)], {vim_literal(report)})\n"
             "qa!\n", encoding="utf-8")
@@ -215,6 +246,18 @@ class EditorTests(unittest.TestCase):
                         self.assertEqual(report[field], 0, field)
                     self.assertEqual(report["undo_command"], 0)
                     self.assertEqual(report["undo_plug"], "")
+                    self.assertEqual(report["reference_success"], 1)
+                    self.assertEqual(report["reference_window"], 1)
+                    self.assertEqual(len(report["reference_items"]), 2)
+                    self.assertEqual(report["reference_items"][0]["col"], target)
+                    self.assertEqual(report["reference_items"][0]["end_col"], target + 3)
+                    self.assertEqual(report["reference_origin"], report["reference_items"][1]["col"])
+                    for field in ("reference_miss", "reference_modified", "reference_stale", "reference_invalid", "reference_partial"):
+                        self.assertEqual(report[field], 0, field)
+                    self.assertTrue(report["reference_preserved_miss"])
+                    self.assertTrue(report["reference_preserved_error"])
+                    self.assertEqual(report["undo_reference_command"], 0)
+                    self.assertEqual(report["undo_reference_plug"], "")
 
     def test_runtime_in_installed_editors(self):
         if not EDITORS:

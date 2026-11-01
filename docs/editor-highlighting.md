@@ -148,7 +148,8 @@ read/new-buffer events without replacing an already assigned filetype.
 
 [ftplugin/fibril.vim](../editors/vim/ftplugin/fibril.vim) sets commentstring to
 -- %s, line-comment metadata, and apostrophe-aware word motion. It supplies the
-standard undo hook and optional FibrilDefinition command/Plug mapping. It does
+standard undo hook and optional FibrilDefinition/FibrilReferences commands and
+Plug mappings. It does
 not change indentation/formatting or override user keys such as gd.
 
 [syntax/fibril.vim](../editors/vim/syntax/fibril.vim) contains only lexical rules.
@@ -252,8 +253,8 @@ are never included. Declarations still obey source order. This uses the current
 lexical scope service, not type checking or prelude/project reference indexing.
 
 The service accepts unsaved source Strings, but this command reads a bounded
-file. There is no editor reference-list UI, rename preview, capture-checking,
-or source-edit command yet. These ranges alone do not make a rename safe.
+file. The optional editor adapter below displays these results in a location
+list. There is no rename preview, capture-checking, or source-edit command yet. These ranges alone do not make a rename safe.
 
 ## Navigation from Neovim/Vim
 
@@ -274,7 +275,7 @@ In a saved .fib buffer, place the cursor on a local reference and run:
 :FibrilDefinition
 ~~~
 
-The buffer-local command calls the compiler's definition service, validates the
+The buffer-local definition command calls the compiler's definition service, validates the
 version/coordinate convention and target bounds, converts UTF-8 byte cursor
 columns to compiler scalar columns, then converts the returned target back to
 editor bytes (including combining scalars). A successful jump preserves the
@@ -292,8 +293,25 @@ paths with spaces/quotes. Compiler failures or malformed/unsupported JSON become
 warnings rather than jumps. Calls are synchronous, manually invoked, and can
 block the editor; there is no timeout, cancellation, or latency guarantee yet.
 
-The runtime adds a buffer-local <Plug>(FibrilDefinition) mapping but does not
-override gd or LazyVim's mappings. Optional Neovim setup:
+To display references, including declaration sites:
+
+~~~vim
+:FibrilReferences
+~~~
+
+This validates every returned range before creating a new window-local location
+list and opening it. Press Enter on an item to navigate; use :lclose to close it.
+Prior lists remain in location-list history (:lolder). Compiler errors, malformed
+ranges, and misses leave the prior list intact. Source cursor position is not
+changed before opening the list. Both commands share the same saved-buffer,
+encoding, snapshot, compiler, and protocol checks.
+
+Location-list results describe the queried snapshot, not a live reference index.
+After source edits, save and re-run the query before relying on old results.
+
+The runtime adds buffer-local <Plug>(FibrilDefinition) and
+<Plug>(FibrilReferences) mappings but does not override gd/gr or LazyVim's
+mappings. Optional Neovim setup:
 
 ~~~lua
 vim.api.nvim_create_autocmd("FileType", {
@@ -301,6 +319,9 @@ vim.api.nvim_create_autocmd("FileType", {
   callback = function()
     vim.keymap.set("n", "gd", "<Plug>(FibrilDefinition)", {
       buffer = true, remap = true, desc = "Fibril: same-file definition",
+    })
+    vim.keymap.set("n", "gr", "<Plug>(FibrilReferences)", {
+      buffer = true, remap = true, desc = "Fibril: same-file references",
     })
   end,
 })
@@ -310,10 +331,11 @@ The equivalent optional Vim setup is:
 
 ~~~vim
 autocmd FileType fibril nmap <buffer> gd <Plug>(FibrilDefinition)
+autocmd FileType fibril nmap <buffer> gr <Plug>(FibrilReferences)
 ~~~
 
-The ftplugin undo hook removes its command and Plug mapping. User-created gd
-mappings remain the user's responsibility. The pure compiler APIs accept unsaved
+The ftplugin undo hook removes its commands and Plug mappings. User-created
+gd/gr mappings remain the user's responsibility. The pure compiler APIs accept unsaved
 Strings, but this file-based adapter deliberately does not yet support unsaved
 buffers, outline UI, async jobs, or LSP transport.
 
@@ -334,10 +356,13 @@ buffers, existing highlight/filetype preservation, reloads, and buffer-option un
 When a local compiler is built, additional real-editor navigation tests check
 Unicode/combining columns, Unix/CRLF snapshots, quoted paths, command/Plug setup,
 no gd override, stale/modified refusal, missing compiler/malformed JSON, misses,
-and command/mapping undo. Those tests skip when the compiler is absent.
+and command/mapping undo. Reference UI tests additionally check source cursor
+preservation, byte-accurate list entries, location-window opening, and preserving
+prior lists on misses/malformed or partially invalid responses. Those tests skip
+when the compiler is absent.
 Editor columns in these tests are UTF-8 bytes, unlike compiler scalar positions.
 
 Normal make test/build has no editor dependency. Future work is a grammar-backed
 incremental highlighter and compiler-provided semantic tokens/symbol identities.
-Cross-file/prelude definitions, reference UI, project-wide rename, LSP UTF-16
+Cross-file/prelude definitions, project-wide references/rename, LSP UTF-16
 conversion, and Tree-sitter-based folding/selections remain unimplemented.

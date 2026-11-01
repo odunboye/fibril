@@ -10,7 +10,11 @@ setlocal iskeyword+=39
 
 command! -buffer FibrilDefinition call fibril#definition()
 nnoremap <buffer> <silent> <Plug>(FibrilDefinition) :FibrilDefinition<CR>
+command! -buffer FibrilReferences call fibril#references()
+nnoremap <buffer> <silent> <Plug>(FibrilReferences) :FibrilReferences<CR>
 
 let b:undo_ftplugin = 'setlocal commentstring< comments< iskeyword<' .
       \ ' | silent! delcommand -buffer FibrilDefinition' .
-      \ ' | silent! nunmap <buffer> <Plug>(FibrilDefinition)'
+      \ ' | execute "silent! nunmap <buffer> <Plug>(FibrilDefinition)"' .
+      \ ' | silent! delcommand -buffer FibrilReferences' .
+      \ ' | execute "silent! nunmap <buffer> <Plug>(FibrilReferences)"'

@@ -186,6 +186,11 @@ nonrecursive RHSs, do bindings/result annotations, Unicode/CRLF source slices,
 and exclusion of comments, literals, unresolved/forward names, and wildcards.
 The pure API is also tested; malformed-file and coordinate errors return no JSON.
 
+Real-editor reference-list tests cover both Unix and CRLF files, UTF-8/combining
+byte conversions, location-window creation, source cursor preservation, and both
+command/Plug cleanup paths. Misses, stale/modified buffers, malformed JSON, and a
+partly valid result array must not replace prior location lists.
+
 ## Hedgehog dependency
 
 Repository: https://github.com/stefan-hoeck/idris2-hedgehog
