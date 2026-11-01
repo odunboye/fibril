@@ -56,6 +56,14 @@ The local helper allows enforces 0/exact-one/unrestricted acceptance. It is not
 a complete subusage calculus. The soundness of these rules together with reduction,
 erasure, and cubical features is still an obligation.
 
+## Local bindings obey the same accounting
+
+`let (1 id : (1 x : Type 0) -> Type 0) = \\(1 x : Type 0) => x in id`
+introduces a local function that must be consumed once. An erased local binding
+may supply type information but cannot be returned as a runtime value. The
+[parser guide](../parser.md#typed-local-bindings) shows how lets elaborate into
+ordinary lambda/application nodes, reusing these resource rules.
+
 ## Exercises
 
 - Compute [1, 0] + [1, 0].

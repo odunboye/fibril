@@ -1,0 +1,4 @@
+-- A nonrecursive, explicitly typed local linear binding.
+let (1 id : (1 x : Type 0) -> Type 0) =
+  \(1 x : Type 0) => x
+in id

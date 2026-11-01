@@ -38,6 +38,8 @@ or compiled program. `identity-unicode.fib` checks the same expression using
 `make examples` checks the four checking examples and evaluates this fifth source
 example as well as running the Idris project. It also checks
 `identity-annotated.fib`, which states an explicit dependent type using an ascription.
+`local-identity.fib` demonstrates a typed linear let and is evaluated by
+`make examples` too.
 
 ## Proposed Fibril programs
 

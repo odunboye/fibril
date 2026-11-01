@@ -25,7 +25,8 @@ This checks source; it does not compile or run a Fibril executable.
 
 ## Grammar
 
-    expr        ::= lambda | dependentPi | application [ "->" expr ]
+    expr        ::= letExpr | lambda | dependentPi | application [ "->" expr ]
+    letExpr     ::= "let" binder "=" expr "in" expr
     lambda      ::= "\" binder "=>" expr
     dependentPi ::= binder "->" expr
     binder      ::= "(" [quantity] name ":" expr ")"
@@ -76,6 +77,36 @@ parentheses: ((expression : type)) -> result. Matching-parenthesis lookahead
 disambiguates these cases; it is bounded by the input, not a claimed optimized
 incremental parsing strategy.
 
+## Typed local bindings
+
+The [local identity example](../examples/core/local-identity.fib) uses:
+
+```text
+let (1 id : (1 x : Type 0) -> Type 0) =
+  \(1 x : Type 0) => x
+in id
+```
+
+Local bindings require an explicit annotation and are nonrecursive. Omitted
+quantity means unrestricted; 0/1 mean erased/exactly once. Annotation and value
+resolve in the outer scope; only the body sees the new name. A shadowing value
+may still refer to the previous outer binding with the same name.
+
+Elaboration uses existing core syntax:
+
+    let (q x : A) = value in body
+      ~~> Apply (Lambda q A body) value
+
+Consequently, existing typing validates the annotation/value and computes the
+dependent result through substitution. Existing usage checking enforces q and
+scales captured resources. Erased local type values can occur in later types,
+but cannot be extracted as runtime values.
+
+There is no let-generalization, implicit annotation inference, recursive binding,
+declaration block, or new core reduction rule. Reference evaluation consumes a
+beta step for a let; no compiled storage/erasure strategy is implied. Explicit in
+delimits the expression; indentation is currently cosmetic.
+
 ## Separate representations and passes
 
 1. [Lexer](../src/Fibril/Source/Lexer.idr): categories, original spelling, spans.
@@ -117,6 +148,8 @@ application/arrow associativity, shadowing, domain scope, wildcard references,
 trailing tokens, numeric bounds, EOF positions, parser exhaustion, ascriptions,
 and checking. Ascription tests cover dependent scopes, universe compatibility,
 invalid expected types, quantity disagreement, and erased extraction.
+[Tests.Let](../test/src/Tests/Let.idr) adds dependent local types, exact use,
+erased extraction, shadowing, nonrecursion, malformed bindings, and evaluation.
 CLI tests check actual files and explicit erased-mode behavior.
 
 The initial parser is total through a decreasing recursion budget. It is not an

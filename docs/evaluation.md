@@ -55,6 +55,11 @@ consume beta fuel and are checked before reduction, rather than being dropped as
 unverified annotations. Tests confirm an ascribed identity reduces to the same
 normal form.
 
+Typed local lets likewise elaborate to lambda applications. The
+[local identity](../examples/core/local-identity.fib) reduces in one beta step
+and is included in make examples. No separate storage or recursive-let semantics
+are introduced.
+
 ## Current boundaries
 
 - Only closed ordinary expressions are supported.

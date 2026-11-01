@@ -15,6 +15,7 @@ data Expr
   | NLambda SourceSpan Quantity String Expr Expr
   | NApply SourceSpan Expr Expr
   | NAscribe SourceSpan Expr Expr
+  | NLet SourceSpan Quantity String Expr Expr Expr
 
 ||| Recover the complete syntactic extent of an expression.
 public export
@@ -25,6 +26,7 @@ extent (NPi span _ _ _ _) = span
 extent (NLambda span _ _ _ _) = span
 extent (NApply span _ _) = span
 extent (NAscribe span _ _) = span
+extent (NLet span _ _ _ _ _) = span
 
 ||| Include grouping parentheses without changing expression meaning.
 public export
@@ -35,3 +37,4 @@ withExtent span (NPi _ q name domain body) = NPi span q name domain body
 withExtent span (NLambda _ q name domain body) = NLambda span q name domain body
 withExtent span (NApply _ function argument) = NApply span function argument
 withExtent span (NAscribe _ term expected) = NAscribe span term expected
+withExtent span (NLet _ q name expected value body) = NLet span q name expected value body

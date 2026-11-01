@@ -39,6 +39,10 @@ test or pack test and does not establish Fibril FFI support. See
 source normalization, exact/exhausted fuel, and rejection before reduction.
 The output is reference normal form syntax, not C/JS execution.
 
+[Tests.Let](../test/src/Tests/Let.idr) checks local binding scopes, annotations,
+quantities, nonrecursion, and reference reduction. CLI examples use explicit in;
+there is no declaration/layout generalization yet.
+
 ## Hedgehog dependency
 
 Repository: https://github.com/stefan-hoeck/idris2-hedgehog

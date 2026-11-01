@@ -55,6 +55,14 @@ resolveIn env (NAscribe span term expected) = do
   ty <- resolveIn env expected
   Right (Apply (Lambda Linear ty (Variable FZ)) term)
 
+-- The binding is nonrecursive: annotation and value use the outer environment.
+-- A lambda/application enforces the annotation and declared resource quantity.
+resolveIn env (NLet span q name expected value body) = do
+  ty <- resolveIn env expected
+  value <- resolveIn env value
+  body <- resolveIn (name :: env) body
+  Right (Apply (Lambda q ty body) value)
+
 ||| Resolve a closed expression; no global definitions/imports exist yet.
 public export
 resolveClosed : Expr -> Either ResolveError (Term 0)

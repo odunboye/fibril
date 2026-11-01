@@ -96,7 +96,15 @@ mutual
   expression (S depth) end tokens =
     case tokens of
       token :: rest =>
-        if token.kind == Lambda then do
+        if token.kind == LetKeyword then do
+          header <- binder depth end rest
+          (_, afterEquals) <- expect Equals end header.remaining
+          (value, afterValue) <- expression depth end afterEquals
+          (_, afterIn) <- expect InKeyword end afterValue
+          (body, remaining) <- expression depth end afterIn
+          Right (NLet (Between token.span.start (extent body).finish)
+                      header.quantity header.name header.domain value body, remaining)
+        else if token.kind == Lambda then do
           header <- binder depth end rest
           (_, afterArrow) <- expect BodyArrow end header.remaining
           (body, remaining) <- expression depth end afterArrow

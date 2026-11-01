@@ -8,13 +8,16 @@ import Fibril.Source.Text
 
 ||| Token categories for the initial explicitly annotated expression grammar.
 public export
-data TokenKind = Name | Number | TypeKeyword | OpenParen | CloseParen | Colon | Arrow | BodyArrow | Lambda
+data TokenKind = Name | Number | TypeKeyword | LetKeyword | InKeyword | Equals | OpenParen | CloseParen | Colon | Arrow | BodyArrow | Lambda
 
 public export
 Show TokenKind where
   show Name = "name"
   show Number = "number"
   show TypeKeyword = "Type"
+  show LetKeyword = "let"
+  show InKeyword = "in"
+  show Equals = "="
   show OpenParen = "("
   show CloseParen = ")"
   show Colon = ":"
@@ -27,6 +30,9 @@ Eq TokenKind where
   Name == Name = True
   Number == Number = True
   TypeKeyword == TypeKeyword = True
+  LetKeyword == LetKeyword = True
+  InKeyword == InKeyword = True
+  Equals == Equals = True
   OpenParen == OpenParen = True
   CloseParen == CloseParen = True
   Colon == Colon = True
@@ -109,7 +115,11 @@ scan (S fuel) at (c :: rest) =
      then do
        let (suffix, remaining) = span nameRest rest
        let chars = c :: suffix
-       let kind = if pack chars == "Type" then TypeKeyword else Name
+       let kind = case pack chars of
+             "Type" => TypeKeyword
+             "let" => LetKeyword
+             "in" => InKeyword
+             _ => Name
        let token = emit at kind chars
        tokens <- scan fuel token.span.finish remaining
        Right (token :: tokens)
@@ -124,6 +134,7 @@ scan (S fuel) at (c :: rest) =
       '(' => Right OpenParen
       ')' => Right CloseParen
       ':' => Right Colon
+      '=' => Right Equals
       '\\' => Right Lambda
       'λ' => Right Lambda
       '→' => Right Arrow
