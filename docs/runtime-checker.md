@@ -66,5 +66,8 @@ closure duplication, checked erased arguments, and unsupported runtime types.
 
 The existing erased generators are not runtime generators: constant lambdas
 with linear binders are intentionally acceptable erased but invalid at runtime.
-Runtime-oriented constructive generators and preservation tests are next work,
-not already-established safety properties.
+[Runtime constructive properties](../test/src/Tests/RuntimeProperties.idr) now
+exercise a fixed dependent open context using erased capturing lambdas and
+linear identity applications. They test beta-step/normalization preservation of
+usage, and reject unrestricted duplication or erased extraction. These finite
+samples are not general preservation proofs or coverage of arbitrary derivations.

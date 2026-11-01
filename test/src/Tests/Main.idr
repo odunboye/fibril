@@ -9,6 +9,7 @@ import Tests.Erased
 import Tests.Runtime
 import Tests.Properties
 import Tests.TypedProperties
+import Tests.RuntimeProperties
 import Data.Vect
 import Fibril.Foundation.DeMorgan.Interval
 import Fibril.Foundation.DeMorgan.NormalForm
@@ -300,7 +301,11 @@ main = do
       if ok
          then do
            typedOk <- runTypedProperties
-           if typedOk then pure () else exitFailure
+           if typedOk
+              then do
+                runtimeOk <- runRuntimeProperties
+                if runtimeOk then pure () else exitFailure
+              else exitFailure
          else exitFailure
     _ => do
       traverse_ (putStrLn . fst) failed

@@ -85,7 +85,10 @@ invalid expected types without filtering arbitrary syntax through the checker.
 [Runtime](../src/Fibril/Core/Runtime.idr) layers usage inference over erased typing,
 checks exact linear use and closure captures, and rejects runtime type expressions.
 See [its guide](runtime-checker.md) for the conservative policy and unresolved
-preservation/erasure obligations. No C or JavaScript runtime is implemented.
+preservation/erasure obligations.
+[Runtime properties](../test/src/Tests/RuntimeProperties.idr) now sample linear
+capture preservation and invalid resource-policy mutations in a fixed context.
+No C or JavaScript runtime is implemented.
 
 ## Trust and current limits
 

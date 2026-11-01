@@ -82,11 +82,39 @@ This narrow closed-term grammar does not cover arbitrary dependent contexts,
 all substitutions, or runtime resource usage. In particular, erased lambdas may
 discard linear inputs; they must not be reused as runtime-valid samples.
 
+## Constructive runtime properties
+
+[Tests.RuntimeProperties](../test/src/Tests/RuntimeProperties.idr) adds five
+properties (100 cases each) over the open context A : Type0 (erased), x : A
+(linear). Starting from x, generation adds erased constant lambdas that capture
+x and linear identity applications. Each sample carries a constructed type.
+
+The suite checks:
+
+- Generated terms are accepted with usage [1, 0].
+- One beta step preserves their type and that usage.
+- Bounded normalization preserves their type and that usage.
+- Passing a sample to an unrestricted binder is rejected as duplication.
+- Changing the input binder to erased rejects runtime extraction.
+
+Generator depth is 4; checking and reduction budgets are 100. Shrinking maps
+whole term/type pairs, preserving the construction relationship. Classification
+reports reducible versus normal samples.
+
+This covers a narrow, fixed dependent context and selected ordinary wrappers,
+not arbitrary runtime derivations or cubical resource rules. The unrestricted
+mutation is intentionally rejected even if its body uses its input once:
+the caller obeys the declared argument quantity, not an optimization guess.
+
+The default suite now runs 17 properties / 1,700 generated cases, alongside
+deterministic regressions. Sampling counts are not proof coverage.
+
 ## Reproducing failures
 
 Keep the failing property's name, shrunk input, reported size, seed, toolchain,
 and pack collection. Hedgehog prints a recheck expression on failure. Load
-`test/src/Tests/Properties.idr` (or `TypedProperties.idr`) in a pack-managed REPL and use that expression
+the relevant file in `test/src/Tests/` (`Properties.idr`, `TypedProperties.idr`,
+or `RuntimeProperties.idr`) in a pack-managed REPL and use that expression
 in the module's scope. The runProperties wrapper does not currently expose
 a command-line seed option.
 
