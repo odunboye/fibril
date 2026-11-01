@@ -1,7 +1,7 @@
-# Neovim and Vim highlighting and navigation
+# Neovim and Vim highlighting, checking, and navigation
 
 Status: implemented optional Vim-runtime package for the current Fibril subsets.
-Includes optional compiler-backed same-file navigation. No Tree-sitter grammar,
+Includes optional compiler-backed runtime checking and same-file navigation. No Tree-sitter grammar,
 LSP server, semantic tokens, or cross-file navigation is added.
 
 ## Try a clean Neovim session
@@ -59,7 +59,7 @@ There is no published remote plugin repository to install yet.
    directory instead.
 2. Build the compiler with make build in the Fibril checkout. Add the following,
    replacing both absolute paths with your checkout location. The gd/gr and
-   <leader>cr mappings are optional and affect only Fibril buffers. The latter
+   <leader>cr/<leader>ck mappings are optional and affect only Fibril buffers. The <leader>cr mapping
    replaces LazyVim's usual rename action in those buffers with a preview:
 
 ~~~lua
@@ -85,6 +85,9 @@ return {
           vim.keymap.set("n", "<leader>cr", "<Plug>(FibrilRenamePreview)", {
             buffer = true, remap = true, desc = "Fibril: preview rename",
           })
+          vim.keymap.set("n", "<leader>ck", "<Plug>(FibrilCheck)", {
+            buffer = true, remap = true, desc = "Fibril: check",
+          })
         end,
       })
     end,
@@ -105,7 +108,8 @@ fetching a plugin. Keeping the checkout updated also updates the runtime files.
    start :FibrilRenamePreview, type a new name, and press Enter. For example,
    :FibrilRenamePreview greetingText opens a read-only scratch diff; :close
    dismisses it. No source is modified or saved. These queries are same-file
-   only and do not type-check the source.
+   only and do not type-check the source. For runtime checking, run :FibrilCheck
+   or press <leader>ck. This checks without executing program IO.
 4. Run `:Lazy` and confirm `fibril-syntax` is loaded. Then check:
 
 ~~~vim
@@ -175,7 +179,8 @@ read/new-buffer events without replacing an already assigned filetype.
 
 [ftplugin/fibril.vim](../editors/vim/ftplugin/fibril.vim) sets commentstring to
 -- %s, line-comment metadata, and apostrophe-aware word motion. It supplies the
-standard undo hook and optional FibrilDefinition/FibrilReferences/FibrilRenamePreview commands and Plug mappings. It does
+standard undo hook and optional FibrilCheck/FibrilDefinition/FibrilReferences/
+FibrilRenamePreview commands and Plug mappings. It does
 not change indentation/formatting or override user keys such as gd.
 
 [syntax/fibril.vim](../editors/vim/syntax/fibril.vim) contains only lexical rules.
@@ -185,6 +190,46 @@ accepts proofs, or writes source files.
 The [offline handbook](handbook.md#code-highlighting) also highlights Fibril and
 Idris snippets/source pages. Its local Pandoc grammar is a separate presentation
 layer, not this Vim runtime or a shared semantic language service.
+
+## Runtime checking in the editor
+
+After configuring g:fibril_executable and saving a .fib buffer, run:
+
+~~~vim
+:FibrilCheck
+~~~
+
+This invokes [check --json](diagnostics.md#structured-runtime-check-reports).
+A rejected program's diagnostics open a window-local location list. Located
+frontend errors use their actual scalar point converted to an editor byte column.
+Press Enter on a jumpable entry to navigate; :lclose closes the list.
+
+Core type/resource failures have no source provenance, so their entries explicitly
+say unlocated and are **nonjumpable**, not attached to a guessed line one.
+Decoding failures show their byte offset without treating it as a scalar column.
+A real EOF point beyond Vim's last buffer line, or a source point obscured by a
+hidden byte-order mark, is shown with its recorded coordinates but remains
+nonjumpable. No diagnostic range or subterm location is fabricated.
+
+On acceptance, a new empty check list becomes current and the status/type report
+is displayed (up to 512 bytes). No new window opens; prior lists remain in history
+(:lolder). Checking never executes IO descriptions or writes source. Results
+refer to the saved snapshot; re-run the command after source changes.
+
+The command shares navigation's saved-buffer, UTF-8/line-ending, source snapshot,
+compiler-path, and version checks. Exit status 1 is accepted only with a consistent
+rejection report; malformed/partial/inconsistent reports leave prior lists intact.
+All entries are validated before changing the list, including scalar offset versus
+line/column agreement where the buffer representation permits it.
+
+The <Plug>(FibrilCheck) mapping is available; no default key is assigned. The
+complete LazyVim example above optionally maps <leader>ck. The undo hook removes
+the command and Plug mapping.
+
+This is synchronous, manual, file-based checking, not automatic diagnostics,
+unsaved-buffer checking, async cancellation, an incremental checker, or an LSP.
+The underlying compiler's experimental typing/resource rules and evidence limits
+are unchanged. A displayed acceptance is not a metatheoretic certificate.
 
 ## Parsed document symbols
 
@@ -443,7 +488,10 @@ no gd override, stale/modified refusal, missing compiler/malformed JSON, misses,
 and command/mapping undo. Reference UI tests additionally check source cursor
 preservation, byte-accurate list entries, location-window opening, and preserving
 prior lists on misses/malformed or partially invalid responses. Those tests skip
-when the compiler is absent. Rename-preview tests additionally check read-only
+when the compiler is absent. Checking tests validate located/unlocated errors,
+UTF-8/combining/CRLF points, nonjumpable EOF/BOM/decoding cases, acceptance,
+status/schema consistency, atomic handling of partially invalid diagnostics,
+command/Plug cleanup, no source writes, and no program IO. Rename-preview tests additionally check read-only
 scratch UI, multiple same-line edits without changing string data, unchanged
 source buffers/cursors/files, no-op/keyword/modified-buffer refusal, and cleanup.
 Editor columns in these tests are UTF-8 bytes, unlike compiler scalar positions.

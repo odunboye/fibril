@@ -139,7 +139,9 @@ with the navigation commands through [Driver.JSON](../src/Fibril/Driver/JSON.idr
 
 The old human-readable check and check --erased interfaces are unchanged.
 check --json never executes IO descriptions, writes source, or invokes a backend.
-It is not an LSP, UTF-16 adapter, incremental checker, or editor diagnostic UI.
+It is not an LSP, UTF-16 adapter, or incremental checker. The optional
+[FibrilCheck editor adapter](editor-highlighting.md#runtime-checking-in-the-editor)
+uses this report without inventing locations for unlocated errors.
 
 ## Tests and next work
 

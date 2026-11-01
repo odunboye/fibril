@@ -231,6 +231,12 @@ quotes, backslashes, controls, and Unicode. CLI tests parse accepted/rejected
 reports, check scalar positions with Unicode/CRLF, keep decoding byte offsets
 separate, and cover source-policy and missing-file failures without program output.
 
+FibrilCheck real-editor tests cover located resolver errors with UTF-8/combining
+prefixes, unlocated typing/resource failures, nonjumpable EOF/BOM/byte-offset
+entries, accepted IO descriptions without execution, and command/Plug cleanup.
+Malformed JSON, inconsistent statuses, partly invalid diagnostics, coordinate
+mismatches, and modified buffers must preserve prior lists and source files.
+
 ## Hedgehog dependency
 
 Repository: https://github.com/stefan-hoeck/idris2-hedgehog

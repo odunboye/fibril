@@ -1,4 +1,4 @@
-" Optional synchronous CLI navigation. No automatic writes or key overrides.
+" Optional synchronous compiler services. No automatic writes or key overrides.
 function! s:warn(message) abort
   echohl WarningMsg
   echomsg 'Fibril: ' . a:message
@@ -26,14 +26,14 @@ endfunction
 
 function! s:request(query, ...) abort
   if &l:modified || empty(expand('%:p')) || !filereadable(expand('%:p'))
-    return s:warn('save this buffer before requesting navigation')
+    return s:warn('save this buffer before requesting compiler services')
   endif
   if &encoding !=# 'utf-8' || index(['', 'utf-8'], &l:fileencoding) < 0 ||
         \ index(['unix', 'dos'], &l:fileformat) < 0
-    return s:warn('navigation requires UTF-8 with Unix or CRLF line endings')
+    return s:warn('compiler services require UTF-8 with Unix or CRLF line endings')
   endif
   if !exists('*json_decode') || !exists('*byteidxcomp')
-    return s:warn('navigation requires JSON decoding and scalar/byte conversion support')
+    return s:warn('compiler services require JSON decoding and scalar/byte conversion support')
   endif
   let binary = get(g:, 'fibril_executable', 'fibril')
   if type(binary) != v:t_string || !executable(binary)
@@ -52,15 +52,18 @@ function! s:request(query, ...) abort
     let buffer = getfsize(path) == 0 && line('$') == 1 && getline(1) ==# ''
           \ ? '' : s:buffer_snapshot()
     if snapshot !=# buffer
-      return s:warn('buffer differs from disk; reload or save it before navigation')
+      return s:warn('buffer differs from disk; reload or save it before requesting compiler services')
     endif
     let scalar_column = strchars(strpart(getline('.'), 0, col('.') - 1)) + 1
-    let args = [binary, a:query, string(line('.')), string(scalar_column)] + a:000 + [path]
-    let field = a:query ==# 'rename-preview' ? 'edits' : a:query
+    let args = a:query ==# 'check' ? [binary, 'check', '--json', path] :
+          \ [binary, a:query, string(line('.')), string(scalar_column)] + a:000 + [path]
+    let field = a:query ==# 'check' ? 'diagnostics' :
+          \ (a:query ==# 'rename-preview' ? 'edits' : a:query)
     " String-form system() is portable across Vim and Neovim. Quote each argument;
     " the configuration is an executable path, never a shell command fragment.
     let output = system(join(map(args, 'shellescape(v:val)'), ' '))
-    if v:shell_error
+    let status = v:shell_error
+    if status && !(a:query ==# 'check' && status == 1)
       return s:warn(a:query . ' request failed: ' . strpart(output, 0, 512))
     endif
     if bufnr('%') != buffer_number || win_getid() != window || expand('%:p') !=# path ||
@@ -68,12 +71,13 @@ function! s:request(query, ...) abort
       return s:warn('source changed during the request; retry after saving')
     endif
     let result = json_decode(output)
-    if type(result) != v:t_dict || get(result, 'version', 0) != 1 ||
+    if type(result) != v:t_dict || type(get(result, 'version', 0)) != v:t_number ||
+          \ get(result, 'version', 0) != 1 ||
           \ get(result, 'coordinates', '') !=# 'unicode-scalars;offset=0;line=1;column=1' ||
           \ !has_key(result, field)
       return s:warn('unsupported ' . a:query . ' response')
     endif
-    return {'value': result[field], 'path': path}
+    return {'value': result[field], 'path': path, 'result': result, 'status': status}
   catch
     return s:warn(a:query . ' request could not be read or decoded')
   endtry
@@ -206,5 +210,109 @@ function! fibril#rename_preview(name) abort
     return 1
   catch
     return s:warn('invalid rename preview or unavailable preview window')
+  endtry
+endfunction
+
+" Points may be at EOF, and core/decoding errors may have no scalar point at all.
+" Such entries are deliberately nonjumpable rather than fabricated at line one.
+function! s:diagnostic_item(diagnostic) abort
+  let diagnostic = a:diagnostic
+  if type(diagnostic) != v:t_dict || type(get(diagnostic, 'severity', 0)) != v:t_string ||
+        \ diagnostic.severity !=# 'error' ||
+        \ type(get(diagnostic, 'message', 0)) != v:t_string ||
+        \ type(get(diagnostic, 'stage', 0)) != v:t_string ||
+        \ !has_key(diagnostic, 'position') || !has_key(diagnostic, 'byteOffset')
+    throw 'Invalid check diagnostic'
+  endif
+  let point = diagnostic.position
+  let byte = diagnostic.byteOffset
+  let label = '[' . diagnostic.stage . '] '
+  let item = {'bufnr': bufnr('%'), 'lnum': 0, 'col': 0, 'valid': 0, 'type': 'E'}
+  if byte isnot v:null
+    if point isnot v:null || type(byte) != v:t_number || byte < 0 || byte > 65536
+      throw 'Invalid decoding byte offset'
+    endif
+    let label .= '[byte offset ' . byte . '; no scalar location] '
+  elseif point is v:null
+    let label .= '[unlocated] '
+  else
+    if type(point) != v:t_dict
+      throw 'Invalid diagnostic point'
+    endif
+    let row = get(point, 'line', 0)
+    let column = get(point, 'column', 0)
+    let offset = get(point, 'offset', -1)
+    if type(row) != v:t_number || type(column) != v:t_number || type(offset) != v:t_number ||
+          \ row < 1 || column < 1 || offset < 0 || offset > 65536
+      throw 'Invalid diagnostic coordinates'
+    endif
+    if row == line('$') + 1 && column == 1 && &l:endofline
+      let label .= '[source ' . row . ':1; EOF has no buffer line] '
+    elseif row > line('$') || column > strchars(getline(row)) + 1
+      throw 'Diagnostic point is outside the saved source'
+    elseif &l:bomb
+      let label .= '[source ' . row . ':' . column . '; hidden byte-order mark] '
+    else
+      let item.lnum = row
+      let item.col = byteidxcomp(getline(row), column - 1) + 1
+      let item.valid = 1
+    endif
+    if !&l:bomb
+      let expected_offset = column - 1
+      if row > 1
+        for text in getline(1, row - 1)
+          let expected_offset += strchars(text) + (&l:fileformat ==# 'dos' ? 2 : 1)
+        endfor
+      endif
+      if offset != expected_offset
+        throw 'Diagnostic offset disagrees with its scalar line/column'
+      endif
+    endif
+  endif
+  let item.text = label . diagnostic.message
+  return item
+endfunction
+
+function! fibril#check() abort
+  let response = s:request('check')
+  if empty(response)
+    return 0
+  endif
+  try
+    let result = response.result
+    if type(get(result, 'accepted', 0)) != v:t_bool ||
+          \ type(response.value) != v:t_list || type(get(result, 'report', 0)) != v:t_list
+      return s:warn('invalid check report')
+    endif
+    for message in result.report
+      if type(message) != v:t_string
+        return s:warn('invalid check information')
+      endif
+    endfor
+    if result.accepted
+      if response.status != 0 || !empty(response.value)
+        return s:warn('inconsistent accepted check report')
+      endif
+      if setloclist(0, [], ' ', {'title': 'Fibril check: accepted', 'items': []}) != 0
+        return s:warn('could not create check location list')
+      endif
+      echomsg 'Fibril: ' . (empty(result.report) ? 'runtime checking accepted' :
+            \ strpart(join(result.report, ' | '), 0, 512))
+      return 1
+    endif
+    if response.status != 1 || empty(response.value) || !empty(result.report)
+      return s:warn('inconsistent rejected check report')
+    endif
+    let items = []
+    for diagnostic in response.value
+      call add(items, s:diagnostic_item(diagnostic))
+    endfor
+    if setloclist(0, [], ' ', {'title': 'Fibril check: rejected', 'items': items}) != 0
+      return s:warn('could not create check location list')
+    endif
+    lopen
+    return 1
+  catch
+    return s:warn('invalid check response or unavailable location window')
   endtry
 endfunction

@@ -12,7 +12,7 @@ pure, and bind over experimental IO descriptions. A hosted runner executes stdou
 plans; a complete effect calculus and compiler backends remain future work.
 See [checker scope and limits](docs/erased-checker.md).
 
-Optional [Neovim/Vim highlighting and same-file navigation](docs/editor-highlighting.md),
+Optional [Neovim/Vim highlighting, checking, and same-file navigation](docs/editor-highlighting.md),
 including [LazyVim installation](docs/editor-highlighting.md#install-in-lazyvim),
 is available for .fib files. Navigation uses a saved-buffer CLI command; cross-file
 navigation and an LSP server remain future work.
