@@ -46,6 +46,13 @@ The [demo command](../cli.md) prints a checked polymorphic identity, shows runti
 usage validation, rejects linear duplication, and checks cubical algebra laws.
 The displayed terms are explicit diagnostic syntax, not parsed source files.
 
+## Source text is a separate boundary
+
+[Unicode source validation](../unicode-source.md) now preserves decoded text and
+rejects selected controls with scalar positions. File decoding, Unicode identifier
+rules, normalization, and mathematical token aliases are not implemented. This
+boundary sits before future lexing and does not alter the nameless core.
+
 ## A first reading route
 
 Read Quantity and Term, then Context and Reduction, then Erased and Runtime.

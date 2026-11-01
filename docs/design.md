@@ -309,7 +309,16 @@ The design record is not the user manual. Develop documentation alongside implem
 
 These are planned deliverables, not a claim that the manuals, generated reference, CI checks, or documentation tooling already exist.
 
-## 16. Readiness and immediate open design work
+## 16. Unicode source direction
+
+See [Unicode source policy](unicode-source.md). UTF-8 files, Unicode identifiers,
+optional mathematical aliases with ASCII alternatives, and Neovim input helpers
+are intended. Decoded-text validation is implemented separately; decoding,
+identifier tables/normalization, confusable diagnostics, and aliases are not.
+Never globally rewrite strings or silently normalize full source. Position
+encodings must be explicit at file/editor boundaries.
+
+## 17. Readiness and immediate open design work
 
 - Write precise guarantees/non-guarantees for total, safe, erased, linear, and real-time.
 - Select the published De Morgan calculus and formalize quantitative interactions.

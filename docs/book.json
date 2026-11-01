@@ -52,6 +52,10 @@
         "path": "docs/cli.md"
       },
       {
+        "title": "Unicode source text",
+        "path": "docs/unicode-source.md"
+      },
+      {
         "title": "Ordinary core draft",
         "path": "docs/core-draft.md"
       },

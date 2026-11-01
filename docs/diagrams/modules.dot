@@ -1,5 +1,6 @@
 digraph Modules {
 rankdir=LR; node [shape=box,style=rounded];
+"Source.Text";
 Quantity; Interval; NormalForm; Face; Scope; Restriction; Term;
 NormalForm -> {Interval Sorted}; Face -> {Interval Sorted};
 Scope -> {Interval Face}; Restriction -> {Interval Scope};

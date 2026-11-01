@@ -17,6 +17,10 @@ Runtime-specific deterministic checks in
 closure capture/duplication, and diagnostics. Erased generators are not treated
 as evidence for runtime safety.
 
+[Tests.SourceText](../test/src/Tests/SourceText.idr) covers Unicode preservation,
+selected forbidden controls, CRLF/tab handling, and scalar error locations.
+These tests operate on decoded strings, not malformed UTF-8 bytes or identifiers.
+
 ## Hedgehog dependency
 
 Repository: https://github.com/stefan-hoeck/idris2-hedgehog
