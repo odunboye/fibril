@@ -316,6 +316,7 @@ def inspect_checking(name, executable, line_ending="\n"):
                       "position": None, "byteOffset": None}
         envelope = {"version": 1, "coordinates": "unicode-scalars;offset=0;line=1;column=1"}
         faults = [
+            ({**envelope, "version": 2, "accepted": True, "report": [], "diagnostics": []}, 0),
             ({**envelope, "accepted": True, "report": [], "diagnostics": []}, 1),
             ({**envelope, "accepted": False, "report": [], "diagnostics": [diagnostic]}, 0),
             ({**envelope, "accepted": False, "report": [], "diagnostics": [

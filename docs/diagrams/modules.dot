@@ -24,6 +24,7 @@ Main -> {"Source.File" "Source.Lexer" "Source.Diagnostic"};
 "Driver.Symbols" -> "Source.Navigation";
 "Driver.Evaluate" -> "Driver.ModuleCheck";
 "Driver.Run" -> "Driver.ModuleCheck";
+"Driver.ProjectReport" -> {"Driver.ModuleCheck" "Driver.ModuleGraph" "Driver.JSON"};
 "Driver.ModuleCheck" -> {"Driver.ModuleGraph" "Driver.Prelude" "Source.Resolve" Runtime "Source.Global"};
 "Driver.ModuleGraph" -> {"Runtime.Path" "Source.Document" "Source.File" "Source.Diagnostic" "Driver.JSON" "Driver.Check"};
 "Source.Document" -> {"Source.Declaration" "Source.Parser" "Source.Lexer" "Source.Text"};

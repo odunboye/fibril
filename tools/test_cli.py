@@ -193,6 +193,83 @@ class CLITests(unittest.TestCase):
         self.assertEqual(result.stdout, "")
         self.assertIn("use eval", result.stderr)
 
+    def test_project_json_source_provenance(self):
+        with tempfile.TemporaryDirectory(prefix="project json ") as directory:
+            root = Path(directory)
+            entry = root / "Main.fib"
+            dependency = root / "Library.fib"
+            entry_source = ('module Main\nimport Library\nmain : IO Unit\n'
+                            'main = Library.output\n')
+            dependency_source = ('-- 🌍\r\nmodule Library\r\nexport\r\noutput : IO Unit\r\n'
+                                 'output = putStrLn "not executed"\r\n')
+            entry.write_text(entry_source, encoding="utf-8")
+            dependency.write_bytes(dependency_source.encode("utf-8"))
+            result = run("check", "--json", "--source-dir", str(root), str(entry))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            report = json.loads(result.stdout)
+            self.assertEqual(report["version"], 2)
+            self.assertTrue(report["accepted"])
+            self.assertEqual(report["entry"], str(entry.resolve()))
+            self.assertEqual(report["root"], str(root.resolve()))
+            self.assertEqual(report["diagnostics"], [])
+            self.assertEqual({s["path"]: s["text"] for s in report["sources"]}, {
+                str(entry.resolve()): entry_source, str(dependency.resolve()): dependency_source})
+            self.assertNotIn("\nnot executed\n", result.stdout)
+            self.assertEqual(result.stderr, "")
+            # A dependency resolver point must never become an entry-file point.
+            bad = '-- 🌍\r\nmodule Library\r\nexport\r\noutput : IO Unit\r\noutput = missing\r\n'
+            dependency.write_bytes(bad.encode("utf-8"))
+            result = run("check", "--json", "--source-dir", str(root), str(entry))
+            self.assertNotEqual(result.returncode, 0)
+            report = json.loads(result.stdout)
+            self.assertFalse(report["accepted"])
+            diagnostic = report["diagnostics"][0]
+            self.assertEqual(diagnostic["path"], str(dependency.resolve()))
+            self.assertEqual(diagnostic["stage"], "resolution")
+            self.assertTrue(diagnostic["sourceAvailable"])
+            self.assertEqual(diagnostic["position"], {
+                "offset": bad.index("missing"), "line": 5, "column": 10})
+            self.assertEqual({s["path"]: s["text"] for s in report["sources"]}[diagnostic["path"]], bad)
+            dependency.write_text('module Library\nexport\noutput : IO Unit\noutput = True\n', encoding="utf-8")
+            result = run("check", "--json", "--source-dir", str(root), str(entry))
+            diagnostic = json.loads(result.stdout)["diagnostics"][0]
+            self.assertEqual(diagnostic["path"], str(dependency.resolve()))
+            self.assertEqual(diagnostic["stage"], "runtime-checking")
+            self.assertIsNone(diagnostic["position"])
+            self.assertIsNone(diagnostic["byteOffset"])
+            self.assertTrue(diagnostic["sourceAvailable"])
+            dependency.write_bytes("🌍".encode("utf-8") + b"\xff")
+            result = run("check", "--json", "--source-dir", str(root), str(entry))
+            report = json.loads(result.stdout)
+            diagnostic = report["diagnostics"][0]
+            self.assertEqual(diagnostic["stage"], "decoding")
+            self.assertEqual(diagnostic["path"], str(dependency.resolve()))
+            self.assertEqual(diagnostic["byteOffset"], 4)
+            self.assertIsNone(diagnostic["position"])
+            self.assertFalse(diagnostic["sourceAvailable"])
+            self.assertEqual(report["sources"], [])
+            dependency.write_text("\u202e", encoding="utf-8")
+            result = run("check", "--json", "--source-dir", str(root), str(entry))
+            diagnostic = json.loads(result.stdout)["diagnostics"][0]
+            self.assertEqual(diagnostic["stage"], "source-validation")
+            self.assertEqual(diagnostic["position"], {"offset": 0, "line": 1, "column": 1})
+            self.assertFalse(diagnostic["sourceAvailable"])
+            dependency.unlink()
+            result = run("check", "--json", "--source-dir", str(root), str(entry))
+            report = json.loads(result.stdout)
+            diagnostic = report["diagnostics"][0]
+            self.assertEqual(diagnostic["path"], str(entry.resolve()))
+            self.assertEqual(diagnostic["position"]["line"], 2)
+            self.assertTrue(diagnostic["sourceAvailable"])
+            self.assertEqual(len(report["sources"]), 1)
+            # Known empty text is not the same as an unavailable source snapshot.
+            entry.write_bytes(b"")
+            result = run("check", "--json", "--source-dir", str(root), str(entry))
+            report = json.loads(result.stdout)
+            self.assertFalse(report["accepted"])
+            self.assertEqual(report["sources"], [{"path": str(entry.resolve()), "text": ""}])
+            self.assertTrue(report["diagnostics"][0]["sourceAvailable"])
+
     def test_module_execution_and_evaluation(self):
         root = "examples/modules/checked"
         entry = root + "/Main.fib"

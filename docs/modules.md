@@ -4,7 +4,8 @@ Status: shared **syntax/metadata parsing** and **read-only POSIX dependency
 discovery** are implemented, alongside qualified syntax/explicit-global lookup.
 **Checked imports are now available through check --source-dir ROOT ENTRY.**
 Project check/eval/run share this checked preparation path when --source-dir is
-explicit. Source-aware project JSON/editor reports remain unimplemented. Plain
+explicit. Source-aware project JSON reports are implemented as version 2; editor consumption
+is not yet implemented. Plain
 single-file commands do not silently choose a project root.
 
 ## Parsing progress
@@ -61,7 +62,7 @@ The project checker uses this import-binding boundary to install only checked
 exports. Plain single-file check/JSON and eval/run still reject module/import documents
 without the explicit project preparation path. Same-file navigation does not misidentify qualified names as local
 variables and returns no cross-file target. Imported checking, name visibility, and elaboration admission now exist;
-source-aware project JSON/editor diagnostics are still pending.
+version-2 project JSON is available; project-aware editor consumption is still pending.
 
 ## Checked interfaces
 
@@ -102,8 +103,8 @@ No project error is forced into the old single-file JSON/editor location model.
 
 This first path checks closed transparent values, not opaque modules or abstract
 types. It does not execute imported declarations, fetch packages, or add axioms.
-Project eval/run now reuse this service; project-aware JSON/editor integration
-remains a separate next step.
+Project eval/run now reuse this service; version-2 project JSON now preserves source identity and snapshots. Project-aware
+editor consumption remains a separate next step.
 
 ## Evaluating and running modules
 
@@ -133,7 +134,7 @@ stderr. Core/planning/result failures without source provenance are file-level
 entry errors, not guessed locations inside an inlined dependency. Original
 dependency checking/resolution failures retain their dependency file.
 
-This is hosted execution/reference evaluation, not C/JS generation. Project JSON,
+This is hosted execution/reference evaluation, not C/JS generation. Project-aware editor consumption,
 unsaved project buffers, cross-file editor navigation, recursive modules, erased/
 linear globals, and opaque interfaces are not provided by this path.
 
@@ -360,9 +361,9 @@ remain unlocated even when the affected module is known.
 
 The current version-1 JSON check adapter assumes scalar points belong to the
 queried file. It must not receive a dependency point disguised as an entry point.
-Introduce a source-aware protocol/version and update its consumers before
-shipping module diagnostics through that path; older clients must reject the
-unsupported version rather than jump to a wrong source location.
+The explicit project JSON command now uses version 2 with file identities and
+source snapshots. Its editor consumers must be updated separately; older clients
+reject the unsupported version rather than jump to a wrong source location.
 
 Cross-file navigation should use module-qualified declaration identities plus
 source snapshots. Existing position-based local targets are snapshot-local, not

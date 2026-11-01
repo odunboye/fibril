@@ -15,6 +15,7 @@ Build with `pack build fibril`, then invoke `./build/exec/fibril`.
 | eval --source-dir ROOT ENTRY | Check modules, normalize entry, and recheck without performing effects |
 | eval --source-dir ROOT --fuel N ENTRY | Project reference evaluation with fuel 0..4096 |
 | check --source-dir ROOT ENTRY | Check bounded POSIX dependency graph and closed qualified module interfaces; no execution |
+| check --json --source-dir ROOT ENTRY | Version-2 project report with source paths/snapshots; JSON on represented rejection |
 | check --json PATH | Structured runtime-check report; JSON on stdout even on represented rejection, with nonzero status |
 | check --erased PATH | Parse/resolve/check the erased ordinary fragment only |
 | rename-preview LINE COLUMN NEWNAME PATH | Conservative capture-checked same-file edit preview as JSON; never writes files |

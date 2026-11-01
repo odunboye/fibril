@@ -272,6 +272,12 @@ run entries. Zero/invalid fuel, late entry errors, invalid unused dependency
 bodies, and oversized action plans must leave stdout empty. Dependency failures
 retain their actual file; post-evaluation/planning errors remain unlocated.
 
+Project JSON tests distinguish entry/dependency identities, original Unicode/CRLF
+snapshots, located resolver errors, unlocated runtime failures, byte-only decoding
+errors, unavailable policy-error text, missing imports, and known empty sources.
+Existing real-editor tests confirm version-1 clients reject version-2 reports
+without changing their lists. No cross-file editor consumption is claimed yet.
+
 ## Hedgehog dependency
 
 Repository: https://github.com/stefan-hoeck/idris2-hedgehog

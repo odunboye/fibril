@@ -5,6 +5,7 @@ import Data.List
 import System.Directory
 import Fibril.Runtime.Path
 import Fibril.Source.Text
+import Fibril.Source.UTF8
 import Fibril.Source.Lexer
 import Fibril.Source.Document
 import Fibril.Source.Parser
@@ -24,25 +25,46 @@ record Site where
 
 public export
 record GraphError where
-  constructor GraphFailure
+  constructor DetailedGraphFailure
   path : String
   source : String
   point : Maybe Position
   message : String
+  sourceKnown : Bool
+  byteOffset : Maybe Nat
+  stage : String
+
+||| Compatibility constructor for discovery errors. Empty unknown source is not
+||| represented as a purported empty-file snapshot.
+public export
+GraphFailure : String -> String -> Maybe Position -> String -> GraphError
+GraphFailure path source point message =
+  DetailedGraphFailure path source point message (source /= "") Nothing "module-graph"
 
 failure : Site -> String -> GraphError
 failure site message = GraphFailure site.path site.source site.point message
 
+loadFailure : String -> LoadError -> GraphError
+loadFailure path err = case err of
+  InvalidUTF8 problem =>
+    DetailedGraphFailure path "" Nothing (show err) False (Just problem.byteOffset) "decoding"
+  InvalidText problem =>
+    DetailedGraphFailure path "" (Just problem.position) (show err) False Nothing "source-validation"
+  _ => DetailedGraphFailure path "" Nothing (show err) False Nothing "loading"
+
 public export
 renderGraphError : GraphError -> String
-renderGraphError err = case err.point of
-  Nothing => renderFileError err.path err.message
-  Just point => renderDiagnostic err.path err.source (AtPoint point err.message)
+renderGraphError err = case (err.sourceKnown, err.point) of
+  (True, Just point) => renderDiagnostic err.path err.source (AtPoint point err.message)
+  _ => renderFileError err.path err.message
 
 frontendError : String -> String -> FrontendError -> GraphError
-frontendError path source err = case driverDiagnostic (FrontendFailure err) of
-  Just diagnostic => GraphFailure path source (Just diagnostic.position) diagnostic.message
-  Nothing => GraphFailure path source Nothing (show err)
+frontendError path source err =
+  let category = driverStage (FrontendFailure err)
+   in case driverDiagnostic (FrontendFailure err) of
+        Just diagnostic => DetailedGraphFailure path source (Just diagnostic.position)
+                             diagnostic.message True Nothing category
+        Nothing => DetailedGraphFailure path source Nothing (show err) True Nothing category
 
 public export
 record ModuleSnapshot where
@@ -159,7 +181,7 @@ mutual
           if state.count >= 32 then pure (Left (failure site "Module count budget exceeded (32)"))
           else do
             Right source <- loadSource path
-              | Left err => pure (Left (failure (AtSource path "" Nothing) (show err)))
+              | Left err => pure (Left (loadFailure path err))
             let bytes = byteCount source
             if state.bytes + bytes > 524288
                then pure (Left (failure site "Aggregate module source byte budget exceeded (524288)"))

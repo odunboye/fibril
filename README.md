@@ -12,7 +12,8 @@ pure, and bind over experimental IO descriptions. A hosted runner executes stdou
 plans; a complete effect calculus and compiler backends remain future work.
 See [checker scope and limits](docs/erased-checker.md). The [local module/import work](docs/modules.md) now has shared metadata parsing and read-only POSIX dependency discovery;
 check/eval/run --source-dir now support checked closed qualified imports and
-hosted execution. Source-aware project editor integration remains unimplemented.
+hosted execution. Version-2 project JSON retains source identity/snapshots; project editor
+consumption remains unimplemented.
 
 Optional [Neovim/Vim highlighting, checking, and same-file navigation](docs/editor-highlighting.md),
 including [LazyVim installation](docs/editor-highlighting.md#install-in-lazyvim),

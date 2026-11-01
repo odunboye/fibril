@@ -143,6 +143,49 @@ It is not an LSP, UTF-16 adapter, or incremental checker. The optional
 [FibrilCheck editor adapter](editor-highlighting.md#runtime-checking-in-the-editor)
 uses this report without inventing locations for unlocated errors.
 
+## Source-aware project reports (version 2)
+
+~~~sh
+./build/exec/fibril check --json --source-dir examples/modules/checked examples/modules/checked/Main.fib
+~~~
+
+This reports project acceptance/rejection without executing IO descriptions.
+Represented rejections still emit JSON on stdout with nonzero status and empty
+stderr. Unexpected process termination is outside this guarantee.
+
+Version 2 deliberately is **not** the single-file version-1 schema. In addition
+to the scalar coordinates, accepted, report, and diagnostics fields, it contains:
+
+- entry: canonical entry path after discovery, otherwise its requested spelling.
+- root: canonical root after complete discovery, otherwise null.
+- sources: path/text objects containing exact immutable source snapshots. A known
+  empty file has text ""; an unavailable source is not fabricated as an empty file.
+- Each diagnostic includes path, stage, message, severity, position, byteOffset,
+  and sourceAvailable. Scalar points and byte-only decoding offsets stay distinct.
+
+Paths are canonical for discovered files; an early filesystem failure can retain
+the request path without claiming canonical identity. Unlocated core errors
+remain null positions, even when their source text is available. A scalar-policy
+failure can have a real point but unavailable text because the bounded loader
+rejected the decoded source. No blank excerpt is invented for it.
+
+[ProjectOutcome](../src/Fibril/Driver/ModuleCheck.idr) now retains the loaded graph
+when checking fails; plain project check/eval/run and
+[Driver.ProjectReport](../src/Fibril/Driver/ProjectReport.idr) share that preparation.
+Graph-discovery failure may retain only the error site's source, not a complete
+graph. Reports currently contain the first error, not recovery/multiple failures.
+
+**Reports include project source code**, including private definitions. Do not
+treat this as a redacted log format. Successful/fully loaded checking reports can
+carry all reachable source texts within the graph limits. Byte counts and source
+snapshots do not establish authenticity or an atomic filesystem transaction.
+
+Clients must verify file identity and snapshot contents against the relevant
+buffers/files before attaching diagnostics or trusting a displayed acceptance.
+A dependency point must never be converted against the entry buffer. The current
+version-1 Vim/Neovim adapter intentionally rejects version 2; project-aware editor
+consumption is the next step. Existing single-file JSON remains version 1.
+
 ## Tests and next work
 
 [Tests.Diagnostic](../test/src/Tests/Diagnostic.idr) covers line endings, tabs,

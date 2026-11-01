@@ -33,18 +33,6 @@ checkFileReport path = do
     Left err => LoadFailed err
     Right source => checkReport source
 
-stage : DriverError -> String
-stage (FrontendFailure (Lexical (InvalidSource _))) = "source-validation"
-stage (FrontendFailure (Lexical _)) = "lexing"
-stage (FrontendFailure (Parsing _)) = "parsing"
-stage (FrontendFailure (Resolving _)) = "resolution"
-stage (FrontendFailure (PreludeUnavailable _)) = "prelude"
-stage (ErasedFailure _) = "erased-checking"
-stage (RuntimeFailure _) = "runtime-checking"
-stage EvaluationLimit = "evaluation"
-stage (PostReductionFailure _) = "post-reduction"
-stage (ConsoleFailure _) = "io-planning"
-
 diagnosticJSON : String -> String -> Maybe Position -> Maybe Nat -> String
 diagnosticJSON stage message point byteOffset = jsonObject
   [("severity", jsonString "error"), ("stage", jsonString stage),
@@ -63,7 +51,7 @@ renderCheckReport : CheckReport -> String
 renderCheckReport (Checked lines) = reportJSON True lines []
 renderCheckReport (Rejected err) =
   let point = map position (driverDiagnostic err)
-   in reportJSON False [] [diagnosticJSON (stage err) (show err) point Nothing]
+   in reportJSON False [] [diagnosticJSON (driverStage err) (show err) point Nothing]
 renderCheckReport (LoadFailed (InvalidText err)) =
   reportJSON False [] [diagnosticJSON "source-validation" (show err) (Just err.position) Nothing]
 renderCheckReport (LoadFailed (InvalidUTF8 err)) =

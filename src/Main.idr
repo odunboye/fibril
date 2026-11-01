@@ -10,6 +10,7 @@ import Fibril.Driver.Evaluate
 import Fibril.Driver.Run
 import Fibril.Driver.ModuleGraph
 import Fibril.Driver.ModuleCheck
+import Fibril.Driver.ProjectReport
 import Fibril.Driver.Symbols
 import Fibril.Source.File
 import Fibril.Source.Lexer
@@ -34,6 +35,7 @@ Usage:
   fibril lex-source PATH        Print source tokens/spans (not parsing/checking)
   fibril check PATH             Check a closed source program and runtime usage
   fibril check --source-dir ROOT ENTRY  Check qualified local module interfaces (POSIX)
+  fibril check --json --source-dir ROOT ENTRY  Version-2 project report with source snapshots
   fibril check --json PATH      JSON runtime-check report (no effect execution)
   fibril check --erased PATH    Check only the erased ordinary fragment
   fibril run PATH              Check main : IO Unit, then execute prepared stdout requests
@@ -138,6 +140,10 @@ main = do
         Left err => do
           _ <- fPutStrLn stderr err
           exitFailure
+    ["check", "--json", "--source-dir", root, entry] => do
+      outcome <- prepareProject root entry
+      putStrLn (renderProjectReport entry outcome)
+      if projectAccepted outcome then pure () else exitFailure
     ["check", "--source-dir", root, entry] => do
       result <- checkProject root entry
       case result of

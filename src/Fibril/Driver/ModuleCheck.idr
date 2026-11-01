@@ -104,14 +104,15 @@ record CheckedProject where
   inferredType : Term 0
 
 problem : ModuleSnapshot -> Maybe Position -> String -> GraphError
-problem snapshot point message = GraphFailure snapshot.path snapshot.source point message
+problem snapshot point message =
+  DetailedGraphFailure snapshot.path snapshot.source point message True Nothing "module-checking"
 
 moduleText : List String -> String
 moduleText names = concat (intersperse "." names)
 
 resolve : ModuleSnapshot -> List Weighted -> Expr -> Either GraphError (Term 0)
 resolve snapshot globals expression = case resolveClosedWith (map global globals) expression of
-  Left err => Left (problem snapshot (Just err.position) (show err))
+  Left err => Left ({ stage := "resolution" } (problem snapshot (Just err.position) (show err)))
   Right term => Right term
 
 compileDeclarations : ModuleSnapshot -> List String -> List Weighted -> List Declaration -> Nat ->
@@ -132,7 +133,7 @@ compileDeclarations snapshot name globals (decl :: rest) remaining = do
      then Left (problem snapshot Nothing "Internal module expansion estimate was insufficient")
      else Right ()
   _ <- case checkRuntime checkingDepth typeReductionFuel Empty value ty of
-    Left err => Left (problem snapshot Nothing ("Module checking: " ++ show err))
+    Left err => Left ({ stage := "runtime-checking" } (problem snapshot Nothing ("Module checking: " ++ show err)))
     Right checked => Right checked
   let local = weighted (Global decl.name ty value)
   let qualified = Weight (Global (moduleText name ++ "." ++ decl.name) ty value) local.size
@@ -180,7 +181,7 @@ compileGraph graph prelude interfaces remaining (snapshot :: rest) = do
     Nothing => if snapshot.path /= graph.entry then Left (problem snapshot Nothing "Anonymous dependency") else do
       term <- anonymous snapshot globals remaining
       case inferRuntime checkingDepth typeReductionFuel Empty term of
-        Left err => Left (problem snapshot Nothing ("Entry checking: " ++ show err))
+        Left err => Left ({ stage := "runtime-checking" } (problem snapshot Nothing ("Entry checking: " ++ show err)))
         Right checked => Right (Project graph term checked.inferredType)
     Just header => do
       if any (\entry => entry.name == header.components) interfaces
@@ -203,7 +204,7 @@ compileGraph graph prelude interfaces remaining (snapshot :: rest) = do
               Nothing => Left (problem snapshot Nothing "Missing main binding")
               Just term => Right term
             case inferRuntime checkingDepth typeReductionFuel Empty term of
-              Left err => Left (problem snapshot Nothing ("Entry checking: " ++ show err))
+              Left err => Left ({ stage := "runtime-checking" } (problem snapshot Nothing ("Entry checking: " ++ show err)))
               Right checked => Right (Project graph term checked.inferredType)
          else compileGraph graph prelude (Exports header.components compiled.exports :: interfaces)
                            compiled.remaining rest
@@ -214,15 +215,35 @@ public export
 checkModuleGraph : ModuleGraph -> Either GraphError CheckedProject
 checkModuleGraph graph = do
   prelude <- case preludeGlobals of
-    Left err => Left (GraphFailure graph.entry "" Nothing ("Bundled prelude: " ++ err))
+    Left err => Left ({ stage := "prelude" } (GraphFailure graph.entry "" Nothing ("Bundled prelude: " ++ err)))
     Right globals => Right (map weighted globals)
   compileGraph graph prelude [] 200000 graph.modules
 
 public export
+data ProjectOutcome
+  = GraphUnavailable GraphError
+  | ProjectRejected ModuleGraph GraphError
+  | ProjectAccepted CheckedProject
+
+||| Preserve loaded snapshots on a checking failure for source-aware consumers.
+public export
+prepareProject : String -> String -> IO ProjectOutcome
+prepareProject root entry = do
+  loaded <- loadModuleGraph root entry
+  pure $ case loaded of
+    Left err => GraphUnavailable err
+    Right graph => case checkModuleGraph graph of
+      Left err => ProjectRejected graph err
+      Right project => ProjectAccepted project
+
+public export
 checkProject : String -> String -> IO (Either GraphError CheckedProject)
 checkProject root entry = do
-  loaded <- loadModuleGraph root entry
-  pure (loaded >>= checkModuleGraph)
+  outcome <- prepareProject root entry
+  pure $ case outcome of
+    GraphUnavailable err => Left err
+    ProjectRejected _ err => Left err
+    ProjectAccepted project => Right project
 
 public export
 projectReport : CheckedProject -> List String

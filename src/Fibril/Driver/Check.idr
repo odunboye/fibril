@@ -68,6 +68,20 @@ frontendPoint (Lexical (BadString err)) = Just (AtPoint err.position ("Lexing: "
 frontendPoint (Lexical ScanLimit) = Nothing
 frontendPoint (PreludeUnavailable _) = Nothing
 
+||| Stable reporting categories, not a string parser over human messages.
+public export
+driverStage : DriverError -> String
+driverStage (FrontendFailure (Lexical (InvalidSource _))) = "source-validation"
+driverStage (FrontendFailure (Lexical _)) = "lexing"
+driverStage (FrontendFailure (Parsing _)) = "parsing"
+driverStage (FrontendFailure (Resolving _)) = "resolution"
+driverStage (FrontendFailure (PreludeUnavailable _)) = "prelude"
+driverStage (ErasedFailure _) = "erased-checking"
+driverStage (RuntimeFailure _) = "runtime-checking"
+driverStage EvaluationLimit = "evaluation"
+driverStage (PostReductionFailure _) = "post-reduction"
+driverStage (ConsoleFailure _) = "io-planning"
+
 ||| Only genuine frontend source points; core failures remain unlocated.
 public export
 driverDiagnostic : DriverError -> Maybe Diagnostic
