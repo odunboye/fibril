@@ -2,6 +2,7 @@
 """Regression checks for generated textbook navigation; standard library only."""
 from html.parser import HTMLParser
 import json
+import hashlib
 import re
 from pathlib import Path
 import unittest
@@ -84,6 +85,23 @@ class TextbookTests(unittest.TestCase):
                             'font-variant-ligatures:none', 'text-wrap:balance'):
             self.assertIn(declaration, css)
         self.assertNotIn('@import', css)
+
+    def test_bundled_hyperlegible_fonts_and_licenses(self):
+        directory = OUT / "assets/fonts"
+        manifest = json.loads((directory / "manifest.json").read_text())
+        css = (OUT / "assets/book.css").read_text()
+        self.assertEqual(len(manifest["files"]), 4)
+        for name, expected in manifest["files"].items():
+            data = (directory / name).read_bytes()
+            self.assertEqual(hashlib.sha256(data).hexdigest(), expected)
+            self.assertEqual(data[:4], bytes([0, 1, 0, 0]))
+            self.assertIn('fonts/' + name, css)
+        for source in manifest["sources"]:
+            license_text = (directory / source["license_file"]).read_text()
+            self.assertIn("SIL OPEN FONT LICENSE Version 1.1", license_text)
+            self.assertIn("Copyright", license_text)
+        self.assertIn('"Atkinson Hyperlegible Next"', css)
+        self.assertIn('"Atkinson Hyperlegible Mono"', css)
 
     def test_theme_control_has_accessible_sun_icon(self):
         content = self.chapters[0].read_text()

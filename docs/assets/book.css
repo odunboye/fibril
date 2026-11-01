@@ -1,4 +1,32 @@
-/* Offline-first textbook presentation. No downloaded fonts or runtime framework. */
+/* Offline-first presentation. Bundled OFL fonts; no external font service. */
+@font-face {
+  font-family:"Atkinson Hyperlegible Next";
+  src:url("fonts/AtkinsonHyperlegibleNext.ttf") format("truetype");
+  font-style:normal;
+  font-weight:200 800;
+  font-display:swap;
+}
+@font-face {
+  font-family:"Atkinson Hyperlegible Next";
+  src:url("fonts/AtkinsonHyperlegibleNext-Italic.ttf") format("truetype");
+  font-style:italic;
+  font-weight:200 800;
+  font-display:swap;
+}
+@font-face {
+  font-family:"Atkinson Hyperlegible Mono";
+  src:url("fonts/AtkinsonHyperlegibleMono.ttf") format("truetype");
+  font-style:normal;
+  font-weight:200 800;
+  font-display:swap;
+}
+@font-face {
+  font-family:"Atkinson Hyperlegible Mono";
+  src:url("fonts/AtkinsonHyperlegibleMono-Italic.ttf") format("truetype");
+  font-style:italic;
+  font-weight:200 800;
+  font-display:swap;
+}
 :root {
   color-scheme:light;
   --paper:#f2f1ef;
@@ -12,9 +40,9 @@
   --shadow:0 12px 40px #1f1f2808;
   --diagram-filter:grayscale(1);
   --reading-size:20px;
-  --font-reading:"Iowan Old Style","Palatino Linotype","Book Antiqua",Palatino,Georgia,serif;
-  --font-ui:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-  --font-code:ui-monospace,SFMono-Regular,Consolas,monospace
+  --font-reading:"Atkinson Hyperlegible Next",system-ui,sans-serif;
+  --font-ui:"Atkinson Hyperlegible Next",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --font-code:"Atkinson Hyperlegible Mono",ui-monospace,SFMono-Regular,Consolas,monospace
 }
 
 @media(prefers-color-scheme:dark) {
@@ -149,7 +177,7 @@ button:hover {
   border-radius:10px;
   background:var(--accent);
   color:var(--paper);
-  font-family:Georgia,serif;
+  font-family:var(--font-reading);
   font-style:italic
 }
 
@@ -303,7 +331,7 @@ article {
   font-family:var(--font-reading);
   font-size:var(--reading-size);
   line-height:1.78;
-  font-variant-numeric:oldstyle-nums
+  font-variant-numeric:lining-nums
 }
 
 article p,article li {

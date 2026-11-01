@@ -37,7 +37,7 @@ Pearl's soft neutral paper in light mode and Ink's charcoal backgrounds with
 muted gray-green text in dark mode. Blue-gray accents remain restrained.
 Palette reference: [upstream colors](https://github.com/webhooked/kanso.nvim/blob/main/lua/kanso/colors.lua).
 The Pearl link color is slightly darkened to retain contrast on secondary surfaces. A 66-character reading measure, 20px default
-serif prose, generous line height, and balanced chapter headings support extended
+Atkinson Hyperlegible prose, generous line height, and balanced chapter headings support extended
 reading. Compact sans-serif navigation stays visually separate from the text.
 Diagrams adapt to dark mode. This is an original adaptation, not the official
 Kanso theme or a claim that any palette prevents eye strain.
@@ -62,9 +62,20 @@ Without JavaScript, chapter content, navigation, source links, and system-theme
 styling remain available. Print styling removes navigation and controls.
 Reduced-motion preferences disable animated scrolling/transitions.
 
-Typography uses local system fonts: Iowan/Palatino/Georgia for prose, system
-sans-serif for navigation and tables, and monospace for code. No font downloads
-are required. Font availability affects the exact appearance. Code disables
+Typography uses bundled Atkinson Hyperlegible Next for prose, headings,
+navigation, and tables; Atkinson Hyperlegible Mono for code. Both include normal
+and italic variable fonts (weights 200–800) with font-display: swap. They load
+locally without a third-party font service; system fonts remain fallbacks for
+loading failures or missing glyphs.
+
+Fonts are redistributed unmodified under SIL Open Font License 1.1. Upstream
+copyright/license notices are included in docs/assets/fonts/OFL-Next.txt and
+OFL-Mono.txt; manifest.json records pinned upstream revisions and SHA-256 hashes.
+The font designers and Braille Institute are credited in upstream notices; use
+here does not imply endorsement. See
+[Atkinson Hyperlegible Next](https://github.com/googlefonts/atkinson-hyperlegible-next)
+and [Mono](https://github.com/googlefonts/atkinson-hyperlegible-next-mono).
+ Code disables
 ligatures and uses lining numerals; tables and source lines use tabular numerals.
 Paragraphs and lists use consistent relative spacing, headings request balanced
 wrapping, and print rules avoid stranded headings. Browser support for advanced
@@ -78,8 +89,8 @@ a local search-data.js, so search needs neither a server API nor a CDN.
 Search covers documentation text, not the full source tree or generated API.
 API pages retain the Idris documentation generator's own presentation.
 
-Automated checks cover local asset presence, search-index chapter inclusion,
-and navigation. JavaScript syntax is checked with Node during development;
+Automated checks cover local asset presence, font hashes/licenses and CSS
+references, search-index chapter inclusion, and navigation. JavaScript syntax is checked with Node during development;
 actual browser rendering, interaction, and accessibility are not yet covered
 by automated browser tests.
 
