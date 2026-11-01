@@ -1,0 +1,9 @@
+-- Pure let statements share scope with subsequent IO result bindings.
+main : IO Unit
+main = do
+  let (1 greeting : String) = "Pure computations belong in do blocks too."
+  (1 message : String) <- pure String greeting
+  putStrLn message
+  let (label : String) = "An unrestricted binding can be reused."
+  putStrLn label
+  putStrLn label

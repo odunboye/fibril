@@ -78,6 +78,9 @@ output order and does not execute effects during checking/reference evaluation.
 Names scope over subsequent statements, are consumed exactly once, and lower to
 existing core Bind. Bound blocks currently return IO Unit.
 
+`do-let.fib` combines typed pure let statements with IO result bindings in one
+block. Pure bindings retain ordinary quantities and do not execute descriptions.
+
 ## Proposed Fibril programs
 
 `proposed/` illustrates the intended user experience, from hello world and

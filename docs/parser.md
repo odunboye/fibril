@@ -30,6 +30,7 @@ This checks source; it does not compile or run a Fibril executable.
     expr        ::= doExpr | ifExpr | caseExpr | letExpr | lambda | dependentPi | application [ "->" expr ]
     doExpr      ::= "do" newline { alignedIndentedStatement }
     statement   ::= expr | "(" "1" name ":" expr ")" "<-" expr
+                  | "let" binder "=" expr
     ifExpr      ::= "if" expr "then" expr "else" expr
     caseExpr    ::= "case" expr "of" "(" ")" "=>" expr
     letExpr     ::= "let" binder "=" expr "in" expr

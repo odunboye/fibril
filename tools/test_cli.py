@@ -192,6 +192,36 @@ class CLITests(unittest.TestCase):
         self.assertEqual(result.stdout, "")
         self.assertIn("use eval", result.stderr)
 
+    def test_do_let_statements(self):
+        result = run("run", "examples/core/do-let.fib")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout,
+                         "Pure computations belong in do blocks too.\n" +
+                         "An unrestricted binding can be reused.\n" * 2)
+        result = run("check", "examples/core/do-let.fib")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Type: (IO Unit)", result.stdout)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "let.fib"
+            prefix = 'main : IO Unit\nmain = do\n  putStrLn "must not print"\n'
+            for tail in (
+                '  let (1 text : String) = "unused"\n  pure Unit ()\n',
+                '  let (1 text : String) = "twice"\n  putStrLn text\n  putStrLn text\n',
+                '  let (0 text : String) = "erased"\n  putStrLn text\n',
+                '  let (text : String) = True\n  putStrLn text\n',
+                '  let (text : String) = "last"\n',
+            ):
+                with self.subTest(tail=tail):
+                    path.write_text(prefix + tail, encoding="utf-8")
+                    result = run("run", str(path))
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertEqual(result.stdout, "")
+            path.write_text(prefix + '  let (1 text : String) = missing\n'
+                            '  putStrLn text\n', encoding="utf-8")
+            result = run("run", str(path))
+            self.assertEqual(result.stdout, "")
+            self.assertIn(f"{path}:4:27: Resolution:", result.stderr)
+
     def test_typed_do_bindings(self):
         result = run("run", "examples/core/do-bindings.fib")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

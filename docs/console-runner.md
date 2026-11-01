@@ -117,7 +117,7 @@ main = do
 do is now ordinary expression syntax, not part of a separate console entry
 parser. Flat action lines are aligned, indented beyond column one, and each
 action expression fits on one source line. Comments and blank lines are allowed.
-At most 64 statements are accepted per block, counting both bindings and bare
+At most 64 statements are accepted per block, counting result bindings, let bindings, and bare
 actions; empty/nested blocks are not implemented.
 
 Sequencing lowers to core Bind over Unit, with a linear continuation that
@@ -148,6 +148,31 @@ bindings, and nested/multiline statements remain future work.
 
 [do-bindings.fib](../examples/core/do-bindings.fib) demonstrates String and Bool
 bindings, mixing named results with bare actions and consuming a mapped result.
+
+### Pure let statements
+
+A typed let without in binds a value for the rest of the block:
+
+~~~fib
+main : IO Unit
+main = do
+  let (1 greeting : String) = "A pure local value."
+  (1 message : String) <- pure String greeting
+  putStrLn message
+~~~
+
+This lowers to the existing NLet/lambda-application elaboration, not IO Bind.
+Quantity 0, quantity 1, and omitted/unrestricted quantities retain their ordinary
+meaning. Annotation and value resolve before the name enters scope; later
+statements may shadow it. A final let without a following action is rejected.
+let statements count toward the same 64-statement block limit.
+
+Unlike <-, let binds a description itself when its type is IO A; it does not run
+that description or extract A. In particular, an erased unused write description
+performs no output. Complete let ... in ... expressions remain valid action lines.
+Annotations retain existing opaque-let semantics, not transparent type aliases.
+
+See [do-let.fib](../examples/core/do-let.fib) for pure and IO bindings together.
 
 Functions, local bindings, ordinary declaration files, and higher-order
 applications can produce descriptions. User declaration values still have the

@@ -150,6 +150,11 @@ types, explicit Unit consumption, and rejection of discarded/duplicated results.
 CLI tests check exact output and no prefix on late binding failures, including
 original source carets for unresolved names.
 
+Do-let regressions cover mixing pure/IO bindings, unrestricted reuse, shadowing,
+nonrecursive RHS/annotation scope, wrong value types, quantity violations, erased
+unused descriptions, final-let rejection, and compatibility with complete let-in
+actions. CLI failures after an earlier write must still execute no output prefix.
+
 ## Hedgehog dependency
 
 Repository: https://github.com/stefan-hoeck/idris2-hedgehog

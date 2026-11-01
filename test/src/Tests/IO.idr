@@ -138,6 +138,30 @@ checks =
       not (accepted False "main : IO Bool\nmain = do\n  (1 flag : Bool) <- pure Bool True\n  pure Bool flag"))
   , ("IO do Unit bindings need explicit consumption",
       planned "main : IO Unit\nmain = do\n  (1 done : Unit) <- putStrLn \"first\"\n  case done of () => putStrLn \"second\"" == Just ["first", "second"])
+  , ("IO do let feeds a subsequent result binding",
+      planned "main : IO Unit\nmain = do\n  let (1 text : String) = \"local\"\n  (1 value : String) <- pure String text\n  putStrLn value" == Just ["local"])
+  , ("IO do unrestricted let permits reuse",
+      planned "main : IO Unit\nmain = do\n  let (text : String) = \"reused\"\n  putStrLn text\n  putStrLn text" == Just ["reused", "reused"])
+  , ("IO do let RHS sees the preceding binding",
+      planned "main : IO Unit\nmain = do\n  let (1 text : String) = \"outer\"\n  let (1 text : String) = text\n  putStrLn text" == Just ["outer"])
+  , ("IO do let does not introduce its name into its RHS",
+      not (accepted False "main : IO Unit\nmain = do\n  let (1 text : String) = text\n  putStrLn text"))
+  , ("IO do let annotation cannot see its own name",
+      not (accepted False "main : IO Unit\nmain = do\n  let (1 text : text) = \"bad\"\n  putStrLn text"))
+  , ("IO do let validates the value type",
+      not (accepted False "main : IO Unit\nmain = do\n  let (text : String) = True\n  putStrLn text"))
+  , ("IO do let rejects linear discard",
+      not (accepted False "main : IO Unit\nmain = do\n  let (1 text : String) = \"unused\"\n  pure Unit ()"))
+  , ("IO do let rejects linear duplication",
+      not (accepted False "main : IO Unit\nmain = do\n  let (1 text : String) = \"twice\"\n  putStrLn text\n  putStrLn text"))
+  , ("IO do let rejects erased extraction",
+      not (accepted False "main : IO Unit\nmain = do\n  let (0 text : String) = \"erased\"\n  putStrLn text"))
+  , ("IO do erased unused description does not execute",
+      planned "main : IO Unit\nmain = do\n  let (0 ignored : IO Unit) = putStrLn \"never\"\n  pure Unit ()" == Just [])
+  , ("IO do let needs a final action",
+      not (accepted False "main : IO Unit\nmain = do\n  let (text : String) = \"last\""))
+  , ("IO do complete let-in action remains supported",
+      planned "main : IO Unit\nmain = do\n  let (1 text : String) = \"complete\" in putStrLn text\n  putStrLn \"next\"" == Just ["complete", "next"])
   , ("IO helpers are ordinary declarations",
       planned "say : (1 x : String) -> IO Unit\nsay = \\(1 x : String) => putStrLn x\nmain : IO Unit\nmain = say \"helper\"" == Just ["helper"])
   , ("IO linear result cannot be discarded",

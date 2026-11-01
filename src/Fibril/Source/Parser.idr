@@ -116,22 +116,27 @@ literalValue token = do
     _ => Left (ParseFailure token.span.start "Malformed string token")
 
 data DoStatement = Action Expr | Binding SourceSpan String Expr Expr
+                 | LocalBinding SourceSpan Quantity String Expr Expr
 
 statementExtent : DoStatement -> SourceSpan
 statementExtent (Action action) = extent action
 statementExtent (Binding span _ _ _) = span
+statementExtent (LocalBinding span _ _ _ _) = span
 
 sequenceExpressions : Position -> DoStatement -> List DoStatement -> Either ParseError Expr
 sequenceExpressions start (Action first) [] =
   Right (withExtent (Between start (extent first).finish) first)
 sequenceExpressions start (Binding span _ _ _) [] =
   Left (ParseFailure span.start "do binding requires a following action")
+sequenceExpressions start (LocalBinding span _ _ _ _) [] =
+  Left (ParseFailure span.start "do let requires a following action")
 sequenceExpressions start first (next :: rest) = do
   body <- sequenceExpressions (statementExtent next).start next rest
   let span = Between start (extent body).finish
   case first of
     Action action => Right (NSequence span action body)
     Binding _ name domain action => Right (NDoBind span name domain action body)
+    LocalBinding _ q name domain value => Right (NLet span q name domain value body)
 
 mutual
   expression : Nat -> Position -> List Token -> Either ParseError (Expr, List Token)
@@ -202,7 +207,21 @@ mutual
 
   doStatement : Nat -> Position -> List Token -> Either ParseError (DoStatement, List Token)
   doStatement depth end tokens@(opening :: _) =
-    if opening.kind == OpenParen && any (\token => token.kind == BindArrow) tokens
+    if opening.kind == LetKeyword then do
+      header <- binder depth end (drop 1 tokens)
+      (_, afterEquals) <- expect Equals end header.remaining
+      (value, rest) <- expression depth end afterEquals
+      case rest of
+        token :: _ =>
+          if token.kind == InKeyword then do
+            -- Preserve existing complete let ... in ... action expressions.
+            (action, rest) <- expression depth end tokens
+            Right (Action action, rest)
+          else Right (LocalBinding (Between opening.span.start (extent value).finish)
+                        header.quantity header.name header.domain value, rest)
+        [] => Right (LocalBinding (Between opening.span.start (extent value).finish)
+                      header.quantity header.name header.domain value, [])
+    else if opening.kind == OpenParen && any (\token => token.kind == BindArrow) tokens
        then do
          header <- binder depth end tokens
          if header.quantity /= Linear
