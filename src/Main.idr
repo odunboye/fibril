@@ -9,6 +9,7 @@ import Fibril.Driver.CheckReport
 import Fibril.Driver.Evaluate
 import Fibril.Driver.Run
 import Fibril.Driver.ModuleGraph
+import Fibril.Driver.ModuleCheck
 import Fibril.Driver.Symbols
 import Fibril.Source.File
 import Fibril.Source.Lexer
@@ -32,6 +33,7 @@ Usage:
   fibril symbols PATH           JSON declaration ranges (syntax only, not checking)
   fibril lex-source PATH        Print source tokens/spans (not parsing/checking)
   fibril check PATH             Check a closed source program and runtime usage
+  fibril check --source-dir ROOT ENTRY  Check qualified local module interfaces (POSIX)
   fibril check --json PATH      JSON runtime-check report (no effect execution)
   fibril check --erased PATH    Check only the erased ordinary fragment
   fibril run PATH              Check main : IO Unit, then execute prepared stdout requests
@@ -119,6 +121,13 @@ main = do
         Right lines => traverse_ putStrLn lines
         Left err => do
           _ <- fPutStrLn stderr err
+          exitFailure
+    ["check", "--source-dir", root, entry] => do
+      result <- checkProject root entry
+      case result of
+        Right project => traverse_ putStrLn (projectReport project)
+        Left err => do
+          _ <- fPutStrLn stderr (renderGraphError err)
           exitFailure
     ["check", path] => runCheck False path
     ["check", "--erased", path] => runCheck True path

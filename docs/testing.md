@@ -258,6 +258,14 @@ upward declared-signature preservation, transparent conversion, and rejection of
 invalid metadata. CLI graph inspection parses qualified bodies without claiming
 checking; ordinary checking still rejects modules or reports unbound qualifiers.
 
+Checked-module CLI tests cover private/public interfaces, polymorphic imports,
+qualified leaf-name separation, own-module qualifiers, transitive-name exclusion,
+checking unused private definitions, global quantity rejection, own-main selection,
+and legacy anonymous-entry opacity. A doubling import chain exhausts the core
+expansion allowance before unchecked expansion; failure stdout stays empty.
+IO descriptions are checked without executing output. These are prototype
+regressions, not a module abstraction/typing preservation theorem.
+
 ## Hedgehog dependency
 
 Repository: https://github.com/stefan-hoeck/idris2-hedgehog

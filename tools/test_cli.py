@@ -193,6 +193,101 @@ class CLITests(unittest.TestCase):
         self.assertEqual(result.stdout, "")
         self.assertIn("use eval", result.stderr)
 
+    def test_checked_module_interfaces(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            def module(name, imports=(), body=""):
+                path = root.joinpath(*name.split(".")).with_suffix(".fib")
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("module " + name + "\n" +
+                                "".join("import " + value + "\n" for value in imports) + body,
+                                encoding="utf-8")
+                return path
+            library = module("Text.Greeting", body=(
+                'hidden : String\nhidden = "private"\n'
+                'export\ngreet : (1 text : String) -> IO Unit\n'
+                'greet = \\(1 text : String) => putStrLn (appendString hidden text)\n'
+                'export\nidentity : (0 A : Type 0) -> (1 x : A) -> A\n'
+                'identity = \\(0 A : Type 0) => \\(1 x : A) => x\n'))
+            entry = module("Main", ("Text.Greeting",), (
+                'main : IO Unit\nmain = Text.Greeting.greet '
+                '(Text.Greeting.identity String " must not print")\n'))
+            result = run("check", "--source-dir", str(root), str(entry))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("Type: (IO Unit)", result.stdout)
+            self.assertNotIn("must not print", result.stdout)
+            self.assertEqual(result.stderr, "")
+            module("Main", ("Text.Greeting",),
+                   'main : IO Unit\nmain = do (Unit)\n'
+                   '  let (1 original : String) = "block"\n'
+                   '  (1 text : String) <- pure String (Text.Greeting.identity String original)\n'
+                   '  Text.Greeting.greet (text : String)\n')
+            result = run("check", "--source-dir", str(root), str(entry))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            entry = module("Main", ("Text.Greeting",),
+                           'main : String\nmain = Text.Greeting.hidden\n')
+            result = run("check", "--source-dir", str(root), str(entry))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, "")
+            self.assertIn("Unbound name", result.stderr)
+            self.assertIn(str(entry.resolve()), result.stderr)
+            # Transitive modules are not implicitly visible.
+            module("Bridge", ("Text.Greeting",), 'export\nvalue : Bool\nvalue = True\n')
+            module("Main", ("Bridge",), 'main : Bool\nmain = Text.Greeting.identity Bool True\n')
+            result = run("check", "--source-dir", str(root), str(entry))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Unbound name", result.stderr)
+            # Equal leaf names remain distinct qualified exports.
+            module("First", body='export\nvalue : Bool\nvalue = True\n')
+            module("Second", body='export\nvalue : String\nvalue = "second"\n')
+            module("Main", ("First", "Second"),
+                   'main : String\nmain = if First.value then Second.value else "no"\n')
+            result = run("check", "--source-dir", str(root), str(entry))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("Type: String", result.stdout)
+            # Earlier private definitions may use the current module's qualifier.
+            module("First", body='private : Bool\nprivate = True\nexport\nvalue : Bool\nvalue = First.private\n')
+            self.assertEqual(run("check", "--source-dir", str(root), str(entry)).returncode, 0)
+            # Invalid private definitions fail before any interface is published.
+            library = module("First", body='unused : Bool\nunused = "bad"\nexport\nvalue : Bool\nvalue = True\n')
+            result = run("check", "--source-dir", str(root), str(entry))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, "")
+            self.assertIn(str(library.resolve()), result.stderr)
+            self.assertNotIn("^", result.stderr)  # no invented core-error source point
+            module("First", body='0 secret : Bool\nsecret = True\n')
+            result = run("check", "--source-dir", str(root), str(entry))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("unrestricted", result.stderr)
+            module("Main", (), 'other : Bool\nother = True\n')
+            result = run("check", "--source-dir", str(root), str(entry))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("own main", result.stderr)
+            # Anonymous entry keeps existing local-let/quantity semantics.
+            entry.write_text('main : Bool\nmain = True\n', encoding="utf-8")
+            result = run("check", "--source-dir", str(root), str(entry))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            entry.write_text("0 Bit : Type 0\nBit = Bool\nmain : Bit\nmain = True\n", encoding="utf-8")
+            result = run("check", "--source-dir", str(root), str(entry))
+            self.assertNotEqual(result.returncode, 0)
+
+    def test_module_expansion_budget(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "M0.fib").write_text(
+                "module M0\nexport\nf : Bool -> Bool\nf = \\(x : Bool) => x\n", encoding="utf-8")
+            for index in range(1, 16):
+                (root / f"M{index}.fib").write_text(
+                    f"module M{index}\nimport M{index - 1}\nexport\nf : Bool -> Bool\n"
+                    f"f = \\(x : Bool) => andBool (M{index - 1}.f x) (M{index - 1}.f x)\n",
+                    encoding="utf-8")
+            entry = root / "Main.fib"
+            entry.write_text("module Main\nimport M15\nmain : Bool\nmain = M15.f True\n", encoding="utf-8")
+            result = run("check", "--source-dir", str(root), str(entry))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, "")
+            self.assertIn("Expanded core construction budget", result.stderr)
+
     def test_qualified_reference_syntax(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -211,7 +306,7 @@ class CLITests(unittest.TestCase):
             self.assertIsNone(json.loads(result.stdout)["definition"])
             result = run("check", str(entry))
             self.assertNotEqual(result.returncode, 0)
-            self.assertIn("Module checking is not implemented", result.stdout)
+            self.assertIn("Module checking requires --source-dir", result.stdout)
             entry.write_text("Library.value\n", encoding="utf-8")
             result = run("check", "--json", str(entry))
             self.assertNotEqual(result.returncode, 0)
@@ -355,7 +450,7 @@ class CLITests(unittest.TestCase):
             for args in (("check",), ("eval",), ("run",)):
                 result = run(*args, str(path))
                 self.assertNotEqual(result.returncode, 0)
-                self.assertIn("Module checking is not implemented", result.stdout + result.stderr)
+                self.assertIn("Module checking requires --source-dir", result.stdout + result.stderr)
             result = run("check", "--json", str(path))
             diagnostic = json.loads(result.stdout)["diagnostics"][0]
             self.assertEqual(diagnostic["position"]["line"], 2)

@@ -1,13 +1,13 @@
 digraph ModulePlan {
   rankdir=LR;
   node [shape=box];
-  label="Discovery implemented; imported checking planned";
+  label="Discovery and closed-interface checking implemented; execution planned";
   source [label="Explicit source root\ncanonical module/file identity"];
   parse [label="Shared parsed document\nheader + imports + exports + declarations"];
   dependencies [label="Bounded acyclic graph\nreal import-edge provenance"];
-  check [style=dashed, label="Dependencies checked first\nclosed unrestricted definitions"];
-  signature [style=dashed, label="Direct qualified exports only\nascribed declared types"];
-  entry [style=dashed, label="Check entry snapshot\nno execution on graph failure"];
+  check [label="Dependencies checked first\nclosed unrestricted definitions"];
+  signature [label="Direct qualified exports only\nascribed declared types"];
+  entry [label="Check entry snapshot\nno execution on graph failure"];
   runtime [style=dashed, label="run only: prepare full IO plan\nthen host stdout"];
   source -> parse -> dependencies -> check -> signature -> entry -> runtime;
 }

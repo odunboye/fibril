@@ -1,0 +1,233 @@
+-- Checked closed module interfaces, not opaque globals or project editor reports.
+module Fibril.Driver.ModuleCheck
+
+import Data.List
+import Fibril.Core.Quantity
+import Fibril.Core.Term
+import Fibril.Core.Context
+import Fibril.Core.Runtime
+import Fibril.Core.Reduction
+import Fibril.Core.Pretty
+import Fibril.Source.Text
+import Fibril.Source.Lexer
+import Fibril.Source.Syntax
+import Fibril.Source.Document
+import Fibril.Source.Declaration
+import Fibril.Source.Global
+import Fibril.Source.Resolve
+import Fibril.Driver.Limits
+import Fibril.Driver.Prelude
+import Fibril.Driver.ModuleGraph
+
+%default total
+
+nodes : Term n -> Nat
+nodes (Variable _) = 1
+nodes (Universe _) = 1
+nodes UnitType = 1
+nodes UnitValue = 1
+nodes BoolType = 1
+nodes BoolTrue = 1
+nodes BoolFalse = 1
+nodes StringType = 1
+nodes (StringValue _) = 1
+nodes (StringAppend a b) = 1 + nodes a + nodes b
+nodes (StringEqual a b) = 1 + nodes a + nodes b
+nodes (IOType a) = 1 + nodes a
+nodes (IOPure a) = 1 + nodes a
+nodes (WriteLine a) = 1 + nodes a
+nodes (IOBind a b c d) = 1 + nodes a + nodes b + nodes c + nodes d
+nodes (BoolCase a b c) = 1 + nodes a + nodes b + nodes c
+nodes (Pi _ a b) = 1 + nodes a + nodes b
+nodes (Lambda _ a b) = 1 + nodes a + nodes b
+nodes (Apply a b) = 1 + nodes a + nodes b
+nodes (UnitCase a b) = 1 + nodes a + nodes b
+
+record Weighted where
+  constructor Weight
+  global : GlobalDefinition
+  size : Nat
+
+weighted : GlobalDefinition -> Weighted
+weighted global = Weight global (3 + nodes global.declaredType + nodes global.value)
+
+referenceCost : List Weighted -> String -> Nat
+referenceCost [] name = 1
+referenceCost (entry :: rest) name =
+  if entry.global.name == name then entry.size else referenceCost rest name
+
+-- Conservative elaboration size before any global is renamed/cloned. Counts
+-- annotations and identity ascriptions; saturation avoids huge intermediate costs.
+cost : Nat -> List Weighted -> List String -> Expr -> Nat
+cost limit globals env expression = min (S limit) $ case expression of
+  NRef _ name => if elem name env then 1 else referenceCost globals name
+  NQualifiedRef _ name => referenceCost globals name
+  NSort _ _ => 1
+  NUnitType _ => 1
+  NUnitValue _ => 1
+  NBoolType _ => 1
+  NBoolValue _ _ => 1
+  NStringType _ => 1
+  NStringValue _ _ => 1
+  NIf _ c t e => 1 + cost limit globals env c + cost limit globals env t + cost limit globals env e
+  NUnitCase _ a b => 1 + cost limit globals env a + cost limit globals env b
+  NPi _ _ name a b => 1 + cost limit globals env a + cost limit globals (name :: env) b
+  NLambda _ _ name a b => 1 + cost limit globals env a + cost limit globals (name :: env) b
+  NApply _ a b => 1 + cost limit globals env a + cost limit globals env b
+  NAscribe _ a b => 3 + cost limit globals env a + cost limit globals env b
+  NLet _ _ name a value body => 2 + cost limit globals env a + cost limit globals env value +
+                               cost limit globals (name :: env) body
+  NSequence _ a b => 7 + cost limit globals env a + cost limit globals env b
+  NDoBind _ name a action body => 3 + 2 * cost limit globals env a + cost limit globals env action +
+                                  cost limit globals (name :: env) body
+  NDoResult _ result body =>
+    let resultSize = cost limit globals env result
+     in 4 + resultSize + resultSize * cost limit globals env body
+
+record Interface where
+  constructor Exports
+  name : List String
+  bindings : List Weighted
+
+record Compiled where
+  constructor Definitions
+  locals : List Weighted
+  exports : List Weighted
+  remaining : Nat
+
+public export
+record CheckedProject where
+  constructor Project
+  graph : ModuleGraph
+  term : Term 0
+  inferredType : Term 0
+
+problem : ModuleSnapshot -> Maybe Position -> String -> GraphError
+problem snapshot point message = GraphFailure snapshot.path snapshot.source point message
+
+moduleText : List String -> String
+moduleText names = concat (intersperse "." names)
+
+resolve : ModuleSnapshot -> List Weighted -> Expr -> Either GraphError (Term 0)
+resolve snapshot globals expression = case resolveClosedWith (map global globals) expression of
+  Left err => Left (problem snapshot (Just err.position) (show err))
+  Right term => Right term
+
+compileDeclarations : ModuleSnapshot -> List String -> List Weighted -> List Declaration -> Nat ->
+                      Either GraphError Compiled
+compileDeclarations snapshot name globals [] remaining = Right (Definitions [] [] remaining)
+compileDeclarations snapshot name globals (decl :: rest) remaining = do
+  if decl.quantity /= Unrestricted || decl.name == "_"
+     then Left (problem snapshot (Just decl.nameSpan.start)
+                "Module globals require unrestricted quantities and referenceable names")
+     else Right ()
+  let estimate = cost remaining globals [] decl.expected + cost remaining globals [] decl.value
+  if estimate > remaining then Left (problem snapshot (Just decl.nameSpan.start)
+                                     "Expanded core construction budget exhausted (200000)")
+     else Right ()
+  ty <- resolve snapshot globals decl.expected
+  value <- resolve snapshot globals decl.value
+  if nodes ty + nodes value > estimate
+     then Left (problem snapshot Nothing "Internal module expansion estimate was insufficient")
+     else Right ()
+  _ <- case checkRuntime checkingDepth typeReductionFuel Empty value ty of
+    Left err => Left (problem snapshot Nothing ("Module checking: " ++ show err))
+    Right checked => Right checked
+  let local = weighted (Global decl.name ty value)
+  let qualified = Weight (Global (moduleText name ++ "." ++ decl.name) ty value) local.size
+  following <- compileDeclarations snapshot name (local :: qualified :: globals) rest (minus remaining estimate)
+  Right (Definitions (local :: following.locals)
+           (if decl.exported then qualified :: following.exports else following.exports) following.remaining)
+
+directImports : ModuleSnapshot -> List Interface -> Either GraphError (List Weighted)
+directImports snapshot interfaces = collect snapshot.document.imports
+  where
+    collect : List ImportDeclaration -> Either GraphError (List Weighted)
+    collect [] = Right []
+    collect (dependency :: rest) = case find (\entry => entry.name == dependency.components) interfaces of
+      Nothing => Left (problem snapshot (Just dependency.span.start) "Missing checked dependency interface")
+      Just entry => (entry.bindings ++) <$> collect rest
+
+anonymous : ModuleSnapshot -> List Weighted -> Nat -> Either GraphError (Term 0)
+anonymous snapshot globals remaining = do
+  expression <- case snapshot.document.body of
+    EmptyDocument => Left (problem snapshot Nothing "Entry requires an expression or main")
+    ExpressionDocument expression => Right expression
+    DeclarationDocument declarations =>
+      if any (\decl => decl.name == "main") declarations
+         then Right (lowerDeclarations snapshot.document.end declarations)
+         else Left (problem snapshot Nothing "Entry requires a main definition")
+  if cost remaining globals [] expression > remaining
+     then Left (problem snapshot Nothing "Expanded core construction budget exhausted (200000)")
+     else do
+       term <- resolve snapshot globals expression
+       if nodes term > cost remaining globals [] expression
+          then Left (problem snapshot Nothing "Internal entry expansion estimate was insufficient")
+          else Right term
+
+compileGraph : ModuleGraph -> List Weighted -> List Interface -> Nat -> List ModuleSnapshot ->
+               Either GraphError CheckedProject
+compileGraph graph prelude interfaces remaining [] =
+  Left (GraphFailure graph.entry "" Nothing "No entry snapshot in graph")
+compileGraph graph prelude interfaces remaining (snapshot :: rest) = do
+  if snapshot.path == graph.entry && not (null rest)
+     then Left (problem snapshot Nothing "Entry snapshot must be last in dependency order")
+     else Right ()
+  imported <- directImports snapshot interfaces
+  let globals = imported ++ prelude
+  case snapshot.document.moduleHeader of
+    Nothing => if snapshot.path /= graph.entry then Left (problem snapshot Nothing "Anonymous dependency") else do
+      term <- anonymous snapshot globals remaining
+      case inferRuntime checkingDepth typeReductionFuel Empty term of
+        Left err => Left (problem snapshot Nothing ("Entry checking: " ++ show err))
+        Right checked => Right (Project graph term checked.inferredType)
+    Just header => do
+      if any (\entry => entry.name == header.components) interfaces
+         then Left (problem snapshot (Just header.nameSpan.start) "Duplicate checked module identity")
+         else Right ()
+      declarations <- case snapshot.document.body of
+        DeclarationDocument declarations => Right declarations
+        EmptyDocument => Right []
+        _ => Left (problem snapshot Nothing "Named modules require declarations")
+      compiled <- compileDeclarations snapshot header.components globals declarations remaining
+      if snapshot.path == graph.entry
+         then do
+            main <- case find (\entry => entry.global.name == "main") compiled.locals of
+              Nothing => Left (problem snapshot Nothing "Entry module requires its own main definition")
+              Just entry => Right entry
+            if main.size > compiled.remaining
+               then Left (problem snapshot Nothing "Expanded core construction budget exhausted (200000)")
+               else Right ()
+            term <- case lookupGlobal "main" [main.global] of
+              Nothing => Left (problem snapshot Nothing "Missing main binding")
+              Just term => Right term
+            case inferRuntime checkingDepth typeReductionFuel Empty term of
+              Left err => Left (problem snapshot Nothing ("Entry checking: " ++ show err))
+              Right checked => Right (Project graph term checked.inferredType)
+         else compileGraph graph prelude (Exports header.components compiled.exports :: interfaces)
+                           compiled.remaining rest
+
+||| Check every dependency declaration before exposing its qualified exports.
+||| Expansion budget concerns elaboration, not normalization/allocation/time bounds.
+public export
+checkModuleGraph : ModuleGraph -> Either GraphError CheckedProject
+checkModuleGraph graph = do
+  prelude <- case preludeGlobals of
+    Left err => Left (GraphFailure graph.entry "" Nothing ("Bundled prelude: " ++ err))
+    Right globals => Right (map weighted globals)
+  compileGraph graph prelude [] 200000 graph.modules
+
+public export
+checkProject : String -> String -> IO (Either GraphError CheckedProject)
+checkProject root entry = do
+  loaded <- loadModuleGraph root entry
+  pure (loaded >>= checkModuleGraph)
+
+public export
+projectReport : CheckedProject -> List String
+projectReport project =
+  ["Module checking: accepted (closed transparent globals)",
+   "Modules: " ++ show (length project.graph.modules),
+   "Type: " ++ case normalize typeReductionFuel project.inferredType of
+     Normal ty => renderTerm ty
+     OutOfFuel _ => renderTerm project.inferredType ++ " (display normalization exhausted)"]

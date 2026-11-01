@@ -95,10 +95,10 @@ prepareSource source = do
     Left (SymbolParsing err) => Left (Parsing err)
     Right document => Right document
   case document.moduleHeader of
-    Just header => Left (Parsing (ParseFailure header.span.start "Module checking is not implemented"))
+    Just header => Left (Parsing (ParseFailure header.span.start "Module checking requires --source-dir"))
     Nothing => Right ()
   case document.imports of
-    first :: _ => Left (Parsing (ParseFailure first.span.start "Import checking is not implemented"))
+    first :: _ => Left (Parsing (ParseFailure first.span.start "Import checking requires --source-dir"))
     [] => Right ()
   syntax <- case document.body of
     ExpressionDocument expression => Right expression

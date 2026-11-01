@@ -58,11 +58,11 @@ checks =
   , ("document export must have its own line", fails "module A\nexport value : Bool\nvalue = True")
   , ("document parser does not authorize module execution",
       case checkSource False "module A\nmain : Bool\nmain = True" of
-        Left err => isInfixOf (unpack "Module checking is not implemented") (unpack err)
+        Left err => isInfixOf (unpack "Module checking requires --source-dir") (unpack err)
         _ => False)
   , ("document import entry does not authorize dependency loading",
       case checkSource False "import A\nmain : Bool\nmain = True" of
-        Left err => isInfixOf (unpack "Import checking is not implemented") (unpack err)
+        Left err => isInfixOf (unpack "Import checking requires --source-dir") (unpack err)
         _ => False)
   , ("document module rename requires project scope",
       case previewRename "module A\nvalue : Bool\nvalue = True" 2 1 "renamed" of

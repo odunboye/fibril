@@ -108,6 +108,18 @@ they are deliberately not conventional short-circuit operators.
 This parses and loads snapshots only; JSON reports checked: false. These named
 module files are not yet accepted by check/eval/run, and no greeting executes.
 
+## Checked module examples (not yet executable)
+
+`modules/checked/` contains a private helper and a qualified exported greeting.
+Check it with:
+
+~~~sh
+./build/exec/fibril check --source-dir examples/modules/checked examples/modules/checked/Main.fib
+~~~
+
+This type/resource-checks all dependencies and the entry without printing. Project
+eval/run and project editor diagnostics are not wired yet.
+
 ## Proposed Fibril programs
 
 `proposed/` illustrates the intended user experience, from hello world and

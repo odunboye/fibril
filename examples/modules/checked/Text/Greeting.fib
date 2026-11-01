@@ -1,0 +1,8 @@
+module Text.Greeting
+
+decorate : (1 name : String) -> String
+decorate = \(1 name : String) => appendString "Hello, " (appendString name "!")
+
+export
+greet : (1 name : String) -> IO Unit
+greet = \(1 name : String) => putStrLn (Text.Greeting.decorate name)

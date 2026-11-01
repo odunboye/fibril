@@ -1,0 +1,5 @@
+module Main
+import Text.Greeting
+
+main : IO Unit
+main = Text.Greeting.greet "Fibril"

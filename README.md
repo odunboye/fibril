@@ -11,7 +11,8 @@ compiler backends, and real-time guarantees are not implemented.
 pure, and bind over experimental IO descriptions. A hosted runner executes stdout
 plans; a complete effect calculus and compiler backends remain future work.
 See [checker scope and limits](docs/erased-checker.md). The [local module/import work](docs/modules.md) now has shared metadata parsing and read-only POSIX dependency discovery;
-imported checking and executable multi-file support remain unimplemented.
+check --source-dir now validates closed qualified imports; project eval/run and
+source-aware project editor integration remain unimplemented.
 
 Optional [Neovim/Vim highlighting, checking, and same-file navigation](docs/editor-highlighting.md),
 including [LazyVim installation](docs/editor-highlighting.md#install-in-lazyvim),

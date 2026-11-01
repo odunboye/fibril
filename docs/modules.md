@@ -2,9 +2,10 @@
 
 Status: shared **syntax/metadata parsing** and **read-only POSIX dependency
 discovery** are implemented, alongside qualified syntax/explicit-global lookup.
-**Imported checking, source-dir flags, semantic visibility rules, and executable multi-file support
-remain unimplemented.** check/eval/run explicitly reject module/import documents
-rather than treating headers as ignored metadata.
+**Checked imports are now available through check --source-dir ROOT ENTRY.**
+Project eval/run, source-aware project JSON/editor reports, and executable
+multi-file support remain unimplemented. Plain single-file commands do not
+silently choose a project root.
 
 ## Parsing progress
 
@@ -34,7 +35,7 @@ documents until project-aware scope/interface checks exist. The new reserved wor
 qualifiers, not value/member projections.
 
 These services do not validate module/file identity, load dependencies, type-check
-modules, enforce private access, or check the imported call in the full proposed example below. The existing headerless program path still uses ordinary core
+modules, enforce private access, or check imported calls by themselves; use the project checker for that. The existing headerless program path still uses ordinary core
 checking and retains its regression suite.
 
 ## Qualified references and declared signatures
@@ -56,11 +57,52 @@ upward-universe regression demonstrates that inference returns the declared
 signature rather than the narrower raw value type. Invalid supplied metadata
 still fails core checking; global records are not axioms.
 
-This prepares the import-binding boundary. No filesystem export table is yet
-installed into check/eval/run; those commands still reject module/import
-documents. Same-file navigation does not misidentify qualified names as local
-variables and returns no cross-file target. Project-aware imported checking,
-privacy enforcement, expansion admission, and diagnostics are still required.
+The project checker uses this import-binding boundary to install only checked
+exports. Plain single-file check/JSON and eval/run still reject module/import
+documents without the project checking path. Same-file navigation does not misidentify qualified names as local
+variables and returns no cross-file target. Imported checking, name visibility, and elaboration admission now exist;
+source-aware project JSON/editor diagnostics and execution are still pending.
+
+## Checked interfaces
+
+~~~sh
+./build/exec/fibril check --source-dir examples/modules/checked examples/modules/checked/Main.fib
+~~~
+
+[Main](../examples/modules/checked/Main.fib) calls an exported function from
+[Text.Greeting](../examples/modules/checked/Text/Greeting.fib). Its private
+decoration helper is checked but not exposed to importers. Checking the IO
+description never prints its greeting.
+
+[Driver.ModuleCheck](../src/Fibril/Driver/ModuleCheck.idr) consumes dependency-first
+snapshots. It checks every named-module declaration, including private/unused
+ones, before publishing that module's qualified export table. Environments contain
+only direct imports plus the bundled prelude; transitive modules' names do not
+leak. Earlier definitions in the current module are available unqualified and
+through its own qualifier, including private definitions. No self-import is needed.
+
+Named-module globals must be unrestricted and referenceable. Erased/linear
+top-level globals remain rejected; function parameters can still be erased/linear.
+The entry must define its own main; an imported main is not substituted. Libraries
+need no main. Anonymous entries retain existing expression/typed-local-let behavior,
+including the opaque local alias limitation.
+
+The cumulative elaboration allowance is 200,000 core nodes. A conservative
+syntax-size preflight uses cached global expansion weights before resolving/
+cloning each declaration or anonymous entry. It includes annotations, global
+identity ascriptions, repeated types, and named-entry materialization. Actual
+resolved size is checked against the estimate as an internal consistency guard.
+This is not a formal cost proof or a bound on normalization, type-operation
+substitution, strings, process memory, or time. Conservative rejection is possible.
+
+Errors preserve the affected snapshot's canonical file. Resolver points remain
+real source points; core type/resource failures remain unlocated. Success is
+human-readable stdout; represented failures use stderr and no acceptance prefix.
+No project error is forced into the old single-file JSON/editor location model.
+
+This first path checks closed transparent values, not opaque modules or abstract
+types. It does not execute imported declarations, fetch packages, or add axioms.
+Project eval/run and project-aware JSON/editor integration are separate next steps.
 
 ## Dependency discovery is now inspectable
 
@@ -85,9 +127,9 @@ or exported declarations can be ill typed here: no interface is installed and no
 Fibril expression or IO description is executed.
 
 The diamond-shaped [graph fixture](../examples/modules/graph/Main.fib) demonstrates
-reusing Shared through Left and Right. Its imports deliberately are not used for execution yet; qualified syntax now
-parses, but imported checking is still pending.
-The existing check/eval/run commands do not invoke this discovery service.
+reusing Shared through Left and Right. Its imports deliberately are not used for execution yet; qualified syntax parses and a separate project checker can validate imports.
+check --source-dir invokes discovery before checking. The single-file check,
+eval, and run paths do not.
 
 Canonical paths use POSIX realpath through a small
 [bootstrap host adapter](../src/Fibril/Runtime/Path.idr), not shell commands, cwd
@@ -106,8 +148,8 @@ Containment is checked at canonicalization time, not enforced with descriptor-
 relative/no-follow opens. Concurrent filesystem/symlink replacement is **not**
 sandboxed or transactionally detected. These are source-loading safeguards for
 a trusted local filesystem snapshot, not an adversarial-filesystem security
-boundary. Core expansion limits below remain planned because no inlining occurs
-in this discovery command.
+boundary. Core expansion admission applies only in the project checker, since no inlining
+occurs in this discovery command.
 
 ## Why this comes next
 
@@ -130,7 +172,7 @@ under the canonical source root; reject escapes and aliases with conflicting
 identities. Module names are not arbitrary relative path strings: no parent
 traversal, absolute paths, URL imports, or implicit directory search.
 
-Proposed CLI shape (not accepted today):
+The check form is implemented; the eval/run forms below remain proposed:
 
 ~~~sh
 fibril check --source-dir src src/Main.fib
@@ -181,7 +223,8 @@ Rules for the first parser/loader:
 - Imports expose only explicitly exported names, through the full module qualifier.
   No open imports, aliases, wildcard exports, re-exports, or implicit transitive
   visibility in this slice. Duplicate direct imports are rejected.
-- A file must directly import a module to use its qualifier. Loading a transitive
+- A file must directly import another module to use its qualifier. Its own
+  qualifier is available for already checked, earlier definitions. Loading a transitive
   dependency does not install its names into every caller's source environment.
 - Module qualifiers occupy a module namespace; a local value named Text cannot
   capture Text.Greeting.greet. Value member projection is not introduced by dots.

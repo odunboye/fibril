@@ -19,6 +19,7 @@ Implemented:
 - `src/Fibril/Source/Symbol.idr`: reusable syntax-only document symbols over source Strings, preserving real name-token spans.
 - `src/Fibril/Driver/Symbols.idr`: bounded-file symbols service and versioned JSON output; no semantic checking.
 - `src/Fibril/Runtime/Path.idr`: POSIX canonical-path host adapter; not a language FFI or atomic filesystem guarantee.
+- `src/Fibril/Driver/ModuleCheck.idr`: dependency-first closed interface checking, direct qualified exports, conservative pre-clone expansion admission, and source-aware human errors.
 - `src/Fibril/Driver/ModuleGraph.idr`: bounded canonical dependency discovery, syntax snapshots, and dependency-first graph inspection; not imported checking.
 - `src/Fibril/Source/Document.idr`: shared expression/declaration/module metadata parsing with original tokens and header/import/export spans; no filesystem loader.
 - `src/Fibril/Source/Declaration.idr`: column-one signature/definition framing, source-order scope, fixed main entry, and typed-let lowering; no transparent globals/modules.
