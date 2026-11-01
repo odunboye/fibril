@@ -1,7 +1,7 @@
 # Implementation tour
 
 Fibril is currently an Idris 2 bootstrap project with syntax/algebra infrastructure
-and an **experimental erased ordinary checker**, not a complete Fibril language
+and an **annotated ordinary expression frontend/checker**, not a complete Fibril language
 checker or compiler.
 
 ![Implemented module dependencies](diagrams/modules.svg)
@@ -29,6 +29,13 @@ and future proof obligations.
 
 Browse annotated files through the handbook's **Source index** link. Public APIs
 are also available in the generated API reference.
+
+## From source text to the core
+
+The [expression frontend](parser.md) now implements strict loading, spanned
+lexing/parsing, lexical resolution, and ordinary erased/runtime checking.
+Run `fibril check examples/core/identity.fib`. Full declarations, modules,
+implicit elaboration, cubical term checking, and code generation remain absent.
 
 ## Calls across the implementation
 

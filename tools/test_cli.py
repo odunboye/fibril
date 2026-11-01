@@ -103,8 +103,30 @@ class CLITests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("1:3", result.stdout)
 
+    def test_source_check_command(self):
+        result = run("check", "examples/core/identity.fib")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Runtime checking: accepted", result.stdout)
+        self.assertIn("(Pi 0 Type0 (Pi 1 v0 v1))", result.stdout)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "expression.fib"
+            path.write_text("Type 0", encoding="utf-8")
+            self.assertNotEqual(run("check", str(path)).returncode, 0)
+            result = run("check", "--erased", str(path))
+            self.assertEqual(result.returncode, 0, result.stdout)
+            self.assertIn("no runtime-use guarantee", result.stdout)
+            self.assertIn("Type: Type1", result.stdout)
+            path.write_text("missing", encoding="utf-8")
+            result = run("check", str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Resolution: 1:1", result.stdout)
+            path.write_text("Type", encoding="utf-8")
+            result = run("check", str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Parsing:", result.stdout)
+
     def test_unsupported_commands_fail(self):
-        for args in (("check", "example.fib"), ("demo", "extra"), ("--unknown",)):
+        for args in (("build", "example.fib"), ("demo", "extra"), ("--unknown",)):
             with self.subTest(args=args):
                 result = run(*args)
                 self.assertNotEqual(result.returncode, 0)

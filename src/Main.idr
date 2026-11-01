@@ -3,6 +3,7 @@ module Main
 import System
 import Data.List
 import Fibril.Driver.Demo
+import Fibril.Driver.Check
 import Fibril.Source.File
 import Fibril.Source.Lexer
 
@@ -18,10 +19,21 @@ Usage:
   fibril demo       Run built-in ordinary checking and cubical algebra examples
   fibril validate-source PATH   Validate UTF-8 and source controls (not typing)
   fibril lex-source PATH        Print tokens/spans for the expression subset
+  fibril check PATH             Check a closed expression and runtime usage
+  fibril check --erased PATH    Check only the erased ordinary fragment
 
-Experimental core checkers exist. Source parsing, cubical term checking,
+An annotated expression subset is supported. Declarations, cubical term checking,
 and C/JavaScript compilation are not implemented yet.
 """
+
+runCheck : Bool -> String -> IO ()
+runCheck erasedOnly path = do
+  result <- checkFile erasedOnly path
+  case result of
+    Right lines => traverse_ putStrLn lines
+    Left err => do
+      putStrLn err
+      exitFailure
 
 main : IO ()
 main = do
@@ -30,6 +42,8 @@ main = do
     [] => putStrLn help
     ["--help"] => putStrLn help
     ["--version"] => putStrLn "Fibril 0.1.0-dev (Idris 2 bootstrap)"
+    ["check", path] => runCheck False path
+    ["check", "--erased", path] => runCheck True path
     ["lex-source", path] => do
       loaded <- loadSource path
       case loaded of

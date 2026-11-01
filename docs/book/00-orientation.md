@@ -9,8 +9,9 @@ Fibril aims to combine Idris-like dependent programming and quantities with
 computational HoTT. Idris 2 is the host language: it compiles our implementation.
 It is not the same language as the future Fibril surface syntax.
 
-Today you can construct core terms as Idris values, ask experimental checkers
-about them, and run tests. You cannot compile a Fibril source file to C or JS.
+Today you can check a small annotated expression source file, construct core
+terms as Idris values, and run tests. You cannot compile Fibril source to C or JS.
+Try `fibril check examples/core/identity.fib`; see the [grammar](../parser.md).
 
 ## The three layers to keep separate
 

@@ -9,8 +9,11 @@ test: build
 	$(PACK) test fibril
 	python3 tools/test_cli.py
 
-examples:
+examples: build
 	$(PACK) run fibril-examples
+	./build/exec/fibril check examples/core/identity.fib
+	./build/exec/fibril check examples/core/identity-unicode.fib
+	./build/exec/fibril check --erased examples/core/identity-type.fib
 
 bench:
 	python3 tools/benchmark.py

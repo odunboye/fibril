@@ -22,6 +22,19 @@ Show TokenKind where
   show BodyArrow = "=>"
   show Lambda = "lambda"
 
+public export
+Eq TokenKind where
+  Name == Name = True
+  Number == Number = True
+  TypeKeyword == TypeKeyword = True
+  OpenParen == OpenParen = True
+  CloseParen == CloseParen = True
+  Colon == Colon = True
+  Arrow == Arrow = True
+  BodyArrow == BodyArrow = True
+  Lambda == Lambda = True
+  _ == _ = False
+
 ||| Half-open scalar positions. These are not byte offsets or UTF-16 indices.
 public export
 record SourceSpan where

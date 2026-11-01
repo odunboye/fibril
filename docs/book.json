@@ -64,6 +64,10 @@
         "path": "docs/lexer.md"
       },
       {
+        "title": "Expression parser and checking",
+        "path": "docs/parser.md"
+      },
+      {
         "title": "Ordinary core draft",
         "path": "docs/core-draft.md"
       },

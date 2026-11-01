@@ -1,0 +1,2 @@
+-- Same checked expression using Unicode notation aliases.
+λ(0 A : Type 0) ⇒ λ(1 x : A) ⇒ x

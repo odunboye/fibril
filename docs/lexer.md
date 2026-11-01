@@ -10,7 +10,8 @@ Idris-like declaration/layout language is not implemented.
 ```
 
 [The input](../examples/core/identity.fib) uses explicitly annotated expression
-syntax intended for the next parser. It is not yet type checked as source.
+syntax now accepted by the [expression parser/checker](parser.md).
+Use `fibril check examples/core/identity.fib` for end-to-end ordinary checking.
 
 The CLI strictly loads UTF-8 and validates controls before tokenization, then
 prints each token's half-open scalar span, category, and original spelling.
@@ -53,8 +54,8 @@ The file loader's independent byte limit remains in effect for CLI inputs.
 - [Source.File](../src/Fibril/Source/File.idr): bounded byte loading/UTF-8 decoding.
 - [Source.Text](../src/Fibril/Source/Text.idr): source control policy and positions.
 - [Source.Lexer](../src/Fibril/Source/Lexer.idr): expression tokens and spans.
-- Future parser: grammatical structure and numeric interpretation.
-- Future resolver: lexical scopes and names translated to bounded core indices.
+- Source.Parser: implemented expression structure and bounded numeric interpretation.
+- Source.Resolve: implemented lexical scopes/names to bounded core indices.
 - Existing checkers: typing and resource policy, not tokenization.
 
 ASCII identifiers are a deliberately narrow starting point. A versioned Unicode
@@ -67,6 +68,6 @@ them; mathematical aliases do not bypass that requirement.
 original spelling, CRLF/tab/astral-comment spans, unsupported punctuation,
 and validation before comment skipping. CLI smoke tests load actual files.
 
-Next: specify a small annotated expression grammar and parse into named syntax
-with spans; resolve names in a separate pass. Package-manifest parsing remains a
-separate format and must not reuse this lexer.
+The [expression parser](parser.md) now consumes these tokens into named syntax;
+resolution remains a separate pass. Declaration/layout syntax and package-manifest
+parsing remain future work; the YAML manifest must not reuse this lexer.

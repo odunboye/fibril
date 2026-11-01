@@ -55,5 +55,12 @@ rankdir=LR; node [shape=box,style=rounded,fontsize=10];
 "Source.Lexer.lexSource" -> {"Source.Text.validateText" "Source.Lexer.scan"};
 "Source.Lexer.scan" -> {"Source.Lexer.emit" "Source.Text.advancePosition"};
 "Source.Lexer.emit" -> "Source.Text.advancePosition";
+"Main.main" -> "Check.checkFile";
+"Check.checkFile" -> {"Source.File.loadSource" "Check.checkSource"};
+"Check.checkSource" -> {"Check.resolveSource" "Erased.inferErased" "Runtime.inferRuntime"};
+"Check.resolveSource" -> {"Source.Lexer.lexSource" "Parser.parseExpression" "Resolve.resolveClosed"};
+"Parser.parseExpression" -> "Parser.expression";
+"Resolve.resolveClosed" -> "Resolve.resolveIn";
+"Resolve.resolveIn" -> "Resolve.lookupName";
 label="Selected static calls — curated, not exhaustive";
 }

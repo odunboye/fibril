@@ -9,6 +9,13 @@ conversion, and runtime usage validation.
 
 This is a curated selected call graph, not an exhaustive dynamic execution trace.
 
+## A source-to-core slice
+
+The [expression frontend](../parser.md) now loads, lexes, parses named syntax,
+and resolves lexical scopes before calling these checkers. The source
+`examples/core/identity.fib` reaches the polymorphic identity below. Full
+Idris-like declarations and implicit elaboration are not implemented.
+
 ## Erased checking first
 
 [Erased](../../src/Fibril/Core/Erased.idr) exposes three operations:
@@ -55,7 +62,8 @@ checks resource policy; it is not a C/JavaScript runtime.
 
 Typing-depth and reduction budgets fail explicitly. Resource mismatches distinguish
 local binders from ambient variable indices. Diagnostics do not yet carry source
-locations because there is no surface parser.
+locations because core-to-source diagnostic mapping has not yet been implemented,
+even though the expression parser/resolver retains frontend spans.
 
 Repeated context checks make this a reference implementation, not an optimized
 incremental elaborator. Prefer correctness and clear boundaries before caching.

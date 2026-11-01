@@ -28,9 +28,12 @@ constitute a proof of solver correctness or implement univalence.
 
 ## Minimal source input
 
-`core/identity.fib` exercises the implemented lexer with an annotated lambda.
-Run `./build/exec/fibril lex-source examples/core/identity.fib` from the root.
-It is not yet parsed or type checked as source.
+`core/identity.fib` is a checked annotated-expression source example.
+Run `./build/exec/fibril check examples/core/identity.fib` from the root.
+Use `lex-source` instead of `check` to inspect tokens. This is not yet a full module
+or compiled program. `identity-unicode.fib` checks the same expression using
+λ/⇒, and `identity-type.fib` checks its dependent function type with `--erased`.
+`make examples` now checks all three source examples as well as the Idris project.
 
 ## Proposed Fibril programs
 

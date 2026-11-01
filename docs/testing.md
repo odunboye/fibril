@@ -24,6 +24,12 @@ covers malformed bytes and encoding boundaries. CLI tests exercise raw files,
 byte limits, missing paths, and a fixed-seed malformed corpus cross-checked with
 Python's strict decoder; neither suite establishes full decoder correctness.
 
+[Tests.Frontend](../test/src/Tests/Frontend.idr) now checks expression parsing,
+name resolution, associativity, shadowing/domain scope, budgets, source extents,
+and erased/runtime integration. `make examples` checks ASCII/Unicode identity
+sources and an erased type expression. These are ordinary expressions, not full
+module/elaboration or cubical-source coverage.
+
 ## Hedgehog dependency
 
 Repository: https://github.com/stefan-hoeck/idris2-hedgehog
