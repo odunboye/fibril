@@ -1,7 +1,8 @@
 # Safety and performance from the outset
 
 Status: engineering policy and proposed work, not established language guarantees.
-Some safeguards already exist; benchmarking and enforceable resource isolation do not.
+Some safeguards and an exploratory benchmark suite exist; enforceable resource
+isolation and stable performance guarantees do not.
 
 ## Safety discipline
 
@@ -48,8 +49,10 @@ unmeasured speed or needless abstractions.
 | Type exposure | Full normalization when only Pi/Universe head is needed | Weak-head evaluation with regression/differential tests |
 | Fuel | Does not bound wall time, stack, or memory | Cancellation, work budgets, process isolation where needed |
 
-No benchmark suite or measured performance baseline exists yet. These are priorities,
-not evidence that one candidate representation will be faster.
+An [exploratory benchmark suite](benchmarks.md) now measures these operations
+and validates results. Initial DNF workloads show steep growth; tiny term workloads
+remain close to harness overhead. No stable performance baseline exists yet.
+Candidate optimizations still need measured evidence.
 
 ## Untrusted inputs and real time
 

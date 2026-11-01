@@ -1,0 +1,6 @@
+package fibril-bench
+sourcedir = "src"
+depends = fibril
+modules = Workloads, Main
+main = Main
+executable = fibril-bench

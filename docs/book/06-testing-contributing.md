@@ -58,7 +58,8 @@ make handbook
 
 The [safety/performance plan](../safety-performance.md) names current costs:
 DNF growth, repeated checking, full normalization, and copying substitution.
-Establish benchmark baselines before optimizing. [Zig's lessons](../zig-lessons.md)
+Use the [reference benchmarks](../benchmarks.md) to collect raw timings and
+metadata; establish stable baselines before optimizing or imposing thresholds. [Zig's lessons](../zig-lessons.md)
 encourage explicit allocation/failure and readable resource contracts, without
 making fast builds less trustworthy.
 

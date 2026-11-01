@@ -11,6 +11,8 @@ The generated homepage separates teaching chapters, references, and project reco
 
 ## Reference index
 
+- [Reference benchmarks](benchmarks.md): reproducible exploratory measurements and limits.
+
 - [Safety and performance](safety-performance.md): present safeguards, risks, and planned benchmarks.
 - [Lessons from Zig](zig-lessons.md): allocation, errors, cleanup, specialization, and target design.
 

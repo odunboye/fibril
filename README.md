@@ -40,6 +40,10 @@ upgrades explicitly; do not use a floating collection for project builds.
 See [examples](examples/README.md) for runnable bootstrap programs and clearly
 labeled proposed Fibril scenarios, including proofs.
 
+Run `make bench-smoke` for validated benchmark smoke checks or `make bench`
+for exploratory timings. Results and environment metadata are written to
+`build/benchmarks/latest.json`; see [measurement limits](docs/benchmarks.md).
+
 Learn the implementation through the [Building Fibril textbook](docs/book/00-orientation.md):
 eight ordered chapters with exercises, diagrams, and linked source.
 

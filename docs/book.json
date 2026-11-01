@@ -88,6 +88,10 @@
         "path": "docs/safety-performance.md"
       },
       {
+        "title": "Reference benchmarks",
+        "path": "docs/benchmarks.md"
+      },
+      {
         "title": "Lessons from Zig",
         "path": "docs/zig-lessons.md"
       }

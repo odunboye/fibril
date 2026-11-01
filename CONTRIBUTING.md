@@ -19,7 +19,8 @@ Use the collection pinned in `pack.toml`; avoid unrelated toolchain upgrades.
 
 For performance-sensitive changes, follow the
 [safety/performance checklist](docs/safety-performance.md): measure first,
-preserve reference behavior, and report trade-offs. Benchmarks remain planned.
+preserve reference behavior, and report trade-offs. Use the
+[benchmark suite](docs/benchmarks.md) as an exploratory tool, not a timing guarantee.
 
 No unchecked holes or unsafe axioms should be introduced as completed proofs.
 Experimental rules must be labeled and separated from established guarantees.

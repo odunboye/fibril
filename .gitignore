@@ -1,5 +1,6 @@
 build/
 test/build/
 examples/build/
+bench/build/
 *.ttc
 *.ttm

@@ -34,7 +34,8 @@ def main():
     ]
     sources = sorted((ROOT / "src").rglob("*.idr")) + sorted(
         (ROOT / "test/src").rglob("*.idr")) + sorted(
-        (ROOT / "examples/src").rglob("*.idr"))
+        (ROOT / "examples/src").rglob("*.idr")) + sorted(
+        (ROOT / "bench/src").rglob("*.idr"))
     destinations = {p: OUT / p.relative_to(ROOT).with_suffix(".html") for p in pages}
     destinations.update({p: OUT / "source" / (str(p.relative_to(ROOT)) + ".html")
                          for p in sources})

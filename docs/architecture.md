@@ -23,6 +23,14 @@ Implemented:
 - `test/src/Tests/Properties.idr`: bounded scope-correct generators and structural laws; test-only Hedgehog dependency.
 - `test/src/Tests/Erased.idr` and `Reduction.idr`: ordinary checking and reduction regressions.
 
+Benchmark infrastructure:
+
+- `bench/bench.ipkg`: separate pack project depending on the core library.
+- `bench/src/Workloads.idr`: fixed, result-validated workloads.
+- `bench/src/Main.idr`: bounded argument handling and monotonic batch timing.
+- `tools/benchmark.py`: explicit Chez build, repeat samples, and metadata reports.
+- `tools/test_benchmark.py`: structural/invalid-input checks, not speed thresholds.
+
 Planned boundaries:
 
 - Surface parser and elaborator -> explicit checked quantitative cubical core.

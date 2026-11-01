@@ -7,6 +7,11 @@ path = "."
 ipkg = "fibril.ipkg"
 test = "test/tests.ipkg"
 
+[custom.all.fibril-bench]
+type = "local"
+path = "bench"
+ipkg = "bench.ipkg"
+
 [custom.all.fibril-examples]
 type = "local"
 path = "examples"
