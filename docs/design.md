@@ -328,7 +328,16 @@ No automatic dependency scripts. See [package design](packages.md) for the propo
 schema, YAML restrictions, target conditions, and unresolved identity/lock rules.
 This is not implemented yet.
 
-## 18. Readiness and immediate open design work
+## 18. Cumulativity and dependent rewriting
+
+Separate universe compatibility from conversion. Start with literal-level upward
+compatibility, then specify constructor propagation and symbolic level constraints.
+Dependent rewriting is checked transport, not textual substitution; implement paths,
+transport, and resource-safe rules before rewrite automation. No equality reflection,
+blanket path irrelevance, or automatic proof erasure. See the
+[cumulativity/rewriting plan](cumulativity-rewriting.md) for scope and open obligations.
+
+## 19. Readiness and immediate open design work
 
 - Write precise guarantees/non-guarantees for total, safe, erased, linear, and real-time.
 - Select the published De Morgan calculus and formalize quantitative interactions.

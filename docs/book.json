@@ -76,6 +76,10 @@
         "path": "docs/ordinary-checking.md"
       },
       {
+        "title": "Cumulativity and rewriting",
+        "path": "docs/cumulativity-rewriting.md"
+      },
+      {
         "title": "Erased checker",
         "path": "docs/erased-checker.md"
       },

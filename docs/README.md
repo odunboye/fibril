@@ -11,6 +11,8 @@ The generated homepage separates teaching chapters, references, and project reco
 
 ## Reference index
 
+- [Cumulativity and dependent rewriting](cumulativity-rewriting.md): staged rules, implementation gates, and safeguards.
+
 - [Expression parser/checking](parser.md): implemented source-to-core checking slice.
 
 - [Expression lexer](lexer.md): token subset, aliases, positions, and next parser boundary.
