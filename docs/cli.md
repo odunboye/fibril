@@ -6,6 +6,8 @@ Build with `pack build fibril`, then invoke `./build/exec/fibril`.
 | --- | --- |
 | --help (or no arguments) | Show available commands and implementation limits |
 | --version | Show bootstrap version |
+| eval PATH | Check then reference-normalize a closed expression (default fuel 128) |
+| eval --fuel N PATH | Same with evaluation fuel 0..4096; not compiled execution |
 | check PATH | Parse/resolve one closed expression, check ordinary typing and runtime usage |
 | check --erased PATH | Parse/resolve/check the erased ordinary fragment only |
 | demo | Run built-in ordinary checking and cubical algebra examples |
@@ -18,6 +20,9 @@ implementation. See the [expression grammar and checking guide](parser.md).
 
 The [Unicode source guide](unicode-source.md) specifies byte/scalar offsets,
 control policy, file-size limits, and concurrent-read limitations.
+
+See [checked reference evaluation](evaluation.md) for evaluation modes, budgets,
+post-reduction checks, and why this is not a backend runtime.
 
 ## Follow the demo
 

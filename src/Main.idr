@@ -4,6 +4,7 @@ import System
 import Data.List
 import Fibril.Driver.Demo
 import Fibril.Driver.Check
+import Fibril.Driver.Evaluate
 import Fibril.Source.File
 import Fibril.Source.Lexer
 
@@ -21,19 +22,32 @@ Usage:
   fibril lex-source PATH        Print tokens/spans for the expression subset
   fibril check PATH             Check a closed expression and runtime usage
   fibril check --erased PATH    Check only the erased ordinary fragment
+  fibril eval PATH              Checked reference normalization (128 beta steps)
+  fibril eval --fuel N PATH     Reference normalization with fuel 0..4096
 
 An annotated expression subset is supported. Declarations, cubical term checking,
 and C/JavaScript compilation are not implemented yet.
 """
 
+printReport : Either String (List String) -> IO ()
+printReport (Right lines) = traverse_ putStrLn lines
+printReport (Left err) = do
+  putStrLn err
+  exitFailure
+
 runCheck : Bool -> String -> IO ()
-runCheck erasedOnly path = do
-  result <- checkFile erasedOnly path
-  case result of
-    Right lines => traverse_ putStrLn lines
-    Left err => do
-      putStrLn err
-      exitFailure
+runCheck erasedOnly path = checkFile erasedOnly path >>= printReport
+
+runEval : Nat -> String -> IO ()
+runEval fuel path = evaluateFile fuel path >>= printReport
+
+fuelValue : String -> Maybe Nat
+fuelValue text =
+  let chars = unpack text
+   in if not (null chars) && length chars <= 4 && all (\c => c >= '0' && c <= '9') chars
+         then let value : Nat = foldl (\n, c => n * 10 + cast (ord c - ord '0')) 0 chars
+               in if value <= 4096 then Just value else Nothing
+         else Nothing
 
 main : IO ()
 main = do
@@ -42,6 +56,13 @@ main = do
     [] => putStrLn help
     ["--help"] => putStrLn help
     ["--version"] => putStrLn "Fibril 0.1.0-dev (Idris 2 bootstrap)"
+    ["eval", path] => runEval 128 path
+    ["eval", "--fuel", text, path] =>
+      case fuelValue text of
+        Just fuel => runEval fuel path
+        Nothing => do
+          putStrLn "Fuel must be decimal 0..4096."
+          exitFailure
     ["check", path] => runCheck False path
     ["check", "--erased", path] => runCheck True path
     ["lex-source", path] => do
@@ -63,12 +84,7 @@ main = do
         Left err => do
           putStrLn (show err)
           exitFailure
-    ["demo"] =>
-      case demoReport of
-        Right lines => traverse_ putStrLn lines
-        Left err => do
-          putStrLn ("Demo failed: " ++ err)
-          exitFailure
+    ["demo"] => printReport demoReport
     _ => do
       putStrLn "Unsupported command. Run fibril --help."
       exitFailure

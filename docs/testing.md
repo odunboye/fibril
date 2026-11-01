@@ -35,6 +35,10 @@ against the selected CPython development installation. It is not part of make
 test or pack test and does not establish Fibril FFI support. See
 [Python interoperability](python-interop.md).
 
+[Tests.Evaluate](../test/src/Tests/Evaluate.idr) and CLI tests exercise checked
+source normalization, exact/exhausted fuel, and rejection before reduction.
+The output is reference normal form syntax, not C/JS execution.
+
 ## Hedgehog dependency
 
 Repository: https://github.com/stefan-hoeck/idris2-hedgehog

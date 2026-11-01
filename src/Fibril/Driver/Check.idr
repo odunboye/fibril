@@ -40,6 +40,28 @@ resolveSource source = do
     Left err => Left (Resolving err)
     Right term => Right term
 
+||| Prepared diagnostic data, not an unforgeable kernel certificate.
+public export
+record RuntimeSource where
+  constructor PreparedRuntime
+  term : Term 0
+  inferredType : Term 0
+
+prepareTerm : Term 0 -> Either String RuntimeSource
+prepareTerm term =
+  case inferRuntime 256 128 Empty term of
+    Left err => Left ("Runtime checking: " ++ show err)
+    Right checked => Right (PreparedRuntime term checked.inferredType)
+
+||| Resolve and runtime-check once for drivers that need the actual core term.
+public export
+prepareRuntimeSource : String -> Either String RuntimeSource
+prepareRuntimeSource source = do
+  term <- case resolveSource source of
+    Left err => Left (show err)
+    Right term => Right term
+  prepareTerm term
+
 ||| Check an expression in erased-only mode or ordinary runtime mode.
 ||| Successful diagnostics explicitly identify the mode; neither compiles code.
 public export
@@ -53,10 +75,9 @@ checkSource erasedOnly source = do
        Left err => Left ("Erased checking: " ++ show err)
        Right ty => Right ["Erased checking: accepted (no runtime-use guarantee)",
                           "Type: " ++ renderTerm ty]
-     else case inferRuntime 256 128 Empty term of
-       Left err => Left ("Runtime checking: " ++ show err)
-       Right checked => Right ["Runtime checking: accepted",
-                               "Type: " ++ renderTerm checked.inferredType]
+     else do
+       checked <- prepareTerm term
+       Right ["Runtime checking: accepted", "Type: " ++ renderTerm checked.inferredType]
 
 ||| Use the bounded UTF-8 loader before frontend/checker processing.
 public export

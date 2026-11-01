@@ -125,6 +125,27 @@ class CLITests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("Parsing:", result.stdout)
 
+    def test_checked_reference_evaluation(self):
+        path = "examples/core/evaluate-identity.fib"
+        result = run("eval", path)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("not compiled execution", result.stdout)
+        self.assertIn("Normal: (Lam 1 Type0 v0)", result.stdout)
+        result = run("eval", "--fuel", "0", path)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("budget exhausted", result.stdout)
+        self.assertNotIn("Normal:", result.stdout)
+        result = run("eval", "--fuel", "0", "examples/core/identity.fib")
+        self.assertEqual(result.returncode, 0, result.stdout)
+        for value in ("-1", "4097", "99999999999", "wrong"):
+            with self.subTest(fuel=value):
+                result = run("eval", "--fuel", value, path)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("Fuel must", result.stdout)
+        result = run("eval", "examples/core/identity-type.fib")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Runtime", result.stdout)
+
     def test_unsupported_commands_fail(self):
         for args in (("build", "example.fib"), ("demo", "extra"), ("--unknown",)):
             with self.subTest(args=args):

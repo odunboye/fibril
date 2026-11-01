@@ -72,6 +72,10 @@
         "path": "docs/parser.md"
       },
       {
+        "title": "Checked reference evaluation",
+        "path": "docs/evaluation.md"
+      },
+      {
         "title": "Ordinary core draft",
         "path": "docs/core-draft.md"
       },

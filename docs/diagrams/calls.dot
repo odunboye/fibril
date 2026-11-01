@@ -63,5 +63,10 @@ rankdir=LR; node [shape=box,style=rounded,fontsize=10];
 "Resolve.resolveClosed" -> "Resolve.resolveIn";
 "Resolve.resolveIn" -> "Resolve.lookupName";
 "Compatibility.compatibleTypes" -> {"Reduction.normalize" "Term.sameSyntax"};
+"Main.main" -> "Evaluate.evaluateFile";
+"Evaluate.evaluateFile" -> {"Source.File.loadSource" "Evaluate.evaluateSource"};
+"Evaluate.evaluateSource" -> {"Check.prepareRuntimeSource" "Reduction.normalize" "Runtime.checkRuntime" "Pretty.renderTerm"};
+"Check.prepareRuntimeSource" -> {"Check.resolveSource" "Check.prepareTerm"};
+"Check.prepareTerm" -> "Runtime.inferRuntime";
 label="Selected static calls — curated, not exhaustive";
 }

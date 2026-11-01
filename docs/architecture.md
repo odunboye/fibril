@@ -5,7 +5,8 @@ Implemented:
 - `src/Fibril/Source/Syntax.idr`: named expression AST with spans.
 - `src/Fibril/Source/Parser.idr`: bounded expression grammar, no declaration/layout parsing.
 - `src/Fibril/Source/Resolve.idr`: lexical names to scoped core, no globals.
-- `src/Fibril/Driver/Check.idr`: source frontend/checker orchestration.
+- `src/Fibril/Driver/Check.idr`: source frontend/checker orchestration and shared runtime-source preparation.
+- `src/Fibril/Driver/Evaluate.idr`: check-before-reduction reference evaluation and post-reduction type/resource validation.
 
 - `src/Fibril/Source/Lexer.idr`: minimal expression tokens, retained spelling, and scalar spans; no layout or parser.
 - `src/Fibril/Source/UTF8.idr`: strict scalar decoding with malformed-byte offsets; no lossy replacement.

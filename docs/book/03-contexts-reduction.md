@@ -58,6 +58,13 @@ A Pi is already exposed even if its codomain is not normal. Checkers use this
 for shape inspection, then still fully compare types when equality is required.
 HeadForm and Normal are different result constructors to prevent confusion.
 
+## Evaluate a checked source expression
+
+Run `fibril eval examples/core/evaluate-identity.fib`. The
+[evaluation driver](../evaluation.md) checks runtime usage first, normalizes,
+and checks the result against its original type before printing it. It is a
+reference computation, not compilation, IO execution, or verified erasure.
+
 ## Exercises
 
 - Follow an identity application through one step.

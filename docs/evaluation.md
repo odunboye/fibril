@@ -1,0 +1,71 @@
+# Checked reference evaluation
+
+Status: implemented for the ordinary expression subset. This is **not compiled
+execution**, an IO interpreter, or a C/JavaScript backend.
+
+## Try it
+
+```sh
+./build/exec/fibril eval examples/core/evaluate-identity.fib
+./build/exec/fibril eval --fuel 1 examples/core/evaluate-identity.fib
+```
+
+The [example](../examples/core/evaluate-identity.fib) applies a function identity
+to another identity. Output includes:
+
+    Reference evaluation: normal form (not compiled execution)
+    Type: (Pi 1 Type0 Type0)
+    Normal: (Lam 1 Type0 v0)
+
+Output uses explicit core notation, not round-trippable surface syntax.
+
+## Pipeline
+
+[Driver.Evaluate](../src/Fibril/Driver/Evaluate.idr) performs:
+
+1. Bounded strict file loading, parsing, and lexical resolution.
+2. Ordinary typing and runtime usage checking through shared Driver.Check preparation.
+3. Full reference beta normalization with the requested fuel.
+4. Rechecking the normal form against the original inferred type.
+5. Reporting only after all steps succeed.
+
+Checking happens before reduction so optimization cannot conceal invalid resource
+use. Post-reduction checking is an extra regression guard, not a general
+preservation proof or a justification of quantitative/cubical rules.
+
+PreparedRuntime is diagnostic data, not an unforgeable kernel certificate.
+Driver.Evaluate obtains it through the checking function, not arbitrary construction.
+
+## Budgets and failures
+
+Default evaluation fuel is 128. The CLI accepts decimal 0..4096 through --fuel;
+already-normal functions can succeed at zero. Fuel exhaustion exits nonzero
+without a Normal report.
+
+Parsing and checking retain their independent fixed budgets (256 parsing/checking
+depth, 128 reduction fuel per type operation). Raising evaluation fuel does not
+raise these other budgets. All errors propagate; none admit obligations.
+
+Fuel bounds beta steps only. Step discovery, substitution, full annotation
+normalization, and rechecking may use substantial time/memory. This is not a
+sandbox, a service-level timeout, or hard-real-time execution.
+
+## Current boundaries
+
+- Only closed ordinary expressions are supported.
+- Runtime type expressions remain unsupported; use check --erased for type-only checking.
+- There is no eval --erased mode.
+- Erased arguments/types remain present during this reference computation.
+  This is not a compiler erasure implementation.
+- No declarations, effects, Python calls, inductive values, cubical computation,
+  or backend runtime are implemented by this command.
+
+See [reference reduction](reduction.md), [runtime checking](runtime-checker.md),
+and [parser](parser.md) for the actual rules.
+
+## Tests
+
+[Tests.Evaluate](../test/src/Tests/Evaluate.idr) covers exact fuel, normal inputs,
+invalid runtime expressions, unbound names, and rejected linear discard.
+CLI tests exercise real files, bounded fuel parsing, nonzero failure exits, and
+explicit reference-only labeling. make examples runs the evaluation example.

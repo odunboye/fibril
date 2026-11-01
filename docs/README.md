@@ -11,6 +11,8 @@ The generated homepage separates teaching chapters, references, and project reco
 
 ## Reference index
 
+- [Checked reference evaluation](evaluation.md): source checking followed by bounded normalization.
+
 - [Python interoperability](python-interop.md): worker and optional embedded CPython architecture.
 
 - [Cumulativity and dependent rewriting](cumulativity-rewriting.md): staged rules, implementation gates, and safeguards.

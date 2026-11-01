@@ -34,7 +34,9 @@ Use `lex-source` instead of `check` to inspect tokens. This is not yet a full mo
 or compiled program. `identity-unicode.fib` checks the same expression using
 λ/⇒, and `identity-type.fib` checks its dependent function type with `--erased`.
 `universe-lift.fib` exercises upward literal-universe compatibility.
-`make examples` checks all four source examples as well as the Idris project.
+`evaluate-identity.fib` runs through checked reference evaluation with `fibril eval`.
+`make examples` checks the four checking examples and evaluates this fifth source
+example as well as running the Idris project.
 
 ## Proposed Fibril programs
 

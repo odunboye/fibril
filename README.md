@@ -18,6 +18,7 @@ pack test fibril
 ./build/exec/fibril --help
 ./build/exec/fibril demo
 ./build/exec/fibril check examples/core/identity.fib
+./build/exec/fibril eval examples/core/evaluate-identity.fib
 ```
 
 `pack.toml` pins collection `nightly-260903`, which selects Idris 2
