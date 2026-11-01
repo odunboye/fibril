@@ -14,7 +14,9 @@ Implemented:
 - `src/Fibril/Foundation/DeMorgan/Face.idr`: separate face lattice, entailment, endpoint extraction, and substitution.
 - `src/Fibril/Foundation/DeMorgan/Scope.idr`: checked dimension scoping, interval weakening/substitution/instantiation, and scoped face entailment.
 - `src/Fibril/Foundation/DeMorgan/Restriction.idr`: accumulated face assumptions, entailment, weakening, and substitution.
-- `test/src/Tests/Main.idr`: quantity, interval, and face regression tests.
+- `test/src/Tests/Main.idr`: deterministic regression runner, followed by Hedgehog properties.
+- `test/src/Tests/Properties.idr`: bounded scope-correct generators and structural laws; test-only Hedgehog dependency.
+- `test/src/Tests/Erased.idr` and `Reduction.idr`: ordinary checking and reduction regressions.
 
 Planned boundaries:
 

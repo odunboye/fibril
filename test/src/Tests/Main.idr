@@ -6,6 +6,7 @@ import Fibril.Core.Usage
 import Fibril.Core.Context
 import Tests.Reduction
 import Tests.Erased
+import Tests.Properties
 import Data.Vect
 import Fibril.Foundation.DeMorgan.Interval
 import Fibril.Foundation.DeMorgan.NormalForm
@@ -291,7 +292,10 @@ main : IO ()
 main = do
   let failed = filter (not . snd) (Tests.Main.checks ++ Tests.Reduction.checks ++ Tests.Erased.checks)
   case failed of
-    [] => putStrLn "Bootstrap term, quantity, interval, and face tests passed."
+    [] => do
+      putStrLn "Deterministic bootstrap regressions passed."
+      ok <- runProperties
+      if ok then pure () else exitFailure
     _ => do
       traverse_ (putStrLn . fst) failed
       exitFailure

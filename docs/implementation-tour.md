@@ -69,6 +69,13 @@ explains why exhaustion is inconclusive and why fuel is not a timing bound.
 The [erased checker](erased-checker.md) now uses beta comparison for a small
 ordinary fragment; runtime quantitative and cubical checking remain absent.
 
+## Randomized structural validation
+
+[Hedgehog properties](../test/src/Tests/Properties.idr) now exercise substitution,
+renaming, interval laws, and endpoint compatibility with bounded scope-correct
+generators and shrinking. See [testing](testing.md) for dependency revisions,
+replay instructions, and what these samples do not prove.
+
 ## Trust and current limits
 
 The [experimental erased checker](../src/Fibril/Core/Erased.idr) validates

@@ -25,6 +25,9 @@ Pack itself is not installed or pinned by the project configuration.
 A C toolchain and the collection's Scheme implementation are bootstrap
 requirements; these are not Fibril backend choices.
 
+Tests combine deterministic regressions with shrinking Hedgehog properties;
+see the [testing guide](docs/testing.md).
+
 Tests live in `test/src/Tests/`, with their own `test/tests.ipkg` depending
 on `fibril`. Pack's test entry points to that package; tests are not included
 in the compiler's source tree.

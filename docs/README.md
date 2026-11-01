@@ -1,5 +1,7 @@
 # Documentation
 
+- [Testing](testing.md): deterministic regressions, Hedgehog properties, and replay.
+
 - [Theoretical references](references.md): bibliography and code-to-theory map.
 
 - [Browsable handbook](handbook.md): build, serve, and maintain the offline book.
