@@ -9,4 +9,4 @@ test: build
 	./build/exec/fibril --version
 
 clean:
-	rm -rf build
+	rm -rf build test/build

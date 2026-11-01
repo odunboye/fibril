@@ -5,4 +5,9 @@ collection = "nightly-260903"
 type = "local"
 path = "."
 ipkg = "fibril.ipkg"
-test = "tests.ipkg"
+test = "test/tests.ipkg"
+
+[custom.all.fibril-tests]
+type = "local"
+path = "test"
+ipkg = "tests.ipkg"

@@ -7,7 +7,7 @@ Implemented:
 - `src/Fibril/Foundation/DeMorgan/Interval.idr`: interval syntax, substitution, endpoint interpretation.
 - `src/Fibril/Foundation/DeMorgan/NormalForm.idr`: reference symbolic interval equality.
 - `src/Fibril/Foundation/DeMorgan/Face.idr`: separate face lattice and entailment.
-- `src/Tests/Main.idr`: quantity, interval, and face regression tests.
+- `test/src/Tests/Main.idr`: quantity, interval, and face regression tests.
 
 Planned boundaries:
 

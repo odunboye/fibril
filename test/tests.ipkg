@@ -1,0 +1,6 @@
+package fibril-tests
+sourcedir = "src"
+depends = fibril
+modules = Tests.Main
+main = Tests.Main
+executable = fibril-tests

@@ -1,5 +1,0 @@
-package fibril-tests
-sourcedir = "src"
-modules = Fibril.Foundation.DeMorgan.Face, Fibril.Foundation.DeMorgan.NormalForm, Fibril.Foundation.DeMorgan.Interval, Fibril.Core.Quantity, Tests.Main
-main = Tests.Main
-executable = fibril-tests
