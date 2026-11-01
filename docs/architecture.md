@@ -13,6 +13,7 @@ Implemented:
 - `src/Fibril/Driver/Demo.idr`: built-in checking/algebra demo orchestration outside the core.
 - `src/Fibril/Core/Quantity.idr`: quantity coefficients, arithmetic, and local binder policy; not a usage checker.
 - `src/Fibril/Foundation/DeMorgan/Interval.idr`: interval syntax, substitution, endpoint interpretation.
+- `src/Fibril/Foundation/DeMorgan/Sorted.idr`: sorted canonicalization and merge subset helpers; ascending-input precondition.
 - `src/Fibril/Foundation/DeMorgan/NormalForm.idr`: reference symbolic interval equality.
 - `src/Fibril/Foundation/DeMorgan/Face.idr`: separate face lattice, entailment, endpoint extraction, and substitution.
 - `src/Fibril/Foundation/DeMorgan/Scope.idr`: checked dimension scoping, interval weakening/substitution/instantiation, and scoped face entailment.
@@ -20,6 +21,7 @@ Implemented:
 - `test/src/Tests/Main.idr`: deterministic regression runner, followed by Hedgehog properties.
 - `test/src/Tests/RuntimeProperties.idr`: constructive linear-capture examples and sampled preservation/rejection properties in a fixed open context.
 - `test/src/Tests/TypedProperties.idr`: bounded constructive erased term/type pairs, preservation/conversion tests, and classifications.
+- `test/src/Tests/Reference/`: frozen pre-optimization DNF solver oracles, independent of shared production helpers.
 - `test/src/Tests/Properties.idr`: bounded scope-correct generators and structural laws; test-only Hedgehog dependency.
 - `test/src/Tests/Erased.idr` and `Reduction.idr`: ordinary checking and reduction regressions.
 

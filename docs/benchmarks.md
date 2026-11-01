@@ -64,6 +64,38 @@ used to advertise checker speed. No stable cross-machine baseline or regression
 threshold is established. Current reports, not prose numbers, are the measurement
 record.
 
+## First measured optimization: sorted DNF helpers
+
+The solvers already canonicalize their literal lists. Sorted.idr now removes
+duplicates by an adjacent linear scan after sorting and checks subsets with a
+linear merge walk rather than repeated membership searches.
+
+Local exploratory comparison (macOS arm64, pinned collection, Chez; five fresh
+samples of ten iterations; batch medians divided by iteration count):
+
+| Workload | Size | Before, ms/iteration | After, ms/iteration |
+| --- | --- | --- | --- |
+| interval | 4 | 0.1655 | 0.0443 |
+| interval | 6 | 3.4392 | 0.5040 |
+| face | 4 | 0.1355 | 0.0483 |
+| face | 6 | 2.3256 | 0.5083 |
+
+The before report was collected at 7dd3151; the after report records the same
+parent revision with a dirty tree and changed source hashes. Reports remain at
+build/benchmarks/sorted-before.json and sorted-after.json locally; they are not
+portable baselines or tracked artifacts. This table preserves the observed
+summary, not a claim that every workload or machine has the same improvement.
+
+Frozen pre-optimization interval and face algorithms live in test/src/Tests/Reference.
+Hedgehog compares their answers with production results. Helpers are also checked
+against sorting/deduplication and membership-based subset algorithms. These
+comparisons detect regressions relative to the old algorithms, not shared
+semantic mistakes or all possible inputs.
+
+The merge helper requires ascending inputs; production callers establish that
+through canonicalization. This is a documented precondition, not an indexed
+proof. DNF expansion and pairwise absorption remain potentially exponential.
+
 ## Maintenance and next improvements
 
 - Tests validate report structure and reject unsupported/unbounded driver requests.

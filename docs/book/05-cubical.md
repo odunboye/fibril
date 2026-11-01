@@ -19,6 +19,14 @@ to variables would incorrectly collapse this distinction into Boolean algebra.
 to signed generators and uses absorbed disjunctive normal forms. It does not
 cancel complementary literals. This reference algorithm can grow exponentially.
 
+### Optimize representation, not the algebra
+
+[Sorted](../../src/Fibril/Foundation/DeMorgan/Sorted.idr) exploits canonical list
+order: adjacent duplicates can be removed in one pass, and subset checking can
+merge two sorted lists. The old algorithms remain test oracles. Local
+[measurements](../benchmarks.md) show lower overhead, not a cure for DNF expansion.
+Always preserve the non-Boolean algebra while changing implementation details.
+
 ## Faces describe where an obligation holds
 
 [Face](../../src/Fibril/Foundation/DeMorgan/Face.idr) is a separate lattice.

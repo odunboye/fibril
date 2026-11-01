@@ -5,6 +5,7 @@
 module Fibril.Foundation.DeMorgan.NormalForm
 
 import Data.List
+import Fibril.Foundation.DeMorgan.Sorted
 import Fibril.Foundation.DeMorgan.Interval
 
 %default total
@@ -21,10 +22,10 @@ DNF : Type
 DNF = List Clause
 
 canonical : Ord a => List a -> List a
-canonical = nub . sort
+canonical = canonicalSorted
 
 subset : Clause -> Clause -> Bool
-subset xs ys = all (\x => elem x ys) xs
+subset = subsetSorted
 
 reduce : DNF -> DNF
 reduce clauses =

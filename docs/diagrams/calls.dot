@@ -39,5 +39,8 @@ rankdir=LR; node [shape=box,style=rounded,fontsize=10];
 "Main.main" -> "Demo.demoReport";
 "Demo.demoReport" -> {"Erased.checkErased" "Runtime.checkRuntime" "Demo.checkDuplication" "Pretty.renderTerm" "NormalForm.equivalent" "Face.equivalentFace"};
 "Demo.checkDuplication" -> "Runtime.inferRuntime";
+"NormalForm.reduce" -> {"Sorted.canonicalSorted" "Sorted.subsetSorted"};
+"Face.reduce" -> {"Sorted.canonicalSorted" "Sorted.subsetSorted"};
+"Face.entails" -> "Sorted.subsetSorted";
 label="Selected static calls — curated, not exhaustive";
 }

@@ -1,8 +1,12 @@
 module Tests.Properties
 
 import Data.Fin
+import Data.List
 import Data.Vect
 import Hedgehog
+import Tests.Reference.Interval
+import Tests.Reference.Face
+import Fibril.Foundation.DeMorgan.Sorted
 import Fibril.Core.Quantity
 import Fibril.Core.Term
 import Fibril.Core.Pretty
@@ -115,12 +119,37 @@ endpointDisjoint = property $ do
   assert (equivalentFace
     (Conjunction (endpointFace term False) (endpointFace term True)) Bottom)
 
+intervalOracle : Property
+intervalOracle = property $ do
+  [x, y] <- forAll (vect 2 (intervalGen 3))
+  equivalent x y === referenceEquivalent x y
+  equivalent x (Reverse (Reverse x)) === referenceEquivalent x (Reverse (Reverse x))
+
+faceOracle : Property
+faceOracle = property $ do
+  [x, y] <- forAll (vect 2 (intervalGen 3))
+  let premise = Conjunction (endpointFace x False) (endpointFace y True)
+  let conclusion = Disjunction (endpointFace y False) (endpointFace x True)
+  entails premise conclusion === referenceEntails premise conclusion
+  entails premise (endpointFace x False) === referenceEntails premise (endpointFace x False)
+
+sortedOracle : Property
+sortedOracle = property $ do
+  [xs, ys] <- forAll (vect 2 (list (linear 0 20) (the (Gen Nat) (element [0, 1, 2, 3, 4, 5]))))
+  let left = canonicalSorted (the (List Nat) xs)
+  let right = canonicalSorted (the (List Nat) ys)
+  left === nub (sort xs)
+  subsetSorted left right === all (\x => elem x right) left
+
 ||| Run randomized, shrinking properties in addition to deterministic regressions.
 ||| A successful run is evidence from samples, not a proof of these laws.
 public export
 runProperties : IO Bool
 runProperties = checkGroup (MkGroup "Fibril structural properties"
-  [ ("term renaming identity", renameIdentity)
+  [ ("sorted helpers match simple algorithms", sortedOracle)
+  , ("interval solver matches frozen oracle", intervalOracle)
+  , ("face solver matches frozen oracle", faceOracle)
+  , ("term renaming identity", renameIdentity)
   , ("term substitution identity", substitutionIdentity)
   , ("term substitution composition", substitutionComposition)
   , ("weakening then instantiation", weakeningInstantiation)

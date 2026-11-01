@@ -33,9 +33,11 @@ README lists no state-machine testing or parallel execution.
 
 ## Current properties
 
-[Tests.Properties](../test/src/Tests/Properties.idr) runs eight structural properties, with
+[Tests.Properties](../test/src/Tests/Properties.idr) runs eleven structural properties, with
 100 cases each under the current runner defaults:
 
+- Sorted helpers agree with simple list algorithms.
+- Optimized interval/face answers agree with frozen pre-optimization oracles.
 - Term renaming identity.
 - Term substitution identity and composition.
 - Weakening followed by instantiation.
@@ -106,7 +108,7 @@ not arbitrary runtime derivations or cubical resource rules. The unrestricted
 mutation is intentionally rejected even if its body uses its input once:
 the caller obeys the declared argument quantity, not an optimization guess.
 
-The default suite now runs 17 properties / 1,700 generated cases, alongside
+The default suite now runs 20 properties / 2,000 generated cases, alongside
 deterministic regressions. Sampling counts are not proof coverage.
 
 ## Reproducing failures
@@ -125,7 +127,8 @@ regression, so coverage does not depend on random discovery again.
 
 Passing sampled properties is not a proof of soundness or algorithm correctness.
 Coverage thresholds, general typed-derivation generators, independent oracle
-comparisons, and shrinking-quality regression tests are not yet implemented. Composition tests
+comparisons beyond the frozen solver oracles, and shrinking-quality regression
+tests are not yet implemented. Composition tests
 currently use one bounded scope/replacement shape, not every possible telescope.
 
 Next: expand generators to dependent open contexts and general substitutions,

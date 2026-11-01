@@ -37,6 +37,11 @@ is not Top. Entailment checks that each premise clause contains a conclusion
 clause. This is a reference algorithm with potentially exponential growth;
 formal verification and broader property testing remain open.
 
+Sorted.idr optimizes canonicalization and subset checks using established ascending
+list order. Frozen test-only solvers preserve the earlier algorithms for differential
+properties. See [benchmarks](benchmarks.md#first-measured-optimization-sorted-dnf-helpers)
+for the local comparison and remaining exponential-growth limitation.
+
 Endpoint extraction now maps interval expressions to faces using De Morgan
 endpoint rules. Face substitution replaces dimension names by interval
 expressions. Tests check endpoint/substitution compatibility and endpoint
