@@ -67,7 +67,8 @@ how future inference differs from final context-permission validation.
 and three-way normal-form comparison. [The reduction guide](reduction.md)
 explains why exhaustion is inconclusive and why fuel is not a timing bound.
 The [erased checker](erased-checker.md) now uses beta comparison for a small
-ordinary fragment; runtime quantitative and cubical checking remain absent.
+ordinary fragment; an experimental ordinary runtime-usage layer now exists,
+but cubical term checking remains absent.
 
 ## Randomized structural validation
 
@@ -78,6 +79,13 @@ replay instructions, and what these samples do not prove.
 [Constructive erased typing properties](../test/src/Tests/TypedProperties.idr)
 also test accepted term/type pairs, beta-step preservation, conversion, and
 invalid expected types without filtering arbitrary syntax through the checker.
+
+## Ordinary runtime usage
+
+[Runtime](../src/Fibril/Core/Runtime.idr) layers usage inference over erased typing,
+checks exact linear use and closure captures, and rejects runtime type expressions.
+See [its guide](runtime-checker.md) for the conservative policy and unresolved
+preservation/erasure obligations. No C or JavaScript runtime is implemented.
 
 ## Trust and current limits
 

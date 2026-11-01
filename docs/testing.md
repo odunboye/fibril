@@ -12,6 +12,11 @@ Run `make test` or `pack test fibril`. Both deterministic checks and properties
 must pass; a failure exits nonzero. Run `make examples` and `make handbook`
 when completing a documented task.
 
+Runtime-specific deterministic checks in
+[Tests.Runtime](../test/src/Tests/Runtime.idr) cover exact use, erased arguments,
+closure capture/duplication, and diagnostics. Erased generators are not treated
+as evidence for runtime safety.
+
 ## Hedgehog dependency
 
 Repository: https://github.com/stefan-hoeck/idris2-hedgehog

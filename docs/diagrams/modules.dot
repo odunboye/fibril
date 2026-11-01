@@ -6,5 +6,6 @@ Scope -> {Interval Face}; Restriction -> {Interval Scope};
 Term -> Quantity; Usage -> Quantity; Context -> {Quantity Term Usage};
 Reduction -> Term;
 Erased -> {Quantity Term Context Reduction};
+Runtime -> {Quantity Term Context Usage Reduction Erased};
 label="Implemented direct Fibril imports (importer → dependency)";
 }

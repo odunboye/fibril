@@ -157,5 +157,7 @@ not context well-formedness or inference.
 
 Refine context formation, subusage, and erased/runtime rules into a complete
 checking specification before implementing bidirectional checking. Usage-vector
-helpers and a mode-indexed judgment outline now exist, but no term checker does. An evaluator for arbitrary scoped terms
+helpers, an erased ordinary checker, and an experimental ordinary runtime-usage
+checker now exist. The local subusage policy and preservation obligations remain
+unresolved; see [runtime checking](runtime-checker.md). An evaluator for arbitrary scoped terms
 must not claim total normalization: scoped syntax still admits divergent terms.

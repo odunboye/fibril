@@ -4,7 +4,7 @@
 
 These programs use Idris 2 and the current Fibril implementation library.
 They are **not source programs compiled by Fibril**. The Checking example invokes
-Fibril's experimental erased checker on explicitly constructed core terms.
+Fibril's experimental erased and runtime-usage checkers on explicitly constructed core terms.
 
 From the repository root:
 
@@ -20,7 +20,7 @@ Progression:
    and list induction. Proofs are checked by Idris 2.
 3. `src/Examples/Cubical.idr`: structural proof of interval-substitution
    identity, symbolic De Morgan equality, and face constraints.
-4. `src/Examples/Checking.idr`: validate a polymorphic identity with the experimental erased core checker.
+4. `src/Examples/Checking.idr`: validate a polymorphic identity with both experimental erased and runtime-usage core checkers.
 5. `src/Main.idr`: executable combining the examples; failed checks exit nonzero.
 
 The structural proof is about interval syntax. Boolean equality checks do not

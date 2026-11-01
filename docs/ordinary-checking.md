@@ -2,7 +2,8 @@
 
 Status: broader proposed specification. An [experimental erased ordinary
 checker](erased-checker.md) now implements context formation, inference/checking,
-and beta-only comparison. Runtime quantitative and cubical checking remain open.
+and beta-only comparison. An [ordinary runtime-usage prototype](runtime-checker.md)
+also implements the local policy below; cubical checking and metatheory remain open.
 
 See [ATKEY18 §§2.1–2.3](references.md#atkey18) for the erased/present distinction
 and substitution requirements. This draft makes implementation obligations
