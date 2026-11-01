@@ -16,6 +16,7 @@ import Fibril.Source.Declaration
 import Fibril.Source.Global
 import Fibril.Source.Resolve
 import Fibril.Driver.Limits
+import Fibril.Driver.Check
 import Fibril.Driver.Prelude
 import Fibril.Driver.ModuleGraph
 
@@ -228,6 +229,4 @@ projectReport : CheckedProject -> List String
 projectReport project =
   ["Module checking: accepted (closed transparent globals)",
    "Modules: " ++ show (length project.graph.modules),
-   "Type: " ++ case normalize typeReductionFuel project.inferredType of
-     Normal ty => renderTerm ty
-     OutOfFuel _ => renderTerm project.inferredType ++ " (display normalization exhausted)"]
+   "Type: " ++ renderType project.inferredType]

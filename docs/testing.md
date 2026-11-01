@@ -266,6 +266,12 @@ expansion allowance before unchecked expansion; failure stdout stays empty.
 IO descriptions are checked without executing output. These are prototype
 regressions, not a module abstraction/typing preservation theorem.
 
+Project runtime tests execute the two-module private-helper greeting, normalize
+IO descriptions without writes, evaluate polymorphic imports, and reject non-IO
+run entries. Zero/invalid fuel, late entry errors, invalid unused dependency
+bodies, and oversized action plans must leave stdout empty. Dependency failures
+retain their actual file; post-evaluation/planning errors remain unlocated.
+
 ## Hedgehog dependency
 
 Repository: https://github.com/stefan-hoeck/idris2-hedgehog

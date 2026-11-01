@@ -3,9 +3,9 @@
 Status: shared **syntax/metadata parsing** and **read-only POSIX dependency
 discovery** are implemented, alongside qualified syntax/explicit-global lookup.
 **Checked imports are now available through check --source-dir ROOT ENTRY.**
-Project eval/run, source-aware project JSON/editor reports, and executable
-multi-file support remain unimplemented. Plain single-file commands do not
-silently choose a project root.
+Project check/eval/run share this checked preparation path when --source-dir is
+explicit. Source-aware project JSON/editor reports remain unimplemented. Plain
+single-file commands do not silently choose a project root.
 
 ## Parsing progress
 
@@ -58,10 +58,10 @@ signature rather than the narrower raw value type. Invalid supplied metadata
 still fails core checking; global records are not axioms.
 
 The project checker uses this import-binding boundary to install only checked
-exports. Plain single-file check/JSON and eval/run still reject module/import
-documents without the project checking path. Same-file navigation does not misidentify qualified names as local
+exports. Plain single-file check/JSON and eval/run still reject module/import documents
+without the explicit project preparation path. Same-file navigation does not misidentify qualified names as local
 variables and returns no cross-file target. Imported checking, name visibility, and elaboration admission now exist;
-source-aware project JSON/editor diagnostics and execution are still pending.
+source-aware project JSON/editor diagnostics are still pending.
 
 ## Checked interfaces
 
@@ -102,7 +102,40 @@ No project error is forced into the old single-file JSON/editor location model.
 
 This first path checks closed transparent values, not opaque modules or abstract
 types. It does not execute imported declarations, fetch packages, or add axioms.
-Project eval/run and project-aware JSON/editor integration are separate next steps.
+Project eval/run now reuse this service; project-aware JSON/editor integration
+remains a separate next step.
+
+## Evaluating and running modules
+
+~~~sh
+./build/exec/fibril eval --source-dir examples/modules/checked examples/modules/checked/Main.fib
+./build/exec/fibril run --source-dir examples/modules/checked examples/modules/checked/Main.fib
+~~~
+
+Both commands use the same graph/interface preparation as project checking.
+Every dependency, including unused private definitions, is checked before entry
+evaluation or planning. Sources used by the command are the loaded in-memory
+snapshots; this does not make filesystem loading an atomic transaction.
+
+eval normalizes the checked entry and rechecks the result against its original
+type. It displays IO descriptions without executing writes. Project fuel is
+configured with eval --source-dir ROOT --fuel N ENTRY (decimal 0..4096, default
+128). Exhaustion or recheck failure reports no normal-form/acceptance prefix.
+
+run requires IO Unit, prepares the full bounded output plan, then uses the host
+stdout adapter. A dependency error, bad final type, or late plan failure executes
+no output prefix. Actual host-write failures can still leave partial output and
+are not rolled back. The [existing IO limits](console-runner.md) remain in effect;
+successful project checking does not guarantee that planning fits its budgets.
+
+Project success reports/program output use stdout; represented failures use
+stderr. Core/planning/result failures without source provenance are file-level
+entry errors, not guessed locations inside an inlined dependency. Original
+dependency checking/resolution failures retain their dependency file.
+
+This is hosted execution/reference evaluation, not C/JS generation. Project JSON,
+unsaved project buffers, cross-file editor navigation, recursive modules, erased/
+linear globals, and opaque interfaces are not provided by this path.
 
 ## Dependency discovery is now inspectable
 
@@ -172,7 +205,7 @@ under the canonical source root; reject escapes and aliases with conflicting
 identities. Module names are not arbitrary relative path strings: no parent
 traversal, absolute paths, URL imports, or implicit directory search.
 
-The check form is implemented; the eval/run forms below remain proposed:
+The three project command forms are implemented:
 
 ~~~sh
 fibril check --source-dir src src/Main.fib
@@ -180,8 +213,10 @@ fibril eval --source-dir src src/Main.fib
 fibril run --source-dir src src/Main.fib
 ~~~
 
-Without the flag, use the entry file's directory as the source root. Existing
-headerless entry files remain supported as anonymous entry documents; importing
+The first implementation requires the explicit flag for project preparation.
+A default root of the entry's directory is a possible later convenience, not
+implemented implicit root search. Existing headerless entry files remain
+supported as anonymous entry documents; importing
 such a file is not supported. A named entry must also match its root-relative
 file/module identity. Source roots are explicit inputs, not a YAML manifest
 implementation or an automatic search up parent directories.

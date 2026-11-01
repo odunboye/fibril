@@ -143,6 +143,7 @@ prepareRuntimeSource source = case prepareRuntimeSourceDetailed source of
   Right prepared => Right prepared
 
 -- Display normalization is not an extra acceptance obligation.
+public export
 renderType : Term 0 -> String
 renderType ty = case normalize 128 ty of
   Normal normal => renderTerm normal

@@ -105,10 +105,11 @@ they are deliberately not conventional short-circuit operators.
 ./build/exec/fibril module-graph examples/modules/graph examples/modules/graph/Main.fib
 ~~~
 
-This parses and loads snapshots only; JSON reports checked: false. These named
-module files are not yet accepted by check/eval/run, and no greeting executes.
+This parses and loads snapshots only; JSON reports checked: false. No greeting
+executes during discovery. Use explicit --source-dir commands for project
+checking/evaluation/execution, not the headerless single-file path.
 
-## Checked module examples (not yet executable)
+## Checked module examples (hosted execution)
 
 `modules/checked/` contains a private helper and a qualified exported greeting.
 Check it with:
@@ -117,8 +118,10 @@ Check it with:
 ./build/exec/fibril check --source-dir examples/modules/checked examples/modules/checked/Main.fib
 ~~~
 
-This type/resource-checks all dependencies and the entry without printing. Project
-eval/run and project editor diagnostics are not wired yet.
+This type/resource-checks all dependencies and the entry without printing. To run
+it, replace check with run using the same --source-dir arguments: it prints
+Hello, Fibril! Replace check with eval to display the inert IO description instead.
+Project JSON/editor diagnostics are not wired yet.
 
 ## Proposed Fibril programs
 

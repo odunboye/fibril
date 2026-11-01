@@ -193,6 +193,75 @@ class CLITests(unittest.TestCase):
         self.assertEqual(result.stdout, "")
         self.assertIn("use eval", result.stderr)
 
+    def test_module_execution_and_evaluation(self):
+        root = "examples/modules/checked"
+        entry = root + "/Main.fib"
+        result = run("run", "--source-dir", root, entry)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout, "Hello, Fibril!\n")
+        self.assertEqual(result.stderr, "")
+        result = run("eval", "--source-dir", root, entry)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn('Normal: (WriteLine "Hello, Fibril!")', result.stdout)
+        self.assertNotIn("\nHello, Fibril!\n", result.stdout)
+        result = run("eval", "--source-dir", root, "--fuel", "0", entry)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(result.stdout, "")
+        self.assertIn("budget exhausted", result.stderr)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            dependency = root / "Library.fib"
+            entry = root / "Main.fib"
+            dependency.write_text(
+                "module Library\nexport\nidentity : (0 A : Type 0) -> (1 x : A) -> A\n"
+                "identity = \\(0 A : Type 0) => \\(1 x : A) => x\n",
+                encoding="utf-8")
+            entry.write_text(
+                'module Main\nimport Library\nmain : String\n'
+                'main = Library.identity String "pure result"\n', encoding="utf-8")
+            result = run("eval", "--source-dir", str(root), str(entry))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn('Normal: "pure result"', result.stdout)
+            result = run("run", "--source-dir", str(root), str(entry))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, "")
+            self.assertIn("IO Unit", result.stderr)
+            # A later invalid plan is fully prepared before any writes.
+            body = ('module Main\nimport Library\nmain : IO Unit\nmain = do\n'
+                    '  putStrLn "must not print"\n')
+            entry.write_text(body + '  putStrLn True\n', encoding="utf-8")
+            result = run("run", "--source-dir", str(root), str(entry))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, "")
+            # A bad unused dependency definition also prevents all output.
+            dependency.write_text(
+                "module Library\nunused : Bool\nunused = \"wrong\"\n", encoding="utf-8")
+            entry.write_text('module Main\nimport Library\nmain : IO Unit\n'
+                             'main = putStrLn "must not print"\n', encoding="utf-8")
+            for command in ("eval", "run"):
+                result = run(command, "--source-dir", str(root), str(entry))
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(result.stdout, "")
+                self.assertIn(str(dependency.resolve()), result.stderr)
+                self.assertNotIn("^", result.stderr)
+            dependency.write_text("module Library\n", encoding="utf-8")
+            # Runtime action cap remains separate from successful project checking.
+            entry.write_text(
+                'module Main\nimport Library\ntwice : IO Unit\ntwice = do\n'
+                '  putStrLn "never"\n  putStrLn "never"\n'
+                'main : IO Unit\nmain = do\n' + '  twice\n' * 33, encoding="utf-8")
+            result = run("check", "--source-dir", str(root), str(entry))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            result = run("run", "--source-dir", str(root), str(entry))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, "")
+            self.assertIn("output action count limit", result.stderr)
+            for fuel in ("-1", "4097", "x"):
+                result = run("eval", "--source-dir", str(root), "--fuel", fuel, str(entry))
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(result.stdout, "")
+                self.assertIn("Fuel", result.stderr)
+
     def test_checked_module_interfaces(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

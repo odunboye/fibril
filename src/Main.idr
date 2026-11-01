@@ -37,17 +37,33 @@ Usage:
   fibril check --json PATH      JSON runtime-check report (no effect execution)
   fibril check --erased PATH    Check only the erased ordinary fragment
   fibril run PATH              Check main : IO Unit, then execute prepared stdout requests
+  fibril run --source-dir ROOT ENTRY  Check modules, then execute the complete IO plan
+  fibril eval --source-dir ROOT ENTRY  Checked module reference normalization
+  fibril eval --source-dir ROOT --fuel N ENTRY  Module normalization with fuel 0..4096
   fibril eval PATH              Checked reference normalization (128 reduction steps)
   fibril eval --fuel N PATH     Reference normalization with fuel 0..4096
 
 Annotated expressions and source-ordered nonrecursive declarations are supported.
-Imports, recursive declarations, cubical checking, and C/JS compilation are not implemented yet.
+Qualified local imports require --source-dir. Recursive declarations, cubical checking,
+project JSON/editor reports, and C/JS compilation are not implemented yet.
 """
 
 printReport : Either String (List String) -> IO ()
 printReport (Right lines) = traverse_ putStrLn lines
 printReport (Left err) = do
   putStrLn err
+  exitFailure
+
+printServiceReport : Either String (List String) -> IO ()
+printServiceReport (Right lines) = traverse_ putStrLn lines
+printServiceReport (Left err) = do
+  _ <- fPutStrLn stderr err
+  exitFailure
+
+printExecution : Either String () -> IO ()
+printExecution (Right ()) = pure ()
+printExecution (Left err) = do
+  _ <- fPutStrLn stderr err
   exitFailure
 
 runCheck : Bool -> String -> IO ()
@@ -98,13 +114,13 @@ main = do
         Left err => do
           _ <- fPutStrLn stderr (renderGraphError err)
           exitFailure
-    ["run", path] => do
-      result <- runFile path
-      case result of
-        Right () => pure ()
-        Left err => do
-          _ <- fPutStrLn stderr err
-          exitFailure
+    ["run", "--source-dir", root, entry] => runProject root entry >>= printExecution
+    ["run", path] => runFile path >>= printExecution
+    ["eval", "--source-dir", root, entry] => evaluateProjectFile 128 root entry >>= printServiceReport
+    ["eval", "--source-dir", root, "--fuel", text, entry] =>
+      case fuelValue text of
+        Just fuel => evaluateProjectFile fuel root entry >>= printServiceReport
+        Nothing => printServiceReport (Left "Fuel must be decimal 0..4096.")
     ["eval", path] => runEval 128 path
     ["eval", "--fuel", text, path] =>
       case fuelValue text of

@@ -8,8 +8,25 @@ import Fibril.Effect.Console
 import Fibril.Runtime.Console
 import Fibril.Driver.Check
 import Fibril.Driver.Console
+import Fibril.Driver.ModuleCheck
+import Fibril.Driver.ModuleGraph
 
 %default total
+
+||| Validate all module definitions before preparing any stdout plan.
+public export
+runProject : String -> String -> IO (Either String ())
+runProject root entry = do
+  checked <- checkProject root entry
+  case checked of
+    Left err => pure (Left (renderGraphError err))
+    Right project => case prepareIO 128 128 project.term of
+      Left err => pure (Left (renderFileError project.graph.entry (show (ConsoleFailure err))))
+      Right actions => do
+        result <- executeConsoleActions actions
+        pure $ case result of
+          Left err => Left (renderFileError project.graph.entry err)
+          Right () => Right ()
 
 public export
 runFile : String -> IO (Either String ())
