@@ -36,9 +36,30 @@ endpointDisjointLaw =
   all (\term => equivalentFace
     (Conjunction (endpointFace term False) (endpointFace term True)) Bottom) samples
 
+quantities : List Quantity
+quantities = [Erased, Linear, Unrestricted]
+
+quantityAlgebra : Bool
+quantityAlgebra =
+  all (\a => all (\b => all (\c =>
+    add (add a b) c == add a (add b c) &&
+    multiply (multiply a b) c == multiply a (multiply b c) &&
+    multiply a (add b c) == add (multiply a b) (multiply a c) &&
+    add a b == add b a &&
+    multiply a b == multiply b a &&
+    add a Erased == a &&
+    multiply a Linear == a &&
+    multiply a Erased == Erased) quantities) quantities) quantities
+
 checks : List (String, Bool)
 checks =
-  [ ("scoped face instantiate endpoint", entailsScoped
+  [ ("quantity semiring exhaustive laws", quantityAlgebra)
+  , ("linear binder cannot discard", not (allows Linear Erased))
+  , ("linear binder cannot duplicate", not (allows Linear (add Linear Linear)))
+  , ("linear binder accepts exact use", allows Linear Linear)
+  , ("erased binder rejects runtime use", not (allows Erased Linear))
+  , ("unrestricted binder permits discard", allows Unrestricted Erased)
+  , ("scoped face instantiate endpoint", entailsScoped
       STop (instantiateFace (the (ScopedInterval 0) Zero) (SEndpoint FZ False)))
   , ("scoped face instantiate opposite", entailsScoped
       (instantiateFace (the (ScopedInterval 0) Zero) (SEndpoint FZ True)) SBottom)

@@ -3,7 +3,7 @@
 Implemented:
 
 - `src/Main.idr`: bootstrap CLI.
-- `src/Fibril/Core/Quantity.idr`: quantity representation only, not a usage checker.
+- `src/Fibril/Core/Quantity.idr`: quantity coefficients, arithmetic, and local binder policy; not a usage checker.
 - `src/Fibril/Foundation/DeMorgan/Interval.idr`: interval syntax, substitution, endpoint interpretation.
 - `src/Fibril/Foundation/DeMorgan/NormalForm.idr`: reference symbolic interval equality.
 - `src/Fibril/Foundation/DeMorgan/Face.idr`: separate face lattice, entailment, endpoint extraction, and substitution.
