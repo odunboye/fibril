@@ -35,5 +35,6 @@ rankdir=LR; node [shape=box,style=rounded,fontsize=10];
 "Runtime.inferRuntime" -> {"Erased.inferErased" "Runtime.analyze" "Context.validateUsage"};
 "Runtime.checkRuntime" -> {"Erased.checkErased" "Runtime.inferRuntime"};
 "Runtime.analyze" -> {"Erased.inferErased" "Reduction.normalize" "Usage.variableUsage" "Usage.discharge" "Usage.combineUsage" "Usage.scaleUsage"};
+"Pretty.show" -> "Pretty.renderTerm";
 label="Selected static calls — curated, not exhaustive";
 }

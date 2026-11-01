@@ -5,18 +5,12 @@ import Data.Vect
 import Hedgehog
 import Fibril.Core.Quantity
 import Fibril.Core.Term
+import Fibril.Core.Pretty
 import Fibril.Core.Context
 import Fibril.Core.Reduction
 import Fibril.Core.Erased
 
 %default total
-
-render : Term n -> String
-render (Variable i) = "v" ++ show (finToNat i)
-render (Universe l) = "Type" ++ show l
-render (Pi q a b) = "(Pi " ++ show q ++ " " ++ render a ++ " " ++ render b ++ ")"
-render (Lambda q a b) = "(Lam " ++ show q ++ " " ++ render a ++ " " ++ render b ++ ")"
-render (Apply f x) = "(" ++ render f ++ " @ " ++ render x ++ ")"
 
 -- A generator-side construction recipe, NOT a kernel-checked proof object.
 -- Keeping syntax and type together preserves their relationship while shrinking.
@@ -26,7 +20,7 @@ record TypedSample where
   expected : Term 0
 
 Show TypedSample where
-  show (Sample term ty) = render term ++ " : " ++ render ty
+  show (Sample term ty) = renderTerm term ++ " : " ++ renderTerm ty
 
 seed : Gen TypedSample
 seed = element

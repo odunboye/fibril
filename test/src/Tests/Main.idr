@@ -6,6 +6,7 @@ import Fibril.Core.Usage
 import Fibril.Core.Context
 import Tests.Reduction
 import Tests.Erased
+import Tests.Pretty
 import Tests.Runtime
 import Tests.Properties
 import Tests.TypedProperties
@@ -293,7 +294,7 @@ checks =
 
 main : IO ()
 main = do
-  let failed = filter (not . snd) (Tests.Main.checks ++ Tests.Reduction.checks ++ Tests.Erased.checks ++ Tests.Runtime.checks)
+  let failed = filter (not . snd) (Tests.Main.checks ++ Tests.Reduction.checks ++ Tests.Erased.checks ++ Tests.Runtime.checks ++ Tests.Pretty.checks)
   case failed of
     [] => do
       putStrLn "Deterministic bootstrap regressions passed."

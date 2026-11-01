@@ -61,6 +61,15 @@ rename performs the corresponding index transformation. weaken inserts a newest
 variable; instantiateTerm removes it by substitution. No evaluation is performed
 by these functions.
 
+## Inspecting syntax
+
+[Pretty](../../src/Fibril/Core/Pretty.idr) gives terms a shared diagnostic
+representation: v0 is the newest variable, Type0 a universe, and fully
+parenthesized Pi/Lam/application forms expose tree structure. It preserves
+quantities and annotations without evaluating. This is debug notation, not a
+surface syntax with a parser. CLI output and property counterexamples share it,
+so fixes to rendering do not have to be repeated in each test generator.
+
 ## Source-reading exercise
 
 Trace instantiateTerm through a lambda whose body references an outer variable.

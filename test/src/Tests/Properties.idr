@@ -5,6 +5,7 @@ import Data.Vect
 import Hedgehog
 import Fibril.Core.Quantity
 import Fibril.Core.Term
+import Fibril.Core.Pretty
 import Fibril.Foundation.DeMorgan.Interval
 import Fibril.Foundation.DeMorgan.NormalForm
 import Fibril.Foundation.DeMorgan.Face
@@ -12,13 +13,6 @@ import Fibril.Foundation.DeMorgan.Face
 %default total
 
 -- Test-local displays keep counterexamples readable without changing core APIs.
-Show (Term n) where
-  show (Variable i) = "v" ++ show (finToNat i)
-  show (Universe l) = "Type" ++ show l
-  show (Pi q a b) = "(Pi " ++ show q ++ " " ++ show a ++ " " ++ show b ++ ")"
-  show (Lambda q a b) = "(Lam " ++ show q ++ " " ++ show a ++ " " ++ show b ++ ")"
-  show (Apply f x) = "(" ++ show f ++ " @ " ++ show x ++ ")"
-
 Show (Interval Nat) where
   show Zero = "0"
   show One = "1"

@@ -5,6 +5,7 @@ import Data.Vect
 import Hedgehog
 import Fibril.Core.Quantity
 import Fibril.Core.Term
+import Fibril.Core.Pretty
 import Fibril.Core.Context
 import Fibril.Core.Usage
 import Fibril.Core.Reduction
@@ -16,20 +17,13 @@ import Fibril.Core.Runtime
 context : Context 2
 context = Extend (Extend Empty Erased (Universe 0)) Linear (Variable FZ)
 
-render : Term n -> String
-render (Variable i) = "v" ++ show (finToNat i)
-render (Universe l) = "Type" ++ show l
-render (Pi q a b) = "(Pi " ++ show q ++ " " ++ render a ++ " " ++ render b ++ ")"
-render (Lambda q a b) = "(Lam " ++ show q ++ " " ++ render a ++ " " ++ render b ++ ")"
-render (Apply f x) = "(" ++ render f ++ " @ " ++ render x ++ ")"
-
 record Sample where
   constructor MkSample
   term : Term 2
   expected : Term 2
 
 Show Sample where
-  show (MkSample term ty) = render term ++ " : " ++ render ty
+  show (MkSample term ty) = renderTerm term ++ " : " ++ renderTerm ty
 
 base : Sample
 base = MkSample (Variable FZ) (Variable (FS FZ))
