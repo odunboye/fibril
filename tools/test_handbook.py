@@ -84,15 +84,28 @@ class TextbookTests(unittest.TestCase):
         self.assertIn('aria-hidden="true" focusable="false"', content)
         self.assertNotIn('>Theme</button>', content)
 
-    def test_theme_palette_is_monochrome(self):
+    def test_reading_palette_has_accessible_contrast(self):
         css = (OUT / "assets/book.css").read_text()
-        colors = re.findall(r"#([0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?)\b", css)
-        self.assertTrue(colors)
-        for color in colors:
-            with self.subTest(color=color):
-                self.assertEqual(color[0:2], color[2:4])
-                self.assertEqual(color[2:4], color[4:6])
-        self.assertIn(':root[data-theme=dark]', css)
+
+        def luminance(color):
+            channels = [int(color[i:i + 2], 16) / 255 for i in (0, 2, 4)]
+            linear = [v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4
+                      for v in channels]
+            return sum(v * weight for v, weight in zip(linear, (0.2126, 0.7152, 0.0722)))
+
+        def contrast(a, b):
+            bright, dark = sorted((luminance(a), luminance(b)), reverse=True)
+            return (bright + 0.05) / (dark + 0.05)
+
+        for selector in (':root', ':root[data-theme=dark]'):
+            match = re.search(re.escape(selector) + r'\{([^}]+)\}', css)
+            self.assertIsNotNone(match)
+            palette = dict(re.findall(r'--([a-z-]+):#([0-9a-fA-F]{6});', match.group(1)))
+            for surface in ('paper', 'panel', 'code'):
+                with self.subTest(theme=selector, surface=surface):
+                    self.assertGreaterEqual(contrast(palette['ink'], palette[surface]), 7)
+                    self.assertGreaterEqual(contrast(palette['muted'], palette[surface]), 4.5)
+                    self.assertGreaterEqual(contrast(palette['accent'], palette[surface]), 4.5)
         self.assertIn('prefers-color-scheme:dark', css)
 
     def test_landing_page_links_every_chapter(self):

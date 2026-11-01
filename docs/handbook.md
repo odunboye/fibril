@@ -32,10 +32,16 @@ landing-page links. Browser rendering and fragment targets remain manual checks.
 
 ## Reading experience
 
-The offline theme is strictly monochrome: white paper and black ink in light
-mode, near-black paper and light ink in dark mode. Neutral grays, spacious type,
-comfortable reading width, subtle borders, and serif chapter headings provide
-hierarchy without colored accents. Diagrams adapt to the dark background.
+The offline theme is Kanagawa-inspired rather than pure black and white:
+soft parchment in light mode, blue-black ink backgrounds with warm text in dark
+mode, and restrained slate accents. A 70-character reading measure, spacious
+line height, subtle borders, and serif headings support extended reading.
+Diagrams adapt to dark mode. This is an original adaptation, not the official
+Kanagawa theme or a claim that any palette prevents eye strain.
+
+Automated palette checks require body-text contrast of at least 7:1 and muted/
+link text of at least 4.5:1 on reading, panel, and code surfaces. These checks do
+not replace a complete accessibility or visual review.
 A grouped sidebar separates the teaching path from references and records.
 
 With JavaScript enabled:
