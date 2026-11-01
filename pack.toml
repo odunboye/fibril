@@ -1,0 +1,8 @@
+# Bootstrap package collection: pins Idris 2 and dependency revisions.
+collection = "nightly-260903"
+
+[custom.all.fibril]
+type = "local"
+path = "."
+ipkg = "fibril.ipkg"
+test = "tests.ipkg"

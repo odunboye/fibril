@@ -8,9 +8,23 @@ compiler backend, or real-time guarantees are implemented.
 
 ## Build
 
-Initial tested toolchain: Idris 2 0.8.0-74b33730b.
+Use the Idris 2 `pack` tool from this project directory:
 
-Run `make build`, then `./build/exec/fibril --help`.
-Run `make test` for bootstrap smoke tests.
+```sh
+pack build fibril
+pack test fibril
+./build/exec/fibril --help
+```
+
+`pack.toml` pins collection `nightly-260903`, which selects Idris 2
+0.8.0 at commit `74b33730b6fea649b15e8d01ab099df9effcc7a0`.
+Initial validation used pack commit `846a90d76d1d4c451484eb09773f11a9e2fd58f2`.
+Pack itself is not installed or pinned by the project configuration.
+A C toolchain and the collection's Scheme implementation are bootstrap
+requirements; these are not Fibril backend choices.
+
+`make build` and `make test` wrap the pack commands. Direct `idris2 --build`
+remains possible, but bypasses collection selection. Review and test collection
+upgrades explicitly; do not use a floating collection for project builds.
 
 See [documentation](docs/README.md) and [first milestone](docs/milestone-01.md).

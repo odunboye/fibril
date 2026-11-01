@@ -1,12 +1,11 @@
-IDRIS2 ?= idris2
+PACK ?= pack
 
 .PHONY: build test clean
 build:
-	$(IDRIS2) --build fibril.ipkg
+	$(PACK) build fibril
 
 test: build
-	$(IDRIS2) --build tests.ipkg
-	./build/exec/fibril-tests
+	$(PACK) test fibril
 	./build/exec/fibril --version
 
 clean:
