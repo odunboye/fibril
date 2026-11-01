@@ -32,13 +32,15 @@ landing-page links. Browser rendering and fragment targets remain manual checks.
 
 ## Reading experience
 
-The offline theme is Kanagawa-inspired rather than pure black and white:
-soft parchment in light mode, blue-black ink backgrounds with warm text in dark
-mode, and restrained slate accents. A 66-character reading measure, 20px default
+The offline theme adapts [Kanso](https://github.com/webhooked/kanso.nvim):
+Pearl's soft neutral paper in light mode and Ink's charcoal backgrounds with
+muted gray-green text in dark mode. Blue-gray accents remain restrained.
+Palette reference: [upstream colors](https://github.com/webhooked/kanso.nvim/blob/main/lua/kanso/colors.lua).
+The Pearl link color is slightly darkened to retain contrast on secondary surfaces. A 66-character reading measure, 20px default
 serif prose, generous line height, and balanced chapter headings support extended
 reading. Compact sans-serif navigation stays visually separate from the text.
 Diagrams adapt to dark mode. This is an original adaptation, not the official
-Kanagawa theme or a claim that any palette prevents eye strain.
+Kanso theme or a claim that any palette prevents eye strain.
 
 Automated palette checks require body-text contrast of at least 7:1 and muted/
 link text of at least 4.5:1 on reading, panel, and code surfaces. These checks do

@@ -1,14 +1,14 @@
 /* Offline-first textbook presentation. No downloaded fonts or runtime framework. */
 :root {
   color-scheme:light;
-  --paper:#f4f0df;
-  --panel:#eae5d2;
-  --ink:#43434f;
-  --muted:#686557;
-  --accent:#4d6082;
-  --line:#d4cebc;
-  --code:#e9e4d4;
-  --focus:#716044;
+  --paper:#f2f1ef;
+  --panel:#e2e1df;
+  --ink:#22262d;
+  --muted:#5c6068;
+  --accent:#435d89;
+  --line:#cacac7;
+  --code:#e2e1df;
+  --focus:#624c83;
   --shadow:0 12px 40px #1f1f2808;
   --diagram-filter:grayscale(1);
   --reading-size:20px;
@@ -20,14 +20,14 @@
 @media(prefers-color-scheme:dark) {
   :root:not([data-theme=light]) {
     color-scheme:dark;
-    --paper:#1f1f28;
-    --panel:#1b1b23;
-    --ink:#dcd7ba;
-    --muted:#aaa99a;
-    --accent:#a3b3d0;
-    --line:#3a3a49;
-    --code:#252530;
-    --focus:#c0a36e;
+    --paper:#1f1f26;
+    --panel:#14171d;
+    --ink:#c5c9c7;
+    --muted:#a4a7a4;
+    --accent:#8ba4b0;
+    --line:#393b44;
+    --code:#22262d;
+    --focus:#c4b28a;
     --shadow:none;
     --diagram-filter:grayscale(1) invert(.86)
   }
@@ -35,14 +35,14 @@
 
 :root[data-theme=dark] {
   color-scheme:dark;
-  --paper:#1f1f28;
-  --panel:#1b1b23;
-  --ink:#dcd7ba;
-  --muted:#aaa99a;
-  --accent:#a3b3d0;
-  --line:#3a3a49;
-  --code:#252530;
-  --focus:#c0a36e;
+  --paper:#1f1f26;
+  --panel:#14171d;
+  --ink:#c5c9c7;
+  --muted:#a4a7a4;
+  --accent:#8ba4b0;
+  --line:#393b44;
+  --code:#22262d;
+  --focus:#c4b28a;
   --shadow:none;
   --diagram-filter:grayscale(1) invert(.86)
 }
