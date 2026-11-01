@@ -7,7 +7,7 @@ build:
 
 test: build
 	$(PACK) test fibril
-	./build/exec/fibril --version
+	python3 tools/test_cli.py
 
 examples:
 	$(PACK) run fibril-examples

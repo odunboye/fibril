@@ -32,6 +32,7 @@ From the repository root:
 
 ```sh
 pack build fibril
+./build/exec/fibril demo
 pack test fibril
 pack run fibril-examples
 make handbook
@@ -40,6 +41,10 @@ make handbook
 Pack pins the bootstrap collection. Tests run deterministic regressions and
 Hedgehog properties. Examples include actual Idris proofs and calls to Fibril's
 prototype checkers; the distinction matters.
+
+The [demo command](../cli.md) prints a checked polymorphic identity, shows runtime
+usage validation, rejects linear duplication, and checks cubical algebra laws.
+The displayed terms are explicit diagnostic syntax, not parsed source files.
 
 ## A first reading route
 

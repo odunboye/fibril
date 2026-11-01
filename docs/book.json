@@ -48,6 +48,10 @@
         "path": "docs/architecture.md"
       },
       {
+        "title": "Prototype CLI",
+        "path": "docs/cli.md"
+      },
+      {
         "title": "Ordinary core draft",
         "path": "docs/core-draft.md"
       },

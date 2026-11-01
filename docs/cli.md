@@ -1,0 +1,39 @@
+# Prototype CLI
+
+Build with `pack build fibril`, then invoke `./build/exec/fibril`.
+
+| Command | Behavior |
+| --- | --- |
+| --help (or no arguments) | Show available commands and implementation limits |
+| --version | Show bootstrap version |
+| demo | Run built-in ordinary checking and cubical algebra examples |
+
+Unsupported commands and arguments exit nonzero. There is no file-based check,
+build, or run command yet; pack builds the Idris implementation, not Fibril source.
+
+## Follow the demo
+
+```sh
+./build/exec/fibril demo
+```
+
+The report prints a polymorphic identity in explicit core notation:
+
+    Identity term: (Lam 0 Type0 (Lam 1 v0 v0))
+    Identity type: (Pi 0 Type0 (Pi 1 v0 v1))
+
+It checks the expected type in erased mode, checks runtime resource usage, rejects
+a separate linear-duplication example, and exercises interval equality and face
+boundaries. Closed usage [] means no free variables are consumed.
+
+[Driver.Demo](../src/Fibril/Driver/Demo.idr) orchestrates these calls. It returns
+an error instead of printing unchecked success if an expectation fails.
+[Main](../src/Main.idr) handles arguments and IO only. Core modules do not import
+the driver. These examples are not a parser, backend, or proof of soundness.
+
+[Pretty](../src/Fibril/Core/Pretty.idr) supplies the diagnostic notation shared
+with property-test counterexamples. Do not treat it as a specified surface grammar.
+
+CLI smoke tests live in tools/test_cli.py and run through make test; pack test
+fibril runs the Idris regressions/properties only. Python 3 is required for the
+Makefile CLI checks. No additional Python packages are needed.

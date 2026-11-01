@@ -16,6 +16,7 @@ Use the Idris 2 `pack` tool from this project directory:
 pack build fibril
 pack test fibril
 ./build/exec/fibril --help
+./build/exec/fibril demo
 ```
 
 `pack.toml` pins collection `nightly-260903`, which selects Idris 2

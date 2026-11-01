@@ -11,6 +11,8 @@ The generated homepage separates teaching chapters, references, and project reco
 
 ## Reference index
 
+- [Prototype CLI](cli.md): built-in checking demo and command limits.
+
 - [Testing](testing.md): deterministic regressions, Hedgehog properties, and replay.
 
 - [Theoretical references](references.md): bibliography and code-to-theory map.

@@ -3,6 +3,8 @@ rankdir=LR; node [shape=box,style=rounded];
 Quantity; Interval; NormalForm; Face; Scope; Restriction; Term;
 NormalForm -> Interval; Face -> Interval;
 Scope -> {Interval Face}; Restriction -> {Interval Scope};
+Demo -> {Quantity Term Context Usage Pretty Erased Runtime Interval NormalForm Face};
+Main -> Demo;
 Pretty -> {Quantity Term};
 Term -> Quantity; Usage -> Quantity; Context -> {Quantity Term Usage};
 Reduction -> Term;

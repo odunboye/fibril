@@ -36,5 +36,8 @@ rankdir=LR; node [shape=box,style=rounded,fontsize=10];
 "Runtime.checkRuntime" -> {"Erased.checkErased" "Runtime.inferRuntime"};
 "Runtime.analyze" -> {"Erased.inferErased" "Reduction.normalize" "Usage.variableUsage" "Usage.discharge" "Usage.combineUsage" "Usage.scaleUsage"};
 "Pretty.show" -> "Pretty.renderTerm";
+"Main.main" -> "Demo.demoReport";
+"Demo.demoReport" -> {"Erased.checkErased" "Runtime.checkRuntime" "Demo.checkDuplication" "Pretty.renderTerm" "NormalForm.equivalent" "Face.equivalentFace"};
+"Demo.checkDuplication" -> "Runtime.inferRuntime";
 label="Selected static calls — curated, not exhaustive";
 }
