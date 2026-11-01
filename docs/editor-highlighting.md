@@ -57,7 +57,9 @@ There is no published remote plugin repository to install yet.
 1. Create `~/.config/nvim/lua/plugins/fibril.lua`. If your configuration lives
    elsewhere, `:echo stdpath('config')` shows its root; use its `lua/plugins/`
    directory instead.
-2. Add the following, replacing the absolute path with your checkout location:
+2. Build the compiler with make build in the Fibril checkout. Add the following,
+   replacing both absolute paths with your checkout location. The gd/gr mappings
+   are optional and affect only Fibril buffers:
 
 ~~~lua
 return {
@@ -66,8 +68,21 @@ return {
     dir = "/absolute/path/to/fibril/editors/vim",
     lazy = false,
     config = function()
+      vim.g.fibril_executable = "/absolute/path/to/fibril/build/exec/fibril"
       vim.cmd("syntax enable")
       vim.cmd("runtime! ftdetect/fibril.vim")
+
+      vim.api.nvim_create_autocmd("FileType", {
+        pattern = "fibril",
+        callback = function()
+          vim.keymap.set("n", "gd", "<Plug>(FibrilDefinition)", {
+            buffer = true, remap = true, desc = "Fibril: go to definition",
+          })
+          vim.keymap.set("n", "gr", "<Plug>(FibrilReferences)", {
+            buffer = true, remap = true, desc = "Fibril: references",
+          })
+        end,
+      })
     end,
   },
 }
@@ -78,7 +93,12 @@ usual local layout it might be `/Users/yourname/dev/idris2/projects/fibril/edito
 The directory must already exist; lazy.nvim loads these local files rather than
 fetching a plugin. Keeping the checkout updated also updates the runtime files.
 
-3. Restart Neovim and open `examples/core/hello-world.fib` from that checkout.
+3. Restart Neovim and open `examples/core/do-result.fib` from that checkout.
+   On line 12, place the cursor on message. In a saved, unmodified buffer, gd
+   jumps to its binding on line 11; gr opens its declaration/use location list.
+   Press Enter on a result to navigate, or :lclose to close the list. Without
+   mappings, use :FibrilDefinition and :FibrilReferences. These queries are
+   same-file only and do not type-check the source.
 4. Run `:Lazy` and confirm `fibril-syntax` is loaded. Then check:
 
 ~~~vim
