@@ -1,7 +1,8 @@
 digraph Modules {
 rankdir=LR; node [shape=box,style=rounded];
 "Source.File" -> {"Source.UTF8" "Source.Text"};
-Main -> "Source.File";
+Main -> {"Source.File" "Source.Lexer"};
+"Source.Lexer" -> "Source.Text";
 Quantity; Interval; NormalForm; Face; Scope; Restriction; Term;
 NormalForm -> {Interval Sorted}; Face -> {Interval Sorted};
 Scope -> {Interval Face}; Restriction -> {Interval Scope};

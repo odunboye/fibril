@@ -90,6 +90,19 @@ class CLITests(unittest.TestCase):
                     self.assertNotEqual(result.returncode, 0)
                     self.assertIn("UTF-8", result.stdout)
 
+    def test_lexer_command_reports_tokens_and_rejects_unsupported_text(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "expression.fib"
+            path.write_text("λ x ⇒ x", encoding="utf-8")
+            result = run("lex-source", str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("1:1-1:2 lambda", result.stdout)
+            self.assertIn("1:5-1:6 =>", result.stdout)
+            path.write_text("x @ y", encoding="utf-8")
+            result = run("lex-source", str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("1:3", result.stdout)
+
     def test_unsupported_commands_fail(self):
         for args in (("check", "example.fib"), ("demo", "extra"), ("--unknown",)):
             with self.subTest(args=args):

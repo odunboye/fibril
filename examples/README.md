@@ -26,6 +26,12 @@ Progression:
 The structural proof is about interval syntax. Boolean equality checks do not
 constitute a proof of solver correctness or implement univalence.
 
+## Minimal source input
+
+`core/identity.fib` exercises the implemented lexer with an annotated lambda.
+Run `./build/exec/fibril lex-source examples/core/identity.fib` from the root.
+It is not yet parsed or type checked as source.
+
 ## Proposed Fibril programs
 
 `proposed/` illustrates the intended user experience, from hello world and

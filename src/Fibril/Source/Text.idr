@@ -16,6 +16,19 @@ public export
 Show Position where
   show position = show position.line ++ ":" ++ show position.column
 
+||| Advance over a complete text chunk without validating it.
+||| CRLF must be supplied together; splitting the pair across calls counts two
+||| line breaks. Tokenization preserves this invariant for whitespace chunks.
+public export
+advancePosition : Position -> List Char -> Position
+advancePosition at [] = at
+advancePosition at ('\r' :: '\n' :: rest) =
+  advancePosition (At (at.offset + 2) (S at.line) 1) rest
+advancePosition at (char :: rest) =
+  if char == '\n' || char == '\r'
+     then advancePosition (At (S at.offset) (S at.line) 1) rest
+     else advancePosition (At (S at.offset) at.line (S at.column)) rest
+
 ||| Conservative source-wide rejection categories, independent of token context.
 public export
 data TextProblem = InvalidScalar | ControlCharacter | BidiControl | ByteOrderMark
@@ -58,14 +71,11 @@ problemAt char =
 walk : Position -> List Char -> Either TextError ()
 walk position [] = Right ()
 walk position ('\r' :: '\n' :: rest) =
-  walk (At (position.offset + 2) (S position.line) 1) rest
+  walk (advancePosition position ['\r', '\n']) rest
 walk position (char :: rest) =
   case problemAt char of
     Just problem => Left (Rejected position problem (ord char))
-    Nothing =>
-      if char == '\n' || char == '\r'
-         then walk (At (S position.offset) (S position.line) 1) rest
-         else walk (At (S position.offset) position.line (S position.column)) rest
+    Nothing => walk (advancePosition position [char]) rest
 
 ||| Validate decoded text, returning its original spelling unchanged.
 ||| Allows Unicode prose/emoji/joiners; this does not approve them as identifiers.

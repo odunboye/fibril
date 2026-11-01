@@ -4,6 +4,7 @@ import System
 import Data.List
 import Fibril.Driver.Demo
 import Fibril.Source.File
+import Fibril.Source.Lexer
 
 %default total
 
@@ -16,6 +17,7 @@ Usage:
   fibril --version
   fibril demo       Run built-in ordinary checking and cubical algebra examples
   fibril validate-source PATH   Validate UTF-8 and source controls (not typing)
+  fibril lex-source PATH        Print tokens/spans for the expression subset
 
 Experimental core checkers exist. Source parsing, cubical term checking,
 and C/JavaScript compilation are not implemented yet.
@@ -28,6 +30,18 @@ main = do
     [] => putStrLn help
     ["--help"] => putStrLn help
     ["--version"] => putStrLn "Fibril 0.1.0-dev (Idris 2 bootstrap)"
+    ["lex-source", path] => do
+      loaded <- loadSource path
+      case loaded of
+        Left err => do
+          putStrLn (show err)
+          exitFailure
+        Right source =>
+          case lexSource source of
+            Left err => do
+              putStrLn (show err)
+              exitFailure
+            Right tokens => traverse_ (putStrLn . show) tokens
     ["validate-source", path] => do
       result <- loadSource path
       case result of

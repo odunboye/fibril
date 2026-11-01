@@ -60,6 +60,10 @@
         "path": "docs/unicode-source.md"
       },
       {
+        "title": "Expression lexer",
+        "path": "docs/lexer.md"
+      },
+      {
         "title": "Ordinary core draft",
         "path": "docs/core-draft.md"
       },

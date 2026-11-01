@@ -11,6 +11,8 @@ The generated homepage separates teaching chapters, references, and project reco
 
 ## Reference index
 
+- [Expression lexer](lexer.md): token subset, aliases, positions, and next parser boundary.
+
 - [Project/dependency format](packages.md): pubspec-style future manifests; pack remains the bootstrap.
 
 - [Unicode source text](unicode-source.md): validation, positions, and proposed identifier/notation rules.

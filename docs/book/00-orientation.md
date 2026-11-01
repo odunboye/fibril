@@ -51,7 +51,9 @@ The displayed terms are explicit diagnostic syntax, not parsed source files.
 [Unicode source validation](../unicode-source.md) now preserves decoded text and
 rejects selected controls with scalar positions. Strict UTF-8 decoding and bounded
 file loading are now available through `fibril validate-source PATH`. Unicode
-identifier rules, normalization, and mathematical token aliases are not implemented. This
+identifier rules and normalization are not implemented. A [minimal lexer](../lexer.md)
+now recognizes ASCII names and explicit lambda/arrow aliases, but not layout or
+full-language syntax. Run `fibril lex-source examples/core/identity.fib` to inspect it. This
 boundary sits before future lexing and does not alter the nameless core.
 
 ## A first reading route

@@ -1,0 +1,3 @@
+-- Lexer input for the planned annotated expression subset.
+-- This is not yet parsed or checked as Fibril source.
+\(0 A : Type 0) => \(1 x : A) => x

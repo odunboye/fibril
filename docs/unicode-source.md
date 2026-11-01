@@ -92,7 +92,8 @@ checker, or Unicode version pin exists yet. These are design gates, not guarante
 Provide ASCII alternatives for ordinary syntax, such as -> / → and backslash / λ.
 Pi/Sigma/equivalence notation needs the corresponding core/surface rules first.
 Aliases should elaborate identically and work with formatting, diagnostics, and
-Neovim input helpers. No Unicode input method or token aliasing is implemented yet.
+Neovim input helpers. The [minimal lexer](lexer.md) now recognizes lambda/backslash, ->/→, and =>/⇒
+aliases while retaining spelling. No parser or Unicode input method exists yet.
 
 ## Reading and tests
 
