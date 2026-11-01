@@ -48,6 +48,67 @@ The package has no plugin-manager dependency, compiler invocation, automatic
 execution, external process, network request, or language-server startup.
 As with other editor plugins, its Vimscript is trusted local editor code.
 
+## Install in LazyVim
+
+Use a local plugin spec pointing at the runtime directory in your Fibril checkout.
+There is no published remote plugin repository to install yet.
+
+1. Create `~/.config/nvim/lua/plugins/fibril.lua`. If your configuration lives
+   elsewhere, `:echo stdpath('config')` shows its root; use its `lua/plugins/`
+   directory instead.
+2. Add the following, replacing the absolute path with your checkout location:
+
+~~~lua
+return {
+  {
+    name = "fibril-syntax",
+    dir = "/absolute/path/to/fibril/editors/vim",
+    lazy = false,
+    config = function()
+      vim.cmd("syntax enable")
+      vim.cmd("runtime! ftdetect/fibril.vim")
+    end,
+  },
+}
+~~~
+
+The dir must point to **editors/vim**, not the repository root. For this project's
+usual local layout it might be `/Users/yourname/dev/idris2/projects/fibril/editors/vim`.
+The directory must already exist; lazy.nvim loads these local files rather than
+fetching a plugin. Keeping the checkout updated also updates the runtime files.
+
+3. Restart Neovim and open `examples/core/hello-world.fib` from that checkout.
+4. Run `:Lazy` and confirm `fibril-syntax` is loaded. Then check:
+
+~~~vim
+:setlocal filetype?
+:setlocal syntax?
+~~~
+
+Both should report fibril. To inspect an actual token, put the cursor on a keyword
+such as if and run:
+
+~~~vim
+:echo synIDattr(synID(line('.'), col('.'), 1), 'name')
+~~~
+
+The result should be fibrilKeyword. Different token kinds have different groups.
+If another configuration assigned a filetype first, explicitly use
+`:setlocal filetype=fibril`; automatic detection deliberately respects existing
+filetypes. If highlighting was disabled, run `:syntax enable`.
+
+This uses Neovim's built-in syntax engine. You do not need a Fibril Tree-sitter
+parser, Mason package, or LSP configuration. Do not add fibril to Tree-sitter's
+parser-install list: we have not published a grammar. If custom configuration
+forces Tree-sitter onto unsupported filetypes or disables regex highlighting,
+exclude fibril from that customization. The supplied runtime does not change your
+LazyVim keymaps, formatting, or LSP settings.
+
+To uninstall, remove the plugin spec and restart Neovim. Your Fibril checkout and
+source files are unaffected. These steps document lazy.nvim's local-plugin setup;
+the automated editor tests exercise the runtime in clean Neovim/Vim sessions,
+not a complete LazyVim distribution or its third-party plugins.
+
 ## What it highlights
 
 - Ordinary keywords: let/in, case/of, if/then/else.

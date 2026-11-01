@@ -11,8 +11,9 @@ A [restricted hosted console runner](docs/console-runner.md) now runs hello worl
 it is not a general IO calculus or a compiler backend.
 See [checker scope and limits](docs/erased-checker.md).
 
-Optional [Neovim/Vim highlighting](docs/editor-highlighting.md) is available for
-.fib files; no LSP server or semantic navigation is implemented yet.
+Optional [Neovim/Vim highlighting](docs/editor-highlighting.md), including
+[LazyVim installation](docs/editor-highlighting.md#install-in-lazyvim), is available
+for .fib files; no LSP server or semantic navigation is implemented yet.
 
 ## Build
 
