@@ -77,6 +77,10 @@ Type/checking limits remain explicit errors; resource diagnostics identify a
 bound-variable mismatch or an ambient newest-first index. Source locations and
 names are not available yet.
 
+TypingError preserves structured core failures, including inferred/expected
+scoped types. The driver preserves the RuntimeError until presentation rather
+than flattening it to a string. Error payloads are not proof objects or source maps.
+
 ## Tests
 
 [Tests.Runtime](../test/src/Tests/Runtime.idr) covers polymorphic identity, exact

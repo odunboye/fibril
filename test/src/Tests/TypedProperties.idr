@@ -115,7 +115,7 @@ rejectWrongType = property $ do
   -- expectation from the construction recipe, not by filtering with the checker.
   let wrong = if sameSyntax sample.expected (Universe 0) then UnitType else Universe 0
   case checkErased 100 100 Empty sample.term wrong of
-    Left TypeMismatch => success
+    Left (TypeMismatch _ _) => success
     _ => failure
 
 ||| Targeted erased-checker properties over a narrow constructive grammar.

@@ -5,6 +5,7 @@ module Fibril.Core.Erased
 
 import Fibril.Core.Quantity
 import Fibril.Core.Term
+import Fibril.Core.Pretty
 import Fibril.Core.Context
 import Fibril.Core.Compatibility
 import Fibril.Core.WeakHead
@@ -14,22 +15,27 @@ import Fibril.Core.Reduction
 
 ||| Failures distinguish exhausted checking/reduction from actual rejection.
 public export
-data CheckError
-  = CheckingLimit
-  | ReductionLimit
-  | ExpectedUniverse
-  | ExpectedFunction
-  | TypeMismatch
-  | BranchTypeMismatch
+data CheckError : Type where
+  CheckingLimit : CheckError
+  ReductionLimit : CheckError
+  ExpectedUniverse : {0 n : Nat} -> (found : Term n) -> CheckError
+  ExpectedFunction : {0 n : Nat} -> (found : Term n) -> CheckError
+  ||| Both types retain a shared scope; payloads are diagnostic data, not proofs.
+  TypeMismatch : {0 n : Nat} -> (actual, expected : Term n) -> CheckError
+  BranchTypeMismatch : {0 n : Nat} -> (yesType, noType : Term n) -> CheckError
 
 public export
 Show CheckError where
   show CheckingLimit = "Checking recursion budget exhausted"
   show ReductionLimit = "Reduction budget exhausted"
-  show ExpectedUniverse = "Expected a universe"
-  show ExpectedFunction = "Expected a dependent function type"
-  show TypeMismatch = "Inferred type is not compatible with expected type"
-  show BranchTypeMismatch = "Conditional branch types are not equal"
+  show (ExpectedUniverse found) = "Expected a universe; found: " ++ renderTerm found
+  show (ExpectedFunction found) = "Expected a dependent function type; found: " ++ renderTerm found
+  show (TypeMismatch actual expected) =
+    "Inferred type is not compatible with expected type; inferred: " ++ renderTerm actual ++
+    "; expected: " ++ renderTerm expected
+  show (BranchTypeMismatch yesType noType) =
+    "Conditional branch types are not equal; then: " ++ renderTerm yesType ++
+    "; else: " ++ renderTerm noType
 
 -- Inspect only the outer type shape; comparison still uses full normalization.
 exposeType : Nat -> Term n -> Either CheckError (Term n)
@@ -42,7 +48,7 @@ requireCompatible : Nat -> Term n -> Term n -> Either CheckError ()
 requireCompatible budget actual expected =
   case compatibleTypes budget actual expected of
     Compatible => Right ()
-    Incompatible => Left TypeMismatch
+    Incompatible => Left (TypeMismatch actual expected)
     CompatibilityLimit => Left ReductionLimit
 
 -- Internal inference assumes context formation has already been checked.
@@ -64,7 +70,7 @@ mutual
     noType <- infer depth reduction context no
     case betaCompare reduction yesType noType of
       EqualNormalForms => Right yesType
-      DifferentNormalForms => Left BranchTypeMismatch
+      DifferentNormalForms => Left (BranchTypeMismatch yesType noType)
       Inconclusive => Left ReductionLimit
   infer (S depth) reduction context (Pi q domain body) = do
     domainLevel <- sortOf depth reduction context domain
@@ -82,7 +88,7 @@ mutual
         argumentType <- infer depth reduction context argument
         requireCompatible reduction argumentType domain
         Right (instantiateTerm argument body)
-      _ => Left ExpectedFunction
+      _ => Left (ExpectedFunction exposed)
 
   infer (S depth) reduction context (UnitCase scrutinee body) = do
     scrutineeType <- infer depth reduction context scrutinee
@@ -95,7 +101,7 @@ mutual
     exposed <- exposeType reduction ty
     case exposed of
       Universe level => Right level
-      _ => Left ExpectedUniverse
+      _ => Left (ExpectedUniverse exposed)
 
 formation : Nat -> Nat -> Context n -> Either CheckError ()
 formation depth reduction Empty = Right ()

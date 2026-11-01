@@ -1,4 +1,4 @@
-# Located frontend diagnostics
+# Source and type diagnostics
 
 Status: implemented plain-text point diagnostics, not an LSP protocol or a
 source map for core typing.
@@ -41,12 +41,46 @@ resources. Callers must provide positions from the same unchanged source text.
 The renderer does not verify offset/line/column consistency; defensive column
 clamping prevents enormous padding, not invalid provenance.
 
+## Types in core rejection reports
+
+An explicit mismatch now includes the inferred and expected core types:
+
+    bad.fib: Runtime checking: Inferred type is not compatible with expected type; inferred: Bool; expected: Unit
+
+This is the error for (True : Unit). A conditional with True versus () branches
+reports then: Bool; else: Unit. Applying () reports a nonfunction type, found: Unit.
+
+[CheckError](../src/Fibril/Core/Erased.idr) now retains:
+
+- TypeMismatch: the original inferred and expected terms in one shared scope.
+- BranchTypeMismatch: both originally inferred branch types in one shared scope.
+- ExpectedFunction/ExpectedUniverse: the type after weak-head exposure that failed
+  the required shape test.
+- CheckingLimit/ReductionLimit: distinct exhaustion errors, never fabricated
+  mismatch witnesses.
+
+The existential scope index is erased; this preserves the relation between the
+stored terms without requiring a runtime scope size. Payloads are ordinary scoped
+syntax, not evidence of typing or inequality. They may include newest-first
+indices such as v1 and do not recover source names.
+
+Rendering uses [Pretty.renderTerm](../src/Fibril/Core/Pretty.idr). It does not
+normalize again, spend reduction fuel, or infer source spans. A mismatch payload
+can therefore still contain redexes. File-level output retains the label length
+bound; the structured error preserves its complete payload even if text is
+truncated. Constructing/rendering a large payload is not a bounded-work promise.
+
 ## Structured driver boundary
 
 [Driver.Check](../src/Fibril/Driver/Check.idr) exposes DriverError:
 
 - FrontendFailure retains LexError, ParseError, or ResolveError.
-- DriverFailure retains unlocated checker/evaluator messages.
+- ErasedFailure retains CheckError; RuntimeFailure retains RuntimeError.
+- EvaluationLimit distinguishes evaluation exhaustion.
+- PostReductionFailure retains the runtime error from final rechecking.
+
+RuntimeError's TypingError in turn retains the structured CheckError. No core
+payload is flattened to a string until a presentation API is requested.
 
 checkSourceDetailed, prepareRuntimeSourceDetailed, and
 [evaluateSourceDetailed](../src/Fibril/Driver/Evaluate.idr) preserve these
@@ -54,7 +88,7 @@ errors until presentation. File commands parse/check once and choose contextual
 rendering afterwards, rather than rerunning the frontend to recover a location.
 
 The existing checkSource, prepareRuntimeSource, and evaluateSource APIs still
-return their original plain-string presentations. Future IDE integration can
+return the same plain-string result types, with richer mismatch messages. Future IDE integration can
 consume structured failures, but must implement an explicit UTF-16 mapping and
 cannot treat current core messages as exact source ranges.
 
@@ -62,7 +96,10 @@ cannot treat current core messages as exact source ranges.
 
 [Tests.Diagnostic](../test/src/Tests/Diagnostic.idr) covers line endings, tabs,
 EOF, long lines/labels, clamped padding, Unicode spelling, control escaping,
-structured errors, and unlocated core failures. CLI tests use actual files for
+structured errors, and unlocated core failures.
+[Tests.CheckDiagnostic](../test/src/Tests/CheckDiagnostic.idr) adds closed/open
+payloads, shape and branch errors, no-normalization rendering, and preservation
+through each driver stage. CLI tests use actual files for
 check/eval/lex diagnostics and retain nonzero exits.
 
 Next steps include core provenance through elaboration, exact ranged spans,

@@ -29,7 +29,9 @@ post-reduction checks, and why this is not a backend runtime.
 Located frontend failures now include filename, line/column, a bounded source
 excerpt, and a caret. Tabs are shown as one space; coordinates count scalars, not
 terminal cells or UTF-16. Core failures have a filename but no fabricated source
-caret. See [diagnostics](diagnostics.md) for escaping, bounds, and API details.
+caret. Type mismatches include inferred/expected core types; branch mismatches
+include both inferred branch types, and shape errors show the type found.
+See [diagnostics](diagnostics.md) for escaping, bounds, payloads, and API details.
 
 ## Follow the demo
 

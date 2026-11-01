@@ -19,10 +19,10 @@ evaluateSourceDetailed : Nat -> String -> Either DriverError (List String)
 evaluateSourceDetailed fuel source = do
   prepared <- prepareRuntimeSourceDetailed source
   normal <- case normalize fuel prepared.term of
-    OutOfFuel _ => Left (DriverFailure "Evaluation budget exhausted; no normal form reported")
+    OutOfFuel _ => Left EvaluationLimit
     Normal term => Right term
   case checkRuntime 256 128 Empty normal prepared.inferredType of
-    Left err => Left (DriverFailure ("Post-reduction checking failed: " ++ show err))
+    Left err => Left (PostReductionFailure err)
     Right _ => Right ["Reference evaluation: normal form (not compiled execution)",
                       "Type: " ++ renderTerm prepared.inferredType,
                       "Normal: " ++ renderTerm normal]

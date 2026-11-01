@@ -53,6 +53,14 @@ Infer the function, normalize its type to expose Pi, check the argument's inferr
 type against the domain, then substitute the argument into the codomain.
 No admitted holes or arbitrary axioms fill failed obligations.
 
+## Inspect a rejection
+
+`(True : Unit)` reports inferred: Bool and expected: Unit. The core now preserves
+those scoped terms in a structured error; comparison exhaustion remains distinct.
+Shape failures and branch mismatches likewise retain the relevant types.
+[Diagnostic rendering](../diagnostics.md) does not normalize them again or invent
+source provenance from nameless core terms.
+
 ## Check a first data value
 
 `fibril eval examples/core/unit.fib` checks a typed linear local binding and

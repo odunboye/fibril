@@ -29,12 +29,20 @@ Show FrontendError where
 ||| Preserve located frontend failures until the driver chooses a presentation.
 ||| Core/evaluation failures remain unlocated rather than acquiring invented spans.
 public export
-data DriverError = FrontendFailure FrontendError | DriverFailure String
+data DriverError
+  = FrontendFailure FrontendError
+  | ErasedFailure CheckError
+  | RuntimeFailure RuntimeError
+  | EvaluationLimit
+  | PostReductionFailure RuntimeError
 
 public export
 Show DriverError where
   show (FrontendFailure err) = show err
-  show (DriverFailure message) = message
+  show (ErasedFailure err) = "Erased checking: " ++ show err
+  show (RuntimeFailure err) = "Runtime checking: " ++ show err
+  show EvaluationLimit = "Evaluation budget exhausted; no normal form reported"
+  show (PostReductionFailure err) = "Post-reduction checking failed: " ++ show err
 
 frontendPoint : FrontendError -> Maybe Diagnostic
 frontendPoint (Parsing err) = Just (AtPoint err.position ("Parsing: " ++ err.message))
@@ -50,11 +58,11 @@ frontendPoint (Lexical ScanLimit) = Nothing
 ||| Contextual file diagnostics without reparsing or assigning core source spans.
 public export
 renderDriverError : String -> String -> DriverError -> String
-renderDriverError path source (DriverFailure message) = renderFileError path message
 renderDriverError path source (FrontendFailure err) =
   case frontendPoint err of
     Just diagnostic => renderDiagnostic path source diagnostic
     Nothing => renderFileError path (show err)
+renderDriverError path source err = renderFileError path (show err)
 
 ||| Parse and resolve a single closed expression with a fixed prototype budget.
 ||| This is not declaration elaboration, implicit inference, or module loading.
@@ -81,7 +89,7 @@ record RuntimeSource where
 prepareTerm : Term 0 -> Either DriverError RuntimeSource
 prepareTerm term =
   case inferRuntime 256 128 Empty term of
-    Left err => Left (DriverFailure ("Runtime checking: " ++ show err))
+    Left err => Left (RuntimeFailure err)
     Right checked => Right (PreparedRuntime term checked.inferredType)
 
 ||| Structured preparation; resolve and runtime-check exactly once.
@@ -110,7 +118,7 @@ checkSourceDetailed erasedOnly source = do
     Right term => Right term
   if erasedOnly
      then case inferErased 256 128 Empty term of
-       Left err => Left (DriverFailure ("Erased checking: " ++ show err))
+       Left err => Left (ErasedFailure err)
        Right ty => Right ["Erased checking: accepted (no runtime-use guarantee)",
                           "Type: " ++ renderTerm ty]
      else do

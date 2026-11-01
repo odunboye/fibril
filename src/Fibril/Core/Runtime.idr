@@ -69,7 +69,7 @@ analyze (S depth) reduction context (Apply function argument) = do
         Erased => Right zeroUsage
         _ => analyze depth reduction context argument
       Right (combineUsage functionUsage (scaleUsage q argumentUsage))
-    _ => Left (TypingError ExpectedFunction)
+    _ => Left (TypingError (ExpectedFunction exposed))
 
 analyze (S depth) reduction context (UnitCase scrutinee body) = do
   scrutineeUsage <- analyze depth reduction context scrutinee

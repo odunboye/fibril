@@ -127,6 +127,29 @@ class CLITests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("Parsing:", result.stdout)
 
+    def test_type_mismatch_diagnostics(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "types.fib"
+            cases = [
+                ("(True : Unit)", "inferred: Bool; expected: Unit"),
+                ("if True then True else ()", "then: Bool; else: Unit"),
+                ("() ()", "found: Unit"),
+                (r"\(1 x : ()) => x", "Expected a universe; found: Unit"),
+            ]
+            for source, expected in cases:
+                path.write_text(source, encoding="utf-8")
+                for command in ("check", "eval"):
+                    with self.subTest(source=source, command=command):
+                        result = run(command, str(path))
+                        self.assertNotEqual(result.returncode, 0)
+                        self.assertIn(expected, result.stdout)
+                        self.assertIn(f"{path}: Runtime checking:", result.stdout)
+                        self.assertNotIn("^", result.stdout)
+            path.write_text("(Type 0 : Type 0)", encoding="utf-8")
+            result = run("check", "--erased", str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("inferred: Type1; expected: Type0", result.stdout)
+
     def test_located_source_diagnostics(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "bad.fib"

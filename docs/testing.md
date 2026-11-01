@@ -68,6 +68,11 @@ one step and full normalization; this samples admissibility, not exact usage equ
 bounded escaped excerpts, scalar carets, line endings/EOF, preserved structured
 errors, and absence of guessed source spans for core failures.
 
+[Tests.CheckDiagnostic](../test/src/Tests/CheckDiagnostic.idr) checks mismatch
+payloads in closed/open scopes, branch and shape errors, rendering without
+normalization, typed driver propagation, and distinct evaluation exhaustion.
+Existing rejection tests now check constructor payloads as well as outcomes.
+
 ## Hedgehog dependency
 
 Repository: https://github.com/stefan-hoeck/idris2-hedgehog

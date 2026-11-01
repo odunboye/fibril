@@ -43,25 +43,25 @@ checks =
           (Apply (Lambda Linear (Variable (FS FZ)) (Variable FZ)) (Variable FZ))))
   , ("erased rejects Type in itself",
       case checkErased 20 20 Empty (Universe 0) (Universe 0) of
-        Left TypeMismatch => True
+        Left (TypeMismatch (Universe 1) (Universe 0)) => True
         _ => False)
   , ("erased rejects nonfunction application",
       case inferErased 20 20 Empty (Apply (Universe 0) (Universe 0)) of
-        Left ExpectedFunction => True
+        Left (ExpectedFunction (Universe 1)) => True
         _ => False)
   , ("erased rejects wrong argument",
       case inferErased 30 30 Empty
         (Apply (Lambda Linear (Universe 0) (Variable FZ)) (Universe 0)) of
-        Left TypeMismatch => True
+        Left (TypeMismatch (Universe 1) (Universe 0)) => True
         _ => False)
   , ("erased rejects illformed context",
       case checkErasedContext 20 20
         (Extend context Erased (Variable FZ)) of
-        Left ExpectedUniverse => True
+        Left (ExpectedUniverse _) => True
         _ => False)
   , ("erased validates expected type",
       case checkErased 20 20 context (Variable FZ) (Variable FZ) of
-        Left ExpectedUniverse => True
+        Left (ExpectedUniverse _) => True
         _ => False)
   , ("erased checking budget explicit",
       case inferErased 0 20 Empty (Universe 0) of
@@ -83,7 +83,7 @@ checks =
       case checkErased 30 30 Empty
         (Lambda Linear (Universe 0) (Variable FZ))
         (Pi Erased (Universe 0) (Universe 0)) of
-        Left TypeMismatch => True
+        Left (TypeMismatch (Pi Linear _ _) (Pi Erased _ _)) => True
         _ => False)
   , ("erased can discard linear variable in type-only judgment",
       succeeds (inferErased 20 20 context (Universe 0)))

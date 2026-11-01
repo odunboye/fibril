@@ -33,6 +33,14 @@ erased judgment; a future runtime judgment must separately reject invalid use.
 This keeps the unresolved unrestricted/subusage policy out of the first checker.
 It does not resolve quantitative cubical soundness.
 
+## Structured rejection data
+
+Mismatch errors retain both original types in a shared (erased existential) scope.
+Branch errors retain both inferred branch types. Shape errors retain the exposed
+type that was not a Pi/universe. Printing this syntax does not normalize it or
+establish a proof of inequality. Exhaustion remains a separate constructor.
+See [diagnostics](diagnostics.md#types-in-core-rejection-reports).
+
 ## Entry points and budgets
 
 - checkErasedContext validates the entire telescope.

@@ -67,7 +67,7 @@ checks =
         _ => False)
   , ("runtime erased arguments still typechecked",
       case inferRuntime 60 60 Empty (Apply polyIdentity (Universe 0)) of
-        Left (TypingError TypeMismatch) => True
+        Left (TypingError (TypeMismatch _ _)) => True
         _ => False)
   , ("runtime budget remains explicit",
       case inferRuntime 0 20 Empty polyIdentity of
