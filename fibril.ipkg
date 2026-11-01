@@ -1,0 +1,6 @@
+package fibril
+version = 0.1.0
+sourcedir = "src"
+modules = Fibril.Foundation.DeMorgan.Interval, Fibril.Core.Quantity, Main
+main = Main
+executable = fibril
