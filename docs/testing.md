@@ -43,6 +43,11 @@ The output is reference normal form syntax, not C/JS execution.
 quantities, nonrecursion, and reference reduction. CLI examples use explicit in;
 there is no declaration/layout generalization yet.
 
+[Tests.Unit](../test/src/Tests/Unit.idr) covers the first data primitive. Scope and
+erased typed generators include both atoms; an additional runtime property checks
+closed Unit programs and their normal forms. The incompatible-expectation property
+uses the recipe's expected type to avoid falsely rejecting the new Unit : Type0 seed.
+
 ## Hedgehog dependency
 
 Repository: https://github.com/stefan-hoeck/idris2-hedgehog
@@ -136,7 +141,7 @@ not arbitrary runtime derivations or cubical resource rules. The unrestricted
 mutation is intentionally rejected even if its body uses its input once:
 the caller obeys the declared argument quantity, not an optimization guess.
 
-The default suite now runs 21 properties / 2,100 generated cases, alongside
+The default suite now runs 22 properties / 2,200 generated cases, alongside
 deterministic regressions. Sampling counts are not proof coverage.
 
 ## Reproducing failures

@@ -125,6 +125,18 @@ class CLITests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("Parsing:", result.stdout)
 
+    def test_unit_value_program(self):
+        result = run("eval", "examples/core/unit.fib")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Type: Unit", result.stdout)
+        self.assertIn("Normal: ()", result.stdout)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "discard.fib"
+            path.write_text(r"\(1 x : Unit) => ()", encoding="utf-8")
+            result = run("check", str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Binder usage", result.stdout)
+
     def test_typed_local_binding(self):
         result = run("check", "examples/core/local-identity.fib")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

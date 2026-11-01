@@ -12,6 +12,8 @@ public export
 step : Term n -> Maybe (Term n)
 step (Variable i) = Nothing
 step (Universe l) = Nothing
+step UnitType = Nothing
+step UnitValue = Nothing
 step (Pi q domain body) =
   case step domain of
     Just next => Just (Pi q next body)

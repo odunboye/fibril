@@ -25,7 +25,9 @@ Show TypedSample where
 
 seed : Gen TypedSample
 seed = element
-  [ Sample (Universe 0) (Universe 1)
+  [ Sample UnitType (Universe 0)
+  , Sample UnitValue UnitType
+  , Sample (Universe 0) (Universe 1)
   , Sample (Universe 1) (Universe 2)
   , Sample
       (Lambda Erased (Universe 0) (Lambda Linear (Variable FZ) (Variable FZ)))
@@ -100,12 +102,13 @@ headCompatibility = property $ do
         (Normal original, Normal afterHead) => assert (sameSyntax original afterHead)
         _ => failure
 
-rejectWrongUniverse : Property
-rejectWrongUniverse = property $ do
+rejectWrongType : Property
+rejectWrongType = property $ do
   sample <- forAll (typedGen 3)
-  -- Seeds have universe types >= 1 or Pi types; none can check down to Type 0.
-  -- Higher universes are now valid expectations for the universe-valued seeds.
-  case checkErased 100 100 Empty sample.term (Universe 0) of
+  -- Unit : Type0 is now a valid seed. Choose a known incompatible, well-formed
+  -- expectation from the construction recipe, not by filtering with the checker.
+  let wrong = if sameSyntax sample.expected (Universe 0) then UnitType else Universe 0
+  case checkErased 100 100 Empty sample.term wrong of
     Left TypeMismatch => success
     _ => failure
 
@@ -118,5 +121,5 @@ runTypedProperties = checkGroup (MkGroup "Fibril erased typing properties"
   , ("constructed erased terms accepted", acceptConstructed)
   , ("one beta step preserves erased checking", stepPreserves)
   , ("typed identity application preserves conversion", betaWrapperPreserves)
-  , ("wrong universe expectation rejected", rejectWrongUniverse)
+  , ("incompatible expected type rejected", rejectWrongType)
   ])

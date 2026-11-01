@@ -1,0 +1,2 @@
+-- A first value-level program: a typed local binding consumed exactly once.
+let (1 value : Unit) = () in value

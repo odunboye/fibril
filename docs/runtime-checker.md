@@ -43,12 +43,20 @@ subusage, substitution, reduction, and erasure remains a proof obligation.
 [ATKEY18](references.md#atkey18) motivates the accounting but does not validate
 this implementation by citation.
 
+## Primitive Unit
+
+UnitValue is runtime data with the zero usage vector. UnitType is a type
+expression and is rejected as runtime data. A Unit literal cannot consume an
+unused ambient linear variable. There is no special eta/elimination rule allowing
+linear Unit values to be discarded. See [Unit rules](unit.md).
+
 ## Supported boundary
 
-Universe and Pi expressions are rejected as direct computational values.
-They are permitted in annotations, types, and erased arguments.
-The runtime fragment has no inductives/literals/effects yet; examples use
-polymorphic functions and open contexts with abstract values.
+Universe, Pi, and Unit type expressions are rejected as direct computational
+values. They are permitted in annotations, types, and erased arguments.
+Primitive Unit values are supported; general inductive definitions and effects
+are not. Examples include Unit programs, polymorphic functions, and open
+contexts with abstract values.
 
 There are no cubical term rules, borrowing, recursion, partiality implementation,
 backend code generation, or verified erasure. This module's name does not mean

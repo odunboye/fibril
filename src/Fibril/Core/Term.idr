@@ -1,4 +1,4 @@
--- Scoped ordinary dependent-function syntax. This is not a type checker.
+-- Scoped ordinary dependent-function and Unit syntax. This is not a type checker.
 -- See docs/core-draft.md; cubical resource rules remain unresolved.
 -- Theory: DEBRUIJN72 (nameless indices); ATKEY18 sec. 2 (QTT background, not implemented typing).
 -- Bibliography and limitations: docs/references.md.
@@ -15,6 +15,10 @@ public export
 data Term : Nat -> Type where
   Variable : Fin n -> Term n
   Universe : Nat -> Term n
+  ||| Primitive Unit : Type0; no eliminator or eta rule (docs/unit.md).
+  UnitType : Term n
+  ||| Closed constructor () : Unit; zero runtime usage, not linear discard.
+  UnitValue : Term n
   Pi : Quantity -> Term n -> Term (S n) -> Term n
   Lambda : Quantity -> Term n -> Term (S n) -> Term n
   Apply : Term n -> Term n -> Term n
@@ -30,6 +34,8 @@ public export
 rename : (Fin n -> Fin m) -> Term n -> Term m
 rename env (Variable i) = Variable (env i)
 rename env (Universe l) = Universe l
+rename env UnitType = UnitType
+rename env UnitValue = UnitValue
 rename env (Pi q domain body) =
   Pi q (rename env domain) (rename (liftRenaming env) body)
 rename env (Lambda q domain body) =
@@ -52,6 +58,8 @@ public export
 substituteTerm : (Fin n -> Term m) -> Term n -> Term m
 substituteTerm env (Variable i) = env i
 substituteTerm env (Universe l) = Universe l
+substituteTerm env UnitType = UnitType
+substituteTerm env UnitValue = UnitValue
 substituteTerm env (Pi q domain body) =
   Pi q (substituteTerm env domain) (substituteTerm (liftSubstitution env) body)
 substituteTerm env (Lambda q domain body) =
@@ -73,6 +81,8 @@ public export
 sameSyntax : Term n -> Term n -> Bool
 sameSyntax (Variable i) (Variable j) = i == j
 sameSyntax (Universe l) (Universe k) = l == k
+sameSyntax UnitType UnitType = True
+sameSyntax UnitValue UnitValue = True
 sameSyntax (Pi q a b) (Pi r c d) = q == r && sameSyntax a c && sameSyntax b d
 sameSyntax (Lambda q a b) (Lambda r c d) = q == r && sameSyntax a c && sameSyntax b d
 sameSyntax (Apply f x) (Apply g y) = sameSyntax f g && sameSyntax x y

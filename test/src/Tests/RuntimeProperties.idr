@@ -90,12 +90,37 @@ rejectErasedExtraction = property $ do
     Left (ContextUsage 0 Erased Linear) => success
     _ => failure
 
+-- Closed Unit programs constructed without checker filtering.
+unitGen : Nat -> Gen (Term 0)
+unitGen Z = pure UnitValue
+unitGen (S depth) =
+  choice
+    [ pure UnitValue
+    , Apply (Lambda Linear UnitType (Variable FZ)) <$> unitGen depth
+    , (\body => Apply (Lambda Erased UnitType (weaken body)) UnitValue) <$> unitGen depth
+    ]
+
+unitPrograms : Property
+unitPrograms = property $ do
+  term <- forAll (unitGen 6)
+  case checkRuntime 100 100 Empty term UnitType of
+    Left _ => failure
+    Right checked => assert (checked.usage == [])
+  case normalize 100 term of
+    OutOfFuel _ => failure
+    Normal result => do
+      assert (sameSyntax result UnitValue)
+      case checkRuntime 100 100 Empty result UnitType of
+        Left _ => failure
+        Right checked => assert (checked.usage == [])
+
 ||| Sample ordinary resource properties over a narrow open-context grammar.
 ||| These are not proofs of quantitative subject reduction or erasure correctness.
 public export
 runRuntimeProperties : IO Bool
 runRuntimeProperties = checkGroup (MkGroup "Fibril runtime usage properties"
-  [ ("constructed terms capture linear input once", acceptConstructed)
+  [ ("closed Unit programs check and normalize to unit", unitPrograms)
+  , ("constructed terms capture linear input once", acceptConstructed)
   , ("one beta step preserves linear capture", preserveStep)
   , ("normalization preserves linear capture", preserveNormal)
   , ("unrestricted argument rejects linear capture", rejectDuplication)

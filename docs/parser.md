@@ -32,7 +32,8 @@ This checks source; it does not compile or run a Fibril executable.
     binder      ::= "(" [quantity] name ":" expr ")"
     quantity    ::= "0" | "1"
     application ::= atom { atom }
-    atom        ::= name | "Type" digits | "(" expr ")" | "(" expr ":" expr ")"
+    atom        ::= name | "Type" digits | "Unit" | "(" ")"
+                  | "(" expr ")" | "(" expr ":" expr ")"
 
 Omitted quantity means unrestricted. Universe levels require 1..6 decimal digits.
 Lambda and both arrows have the [lexer's Unicode aliases](lexer.md).
@@ -45,6 +46,13 @@ Underscore is a wildcard, never a referenceable name.
 
 This grammar is an explicitly annotated stepping stone, not a final syntax
 promise or an indentation-based declaration implementation.
+
+## Primitive data
+
+Unit names the first ordinary data type; () is its value. Both are source atoms,
+so `(\\(1 x : Unit) => x) ()` is a checked value-level application. The empty group
+now denotes a constructor rather than an absent expression. See [Unit](unit.md)
+for precise typing, usage, and deliberately omitted eliminator/eta rules.
 
 ## Explicit type ascriptions
 

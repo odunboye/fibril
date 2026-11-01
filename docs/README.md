@@ -11,6 +11,8 @@ The generated homepage separates teaching chapters, references, and project reco
 
 ## Reference index
 
+- [Primitive Unit](unit.md): first data value and explicit quantity limitations.
+
 - [Checked reference evaluation](evaluation.md): source checking followed by bounded normalization.
 
 - [Python interoperability](python-interop.md): worker and optional embedded CPython architecture.

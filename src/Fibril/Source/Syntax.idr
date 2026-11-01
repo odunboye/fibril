@@ -11,6 +11,8 @@ public export
 data Expr
   = NRef SourceSpan String
   | NSort SourceSpan Nat
+  | NUnitType SourceSpan
+  | NUnitValue SourceSpan
   | NPi SourceSpan Quantity String Expr Expr
   | NLambda SourceSpan Quantity String Expr Expr
   | NApply SourceSpan Expr Expr
@@ -22,6 +24,8 @@ public export
 extent : Expr -> SourceSpan
 extent (NRef span _) = span
 extent (NSort span _) = span
+extent (NUnitType span) = span
+extent (NUnitValue span) = span
 extent (NPi span _ _ _ _) = span
 extent (NLambda span _ _ _ _) = span
 extent (NApply span _ _) = span
@@ -33,6 +37,8 @@ public export
 withExtent : SourceSpan -> Expr -> Expr
 withExtent span (NRef _ name) = NRef span name
 withExtent span (NSort _ level) = NSort span level
+withExtent span (NUnitType _) = NUnitType span
+withExtent span (NUnitValue _) = NUnitValue span
 withExtent span (NPi _ q name domain body) = NPi span q name domain body
 withExtent span (NLambda _ q name domain body) = NLambda span q name domain body
 withExtent span (NApply _ function argument) = NApply span function argument

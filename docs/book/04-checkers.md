@@ -53,6 +53,13 @@ Infer the function, normalize its type to expose Pi, check the argument's inferr
 type against the domain, then substitute the argument into the codomain.
 No admitted holes or arbitrary axioms fill failed obligations.
 
+## Check a first data value
+
+`fibril eval examples/core/unit.fib` checks a typed linear local binding and
+returns `Normal: ()` at type Unit. The literal contributes zero usage; this does
+not allow it to discard an ambient linear variable. See [Unit](../unit.md) for
+the two new atomic typing rules and the omitted eta/elimination principles.
+
 ## State the expected type in source
 
 Use `(expression : expectedType)` to make an obligation explicit. The

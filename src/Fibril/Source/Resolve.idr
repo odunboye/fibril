@@ -38,6 +38,8 @@ resolveIn env (NRef span name) =
        Nothing => Left (Unbound span.start name)
        Just index => Right (Variable index)
 resolveIn env (NSort span level) = Right (Universe level)
+resolveIn env (NUnitType span) = Right UnitType
+resolveIn env (NUnitValue span) = Right UnitValue
 resolveIn env (NPi span q name domain body) = do
   domain <- resolveIn env domain
   body <- resolveIn (name :: env) body

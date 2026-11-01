@@ -46,6 +46,12 @@ reference code, not an optimized incremental elaborator.
 The internal inference helper is private, so public callers cannot bypass context
 formation merely by supplying a scope-correct telescope.
 
+## Primitive Unit
+
+The additional atomic rules are UnitType : Universe 0 and UnitValue : UnitType.
+Both participate in the existing context-formation, compatibility, and scope
+machinery; they do not introduce a new conversion rule. See [Unit](unit.md).
+
 ## Current trust boundary
 
 No parser, declarations, general recursion, partial escape hatch, axioms, Void,

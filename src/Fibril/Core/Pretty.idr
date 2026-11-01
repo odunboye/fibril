@@ -15,6 +15,8 @@ public export
 renderTerm : Term n -> String
 renderTerm (Variable i) = "v" ++ show (finToNat i)
 renderTerm (Universe level) = "Type" ++ show level
+renderTerm UnitType = "Unit"
+renderTerm UnitValue = "()"
 renderTerm (Pi q domain body) =
   "(Pi " ++ show q ++ " " ++ renderTerm domain ++ " " ++ renderTerm body ++ ")"
 renderTerm (Lambda q domain body) =

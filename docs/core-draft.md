@@ -26,6 +26,8 @@ axioms, or unsafe primitives enter this initial logical fragment.
     Level ::= natural number
     Term  ::= Var index
             | Universe Level
+            | UnitType
+            | UnitValue
             | Pi Quantity Term Term
             | Lam Quantity Term Term
             | App Term Term
@@ -42,6 +44,13 @@ impredicativity are not implicitly included.
 
 Core syntax, substitution, evaluation, conversion, and typing must each receive
 tests. Representation alone is not a checker.
+
+## Implemented primitive Unit
+
+[Unit](unit.md) adds UnitType : Universe 0 and UnitValue : UnitType. Both are
+closed atoms under renaming/substitution and have no reduction rules. Runtime
+UnitValue uses no variables; UnitType, like other type expressions, cannot be
+executed as a value. No eliminator, eta rule, or linear discard is implicit.
 
 ## Proposed quantity accounting
 

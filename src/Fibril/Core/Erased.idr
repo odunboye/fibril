@@ -1,5 +1,6 @@
 -- Experimental erased ordinary-fragment checker, not the Fibril kernel.
 -- Theory: ATKEY18 sec. 2.1.3; details/departures in docs/erased-checker.md.
+-- Primitive Unit rules are a restricted local design; see docs/unit.md.
 module Fibril.Core.Erased
 
 import Fibril.Core.Quantity
@@ -48,6 +49,8 @@ mutual
   infer Z reduction context term = Left CheckingLimit
   infer (S depth) reduction context (Variable i) = Right (lookupType i context)
   infer (S depth) reduction context (Universe level) = Right (Universe (S level))
+  infer (S depth) reduction context UnitType = Right (Universe 0)
+  infer (S depth) reduction context UnitValue = Right UnitType
   infer (S depth) reduction context (Pi q domain body) = do
     domainLevel <- sortOf depth reduction context domain
     bodyLevel <- sortOf depth reduction (Extend context q domain) body

@@ -67,7 +67,8 @@ are introduced.
 - There is no eval --erased mode.
 - Erased arguments/types remain present during this reference computation.
   This is not a compiler erasure implementation.
-- No declarations, effects, Python calls, inductive values, cubical computation,
+- Primitive [Unit](unit.md) values are supported; no declarations, effects,
+  Python calls, general inductive definitions, cubical computation,
   or backend runtime are implemented by this command.
 
 See [reference reduction](reduction.md), [runtime checking](runtime-checker.md),

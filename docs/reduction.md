@@ -15,7 +15,8 @@ definitional equality judgment.
 The reducer uses the capture-avoiding substitution in Term.idr. It contracts a
 head lambda application before inspecting its argument or annotation, otherwise
 searches function before argument. In standalone Pi/Lambda terms it searches
-domain before body, reducing under binders.
+domain before body, reducing under binders. UnitType and UnitValue are stable
+atomic forms: neither adds a reduction, elimination, or eta rule.
 
 ![Selected static calls](diagrams/calls.svg)
 

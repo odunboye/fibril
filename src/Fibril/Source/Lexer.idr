@@ -8,13 +8,14 @@ import Fibril.Source.Text
 
 ||| Token categories for the initial explicitly annotated expression grammar.
 public export
-data TokenKind = Name | Number | TypeKeyword | LetKeyword | InKeyword | Equals | OpenParen | CloseParen | Colon | Arrow | BodyArrow | Lambda
+data TokenKind = Name | Number | TypeKeyword | UnitKeyword | LetKeyword | InKeyword | Equals | OpenParen | CloseParen | Colon | Arrow | BodyArrow | Lambda
 
 public export
 Show TokenKind where
   show Name = "name"
   show Number = "number"
   show TypeKeyword = "Type"
+  show UnitKeyword = "Unit"
   show LetKeyword = "let"
   show InKeyword = "in"
   show Equals = "="
@@ -30,6 +31,7 @@ Eq TokenKind where
   Name == Name = True
   Number == Number = True
   TypeKeyword == TypeKeyword = True
+  UnitKeyword == UnitKeyword = True
   LetKeyword == LetKeyword = True
   InKeyword == InKeyword = True
   Equals == Equals = True
@@ -117,6 +119,7 @@ scan (S fuel) at (c :: rest) =
        let chars = c :: suffix
        let kind = case pack chars of
              "Type" => TypeKeyword
+             "Unit" => UnitKeyword
              "let" => LetKeyword
              "in" => InKeyword
              _ => Name

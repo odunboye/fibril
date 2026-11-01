@@ -76,6 +76,10 @@
         "path": "docs/evaluation.md"
       },
       {
+        "title": "Primitive Unit values",
+        "path": "docs/unit.md"
+      },
+      {
         "title": "Ordinary core draft",
         "path": "docs/core-draft.md"
       },

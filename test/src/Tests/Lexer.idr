@@ -22,7 +22,8 @@ kinds source expected =
 public export
 checks : List (String, Bool)
 checks =
-  [ ("lexer let keywords are exact", kinds "let in letter inner =" ["let", "in", "name", "name", "="])
+  [ ("lexer Unit keyword is exact", kinds "Unit UnitValue unit" ["Unit", "name", "name"])
+  , ("lexer let keywords are exact", kinds "let in letter inner =" ["let", "in", "name", "name", "="])
   , ("lexer empty", spellings "" [])
   , ("lexer whitespace", spellings " \t\r\n" [])
   , ("lexer annotated lambda",

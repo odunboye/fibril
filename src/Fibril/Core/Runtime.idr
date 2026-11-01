@@ -28,7 +28,7 @@ Show RuntimeError where
     "Binder usage: expected " ++ show expected ++ ", observed " ++ show observed
   show (ContextUsage i expected observed) =
     "Variable " ++ show i ++ ": expected " ++ show expected ++ ", observed " ++ show observed
-  show RuntimeTypeExpression = "Runtime universe/Pi values are not supported"
+  show RuntimeTypeExpression = "Runtime type expressions (universe/Pi/Unit) are not supported"
 
 liftTyping : Either CheckError a -> Either RuntimeError a
 liftTyping (Left err) = Left (TypingError err)
@@ -41,6 +41,8 @@ analyze : {n : Nat} -> Nat -> Nat -> Context n -> Term n ->
 analyze Z reduction context term = Left (TypingError CheckingLimit)
 analyze (S depth) reduction context (Variable i) = Right (variableUsage RuntimeMode i)
 analyze (S depth) reduction context (Universe _) = Left RuntimeTypeExpression
+analyze (S depth) reduction context UnitType = Left RuntimeTypeExpression
+analyze (S depth) reduction context UnitValue = Right zeroUsage
 analyze (S depth) reduction context (Pi _ _ _) = Left RuntimeTypeExpression
 analyze (S depth) reduction context (Lambda q domain body) = do
   bodyUsage <- analyze depth reduction (Extend context q domain) body

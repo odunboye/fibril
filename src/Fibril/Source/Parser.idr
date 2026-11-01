@@ -56,6 +56,7 @@ binderAhead _ = False
 startsAtom : TokenKind -> Bool
 startsAtom Name = True
 startsAtom TypeKeyword = True
+startsAtom UnitKeyword = True
 startsAtom OpenParen = True
 startsAtom _ = False
 
@@ -162,23 +163,34 @@ mutual
   atom (S depth) end (token :: rest) =
     case token.kind of
       Name => Right (NRef token.span token.spelling, rest)
+      UnitKeyword => Right (NUnitType token.span, rest)
       TypeKeyword => do
         (level, remaining) <- expect Number end rest
         value <- levelValue level
         Right (NSort (Between token.span.start level.span.finish) value, remaining)
-      OpenParen => do
-        (inner, afterInner) <- expression depth end rest
-        case afterInner of
-          colon :: afterColon =>
-            if colon.kind == Colon then do
-              (expected, afterType) <- expression depth end afterColon
-              (closing, remaining) <- expect CloseParen end afterType
-              Right (NAscribe (Between token.span.start closing.span.finish) inner expected, remaining)
-            else do
-              (closing, remaining) <- expect CloseParen end afterInner
-              Right (withExtent (Between token.span.start closing.span.finish) inner, remaining)
-          [] => Left (ParseFailure end "Expected )")
-      _ => Left (ParseFailure token.span.start "Expected name, Type LEVEL, or grouped expression")
+      OpenParen => grouped depth end token rest
+      _ => Left (ParseFailure token.span.start "Expected name, Type LEVEL, Unit, (), or grouped expression")
+
+  grouped : Nat -> Position -> Token -> List Token -> Either ParseError (Expr, List Token)
+  grouped depth end opening (closing :: remaining) =
+    if closing.kind == CloseParen
+       then Right (NUnitValue (Between opening.span.start closing.span.finish), remaining)
+       else groupExpression depth end opening (closing :: remaining)
+  grouped depth end opening [] = Left (ParseFailure end "Expected expression or )")
+
+  groupExpression : Nat -> Position -> Token -> List Token -> Either ParseError (Expr, List Token)
+  groupExpression depth end token rest = do
+    (inner, afterInner) <- expression depth end rest
+    case afterInner of
+      colon :: afterColon =>
+        if colon.kind == Colon then do
+          (expected, afterType) <- expression depth end afterColon
+          (closing, remaining) <- expect CloseParen end afterType
+          Right (NAscribe (Between token.span.start closing.span.finish) inner expected, remaining)
+        else do
+          (closing, remaining) <- expect CloseParen end afterInner
+          Right (withExtent (Between token.span.start closing.span.finish) inner, remaining)
+      [] => Left (ParseFailure end "Expected )")
 
 ||| Parse one complete token stream; trailing tokens are errors.
 ||| Budget limits recursive depth/argument chains, not elapsed time or memory.
