@@ -88,6 +88,10 @@
         "path": "docs/alternatives.md"
       },
       {
+        "title": "Located frontend diagnostics",
+        "path": "docs/diagnostics.md"
+      },
+      {
         "title": "Ordinary core draft",
         "path": "docs/core-draft.md"
       },

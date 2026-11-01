@@ -64,6 +64,10 @@ counterexample must now evaluate and recheck. A generated two-variable context
 exercises branch discrepancies under unrestricted permissions before/after
 one step and full normalization; this samples admissibility, not exact usage equality.
 
+[Tests.Diagnostic](../test/src/Tests/Diagnostic.idr) and file CLI tests validate
+bounded escaped excerpts, scalar carets, line endings/EOF, preserved structured
+errors, and absence of guessed source spans for core failures.
+
 ## Hedgehog dependency
 
 Repository: https://github.com/stefan-hoeck/idris2-hedgehog

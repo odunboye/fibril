@@ -24,6 +24,13 @@ control policy, file-size limits, and concurrent-read limitations.
 See [checked reference evaluation](evaluation.md) for evaluation modes, budgets,
 post-reduction checks, and why this is not a backend runtime.
 
+## Source diagnostics
+
+Located frontend failures now include filename, line/column, a bounded source
+excerpt, and a caret. Tabs are shown as one space; coordinates count scalars, not
+terminal cells or UTF-16. Core failures have a filename but no fabricated source
+caret. See [diagnostics](diagnostics.md) for escaping, bounds, and API details.
+
 ## Follow the demo
 
 ```sh

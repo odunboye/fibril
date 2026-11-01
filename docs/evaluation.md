@@ -36,6 +36,11 @@ preservation proof or a justification of quantitative/cubical rules.
 PreparedRuntime is diagnostic data, not an unforgeable kernel certificate.
 Driver.Evaluate obtains it through the checking function, not arbitrary construction.
 
+Located frontend failures from eval use the same bounded
+[filename/excerpt/caret diagnostics](diagnostics.md) as check. Type/resource and
+reduction failures remain unlocated rather than receiving guessed spans. The
+structured source-evaluation API retains error provenance without checking twice.
+
 ## Budgets and failures
 
 Default evaluation fuel is 128. The CLI accepts decimal 0..4096 through --fuel;

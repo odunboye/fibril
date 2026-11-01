@@ -63,6 +63,13 @@ metadata; establish stable baselines before optimizing or imposing thresholds. [
 encourage explicit allocation/failure and readable resource contracts, without
 making fast builds less trustworthy.
 
+## Exercise the diagnostic boundary
+
+[Diagnostic tests](../diagnostics.md) distinguish positional frontend failures
+from unlocated core errors. Check CRLF, EOF and tabs as scalar positions; never
+infer UTF-16 indices or terminal-cell widths from those columns. File drivers
+preserve structured failures and add excerpts without rerunning the checker.
+
 ## Exercise
 
 Propose a failing test that distinguishes an erased-valid function from a

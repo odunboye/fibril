@@ -7,6 +7,7 @@ import Fibril.Driver.Check
 import Fibril.Driver.Evaluate
 import Fibril.Source.File
 import Fibril.Source.Lexer
+import Fibril.Source.Diagnostic
 
 %default total
 
@@ -69,12 +70,12 @@ main = do
       loaded <- loadSource path
       case loaded of
         Left err => do
-          putStrLn (show err)
+          putStrLn (renderFileError path (show err))
           exitFailure
         Right source =>
           case lexSource source of
             Left err => do
-              putStrLn (show err)
+              putStrLn (renderDriverError path source (FrontendFailure (Lexical err)))
               exitFailure
             Right tokens => traverse_ (putStrLn . show) tokens
     ["validate-source", path] => do
@@ -82,7 +83,7 @@ main = do
       case result of
         Right _ => putStrLn "Source text valid (UTF-8 and control policy only; not type checked)."
         Left err => do
-          putStrLn (show err)
+          putStrLn (renderFileError path (show err))
           exitFailure
     ["demo"] => printReport demoReport
     _ => do

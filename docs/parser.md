@@ -153,7 +153,10 @@ resolving an expression does not imply it is well typed.
 For example, Type 0 checks erased but is unsupported as a direct runtime value.
 These modes expose prototype judgments; they are not a separate proof language.
 
-Lexing, parsing, and resolution errors retain scalar positions. Core typing and
+Lexing, parsing, and resolution errors retain scalar positions. File commands
+now print bounded [filename/excerpt/caret diagnostics](diagnostics.md) without
+reparsing. Plain-string library APIs remain available alongside structured driver
+errors. Core typing and
 usage errors do not yet map back to exact source spans. The driver uses parser
 budget 256, checking depth 256, and reduction fuel 128. Exhaustion is failure;
 these budgets and the file byte limit are not time/memory guarantees.
@@ -174,6 +177,6 @@ CLI tests check actual files and explicit erased-mode behavior.
 
 The initial parser is total through a decreasing recursion budget. It is not an
 optimized incremental parser, Unicode identifier implementation, package loader,
-or a formally verified frontend. Next steps include richer source diagnostics and
+or a formally verified frontend. Next steps include core-to-source provenance, ranged diagnostics, and
 a designed declaration layer, while cubical/quantitative rules remain separate
 foundational work.

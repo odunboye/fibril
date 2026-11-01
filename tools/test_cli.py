@@ -119,11 +119,41 @@ class CLITests(unittest.TestCase):
             path.write_text("missing", encoding="utf-8")
             result = run("check", str(path))
             self.assertNotEqual(result.returncode, 0)
-            self.assertIn("Resolution: 1:1", result.stdout)
+            self.assertIn(f"{path}:1:1: Resolution:", result.stdout)
+            self.assertIn("  1 | missing", result.stdout)
+            self.assertIn("^", result.stdout)
             path.write_text("Type", encoding="utf-8")
             result = run("check", str(path))
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("Parsing:", result.stdout)
+
+    def test_located_source_diagnostics(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "bad.fib"
+            path.write_bytes(b"-- comment\r\n\tmissing")
+            for command in ("check", "eval"):
+                with self.subTest(command=command):
+                    result = run(command, str(path))
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn(f"{path}:2:2: Resolution:", result.stdout)
+                    self.assertIn("  2 |  missing", result.stdout)
+                    self.assertIn("    |  ^", result.stdout)
+            path.write_text("if True then ()", encoding="utf-8")
+            result = run("check", str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn(f"{path}:1:16: Parsing:", result.stdout)
+            self.assertIn("Expected else", result.stdout)
+            self.assertIn("^", result.stdout)
+            path.write_text("@", encoding="utf-8")
+            result = run("lex-source", str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn(f"{path}:1:1: Lexing:", result.stdout)
+            self.assertIn("  1 | @", result.stdout)
+            path.write_text("Bool", encoding="utf-8")
+            result = run("check", str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn(f"{path}: Runtime checking:", result.stdout)
+            self.assertNotIn("^", result.stdout)
 
     def test_boolean_program(self):
         result = run("eval", "examples/core/boolean.fib")

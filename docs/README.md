@@ -11,6 +11,8 @@ The generated homepage separates teaching chapters, references, and project reco
 
 ## Reference index
 
+- [Located frontend diagnostics](diagnostics.md): bounded excerpts and structured driver errors.
+
 - [Permission joins](alternatives.md): local proof and branching admissibility.
 
 - [Booleans and conservative branching](boolean.md): checked alternatives without general subusage joining.
