@@ -3,6 +3,7 @@ module Tests.Main
 import Fibril.Core.Quantity
 import Fibril.Foundation.DeMorgan.Interval
 import Fibril.Foundation.DeMorgan.NormalForm
+import Fibril.Foundation.DeMorgan.Face
 import System
 import Data.List
 
@@ -10,7 +11,28 @@ import Data.List
 
 checks : List (String, Bool)
 checks =
-  [ ("symbolic involution", equivalent (Reverse (Reverse (Var 0))) (Var 0))
+  [ ("face contradiction", equivalentFace
+      (Conjunction (Endpoint 0 False) (Endpoint 0 True)) Bottom)
+  , ("face endpoints not exhaustive", not (equivalentFace
+      (Disjunction (Endpoint 0 False) (Endpoint 0 True)) Top))
+  , ("face conjunction entails factor", entails
+      (Conjunction (Endpoint 0 False) (Endpoint 1 True)) (Endpoint 0 False))
+  , ("face disjunction not entails factor", not (entails
+      (Disjunction (Endpoint 0 False) (Endpoint 1 True)) (Endpoint 0 False)))
+  , ("face bottom entails anything", entails Bottom (Endpoint 0 False))
+  , ("face top not entails endpoint", not (entails Top (Endpoint 0 False)))
+  , ("face absorption", equivalentFace
+      (Disjunction (Endpoint 0 False)
+        (Conjunction (Endpoint 0 False) (Endpoint 1 True))) (Endpoint 0 False))
+  , ("face distribution", equivalentFace
+      (Conjunction (Endpoint 0 False) (Disjunction (Endpoint 1 False) (Endpoint 2 True)))
+      (Disjunction (Conjunction (Endpoint 0 False) (Endpoint 1 False))
+                   (Conjunction (Endpoint 0 False) (Endpoint 2 True))))
+  , ("face inconsistent branch eliminated", equivalentFace
+      (Disjunction (Conjunction (Endpoint 0 False) (Endpoint 0 True))
+                   (Endpoint 1 True)) (Endpoint 1 True))
+  , ("face distinct dimensions", not (entails (Endpoint 0 False) (Endpoint 1 False)))
+  , ("symbolic involution", equivalent (Reverse (Reverse (Var 0))) (Var 0))
   , ("symbolic De Morgan", equivalent (Reverse (Meet (Var 0) (Var 1)))
       (Join (Reverse (Var 0)) (Reverse (Var 1))))
   , ("symbolic absorption", equivalent (Join (Var 0) (Meet (Var 0) (Var 1))) (Var 0))
@@ -49,7 +71,7 @@ main : IO ()
 main = do
   let failed = filter (not . snd) checks
   case failed of
-    [] => putStrLn "Bootstrap quantity and interval tests passed."
+    [] => putStrLn "Bootstrap quantity, interval, and face tests passed."
     _ => do
       traverse_ (putStrLn . fst) failed
       exitFailure

@@ -26,8 +26,14 @@ generators using De Morgan laws. Complementary literals are not cancelled.
 This reference algorithm can grow exponentially; it is not a performance claim
 or a formal proof of correctness.
 
-This syntax is not yet integrated with term typing. It supplies no face solver,
-term conversion procedure, universe rules, composition, or Glue.
+Face.idr separately implements face formulas, equality, and entailment using
+consistent absorbed DNF clauses. Opposite endpoints are disjoint, but their join
+is not Top. Entailment checks that each premise clause contains a conclusion
+clause. This is a reference algorithm with potentially exponential growth;
+formal verification and broader property testing remain open.
+
+These structures are not yet integrated with term typing. There is no
+term conversion procedure, universe checking, composition, or Glue.
 
 The interval is a free De Morgan algebra, not a Boolean algebra. In particular,
 do not add the general equations i ∨ ~i = 1 or i ∧ ~i = 0. Checking all Boolean
@@ -56,7 +62,7 @@ checker a sound quantitative cubical theory without supporting arguments.
 ## Next implementation gates
 
 1. Symbolic interval equality: implemented with law/regression tests; formal verification and broader property testing remain open.
-2. Explicit face syntax and a justified entailment procedure.
+2. Face syntax and DNF entailment: implemented with regression tests; interval-to-face substitution and scoped dimensions remain to be added.
 3. A documented core grammar, contexts, universes, and ordinary typing rules.
 4. Path checking and evaluation, with quantities gated on explicit rules.
 5. Composition, Glue, and a computational univalence example.
