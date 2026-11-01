@@ -74,6 +74,10 @@ functions. Only run executes the IO description's prepared stdout requests.
 map function, then branches on it to produce a second write. Mapping preserves
 output order and does not execute effects during checking/reference evaluation.
 
+`do-bindings.fib` names String/Bool IO results with `(1 name : Type) <- action`.
+Names scope over subsequent statements, are consumed exactly once, and lower to
+existing core Bind. Bound blocks currently return IO Unit.
+
 ## Proposed Fibril programs
 
 `proposed/` illustrates the intended user experience, from hello world and

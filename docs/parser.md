@@ -28,7 +28,8 @@ This checks source; it does not compile or run a Fibril executable.
 ## Grammar
 
     expr        ::= doExpr | ifExpr | caseExpr | letExpr | lambda | dependentPi | application [ "->" expr ]
-    doExpr      ::= "do" newline { alignedIndentedUnitAction }
+    doExpr      ::= "do" newline { alignedIndentedStatement }
+    statement   ::= expr | "(" "1" name ":" expr ")" "<-" expr
     ifExpr      ::= "if" expr "then" expr "else" expr
     caseExpr    ::= "case" expr "of" "(" ")" "=>" expr
     letExpr     ::= "let" binder "=" expr "in" expr
@@ -57,6 +58,9 @@ Quoted strings are now ordinary [String values](strings.md); String is a builtin
 type in Type0. [IO functions](console-runner.md) use this same expression parser:
 putStrLn is an ordinary checked prelude definition, not syntax. Flat do sequences
 Unit-returning actions through linear core Bind/UnitCase continuations.
+Typed result bindings `(1 name : A) <- action` introduce a linear name into the
+remaining statements; their blocks currently return IO Unit. Annotation/action
+resolve outside the new binder. A final binding without a following action fails.
 
 ## Primitive data
 

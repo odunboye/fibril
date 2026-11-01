@@ -67,6 +67,11 @@ resolveInWith globals env (NSequence span first rest) = do
   following <- resolveInWith globals env rest
   Right (IOBind UnitType UnitType action
     (Lambda Linear UnitType (UnitCase (Variable FZ) (weaken following))))
+resolveInWith globals env (NDoBind span name domain action body) = do
+  ty <- resolveInWith globals env domain
+  action <- resolveInWith globals env action
+  body <- resolveInWith globals (name :: env) body
+  Right (IOBind ty UnitType action (Lambda Linear ty body))
 -- Checking an identity application enforces the expected domain using existing
 -- typing/compatibility rules. Linear use preserves the term's runtime usage.
 resolveInWith globals env (NAscribe span term expected) = do

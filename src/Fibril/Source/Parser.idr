@@ -115,11 +115,23 @@ literalValue token = do
     [] => Right decoded.value
     _ => Left (ParseFailure token.span.start "Malformed string token")
 
-sequenceExpressions : Position -> Expr -> List Expr -> Expr
-sequenceExpressions start first [] = withExtent (Between start (extent first).finish) first
-sequenceExpressions start first (next :: rest) =
-  let body = sequenceExpressions (extent next).start next rest
-   in NSequence (Between start (extent body).finish) first body
+data DoStatement = Action Expr | Binding SourceSpan String Expr Expr
+
+statementExtent : DoStatement -> SourceSpan
+statementExtent (Action action) = extent action
+statementExtent (Binding span _ _ _) = span
+
+sequenceExpressions : Position -> DoStatement -> List DoStatement -> Either ParseError Expr
+sequenceExpressions start (Action first) [] =
+  Right (withExtent (Between start (extent first).finish) first)
+sequenceExpressions start (Binding span _ _ _) [] =
+  Left (ParseFailure span.start "do binding requires a following action")
+sequenceExpressions start first (next :: rest) = do
+  body <- sequenceExpressions (statementExtent next).start next rest
+  let span = Between start (extent body).finish
+  case first of
+    Action action => Right (NSequence span action body)
+    Binding _ name domain action => Right (NDoBind span name domain action body)
 
 mutual
   expression : Nat -> Position -> List Token -> Either ParseError (Expr, List Token)
@@ -138,7 +150,9 @@ mutual
                                                       token.span.start.line rest
                    case actions of
                      [] => Left (ParseFailure end "do block requires at least one action")
-                     first :: rest => Right (sequenceExpressions token.span.start first rest, remaining)
+                     first :: rest => do
+                       body <- sequenceExpressions token.span.start first rest
+                       Right (body, remaining)
         else if token.kind == IfKeyword then do
           (condition, afterCondition) <- expression depth end rest
           (_, afterThen) <- expect ThenKeyword end afterCondition
@@ -186,8 +200,25 @@ mutual
             [] => Right (domain, [])
       [] => Left (ParseFailure end "Expected expression")
 
+  doStatement : Nat -> Position -> List Token -> Either ParseError (DoStatement, List Token)
+  doStatement depth end tokens@(opening :: _) =
+    if opening.kind == OpenParen && any (\token => token.kind == BindArrow) tokens
+       then do
+         header <- binder depth end tokens
+         if header.quantity /= Linear
+            then Left (ParseFailure header.span.start "do result bindings require explicit quantity 1")
+            else Right ()
+         (_, afterArrow) <- expect BindArrow end header.remaining
+         (action, rest) <- expression depth end afterArrow
+         Right (Binding (Between header.span.start (extent action).finish)
+                        header.name header.domain action, rest)
+       else do
+         (action, rest) <- expression depth end tokens
+         Right (Action action, rest)
+  doStatement depth end [] = Left (ParseFailure end "Expected do statement")
+
   doActions : Nat -> Nat -> Position -> Nat -> Nat -> List Token ->
-              Either ParseError (List Expr, List Token)
+              Either ParseError (List DoStatement, List Token)
   doActions depth budget end column previous [] = Right ([], [])
   doActions depth Z end column previous tokens@(token :: _) =
     if token.span.start.column < column then Right ([], tokens)
@@ -199,11 +230,11 @@ mutual
        else do
          let (chunk, remaining) = Data.List.span
                (\item => item.span.start.line == token.span.start.line) tokens
-         (action, trailing) <- expression depth (atInput end remaining) chunk
+         (action, trailing) <- doStatement depth (atInput end remaining) chunk
          case trailing of
            extra :: _ => Left (ParseFailure extra.span.start "Unexpected tokens after do action")
            [] => do
-             (actions, rest) <- doActions depth budget end column (extent action).finish.line remaining
+             (actions, rest) <- doActions depth budget end column (statementExtent action).finish.line remaining
              Right (action :: actions, rest)
 
   -- A binder domain is parsed before adding the name to any scope.

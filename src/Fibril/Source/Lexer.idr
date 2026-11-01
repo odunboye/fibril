@@ -9,7 +9,7 @@ import Fibril.Source.StringLiteral
 
 ||| Token categories for the initial explicitly annotated expression grammar.
 public export
-data TokenKind = Name | Number | StringToken | StringKeyword | TypeKeyword | UnitKeyword | BoolKeyword | TrueKeyword | FalseKeyword | IfKeyword | ThenKeyword | ElseKeyword | DoKeyword | CaseKeyword | OfKeyword | LetKeyword | InKeyword | Equals | OpenParen | CloseParen | Colon | Arrow | BodyArrow | Lambda
+data TokenKind = Name | Number | StringToken | StringKeyword | TypeKeyword | UnitKeyword | BoolKeyword | TrueKeyword | FalseKeyword | IfKeyword | ThenKeyword | ElseKeyword | DoKeyword | CaseKeyword | OfKeyword | LetKeyword | InKeyword | Equals | OpenParen | CloseParen | Colon | Arrow | BindArrow | BodyArrow | Lambda
 
 public export
 Show TokenKind where
@@ -35,6 +35,7 @@ Show TokenKind where
   show CloseParen = ")"
   show Colon = ":"
   show Arrow = "->"
+  show BindArrow = "<-"
   show BodyArrow = "=>"
   show Lambda = "lambda"
 
@@ -62,6 +63,7 @@ Eq TokenKind where
   CloseParen == CloseParen = True
   Colon == Colon = True
   Arrow == Arrow = True
+  BindArrow == BindArrow = True
   BodyArrow == BodyArrow = True
   Lambda == Lambda = True
   _ == _ = False
@@ -134,6 +136,10 @@ scan (S fuel) at ('-' :: '-' :: rest) =
    in scan fuel (advancePosition at ('-' :: '-' :: comment)) remaining
 scan (S fuel) at ('-' :: '>' :: rest) = do
   let token = emit at Arrow ['-', '>']
+  tokens <- scan fuel token.span.finish rest
+  Right (token :: tokens)
+scan (S fuel) at ('<' :: '-' :: rest) = do
+  let token = emit at BindArrow ['<', '-']
   tokens <- scan fuel token.span.finish rest
   Right (token :: tokens)
 scan (S fuel) at ('=' :: '>' :: rest) = do

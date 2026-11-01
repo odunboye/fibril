@@ -18,7 +18,7 @@
         <keyword String="consoleKeywords" attribute="Keyword"/>
         <RegExpr String="\b[01](?=\s+[A-Za-z_][A-Za-z0-9_']*\s*:)" attribute="Quantity"/>
         <RegExpr String="[0-9]+" attribute="Number"/>
-        <RegExpr String="-&gt;|=&gt;|[\\=:λ→⇒]" attribute="Operator"/>
+        <RegExpr String="&lt;-|-&gt;|=&gt;|[\\=:λ→⇒]" attribute="Operator"/>
         <RegExpr String="[A-Za-z_][A-Za-z0-9_']*" attribute="Normal"/>
       </context>
       <context name="Comment" attribute="Comment" lineEndContext="#pop"/>

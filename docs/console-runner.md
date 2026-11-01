@@ -117,13 +117,37 @@ main = do
 do is now ordinary expression syntax, not part of a separate console entry
 parser. Flat action lines are aligned, indented beyond column one, and each
 action expression fits on one source line. Comments and blank lines are allowed.
-At most 64 statements are accepted per block; empty/nested blocks and <- syntax
-are not implemented.
+At most 64 statements are accepted per block, counting both bindings and bare
+actions; empty/nested blocks are not implemented.
 
 Sequencing lowers to core Bind over Unit, with a linear continuation that
 explicitly consumes the previous Unit through UnitCase. No returned linear
-value is silently dropped. For non-Unit results, use the checked bind function
-and annotate the continuation's result parameter with quantity 1.
+value is silently dropped.
+
+Typed result bindings are also supported:
+
+~~~fib
+main : IO Unit
+main = do
+  (1 message : String) <- pure String "A named result."
+  putStrLn message
+~~~
+
+The explicit type and quantity 1 are required. A binding introduces its name only
+in subsequent statements, not its annotation or action. Shadowing uses the old
+binding on the right-hand side and the new binding afterwards. The bound result
+must be consumed exactly once; Unit results need an explicit case if named.
+A binding cannot be the final statement.
+
+This syntax lowers to IOBind A Unit action (Lambda Linear A body), using the
+same core rules as explicit bind; it adds no primitive or trusted inference.
+Consequently blocks containing a result binding currently return IO Unit.
+For other final result types, use explicit bind. Bare sequencing likewise requires
+Unit intermediate results. General result inference, dependent bind, unannotated
+bindings, and nested/multiline statements remain future work.
+
+[do-bindings.fib](../examples/core/do-bindings.fib) demonstrates String and Bool
+bindings, mixing named results with bare actions and consuming a mapped result.
 
 Functions, local bindings, ordinary declaration files, and higher-order
 applications can produce descriptions. User declaration values still have the

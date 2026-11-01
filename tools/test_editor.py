@@ -30,6 +30,7 @@ FIXTURE = [
     "main = do",
     "do'",
     "message : String",
+    '  (1 text : String) <- pure String "value"',
 ]
 
 
@@ -88,6 +89,8 @@ QUERIES = [
     (point(16, "do"), "fibrilConsoleKeyword"),
     (point(17, "do'"), ""),
     (point(18, "String"), "fibrilType"),
+    (point(19, "<-"), "fibrilOperator"),
+    (point(19, "<-", 1), "fibrilOperator"),
 ]
 
 

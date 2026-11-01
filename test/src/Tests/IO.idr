@@ -10,6 +10,8 @@ import Fibril.Core.Runtime
 import Fibril.Core.Reduction
 import Fibril.Core.WeakHead
 import Fibril.Effect.Console
+import Fibril.Source.Lexer
+import Fibril.Source.Text
 import Fibril.Source.Global
 import Fibril.Source.Primitive
 import Fibril.Driver.Check
@@ -42,7 +44,13 @@ primitiveValid entry =
 public export
 checks : List (String, Bool)
 checks =
-  [ ("IO primitives match their declared types", all primitiveValid primitiveGlobals)
+  [ ("IO binding arrow has its own located token",
+      case lexSource "<- ->" of
+        Right [binding, function] => binding.kind == BindArrow && function.kind == Arrow &&
+          binding.span.start.offset == 0 && binding.span.finish.offset == 2 &&
+          function.span.start.offset == 3
+        _ => False)
+  , ("IO primitives match their declared types", all primitiveValid primitiveGlobals)
   , ("IO prelude is parsed and checked",
       case preludeGlobals of Right _ => True; Left _ => False)
   , ("putStrLn is absent from primitive name table",
@@ -101,6 +109,35 @@ checks =
       not (accepted False "main : IO Unit\nmain = map String (IO Unit) putStrLn (pure String \"nested\")"))
   , ("IO map returned descriptions need explicit bind",
       planned "main : IO Unit\nmain = bind (IO Unit) Unit (map String (IO Unit) putStrLn (pure String \"nested\")) (\\(1 action : IO Unit) => action)" == Just ["nested"])
+  , ("IO do names a returned String",
+      planned "main : IO Unit\nmain = do\n  (1 text : String) <- pure String \"named\"\n  putStrLn text" == Just ["named"])
+  , ("IO do binding can feed a later binding",
+      planned "main : IO Unit\nmain = do\n  (1 flag : Bool) <- pure Bool True\n  (1 text : String) <- pure String (if flag then \"yes\" else \"no\")\n  putStrLn text" == Just ["yes"])
+  , ("IO do binding shadows only in subsequent statements",
+      planned "text : String\ntext = \"outer\"\nmain : IO Unit\nmain = do\n  (1 text : String) <- pure String text\n  putStrLn text" == Just ["outer"])
+  , ("IO do same-name binding uses the previous value on its RHS",
+      planned "main : IO Unit\nmain = do\n  (1 value : Bool) <- pure Bool True\n  (1 value : String) <- pure String (if value then \"shadowed\" else \"no\")\n  putStrLn value" == Just ["shadowed"])
+  , ("IO do binding annotations do not see the new name",
+      not (accepted False "main : IO Unit\nmain = do\n  (1 value : value) <- pure String \"bad\"\n  putStrLn value"))
+  , ("IO do binding RHS does not see the new name",
+      not (accepted False "main : IO Unit\nmain = do\n  (1 value : String) <- pure String value\n  putStrLn value"))
+  , ("IO do binding cannot see forward references",
+      not (accepted False "main : IO Unit\nmain = do\n  putStrLn later\n  (1 later : String) <- pure String \"late\"\n  putStrLn later"))
+  , ("IO do requires explicit linear bindings",
+      not (accepted False "main : IO Unit\nmain = do\n  (text : String) <- pure String \"bad\"\n  putStrLn text") &&
+      not (accepted False "main : IO Unit\nmain = do\n  (0 text : String) <- pure String \"bad\"\n  putStrLn text"))
+  , ("IO do rejects missing continuation",
+      not (accepted False "main : IO Unit\nmain = do\n  (1 text : String) <- pure String \"last\""))
+  , ("IO do rejects discarded named results",
+      not (accepted False "main : IO Unit\nmain = do\n  (1 text : String) <- pure String \"unused\"\n  pure Unit ()"))
+  , ("IO do rejects duplicated named results",
+      not (accepted False "main : IO Unit\nmain = do\n  (1 text : String) <- pure String \"twice\"\n  putStrLn text\n  putStrLn text"))
+  , ("IO do validates the annotated action result",
+      not (accepted False "main : IO Unit\nmain = do\n  (1 text : String) <- pure Bool True\n  putStrLn text"))
+  , ("IO do bound blocks currently return Unit",
+      not (accepted False "main : IO Bool\nmain = do\n  (1 flag : Bool) <- pure Bool True\n  pure Bool flag"))
+  , ("IO do Unit bindings need explicit consumption",
+      planned "main : IO Unit\nmain = do\n  (1 done : Unit) <- putStrLn \"first\"\n  case done of () => putStrLn \"second\"" == Just ["first", "second"])
   , ("IO helpers are ordinary declarations",
       planned "say : (1 x : String) -> IO Unit\nsay = \\(1 x : String) => putStrLn x\nmain : IO Unit\nmain = say \"helper\"" == Just ["helper"])
   , ("IO linear result cannot be discarded",

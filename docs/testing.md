@@ -144,6 +144,12 @@ IO map regressions additionally cover ordinary-library identity/composition exam
 output order, captured linear values, invalid result usage/function quantities, and
 explicit rather than implicit flattening of nested IO descriptions.
 
+Typed do-binding regressions check annotation/RHS scope, sequential visibility,
+shadowing, mandatory linear quantities, missing continuations, wrong action/result
+types, explicit Unit consumption, and rejection of discarded/duplicated results.
+CLI tests check exact output and no prefix on late binding failures, including
+original source carets for unresolved names.
+
 ## Hedgehog dependency
 
 Repository: https://github.com/stefan-hoeck/idris2-hedgehog

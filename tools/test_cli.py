@@ -192,6 +192,43 @@ class CLITests(unittest.TestCase):
         self.assertEqual(result.stdout, "")
         self.assertIn("use eval", result.stderr)
 
+    def test_typed_do_bindings(self):
+        result = run("run", "examples/core/do-bindings.fib")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout,
+                         "A named Fibril IO result.\n"
+                         "The previous action completed.\n"
+                         "Typed do bindings work.\n")
+        result = run("check", "examples/core/do-bindings.fib")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Type: (IO Unit)", result.stdout)
+        result = run("eval", "examples/core/do-bindings.fib")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Normal:", result.stdout)
+        self.assertNotIn("\nTyped do bindings work.\n", result.stdout)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "binding.fib"
+            prefix = 'main : IO Unit\nmain = do\n  putStrLn "must not print"\n'
+            for tail in (
+                '  (1 text : String) <- pure Bool True\n  putStrLn text\n',
+                '  (1 text : String) <- pure String "unused"\n  pure Unit ()\n',
+                '  (1 text : String) <- pure String "twice"\n'
+                '  putStrLn text\n  putStrLn text\n',
+                '  (1 text : String) <- pure String text\n  putStrLn text\n',
+                '  (1 text : String) <- pure String "last"\n',
+            ):
+                with self.subTest(tail=tail):
+                    path.write_text(prefix + tail, encoding="utf-8")
+                    result = run("run", str(path))
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertEqual(result.stdout, "")
+                    self.assertIn(str(path), result.stderr)
+            path.write_text(prefix + '  (1 text : String) <- pure String missing\n'
+                            '  putStrLn text\n', encoding="utf-8")
+            result = run("run", str(path))
+            self.assertEqual(result.stdout, "")
+            self.assertIn(f"{path}:4:36: Resolution:", result.stderr)
+
     def test_io_map_is_a_checked_library_function(self):
         result = run("check", "examples/core/io-map.fib")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

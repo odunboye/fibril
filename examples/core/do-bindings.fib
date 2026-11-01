@@ -1,0 +1,7 @@
+-- Typed result bindings use the same linear core Bind as the library function.
+main : IO Unit
+main = do
+  (1 message : String) <- pure String "A named Fibril IO result."
+  putStrLn message
+  (1 finished : Bool) <- map Unit Bool (\(1 done : Unit) => case done of () => True) (putStrLn "The previous action completed.")
+  if finished then putStrLn "Typed do bindings work." else putStrLn "Unexpected result."
