@@ -167,6 +167,13 @@ failure, and independence from resolution/typing. CLI tests parse the versioned
 JSON, verify original-source slices with Unicode/CRLF, and ensure errors produce
 no partial JSON on stdout.
 
+Navigation tests use marked cursor/target fixtures for top-level order, parameter
+and Pi scopes, nearest shadowing, nonrecursive let/do RHSs, and block-result type
+annotations. Unicode/CRLF/tab cases check scalar positions; comments, strings,
+parentheses, wildcards, unknown/prelude names, and forward/self references miss.
+The pure API accepts unsaved Strings. CLI tests also cover invalid coordinates,
+malformed files, and missing paths, keeping error stdout empty.
+
 ## Hedgehog dependency
 
 Repository: https://github.com/stefan-hoeck/idris2-hedgehog

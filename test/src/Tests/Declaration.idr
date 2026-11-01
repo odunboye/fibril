@@ -8,6 +8,7 @@ import Fibril.Source.Lexer
 import Fibril.Source.Parser
 import Fibril.Source.Declaration
 import Fibril.Source.Symbol
+import Fibril.Source.Navigation
 import Fibril.Driver.Check
 import Fibril.Driver.Evaluate
 
@@ -34,7 +35,15 @@ program = "not : (1 flag : Bool) -> Bool\nnot = \\(1 flag : Bool) => if flag the
 public export
 checks : List (String, Bool)
 checks =
-  [ ("symbols retain signature and definition name spans",
+  [ ("navigation API accepts unsaved source",
+      case definitionAt "\\(1 x : Bool) => x" 1 18 of
+        Right (Just target) => target.start.column == 5
+        _ => False)
+  , ("navigation API reports no target for prelude names",
+      case definitionAt "putStrLn" 1 1 of
+        Right Nothing => True
+        _ => False)
+  , ("symbols retain signature and definition name spans",
       case documentSymbols "0 item : Bool\nitem = True\n" of
         Right [symbol] => symbol.name == "item" &&
           symbol.range.start.column == 1 && symbol.selection.start.column == 3 &&

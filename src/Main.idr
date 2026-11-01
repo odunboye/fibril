@@ -23,6 +23,7 @@ Usage:
   fibril --version
   fibril demo       Run built-in ordinary checking and cubical algebra examples
   fibril validate-source PATH   Validate UTF-8 and source controls (not typing)
+  fibril definition LINE COLUMN PATH  Same-file lexical target (scalar coordinates)
   fibril symbols PATH           JSON declaration ranges (syntax only, not checking)
   fibril lex-source PATH        Print source tokens/spans (not parsing/checking)
   fibril check PATH             Check a closed source program and runtime usage
@@ -55,6 +56,14 @@ fuelValue text =
                in if value <= 4096 then Just value else Nothing
          else Nothing
 
+coordinate : String -> Maybe Nat
+coordinate text =
+  let chars = unpack text
+   in if not (null chars) && length chars <= 6 && all (\c => c >= '0' && c <= '9') chars
+         then let value : Nat = foldl (\n, c => n * 10 + cast (ord c - ord '0')) 0 chars
+               in if value > 0 && value <= 65537 then Just value else Nothing
+         else Nothing
+
 main : IO ()
 main = do
   args <- getArgs
@@ -75,6 +84,15 @@ main = do
         Just fuel => runEval fuel path
         Nothing => do
           putStrLn "Fuel must be decimal 0..4096."
+          exitFailure
+    ["definition", line, column, path] => do
+      result <- case (coordinate line, coordinate column) of
+        (Just line, Just column) => definitionFile line column path
+        _ => pure (Left "Coordinates must be decimal 1..65537 (Unicode scalars).")
+      case result of
+        Right lines => traverse_ putStrLn lines
+        Left err => do
+          _ <- fPutStrLn stderr err
           exitFailure
     ["symbols", path] => do
       result <- symbolsFile path

@@ -17,6 +17,8 @@ Main -> {"Source.File" "Source.Lexer" "Source.Diagnostic"};
 "Source.Primitive" -> {"Source.Global" Term Quantity};
 "Source.Global" -> Term;
 "Driver.Check" -> {"Driver.Prelude" "Driver.Limits" Reduction};
+"Source.Navigation" -> {"Source.Symbol" "Source.Declaration" "Source.Parser" "Source.Lexer" "Source.Syntax"};
+"Driver.Symbols" -> "Source.Navigation";
 "Source.Symbol" -> {"Source.Declaration" "Source.Parser" "Source.Lexer" "Source.Text"};
 "Driver.Symbols" -> {"Source.Symbol" "Driver.Check" "Source.File" "Source.Diagnostic"};
 Main -> {"Driver.Symbols" "Driver.Check" "Driver.Evaluate" "Driver.Run"};

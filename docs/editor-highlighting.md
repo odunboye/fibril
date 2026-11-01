@@ -194,6 +194,43 @@ function/type kinds. This is not an LSP, reference index, stable symbol identity
 cross-file navigation, or semantic rename. The supplied definition-name span is
 a future navigation target, not resolution of references at cursor positions.
 
+## Same-file go-to-definition
+
+~~~sh
+./build/exec/fibril definition 12 12 examples/core/do-result.fib
+~~~
+
+The command takes one-based **scalar** line/column, then the source path.
+Success returns a version-1 JSON object using the symbols command's coordinate
+convention, with definition set to an exact target name span or null. A miss is
+not an error. Invalid coordinates, decoding failures, and malformed syntax fail
+with stderr diagnostics and empty stdout. CLI coordinates are decimal 1..65537,
+consistent with the bounded file loader.
+
+[Source.Navigation](../src/Fibril/Source/Navigation.idr) exposes definitionAt and
+documentReferences over source Strings for unsaved-buffer integrations. Navigation
+uses the parsed AST's scope structure plus original name-token spans, not a
+textual search for declarations. Top-level references target the definition
+header of an earlier declaration; signature names target their matching definition.
+Parameters and local bindings target their own name token.
+
+Scope matches the current nonrecursive frontend: types/values/actions of a
+binding use the preceding environment, its body/subsequent statements use the
+new binding, and nearest names shadow outer names. Pi/lambda binders, typed
+lets, do result bindings, pure do lets, and block-result annotations are covered.
+Wildcards, string/comment contents, punctuation, forward/self references without
+an outer binding, and prelude names have no same-file target. Group parentheses
+do not enlarge the clickable name range.
+
+This is lexical navigation, not proof that an occurrence is well typed or has a
+runtime permission. Complete but ill-typed source can still navigate. Malformed
+documents fail atomically; no partial-error recovery is implemented. There are
+no cross-file/prelude targets, stable symbol IDs, reference-at-project indexing,
+rename edits, editor transport, or LSP UTF-16 conversion yet. Clients must use
+the exact snapshot and convert coordinates before integrating with LSP.
+Token lookup during scope traversal is bounded by source/parser limits but is
+not optimized or a latency guarantee.
+
 ## Tests and next work
 
 ~~~sh

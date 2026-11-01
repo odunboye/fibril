@@ -5,6 +5,7 @@ import Fibril.Core.Quantity
 import Fibril.Source.Text
 import Fibril.Source.Lexer
 import Fibril.Source.Symbol
+import Fibril.Source.Navigation
 import Fibril.Source.File
 import Fibril.Source.Diagnostic
 import Fibril.Driver.Check
@@ -32,6 +33,21 @@ renderSymbols : List DocumentSymbol -> String
 renderSymbols symbols =
   "{\"version\":1,\"coordinates\":\"unicode-scalars;offset=0;line=1;column=1\",\"symbols\":[" ++
   concat (intersperse "," (map symbolJSON symbols)) ++ "]}"
+
+public export
+definitionFile : Nat -> Nat -> String -> IO (Either String (List String))
+definitionFile line column path = do
+  loaded <- loadSource path
+  pure $ case loaded of
+    Left err => Left (renderFileError path (show err))
+    Right source => case definitionAt source line column of
+      Right target => Right
+        ["{\"version\":1,\"coordinates\":\"unicode-scalars;offset=0;line=1;column=1\",\"definition\":" ++
+         maybe "null" spanJSON target ++ "}"]
+      Left (SymbolLexical err) =>
+        Left (renderDriverError path source (FrontendFailure (Lexical err)))
+      Left (SymbolParsing err) =>
+        Left (renderDriverError path source (FrontendFailure (Parsing err)))
 
 ||| No prelude installation, name resolution, type checking, or effect execution.
 public export

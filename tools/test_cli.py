@@ -193,6 +193,72 @@ class CLITests(unittest.TestCase):
         self.assertEqual(result.stdout, "")
         self.assertIn("use eval", result.stderr)
 
+    def test_same_file_lexical_definition(self):
+        # Mark cursor with @ and expected target with ^; neither reaches the parser.
+        fixtures = [
+            '@first : Bool\n^first = True\n',
+            'first : Bool\n^first = True\nmain : Bool\nmain = @first\n',
+            '(\\(1 ^value : String) => @value) "x"',
+            'let (1 text : String) = "outer" in let (1 ^text : String) = "inner" in @text',
+            'let (1 ^text : String) = "outer" in let (1 text : String) = @text in text',
+            'main : IO Unit\nmain = do\n  (1 ^message : String) <- pure String "x"\n  putStrLn @message\n',
+            'main : IO Unit\nmain = do\n  let (1 ^message : String) = "outer"\n  (1 message : String) <- pure String @message\n  putStrLn message\n',
+            'f : (0 A : Type 0) -> IO A\nf = \\(0 ^A : Type 0) => do (@A)\n  let (A : Bool) = True\n  pure Unit ()\n',
+            'f : (0 A : Type 0) -> IO A\nf = \\(0 A : Type 0) => do (A)\n  (1 ^A : Bool) <- pure Bool True\n  if @A then pure Unit () else pure Unit ()\n',
+            '-- λ 🌍\r\n0 item : String\r\n^item = "🌍"\r\nmain : String\r\nmain = (@item)\r\n',
+            'let (0 ignored : String) = "🌍" in let (1 ^text : String) = "x" in @text',
+            '(0 ^A : Type 0) -> (1 value : @A) -> A',
+            '\\(0 ^A : Type 0) => \\(1 A : @A) => A',
+            'first : Bool\n^first = True\nmain : Bool\nmain =\n\t@first\n',
+            # Unknown, forward, recursive, wildcard, comment/string, punctuation misses.
+            '@putStrLn "external"',
+            'main : Bool\nmain = @later\nlater : Bool\nlater = True\n',
+            'recursive : Bool\nrecursive = @recursive\n',
+            '\\(1 _ : String) => @_',
+            'let (1 text : String) = "x" in "literal @text"',
+            'let (1 text : String) = "x" in text -- @text',
+            'let (1 text : String) = "x" in @(text)',
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "navigation.fib"
+            for marked in fixtures:
+                with self.subTest(source=marked):
+                    chars, cursor, target = [], None, None
+                    for char in marked:
+                        if char == "@":
+                            cursor = len(chars)
+                        elif char == "^":
+                            target = len(chars)
+                        else:
+                            chars.append(char)
+                    source = "".join(chars)
+                    path.write_bytes(source.encode("utf-8"))
+                    line = source[:cursor].count("\n") + 1
+                    column = cursor - source.rfind("\n", 0, cursor)
+                    result = run("definition", str(line), str(column), str(path))
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertEqual(result.stderr, "")
+                    payload = json.loads(result.stdout)
+                    self.assertEqual(payload["version"], 1)
+                    if target is None:
+                        self.assertIsNone(payload["definition"])
+                    else:
+                        self.assertEqual(payload["definition"]["start"]["offset"], target)
+            for text in ("0", "-1", "65538", "abc", "999999999999"):
+                result = run("definition", text, "1", str(path))
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(result.stdout, "")
+                self.assertIn("Coordinates", result.stderr)
+            path.write_text("first : Bool\nfirst = True\nlater : Bool", encoding="utf-8")
+            result = run("definition", "2", "1", str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, "")
+            self.assertIn("Parsing", result.stderr)
+            path.unlink()
+            result = run("definition", "1", "1", str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, "")
+
     def test_document_symbols(self):
         result = run("symbols", "examples/core/io-map.fib")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
