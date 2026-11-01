@@ -6,7 +6,8 @@ Implemented:
 - `src/Fibril/Core/Quantity.idr`: quantity representation only, not a usage checker.
 - `src/Fibril/Foundation/DeMorgan/Interval.idr`: interval syntax, substitution, endpoint interpretation.
 - `src/Fibril/Foundation/DeMorgan/NormalForm.idr`: reference symbolic interval equality.
-- `src/Fibril/Foundation/DeMorgan/Face.idr`: separate face lattice and entailment.
+- `src/Fibril/Foundation/DeMorgan/Face.idr`: separate face lattice, entailment, endpoint extraction, and substitution.
+- `src/Fibril/Foundation/DeMorgan/Scope.idr`: checked dimension scoping, interval weakening/substitution/instantiation, and scoped face entailment.
 - `test/src/Tests/Main.idr`: quantity, interval, and face regression tests.
 
 Planned boundaries:

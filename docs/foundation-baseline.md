@@ -37,6 +37,14 @@ endpoint rules. Face substitution replaces dimension names by interval
 expressions. Tests check endpoint/substitution compatibility and endpoint
 disjointness over a small generated corpus; these are not formal proofs.
 
+Scope.idr adds dimension-count-indexed intervals and faces with Fin indices,
+checked conversion from raw Nat-labelled syntax, interval weakening, scoped
+substitution, and instantiation of the newest dimension. Index 0 denotes the
+newest dimension. Raw validation checks even algebraically redundant branches,
+so simplification cannot hide invalid references. Scoped face entailment reuses
+the reference solver after forgetting indices. Scoped face substitution remains
+future work; no term binding or computational-variable usage rules exist yet.
+
 These structures are not yet integrated with term typing. There is no
 term conversion procedure, universe checking, composition, or Glue.
 
@@ -67,7 +75,7 @@ checker a sound quantitative cubical theory without supporting arguments.
 ## Next implementation gates
 
 1. Symbolic interval equality: implemented with law/regression tests; formal verification and broader property testing remain open.
-2. Face syntax, entailment, and interval-to-face substitution: implemented with regression tests; scoped dimensions remain to be added.
+2. Face syntax, entailment, interval-to-face substitution, and basic scoped dimensions: implemented with regression tests. Scoped face substitution and term contexts remain open.
 3. A documented core grammar, contexts, universes, and ordinary typing rules.
 4. Path checking and evaluation, with quantities gated on explicit rules.
 5. Composition, Glue, and a computational univalence example.

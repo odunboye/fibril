@@ -4,6 +4,9 @@ import Fibril.Core.Quantity
 import Fibril.Foundation.DeMorgan.Interval
 import Fibril.Foundation.DeMorgan.NormalForm
 import Fibril.Foundation.DeMorgan.Face
+import Fibril.Foundation.DeMorgan.Scope
+import Data.Fin
+import Data.Maybe
 import System
 import Data.List
 
@@ -34,7 +37,26 @@ endpointDisjointLaw =
 
 checks : List (String, Bool)
 checks =
-  [ ("endpoint substitution corpus", endpointSubstitutionLaw)
+  [ ("closed interval accepts constants", isJust (scopeInterval 0 (Meet Zero One)))
+  , ("closed interval rejects variable", isNothing (scopeInterval 0 (Var 0)))
+  , ("dimension boundary accepted", isJust (scopeInterval 2 (Var 1)))
+  , ("dimension boundary rejected", isNothing (scopeInterval 2 (Var 2)))
+  , ("reject invalid dimension even in dead meet",
+      isNothing (scopeInterval 0 (Meet Zero (Var 5))))
+  , ("face scope accepted", isJust (scopeFace 1 (Endpoint 0 False)))
+  , ("face scope rejected", isNothing (scopeFace 1 (Endpoint 1 False)))
+  , ("dead face still scope checked",
+      isNothing (scopeFace 0 (Conjunction Bottom (Endpoint 0 False))))
+  , ("weakening shifts index", equivalent
+      (forgetInterval (weakenInterval (the (ScopedInterval 1) (Var FZ)))) (Var 1))
+  , ("instantiate newest dimension", equivalent
+      (forgetInterval (instantiate (the (ScopedInterval 1) One) (Var FZ))) One)
+  , ("instantiate retains older dimension", equivalent
+      (forgetInterval (instantiate (the (ScopedInterval 1) One) (Var (FS FZ)))) (Var 0))
+  , ("scoped face entailment", entailsScoped
+      (SConjunction (the (ScopedFace 1) (SEndpoint FZ False)) STop)
+      (SEndpoint FZ False))
+  , ("endpoint substitution corpus", endpointSubstitutionLaw)
   , ("endpoint disjointness corpus", endpointDisjointLaw)
   , ("endpoint of zero", equivalentFace (endpointFace Zero False) Top)
   , ("endpoint of one", equivalentFace (endpointFace One False) Bottom)
