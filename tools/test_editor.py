@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Optional real-editor checks; no plugin manager, network, or compiler needed."""
+"""Optional real-editor checks; navigation tests also use a locally built compiler."""
 import json
 from pathlib import Path
 import shutil
@@ -139,7 +139,83 @@ def inspect_editor(name, executable):
         return json.loads(report.read_text(encoding="utf-8"))
 
 
+def inspect_navigation(name, executable, line_ending="\n"):
+    with tempfile.TemporaryDirectory(prefix="fibril editor ") as directory:
+        directory = Path(directory)
+        fixture = directory / "saved 'quoted'; input.fib"
+        source = 'let (0 ignored : String) = "🌍e\u0301" in let (1 text : String) = "x" in text'
+        fixture.write_bytes((source + line_ending).encode("utf-8"))
+        origin = len(source[:source.rindex("text")].encode("utf-8")) + 1
+        target = len(source[:source.index("(1 text") + 3].encode("utf-8")) + 1
+        report = directory / "navigation.json"
+        invalid = directory / "invalid response"
+        invalid.write_text("#!/bin/sh\nprintf '%s\\n' 'not-json'\n", encoding="utf-8")
+        invalid.chmod(0o755)
+        script = directory / "navigate.vim"
+        script.write_text(
+            "set nocompatible\nset encoding=utf-8\nset nomore\n"
+            f"execute 'set runtimepath^=' . fnameescape({vim_literal(RUNTIME)})\n"
+            "filetype plugin on\n"
+            f"let g:fibril_executable = {vim_literal(ROOT / 'build/exec/fibril')}\n"
+            f"execute 'edit ' . fnameescape({vim_literal(fixture)})\n"
+            "let report = {'command': exists(':FibrilDefinition'),\n"
+            "\\ 'plug': !empty(maparg('<Plug>(FibrilDefinition)', 'n')),\n"
+            "\\ 'gd': maparg('gd', 'n')}\n"
+            f"call cursor(1, {origin})\n"
+            "let report.success = fibril#definition()\n"
+            "let report.target = col('.')\n"
+            f"call cursor(1, {origin})\n"
+            "FibrilDefinition\n"
+            "let report.command_target = col('.')\n"
+            "call cursor(1, 1)\n"
+            "let report.miss = fibril#definition()\n"
+            "let report.miss_position = col('.')\n"
+            "call setline(1, getline(1) . ' ')\n"
+            "let report.modified = fibril#definition()\n"
+            "edit!\n"
+            f"let saved_disk = readfile({vim_literal(fixture)}, 'b')\n"
+            f"call writefile(['different disk contents'], {vim_literal(fixture)})\n"
+            "let report.stale = fibril#definition()\n"
+            f"call writefile(saved_disk, {vim_literal(fixture)}, 'b')\n"
+            "let g:fibril_executable = '/nonexistent/fibril'\n"
+            "let report.missing = fibril#definition()\n"
+            f"let g:fibril_executable = {vim_literal(invalid)}\n"
+            "let report.invalid = fibril#definition()\n"
+            "execute b:undo_ftplugin\n"
+            "let report.undo_command = exists(':FibrilDefinition')\n"
+            "let report.undo_plug = maparg('<Plug>(FibrilDefinition)', 'n')\n"
+            f"call writefile([json_encode(report)], {vim_literal(report)})\n"
+            "qa!\n", encoding="utf-8")
+        flags = ["--headless", "-u", "NONE", "-i", "NONE", "-n"] if name == "nvim" else [
+            "-Nu", "NONE", "-i", "NONE", "-n", "-es"]
+        result = subprocess.run([executable, *flags, "-S", str(script)],
+                                capture_output=True, text=True, timeout=30, cwd=ROOT)
+        if result.returncode or not report.exists():
+            raise AssertionError(f"{name} navigation failed: {result.stdout}\n{result.stderr}")
+        return json.loads(report.read_text(encoding="utf-8")), target
+
+
 class EditorTests(unittest.TestCase):
+    def test_navigation_in_installed_editors(self):
+        if not (ROOT / "build/exec/fibril").exists():
+            self.skipTest("build Fibril first to test optional CLI navigation")
+        for name, executable in EDITORS:
+            for line_ending in ("\n", "\r\n"):
+                with self.subTest(editor=name, line_ending=line_ending):
+                    report, target = inspect_navigation(name, executable, line_ending)
+                    self.assertEqual(report["command"], 2)
+                    self.assertTrue(report["plug"])
+                    self.assertEqual(report["gd"], "")
+                    self.assertEqual(report["success"], 1)
+                    self.assertEqual(report["target"], target)
+                    self.assertEqual(report["command_target"], target)
+                    self.assertEqual(report["miss"], 0)
+                    self.assertEqual(report["miss_position"], 1)
+                    for field in ("modified", "stale", "missing", "invalid"):
+                        self.assertEqual(report[field], 0, field)
+                    self.assertEqual(report["undo_command"], 0)
+                    self.assertEqual(report["undo_plug"], "")
+
     def test_runtime_in_installed_editors(self):
         if not EDITORS:
             self.skipTest("Neovim/Vim not installed")

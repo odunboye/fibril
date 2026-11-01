@@ -174,6 +174,12 @@ parentheses, wildcards, unknown/prelude names, and forward/self references miss.
 The pure API accepts unsaved Strings. CLI tests also cover invalid coordinates,
 malformed files, and missing paths, keeping error stdout empty.
 
+Optional real-editor navigation tests run the saved-buffer command in both
+Neovim and Vim when a local compiler is built. They check UTF-8/combining scalar
+conversion, CRLF/Unix snapshots, quoted filenames, refusal of modified/stale
+buffers, malformed responses, missing executable, cursor preservation on misses,
+and buffer-local command/mapping cleanup without overriding gd.
+
 ## Hedgehog dependency
 
 Repository: https://github.com/stefan-hoeck/idris2-hedgehog

@@ -8,4 +8,9 @@ setlocal commentstring=--\ %s
 setlocal comments=:--
 setlocal iskeyword+=39
 
-let b:undo_ftplugin = 'setlocal commentstring< comments< iskeyword<'
+command! -buffer FibrilDefinition call fibril#definition()
+nnoremap <buffer> <silent> <Plug>(FibrilDefinition) :FibrilDefinition<CR>
+
+let b:undo_ftplugin = 'setlocal commentstring< comments< iskeyword<' .
+      \ ' | silent! delcommand -buffer FibrilDefinition' .
+      \ ' | silent! nunmap <buffer> <Plug>(FibrilDefinition)'

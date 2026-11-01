@@ -1,7 +1,8 @@
-# First Neovim and Vim highlighting
+# Neovim and Vim highlighting and navigation
 
 Status: implemented optional Vim-runtime package for the current Fibril subsets.
-No Tree-sitter grammar, LSP server, semantic tokens, or symbol navigation is added.
+Includes optional compiler-backed same-file navigation. No Tree-sitter grammar,
+LSP server, semantic tokens, or cross-file navigation is added.
 
 ## Try a clean Neovim session
 
@@ -147,7 +148,8 @@ read/new-buffer events without replacing an already assigned filetype.
 
 [ftplugin/fibril.vim](../editors/vim/ftplugin/fibril.vim) sets commentstring to
 -- %s, line-comment metadata, and apostrophe-aware word motion. It supplies the
-standard undo hook. It does not change indentation/formatting or add keybindings.
+standard undo hook and optional FibrilDefinition command/Plug mapping. It does
+not change indentation/formatting or override user keys such as gd.
 
 [syntax/fibril.vim](../editors/vim/syntax/fibril.vim) contains only lexical rules.
 Reload guards avoid duplicate setup. No editor code modifies core checking rules,
@@ -231,6 +233,68 @@ the exact snapshot and convert coordinates before integrating with LSP.
 Token lookup during scope traversal is bounded by source/parser limits but is
 not optimized or a latency guarantee.
 
+## Navigation from Neovim/Vim
+
+Build the compiler first, then configure its executable path:
+
+~~~lua
+vim.g.fibril_executable = "/absolute/path/to/fibril/build/exec/fibril"
+~~~
+
+For Vim, use let g:fibril_executable = '/absolute/path/to/fibril/build/exec/fibril'.
+The default is fibril on PATH. This setting is a single trusted executable path,
+not a shell command with arguments. No executable is discovered or installed
+automatically from a project.
+
+In a saved .fib buffer, place the cursor on a local reference and run:
+
+~~~vim
+:FibrilDefinition
+~~~
+
+The buffer-local command calls the compiler's definition service, validates the
+version/coordinate convention and target bounds, converts UTF-8 byte cursor
+columns to compiler scalar columns, then converts the returned target back to
+editor bytes (including combining scalars). A successful jump preserves the
+previous-context mark. No target or an error leaves the cursor unchanged.
+
+[autoload/fibril.vim](../editors/vim/autoload/fibril.vim) contains the adapter.
+It refuses modified/unnamed buffers, unsupported encodings/line endings, and
+buffers differing from disk; it never saves source or writes temporary source
+files. UTF-8 Unix and CRLF files are supported. The source file/buffer/window are
+checked again after the request to avoid common stale-result jumps. This is not
+a transaction against concurrent filesystem replacement.
+
+Each shell argument is individually quoted for Vim/Neovim portability, including
+paths with spaces/quotes. Compiler failures or malformed/unsupported JSON become
+warnings rather than jumps. Calls are synchronous, manually invoked, and can
+block the editor; there is no timeout, cancellation, or latency guarantee yet.
+
+The runtime adds a buffer-local <Plug>(FibrilDefinition) mapping but does not
+override gd or LazyVim's mappings. Optional Neovim setup:
+
+~~~lua
+vim.api.nvim_create_autocmd("FileType", {
+  pattern = "fibril",
+  callback = function()
+    vim.keymap.set("n", "gd", "<Plug>(FibrilDefinition)", {
+      buffer = true, remap = true, desc = "Fibril: same-file definition",
+    })
+  end,
+})
+~~~
+
+The equivalent optional Vim setup is:
+
+~~~vim
+autocmd FileType fibril nmap <buffer> gd <Plug>(FibrilDefinition)
+~~~
+
+The ftplugin undo hook removes its command and Plug mapping. User-created gd
+mappings remain the user's responsibility. The pure compiler APIs accept unsaved
+Strings, but this file-based adapter deliberately does not yet support unsaved
+buffers, outline UI, async jobs, or LSP transport.
+
 ## Tests and next work
 
 ~~~sh
@@ -245,9 +309,13 @@ Current local validation uses Neovim 0.12.5 and Vim 9.1.
 Tests cover strings/comments/escapes, quantities versus universe levels,
 apostrophe/keyword boundaries, Unicode operators, declaration headers, incomplete
 buffers, existing highlight/filetype preservation, reloads, and buffer-option undo.
-Editor columns in this test are UTF-8 bytes, unlike compiler scalar positions.
+When a local compiler is built, additional real-editor navigation tests check
+Unicode/combining columns, Unix/CRLF snapshots, quoted paths, command/Plug setup,
+no gd override, stale/modified refusal, missing compiler/malformed JSON, misses,
+and command/mapping undo. Those tests skip when the compiler is absent.
+Editor columns in these tests are UTF-8 bytes, unlike compiler scalar positions.
 
 Normal make test/build has no editor dependency. Future work is a grammar-backed
 incremental highlighter and compiler-provided semantic tokens/symbol identities.
-Go-to-definition, references, project-wide rename, LSP UTF-16 conversion, and
-Tree-sitter-based folding/selections remain unimplemented.
+Cross-file/prelude definitions, reference UI, project-wide rename, LSP UTF-16
+conversion, and Tree-sitter-based folding/selections remain unimplemented.
