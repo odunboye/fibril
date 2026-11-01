@@ -193,6 +193,53 @@ class CLITests(unittest.TestCase):
         self.assertEqual(result.stdout, "")
         self.assertIn("use eval", result.stderr)
 
+    def test_module_document_metadata(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "metadata.fib"
+            source = ("-- 🌍\r\nmodule Text.Greeting\r\nimport Data.String\r\n"
+                      "hidden : String\r\nhidden = \"data\"\r\n"
+                      "export\r\nvalue : String\r\nvalue = hidden\r\n")
+            path.write_bytes(source.encode("utf-8"))
+            result = run("symbols", str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            symbols = json.loads(result.stdout)["symbols"]
+            self.assertEqual([s["name"] for s in symbols], ["hidden", "value"])
+            self.assertEqual([s["exported"] for s in symbols], [False, True])
+            self.assertEqual(symbols[1]["range"]["start"]["line"], 6)
+            self.assertEqual(symbols[1]["selection"]["start"]["line"], 7)
+            for symbol in symbols:
+                span = symbol["selection"]
+                self.assertEqual(source[span["start"]["offset"]:span["end"]["offset"]], symbol["name"])
+            result = run("definition", "8", "9", str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            target = json.loads(result.stdout)["definition"]
+            self.assertEqual(target["start"]["line"], 5)
+            result = run("rename-preview", "8", "9", "renamed", str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, "")
+            self.assertIn("project-aware", result.stderr)
+            for args in (("check",), ("eval",), ("run",)):
+                result = run(*args, str(path))
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("Module loading is not implemented", result.stdout + result.stderr)
+            result = run("check", "--json", str(path))
+            diagnostic = json.loads(result.stdout)["diagnostics"][0]
+            self.assertEqual(diagnostic["position"]["line"], 2)
+            for source in (
+                "module A\nimport B\nimport B\n",
+                "module A\nmodule B\n",
+                "module A\nimport b\n",
+                "module A\nvalue : Bool\nvalue = True\nimport B\n",
+                "module A\nexport value : Bool\nvalue = True\n",
+                "export\nmain : Bool\nmain = True\n",
+                "module A\nexport\n",
+            ):
+                with self.subTest(source=source):
+                    path.write_text(source, encoding="utf-8")
+                    result = run("symbols", str(path))
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertEqual(result.stdout, "")
+
     def test_json_check_reports(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "checking.fib"

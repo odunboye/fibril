@@ -8,10 +8,10 @@ set cpo&vim
 " Apostrophes belong to ASCII identifiers; if' is not the keyword if.
 syntax iskeyword @,48-57,_,39
 
-syntax keyword fibrilKeyword let in case of if then else
+syntax keyword fibrilKeyword let in case of if then else module import export
 syntax keyword fibrilType Type Unit Bool String
 syntax keyword fibrilBoolean True False
-" These names only have builtin meaning in the restricted console profile.
+" IO/putStrLn are resolved names; do and module headers are syntax, not typing evidence.
 syntax keyword fibrilConsoleKeyword do
 syntax keyword fibrilConsoleType IO
 syntax keyword fibrilConsoleFunction putStrLn
@@ -19,7 +19,7 @@ syntax keyword fibrilConsoleFunction putStrLn
 syntax match fibrilNumber /\<[0-9]\+\>/
 syntax match fibrilQuantity /\<[01]\ze\s\+[A-Za-z_][A-Za-z0-9_']*\s*:/
 syntax match fibrilDeclaration /^\%([01]\s\+\)\?[A-Za-z_][A-Za-z0-9_']*\ze\s*\%(:\|=\%([>]\)\@!\)/ contains=fibrilQuantity
-syntax match fibrilOperator /<-\|->\|=>\|[\\=:λ→⇒]/
+syntax match fibrilOperator /<-\|->\|=>\|[\\=:λ→⇒.]/
 syntax match fibrilDelimiter /[()]/
 
 " Later valid-escape rules take precedence over the contained error match.

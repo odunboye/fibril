@@ -1,9 +1,44 @@
 # First local module/import implementation contract
 
-Status: design for the next implementation slice. **The loader, syntax, flags,
-visibility rules, and graph budgets below are not implemented.** Existing check,
-eval, run, navigation, and single-file declaration behavior remain unchanged.
-This page records the boundary to implement and test, not a claim of module support.
+Status: the shared **syntax/metadata parser** now recognizes module headers,
+imports, and export markers. **The filesystem loader, qualified value references,
+flags, semantic visibility rules, and graph budgets remain unimplemented.**
+check/eval/run explicitly reject module/import documents rather than treating
+headers as ignored metadata. This is not yet executable multi-file support.
+
+## Parsing progress
+
+[Source.Document](../src/Fibril/Source/Document.idr) owns one parsed-document
+representation for checking, symbols, and same-file navigation. It retains the
+original tokens, EOF point, optional module header, imports, and expression or
+declaration body. Module/import names retain component lists plus actual header
+and name spans. Declaration metadata retains export markers and exact signature/
+definition name selections.
+
+Headers are column-one, each on one physical line. Module components have uppercase
+ASCII initials and at most 16 components; keyword spellings such as String are
+allowed as module-name components. At most 32 direct imports are parsed, duplicate
+imports fail, and imports precede declarations. A named module has declarations,
+not a bare expression. Empty module/library fragments need no main for metadata.
+
+export occupies its own column-one line immediately before a signature/definition
+pair (comments/blank lines may intervene). Definitions are private by default.
+The marker requires a named module; it does not grant visibility or global
+permissions before the loader checks the module. Its full symbol range includes
+the modifier, but its selection remains the actual name token. symbols JSON now
+adds an exported Boolean indicating the parsed marker, not checked accessibility.
+
+Local declarations/parameters can be inspected with symbols/definition/references
+in a module document whose body uses the existing expression grammar. Imported/
+qualified targets are not resolved. Rename previews reject all module/import
+documents until project-aware scope/interface checks exist. The new reserved
+words are module, import, and export; dots currently belong to header names, not
+value projection or qualified value expressions.
+
+These services do not validate module/file identity, load dependencies, type-check
+modules, enforce private access, or accept the qualified call in the full proposed
+example below. The existing headerless program path still uses ordinary core
+checking and retains its regression suite.
 
 ## Why this comes next
 

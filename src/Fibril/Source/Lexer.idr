@@ -9,7 +9,7 @@ import Fibril.Source.StringLiteral
 
 ||| Token categories for the initial explicitly annotated expression grammar.
 public export
-data TokenKind = Name | Number | StringToken | StringKeyword | TypeKeyword | UnitKeyword | BoolKeyword | TrueKeyword | FalseKeyword | IfKeyword | ThenKeyword | ElseKeyword | DoKeyword | CaseKeyword | OfKeyword | LetKeyword | InKeyword | Equals | OpenParen | CloseParen | Colon | Arrow | BindArrow | BodyArrow | Lambda
+data TokenKind = Name | Number | StringToken | StringKeyword | TypeKeyword | UnitKeyword | BoolKeyword | TrueKeyword | FalseKeyword | IfKeyword | ThenKeyword | ElseKeyword | DoKeyword | CaseKeyword | OfKeyword | LetKeyword | InKeyword | ModuleKeyword | ImportKeyword | ExportKeyword | Dot | Equals | OpenParen | CloseParen | Colon | Arrow | BindArrow | BodyArrow | Lambda
 
 public export
 Show TokenKind where
@@ -30,6 +30,10 @@ Show TokenKind where
   show OfKeyword = "of"
   show LetKeyword = "let"
   show InKeyword = "in"
+  show ModuleKeyword = "module"
+  show ImportKeyword = "import"
+  show ExportKeyword = "export"
+  show Dot = "."
   show Equals = "="
   show OpenParen = "("
   show CloseParen = ")"
@@ -58,6 +62,10 @@ Eq TokenKind where
   OfKeyword == OfKeyword = True
   LetKeyword == LetKeyword = True
   InKeyword == InKeyword = True
+  ModuleKeyword == ModuleKeyword = True
+  ImportKeyword == ImportKeyword = True
+  ExportKeyword == ExportKeyword = True
+  Dot == Dot = True
   Equals == Equals = True
   OpenParen == OpenParen = True
   CloseParen == CloseParen = True
@@ -169,6 +177,9 @@ scan (S fuel) at (c :: rest) =
              "of" => OfKeyword
              "let" => LetKeyword
              "in" => InKeyword
+             "module" => ModuleKeyword
+             "import" => ImportKeyword
+             "export" => ExportKeyword
              _ => Name
        let token = emit at kind chars
        tokens <- scan fuel token.span.finish remaining
@@ -181,6 +192,7 @@ scan (S fuel) at (c :: rest) =
        Right (token :: tokens)
   else do
     kind <- case c of
+      '.' => Right Dot
       '(' => Right OpenParen
       ')' => Right CloseParen
       ':' => Right Colon

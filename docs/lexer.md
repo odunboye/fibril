@@ -26,11 +26,13 @@ Errors exit nonzero. Token output is diagnostic text, not a machine protocol.
 | Identifier | ASCII letter or underscore, followed by ASCII letters/digits/underscore/apostrophe |
 | String | Double quotes with quote/backslash/n/r/t escapes; raw line breaks/tabs and unknown escapes fail |
 | Natural digit sequence | One or more ASCII digits; spelling retained without integer conversion |
-| Keywords | Exactly Type, Unit, Bool, String, True, False, if, then, else, let, in, case, of; Type0, UnitValue, letter, inner remain identifiers |
+| Keywords | Exactly Type, Unit, Bool, String, True, False, if, then, else, let, in, case, of, do, module, import, export; Type0, UnitValue, letter, inner remain identifiers |
 | Grouping/annotation/binding | ( ) : = |
 | Lambda | Backslash or λ |
 | Function arrow | -> or → |
 | Body arrow | => or ⇒ |
+| IO result binding | <- |
+| Module-name separator | . (header metadata only; no value projection yet) |
 
 Unicode notation aliases share a token category but retain original spelling.
 No global rewriting occurs. Unsupported characters fail explicitly.
@@ -38,7 +40,7 @@ No global rewriting occurs. Unsupported characters fail explicitly.
 Whitespace (space/tab/LF/CR/CRLF) and -- line comments are skipped. Comments may
 contain ordinary Unicode text, but source-wide forbidden controls are still
 rejected. Strings retain raw spelling and feed the shared decoder for ordinary
-[String values](strings.md) and the separate [console profile](console-runner.md).
+[String values](strings.md) used by ordinary [IO functions](console-runner.md).
 There are no operators beyond this table, block comments, indentation tokens,
 or general Unicode identifiers yet.
 

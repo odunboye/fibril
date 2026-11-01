@@ -92,19 +92,11 @@ declarations tokens env (decl :: rest) =
 public export
 documentReferences : String -> Either SymbolError (List Reference)
 documentReferences source = do
-  tokens <- case lexSource source of
-    Left err => Left (SymbolLexical err)
-    Right tokens => Right tokens
-  let end = advancePosition (At 0 1 1) (unpack source)
-  case tokens of
-    [] => Right []
-    _ => if declarationAhead tokens
-      then case parseDeclarations 64 256 end tokens of
-        Left err => Left (SymbolParsing err)
-        Right values => Right (declarations tokens [] values)
-      else case parseExpression 256 end tokens of
-        Left err => Left (SymbolParsing err)
-        Right value => Right (walk tokens [] value)
+  document <- parseDocument 64 256 source
+  case document.body of
+    EmptyDocument => Right []
+    DeclarationDocument values => Right (declarations document.tokens [] values)
+    ExpressionDocument value => Right (walk document.tokens [] value)
 
 contains : Nat -> Nat -> SourceSpan -> Bool
 contains line column span = line == span.start.line &&

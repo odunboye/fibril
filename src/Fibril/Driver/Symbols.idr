@@ -21,7 +21,8 @@ symbolJSON : DocumentSymbol -> String
 symbolJSON symbol = jsonObject
   [("name", jsonString symbol.name), ("quantity", jsonString (show symbol.quantity)),
    ("range", spanJSON symbol.range), ("selection", spanJSON symbol.selection),
-   ("definitionSelection", spanJSON symbol.definitionSelection)]
+   ("definitionSelection", spanJSON symbol.definitionSelection),
+   ("exported", if symbol.exported then "true" else "false")]
 
 public export
 renderSymbols : List DocumentSymbol -> String
@@ -31,6 +32,7 @@ renameMessage : RenameError -> String
 renameMessage InvalidRenameName = "New name must be an ASCII identifier of 1..256 characters, not a keyword or wildcard"
 renameMessage NoRenameTarget = "No same-file rename target at the cursor"
 renameMessage RenameEntrypoint = "Renaming a top-level main entry, or creating one, is not supported"
+renameMessage RenameModuleUnsupported = "Module/import rename previews require project-aware checking; not implemented"
 renameMessage RenameSizeLimit = "Rename source or result exceeds the 65536-byte prototype limit"
 renameMessage RenameChangesScope = "Rename rejected: declarations or lexical resolution would change"
 renameMessage (RenameFrontend _) = "Rename source parsing failed"

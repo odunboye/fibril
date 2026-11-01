@@ -31,6 +31,9 @@ FIXTURE = [
     "do'",
     "message : String",
     '  (1 text : String) <- pure String "value"',
+    "module Text.Greeting",
+    "import Data.String",
+    "export",
 ]
 
 
@@ -91,6 +94,10 @@ QUERIES = [
     (point(18, "String"), "fibrilType"),
     (point(19, "<-"), "fibrilOperator"),
     (point(19, "<-", 1), "fibrilOperator"),
+    (point(20, "module"), "fibrilKeyword"),
+    (point(20, "."), "fibrilOperator"),
+    (point(21, "import"), "fibrilKeyword"),
+    (point(22, "export"), "fibrilKeyword"),
 ]
 
 

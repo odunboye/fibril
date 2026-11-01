@@ -17,6 +17,7 @@ record Declaration where
   span : SourceSpan
   nameSpan : SourceSpan
   definitionNameSpan : SourceSpan
+  exported : Bool
   quantity : Quantity
   name : String
   expected : Expr
@@ -32,10 +33,10 @@ expressionChunk : Nat -> List Token -> (List Token, List Token)
 expressionChunk headerLine =
   span (\token => token.span.start.line == headerLine || token.span.start.column > 1)
 
-parseOne : Nat -> Position -> List Token ->
+parsePair : Nat -> Position -> List Token ->
            Either ParseError (Declaration, List Token)
-parseOne expressionBudget end [] = Left (ParseFailure end "Expected declaration signature")
-parseOne expressionBudget end tokens@(first :: _) = do
+parsePair expressionBudget end [] = Left (ParseFailure end "Expected declaration signature")
+parsePair expressionBudget end tokens@(first :: _) = do
   if first.span.start.column /= 1
      then Left (ParseFailure first.span.start "Declaration headers must start in column 1")
      else Right ()
@@ -64,7 +65,22 @@ parseOne expressionBudget end tokens@(first :: _) = do
   let (valueTokens, remaining) = expressionChunk definedName.span.start.line afterEquals
   value <- parseExpression expressionBudget (nextPosition end remaining) valueTokens
   Right (Defined (Between first.span.start (extent value).finish)
-                 name.span definedName.span q name.spelling expected value, remaining)
+                 name.span definedName.span False q name.spelling expected value, remaining)
+
+
+parseOne : Nat -> Position -> List Token -> Either ParseError (Declaration, List Token)
+parseOne budget end tokens@(token :: rest) =
+  if token.kind == ExportKeyword then do
+    if token.span.start.column /= 1
+       then Left (ParseFailure token.span.start "export must start in column 1")
+       else Right ()
+    (decl, remaining) <- parsePair budget end rest
+    if decl.span.start.line <= token.span.start.line
+       then Left (ParseFailure decl.span.start "export must precede the signature on its own line")
+       else Right ()
+    Right ({ exported := True, span := Between token.span.start decl.span.finish } decl, remaining)
+  else parsePair budget end tokens
+parseOne budget end [] = parsePair budget end []
 
 parseAll : Nat -> Nat -> Position -> List String -> List Token ->
            Either ParseError (List Declaration)
@@ -89,6 +105,7 @@ parseDeclarations budget expressionBudget end = parseAll budget expressionBudget
 -- Synthetic entry reference is at EOF; all lowered let extents stay ordered.
 -- Presence of main is checked before lowering; no source location is invented
 -- for a core typing error or for a nonexistent entry.
+public export
 lowerDeclarations : Position -> List Declaration -> Expr
 lowerDeclarations end [] = NRef (Between end end) "main"
 lowerDeclarations end (decl :: rest) =
@@ -100,6 +117,7 @@ declarationAhead : List Token -> Bool
 declarationAhead (Located Name _ _ :: Located Colon _ _ :: _) = True
 declarationAhead (Located Name _ _ :: Located Equals _ _ :: _) = True
 declarationAhead (Located Number _ _ :: _) = True
+declarationAhead (Located ExportKeyword _ _ :: _) = True
 declarationAhead _ = False
 
 ||| Accept an expression or a nonrecursive declaration file with fixed main entry.
@@ -110,6 +128,9 @@ parseSource : (declarationBudget, expressionBudget : Nat) -> Position ->
 parseSource declarationBudget expressionBudget end tokens =
   if declarationAhead tokens then do
     declarations <- parseDeclarations declarationBudget expressionBudget end tokens
+    if any exported declarations
+       then Left (ParseFailure end "export requires a named module; use parseDocument")
+       else Right ()
     if any (\decl => decl.name == "main") declarations
        then Right (lowerDeclarations end declarations)
        else Left (ParseFailure end "Declaration file requires a main definition")

@@ -6,6 +6,7 @@ import Fibril.Source.Lexer
 import Fibril.Source.Syntax
 import Fibril.Source.Parser
 import Fibril.Source.Declaration
+import Fibril.Source.Document
 import Fibril.Source.StringLiteral
 import Fibril.Source.Resolve
 import Fibril.Source.Global
@@ -89,12 +90,23 @@ data SourceProgram = CoreSource (Term 0)
 public export
 prepareSource : String -> Either FrontendError SourceProgram
 prepareSource source = do
-  tokens <- case lexSource source of
-    Left err => Left (Lexical err)
-    Right tokens => Right tokens
-  syntax <- case parseSource 64 256 (advancePosition (At 0 1 1) (unpack source)) tokens of
-    Left err => Left (Parsing err)
-    Right syntax => Right syntax
+  document <- case parseDocument 64 256 source of
+    Left (SymbolLexical err) => Left (Lexical err)
+    Left (SymbolParsing err) => Left (Parsing err)
+    Right document => Right document
+  case document.moduleHeader of
+    Just header => Left (Parsing (ParseFailure header.span.start "Module loading is not implemented"))
+    Nothing => Right ()
+  case document.imports of
+    first :: _ => Left (Parsing (ParseFailure first.span.start "Import loading is not implemented"))
+    [] => Right ()
+  syntax <- case document.body of
+    ExpressionDocument expression => Right expression
+    EmptyDocument => Left (Parsing (ParseFailure document.end "Expected expression"))
+    DeclarationDocument declarations =>
+      if any (\decl => decl.name == "main") declarations
+         then Right (lowerDeclarations document.end declarations)
+         else Left (Parsing (ParseFailure document.end "Declaration file requires a main definition"))
   globals <- case preludeGlobals of
     Left err => Left (PreludeUnavailable err)
     Right globals => Right globals

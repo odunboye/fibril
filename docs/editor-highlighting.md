@@ -242,7 +242,8 @@ The compiler now exposes a syntax-only declaration service:
 
 On success, stdout contains one JSON object with version 1, an explicit
 coordinates label, and a symbols array in source order. Each symbol has name,
-quantity ("0", "1", or "unrestricted"), range, selection, and definitionSelection.
+quantity ("0", "1", or "unrestricted"), range, selection, definitionSelection,
+and exported (whether an export marker was parsed; not checked accessibility).
 range covers the signature/definition pair, including a signature quantity but
 excluding trailing whitespace/comments. selection selects the signature's actual
 name token; definitionSelection selects its definition's actual name token.
@@ -267,6 +268,11 @@ can appear in the outline. Entries are declarations, not guessed semantic
 function/type kinds. This is not an LSP, reference index, stable symbol identity,
 cross-file navigation, or semantic rename. The supplied definition-name span is
 a future navigation target, not resolution of references at cursor positions.
+
+Module/import/export headers now use the [shared document parser](modules.md#parsing-progress).
+Symbols and same-file navigation can inspect local declarations in these documents,
+but imports/qualified references and filesystem identity are not resolved. Rename
+previews conservatively reject module/import documents pending project checks.
 
 ## Same-file go-to-definition
 

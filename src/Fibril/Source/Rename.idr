@@ -11,7 +11,7 @@ import Fibril.Source.Navigation
 
 public export
 data RenameError = RenameFrontend SymbolError | InvalidRenameName
-                 | NoRenameTarget | RenameEntrypoint | RenameChangesScope | RenameSizeLimit
+                 | NoRenameTarget | RenameEntrypoint | RenameChangesScope | RenameSizeLimit | RenameModuleUnsupported
 
 public export
 record RenamePreview where
@@ -76,6 +76,12 @@ previewRename source line column name = do
   if validName name then Right () else Left InvalidRenameName
   let originalBytes = byteCount source
   if originalBytes <= 65536 then Right () else Left RenameSizeLimit
+  document <- case parseDocument 64 256 source of
+    Left err => Left (RenameFrontend err)
+    Right document => Right document
+  case (document.moduleHeader, document.imports) of
+    (Nothing, []) => Right ()
+    _ => Left RenameModuleUnsupported
   originalRefs <- the (Either RenameError (List Reference)) $ case documentReferences source of
     Left err => Left (RenameFrontend err)
     Right references => Right references

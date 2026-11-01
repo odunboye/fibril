@@ -237,6 +237,13 @@ entries, accepted IO descriptions without execution, and command/Plug cleanup.
 Malformed JSON, inconsistent statuses, partly invalid diagnostics, coordinate
 mismatches, and modified buffers must preserve prior lists and source files.
 
+Shared document tests cover module/import/export spans, private defaults,
+keyword-name components, header placement, duplicate imports, missing signatures,
+component/import budgets, and unchanged headerless checking. CLI tests verify
+symbols/visibility-marker JSON and local navigation with Unicode/CRLF, explicit
+module execution refusal, and conservative module rename rejection. Metadata
+parsing is not evidence of filesystem loading or semantic export enforcement.
+
 ## Hedgehog dependency
 
 Repository: https://github.com/stefan-hoeck/idris2-hedgehog

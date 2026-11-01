@@ -181,6 +181,16 @@ Every expected type in the core remains checked; there is no admitted placeholde
 implicit conversion or declaration axiom. A checked bundled prelude supplies
 closed globals; lexical bindings take precedence. Unknown names still fail.
 
+## Shared document parsing
+
+[Source.Document](../src/Fibril/Source/Document.idr) now frames optional module
+headers, import lists, and export markers around the existing body parsers.
+See [module parsing progress](modules.md#parsing-progress) for accepted metadata
+syntax and its limits. Checking, symbols, and local navigation share this parser.
+Module/import loading and qualified value references are not implemented;
+check/eval/run reject these documents explicitly. Headerless programs keep their
+existing expression/declaration behavior. Export markers require a named module.
+
 ## Tests and limitations
 
 [Tests.Frontend](../test/src/Tests/Frontend.idr) covers quantities, Unicode aliases,

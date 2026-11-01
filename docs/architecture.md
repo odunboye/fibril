@@ -18,6 +18,7 @@ Implemented:
 - `src/Fibril/Source/Navigation.idr`: AST-scoped same-document definitions and grouped reference queries over original name-token spans, without type checking.
 - `src/Fibril/Source/Symbol.idr`: reusable syntax-only document symbols over source Strings, preserving real name-token spans.
 - `src/Fibril/Driver/Symbols.idr`: bounded-file symbols service and versioned JSON output; no semantic checking.
+- `src/Fibril/Source/Document.idr`: shared expression/declaration/module metadata parsing with original tokens and header/import/export spans; no filesystem loader.
 - `src/Fibril/Source/Declaration.idr`: column-one signature/definition framing, source-order scope, fixed main entry, and typed-let lowering; no transparent globals/modules.
 - `src/Fibril/Source/Parser.idr`: bounded expression grammar with flat Unit-result do sequencing.
 - `src/Fibril/Source/Resolve.idr`: lexical/global names to scoped core, ascriptions, typed lets, and do lowering.
