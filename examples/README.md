@@ -93,6 +93,10 @@ or IO; its host allocation/copying costs are not bounded by reduction fuel.
 the Boolean result to choose console output. Comparison is exact text equality,
 not Unicode normalization or a dependent equality/path proof.
 
+`boolean-library.fib` uses ordinary Fibril notBool/andBool/orBool functions with
+String comparison to choose output. Binary operations consume both inputs once;
+they are deliberately not conventional short-circuit operators.
+
 ## Proposed Fibril programs
 
 `proposed/` illustrates the intended user experience, from hello world and

@@ -20,3 +20,14 @@ appendString = \(1 left : String) => \(1 right : String) => primStringAppend lef
 -- Exact text comparison, returning Bool rather than a dependent equality proof.
 equalString : (1 left : String) -> (1 right : String) -> Bool
 equalString = \(1 left : String) => \(1 right : String) => primStringEqual left right
+
+-- Boolean logic derived from elimination, not additional primitive instructions.
+notBool : (1 value : Bool) -> Bool
+notBool = \(1 value : Bool) => if value then False else True
+
+-- Both inputs are consumed. These are not short-circuiting operators.
+andBool : (1 left : Bool) -> (1 right : Bool) -> Bool
+andBool = \(1 left : Bool) => \(1 right : Bool) => if left then right else if right then False else False
+
+orBool : (1 left : Bool) -> (1 right : Bool) -> Bool
+orBool = \(1 left : Bool) => \(1 right : Bool) => if left then (if right then True else True) else right

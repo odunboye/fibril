@@ -193,6 +193,33 @@ class CLITests(unittest.TestCase):
         self.assertEqual(result.stdout, "")
         self.assertIn("use eval", result.stderr)
 
+    def test_boolean_library(self):
+        result = run("run", "examples/core/boolean-library.fib")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout, "Allowed.\nDenied.\nFallback enabled.\n")
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "boolean-library.fib"
+            for left in (False, True):
+                expression = "notBool " + str(left)
+                path.write_text("main : Bool\nmain = " + expression + "\n", encoding="utf-8")
+                result = run("eval", str(path))
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertIn("Normal: " + str(not left), result.stdout)
+                for right in (False, True):
+                    for operation, expected in (("andBool", left and right), ("orBool", left or right)):
+                        expression = f"{operation} {left} {right}"
+                        path.write_text("main : Bool\nmain = " + expression + "\n", encoding="utf-8")
+                        result = run("eval", str(path))
+                        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                        self.assertIn("Normal: " + str(expected), result.stdout)
+            path.write_text(
+                'main : IO Unit\nmain = do\n  putStrLn "must not print"\n'
+                '  if andBool False () then putStrLn "yes" else putStrLn "no"\n',
+                encoding="utf-8")
+            result = run("run", str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, "")
+
     def test_pure_string_equality(self):
         result = run("run", "examples/core/string-equal.fib")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

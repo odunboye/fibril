@@ -219,6 +219,12 @@ addition, erased/duplicated-input rejection, head forcing, fuel, and Bool-only
 results. CLI tests check both greeting branches and no late-error output prefix.
 Host syntax/fuel proofs compile; this is not a dependent equality theorem.
 
+Boolean-library tests exhaust the finite notBool/andBool/orBool truth tables,
+check ordinary lookup/shadowing/partial application and exact-once parameters,
+and reject duplication, erased extraction, and wrong operand types. CLI tests
+exercise combined String/Boolean output and verify that a constant-result path
+cannot hide a late type error. No new primitive or metatheory claim is introduced.
+
 ## Hedgehog dependency
 
 Repository: https://github.com/stefan-hoeck/idris2-hedgehog

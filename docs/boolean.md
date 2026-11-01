@@ -101,6 +101,46 @@ but both were already type/resource checked by the evaluation driver.
 Reference beta comparison now includes Unit and Boolean case computation.
 No eta, equality reflection, cubical conversion, or deadline guarantee is added.
 
+## Boolean library functions
+
+[stdlib/Prelude.fib](../stdlib/Prelude.fib) now defines ordinary Fibril functions:
+
+~~~fib
+notBool : (1 value : Bool) -> Bool
+notBool = \(1 value : Bool) => if value then False else True
+
+andBool : (1 left : Bool) -> (1 right : Bool) -> Bool
+andBool = \(1 left : Bool) => \(1 right : Bool) => if left then right else if right then False else False
+
+orBool : (1 left : Bool) -> (1 right : Bool) -> Bool
+orBool = \(1 left : Bool) => \(1 right : Bool) => if left then (if right then True else True) else right
+~~~
+
+No core constructors, primitive names, conversion rules, or parser patterns were
+added for these functions. They are parsed/resolved/runtime-checked like the
+other bundled definitions, support partial application, and can be shadowed.
+
+The binary operations consume **both inputs exactly once**. Their explicit
+second Boolean elimination on the constant-result branch is intentional.
+Replacing andBool's false branch by plain False would leave right unused on that
+branch; joining 0 and 1 would require unrestricted permission rather than the
+declared linear parameter.
+
+Consequently these are not conventional short-circuit operators. andBool False x
+and orBool True x still consume x; they do not provide a way to discard a linear
+input or skip validation of its expression. This is an explicit quantitative
+library choice, not a general evaluation-order theorem or timing guarantee.
+Unrestricted data may still be reused, but exact-once inputs cannot be duplicated.
+
+~~~sh
+./build/exec/fibril run examples/core/boolean-library.fib
+~~~
+
+[The example](../examples/core/boolean-library.fib) combines exact String
+comparison, negation, conjunction, and disjunction to choose hosted output.
+The finite truth tables and quantity tests are regressions, not a theorem of
+Boolean algebra, typed preservation, or combined cubical soundness.
+
 ## Boundaries and tests
 
 No dependent motives, general data declarations/pattern matrices, effects,

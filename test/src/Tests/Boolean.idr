@@ -9,6 +9,8 @@ import Fibril.Core.Reduction
 import Fibril.Core.WeakHead
 import Fibril.Core.Erased
 import Fibril.Core.Runtime
+import Fibril.Source.Global
+import Fibril.Source.Primitive
 import Fibril.Driver.Check
 import Fibril.Driver.Evaluate
 
@@ -32,7 +34,41 @@ formerEqualityCounterexample = "\\(flag : Bool) => \\(x : Unit) => if flag then 
 public export
 checks : List (String, Bool)
 checks =
-  [ ("Bool formation", accepted True "(Bool : Type 0)")
+  [ ("Boolean library functions are not primitives",
+      all (\name => case lookupGlobal name primitiveGlobals of Nothing => True; _ => False)
+          ["notBool", "andBool", "orBool"])
+  , ("Boolean library negation truth table",
+      normalIs 128 "notBool True" "False" && normalIs 128 "notBool False" "True")
+  , ("Boolean library conjunction truth table",
+      normalIs 128 "andBool True True" "True" &&
+      normalIs 128 "andBool True False" "False" &&
+      normalIs 128 "andBool False True" "False" &&
+      normalIs 128 "andBool False False" "False")
+  , ("Boolean library disjunction truth table",
+      normalIs 128 "orBool True True" "True" &&
+      normalIs 128 "orBool True False" "True" &&
+      normalIs 128 "orBool False True" "True" &&
+      normalIs 128 "orBool False False" "False")
+  , ("Boolean library consumes linear parameters exactly once",
+      accepted False "\\(1 left : Bool) => \\(1 right : Bool) => andBool left right" &&
+      accepted False "\\(1 left : Bool) => \\(1 right : Bool) => orBool left right")
+  , ("Boolean library does not discard a linear input on a constant-result path",
+      accepted False "\\(1 value : Bool) => andBool False value" &&
+      accepted False "\\(1 value : Bool) => orBool True value")
+  , ("Boolean library rejects duplication before reduction",
+      not (accepted False "(\\(1 value : Bool) => andBool value value) False") &&
+      not (accepted False "(\\(1 value : Bool) => orBool value value) True"))
+  , ("Boolean library rejects erased extraction",
+      not (accepted False "\\(0 value : Bool) => notBool value"))
+  , ("Boolean library validates operand types",
+      not (accepted False "notBool ()") &&
+      not (accepted False "andBool True \"bad\"") &&
+      not (accepted True "orBool \"bad\" False"))
+  , ("Boolean library supports partial application",
+      normalIs 128 "(andBool True) (notBool False)" "True")
+  , ("Boolean library can be shadowed",
+      normalIs 128 "let (1 notBool : String) = \"local\" in notBool" "\"local\"")
+  , ("Bool formation", accepted True "(Bool : Type 0)")
   , ("Bool is not a runtime type value", not (accepted False "Bool"))
   , ("True value", normalIs 0 "True" "True")
   , ("False value", normalIs 0 "False" "False")

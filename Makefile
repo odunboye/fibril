@@ -42,6 +42,7 @@ examples: build
 	./build/exec/fibril run examples/core/do-result.fib
 	./build/exec/fibril run examples/core/string-append.fib
 	./build/exec/fibril run examples/core/string-equal.fib
+	./build/exec/fibril run examples/core/boolean-library.fib
 
 bench:
 	python3 tools/benchmark.py

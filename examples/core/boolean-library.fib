@@ -1,0 +1,11 @@
+-- Ordinary Fibril Boolean functions consume each linear operand once.
+report : (1 matches : Bool) -> (1 enabled : Bool) -> IO Unit
+report = \(1 matches : Bool) => \(1 enabled : Bool) => if andBool matches enabled
+                                                       then putStrLn "Allowed."
+                                                       else putStrLn "Denied."
+
+main : IO Unit
+main = do
+  report (equalString (appendString "Fib" "ril") "Fibril") (notBool False)
+  report False True
+  if orBool False True then putStrLn "Fallback enabled." else putStrLn "No fallback."
