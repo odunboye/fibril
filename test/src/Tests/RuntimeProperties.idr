@@ -47,6 +47,10 @@ runtimeGen (S depth) =
     [ pure base
     , (\sample => let ty = Sigma Erased Linear UnitType (weaken sample.expected)
                     in MkSample (PairValue ty UnitValue sample.term) ty) <$> runtimeGen depth
+    , (\sample => let ty = Sigma Erased Linear UnitType (weaken sample.expected)
+                      motive = Lambda Erased ty (weaken sample.expected)
+                      branch = Lambda Erased UnitType (Lambda Linear (weaken sample.expected) (Variable FZ))
+                    in MkSample (PairCase motive (PairValue ty UnitValue sample.term) branch) sample.expected) <$> runtimeGen depth
     , capture <$> runtimeGen depth
     , identityApplication Linear <$> runtimeGen depth
     , (\sample => MkSample (UnitCase UnitValue sample.term) sample.expected) <$> runtimeGen depth

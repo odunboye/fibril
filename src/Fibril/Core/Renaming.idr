@@ -39,6 +39,10 @@ renameCongruent left right agree (BoolCase condition yes no) =
   rewrite renameCongruent left right agree condition in
   rewrite renameCongruent left right agree yes in
   rewrite renameCongruent left right agree no in Refl
+renameCongruent left right agree (PairCase motive scrutinee branch) =
+  rewrite renameCongruent left right agree motive in
+  rewrite renameCongruent left right agree scrutinee in
+  rewrite renameCongruent left right agree branch in Refl
 renameCongruent left right agree (PairValue annotation firstValue secondValue) =
   rewrite renameCongruent left right agree annotation in
   rewrite renameCongruent left right agree firstValue in
@@ -96,6 +100,10 @@ renameIdentity (BoolCase condition yes no) =
   rewrite renameIdentity condition in
   rewrite renameIdentity yes in
   rewrite renameIdentity no in Refl
+renameIdentity (PairCase motive scrutinee branch) =
+  rewrite renameIdentity motive in
+  rewrite renameIdentity scrutinee in
+  rewrite renameIdentity branch in Refl
 renameIdentity (PairValue annotation firstValue secondValue) =
   rewrite renameIdentity annotation in
   rewrite renameIdentity firstValue in
@@ -159,6 +167,10 @@ renameComposition first second (BoolCase condition yes no) =
   rewrite renameComposition first second condition in
   rewrite renameComposition first second yes in
   rewrite renameComposition first second no in Refl
+renameComposition first second (PairCase motive scrutinee branch) =
+  rewrite renameComposition first second motive in
+  rewrite renameComposition first second scrutinee in
+  rewrite renameComposition first second branch in Refl
 renameComposition first second (PairValue annotation firstValue secondValue) =
   rewrite renameComposition first second annotation in
   rewrite renameComposition first second firstValue in

@@ -41,6 +41,7 @@ nodes (WriteLine a) = 1 + nodes a
 nodes (IOBind a b c d) = 1 + nodes a + nodes b + nodes c + nodes d
 nodes (BoolCase a b c) = 1 + nodes a + nodes b + nodes c
 nodes (Sigma _ _ a b) = 1 + nodes a + nodes b
+nodes (PairCase motive value branch) = 1 + nodes motive + nodes value + nodes branch
 nodes (PairValue ty a b) = 1 + nodes ty + nodes a + nodes b
 nodes (Pi _ a b) = 1 + nodes a + nodes b
 nodes (Lambda _ a b) = 1 + nodes a + nodes b

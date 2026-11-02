@@ -316,8 +316,11 @@ Dependent-pair core tests cover universe formation, actual-first-field-dependent
 second types, erased type/value packages, annotation/method mismatch rejection,
 linear duplication and unrestricted scaling, erased field typing, invariant
 quantities, and full versus head computation. Structural proof clauses and raw,
-erased-typed, and runtime recipe generators include Sigma/PairValue. No surface
-record syntax or eliminator is claimed by this slice.
+erased-typed, and runtime recipe generators include Sigma/PairValue. Core PairCase tests add dependent payload-type motives, dropped/duplicated linear
+fields, erased extraction, exact branch profiles, ambient capture accounting,
+wrong motive/domain/result failures, explicit fuel, and normal-form rechecking.
+Raw/typed/runtime generators and root-step host equalities cover elimination.
+Source record syntax remains unimplemented.
 
 ## Hedgehog dependency
 

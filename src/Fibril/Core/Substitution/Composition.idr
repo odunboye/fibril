@@ -43,6 +43,10 @@ renameAfterSubstitution env sigma (BoolCase condition yes no) =
   rewrite renameAfterSubstitution env sigma condition in
   rewrite renameAfterSubstitution env sigma yes in
   rewrite renameAfterSubstitution env sigma no in Refl
+renameAfterSubstitution env sigma (PairCase motive scrutinee branch) =
+  rewrite renameAfterSubstitution env sigma motive in
+  rewrite renameAfterSubstitution env sigma scrutinee in
+  rewrite renameAfterSubstitution env sigma branch in Refl
 renameAfterSubstitution env sigma (PairValue annotation firstValue secondValue) =
   rewrite renameAfterSubstitution env sigma annotation in
   rewrite renameAfterSubstitution env sigma firstValue in
@@ -112,6 +116,10 @@ substituteAfterRenaming env sigma (BoolCase condition yes no) =
   rewrite substituteAfterRenaming env sigma condition in
   rewrite substituteAfterRenaming env sigma yes in
   rewrite substituteAfterRenaming env sigma no in Refl
+substituteAfterRenaming env sigma (PairCase motive scrutinee branch) =
+  rewrite substituteAfterRenaming env sigma motive in
+  rewrite substituteAfterRenaming env sigma scrutinee in
+  rewrite substituteAfterRenaming env sigma branch in Refl
 substituteAfterRenaming env sigma (PairValue annotation firstValue secondValue) =
   rewrite substituteAfterRenaming env sigma annotation in
   rewrite substituteAfterRenaming env sigma firstValue in
@@ -191,6 +199,10 @@ substituteComposition first second (BoolCase condition yes no) =
   rewrite substituteComposition first second condition in
   rewrite substituteComposition first second yes in
   rewrite substituteComposition first second no in Refl
+substituteComposition first second (PairCase motive scrutinee branch) =
+  rewrite substituteComposition first second motive in
+  rewrite substituteComposition first second scrutinee in
+  rewrite substituteComposition first second branch in Refl
 substituteComposition first second (PairValue annotation firstValue secondValue) =
   rewrite substituteComposition first second annotation in
   rewrite substituteComposition first second firstValue in

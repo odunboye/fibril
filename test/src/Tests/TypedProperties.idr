@@ -66,6 +66,10 @@ typedGen (S depth) =
     [ seed
     , (\sample => let ty = Sigma Erased Linear UnitType (weaken sample.expected)
                     in Sample (PairValue ty UnitValue sample.term) ty) <$> typedGen depth
+    , (\sample => let ty = Sigma Erased Linear UnitType (weaken sample.expected)
+                      motive = Lambda Erased ty (weaken sample.expected)
+                      branch = Lambda Erased UnitType (Lambda Linear (weaken sample.expected) (Variable FZ))
+                    in Sample (PairCase motive (PairValue ty UnitValue sample.term) branch) sample.expected) <$> typedGen depth
     , wrapLambda <$> element [Erased, Linear, Unrestricted] <*> typedGen depth
     , wrapBeta <$> element [Erased, Linear, Unrestricted] <*> typedGen depth
     , (\sample => Sample (UnitCase UnitValue sample.term) sample.expected) <$> typedGen depth

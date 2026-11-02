@@ -9,6 +9,20 @@ import Fibril.Core.Substitution.Instantiation
 
 %default total
 
+||| Pair elimination opens into ordinary applications. Subsequent substitution
+||| uses the existing capture-safe lambda machinery, not an ad hoc two-index map.
+public export
+renamePairCaseStep : (env : Fin n -> Fin m) -> (motive, ty, first, second, branch : Term n) ->
+  step (rename env (PairCase motive (PairValue ty first second) branch)) =
+    Just (rename env (Apply (Apply branch first) second))
+renamePairCaseStep env motive ty first second branch = Refl
+
+public export
+substitutePairCaseStep : (env : Fin n -> Term m) -> (motive, ty, first, second, branch : Term n) ->
+  step (substituteTerm env (PairCase motive (PairValue ty first second) branch)) =
+    Just (substituteTerm env (Apply (Apply branch first) second))
+substitutePairCaseStep env motive ty first second branch = Refl
+
 ||| A known root beta redex still contracts to the renamed contractum.
 ||| This is about Reduction.step itself, without typing or resource premises.
 public export

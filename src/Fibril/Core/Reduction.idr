@@ -51,6 +51,13 @@ step (Sigma q r domain body) =
   case step domain of
     Just next => Just (Sigma q r next body)
     Nothing => map (Sigma q r domain) (step body)
+step (PairCase motive (PairValue ty first second) branch) = Just (Apply (Apply branch first) second)
+step (PairCase motive scrutinee branch) =
+  case step motive of
+    Just next => Just (PairCase next scrutinee branch)
+    Nothing => case step scrutinee of
+      Just next => Just (PairCase motive next branch)
+      Nothing => map (PairCase motive scrutinee) (step branch)
 step (PairValue ty first second) =
   case step ty of
     Just next => Just (PairValue next first second)

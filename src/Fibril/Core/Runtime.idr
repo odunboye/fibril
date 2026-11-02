@@ -69,6 +69,12 @@ analyze (S depth) reduction context (BoolCase condition yes no) = do
   noUsage <- analyze depth reduction context no
   Right (combineUsage conditionUsage (joinUsage yesUsage noUsage))
 analyze (S depth) reduction context (Sigma _ _ _ _) = Left RuntimeTypeExpression
+-- The branch has already been checked against the Sigma's exact Pi quantities.
+-- Its ordinary lambda analysis discharges both fields; it is invoked once.
+analyze (S depth) reduction context (PairCase motive scrutinee branch) = do
+  scrutineeUsage <- analyze depth reduction context scrutinee
+  branchUsage <- analyze depth reduction context branch
+  Right (combineUsage scrutineeUsage branchUsage)
 analyze (S depth) reduction context (PairValue annotation first second) = do
   exposed <- case weakHead reduction annotation of
     HeadForm ty => Right ty

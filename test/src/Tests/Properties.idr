@@ -48,6 +48,7 @@ termGen (S depth) n =
   choice
     [ atom n
     , Sigma <$> quantityGen <*> quantityGen <*> termGen depth n <*> termGen depth (S n)
+    , PairCase <$> termGen depth n <*> termGen depth n <*> termGen depth n
     , PairValue <$> termGen depth n <*> termGen depth n <*> termGen depth n
     , Pi <$> quantityGen <*> termGen depth n <*> termGen depth (S n)
     , Lambda <$> quantityGen <*> termGen depth n <*> termGen depth (S n)

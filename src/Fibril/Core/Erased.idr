@@ -3,6 +3,7 @@
 -- Primitive Unit/Bool rules are local designs; see docs/unit.md, docs/boolean.md.
 module Fibril.Core.Erased
 
+import Data.Fin
 import Fibril.Core.Quantity
 import Fibril.Core.Term
 import Fibril.Core.Pretty
@@ -19,6 +20,7 @@ data CheckError : Type where
   CheckingLimit : CheckError
   ReductionLimit : CheckError
   ExpectedUniverse : {0 n : Nat} -> (found : Term n) -> CheckError
+  ExpectedPairMotive : {0 n : Nat} -> (found : Term n) -> CheckError
   ExpectedPairType : {0 n : Nat} -> (found : Term n) -> CheckError
   ExpectedFunction : {0 n : Nat} -> (found : Term n) -> CheckError
   ||| Both types retain a shared scope; payloads are diagnostic data, not proofs.
@@ -30,6 +32,7 @@ Show CheckError where
   show CheckingLimit = "Checking recursion budget exhausted"
   show ReductionLimit = "Reduction budget exhausted"
   show (ExpectedUniverse found) = "Expected a universe; found: " ++ renderTerm found
+  show (ExpectedPairMotive found) = "Expected an erased pair motive returning a universe; found: " ++ renderTerm found
   show (ExpectedPairType found) = "Expected a dependent pair type; found: " ++ renderTerm found
   show (ExpectedFunction found) = "Expected a dependent function type; found: " ++ renderTerm found
   show (TypeMismatch actual expected) =
@@ -110,6 +113,28 @@ mutual
     domainLevel <- sortOf depth reduction context domain
     bodyLevel <- sortOf depth reduction (Extend context q domain) body
     Right (Universe (max domainLevel bodyLevel))
+  infer (S depth) reduction context (PairCase motive scrutinee branch) = do
+    scrutineeType <- infer depth reduction context scrutinee
+    exposed <- exposeType reduction scrutineeType
+    case exposed of
+      Sigma q r domain body => do
+        motiveType <- infer depth reduction context motive
+        motiveHead <- exposeType reduction motiveType
+        case motiveHead of
+          Pi Erased parameter result => do
+            requireCompatible reduction parameter scrutineeType
+            resultHead <- exposeType reduction result
+            case resultHead of
+              Universe _ => Right ()
+              _ => Left (ExpectedUniverse resultHead)
+          _ => Left (ExpectedPairMotive motiveHead)
+        let packed = PairValue (weaken (weaken scrutineeType))
+                               (Variable (FS FZ)) (Variable FZ)
+        let resultType = Apply (weaken (weaken motive)) packed
+        branchType <- infer depth reduction context branch
+        requireCompatible reduction branchType (Pi q domain (Pi r body resultType))
+        Right (Apply motive scrutinee)
+      _ => Left (ExpectedPairType exposed)
   infer (S depth) reduction context (PairValue annotation first second) = do
     _ <- sortOf depth reduction context annotation
     exposed <- exposeType reduction annotation

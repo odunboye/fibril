@@ -34,6 +34,8 @@ renderTerm (BoolCase condition yes no) =
   "(If " ++ renderTerm condition ++ " " ++ renderTerm yes ++ " " ++ renderTerm no ++ ")"
 renderTerm (Sigma q r domain body) =
   "(Sigma " ++ show q ++ " " ++ show r ++ " " ++ renderTerm domain ++ " " ++ renderTerm body ++ ")"
+renderTerm (PairCase motive scrutinee branch) =
+  "(PairCase " ++ renderTerm motive ++ " " ++ renderTerm scrutinee ++ " " ++ renderTerm branch ++ ")"
 renderTerm (PairValue ty first second) =
   "(Pair " ++ renderTerm ty ++ " " ++ renderTerm first ++ " " ++ renderTerm second ++ ")"
 renderTerm (Pi q domain body) =

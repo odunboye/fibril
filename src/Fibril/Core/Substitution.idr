@@ -42,6 +42,10 @@ substituteCongruent left right agree (BoolCase condition yes no) =
   rewrite substituteCongruent left right agree condition in
   rewrite substituteCongruent left right agree yes in
   rewrite substituteCongruent left right agree no in Refl
+substituteCongruent left right agree (PairCase motive scrutinee branch) =
+  rewrite substituteCongruent left right agree motive in
+  rewrite substituteCongruent left right agree scrutinee in
+  rewrite substituteCongruent left right agree branch in Refl
 substituteCongruent left right agree (PairValue annotation firstValue secondValue) =
   rewrite substituteCongruent left right agree annotation in
   rewrite substituteCongruent left right agree firstValue in
@@ -102,6 +106,10 @@ renameAsSubstitution env (BoolCase condition yes no) =
   rewrite renameAsSubstitution env condition in
   rewrite renameAsSubstitution env yes in
   rewrite renameAsSubstitution env no in Refl
+renameAsSubstitution env (PairCase motive scrutinee branch) =
+  rewrite renameAsSubstitution env motive in
+  rewrite renameAsSubstitution env scrutinee in
+  rewrite renameAsSubstitution env branch in Refl
 renameAsSubstitution env (PairValue annotation firstValue secondValue) =
   rewrite renameAsSubstitution env annotation in
   rewrite renameAsSubstitution env firstValue in

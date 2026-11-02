@@ -1,7 +1,7 @@
 # Dependent records: kernel foundations
 
-**Status:** core dependent-pair formation and construction are implemented.
-There is no source record/Sigma syntax, pair elimination, projection, record
+**Status:** core dependent-pair formation, construction, and consuming dependent
+elimination are implemented. There is no source record/Sigma syntax, projection, record
 constructor declaration, field-name resolution, or interface dictionary yet.
 The examples on this page describe Idris host constructors, **not accepted
 Fibril source syntax**. No new preservation or erasure theorem is claimed.
@@ -17,6 +17,7 @@ already provide the module-level type declaration boundary.
 ~~~idris
 Sigma : Quantity -> Quantity -> Term n -> Term (S n) -> Term n
 PairValue : Term n -> Term n -> Term n -> Term n
+PairCase : Term n -> Term n -> Term n -> Term n
 ~~~
 
 Sigma q r A B binds the first field in B. The first field has quantity q and
@@ -99,8 +100,7 @@ subject reduction or safe backend representation/erasure.
 
 Full normalization traverses Sigma domain/body and pair annotation/first/second
 in source-constructor order. Weak-head inspection treats Sigma and PairValue as
-exposed heads, without inspecting their fields. There is no new root contraction
-until consuming elimination is implemented.
+exposed heads, without inspecting their fields. PairCase has the root rule described below.
 
 Renaming/substitution lift once under the Sigma's first-field binder. Pair
 components all live in the ambient scope. Host renaming identity/composition,
@@ -115,17 +115,62 @@ Sampled preservation/rechecking properties cover these recipes; they are not
 universal preservation proofs. Pretty printing and module node accounting also
 include both constructors. Per-file/graph/checking/reduction limits are unchanged.
 
-## Next: consuming elimination, then named records
+## Consuming dependent elimination
 
-The next kernel step must specify a dependent motive and a branch binding both
-fields with their declared quantities. Eliminating a pair must consume the
-scrutinee once and validate all branch-bound and ambient usages. A quantity-1
-field cannot be discarded merely because a projection wants the other field.
-Erased fields cannot be extracted into runtime values.
+PairCase motive scrutinee branch stores three ordinary terms, not a new
+two-binder AST node. Its motive has an erased input and a universe result:
 
-Before exposing source syntax, add a beta rule on constructed pairs, capture-safe
-two-field substitution, head/full computation, structural host proofs, dependent
-motive tests, resource failures, and normal-form rechecking. Do not implement fst
-and snd by silently discarding a linear component. Multi-field named records,
-constructors, erased dependent field types, and generated eliminators follow that
-boundary; interfaces then lower into those checked values.
+~~~text
+motive : (0 p : Sigma q r A B) -> Type l
+branch : (q x : A) -> (r y : B x) -> motive (pair x y)
+PairCase motive scrutinee branch : motive scrutinee
+~~~
+
+Here pair x y denotes PairValue with the validated scrutinee type annotation;
+these are schematic rules, not source syntax. Domains, the universe-valued
+motive, dependent branch result, and both quantities are checked. A merely
+function-shaped motive is insufficient. Universe/capture failures remain
+bounded checking failures, not trusted metadata.
+
+Runtime analysis counts the scrutinee once plus the branch function once.
+Ordinary lambda checking enforces both field permissions. The motive and
+annotations are erased. Dropping/duplicating a linear field, extracting an
+erased field as runtime data, or using a linear ambient capture in both the
+scrutinee and branch fails. An erased ambient record is not runtime input.
+
+The root rule is:
+
+~~~text
+PairCase motive (PairValue sigma first second) branch
+  --> (branch first) second
+~~~
+
+The following two beta steps use existing capture-safe lambda substitution.
+There is no ad hoc two-index substitution or new scope-lifting convention.
+Branch functions and motives contain ordinary binders when needed. Full
+normalization traverses motive/scrutinee/branch when no root rule applies;
+head evaluation forces only the scrutinee until a constructor is exposed.
+
+Tests include a genuinely dependent payload-type motive: it computes the first
+(erased type) field of an existential package during typechecking, and its
+runtime branch returns the second field. This type-level computation is not a
+runtime projection of erased data. Evaluation consumes three root/application
+steps and its result is checked again against String. Additional cases cover
+motive/domain/result failures, exact branch quantities, fuel exhaustion,
+ambient captures, and normal-form rechecking.
+
+All structural host proofs now include PairCase. Known root pair-case
+contractions commute with renaming/substitution by checked host equalities;
+subsequent beta naturality reuses the existing laws. Generators include raw
+cases and typed/runtime case recipes. This still is not a general preservation
+or quantitative soundness theorem.
+
+## Next: named record syntax
+
+The constructor/eliminator core is in place. The next slice is source
+declarations, constructor elaboration, and consuming patterns, including erased
+dependent field types and module visibility. Do not implement fst/snd by
+silently discarding a linear component. Multiple fields need an explicit
+nesting/tail policy and generated eliminators must preserve the same permissions.
+Interfaces can then lower into those checked values. No source record parser,
+automatic projection, record eta, or dictionary inference is claimed yet.

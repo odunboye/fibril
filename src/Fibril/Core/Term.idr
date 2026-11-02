@@ -37,6 +37,7 @@ data Term : Nat -> Type where
   BoolCase : Term n -> Term n -> Term n -> Term n
   Sigma : Quantity -> Quantity -> Term n -> Term (S n) -> Term n
   PairValue : Term n -> Term n -> Term n -> Term n
+  PairCase : Term n -> Term n -> Term n -> Term n
   Pi : Quantity -> Term n -> Term (S n) -> Term n
   Lambda : Quantity -> Term n -> Term (S n) -> Term n
   Apply : Term n -> Term n -> Term n
@@ -70,6 +71,8 @@ rename env (IOBind a b action next) =
   IOBind (rename env a) (rename env b) (rename env action) (rename env next)
 rename env (BoolCase condition yes no) =
   BoolCase (rename env condition) (rename env yes) (rename env no)
+rename env (PairCase motive scrutinee branch) =
+  PairCase (rename env motive) (rename env scrutinee) (rename env branch)
 rename env (PairValue annotation firstValue secondValue) =
   PairValue (rename env annotation) (rename env firstValue) (rename env secondValue)
 rename env (Pi q domain body) =
@@ -116,6 +119,8 @@ substituteTerm env (IOBind a b action next) =
          (substituteTerm env action) (substituteTerm env next)
 substituteTerm env (BoolCase condition yes no) =
   BoolCase (substituteTerm env condition) (substituteTerm env yes) (substituteTerm env no)
+substituteTerm env (PairCase motive scrutinee branch) =
+  PairCase (substituteTerm env motive) (substituteTerm env scrutinee) (substituteTerm env branch)
 substituteTerm env (PairValue annotation firstValue secondValue) =
   PairValue (substituteTerm env annotation) (substituteTerm env firstValue) (substituteTerm env secondValue)
 substituteTerm env (Pi q domain body) =
@@ -163,6 +168,7 @@ sameSyntax (IOBind a b c d) (IOBind e f g h) =
 sameSyntax (BoolCase c t e) (BoolCase d u f) =
   sameSyntax c d && sameSyntax t u && sameSyntax e f
 sameSyntax (Sigma q r a b) (Sigma s t c d) = q == s && r == t && sameSyntax a c && sameSyntax b d
+sameSyntax (PairCase p a f) (PairCase q b g) = sameSyntax p q && sameSyntax a b && sameSyntax f g
 sameSyntax (PairValue ty a b) (PairValue expected c d) = sameSyntax ty expected && sameSyntax a c && sameSyntax b d
 sameSyntax (Pi q a b) (Pi r c d) = q == r && sameSyntax a c && sameSyntax b d
 sameSyntax (Lambda q a b) (Lambda r c d) = q == r && sameSyntax a c && sameSyntax b d
