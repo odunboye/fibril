@@ -558,7 +558,133 @@ def inspect_project_checking(name, executable, line_ending):
         return report
 
 
+def inspect_formatting(name, executable, ending, final_newline):
+    import shlex
+    with tempfile.TemporaryDirectory(prefix="format buffer 'quoted' ") as directory:
+        directory = Path(directory)
+        path = directory / "Buffer.fib"
+        original = ['main:String', 'main="saved"']
+        raw = ending.join(original) + (ending if final_newline else "")
+        path.write_bytes(raw.encode())
+        edited = ['main:String', 'main=appendString"🌍  e\u0301""!"  -- keep  text  ']
+        formatted = ['main : String', 'main = appendString "🌍  e\u0301" "!"  -- keep  text  ']
+        snapshot = ending.join(edited) + (ending if final_newline else "")
+        fake = directory / "fake formatter"
+        fake.write_text("#!/bin/sh\nexit 1\n")
+        fake.chmod(0o755)
+        temp_log = directory / "temporary.txt"
+        report_path = directory / "report.json"
+        commands = [
+            "set nocompatible", "set encoding=utf-8", "set nomore", "set hidden",
+            f"execute 'set runtimepath^=' . fnameescape({vim_literal(RUNTIME)})",
+            "filetype plugin on",
+            f"let g:fibril_executable = {vim_literal(ROOT / 'build/exec/fibril')}",
+            f"execute 'edit ' . fnameescape({vim_literal(path)})",
+            "setlocal undolevels=321",
+            f"call setline(2, {vim_literal(edited[1])})",
+            "let report = {}", "let source_buffer = bufnr('%')",
+            "let source_window = win_getid()", "let saved_options = [&ff, &eol, &fenc, &bomb]",
+            "let undo_options = [&g:undolevels, &l:undolevels]",
+            "call cursor(2, 20)",
+            "let report.handled = fibril#format()", "let report.formatted = getline(1, '$')",
+            "let report.modified = &modified",
+            "let report.same_context = bufnr('%') == source_buffer && win_getid() == source_window",
+            "let report.options = [&ff, &eol, &fenc, &bomb] == saved_options",
+            "let report.undo_options = [&g:undolevels, &l:undolevels] == undo_options",
+            "undo", "let report.undone = getline(1, '$')", "let report.undo_modified = &modified",
+            "redo", "let before_tick = b:changedtick", "let before_undo = changenr()",
+            "FibrilFormat",
+            "let report.noop = b:changedtick == before_tick && changenr() == before_undo",
+            "let previous_lines = getline(1, '$')", "let previous_undo = changenr()",
+            f"let g:fibril_executable = {vim_literal(fake)}",
+            "let report.faults = []",
+        ]
+        canonical = ending.join(formatted) + (ending if final_newline else "")
+        envelope = {"version": 1, "coordinates": "unicode-scalars;offset=0;line=1;column=1",
+                    "original": canonical, "formatted": canonical}
+        faults = [
+            ({**envelope, "version": 2}, 0),
+            ({**envelope, "original": snapshot}, 0),
+            ({**envelope, "formatted": "replacement"}, 0),
+            ({**envelope, "formatted": canonical + "\n"}, 0),
+            ({**envelope, "formatted": False}, 0),
+            (envelope, 1),
+        ]
+        if ending == "\r\n":
+            faults.append(({**envelope, "formatted": canonical.replace("\r\n", "\n")}, 0))
+        else:
+            faults.append(({**envelope, "formatted": canonical.replace("\n", "\r\n")}, 0))
+        for payload, status in faults:
+            shell = ["#!/bin/sh", 'printf \'%s\' "$3" > ' + shlex.quote(str(temp_log)),
+                     "printf '%s\\n' " + shlex.quote(json.dumps(payload)), f"exit {status}"]
+            commands += [
+                f"call writefile([{', '.join(vim_literal(x) for x in shell)}], {vim_literal(fake)})",
+                "let handled = fibril#format()",
+                "let temporary = join(readfile(" + vim_literal(temp_log) + "), '')",
+                "call add(report.faults, handled == 0 && getline(1, '$') == previous_lines && changenr() == previous_undo && !filereadable(temporary))",
+            ]
+        commands += [
+            f"let g:fibril_executable = {vim_literal(ROOT / 'build/exec/fibril')}",
+            "setlocal readonly", "let report.readonly = fibril#format()", "setlocal noreadonly",
+            "call setline(2, 'main =')", "let invalid_lines = getline(1, '$')",
+            "let report.syntax_failure = fibril#format()",
+            "let report.syntax_preserved = getline(1, '$') == invalid_lines",
+            "let report.plug = !empty(maparg('<Plug>(FibrilFormat)', 'n'))",
+            "execute b:undo_ftplugin",
+            "let report.undo_command = exists(':FibrilFormat')",
+            "let report.undo_plug = maparg('<Plug>(FibrilFormat)', 'n')",
+            "enew!", "setfiletype fibril",
+            f"call setline(1, {vim_literal('appendString\"new\"\"buffer\"')})",
+            "let report.unnamed = fibril#format()",
+            "let report.unnamed_text = getline(1)",
+            "let report.unnamed_name = expand('%:p')",
+            "let report.messages = execute('messages')",
+            f"call writefile([json_encode(report)], {vim_literal(report_path)})", "qa!",
+        ]
+        script = directory / "format.vim"
+        script.write_text("\n".join(commands) + "\n")
+        flags = ["--headless", "-u", "NONE", "-i", "NONE", "-n"] if name == "nvim" else [
+            "-Nu", "NONE", "-i", "NONE", "-n", "-es"]
+        result = subprocess.run([executable, *flags, "-S", str(script)], capture_output=True,
+                                text=True, timeout=30, cwd=ROOT)
+        if result.returncode or not report_path.exists():
+            raise AssertionError(f"{name} formatting failed: {result.stdout}\n{result.stderr}")
+        assert path.read_bytes() == raw.encode(), "formatter wrote the original source file"
+        data = json.loads(report_path.read_text())
+        data["expected"] = formatted
+        data["edited"] = edited
+        return data
+
+
 class EditorTests(unittest.TestCase):
+    def test_formatting_in_installed_editors(self):
+        if not (ROOT / "build/exec/fibril").exists():
+            self.skipTest("build Fibril first")
+        for name, executable in EDITORS:
+            for ending in ("\n", "\r\n"):
+                for final_newline in (False, True):
+                    with self.subTest(editor=name, ending=ending, final_newline=final_newline):
+                        report = inspect_formatting(name, executable, ending, final_newline)
+                        self.assertEqual(report["handled"], 1, report["messages"])
+                        self.assertEqual(report["formatted"], report["expected"])
+                        self.assertTrue(report["modified"])
+                        self.assertTrue(report["same_context"])
+                        self.assertTrue(report["options"])
+                        self.assertTrue(report["undo_options"])
+                        self.assertEqual(report["undone"], report["edited"])
+                        self.assertTrue(report["undo_modified"])
+                        self.assertTrue(report["noop"])
+                        self.assertTrue(all(report["faults"]), report["messages"])
+                        self.assertEqual(report["readonly"], 0)
+                        self.assertEqual(report["syntax_failure"], 0)
+                        self.assertTrue(report["syntax_preserved"])
+                        self.assertTrue(report["plug"])
+                        self.assertEqual(report["undo_command"], 0)
+                        self.assertEqual(report["undo_plug"], "")
+                        self.assertEqual(report["unnamed"], 1, report["messages"])
+                        self.assertEqual(report["unnamed_text"], 'appendString "new" "buffer"')
+                        self.assertEqual(report["unnamed_name"], "")
+
     def test_project_checking_in_installed_editors(self):
         if not (ROOT / "build/exec/fibril").exists():
             self.skipTest("build Fibril first")

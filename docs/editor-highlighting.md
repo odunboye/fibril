@@ -91,6 +91,9 @@ return {
           vim.keymap.set("n", "<leader>cr", "<Plug>(FibrilRenamePreview)", {
             buffer = true, remap = true, desc = "Fibril: preview rename",
           })
+          vim.keymap.set("n", "<leader>cf", "<Plug>(FibrilFormat)", {
+            buffer = true, remap = true, desc = "Fibril: format buffer (no save)",
+          })
           vim.keymap.set("n", "<leader>ck", "<Plug>(FibrilCheck)", {
             buffer = true, remap = true, desc = "Fibril: check",
           })
@@ -229,6 +232,53 @@ accepts proofs, or writes source files.
 The [offline handbook](handbook.md#code-highlighting) also highlights Fibril and
 Idris snippets/source pages. Its local Pandoc grammar is a separate presentation
 layer, not this Vim runtime or a shared semantic language service.
+
+## Formatting in Vim and LazyVim
+
+After building the updated compiler and restarting/reloading the runtime, run:
+
+~~~vim
+:FibrilFormat
+~~~
+
+The optional LazyVim setup above maps <leader>cf to <Plug>(FibrilFormat), replacing
+the usual buffer-format action **only in Fibril buffers**. The runtime itself
+assigns no default key. This is a manual command, not a Conform/LSP adapter or
+format-on-save hook.
+
+It formats the **current buffer**, including unsaved edits and unnamed buffers.
+It never saves the source file. The change is one undo block: u restores the
+exact pre-format text without discarding earlier unsaved edits. Redo works
+normally; an already-canonical buffer creates no change/undo entry. Cursor/view
+are retained approximately by line/scalar column, not a semantic token identity.
+
+The formatter is still the conservative
+[horizontal-spacing formatter](formatting.md). It does not reindent or wrap
+lines. Comments, literal spelling, LF/CRLF, final-newline presence and buffer
+encoding/line-ending options are retained. Normal editable UTF-8 buffers with
+Unix/CRLF line endings and undo enabled are required; readonly, BOM and special
+buffers are refused. NUL-containing buffers and compiler/source-policy errors
+leave the buffer unchanged.
+
+The adapter serializes the buffer into a temporary snapshot, sets private
+rw------- permissions before writing source content, and invokes the configured
+compiler's format --json service with separately quoted arguments. The snapshot
+is cleaned up in a finally block on represented success/failure (filesystem
+cleanup failures are outside that guarantee). No temporary file is treated as a
+project entry or used for import resolution.
+
+Before applying results, it checks the source text, changedtick, window/buffer
+identity, file-format options, protocol version and original-text acknowledgement.
+Malformed/inconsistent results, changed line counts/endings or a stale buffer
+are refused without applying edits. The producer reparses and checks AST shape;
+the editor does not independently implement the Fibril parser. g:fibril_executable
+is trusted executable configuration, not an adversarial formatting service.
+
+Other compiler queries still require saved snapshots; formatting is the explicit
+exception. Save separately with :write when satisfied. Automatic formatting on
+save, cancellation, asynchronous requests, indentation and wrapping remain future
+work. External editor hooks and OS/process crashes are outside these represented
+error guarantees.
 
 ## Runtime checking in the editor
 

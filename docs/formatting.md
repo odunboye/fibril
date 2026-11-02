@@ -1,8 +1,8 @@
 # Source formatting
 
 **Implemented:** deterministic horizontal token-spacing normalization.
-Indentation, wrapping, automatic editor formatting, --write, and whole-project
-rewriting are not implemented. This formatter never writes the input file.
+Manual :FibrilFormat buffer application is available in Vim/Neovim. Indentation,
+wrapping, format-on-save, --write, and whole-project rewriting are not implemented. This formatter never writes the input file.
 
 ~~~sh
 ./build/exec/fibril format examples/core/hello-world.fib
@@ -19,6 +19,17 @@ Never redirect output onto the input path: the shell may truncate it before
 Fibril opens it. Inspect stdout or use a separate temporary destination. No
 automatic save, formatter-on-save, import lookup, program execution, or package
 configuration is involved.
+
+## Editor usage
+
+Use [:FibrilFormat](editor-highlighting.md#formatting-in-vim-and-lazyvim) to format
+the current buffer, including unsaved edits. It applies one undoable change and
+never saves the source. The LazyVim setup includes an optional <leader>cf mapping;
+there is no default key or format-on-save hook.
+
+format --json PATH returns version-1 original/formatted snapshot fields for the
+adapter. It is still syntax-only and uses the same guarded formatter. The editor
+formats a private temporary snapshot, not stale on-disk source.
 
 ## Current style
 
@@ -90,6 +101,6 @@ output-size admission, idempotence and unchanged original files. Current core
 example fixtures are formatted twice and rechecked for the same acceptance status.
 
 Next steps are lossless trivia-aware indentation/wrapping, broader source corpus
-tests, and an explicit editor buffer operation. Do not attach the current stdout
+tests, and optional editor format-on-save integration after validation. Do not attach the current stdout
 command to format-on-save through an untested adapter or treat it as an in-place
 formatter.

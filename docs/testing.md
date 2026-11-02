@@ -353,6 +353,12 @@ unchanged input files and idempotence. The current core fixture corpus is
 formatted twice and independently rechecked for matching acceptance status.
 These are sampled/runtime structural guards, not semantic-preservation proofs.
 
+Real Vim/Neovim formatting tests cover unsaved and unnamed buffers, one-step
+undo/redo without losing earlier edits, unchanged no-op undo state, LF/CRLF with
+and without a final newline, Unicode/comments, buffer-option preservation,
+readonly/syntax failures, malformed/stale-original reports, temporary cleanup,
+command/Plug undo cleanup and byte-for-byte unchanged source files on disk.
+
 ## Hedgehog dependency
 
 Repository: https://github.com/stefan-hoeck/idris2-hedgehog

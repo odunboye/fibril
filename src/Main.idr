@@ -34,6 +34,7 @@ Usage:
   fibril validate-source PATH   Validate UTF-8 and source controls (not typing)
   fibril rename-preview LINE COLUMN NEWNAME PATH  Capture-checked same-file edits (no writes)
   fibril format PATH            Format horizontal spacing to stdout (no writes)
+  fibril format --json PATH     Version-1 original/formatted snapshot report
   fibril format --check PATH    Reject noncanonical spacing without output
   fibril elaborate PATH         Inspect expanded named IR (unchecked; no effects)
   fibril reference LINE COLUMN PATH  Built-in documentation or bundled Prelude source
@@ -148,6 +149,7 @@ main = do
       case result of
         Right text => putStr text
         Left err => printServiceReport (Left err)
+    ["format", "--json", path] => formatFileReport path >>= printServiceReport
     ["format", "--check", path] => do
       result <- formatFile True path
       case result of

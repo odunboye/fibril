@@ -29,6 +29,119 @@ function! s:buffer_snapshot(...) abort
   return text
 endfunction
 
+" Buffer serialization for formatting does not depend on the saved file.
+function! s:format_snapshot() abort
+  let lines = getline(1, '$')
+  for text in lines
+    if stridx(text, "\n") >= 0
+      throw 'buffer contains NUL data'
+    endif
+  endfor
+  let text = join(lines, &l:fileformat ==# 'dos' ? "\r\n" : "\n")
+  return text . (&l:endofline ? (&l:fileformat ==# 'dos' ? "\r\n" : "\n") : '')
+endfunction
+
+function! fibril#format() abort
+  if &buftype !=# '' || !&modifiable || &readonly || &undolevels < 0
+    return s:warn('formatting requires an editable normal buffer with undo enabled')
+  endif
+  if &encoding !=# 'utf-8' || index(['', 'utf-8'], &l:fileencoding) < 0 ||
+        \ index(['unix', 'dos'], &l:fileformat) < 0 || &l:bomb
+    return s:warn('formatting requires UTF-8 Unix/CRLF text without a BOM')
+  endif
+  let binary = get(g:, 'fibril_executable', 'fibril')
+  if type(binary) != v:t_string || !executable(binary) ||
+        \ !exists('*json_decode') || !exists('*byteidxcomp') || !exists('*setfperm')
+    return s:warn('formatting requires the compiler, JSON/scalar conversion and private temporary-file support')
+  endif
+  let temporary = ''
+  try
+    let source = s:format_snapshot()
+    if strlen(source) > 65536
+      return s:warn('formatting source exceeds 65536 UTF-8 bytes')
+    endif
+    let number = bufnr('%')
+    let window = win_getid()
+    let name = expand('%:p')
+    let tick = b:changedtick
+    let options = [&l:fileformat, &l:endofline, &l:fileencoding, &l:bomb]
+    let view = winsaveview()
+    let scalar = strchars(strpart(getline('.'), 0, col('.') - 1))
+    let temporary = tempname() . '.fib'
+    if writefile([], temporary, 'b') != 0 || !setfperm(temporary, 'rw-------') ||
+          \ writefile(split(source, "\n", 1), temporary, 'b') != 0
+      throw 'could not prepare private formatting snapshot'
+    endif
+    let args = [binary, 'format', '--json', temporary]
+    let output = system(join(map(args, 'shellescape(v:val)'), ' '))
+    let status = v:shell_error
+    if status
+      return s:warn('format request failed: ' . strpart(output, 0, 512))
+    endif
+    if bufnr('%') != number || win_getid() != window || expand('%:p') !=# name ||
+          \ b:changedtick != tick || s:format_snapshot() !=# source ||
+          \ [&l:fileformat, &l:endofline, &l:fileencoding, &l:bomb] !=# options ||
+          \ !&modifiable || &readonly || &buftype !=# '' || &undolevels < 0
+      return s:warn('buffer changed during formatting; retry')
+    endif
+    let result = json_decode(output)
+    if type(result) != v:t_dict || type(get(result, 'version', 0)) != v:t_number ||
+          \ result.version != 1 ||
+          \ get(result, 'coordinates', '') !=# 'unicode-scalars;offset=0;line=1;column=1' ||
+          \ type(get(result, 'original', 0)) != v:t_string || result.original !=# source ||
+          \ type(get(result, 'formatted', 0)) != v:t_string || strlen(result.formatted) > 65536
+      throw 'invalid formatting response'
+    endif
+    if result.formatted ==# source
+      return 1
+    endif
+    let lines = split(result.formatted, "\n", 1)
+    if options[1]
+      if empty(lines) || lines[-1] !=# ''
+        throw 'formatter changed final-newline presence'
+      endif
+      call remove(lines, -1)
+    elseif result.formatted =~# "\n$"
+      throw 'formatter added a final newline'
+    endif
+    if empty(lines)
+      let lines = ['']
+    endif
+    if len(lines) != line('$')
+      throw 'formatter changed physical line count'
+    endif
+    if options[0] ==# 'dos'
+      for index in range(len(lines))
+        if index < len(lines) - 1 || options[1]
+          if lines[index] !~# "\r$"
+            throw 'formatter changed CRLF line endings'
+          endif
+          let lines[index] = strpart(lines[index], 0, strlen(lines[index]) - 1)
+        endif
+      endfor
+    endif
+    for index in range(len(lines))
+      if matchstr(lines[index], "\r*$") !=# matchstr(getline(index + 1), "\r*$")
+        throw 'formatter changed carriage-return content'
+      endif
+    endfor
+    " Start a separate undo block without changing either global/local settings.
+    let &g:undolevels = &g:undolevels
+    if setline(1, lines) != 0
+      throw 'could not update formatted buffer'
+    endif
+    let view.col = byteidxcomp(getline(view.lnum), min([scalar, strchars(getline(view.lnum))]))
+    call winrestview(view)
+    return 1
+  catch
+    return s:warn('formatting refused: ' . v:exception)
+  finally
+    if !empty(temporary)
+      call delete(temporary)
+    endif
+  endtry
+endfunction
+
 function! s:request(query, ...) abort
   if &l:modified || empty(expand('%:p')) || !filereadable(expand('%:p'))
     return s:warn('save this buffer before requesting compiler services')
