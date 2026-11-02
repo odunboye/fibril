@@ -519,6 +519,81 @@ class CLITests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertEqual(result.stdout, "Do context!\n")
 
+    def test_optional_named_record_eliminators(self):
+        example = ROOT / "examples/modules/pattern-inference/Minimal.fib"
+        result = run("run", "--source-dir", str(example.parent), str(example))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout, "No named eliminator needed!\n")
+        report = json.loads(run("elaborate", str(example)).stdout)
+        names = [d["name"] for d in report["declarations"]]
+        self.assertEqual(names, ["Message", "MkMessage", "Append", "MkAppend", "append",
+                                 "textAppend", "render", "main"])
+        self.assertFalse(any("$" in name for name in names))
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / "Main.fib"
+            path.write_text(example.read_text().replace("module Minimal", "module Main"))
+            formatted = run("format", str(path))
+            self.assertEqual(formatted.returncode, 0, formatted.stderr)
+            path.write_text(formatted.stdout)
+            self.assertEqual(run("format", str(path)).stdout, formatted.stdout)
+            self.assertEqual(run("run", "--source-dir", str(root), str(path)).stdout,
+                             "No named eliminator needed!\n")
+            # Direct typed matching handles binary records without named helpers too.
+            source = ('module Main\nrecord Pair : Type 0 where\n  constructor MkPair\n'
+                      '  1 left : String\n  1 right : String\n'
+                      'main : IO Unit\nmain = putStrLn (case MkPair "Both " "fields!" of '
+                      '(1 left : String) (1 right : String) => appendString left right)\n')
+            path.write_text(source)
+            self.assertEqual(run("run", "--source-dir", str(root), str(path)).stdout, "Both fields!\n")
+            path.write_text(source.replace('appendString left right', 'left'))
+            self.assertNotEqual(run("run", "--source-dir", str(root), str(path)).returncode, 0)
+            # Wider records with safe getters do not need a named consuming helper.
+            path.write_text(
+                'module Main\nrecord Flags : Type 0 where\n  constructor MkFlags\n'
+                '  first : Bool\n  second : Bool\n  third : Bool\n  projection last third\n'
+                'main : IO Unit\nmain = putStrLn (if last (MkFlags False False True) then "Wider!" else "bad")\n')
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, "Wider!\n")
+            # A requested helper is still emitted, checked and navigates to its token.
+            explicit = source.replace("  constructor MkPair\n", "  constructor MkPair\n  eliminator usePair\n")
+            path.write_text(explicit)
+            names = [d["name"] for d in json.loads(run("elaborate", str(path)).stdout)["declarations"]]
+            self.assertEqual(names[:3], ["Pair", "MkPair", "usePair"])
+            # No dangling invented helper exists when the directive was absent.
+            path.write_text(source.replace('main : IO Unit', 'bad : (1 p : Pair) -> String\n'
+                                           'bad = \\(1 p : Pair) => usePair p\nmain : IO Unit'))
+            self.assertNotEqual(run("check", "--source-dir", str(root), str(path)).returncode, 0)
+            # Automatic methods navigate to authored tokens without a named eliminator.
+            path.write_text(example.read_text().replace("module Minimal", "module Main"))
+            text = path.read_text()
+            lines = text.splitlines()
+            line = next(i + 1 for i, value in enumerate(lines) if "append textAppend" in value)
+            column = lines[line - 1].index("append textAppend") + 1
+            result = run("definition", "--source-dir", str(root), "--entry", str(path),
+                         str(line), str(column), str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            target = json.loads(result.stdout)["definition"]["range"]
+            self.assertEqual(text[target["start"]["offset"]:target["end"]["offset"]], "append")
+            # Dependent canonical motives do not rely on named helper functions.
+            dependent = (ROOT / "examples/modules/pattern-inference/Dependent.fib").read_text()
+            path.write_text("".join(line for line in dependent.replace("module Dependent", "module Main").splitlines(True)
+                                    if not line.lstrip().startswith("eliminator ")))
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, "Dependent payload!\nDependent family!\n")
+            # A whole imported graph can omit helpers without changing its behavior.
+            original = ROOT / "examples/modules/interfaces"
+            for file in original.rglob("*.fib"):
+                destination = root / file.relative_to(original)
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                destination.write_text("".join(line for line in file.read_text().splitlines(True)
+                                               if not line.lstrip().startswith("eliminator ")))
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, "Hello, interfaces!\nExplicit dictionaries!\nMonoid shape!\n")
+
     def test_dependent_motive_inference_and_budget(self):
         example = ROOT / "examples/modules/pattern-inference/Dependent.fib"
         result = run("run", "--source-dir", str(example.parent), str(example))

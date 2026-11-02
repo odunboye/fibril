@@ -60,11 +60,11 @@ sameAuthored (ImplementationItem a) (ImplementationItem b) = a.name == b.name &&
   a.exported == b.exported && a.generated == b.generated && a.dictionary == b.dictionary && sameExpr a.expected b.expected && sameExpr a.value b.value
 sameAuthored (RecordItem a) (RecordItem b) = a.name.spelling == b.name.spelling && a.level == b.level &&
   a.exported == b.exported && sameList sameParameter a.params b.params &&
-  a.constructorName.spelling == b.constructorName.spelling && a.eliminatorName.spelling == b.eliminatorName.spelling &&
+  a.constructorName.spelling == b.constructorName.spelling && map (\(_, name) => name.spelling) a.eliminator == map (\(_, name) => name.spelling) b.eliminator &&
   sameList sameField a.fields b.fields && sameList sameProjection a.projections b.projections
 sameAuthored (InterfaceItem a) (InterfaceItem b) = a.name.spelling == b.name.spelling && a.level == b.level &&
   a.exported == b.exported && sameList sameParameter a.params b.params &&
-  a.constructorName.spelling == b.constructorName.spelling && a.eliminatorName.spelling == b.eliminatorName.spelling &&
+  a.constructorName.spelling == b.constructorName.spelling && map (\(_, name) => name.spelling) a.eliminator == map (\(_, name) => name.spelling) b.eliminator &&
   sameList sameField a.fields b.fields && sameList sameProjection a.projections b.projections
 sameAuthored _ _ = False
 

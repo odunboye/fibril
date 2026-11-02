@@ -75,8 +75,9 @@ record Combine (0 A : Type 0) : Type 0 where
 ~~~
 
 The parser retains one authored field. The declaration elaborator emits an
-erased type abbreviation, constructor and consuming dependent eliminator, plus
-the requested getter. Each definition passes ordinary resolution, construction
+erased type abbreviation and constructor, plus a consuming dependent eliminator
+only when explicitly named and any requested getter. Omission creates no hidden
+helper; typed patterns and getters still use core unary elimination directly. Each definition passes ordinary resolution, construction
 admission and erased/runtime checking. The generated eliminator retains the
 existing declared result-universe policy.
 

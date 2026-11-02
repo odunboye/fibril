@@ -7,7 +7,7 @@ digraph RecordTelescopes {
   one [label="One field:\nBoxType q A"];
   two [label="Final two fields:\nSigma q r A B"];
   tail [label="Earlier field:\nSigma q 1 A Tail"];
-  generated [label="3 + requested getters\nordinary declarations"];
+  generated [label="2 + optional named eliminator + getters\nordinary declarations"];
   checker [label="Resolution + size admission\nerased/runtime checking"];
   authored -> admission -> lowering;
   lowering -> one;

@@ -125,6 +125,14 @@ recordParameters fuel expressions end tokens = case tokens of
         Right (Parameter parameter.span parameter.quantity parameter.name parameter.domain :: rest, remaining)
   [] => Right ([], [])
 
+optionalEliminator : Nat -> Position -> List Token -> Either ParseError (Maybe (Token, Token), List Token)
+optionalEliminator indent end tokens@(next :: _) =
+  if next.kind == EliminatorKeyword then do
+    (keyword, name, following) <- directive EliminatorKeyword indent end tokens
+    Right (Just (keyword, name), following)
+  else Right (Nothing, tokens)
+optionalEliminator indent end [] = Right (Nothing, [])
+
 parseRecordLike : TokenKind -> Nat -> Position -> List Token -> Either ParseError (AuthoredDeclaration, List Token)
 parseRecordLike kind budget end tokens = do
   (keyword, rest) <- expect kind end tokens
@@ -144,9 +152,9 @@ parseRecordLike kind budget end tokens = do
   if constructorKeyword.span.start.line <= whereToken.span.start.line
      then Left (ParseFailure constructorKeyword.span.start "constructor must follow the record header")
      else Right ()
-  (eliminatorKeyword, eliminatorName, rest) <- directive EliminatorKeyword indent end rest
+  (eliminator, rest) <- optionalEliminator indent end rest
   (fields, rest) <- parseFields (length rest) budget indent end rest
-  if null fields then Left (ParseFailure eliminatorName.span.finish "Records require at least one field") else Right ()
+  if null fields then Left (ParseFailure constructorName.span.finish "Records require at least one field") else Right ()
   if kind == InterfaceKeyword && (case rest of token :: _ => token.kind == ProjectionKeyword; [] => False)
      then Left (ParseFailure (nextPosition end rest) "Interface methods generate getters; projection directives are not allowed") else Right ()
   (projections, rest) <- parseProjections (length rest) indent end rest
@@ -158,10 +166,10 @@ parseRecordLike kind budget end tokens = do
   let finish = case reverse projections of
         [] => case reverse fields of
           field :: _ => (extent field.ty).finish
-          [] => eliminatorName.span.finish
+          [] => constructorName.span.finish
         final :: _ => final.field.span.finish
   let region = Between keyword.span.start finish
-  let authored = RecordSyntax region name level params constructorKeyword constructorName eliminatorKeyword eliminatorName fields projections False
+  let authored = RecordSyntax region name level params constructorKeyword constructorName eliminator fields projections False
   Right (if kind == InterfaceKeyword then InterfaceItem authored else RecordItem authored, rest)
 
 parseImplementation : Nat -> Position -> List Token -> Either ParseError (AuthoredDeclaration, List Token)

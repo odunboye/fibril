@@ -59,6 +59,7 @@ examples: build
 	./build/exec/fibril run --source-dir examples/modules/interfaces examples/modules/interfaces/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/pattern-inference examples/modules/pattern-inference/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/pattern-inference examples/modules/pattern-inference/Dependent.fib
+	./build/exec/fibril run --source-dir examples/modules/pattern-inference examples/modules/pattern-inference/Minimal.fib
 
 bench:
 	python3 tools/benchmark.py

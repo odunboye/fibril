@@ -118,6 +118,16 @@ Inference failures carry the original case-expression point and elaboration stag
 Unbound names remain resolution failures. Ordinary core failures remain
 unlocated unless the driver has a genuine declaration-policy point.
 
+## Optional surface eliminator names
+
+Records and interfaces may omit the eliminator directive. Typed patterns and
+method/getter functions still elaborate to explicit core eliminations; no hidden
+named function or fake source token is generated. Only an explicitly requested
+helper consumes a third base declaration slot. The
+[Minimal example](../examples/modules/pattern-inference/Minimal.fib) demonstrates
+both record matching and an interface without named helpers. Wider consuming
+operations can still request and call a named eliminator.
+
 ## API, evidence and remaining boundaries
 
 Driver checking calls contextual expression elaboration directly.

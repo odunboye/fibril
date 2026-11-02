@@ -1,6 +1,7 @@
 module Tests.Document
 
 import Data.List
+import Data.Maybe
 import Fibril.Core.Quantity
 import Fibril.Source.Text
 import Fibril.Source.Lexer
@@ -85,6 +86,19 @@ checks =
             authored.dictionary && authored.nameSpan.start.column == 16 && authored.definitionNameSpan.start.column == 1
           _ => False
         _ => False)
+  , ("omitted eliminators have no authored or generated phantom name",
+      let source = "module A\nrecord R : Type 1 where\n  constructor MkR\n  0 Item : Type 0\n  1 value : Item\n"
+       in case parseDocument 2 256 source of
+            Right document => case document.body of
+              DeclarationDocument [RecordItem authored] =>
+                isNothing authored.eliminator &&
+                map name (bindingSites (RecordItem authored)) == ["R", "MkR"] &&
+                (case (elaborateDeclarationsWithBudget 18 2 [RecordItem authored],
+                       elaborateDeclarationsWithBudget 19 2 [RecordItem authored]) of
+                  (Left _, Right decls) => map name decls == ["R", "MkR"]
+                  _ => False)
+              _ => False
+            _ => False)
   , ("requested projections retain actual name selections",
       case documentSymbols "module A\nexport\nrecord R : Type 0 where\n  constructor MkR\n  eliminator useR\n  x : Bool\n  y : Bool\n  projection getX x\n" of
         Right [ty, ctor, elim, getter] => getter.name == "getX" && getter.exported &&

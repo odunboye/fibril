@@ -61,8 +61,7 @@ record RecordDeclaration where
   params : List RecordParameter
   constructorKeyword : Token
   constructorName : Token
-  eliminatorKeyword : Token
-  eliminatorName : Token
+  eliminator : Maybe (Token, Token)
   fields : List RecordField
   projections : List RecordProjection
   exported : Bool
@@ -104,10 +103,11 @@ recordSites sourceRecord =
   [Binding sourceRecord.name.spelling Erased sourceRecord.span sourceRecord.name.span sourceRecord.name.span sourceRecord.exported,
    Binding sourceRecord.constructorName.spelling Unrestricted
      (Between sourceRecord.constructorKeyword.span.start sourceRecord.constructorName.span.finish)
-     sourceRecord.constructorName.span sourceRecord.constructorName.span sourceRecord.exported,
-   Binding sourceRecord.eliminatorName.spelling Unrestricted
-     (Between sourceRecord.eliminatorKeyword.span.start sourceRecord.eliminatorName.span.finish)
-     sourceRecord.eliminatorName.span sourceRecord.eliminatorName.span sourceRecord.exported] ++
+     sourceRecord.constructorName.span sourceRecord.constructorName.span sourceRecord.exported] ++
+  (case sourceRecord.eliminator of
+    Nothing => []
+    Just (keyword, name) => [Binding name.spelling Unrestricted
+      (Between keyword.span.start name.span.finish) name.span name.span sourceRecord.exported]) ++
   map (\projection => Binding projection.name.spelling Unrestricted
        (Between projection.keyword.span.start projection.field.span.finish)
        projection.name.span projection.name.span sourceRecord.exported) sourceRecord.projections

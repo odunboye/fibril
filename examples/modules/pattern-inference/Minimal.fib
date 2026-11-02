@@ -1,0 +1,18 @@
+module Minimal
+
+record Message : Type 0 where
+  constructor MkMessage
+  1 text : String
+
+interface Append : Type 0 where
+  constructor MkAppend
+  append : (1 left : String) -> (1 right : String) -> String
+
+implementation textAppend : Append
+textAppend = MkAppend appendString
+
+render : (1 message : Message) -> String
+render = \(1 message : Message) => case message of (1 text : String) => text
+
+main : IO Unit
+main = putStrLn (append textAppend (render (MkMessage "No named ")) "eliminator needed!")

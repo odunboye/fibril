@@ -2,7 +2,7 @@
 
 **Status:** core dependent pairs and a bounded named-record source prototype are
 implemented, including explicitly requested safe projection functions. Source records have no fixed field-count cap (at least one field), an explicit
-constructor and an explicit eliminator. Explicit erased parameter telescopes are supported; recursive/nominal records,
+constructor and an optional named eliminator. Explicit erased parameter telescopes are supported; recursive/nominal records,
 constructor-discriminating/inferred patterns, dot-field syntax and instance
 inference remain unimplemented. [Explicit interfaces](explicit-interfaces.md)
 now reuse these checked dictionary foundations. No preservation or erasure theorem is claimed.
@@ -40,7 +40,7 @@ The field value has the type supplied in Item. For example, MkPackage String
 the payload is linear. This is not a parser shortcut for a particular record.
 
 The current grammar requires a named module, a column-one record header, then
-aligned indented constructor/eliminator directives and at least one single-line
+an aligned indented constructor directive, an optional eliminator directive, and at least one single-line
 typed fields. Comments/blank lines are allowed. No defaults,
 recursive references, multiline field expressions, inferred field types or
 automatically inferred accessors are added. Optional projection directives follow
@@ -53,11 +53,12 @@ fields, forming a genuinely dependent telescope. It cannot refer to itself or a
 later field. Generated internal binders cannot be captured by legal source names;
 even fields named Package or MkPackage do not capture generated global references.
 
-A record expands to three ordinary checked declarations: an erased type, an
-unrestricted constructor, and an unrestricted consuming eliminator. These count
-as **three** of the existing 64 declaration slots. All three go through existing
+A record expands to an erased type and unrestricted constructor, plus an
+unrestricted consuming eliminator **only when its directive is present**.
+These consume **two or three** of the existing 64 declaration slots, respectively.
+Every generated declaration goes through existing
 resolution, pre-clone size admission, and erased/runtime checking; expansion is
-not an axiom or permission to skip generated bodies. The explicit eliminator
+not an axiom or permission to skip generated bodies. An explicitly requested eliminator
 directive gives it a real source name/location, rather than inventing a
 definition location for an auto-named function.
 
@@ -276,7 +277,7 @@ constructs this record at String and passes it to a generic appendWith. Tests
 also instantiate it at Bool. It is an explicit first-class record dictionary,
 not interface syntax, inferred implementation search, or a law certificate.
 
-All three generated declarations receive the same ordered parameter telescope:
+The type, constructor and optional eliminator receive the same ordered parameter telescope:
 the erased type constructor, runtime constructor, and consuming eliminator.
 For the example, calls explicitly supply A:
 
@@ -312,7 +313,7 @@ Lowering uses existing Pi/lambda/application syntax and core checking; there are
 no new core terms or unchecked constructor facts. Type/constructor global
 references remain capture-resistant even when a parameter is named like its
 record or constructor. All generated syntax is included in the existing
-pre-clone admission estimate. Each record still consumes three base declaration slots, not one per parameter;
+pre-clone admission estimate. Each record consumes two base declaration slots plus one for an explicitly requested eliminator, not one per parameter;
 each requested projection consumes one additional slot. The original nonparameterized records are unchanged.
 
 There is no universe polymorphism: the declared record universe still controls
@@ -477,6 +478,29 @@ contractions commute with renaming/substitution by checked host equalities;
 subsequent beta naturality reuses the existing laws. Generators include raw
 cases and typed/runtime case recipes. This still is not a general preservation
 or quantitative soundness theorem.
+
+## Optional named eliminators
+
+The eliminator directive can be omitted for records and interfaces. There is no
+generated hidden helper or fabricated helper token: only the type, constructor
+and requested getters/method functions are emitted, checked and exposed as
+symbols. Generated getters and typed patterns use core elimination directly.
+
+~~~fibril
+record Message : Type 0 where
+  constructor MkMessage
+  1 text : String
+
+render : (1 message : Message) -> String
+render = \(1 message : Message) => case message of (1 text : String) => text
+~~~
+
+[Minimal](../examples/modules/pattern-inference/Minimal.fib) combines this with
+an interface without a named eliminator and prints No named eliminator needed!.
+Keep an explicit eliminator directive when you want a reusable named dependent
+elimination function or need to consume an entire wider telescope. Optional
+naming does not introduce dot projections, automatic constructor naming, n-ary
+patterns, or an implicit linear discard.
 
 ## Wider record representation and identity
 

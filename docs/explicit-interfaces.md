@@ -23,7 +23,7 @@ textSemigroup = MkSemigroup String appendString
 ~~~
 
 Headers follow the existing record layout: named module, explicit constructor
-and eliminator names, erased parameters, a declared universe, and aligned
+name, an optional eliminator name, erased parameters, a declared universe, and aligned
 single-line method signatures. interface and implementation are now reserved
 keywords. The implementation keyword shares its line with the signature;
 the matching definition name starts in column one on the following definition
@@ -110,15 +110,15 @@ ambiguity-resolution or algebraic-law guarantee follows.
 
 ## Tooling, admission and evidence
 
-Authored binding sites include the interface type, explicit constructor and
-eliminator, and real method-name tokens. Generated method definitions navigate
+Authored binding sites include the interface type, explicit constructor,
+optional named eliminator, and real method-name tokens. Generated method definitions navigate
 to those tokens, not synthetic source. Implementation signature/definition
 names retain ordinary navigation. Group export/private policy follows records.
 Vim/Neovim highlights the new keywords; formatting preserves authored kinds and
 handles implementation bodies using the guarded ordinary expression layout.
 
 Each method getter consumes an ordinary declaration slot, in addition to the
-three dictionary declarations. Existing source, parameter, 64-declaration,
+two dictionary declarations (three if a named eliminator was requested). Existing source, parameter, 64-declaration,
 cumulative generated-IR, expanded-core and checker budgets apply; no new fixed
 method-count quota is introduced.
 

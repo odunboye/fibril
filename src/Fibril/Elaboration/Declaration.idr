@@ -170,12 +170,12 @@ validateProjection fields projection = do
   if not (allows selected.quantity Linear)
      then Left (ElaborationFailure projection.field.span.start "Erased fields cannot be projected as runtime values") else Right ()
   if any (\field => field.token.spelling /= selected.token.spelling && not (allows field.quantity Erased)) fields
-     then Left (ElaborationFailure projection.field.span.start "Projection would discard a linear field; consume all fields with the eliminator instead")
+     then Left (ElaborationFailure projection.field.span.start "Projection would discard a linear field; consume all fields with a pattern or an explicitly declared eliminator instead")
      else Right ()
   Right selected
 
-recordDeclarations : RecordDeclaration -> List (RecordProjection, RecordField) -> List Declaration
-recordDeclarations sourceRecord projections =
+recordEliminator : RecordDeclaration -> Token -> Token -> Declaration
+recordEliminator sourceRecord keyword eliminatorName =
   let region = sourceRecord.span
       name = sourceRecord.name
       params = sourceRecord.params
@@ -196,14 +196,25 @@ recordDeclarations sourceRecord projections =
       branchType = fieldPis region fields (app pRef (applyFields region ctorRef fields))
       elimType = bind Erased p motiveType (bind Linear value typeRef (bind Linear next branchType (app pRef valueRef)))
       elimValue = lam Erased p motiveType (lam Linear value typeRef (lam Linear next branchType (consume region fields pRef valueRef nextRef)))
+   in Declared True (Between keyword.span.start eliminatorName.span.finish)
+        eliminatorName.span eliminatorName.span False Unrestricted eliminatorName.spelling
+        (parameterPis region params elimType) (parameterLambdas region params elimValue)
+
+recordDeclarations : RecordDeclaration -> List (RecordProjection, RecordField) -> List Declaration
+recordDeclarations sourceRecord projections =
+  let region = sourceRecord.span
+      name = sourceRecord.name
+      params = sourceRecord.params
+      fields = sourceRecord.fields
+      typeRef = applyParameters region (NQualifiedRef name.span name.spelling) params
    in [ Declared True region name.span name.span False Erased name.spelling
           (parameterPis region params (NSort name.span sourceRecord.level)) (parameterLambdas region params (recordType region fields)),
         Declared True (Between sourceRecord.constructorKeyword.span.start sourceRecord.constructorName.span.finish)
           sourceRecord.constructorName.span sourceRecord.constructorName.span False Unrestricted sourceRecord.constructorName.spelling
-          (parameterPis region params (fieldPis region fields typeRef)) (parameterLambdas region params (fieldLambdas region fields (recordValue region fields))),
-        Declared True (Between sourceRecord.eliminatorKeyword.span.start sourceRecord.eliminatorName.span.finish)
-          sourceRecord.eliminatorName.span sourceRecord.eliminatorName.span False Unrestricted sourceRecord.eliminatorName.spelling
-          (parameterPis region params elimType) (parameterLambdas region params elimValue) ] ++
+          (parameterPis region params (fieldPis region fields typeRef)) (parameterLambdas region params (fieldLambdas region fields (recordValue region fields))) ] ++
+      (case sourceRecord.eliminator of
+        Nothing => []
+        Just (keyword, eliminatorName) => [recordEliminator sourceRecord keyword eliminatorName]) ++
       map (\(projection, selected) => projectionDeclaration region name params fields
         (takeWhile (\field => field.token.spelling /= selected.token.spelling) fields) selected projection) projections
 
@@ -332,7 +343,7 @@ constructionCost sourceRecord projections =
             branch = capped (binders + 1)
          in capped (2 + 2 * typeRef + result + consumeNodes fields motive branch + 2 * paramNodes)
    in foldl (\accum, pair => capped (accum + getterCost (snd pair)))
-        (capped (recordCost + ctorCost + elimCost)) projections
+        (capped (recordCost + ctorCost + (case sourceRecord.eliminator of Nothing => 0; Just _ => elimCost))) projections
 
 lowerRecord : Nat -> RecordDeclaration -> Either ElaborationError (Nat, List Declaration)
 lowerRecord budget sourceRecord = do

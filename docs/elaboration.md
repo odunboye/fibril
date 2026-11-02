@@ -114,7 +114,9 @@ surface syntax where tooling needs it.
 
 ## Next boundaries
 
-Constructor/eliminator names are still explicit in source. Automatic naming,
+Constructor names remain explicit; named eliminator directives are optional.
+Omitting one generates no helper or fabricated source location, and consumes no
+eliminator declaration slot. Automatic constructor naming,
 projection defaults, inferred method-body blocks, implicit argument inference and
 instance lookup need their own policy and source-origin design. They belong in elaboration,
 not parser-specific function recognition.
