@@ -253,8 +253,9 @@ normally; an already-canonical buffer creates no change/undo entry. Cursor/view
 are retained approximately by line/scalar column, not a semantic token identity.
 
 The formatter is still the conservative
-[formatter](formatting.md), including guarded long application wrapping. It does
-not generally reindent existing blocks or reflow signatures. Comments, literal spelling, LF/CRLF, final-newline presence and buffer
+[formatter](formatting.md), including guarded application/lambda/signature/case layout. It handles
+already-multiline definitions too, but does not generally reindent all blocks or
+reflow record headers/fields and flat do statements. Comments, literal spelling, LF/CRLF, final-newline presence and buffer
 encoding/line-ending options are retained. Normal editable UTF-8 buffers with
 Unix/CRLF line endings and undo enabled are required; readonly, BOM and special
 buffers are refused. NUL-containing buffers and compiler/source-policy errors

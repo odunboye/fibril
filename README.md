@@ -25,7 +25,7 @@ Record parsing and generation now use a [separate elaboration layer](docs/elabor
 Use fibril elaborate PATH to inspect expanded named IR (explicitly unchecked).
 
 A [conservative formatter](docs/formatting.md) is available as fibril format PATH
-or fibril format --check PATH. It normalizes token spacing and safely wraps long parenthesized applications,
+or fibril format --check PATH. It normalizes token spacing and safely lays out long applications, lambdas, signatures and cases,
 without writing files or changing comments/literal spelling.
 
 The next abstraction step is documented in [the interface contract](docs/interfaces.md),

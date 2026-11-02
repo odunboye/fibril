@@ -365,6 +365,11 @@ exclusion, plus rechecking/running a fully formatted record project. Real editor
 tests accept inserted lines, restore the original layout with one undo, and
 verify a second format is a no-op.
 
+Structured-layout regressions cover the reported partially formatted Patterns
+module, lambda bodies, dependent return/of branches, signatures and conditionals,
+LF/CRLF, width checks on the report, idempotence and successful hosted execution
+after formatting. Existing editor wrapping/undo tests remain in force.
+
 ## Hedgehog dependency
 
 Repository: https://github.com/stefan-hoeck/idris2-hedgehog

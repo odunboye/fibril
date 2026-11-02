@@ -19,7 +19,7 @@ Build with `pack build fibril`, then invoke `./build/exec/fibril`.
 | check --json PATH | Structured runtime-check report; JSON on stdout even on represented rejection, with nonzero status |
 | check --erased PATH | Parse/resolve/check the erased ordinary fragment only |
 | rename-preview LINE COLUMN NEWNAME PATH | Conservative capture-checked same-file edit preview as JSON; never writes files |
-| format PATH | Conservative spacing and guarded application wrapping to stdout; no source writes |
+| format PATH | Conservative spacing and guarded structured-expression layout to stdout; no source writes |
 | format --json PATH | Version-1 original/formatted text snapshot report for editor use |
 | format --check PATH | Empty success for canonical spacing; nonzero when formatting is required |
 | elaborate PATH | Inspect expanded named declaration IR; checked:false, no import loading or effects |

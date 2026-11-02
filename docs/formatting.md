@@ -1,7 +1,7 @@
 # Source formatting
 
 **Implemented:** deterministic horizontal spacing and guarded wrapping of long
-parenthesized applications. Manual :FibrilFormat buffer application is available
+applications, lambdas, signatures and case/conditional expressions. Manual :FibrilFormat buffer application is available
 in Vim/Neovim. General indentation/reflow, format-on-save, --write, and whole-project
 rewriting are not implemented. This formatter never writes the input file.
 
@@ -57,21 +57,27 @@ main = putStrLn (appendString "Hello" ", Fibril!")
 The formatter preserves original token spelling, including string escapes,
 Unicode and arrow/lambda glyphs. It changes gaps, not literal values or identifiers.
 
-It preserves every gap that is not exclusively same-line spaces/tabs. In
-particular, indentation, blank lines, line comments, comment spacing, trailing
-gaps, LF/CRLF and final-newline presence are retained. Same-line tabs **between**
-tokens become canonical spaces; leading tabs do not. Existing lines are not joined. Only the guarded application-wrapping rule below
+It preserves comments, literal spelling, blank lines, trailing gaps, LF/CRLF and
+final-newline presence. Gaps containing comments are never replaced. At planned
+syntax boundaries a whitespace-only gap can gain a newline or continuation
+indentation; it is not a general block-indentation pass. Same-line tabs **between**
+tokens become canonical spaces. Existing indentation is retained except at
+syntax-selected continuation breaks. Existing lines are not joined. Only the guarded application-wrapping rule below
 inserts line breaks, avoiding unsupported do/record layout changes.
 
 This deliberately leaves alignment, trailing whitespace and existing indentation
-unchanged. Long grouped applications receive limited continuation indentation. It is a conservative first formatter, not a complete style
+outside selected syntax boundaries. Long structured expressions receive
+continuation indentation. It is a conservative first formatter, not a complete style
 engine or a canonical representation of all source trivia.
 
-## Long application wrapping
+## Structured expression layout
 
-For a single-line definition value or expression exceeding a soft target of
-100 Unicode-scalar columns, grouped application arguments can move to continuation
-lines. Each nested parenthesis level adds two spaces. For example:
+The soft target is 100 Unicode-scalar columns, with conservative prefix allowance.
+Layout uses flattened token widths rather than current physical line widths, so
+already-multiline values are not skipped and repeated formatting is stable.
+Grouped/long application arguments, lambda bodies, Pi signature chains, case
+return/of/body boundaries and conditional branches receive syntax-directed
+continuation breaks, normally in two-space steps. For example:
 
 ~~~fibril
 main = putStrLn
@@ -81,8 +87,9 @@ main = putStrLn
         (Data.Package.MkPackage String "Records"))))
 ~~~
 
-Breakpoints come from application argument spans, not splitting arbitrary tokens
-or strings. Qualified names and literal spelling are preserved. Existing line
+Breakpoints come from expression spans and actual arrow/keyword tokens, not
+splitting arbitrary tokens or strings. Synthetic pattern lambdas are distinguished
+from authored arrows, so the two pattern binders stay together. Qualified names and literal spelling are preserved. Existing line
 breaks/blank lines are retained; final-newline presence is unchanged. Homogeneous
 LF or CRLF style is used for inserted breaks. Mixed/lone-CR input receives
 spacing-only formatting.
@@ -90,9 +97,10 @@ spacing-only formatting.
 The proposed layout is reparsed and structurally compared. If it cannot preserve
 the parsed document, formatting falls back to spacing only. Oversized wrapping
 also falls back. This is not a universal line-length guarantee: long literals,
-flat argument lists without grouped arguments, declaration signatures, record
-headers/fields, existing multiline values and physical-line do statements are
-not generally reflowed yet. Reformatting emitted layout is idempotent.
+long indivisible names, record headers/single-line field declarations and
+expressions containing physical-line do statements are not generally reflowed.
+Comments can prevent a desired breakpoint. Source wrapping is still conservative,
+not a complete width-constrained pretty printer. Reformatting emitted layout is idempotent.
 
 The Vim/Neovim adapter accepts inserted lines as one undoable buffer change.
 It checks unchanged non-whitespace content, blank lines, final-newline/style

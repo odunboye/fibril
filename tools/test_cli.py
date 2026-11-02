@@ -193,6 +193,64 @@ class CLITests(unittest.TestCase):
         self.assertEqual(result.stdout, "")
         self.assertIn("use eval", result.stderr)
 
+    def test_structured_lambda_case_and_signature_layout(self):
+        # Exact partially formatted report: don't skip an already-multiline RHS.
+        source = (
+            'module Patterns\nimport Data.Package\nimport Data.Message\n\n'
+            '0 payloadType : (0 package : Data.Package.Package) -> Type 0\n'
+            'payloadType = \\(0 package : Data.Package.Package) => case package return (\\(0 self : Data.Package.Package) => Type 0) of (0 Item : Type 0) (1 value : Item) => Item\n\n'
+            'recover : (1 package : Data.Package.Package) -> payloadType package\n'
+            'recover = \\(1 package : Data.Package.Package) => case package return (\\(0 self : Data.Package.Package) => payloadType self) of (0 Item : Type 0) (1 value : Item) => value\n\n'
+            'main : IO Unit\nmain = putStrLn\n  (case Data.Message.MkMessage True\n'
+            '    (recover\n      (Data.Package.MkPackage String "Patterns")) return (\\(0 self : Data.Message.Message) => String) of (1 enabled : Bool) (1 text : String) => if enabled then appendString text "!" else text)\n')
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / "Patterns.fib"
+            for ending in ("\n", "\r\n"):
+                path.write_bytes(source.replace("\n", ending).encode())
+                result = run("format", str(path))
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertIn('payloadType = \\(0 package : Data.Package.Package) =>\n  case package\n', result.stdout)
+                self.assertIn('    of (0 Item : Type 0) (1 value : Item) =>\n      Item', result.stdout)
+                self.assertIn('    of (1 enabled : Bool) (1 text : String) =>\n      if enabled', result.stdout)
+                self.assertLessEqual(max(map(len, result.stdout.splitlines())), 100)
+                path.write_bytes(result.stdout.replace("\n", ending).encode())
+                again = run("format", str(path))
+                self.assertEqual(again.stdout, result.stdout)
+            # Signatures and long conditional branches, not only application groups.
+            path.write_text(
+                'combine : (0 Element : Type 0) -> (combine : (left : Element) -> (right : Element) -> Element) -> (left : Element) -> (middle : Element) -> (right : Element) -> Element\n'
+                'combine = \\(0 Element : Type 0) => \\(combine : (left : Element) -> (right : Element) -> Element) => \\(left : Element) => \\(middle : Element) => \\(right : Element) => combine (combine left middle) right\n'
+                'main : Bool\nmain = True\n')
+            result = run("format", str(path))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn('->\n', result.stdout)
+            self.assertIn('=>\n', result.stdout)
+            path.write_text(result.stdout)
+            self.assertEqual(run("format", str(path)).stdout, result.stdout)
+            self.assertEqual(run("check", str(path)).returncode, 0)
+            path.write_text(
+                'main : String\nmain = if equalString "' + "a" * 40 + '" "' + "b" * 40 +
+                '" then appendString "long branch" " value" else appendString "other branch" " value"\n')
+            result = run("format", str(path))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("\n  then ", result.stdout)
+            self.assertIn("\n  else ", result.stdout)
+            path.write_text(result.stdout)
+            self.assertEqual(run("format", str(path)).stdout, result.stdout)
+            self.assertEqual(run("check", str(path)).returncode, 0)
+            # Verify the real dependency graph after applying the reported layout.
+            for file in (ROOT / "examples/modules/records/Data").glob("*.fib"):
+                destination = root / "Data" / file.name
+                destination.parent.mkdir(exist_ok=True)
+                destination.write_bytes(file.read_bytes())
+            path.write_text(source)
+            result = run("format", str(path))
+            path.write_text(result.stdout)
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, "Patterns!\n")
+
     def test_parenthesized_application_wrapping(self):
         source = ('module Main\nimport Data.Package\nimport Data.Message\n\nmain : IO Unit\n'
                   'main = putStrLn (Data.Message.render (Data.Message.MkMessage True (Data.Package.recover (Data.Package.MkPackage String "Records"))))\n')
