@@ -22,7 +22,9 @@ Implemented:
 - `src/Fibril/Driver/ModuleCheck.idr`: dependency-first closed interface checking, direct qualified exports, conservative pre-clone expansion admission, and source-aware human errors.
 - `src/Fibril/Driver/ModuleGraph.idr`: bounded canonical dependency discovery, syntax snapshots, and dependency-first graph inspection; not imported checking.
 - `src/Fibril/Source/Document.idr`: shared expression/declaration/module metadata parsing with original tokens and header/import/export spans; no filesystem loader.
-- `src/Fibril/Source/Declaration.idr`: column-one signature/definition framing, source-order scope, fixed main entry, and typed-let lowering; no transparent globals/modules.
+- `src/Fibril/Source/Declaration.idr`: authored declaration/record grammar and binding-site quotas, with ordinary-only legacy adapters; no record expansion or elaborator dependency.
+- `src/Fibril/Source/Declaration/Syntax.idr`: authored record ASTs, actual binding sites, and lowered named IR data.
+- `src/Fibril/Elaboration/Declaration.idr`: declaration admission, record expansion, source origins and ordinary typed-let lowering for the compiler pipeline.
 - `src/Fibril/Source/Parser.idr`: bounded expression grammar with flat Unit-result do sequencing.
 - `src/Fibril/Source/Resolve.idr`: lexical/global names to scoped core, ascriptions, typed lets, and do lowering.
 - `src/Fibril/Driver/JSON.idr`: shared escaped JSON strings, objects, positions, and protocol envelope.
@@ -45,6 +47,7 @@ Implemented:
 - `src/Fibril/Core/Substitution.idr`: total pointwise/variable-correspondence laws; derives substitution identity from renaming.
 - `src/Fibril/Core/Renaming.idr`: total host-checked structural laws, separate from runtime checking/reduction.
 - `src/Fibril/Core/Pretty.idr`: shared explicit-term diagnostics; no parsing or evaluation.
+- [Declaration elaboration](elaboration.md): authored syntax is parsed separately from record expansion; a dedicated admission/lowering pass produces named IR for resolution/checking. elaborate PATH inspects unchecked IR.
 - [Dependent record foundations](records.md): core Sigma/PairValue formation and construction with dependent fields and quantitative usage; consuming dependent elimination and a two-field named source record prototype are implemented; erased parameters and explicit consuming patterns are supported; explicit safe projections are supported; dot-field syntax and nominality remain pending.
 - `src/Fibril/Core/Runtime.idr`: experimental ordinary runtime usage checking layered over erased typing; not backend execution or cubical checking.
 - `src/Fibril/Core/Erased.idr`: experimental erased ordinary context formation, inference/checking, and bounded beta type comparison; no runtime or cubical term checking.

@@ -193,6 +193,54 @@ class CLITests(unittest.TestCase):
         self.assertEqual(result.stdout, "")
         self.assertIn("use eval", result.stderr)
 
+    def test_explicit_declaration_elaboration(self):
+        result = run("elaborate", "examples/modules/record-projections/Data/Dictionary.fib")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        report = json.loads(result.stdout)
+        self.assertFalse(report["checked"])
+        self.assertEqual(report["representation"], "named-ir;not-source")
+        self.assertEqual(report["module"], "Data.Dictionary")
+        self.assertEqual([d["name"] for d in report["declarations"]],
+                         ["Dictionary", "MkDictionary", "useDictionary", "getCombine", "getIdentity"])
+        self.assertTrue(all(d["generated"] for d in report["declarations"]))
+        self.assertIn("Sigma", report["declarations"][0]["value"])
+        self.assertIn("pair-case", report["declarations"][2]["value"])
+        source = (ROOT / "examples/modules/record-projections/Data/Dictionary.fib").read_text()
+        for declaration in report["declarations"]:
+            span = declaration["origin"]
+            self.assertEqual(source[span["start"]["offset"]:span["end"]["offset"]], declaration["name"])
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            entry = root / "Main.fib"
+            # Unresolved imports and ill-typed bodies are deliberately not accepted/checked here.
+            entry.write_text('module Main\nimport Missing\nmain : Bool\nmain = "wrong"\n')
+            result = run("elaborate", str(entry))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertFalse(json.loads(result.stdout)["checked"])
+            self.assertNotEqual(run("check", "--source-dir", str(root), str(entry)).returncode, 0)
+            # Syntax remains inspectable, while declaration admission is a separate failure.
+            unsafe = ('module Main\nrecord R : Type 0 where\n'
+                      '  constructor MkR\n  eliminator useR\n  1 x : Bool\n  1 y : Bool\n'
+                      '  projection getX x\nmain : IO Unit\nmain = putStrLn "never"\n')
+            entry.write_text(unsafe)
+            result = run("symbols", str(entry))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("getX", [s["name"] for s in json.loads(result.stdout)["symbols"]])
+            result = run("module-graph", str(root), str(entry))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertFalse(json.loads(result.stdout)["checked"])
+            result = run("elaborate", str(entry))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, "")
+            self.assertIn("Elaboration", result.stderr)
+            result = run("check", "--json", "--source-dir", str(root), str(entry))
+            report = json.loads(result.stdout)
+            self.assertFalse(report["accepted"])
+            diagnostic = report["diagnostics"][0]
+            self.assertEqual(diagnostic["stage"], "elaboration")
+            self.assertEqual(diagnostic["path"], str(entry.resolve()))
+            self.assertEqual(diagnostic["position"]["line"], 7)
+
     def test_safe_record_projections(self):
         root = "examples/modules/record-projections"
         result = run("run", "--source-dir", root, root + "/Main.fib")

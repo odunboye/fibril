@@ -9,11 +9,19 @@ import Fibril.Source.Document
 import Fibril.Source.Symbol
 import Fibril.Source.Rename
 import Fibril.Driver.Check
+import Fibril.Elaboration.Declaration
 
 %default total
 
 fails : String -> Bool
 fails source = case parseDocument 64 256 source of Left _ => True; _ => False
+
+elaborationFails : String -> Bool
+elaborationFails source = case parseDocument 64 256 source of
+  Left _ => True
+  Right document => case document.body of
+    DeclarationDocument authored => case elaborateDeclarations 64 authored of Left _ => True; _ => False
+    _ => False
 
 importsText : Nat -> String
 importsText Z = ""
@@ -30,7 +38,15 @@ parameterRecord count = "module Test\nrecord R " ++
 public export
 checks : List (String, Bool)
 checks =
-  [ ("requested projections retain actual name selections",
+  [ ("parsing retains an authored record, not expanded functions",
+      case parseDocument 64 256 recordSource of
+        Right document => case document.body of
+          DeclarationDocument [RecordItem sourceRecord] =>
+            sourceRecord.name.spelling == "Package" &&
+            sourceRecord.first.token.spelling == "Item" && sourceRecord.second.token.spelling == "value"
+          _ => False
+        _ => False)
+  , ("requested projections retain actual name selections",
       case documentSymbols "module A\nexport\nrecord R : Type 0 where\n  constructor MkR\n  eliminator useR\n  x : Bool\n  y : Bool\n  projection getX x\n" of
         Right [ty, ctor, elim, getter] => getter.name == "getX" && getter.exported &&
           getter.definitionSelection.start.line == 8 && getter.quantity == Unrestricted
@@ -42,11 +58,11 @@ checks =
   , ("record parameter telescope accepts eight parameters", not (fails (parameterRecord 7)))
   , ("record parameter telescope rejects nine parameters", fails (parameterRecord 8))
   , ("record parameters require erased quantities",
-      fails "module A\nrecord R (A : Type 0) : Type 0 where\n  constructor MkR\n  eliminator useR\n  1 x : A\n  1 y : A\n")
+      elaborationFails "module A\nrecord R (A : Type 0) : Type 0 where\n  constructor MkR\n  eliminator useR\n  1 x : A\n  1 y : A\n")
   , ("record parameters cannot repeat",
-      fails "module A\nrecord R (0 A : Type 0) (0 A : Type 0) : Type 0 where\n  constructor MkR\n  eliminator useR\n  1 x : A\n  1 y : A\n")
+      elaborationFails "module A\nrecord R (0 A : Type 0) (0 A : Type 0) : Type 0 where\n  constructor MkR\n  eliminator useR\n  1 x : A\n  1 y : A\n")
   , ("record fields cannot shadow parameters",
-      fails "module A\nrecord R (0 A : Type 0) : Type 0 where\n  constructor MkR\n  eliminator useR\n  1 x : A\n  1 A : A\n")
+      elaborationFails "module A\nrecord R (0 A : Type 0) : Type 0 where\n  constructor MkR\n  eliminator useR\n  1 x : A\n  1 A : A\n")
   , ("record expansion has three real, exported name selections",
       case documentSymbols recordSource of
         Right [ty, ctor, elim] => ty.name == "Package" && ctor.name == "MkPackage" &&
@@ -59,7 +75,7 @@ checks =
         (Left _, Right _) => True
         _ => False)
   , ("record fields cannot repeat",
-      fails "module A\nrecord R : Type 0 where\n  constructor MkR\n  eliminator useR\n  1 x : Bool\n  1 x : Bool\n")
+      elaborationFails "module A\nrecord R : Type 0 where\n  constructor MkR\n  eliminator useR\n  1 x : Bool\n  1 x : Bool\n")
   , ("records require a named module",
       fails "record R : Type 0 where\n  constructor MkR\n  eliminator useR\n  1 x : Bool\n  1 y : Bool\n")
   , ("document retains module and import names with keyword components",

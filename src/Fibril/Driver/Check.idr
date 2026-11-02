@@ -6,6 +6,7 @@ import Fibril.Source.Lexer
 import Fibril.Source.Syntax
 import Fibril.Source.Parser
 import Fibril.Source.Declaration
+import Fibril.Elaboration.Declaration
 import Fibril.Source.Document
 import Fibril.Source.StringLiteral
 import Fibril.Source.Resolve
@@ -26,13 +27,14 @@ import Fibril.Driver.Limits
 %default total
 
 public export
-data FrontendError = Lexical LexError | Parsing ParseError | Resolving ResolveError
+data FrontendError = Lexical LexError | Parsing ParseError | Resolving ResolveError | Elaborating ElaborationError
                    | PreludeUnavailable String
 
 public export
 Show FrontendError where
   show (Lexical err) = "Lexing: " ++ show err
   show (Parsing err) = "Parsing: " ++ show err
+  show (Elaborating err) = "Elaboration: " ++ show err
   show (Resolving err) = "Resolution: " ++ show err
   show (PreludeUnavailable message) = "Bundled prelude: " ++ message
 
@@ -57,6 +59,7 @@ Show DriverError where
 
 frontendPoint : FrontendError -> Maybe Diagnostic
 frontendPoint (Parsing err) = Just (AtPoint err.position ("Parsing: " ++ err.message))
+frontendPoint (Elaborating err) = Just (AtPoint err.position ("Elaboration: " ++ err.message))
 frontendPoint (Resolving err) =
   Just (AtPoint err.position ("Resolution: Unbound name " ++ show err.name))
 frontendPoint (Lexical (UnexpectedChar position char)) =
@@ -74,6 +77,7 @@ driverStage : DriverError -> String
 driverStage (FrontendFailure (Lexical (InvalidSource _))) = "source-validation"
 driverStage (FrontendFailure (Lexical _)) = "lexing"
 driverStage (FrontendFailure (Parsing _)) = "parsing"
+driverStage (FrontendFailure (Elaborating _)) = "elaboration"
 driverStage (FrontendFailure (Resolving _)) = "resolution"
 driverStage (FrontendFailure (PreludeUnavailable _)) = "prelude"
 driverStage (ErasedFailure _) = "erased-checking"
@@ -117,7 +121,10 @@ prepareSource source = do
   syntax <- case document.body of
     ExpressionDocument expression => Right expression
     EmptyDocument => Left (Parsing (ParseFailure document.end "Expected expression"))
-    DeclarationDocument declarations =>
+    DeclarationDocument authored => do
+      declarations <- case elaborateDeclarations 64 authored of
+        Left err => Left (Elaborating err)
+        Right declarations => Right declarations
       if any (\decl => decl.name == "main") declarations
          then Right (lowerDeclarations document.end declarations)
          else Left (Parsing (ParseFailure document.end "Declaration file requires a main definition"))

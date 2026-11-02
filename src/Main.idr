@@ -14,6 +14,7 @@ import Fibril.Driver.ProjectReport
 import Fibril.Driver.ProjectNavigation
 import Fibril.Driver.Symbols
 import Fibril.Driver.Reference
+import Fibril.Driver.Elaborate
 import Fibril.Source.File
 import Fibril.Source.Lexer
 import Fibril.Source.Diagnostic
@@ -31,6 +32,7 @@ Usage:
   fibril demo       Run built-in ordinary checking and cubical algebra examples
   fibril validate-source PATH   Validate UTF-8 and source controls (not typing)
   fibril rename-preview LINE COLUMN NEWNAME PATH  Capture-checked same-file edits (no writes)
+  fibril elaborate PATH         Inspect expanded named IR (unchecked; no effects)
   fibril reference LINE COLUMN PATH  Built-in documentation or bundled Prelude source
   fibril references LINE COLUMN PATH  Same-file lexical occurrences, including declarations
   fibril definition --source-dir ROOT --entry ENTRY LINE COLUMN PATH  Checked project target
@@ -138,6 +140,7 @@ main = do
     ["definition", "--source-dir", root, "--entry", entry, line, column, path] =>
       runLocationQuery (projectDefinitionFile root entry) line column path
     ["definition", line, column, path] => runLocationQuery definitionFile line column path
+    ["elaborate", path] => elaborateFile path >>= printServiceReport
     ["reference", line, column, path] => runLocationQuery referenceFile line column path
     ["references", line, column, path] => runLocationQuery referencesFile line column path
     ["symbols", path] => do

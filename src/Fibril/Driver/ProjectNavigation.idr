@@ -27,7 +27,7 @@ bindings onlyExports snapshot = case (snapshot.document.moduleHeader, snapshot.d
   (Just header, DeclarationDocument declarations) =>
     map (\decl => (concat (intersperse "." header.components) ++ "." ++ decl.name,
                     Located snapshot.path decl.definitionNameSpan))
-      (filter (\decl => not onlyExports || decl.exported) declarations)
+      (filter (\decl => not onlyExports || decl.exported) (concatMap bindingSites declarations))
   _ => []
 
 -- Private: the caller has already checked the entire graph, including

@@ -27,7 +27,7 @@ public export
 SymbolError : Type
 SymbolError = DocumentError
 
-fromDeclaration : Declaration -> DocumentSymbol
+fromDeclaration : BindingSite -> DocumentSymbol
 fromDeclaration decl = Symbol decl.name decl.quantity decl.span
                               decl.nameSpan decl.definitionNameSpan decl.exported
 
@@ -38,5 +38,5 @@ documentSymbols : String -> Either SymbolError (List DocumentSymbol)
 documentSymbols source = do
   document <- parseDocument 64 256 source
   case document.body of
-    DeclarationDocument values => Right (map fromDeclaration values)
+    DeclarationDocument values => Right (map fromDeclaration (concatMap bindingSites values))
     _ => Right []

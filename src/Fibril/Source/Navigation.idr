@@ -105,15 +105,21 @@ walk context env (NLet span q name domain value body) =
    in walk context env domain ++ walk context env value ++ self context target ++
       walk context ((name, map context.localTarget target) :: env) body
 
-declarations : Walker destination -> Environment destination -> List Declaration -> List (ReferenceTo destination)
+declarations : Walker destination -> Environment destination -> List AuthoredDeclaration -> List (ReferenceTo destination)
 declarations context env [] = []
-declarations context env (decl :: rest) =
+declarations context env (Ordinary decl :: rest) =
   (if decl.name == "_" then [] else if decl.generated then
     [RefersTo decl.nameSpan (context.localTarget decl.definitionNameSpan)] else
     [RefersTo decl.nameSpan (context.localTarget decl.definitionNameSpan),
      RefersTo decl.definitionNameSpan (context.localTarget decl.definitionNameSpan)]) ++
   (if decl.generated then [] else walk context env decl.expected ++ walk context env decl.value) ++
   declarations context ((decl.name, Just (context.localTarget decl.definitionNameSpan)) :: env) rest
+
+declarations context env (item@(RecordItem _) :: rest) =
+  let sites = bindingSites item
+      refs = map (\site => RefersTo site.nameSpan (context.localTarget site.definitionNameSpan)) sites
+      following = foldl (\scope, site => (site.name, Just (context.localTarget site.definitionNameSpan)) :: scope) env sites
+   in refs ++ declarations context following rest
 
 ||| Shared traversal with lexical shadowing before unqualified global lookup.
 public export

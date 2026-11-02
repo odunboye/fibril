@@ -10,6 +10,11 @@ Records will elaborate into genuinely dependent structure, not a temporary
 nondependent product. [Erased named globals](interfaces.md#first-prerequisite-erased-global-type-declarations-implemented)
 already provide the module-level type declaration boundary.
 
+[Parsing and declaration elaboration](elaboration.md) are now separate. The parser
+retains authored records; a dedicated elaborator generates definitions and checks
+projection/parameter policy. Syntax-only tools do not expand bodies. Use
+elaborate PATH to inspect the resulting unchecked named IR.
+
 ## Named source records
 
 [The runnable example](../examples/modules/records/Main.fib) prints Records!:

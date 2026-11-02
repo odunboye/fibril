@@ -60,6 +60,10 @@
         "path": "docs/packages.md"
       },
       {
+        "title": "Elaboration and inspection",
+        "path": "docs/elaboration.md"
+      },
+      {
         "title": "Dependent record foundations",
         "path": "docs/records.md"
       },

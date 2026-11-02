@@ -52,7 +52,7 @@ referenceAt source line column = do
   document <- parse source
   prelude <- parse preludeSource
   let declarations = case prelude.body of
-        DeclarationDocument values => values
+        DeclarationDocument values => ordinaryDeclarations values
         _ => []
   let global : String -> Maybe Meaning = \name => if any (\decl => decl.name == name) declarations ||
                           any (\value => value.name == name) primitiveGlobals

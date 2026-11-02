@@ -1,0 +1,15 @@
+digraph elaboration {
+  rankdir=LR;
+  node [shape=box, fontname="sans-serif"];
+  source [label="UTF-8 source"];
+  parser [label="Parser\nAuthored records + spans"];
+  metadata [label="Syntax-only symbols/navigation\nActual binding sites"];
+  elaborator [label="Declaration elaborator\nAdmission + generated named IR"];
+  inspection [label="elaborate PATH\nchecked: false"];
+  core [label="Resolution + bounded core construction\nErased/runtime checking"];
+  runner [label="Checked eval / complete IO planning\nHost effects only after validation"];
+  source -> parser;
+  parser -> metadata;
+  parser -> elaborator -> core -> runner;
+  elaborator -> inspection;
+}

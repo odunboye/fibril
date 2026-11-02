@@ -19,6 +19,7 @@ Build with `pack build fibril`, then invoke `./build/exec/fibril`.
 | check --json PATH | Structured runtime-check report; JSON on stdout even on represented rejection, with nonzero status |
 | check --erased PATH | Parse/resolve/check the erased ordinary fragment only |
 | rename-preview LINE COLUMN NEWNAME PATH | Conservative capture-checked same-file edit preview as JSON; never writes files |
+| elaborate PATH | Inspect expanded named declaration IR; checked:false, no import loading or effects |
 | reference LINE COLUMN PATH | Tagged built-in documentation or bundled Prelude declaration snapshot; syntax/lexical lookup |
 | references LINE COLUMN PATH | Same-file lexical occurrences, including declaration sites, as JSON |
 | definition --source-dir ROOT --entry ENTRY LINE COLUMN PATH | Checked project definition; version-2 file/range target and source snapshots |

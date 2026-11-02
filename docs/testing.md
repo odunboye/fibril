@@ -340,6 +340,12 @@ types, parameterized imports and source targets, extra declaration accounting,
 unknown/duplicate/excess requests and linear record double use. Automatic/dot-field
 projection elaboration remains pending.
 
+Elaboration tests verify retained authored record ASTs, independent syntax-only
+symbols/graph inspection of unsafe getter requests, explicit elaboration rejection
+with real JSON stage/points, complete generated definition/origin inspection, and
+unchecked output for unresolved imports/ill-typed bodies. Existing record and IO
+regressions exercise the new explicit pipeline. Core rules/proofs are unchanged.
+
 ## Hedgehog dependency
 
 Repository: https://github.com/stefan-hoeck/idris2-hedgehog

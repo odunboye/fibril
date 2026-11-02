@@ -21,6 +21,9 @@ including [LazyVim installation](docs/editor-highlighting.md#install-in-lazyvim)
 is available for .fib files. Navigation uses a saved-buffer CLI command; cross-file
 navigation and an LSP server remain future work.
 
+Record parsing and generation now use a [separate elaboration layer](docs/elaboration.md).
+Use fibril elaborate PATH to inspect expanded named IR (explicitly unchecked).
+
 The next abstraction step is documented in [the interface contract](docs/interfaces.md),
 with a runnable multi-file generic String/Bool operation example. Erased named
 globals now support exported type abbreviations without granting runtime access;

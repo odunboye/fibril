@@ -29,7 +29,7 @@ record ImportDeclaration where
   components : List String
 
 public export
-data DocumentBody = EmptyDocument | ExpressionDocument Expr | DeclarationDocument (List Declaration)
+data DocumentBody = EmptyDocument | ExpressionDocument Expr | DeclarationDocument (List AuthoredDeclaration)
 
 public export
 record ParsedDocument where
@@ -102,11 +102,11 @@ parseTokens declarations expressions end tokens = do
     [] => Right EmptyDocument
     first :: _ =>
       if isJust moduleHeader || declarationAhead remaining then do
-        values <- parseDeclarations declarations expressions end remaining
-        if isNothing moduleHeader && any generated values
+        values <- parseAuthoredDeclarations declarations expressions end remaining
+        if isNothing moduleHeader && any isRecord values
            then Left (ParseFailure first.span.start "Record declarations require a named module")
            else Right ()
-        if isNothing moduleHeader && any exported values
+        if isNothing moduleHeader && any declarationExported values
            then Left (ParseFailure first.span.start "export requires a named module")
            else Right (DeclarationDocument values)
       else ExpressionDocument <$> parseExpression expressions end remaining

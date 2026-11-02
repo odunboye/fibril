@@ -14,6 +14,7 @@ import Fibril.Source.Lexer
 import Fibril.Source.Syntax
 import Fibril.Source.Document
 import Fibril.Source.Declaration
+import Fibril.Elaboration.Declaration
 import Fibril.Source.Global
 import Fibril.Source.Resolve
 import Fibril.Driver.Limits
@@ -161,12 +162,18 @@ directImports snapshot interfaces = collect snapshot.document.imports
       Nothing => Left (problem snapshot (Just dependency.span.start) "Missing checked dependency interface")
       Just entry => (entry.bindings ++) <$> collect rest
 
+elaborateAt : ModuleSnapshot -> List AuthoredDeclaration -> Either GraphError (List Declaration)
+elaborateAt snapshot authored = case elaborateDeclarations 64 authored of
+  Left err => Left ({ stage := "elaboration" } (problem snapshot (Just err.position) err.message))
+  Right declarations => Right declarations
+
 anonymous : ModuleSnapshot -> List Weighted -> Nat -> Either GraphError (Term 0)
 anonymous snapshot globals remaining = do
   expression <- case snapshot.document.body of
     EmptyDocument => Left (problem snapshot Nothing "Entry requires an expression or main")
     ExpressionDocument expression => Right expression
-    DeclarationDocument declarations =>
+    DeclarationDocument authored => do
+      declarations <- elaborateAt snapshot authored
       if any (\decl => decl.name == "main") declarations
          then Right (lowerDeclarations snapshot.document.end declarations)
          else Left (problem snapshot Nothing "Entry requires a main definition")
@@ -199,7 +206,7 @@ compileGraph graph prelude interfaces remaining (snapshot :: rest) = do
          then Left (problem snapshot (Just header.nameSpan.start) "Duplicate checked module identity")
          else Right ()
       declarations <- case snapshot.document.body of
-        DeclarationDocument declarations => Right declarations
+        DeclarationDocument authored => elaborateAt snapshot authored
         EmptyDocument => Right []
         _ => Left (problem snapshot Nothing "Named modules require declarations")
       compiled <- compileDeclarations snapshot header.components globals declarations remaining
