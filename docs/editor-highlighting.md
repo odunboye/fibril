@@ -253,8 +253,8 @@ normally; an already-canonical buffer creates no change/undo entry. Cursor/view
 are retained approximately by line/scalar column, not a semantic token identity.
 
 The formatter is still the conservative
-[horizontal-spacing formatter](formatting.md). It does not reindent or wrap
-lines. Comments, literal spelling, LF/CRLF, final-newline presence and buffer
+[formatter](formatting.md), including guarded long application wrapping. It does
+not generally reindent existing blocks or reflow signatures. Comments, literal spelling, LF/CRLF, final-newline presence and buffer
 encoding/line-ending options are retained. Normal editable UTF-8 buffers with
 Unix/CRLF line endings and undo enabled are required; readonly, BOM and special
 buffers are refused. NUL-containing buffers and compiler/source-policy errors
@@ -269,15 +269,16 @@ project entry or used for import resolution.
 
 Before applying results, it checks the source text, changedtick, window/buffer
 identity, file-format options, protocol version and original-text acknowledgement.
-Malformed/inconsistent results, changed line counts/endings or a stale buffer
-are refused without applying edits. The producer reparses and checks AST shape;
+Malformed/inconsistent results, removed lines, changed non-whitespace content,
+blank lines/endings or a stale buffer are refused without applying edits.
+Guarded wrapping may insert continuation lines as part of the same undo block. The producer reparses and checks AST shape;
 the editor does not independently implement the Fibril parser. g:fibril_executable
 is trusted executable configuration, not an adversarial formatting service.
 
 Other compiler queries still require saved snapshots; formatting is the explicit
 exception. Save separately with :write when satisfied. Automatic formatting on
-save, cancellation, asynchronous requests, indentation and wrapping remain future
-work. External editor hooks and OS/process crashes are outside these represented
+save, cancellation, asynchronous requests and broader indentation/reflow remain
+future work. External editor hooks and OS/process crashes are outside these represented
 error guarantees.
 
 ## Runtime checking in the editor

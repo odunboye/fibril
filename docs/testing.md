@@ -359,6 +359,12 @@ and without a final newline, Unicode/comments, buffer-option preservation,
 readonly/syntax failures, malformed/stale-original reports, temporary cleanup,
 command/Plug undo cleanup and byte-for-byte unchanged source files on disk.
 
+Application-wrap regressions cover the exact nested-record example, LF/CRLF,
+final-newline presence, repeated formatting, unbreakable literals and flat-do
+exclusion, plus rechecking/running a fully formatted record project. Real editor
+tests accept inserted lines, restore the original layout with one undo, and
+verify a second format is a no-op.
+
 ## Hedgehog dependency
 
 Repository: https://github.com/stefan-hoeck/idris2-hedgehog

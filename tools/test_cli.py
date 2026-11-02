@@ -193,6 +193,50 @@ class CLITests(unittest.TestCase):
         self.assertEqual(result.stdout, "")
         self.assertIn("use eval", result.stderr)
 
+    def test_parenthesized_application_wrapping(self):
+        source = ('module Main\nimport Data.Package\nimport Data.Message\n\nmain : IO Unit\n'
+                  'main = putStrLn (Data.Message.render (Data.Message.MkMessage True (Data.Package.recover (Data.Package.MkPackage String "Records"))))\n')
+        expected = ('module Main\nimport Data.Package\nimport Data.Message\n\nmain : IO Unit\n'
+                    'main = putStrLn\n  (Data.Message.render\n    (Data.Message.MkMessage True\n'
+                    '      (Data.Package.recover\n        (Data.Package.MkPackage String "Records"))))\n')
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "Main.fib"
+            for ending in ("\n", "\r\n"):
+                for final in (False, True):
+                    data = source.replace("\n", ending)
+                    formatted = expected.replace("\n", ending)
+                    if not final:
+                        data = data[:-len(ending)]
+                        formatted = formatted[:-len(ending)]
+                    path.write_bytes(data.encode())
+                    result = subprocess.run([str(EXE), "format", str(path)], capture_output=True)
+                    self.assertEqual(result.returncode, 0, result.stderr.decode())
+                    self.assertEqual(result.stdout, formatted.encode())
+                    self.assertEqual(path.read_bytes(), data.encode())
+                    path.write_bytes(result.stdout)
+                    again = subprocess.run([str(EXE), "format", str(path)], capture_output=True)
+                    self.assertEqual(again.stdout, result.stdout)
+            # Flat do actions must not accidentally become multiline statements.
+            do_source = 'main : IO Unit\nmain = do\n  putStrLn (appendString "' + "a" * 110 + '" "b")\n'
+            path.write_text(do_source)
+            result = run("format", str(path))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout, do_source)
+            literal = 'putStrLn "' + "x" * 140 + '"'
+            path.write_text(literal)
+            self.assertEqual(run("format", str(path)).stdout, literal)
+            # Reformat a genuine project, then check/run the changed layout.
+            original = ROOT / "examples/modules/records"
+            for file in original.rglob("*.fib"):
+                destination = Path(directory) / file.relative_to(original)
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                text = subprocess.run([str(EXE), "format", str(file)], capture_output=True)
+                self.assertEqual(text.returncode, 0, text.stderr.decode())
+                destination.write_bytes(text.stdout)
+            result = run("run", "--source-dir", directory, str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, "Records!\n")
+
     def test_conservative_source_formatting(self):
         with tempfile.TemporaryDirectory(prefix="format 'quoted' ") as directory:
             path = Path(directory) / "Main.fib"

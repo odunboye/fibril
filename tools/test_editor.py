@@ -595,6 +595,16 @@ def inspect_formatting(name, executable, ending, final_newline):
             "redo", "let before_tick = b:changedtick", "let before_undo = changenr()",
             "FibrilFormat",
             "let report.noop = b:changedtick == before_tick && changenr() == before_undo",
+            "let long_source = ['module Main', 'import Data.Package', 'import Data.Message', '', 'main : IO Unit', 'main = putStrLn (Data.Message.render (Data.Message.MkMessage True (Data.Package.recover (Data.Package.MkPackage String \"Records\"))))']",
+            "call setline(1, long_source)",
+            "let report.wrap_handled = fibril#format()",
+            "let report.wrapped = getline(1, '$')",
+            "undo", "let report.wrap_undo = getline(1, '$') == long_source",
+            "redo", "let before_tick = b:changedtick", "let before_undo = changenr()",
+            "let report.wrap_noop_handled = fibril#format()",
+            "let report.wrap_noop = b:changedtick == before_tick && changenr() == before_undo",
+            "edit!",
+            f"call setline(1, [{', '.join(vim_literal(line) for line in formatted)}])",
             "let previous_lines = getline(1, '$')", "let previous_undo = changenr()",
             f"let g:fibril_executable = {vim_literal(fake)}",
             "let report.faults = []",
@@ -674,6 +684,13 @@ class EditorTests(unittest.TestCase):
                         self.assertEqual(report["undone"], report["edited"])
                         self.assertTrue(report["undo_modified"])
                         self.assertTrue(report["noop"])
+                        self.assertEqual(report["wrap_handled"], 1, report["messages"])
+                        self.assertEqual(report["wrapped"][-5:], [
+                            "main = putStrLn", "  (Data.Message.render",
+                            "    (Data.Message.MkMessage True", "      (Data.Package.recover",
+                            '        (Data.Package.MkPackage String "Records"))))'])
+                        self.assertTrue(report["wrap_undo"])
+                        self.assertTrue(report["wrap_noop"])
                         self.assertTrue(all(report["faults"]), report["messages"])
                         self.assertEqual(report["readonly"], 0)
                         self.assertEqual(report["syntax_failure"], 0)

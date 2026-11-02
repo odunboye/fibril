@@ -33,7 +33,7 @@ Usage:
   fibril demo       Run built-in ordinary checking and cubical algebra examples
   fibril validate-source PATH   Validate UTF-8 and source controls (not typing)
   fibril rename-preview LINE COLUMN NEWNAME PATH  Capture-checked same-file edits (no writes)
-  fibril format PATH            Format horizontal spacing to stdout (no writes)
+  fibril format PATH            Format spacing and safe application wrapping to stdout (no writes)
   fibril format --json PATH     Version-1 original/formatted snapshot report
   fibril format --check PATH    Reject noncanonical spacing without output
   fibril elaborate PATH         Inspect expanded named IR (unchecked; no effects)

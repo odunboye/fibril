@@ -95,6 +95,9 @@ function! fibril#format() abort
     if result.formatted ==# source
       return 1
     endif
+    if substitute(result.formatted, '[ \t\r\n]', '', 'g') !=# substitute(source, '[ \t\r\n]', '', 'g')
+      throw 'formatter changed non-whitespace content'
+    endif
     let lines = split(result.formatted, "\n", 1)
     if options[1]
       if empty(lines) || lines[-1] !=# ''
@@ -107,8 +110,8 @@ function! fibril#format() abort
     if empty(lines)
       let lines = ['']
     endif
-    if len(lines) != line('$')
-      throw 'formatter changed physical line count'
+    if len(lines) < line('$')
+      throw 'formatter removed physical lines'
     endif
     if options[0] ==# 'dos'
       for index in range(len(lines))
@@ -119,6 +122,9 @@ function! fibril#format() abort
           let lines[index] = strpart(lines[index], 0, strlen(lines[index]) - 1)
         endif
       endfor
+    endif
+    if filter(copy(lines), 'v:val =~# "^[ \\t]*$"') !=# filter(getline(1, '$'), 'v:val =~# "^[ \\t]*$"')
+      throw 'formatter changed blank lines'
     endif
     for index in range(len(lines))
       if matchstr(lines[index], "\r*$") !=# matchstr(getline(index + 1), "\r*$")
