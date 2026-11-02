@@ -103,7 +103,9 @@ This is not a formal cost proof or a bound on normalization, type-operation
 substitution, strings, process memory, or time. Conservative rejection is possible.
 
 Errors preserve the affected snapshot's canonical file. Resolver points remain
-real source points; core type/resource failures remain unlocated. Success is
+real source points; core type/resource failures within a checked declaration
+now carry its real name point, labelled declaration-level location rather than
+an exact subterm. Other core failures without provenance remain unlocated. Success is
 human-readable stdout; represented failures use stderr and no acceptance prefix.
 No project error is forced into the old single-file JSON/editor location model.
 
@@ -383,8 +385,10 @@ imports cannot choose a different kernel or admit unchecked proof assumptions.
 
 Retain the real source identity for module headers, import edges, declarations,
 and export selections. Parsing/checking errors in a dependency must name that
-file, not attach its line numbers to the entry. Core errors without provenance
-remain unlocated even when the affected module is known.
+file, not attach its line numbers to the entry. Declaration checking now supplies
+an actual name-token anchor and labels it declaration-level location. This is
+not exact subterm provenance; other core errors without such context remain
+unlocated even when the affected module is known.
 
 The current version-1 JSON check adapter assumes scalar points belong to the
 queried file. It must not receive a dependency point disguised as an entry point.

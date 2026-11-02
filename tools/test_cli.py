@@ -519,6 +519,38 @@ class CLITests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertEqual(result.stdout, "Do context!\n")
 
+    def test_module_core_errors_have_declaration_locations(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            library = root / "ReqRes.fib"
+            entry = root / "Main.fib"
+            entry.write_text('module Main\nimport ReqRes\nmain : IO Unit\nmain = putStrLn "never"\n')
+            invalid = ('module ReqRes\n\nrecord API : Type 0 where\n'
+                       '  constructor MkAPI\n  0 req : Type 0\n  0 res : req -> Type 0\n')
+            library.write_text(invalid)
+            result = run("check", "--source-dir", str(root), str(entry))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn(str(library.resolve()) + ":3:8:", result.stderr)
+            self.assertIn('generated declaration "API"', result.stderr)
+            self.assertIn("declaration-level location", result.stderr)
+            self.assertIn("inferred: Type1; expected: Type0", result.stderr)
+            self.assertIn("record API : Type 0 where", result.stderr)
+            result = run("check", "--json", "--source-dir", str(root), str(entry))
+            diagnostic = json.loads(result.stdout)["diagnostics"][0]
+            self.assertEqual(diagnostic["stage"], "erased-checking")
+            self.assertEqual(diagnostic["position"], {"offset": invalid.index("API"), "line": 3, "column": 8})
+            self.assertEqual(diagnostic["path"], str(library.resolve()))
+            # Runtime errors get the same honest declaration anchor.
+            library.write_text('module ReqRes\n\nanswer : String\nanswer = True\n')
+            result = run("run", "--source-dir", str(root), str(entry))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, "")
+            self.assertIn(str(library.resolve()) + ":3:1:", result.stderr)
+            self.assertIn('declaration "answer"', result.stderr)
+            # Fixing the universe works; do not move the anchor to an invented field point.
+            library.write_text(invalid.replace("API : Type 0", "API : Type 1"))
+            self.assertEqual(run("check", "--source-dir", str(root), str(entry)).returncode, 0)
+
     def test_named_implementation_method_blocks(self):
         example = ROOT / "examples/modules/interface-blocks"
         result = run("run", "--source-dir", str(example), str(example / "Main.fib"))
@@ -1673,7 +1705,8 @@ class CLITests(unittest.TestCase):
             self.assertFalse(report["accepted"])
             self.assertEqual(report["diagnostics"][0]["stage"], "erased-checking")
             self.assertEqual(report["diagnostics"][0]["path"], str(library.resolve()))
-            self.assertIsNone(report["diagnostics"][0]["position"])
+            self.assertIsNotNone(report["diagnostics"][0]["position"])
+            self.assertIn("declaration-level location", report["diagnostics"][0]["message"])
             library.write_text(source, encoding="utf-8")
             # Headerless local typed-let opacity has not changed.
             entry.write_text('import Types\nmain : IO Unit\nmain = putStrLn Types.text\n', encoding="utf-8")
@@ -1894,7 +1927,8 @@ class CLITests(unittest.TestCase):
             diagnostic = json.loads(result.stdout)["diagnostics"][0]
             self.assertEqual(diagnostic["path"], str(dependency.resolve()))
             self.assertEqual(diagnostic["stage"], "runtime-checking")
-            self.assertIsNone(diagnostic["position"])
+            self.assertEqual(diagnostic["position"], {"offset": len("module Library\nexport\n"), "line": 3, "column": 1})
+            self.assertIn("declaration-level location", diagnostic["message"])
             self.assertIsNone(diagnostic["byteOffset"])
             self.assertTrue(diagnostic["sourceAvailable"])
             dependency.write_bytes("🌍".encode("utf-8") + b"\xff")
@@ -1978,8 +2012,8 @@ class CLITests(unittest.TestCase):
                 result = run(command, "--source-dir", str(root), str(entry))
                 self.assertNotEqual(result.returncode, 0)
                 self.assertEqual(result.stdout, "")
-                self.assertIn(str(dependency.resolve()), result.stderr)
-                self.assertNotIn("^", result.stderr)
+                self.assertIn(str(dependency.resolve()) + ":2:1:", result.stderr)
+                self.assertIn("declaration-level location", result.stderr)
             dependency.write_text("module Library\n", encoding="utf-8")
             # Runtime action cap remains separate from successful project checking.
             entry.write_text(
@@ -2059,7 +2093,7 @@ class CLITests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertEqual(result.stdout, "")
             self.assertIn(str(library.resolve()), result.stderr)
-            self.assertNotIn("^", result.stderr)  # no invented core-error source point
+            self.assertIn("declaration-level location", result.stderr)  # actual declaration, not an invented subterm point
             module("First", body='1 secret : Bool\nsecret = True\n')
             result = run("check", "--source-dir", str(root), str(entry))
             self.assertNotEqual(result.returncode, 0)

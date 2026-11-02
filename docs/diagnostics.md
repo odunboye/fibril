@@ -187,6 +187,24 @@ A dependency point must never be converted against the entry buffer. The version
 validates source identities/snapshots and only maps points into already-loaded
 UTF-8 buffers. Existing single-file JSON remains version 1.
 
+## Declaration context for module core failures
+
+Module erased/runtime checking now attaches the real declaration-name point to
+its failures, including generated record/interface definitions. Human output
+includes path:line:column and an excerpt; version-2 JSON carries the same point
+and dependency identity. The message names the declaration and explicitly says
+declaration-level location.
+
+This is a context anchor, **not the exact failing core subexpression**. For
+example, a record universe mismatch points at its authored record name; a
+generated constructor failure points at its authored constructor name. No line
+or column is reconstructed from an unlocated core term.
+
+Version-1 single-file expression failures, evaluation/post-reduction failures and
+other core failures without a known declaration still remain unlocated.
+Project editor consumers may use the actual declaration point under their
+existing source-snapshot validation and conservative diagnostic loading policy.
+
 ## Tests and next work
 
 [Tests.Diagnostic](../test/src/Tests/Diagnostic.idr) covers line endings, tabs,

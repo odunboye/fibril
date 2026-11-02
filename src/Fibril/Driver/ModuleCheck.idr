@@ -140,6 +140,13 @@ resolve snapshot globals expression = case elaborateClosedWith (map global globa
   Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
   Right term => Right term
 
+-- This points to the real checked declaration, not the unknown failing subterm.
+declarationFailure : ModuleSnapshot -> Declaration -> String -> String -> String -> GraphError
+declarationFailure snapshot decl stage label detail =
+  { stage := stage } (problem snapshot (Just decl.nameSpan.start)
+    (label ++ " While checking " ++ (if decl.generated then "generated declaration " else "declaration ") ++
+      show decl.name ++ " (declaration-level location): " ++ detail))
+
 compileDeclarations : ModuleSnapshot -> List String -> List Weighted -> List Declaration -> Nat ->
                       Either GraphError Compiled
 compileDeclarations snapshot name globals [] remaining = Right (Definitions [] [] remaining)
@@ -161,10 +168,10 @@ compileDeclarations snapshot name globals (decl :: rest) remaining = do
      else Right ()
   case decl.quantity of
     Erased => case checkErased checkingDepth typeReductionFuel Empty value ty of
-      Left err => Left ({ stage := "erased-checking" } (problem snapshot Nothing ("Module erased checking: " ++ show err)))
+      Left err => Left (declarationFailure snapshot decl "erased-checking" "Module erased checking:" (show err))
       Right () => Right ()
     _ => case checkRuntime checkingDepth typeReductionFuel Empty value ty of
-      Left err => Left ({ stage := "runtime-checking" } (problem snapshot Nothing ("Module checking: " ++ show err)))
+      Left err => Left (declarationFailure snapshot decl "runtime-checking" "Module checking:" (show err))
       Right _ => Right ()
   if decl.dictionary then case weakHead typeReductionFuel ty of
     HeadForm (BoxType _ _) => Right ()
