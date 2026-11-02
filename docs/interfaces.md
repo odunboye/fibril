@@ -27,7 +27,7 @@ combineThree and surround using explicit operation parameters. Independent
 operations and identity **candidates**. Main uses the same combineThree at String
 and Bool; the generic module contains no String/Bool special cases.
 
-The important method shape is ordinary Fibril:
+The method shape, expanded for readability, is ordinary Fibril:
 
 ~~~fibril
 combineThree : (0 A : Type 0) -> (combine : (left : A) -> (right : A) -> A) -> (left : A) -> (middle : A) -> (right : A) -> A
@@ -73,36 +73,42 @@ unrestricted profile is expected must remain rejected.
 An implicit method-quantity coercion would be a new feature with its own design,
 elaboration and resource tests, not a shortcut in instance selection.
 
-## First prerequisite: erased global type declarations
+## First prerequisite: erased global type declarations (implemented)
 
-The current module compiler accepts unrestricted globals only. Separately, the
-runtime checker rejects runtime type expressions. Therefore an unrestricted
-AppendOperation returning a Pi type is **not** a supported workaround for naming
-the operation shape. A named quantity-0 global is also currently rejected.
-The runnable example writes the method type explicitly rather than weakening
-that boundary or pretending a type declaration was accepted.
+Named modules now admit quantity-0 globals as well as unrestricted ones.
+The operations example exports a real erased type abbreviation:
 
-Before interface/record types, implement a checked erased-global boundary:
+~~~fibril
+export
+0 AppendOperation : (0 A : Type 0) -> Type 0
+AppendOperation = \(0 A : Type 0) => (left : A) -> (right : A) -> A
+~~~
 
-1. Preserve declaration quantity/stage in global metadata and lookup.
-2. Check erased definitions in the erased judgment; runtime declarations still
-   require runtime checking. Validate signatures before publication.
-3. Permit erased names in types and erased arguments, but reject their use as
-   runtime values, including ordinary erased Bool/String definitions. Do not
-   special-case names that happen to normalize to types.
-4. Preserve this restriction across imports, signature ascriptions, alias chains,
-   source order, and exported interfaces. Never normalize away the original
-   occurrence before checking whether that occurrence is permitted.
-5. Extend admission cost accounting before cloning new wrappers/metadata. Test
-   rejection before effects and keep source diagnostics honest.
+combineThree uses AppendOperation A in its parameter type. This is a transparent
+erased type definition, not a record/interface declaration.
 
-A Boolean erased global is a necessary negative test: checking an erased body
-then inserting its raw closed value as an unrestricted global would lose the
-stage restriction. Closedness alone is not permission to resurrect erased data.
-The public metadata structures themselves are not certificates.
+Global metadata retains quantity. Erased definitions use erased checking;
+unrestricted declarations retain runtime checking. Lookup wraps erased globals
+in an erased identity application preserving the published signature. That
+identity is valid in the erased judgment, but using its result at runtime would
+use an erased binder once and is rejected by existing runtime analysis.
+Unrestricted global ascriptions keep their existing linear identity wrapper.
 
-The existing headerless local-let opacity contract is independent; adding erased
-named module declarations must not silently change local typed-let semantics.
+The wrapper costs the same three construction nodes as the old ascription and
+uses the existing pre-clone accounting. No core constructor/reduction/proof
+changes were needed. This is a checked driver admission discipline, not a new
+erasure or noninterference theorem. Metadata are ordinary data, not certificates.
+
+Tests cover imported Bool aliases, alias chains, erased arguments, and named
+operation types. Erased Bool/String data cannot be read at runtime or smuggled
+through pure/bind. Invalid unused erased bodies fail before publication, and
+main must remain unrestricted. Linear globals remain rejected: there is no
+global ownership/initialization protocol.
+
+Preserve the original staged occurrence until runtime checking; normalization
+is not a substitute for permission checking. Future optimizer/record lowering
+must retain this boundary. Headerless local-let opacity is unchanged. This
+feature does not add project check --erased or implicit type-level declarations.
 
 ## Second prerequisite: dictionary representation
 
@@ -164,8 +170,8 @@ or soundness theorem in this slice.
 
 Implementation order:
 
-1. Staged erased globals and their import/runtime rejection tests.
-2. Minimal checked dictionary representation and all affected core infrastructure.
+1. Implemented: staged erased globals and import/runtime rejection tests.
+2. Next: minimal checked dependent records/dictionary representation and all affected core infrastructure.
 3. Explicit operational interfaces and implementations, including failed methods.
 4. Law representation once equality supports it; distinguish data from proofs.
 5. Constrained functions, bounded/coherent lookup, then generic operators.

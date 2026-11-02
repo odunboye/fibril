@@ -6,6 +6,7 @@ import Fibril.Core.Quantity
 import Fibril.Core.Term
 import Fibril.Core.Context
 import Fibril.Core.Runtime
+import Fibril.Core.Erased
 import Fibril.Core.Reduction
 import Fibril.Core.Pretty
 import Fibril.Source.Text
@@ -119,9 +120,9 @@ compileDeclarations : ModuleSnapshot -> List String -> List Weighted -> List Dec
                       Either GraphError Compiled
 compileDeclarations snapshot name globals [] remaining = Right (Definitions [] [] remaining)
 compileDeclarations snapshot name globals (decl :: rest) remaining = do
-  if decl.quantity /= Unrestricted || decl.name == "_"
+  if decl.quantity == Linear || decl.name == "_"
      then Left (problem snapshot (Just decl.nameSpan.start)
-                "Module globals require unrestricted quantities and referenceable names")
+                "Module globals require erased/unrestricted quantities and referenceable names")
      else Right ()
   let estimate = cost remaining globals [] decl.expected + cost remaining globals [] decl.value
   if estimate > remaining then Left (problem snapshot (Just decl.nameSpan.start)
@@ -132,11 +133,15 @@ compileDeclarations snapshot name globals (decl :: rest) remaining = do
   if nodes ty + nodes value > estimate
      then Left (problem snapshot Nothing "Internal module expansion estimate was insufficient")
      else Right ()
-  _ <- case checkRuntime checkingDepth typeReductionFuel Empty value ty of
-    Left err => Left ({ stage := "runtime-checking" } (problem snapshot Nothing ("Module checking: " ++ show err)))
-    Right checked => Right checked
-  let local = weighted (Global decl.name ty value)
-  let qualified = Weight (Global (moduleText name ++ "." ++ decl.name) ty value) local.size
+  case decl.quantity of
+    Erased => case checkErased checkingDepth typeReductionFuel Empty value ty of
+      Left err => Left ({ stage := "erased-checking" } (problem snapshot Nothing ("Module erased checking: " ++ show err)))
+      Right () => Right ()
+    _ => case checkRuntime checkingDepth typeReductionFuel Empty value ty of
+      Left err => Left ({ stage := "runtime-checking" } (problem snapshot Nothing ("Module checking: " ++ show err)))
+      Right _ => Right ()
+  let local = weighted (GlobalWithQuantity decl.quantity decl.name ty value)
+  let qualified = Weight (GlobalWithQuantity decl.quantity (moduleText name ++ "." ++ decl.name) ty value) local.size
   following <- compileDeclarations snapshot name (local :: qualified :: globals) rest (minus remaining estimate)
   Right (Definitions (local :: following.locals)
            (if decl.exported then qualified :: following.exports else following.exports) following.remaining)
@@ -197,6 +202,9 @@ compileGraph graph prelude interfaces remaining (snapshot :: rest) = do
             main <- case find (\entry => entry.global.name == "main") compiled.locals of
               Nothing => Left (problem snapshot Nothing "Entry module requires its own main definition")
               Just entry => Right entry
+            if main.global.quantity /= Unrestricted
+               then Left (problem snapshot Nothing "Entry main must be unrestricted, not erased")
+               else Right ()
             if main.size > compiled.remaining
                then Left (problem snapshot Nothing "Expanded core construction budget exhausted (200000)")
                else Right ()

@@ -7,20 +7,32 @@ import Fibril.Core.Term
 
 %default total
 
-||| Only closed unrestricted definitions are installed by the current prelude.
+||| The prelude installs unrestricted globals; modules also admit erased globals.
 ||| Resolution embeds checked-ascription applications, preserving declared types.
 ||| Ordinary checking still validates the entire resulting term; these are not axioms.
 public export
 record GlobalDefinition where
-  constructor Global
+  constructor GlobalWithQuantity
+  quantity : Quantity
   name : String
   declaredType : Term 0
   value : Term 0
+
+||| Existing primitive/prelude definitions remain unrestricted.
+public export
+Global : String -> Term 0 -> Term 0 -> GlobalDefinition
+Global = GlobalWithQuantity Unrestricted
 
 public export
 lookupGlobal : String -> List GlobalDefinition -> Maybe (Term 0)
 lookupGlobal name [] = Nothing
 lookupGlobal name (entry :: rest) =
   if name == entry.name
-     then Just (Apply (Lambda Linear entry.declaredType (Variable FZ)) entry.value)
+     then case entry.quantity of
+       -- The erased identity is valid in erased checking, but its body uses its
+       -- erased binder once at runtime. Runtime analysis rejects that original
+       -- occurrence before any normalization can remove the stage barrier.
+       Erased => Just (Apply (Lambda Erased entry.declaredType (Variable FZ)) entry.value)
+       Unrestricted => Just (Apply (Lambda Linear entry.declaredType (Variable FZ)) entry.value)
+       Linear => Nothing -- No linear global ownership/initialization protocol.
      else lookupGlobal name rest

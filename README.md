@@ -22,7 +22,9 @@ is available for .fib files. Navigation uses a saved-buffer CLI command; cross-f
 navigation and an LSP server remain future work.
 
 The next abstraction step is documented in [the interface contract](docs/interfaces.md),
-with a runnable multi-file generic String/Bool operation example. Interfaces and
+with a runnable multi-file generic String/Bool operation example. Erased named
+globals now support exported type abbreviations without granting runtime access;
+dependent records are next. Interfaces and
 implicit dictionary search are not implemented yet.
 
 ## Build

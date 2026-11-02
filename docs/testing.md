@@ -302,8 +302,15 @@ These are reference metadata tests, not program acceptance or metatheory proofs.
 Generic operation tests run the same higher-order function at String and Bool,
 check inert evaluation, reject direct linear-to-unrestricted method substitution
 and unrestricted use of a linear capture, and retain current type-global rejection
-boundaries. A nonassociative Bool NAND operation is intentionally accepted by
+boundary for unrestricted type expressions, while checking named erased type
+aliases positively. A nonassociative Bool NAND operation is intentionally accepted by
 the operation shape: this demonstrates that no algebraic law is enforced.
+
+Erased-global tests cover imported type/alias chains, published universes,
+erased arguments, malformed metadata, rejected linear ownership, rejected runtime
+Bool/String/pure/bind use, invalid unused erased bodies with truthful JSON stages,
+and erased-main rejection. Existing local opacity and expansion tests remain in
+force. No new core structural-proof cases are needed: lookup uses existing terms.
 
 ## Hedgehog dependency
 

@@ -193,6 +193,61 @@ class CLITests(unittest.TestCase):
         self.assertEqual(result.stdout, "")
         self.assertIn("use eval", result.stderr)
 
+    def test_staged_erased_module_globals(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            library = root / "Types.fib"
+            entry = root / "Main.fib"
+            source = ('module Types\nexport\n0 Bit : Type 0\nBit = Bool\n'
+                      'export\n0 Alias : Type 0\nAlias = Types.Bit\n'
+                      'export\n0 secret : Bool\nsecret = True\n'
+                      'export\n0 text : String\ntext = "hidden"\n'
+                      'export\n0 Choose : (0 bit : Bool) -> Type 0\n'
+                      'Choose = \\(0 bit : Bool) => if bit then String else Bool\n')
+            library.write_text(source, encoding="utf-8")
+            entry.write_text(
+                'module Main\nimport Types\nvalue : Types.Alias\nvalue = True\n'
+                'identity : (0 A : Type 0) -> (1 x : A) -> A\n'
+                'identity = \\(0 A : Type 0) => \\(1 x : A) => x\n'
+                'message : Types.Choose True\nmessage = "staged"\n'
+                'other : Types.Choose False\nother = True\n'
+                'main : IO Unit\nmain = putStrLn (if identity Types.Alias value then message else "wrong")\n',
+                encoding="utf-8")
+            result = run("run", "--source-dir", str(root), str(entry))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, "staged\n")
+            # Erased data may be passed to an erased parameter.
+            entry.write_text(
+                'module Main\nimport Types\nignore : (0 bit : Bool) -> String\n'
+                'ignore = \\(0 bit : Bool) => "ignored"\n'
+                'main : IO Unit\nmain = putStrLn (ignore Types.secret)\n', encoding="utf-8")
+            self.assertEqual(run("run", "--source-dir", str(root), str(entry)).stdout, "ignored\n")
+            for body in ('putStrLn Types.text', 'putStrLn (if Types.secret then "leak" else "")',
+                         'bind Bool Unit (pure Bool Types.secret) (\\(1 bit : Bool) => putStrLn (if bit then "leak" else ""))'):
+                entry.write_text('module Main\nimport Types\nmain : IO Unit\nmain = ' + body + '\n',
+                                 encoding="utf-8")
+                for command in ("check", "eval", "run"):
+                    result = run(command, "--source-dir", str(root), str(entry))
+                    self.assertNotEqual(result.returncode, 0, result.stdout)
+                    self.assertEqual(result.stdout, "")
+            entry.write_text('module Main\nimport Types\nmain : IO Unit\nmain = putStrLn "safe"\n',
+                             encoding="utf-8")
+            library.write_text(source + '0 broken : Bool\nbroken = "wrong"\n', encoding="utf-8")
+            result = run("check", "--json", "--source-dir", str(root), str(entry))
+            report = json.loads(result.stdout)
+            self.assertFalse(report["accepted"])
+            self.assertEqual(report["diagnostics"][0]["stage"], "erased-checking")
+            self.assertEqual(report["diagnostics"][0]["path"], str(library.resolve()))
+            self.assertIsNone(report["diagnostics"][0]["position"])
+            library.write_text(source, encoding="utf-8")
+            # Headerless local typed-let opacity has not changed.
+            entry.write_text('import Types\nmain : IO Unit\nmain = putStrLn Types.text\n', encoding="utf-8")
+            self.assertNotEqual(run("run", "--source-dir", str(root), str(entry)).returncode, 0)
+            entry.write_text('module Main\n0 main : Bool\nmain = True\n', encoding="utf-8")
+            result = run("check", "--source-dir", str(root), str(entry))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("main must be unrestricted", result.stderr)
+
     def test_explicit_generic_operation_profiles(self):
         root = "examples/modules/operations"
         result = run("run", "--source-dir", root, root + "/Main.fib")
@@ -217,8 +272,8 @@ class CLITests(unittest.TestCase):
                  'main : IO Unit\nmain = putStrLn "must not execute"\n'),
                 ('module Main\nAlias : Type 0\nAlias = String\n'
                  'main : IO Unit\nmain = putStrLn "must not execute"\n'),
-                ('module Main\n0 Alias : Type 0\nAlias = String\n'
-                 'main : IO Unit\nmain = putStrLn "must not execute"\n'),
+                ('module Main\n0 secret : String\nsecret = "must not execute"\n'
+                 'main : IO Unit\nmain = putStrLn secret\n'),
             ]
             for source in failures:
                 entry.write_text(source, encoding="utf-8")
@@ -570,7 +625,7 @@ class CLITests(unittest.TestCase):
             self.assertEqual(result.stdout, "")
             self.assertIn(str(library.resolve()), result.stderr)
             self.assertNotIn("^", result.stderr)  # no invented core-error source point
-            module("First", body='0 secret : Bool\nsecret = True\n')
+            module("First", body='1 secret : Bool\nsecret = True\n')
             result = run("check", "--source-dir", str(root), str(entry))
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("unrestricted", result.stderr)

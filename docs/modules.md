@@ -86,9 +86,11 @@ only direct imports plus the bundled prelude; transitive modules' names do not
 leak. Earlier definitions in the current module are available unqualified and
 through its own qualifier, including private definitions. No self-import is needed.
 
-Named-module globals must be unrestricted and referenceable. Erased/linear
-top-level globals remain rejected; function parameters can still be erased/linear.
-The entry must define its own main; an imported main is not substituted. Libraries
+Named-module globals must be erased or unrestricted and referenceable. Erased
+globals are checked with erased typing and retain their stage through lookup and
+imports; they may appear in types/erased arguments but not runtime values.
+Linear globals remain rejected; function parameters can still be erased/linear.
+The entry must define its own unrestricted main; an imported main is not substituted. Libraries
 need no main. Anonymous entries retain existing expression/typed-local-let behavior,
 including the opaque local alias limitation.
 
@@ -114,6 +116,21 @@ Compiler-side definition lookup is now available through the explicit
 [checked project definition API](editor-highlighting.md#checked-project-definition-api).
 It returns a real target file/name span plus snapshots. FibrilDefinitionProject
 consumes it with validated automatic target opening; the same-file gd is unchanged. Project-wide references/rename remain pending.
+
+## Erased named definitions
+
+Named modules now support 0 definitions, including exported type abbreviations
+and type families. Erased bodies are typechecked even when private/unused.
+Global lookup preserves the declared signature and wraps erased occurrences in
+an erased identity application. Existing runtime usage analysis rejects that
+identity's erased binder when the occurrence is demanded at runtime. Types and
+erased arguments remain permitted. Raw global metadata are not typing proofs.
+
+Checking precedes evaluation/planning; never normalize an unvalidated runtime
+occurrence to bypass its stage. This changes neither local typed-let opacity nor
+the no-effects-during-checking rule. See the
+[staging contract](interfaces.md#first-prerequisite-erased-global-type-declarations-implemented)
+for implementation limits and why a closed erased Bool is still not runtime data.
 
 ## Evaluating and running modules
 
@@ -144,7 +161,7 @@ entry errors, not guessed locations inside an inlined dependency. Original
 dependency checking/resolution failures retain their dependency file.
 
 This is hosted execution/reference evaluation, not C/JS generation. Unsaved project buffers, automatic loading from diagnostic lists,
-project-wide reference/rename navigation, recursive modules, erased/
+project-wide reference/rename navigation, recursive modules,
 linear globals, and opaque interfaces are not provided by this path.
 
 ## Dependency discovery is now inspectable
@@ -276,9 +293,10 @@ Rules for the first parser/loader:
 - Within a module, declarations remain nonrecursive and source ordered. Local
   unqualified bindings retain nearest-binder shadowing. No recursive modules,
   recursive declarations, or initializer execution.
-- All installed module globals are closed, unrestricted definitions. Exporting
-  or installing quantity-0/quantity-1 top-level globals is initially rejected;
-  ownership and erased-global phase rules need their own representation first.
+- Installed globals are closed erased or unrestricted definitions. Quantity-0
+  metadata is preserved through signature/stage ascriptions and is not promoted
+  into runtime data. Quantity-1 globals remain rejected pending an ownership and
+  initialization protocol.
   Function parameters may still be erased/linear, including polymorphic functions.
 
 Both exported and private definitions must be checked before any dependent

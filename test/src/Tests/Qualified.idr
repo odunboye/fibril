@@ -61,6 +61,26 @@ checks =
       case resolved [Global "Bad.value" BoolType (StringValue "wrong")] "Bad.value" of
         Just term => case checkRuntime 256 128 Empty term BoolType of Left _ => True; _ => False
         _ => False)
+  , ("erased globals are available to erased checking, not runtime values",
+      case resolved [GlobalWithQuantity Erased "Hidden.bit" BoolType BoolTrue] "Hidden.bit" of
+        Just term => case (checkErased 256 128 Empty term BoolType, checkRuntime 256 128 Empty term BoolType) of
+          (Right (), Left _) => True
+          _ => False
+        _ => False)
+  , ("erased global lookup still preserves the published universe",
+      case resolved [GlobalWithQuantity Erased "Types.Bit" (Universe 1) BoolType] "Types.Bit" of
+        Just term => case inferErased 256 128 Empty term of
+          Right ty => sameSyntax ty (Universe 1)
+          _ => False
+        _ => False)
+  , ("erased metadata does not turn an invalid body into an axiom",
+      case resolved [GlobalWithQuantity Erased "Hidden.bad" BoolType (StringValue "wrong")] "Hidden.bad" of
+        Just term => case checkErased 256 128 Empty term BoolType of Left _ => True; _ => False
+        _ => False)
+  , ("linear global metadata is not accepted as reusable ownership",
+      case lookupGlobal "Hidden.linear" [GlobalWithQuantity Linear "Hidden.linear" BoolType BoolTrue] of
+        Nothing => True
+        _ => False)
   , ("qualified syntax accepts sixteen module components",
       parses (concat (intersperse "." (replicate 16 "A")) ++ ".value"))
   , ("qualified syntax rejects seventeen module components",
