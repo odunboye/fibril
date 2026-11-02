@@ -171,8 +171,9 @@ Keep the low-level primitive boundary distinct from library abstraction.
 
 Current evidence consists of the checked String/Bool program, explicit quantity
 adaptation, negative signature/resource cases, and the existing module/IO tests.
-There is no record elaborator, dictionary inference, law proof, benchmark claim,
-or soundness theorem in this slice.
+The record declaration elaborator and explicit operational record dictionaries
+are implemented. Interface/dictionary inference, law proofs, benchmark claims,
+and a soundness theorem are not established by this slice.
 
 Implementation order:
 

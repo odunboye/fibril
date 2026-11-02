@@ -20,15 +20,19 @@ a plausible-looking combination and inherit soundness by citation.
 ## Surface language and tooling
 
 Explicit nonrecursive declaration files now lower to typed lets with a main
-entry; their earlier values are opaque during later checking. Transparent global
-definitions, imports, and recursive groups remain future work.
+entry; their earlier values are opaque during later checking. Named modules now
+provide transparent closed erased/unrestricted globals and checked direct imports.
+Recursive declarations/modules remain future work.
 
-A future Idris-like elaborator will translate names, implicit arguments, interfaces,
-and patterns into explicit core terms. Tactics must also produce checked terms.
+A separate declaration elaborator now lowers explicit records, constructors,
+eliminators and safe projections into independently checked code. Typed consuming
+patterns are supported. Implicit argument/interface elaboration and tactics remain
+future work; any generator or derivation tool must still produce checked terms.
 
 The first [Neovim/Vim lexical runtime](../editor-highlighting.md) now supplies
-syntax colors and file detection. It is separate from compiler checking and is
-not semantic highlighting or navigation.
+syntax colors and file detection, saved-snapshot checking/navigation, conservative
+project definition lookup, references/rename previews and manual unsaved-buffer
+formatting. Lexical coloring remains distinct from semantic checking.
 
 Neovim comes first for the future shared compiler service and language server.
 VS Code should reuse that protocol later. Editor interaction must not introduce
