@@ -193,6 +193,107 @@ class CLITests(unittest.TestCase):
         self.assertEqual(result.stdout, "")
         self.assertIn("use eval", result.stderr)
 
+    def test_named_dependent_records(self):
+        root = "examples/modules/records"
+        result = run("run", "--source-dir", root, root + "/Main.fib")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout, "Records!\n")
+        result = run("eval", "--source-dir", root, root + "/Main.fib")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn('Normal: (WriteLine "Records!")', result.stdout)
+        entry_text = (ROOT / root / "Main.fib").read_text()
+        point = entry_text.index("MkMessage")
+        line = entry_text[:point].count("\n") + 1
+        column = len(entry_text[:point].rsplit("\n", 1)[-1]) + 1
+        result = run("definition", "--source-dir", root, "--entry", root + "/Main.fib",
+                     str(line), str(column), root + "/Main.fib")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        definition = json.loads(result.stdout)["definition"]
+        self.assertEqual(definition["path"], str((ROOT / root / "Data/Message.fib").resolve()))
+        message_text = (ROOT / root / "Data/Message.fib").read_text()
+        self.assertEqual(message_text[definition["range"]["start"]["offset"]:
+                                      definition["range"]["end"]["offset"]], "MkMessage")
+        with tempfile.TemporaryDirectory(prefix="records ") as directory:
+            target = Path(directory)
+            for path in (ROOT / root).rglob("*.fib"):
+                destination = target / path.relative_to(ROOT / root)
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                destination.write_bytes(path.read_bytes())
+            entry = target / "Main.fib"
+            message = target / "Data/Message.fib"
+            package = target / "Data/Package.fib"
+            original_message = message.read_text()
+            original_package = package.read_text()
+            header = "module Main\nimport Data.Package\nimport Data.Message\nmain : IO Unit\nmain = "
+            for body in (
+                'putStrLn (Data.Package.recover (Data.Package.MkPackage Bool "wrong"))',
+                'putStrLn (Data.Message.render (Data.Message.MkMessage True True))',
+                'putStrLn (Data.Message.consumeMessage (\\(0 self : Data.Message.Message) => String) '
+                '(Data.Message.MkMessage True "text") (\\(1 loud : Bool) => \\(1 text : String) => text))',
+                'putStrLn (Data.Message.consumeMessage (\\(0 self : Data.Message.Message) => String) '
+                '(Data.Message.MkMessage True "text") (\\(loud : Bool) => \\(text : String) => text))',
+                'putStrLn (Data.Package.unpackPackage (\\(0 self : Data.Package.Package) => (String : Type 1)) '
+                '(Data.Package.MkPackage Bool True) (\\(0 Item : Type 0) => \\(1 value : Item) => value))',
+            ):
+                entry.write_text(header + body + "\n")
+                result = run("run", "--source-dir", str(target), str(entry))
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(result.stdout, "")
+            entry.write_bytes((ROOT / root / "Main.fib").read_bytes())
+            message.write_text(original_message.replace("export\nrecord", "record"))
+            result = run("check", "--source-dir", str(target), str(entry))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Unbound name", result.stderr)
+            message.write_text(original_message)
+            # Constructor and record names can coincide with field names without capture.
+            package.write_text(
+                "module Data.Package\nexport\nrecord Package : Type 1 where\n"
+                "  constructor MkPackage\n  eliminator unpackPackage\n"
+                "  0 Package : Type 0\n  1 MkPackage : Package\n")
+            entry.write_text('module Main\nimport Data.Package\nmain : IO Unit\n'
+                             'main = putStrLn (Data.Package.unpackPackage '
+                             '(\\(0 self : Data.Package.Package) => (String : Type 1)) '
+                             '(Data.Package.MkPackage String "ok") '
+                             '(\\(0 A : Type 0) => \\(1 value : A) => '
+                             'case () of () => "bad"))\n')
+            # This branch drops a linear payload; name-collision lowering itself checks.
+            result = run("check", "--source-dir", str(target), str(entry))
+            self.assertNotEqual(result.returncode, 0)
+            entry.write_text('module Main\nimport Data.Package\n'
+                             'main : Data.Package.Package\nmain = Data.Package.MkPackage String "ok"\n')
+            result = run("eval", "--source-dir", str(target), str(entry))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn('"ok"', result.stdout)
+            package.write_text(original_package.replace("record Package : Type 1", "record Package : Type 0"))
+            result = run("check", "--source-dir", str(target), str(entry))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, "")
+            package.write_text(original_package)
+            # Reachable dependencies are checked, including unused record definitions.
+            entry.write_bytes((ROOT / root / "Main.fib").read_bytes())
+            for replacement in (
+                original_message + "\nrecord Unused : Type 0 where\n  constructor MkUnused\n  eliminator useUnused\n  1 x : Bool\n  1 y : missing\n",
+                original_message.replace("1 text : String", "1 text : missing"),
+                original_message.replace("  1 text : String", "  1 text : String\n  1 extra : Bool"),
+                original_message.replace("  1 text : String", "  1 loud : String"),
+                original_message.replace("  eliminator consumeMessage", "eliminator consumeMessage"),
+            ):
+                message.write_text(replacement)
+                result = run("run", "--source-dir", str(target), str(entry))
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(result.stdout, "")
+
+            # Initial named records are transparent structural abbreviations.
+            entry.write_text(
+                'module Main\nrecord First : Type 0 where\n  constructor MkFirst\n'
+                '  eliminator useFirst\n  1 flag : Bool\n  1 text : String\n'
+                'record Second : Type 0 where\n  constructor MkSecond\n'
+                '  eliminator useSecond\n  1 other : Bool\n  1 value : String\n'
+                'main : Second\nmain = MkFirst True "structural"\n')
+            result = run("eval", "--source-dir", str(target), str(entry))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn('"structural"', result.stdout)
+
     def test_staged_erased_module_globals(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

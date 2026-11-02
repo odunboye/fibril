@@ -320,7 +320,13 @@ erased-typed, and runtime recipe generators include Sigma/PairValue. Core PairCa
 fields, erased extraction, exact branch profiles, ambient capture accounting,
 wrong motive/domain/result failures, explicit fuel, and normal-form rechecking.
 Raw/typed/runtime generators and root-step host equalities cover elimination.
-Source record syntax remains unimplemented.
+The source layer now has separate tests for two-field record expansion into
+three declarations, real symbol selections, declaration-slot accounting,
+dependent constructor arguments, consuming branches, quantity/type failures,
+private export groups, capture-resistant generated binders, malformed/unused
+records, cross-file constructor targets, and current structural (not nominal)
+compatibility. The record example prints Records! through checked hosted IO.
+No source consuming-pattern syntax or automatic projection is claimed.
 
 ## Hedgehog dependency
 

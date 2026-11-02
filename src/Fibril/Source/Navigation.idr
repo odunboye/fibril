@@ -81,6 +81,11 @@ walk context env (NBoolValue _ _) = []
 walk context env (NIf _ condition yes no) =
   walk context env condition ++ walk context env yes ++ walk context env no
 walk context env (NUnitCase _ value body) = walk context env value ++ walk context env body
+walk context env (NSigma span q r name domain body) =
+  let target = binderToken name span domain context.tokens
+   in walk context env domain ++ self context target ++ walk context ((name, map context.localTarget target) :: env) body
+walk context env (NPairValue _ ty first second) = walk context env ty ++ walk context env first ++ walk context env second
+walk context env (NPairCase _ motive value branch) = walk context env motive ++ walk context env value ++ walk context env branch
 walk context env (NPi span q name domain body) =
   let target = binderToken name span domain context.tokens
    in walk context env domain ++ self context target ++ walk context ((name, map context.localTarget target) :: env) body
@@ -103,10 +108,11 @@ walk context env (NLet span q name domain value body) =
 declarations : Walker destination -> Environment destination -> List Declaration -> List (ReferenceTo destination)
 declarations context env [] = []
 declarations context env (decl :: rest) =
-  (if decl.name == "_" then [] else
+  (if decl.name == "_" then [] else if decl.generated then
+    [RefersTo decl.nameSpan (context.localTarget decl.definitionNameSpan)] else
     [RefersTo decl.nameSpan (context.localTarget decl.definitionNameSpan),
      RefersTo decl.definitionNameSpan (context.localTarget decl.definitionNameSpan)]) ++
-  walk context env decl.expected ++ walk context env decl.value ++
+  (if decl.generated then [] else walk context env decl.expected ++ walk context env decl.value) ++
   declarations context ((decl.name, Just (context.localTarget decl.definitionNameSpan)) :: env) rest
 
 ||| Shared traversal with lexical shadowing before unqualified global lookup.

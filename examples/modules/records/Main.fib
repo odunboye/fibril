@@ -1,0 +1,6 @@
+module Main
+import Data.Package
+import Data.Message
+
+main : IO Unit
+main = putStrLn (Data.Message.render (Data.Message.MkMessage True (Data.Package.recover (Data.Package.MkPackage String "Records"))))

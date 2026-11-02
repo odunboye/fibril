@@ -1,16 +1,136 @@
 # Dependent records: kernel foundations
 
-**Status:** core dependent-pair formation, construction, and consuming dependent
-elimination are implemented. There is no source record/Sigma syntax, projection, record
-constructor declaration, field-name resolution, or interface dictionary yet.
-The examples on this page describe Idris host constructors, **not accepted
-Fibril source syntax**. No new preservation or erasure theorem is claimed.
+**Status:** core dependent pairs and a bounded named-record source prototype are
+implemented. Source records currently have exactly two fields, an explicit
+constructor and an explicit eliminator. Parameters, recursive/nominal records,
+pattern syntax, projections, field-name resolution and interface dictionaries
+remain unimplemented. No preservation or erasure theorem is claimed.
 
 Records will elaborate into genuinely dependent structure, not a temporary
 nondependent product. [Erased named globals](interfaces.md#first-prerequisite-erased-global-type-declarations-implemented)
 already provide the module-level type declaration boundary.
 
+## Named source records
+
+[The runnable example](../examples/modules/records/Main.fib) prints Records!:
+
+~~~sh
+./build/exec/fibril run --source-dir examples/modules/records examples/modules/records/Main.fib
+~~~
+
+It combines a genuine dependent package with a consuming message record:
+
+~~~fibril
+export
+record Package : Type 1 where
+  constructor MkPackage
+  eliminator unpackPackage
+  0 Item : Type 0
+  1 value : Item
+~~~
+
+The field value has the type supplied in Item. For example, MkPackage String
+"payload" checks, while MkPackage Bool "payload" rejects. The type is erased;
+the payload is linear. This is not a parser shortcut for a particular record.
+
+The current grammar requires a named module, a column-one record header, then
+aligned indented constructor/eliminator directives and exactly two single-line
+typed fields. Comments/blank lines are allowed. No parameters, defaults,
+recursive references, multiline field expressions, inferred field types or
+automatic accessors are added. Field names must be distinct and referenceable.
+Quantities are 0, 1 or unrestricted (the existing omitted-quantity default).
+record, constructor, eliminator and where are now reserved lowercase keywords.
+
+Source ordering is meaningful: the first type sees the outer environment; the
+second type additionally sees the first field. It cannot refer to itself or a
+later field. Generated internal binders cannot be captured by legal source names;
+even fields named Package or MkPackage do not capture generated global references.
+
+A record expands to three ordinary checked declarations: an erased type, an
+unrestricted constructor, and an unrestricted consuming eliminator. These count
+as **three** of the existing 64 declaration slots. All three go through existing
+resolution, pre-clone size admission, and erased/runtime checking; expansion is
+not an axiom or permission to skip generated bodies. The explicit eliminator
+directive gives it a real source name/location, rather than inventing a
+definition location for an auto-named function.
+
+export applies to the whole group. Without it all three names remain private.
+Partial/opaque record export is not implemented. A failed generated definition
+prevents publishing the enclosing module interface.
+
+### Calling the eliminator
+
+For a record R : Type l with fields q x : A and r y : B x, a declaration
+eliminator consumeR generates this schematic signature:
+
+~~~text
+consumeR :
+  (0 P : (0 self : R) -> Type l) ->
+  (1 value : R) ->
+  (1 branch : (q x : A) -> (r y : B x) -> P (MkR x y)) ->
+  P value
+~~~
+
+The result universe is the **declared** record universe, not inferred
+polymorphism. Pi conversion is invariant. To use a small result with a Type 1
+record, give an explicit upward type ascription inside the motive, for example
+\(0 self : R) => (String : Type 1). This does not add covariance.
+
+The Package example defines a checked erased payloadType using unpackPackage
+at Type 1, then a runtime recover whose return type is payloadType package.
+Its branch returns the linear payload, and its motive computes the correct
+type. This demonstrates dependent elimination from source, not just a constant
+result or a precomputed output.
+
+For a Type 0 message record with two linear fields:
+
+~~~fibril
+record Message : Type 0 where
+  constructor MkMessage
+  eliminator consumeMessage
+  1 loud : Bool
+  1 text : String
+~~~
+
+A consuming call can be:
+
+~~~fibril
+consumeMessage (\(0 self : Message) => String) message
+  (\(1 loud : Bool) => \(1 text : String) =>
+    if loud then appendString text "!" else text)
+~~~
+
+Both fields are used according to their quantities. A branch that drops loud,
+duplicates text, changes the binder quantities, or extracts an erased field at
+runtime is rejected. There is no special syntax for patterns yet: callers pass
+an ordinary explicitly typed branch function.
+
+### Structural, not nominal
+
+This first lowering produces transparent Sigma abbreviations. Two named
+records with the same normalized field types/quantities are definitionally
+compatible even if names differ. **No generative nominal identity or record eta
+rule is implemented.** The tests record this policy explicitly; do not assume
+the full Idris record model or an opaque abstraction boundary.
+
+Nominality, richer export policy and parameters need separate design before
+claiming general-purpose interface record identity. Changing those rules will
+require rechecking affected programs, not a metadata-only change.
+
+### Source tooling
+
+Symbols expose the three actual name tokens. Definition queries link constructor
+and eliminator calls to their real directive names, and record types to their
+header. Generated expression bodies have no separate authored source spans, so
+navigation deliberately does not walk their synthetic copies. Field-level
+references/rename/navigation inside the declaration are not implemented rather
+than duplicated or attached to guessed locations. Existing module rename
+previews remain blocked. Core failures remain unlocated.
+
 ## Two-field core representation
+
+The remaining examples in this section use Idris host constructors, not raw
+Fibril Sigma/PairCase syntax.
 
 [Core.Term](../src/Fibril/Core/Term.idr) now provides:
 
@@ -165,12 +285,11 @@ subsequent beta naturality reuses the existing laws. Generators include raw
 cases and typed/runtime case recipes. This still is not a general preservation
 or quantitative soundness theorem.
 
-## Next: named record syntax
+## Remaining record work
 
-The constructor/eliminator core is in place. The next slice is source
-declarations, constructor elaboration, and consuming patterns, including erased
-dependent field types and module visibility. Do not implement fst/snd by
+The constructor/eliminator core and the bounded two-field source declarations
+are in place. Next work includes record parameters, broader field counts,
+consuming pattern syntax, nominality decisions, and richer visibility. Do not implement fst/snd by
 silently discarding a linear component. Multiple fields need an explicit
 nesting/tail policy and generated eliminators must preserve the same permissions.
-Interfaces can then lower into those checked values. No source record parser,
-automatic projection, record eta, or dictionary inference is claimed yet.
+Interfaces can then lower into those checked values. No automatic projection, record eta, or dictionary inference is claimed yet.

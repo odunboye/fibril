@@ -138,6 +138,21 @@ It prints Hello, Fibril! No interface syntax, dictionary records, implementation
 search, or algebraic law proofs are claimed. See the
 [interface design contract](../docs/interfaces.md) for staging/quantity decisions.
 
+## Named dependent records (bounded source prototype)
+
+`modules/records/` constructs an erased type/linear value package, recovers its
+payload through dependent elimination, and consumes a two-field message. Run it:
+
+~~~sh
+./build/exec/fibril run --source-dir examples/modules/records examples/modules/records/Main.fib
+~~~
+
+It prints Records! Record types, constructors and explicit eliminators are
+checked ordinary declarations after lowering. This first source grammar supports
+exactly two single-line fields in a named module; it is structurally transparent,
+not nominal, and provides no parameters, patterns or projections yet. See
+[record foundations](../docs/records.md).
+
 ## Proposed Fibril programs
 
 `proposed/` illustrates the intended user experience, from hello world and

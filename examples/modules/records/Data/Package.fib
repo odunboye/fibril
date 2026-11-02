@@ -1,0 +1,16 @@
+module Data.Package
+
+export
+record Package : Type 1 where
+  constructor MkPackage
+  eliminator unpackPackage
+  0 Item : Type 0
+  1 value : Item
+
+export
+0 payloadType : (0 package : Package) -> Type 0
+payloadType = \(0 package : Package) => unpackPackage (\(0 self : Package) => Type 0) package (\(0 Item : Type 0) => \(1 value : Item) => Item)
+
+export
+recover : (1 package : Package) -> payloadType package
+recover = \(1 package : Package) => unpackPackage (\(0 self : Package) => (payloadType self : Type 1)) package (\(0 Item : Type 0) => \(1 value : Item) => value)

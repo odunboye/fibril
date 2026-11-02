@@ -71,6 +71,7 @@ startsAtom _ = False
 digitValue : Char -> Nat
 digitValue c = cast (ord c - ord '0')
 
+public export
 levelValue : Token -> Either ParseError Nat
 levelValue token =
   let chars = unpack token.spelling

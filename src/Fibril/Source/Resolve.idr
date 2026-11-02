@@ -57,6 +57,14 @@ mutual
     [| BoolCase (resolveInWith globals env condition) (resolveInWith globals env yes) (resolveInWith globals env no) |]
   resolveInWith globals env (NUnitCase span scrutinee body) =
     [| UnitCase (resolveInWith globals env scrutinee) (resolveInWith globals env body) |]
+  resolveInWith globals env (NSigma span q r name domain body) = do
+    domain <- resolveInWith globals env domain
+    body <- resolveInWith globals (name :: env) body
+    Right (Sigma q r domain body)
+  resolveInWith globals env (NPairValue span ty first second) =
+    [| PairValue (resolveInWith globals env ty) (resolveInWith globals env first) (resolveInWith globals env second) |]
+  resolveInWith globals env (NPairCase span motive value branch) =
+    [| PairCase (resolveInWith globals env motive) (resolveInWith globals env value) (resolveInWith globals env branch) |]
   resolveInWith globals env (NPi span q name domain body) = do
     domain <- resolveInWith globals env domain
     body <- resolveInWith globals (name :: env) body

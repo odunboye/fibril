@@ -1,0 +1,12 @@
+module Data.Message
+
+export
+record Message : Type 0 where
+  constructor MkMessage
+  eliminator consumeMessage
+  1 loud : Bool
+  1 text : String
+
+export
+render : (1 message : Message) -> String
+render = \(1 message : Message) => consumeMessage (\(0 self : Message) => String) message (\(1 loud : Bool) => \(1 text : String) => if loud then appendString text "!" else text)

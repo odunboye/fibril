@@ -18,10 +18,28 @@ importsText : Nat -> String
 importsText Z = ""
 importsText (S n) = "import M" ++ show n ++ "\n" ++ importsText n
 
+recordSource : String
+recordSource = "module Library\nexport\nrecord Package : Type 1 where\n  constructor MkPackage\n  eliminator unpackPackage\n  0 Item : Type 0\n  1 value : Item\n"
+
 public export
 checks : List (String, Bool)
 checks =
-  [ ("document retains module and import names with keyword components",
+  [ ("record expansion has three real, exported name selections",
+      case documentSymbols recordSource of
+        Right [ty, ctor, elim] => ty.name == "Package" && ctor.name == "MkPackage" &&
+          elim.name == "unpackPackage" && all exported [ty, ctor, elim] &&
+          ty.selection.start.line == 3 && ctor.definitionSelection.start.line == 4 &&
+          elim.definitionSelection.start.line == 5
+        _ => False)
+  , ("record expansion consumes three declaration slots",
+      case (parseDocument 2 256 recordSource, parseDocument 3 256 recordSource) of
+        (Left _, Right _) => True
+        _ => False)
+  , ("record fields cannot repeat",
+      fails "module A\nrecord R : Type 0 where\n  constructor MkR\n  eliminator useR\n  1 x : Bool\n  1 x : Bool\n")
+  , ("records require a named module",
+      fails "record R : Type 0 where\n  constructor MkR\n  eliminator useR\n  1 x : Bool\n  1 y : Bool\n")
+  , ("document retains module and import names with keyword components",
       case parseDocument 64 256 "module Text.Greeting\nimport Data.String\n" of
         Right document => case (document.moduleHeader, document.imports) of
           (Just header, [dependency]) =>
