@@ -299,6 +299,12 @@ Prelude declaration spans, reject lexical shadowing/comment/string/qualified-nam
 false links, and exercise readonly scratch displays through real Vim/Neovim.
 These are reference metadata tests, not program acceptance or metatheory proofs.
 
+Generic operation tests run the same higher-order function at String and Bool,
+check inert evaluation, reject direct linear-to-unrestricted method substitution
+and unrestricted use of a linear capture, and retain current type-global rejection
+boundaries. A nonassociative Bool NAND operation is intentionally accepted by
+the operation shape: this demonstrates that no algebraic law is enforced.
+
 ## Hedgehog dependency
 
 Repository: https://github.com/stefan-hoeck/idris2-hedgehog

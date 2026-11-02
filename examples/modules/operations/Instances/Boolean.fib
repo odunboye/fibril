@@ -1,0 +1,9 @@
+module Instances.Boolean
+
+export
+combine : (left : Bool) -> (right : Bool) -> Bool
+combine = \(left : Bool) => \(right : Bool) => andBool left right
+
+export
+identity : Bool
+identity = True

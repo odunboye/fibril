@@ -47,6 +47,7 @@ examples: build
 	./build/exec/fibril check --source-dir examples/modules/checked examples/modules/checked/Main.fib
 	./build/exec/fibril eval --source-dir examples/modules/checked examples/modules/checked/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/checked examples/modules/checked/Main.fib
+	./build/exec/fibril run --source-dir examples/modules/operations examples/modules/operations/Main.fib
 
 bench:
 	python3 tools/benchmark.py

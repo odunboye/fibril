@@ -1,0 +1,13 @@
+module Main
+import Algebra.Operation
+import Instances.Text
+import Instances.Boolean
+
+message : String
+message = Algebra.Operation.combineThree String Instances.Text.append "Hello" ", " "Fibril!"
+
+ready : Bool
+ready = Algebra.Operation.combineThree Bool Instances.Boolean.combine True True True
+
+main : IO Unit
+main = putStrLn (if ready then Algebra.Operation.surround String Instances.Text.append Instances.Text.empty message else "not ready")

@@ -123,6 +123,21 @@ it, replace check with run using the same --source-dir arguments: it prints
 Hello, Fibril! Replace check with eval to display the inert IO description instead.
 Project JSON/editor diagnostics are not wired yet.
 
+## Explicit generic operations (not interfaces yet)
+
+`modules/operations/` passes an operation and identity candidate explicitly across
+module boundaries. The same Fibril combineThree function is instantiated at String
+and Bool; text adapters bridge the existing linear wrapper to an unrestricted
+operand profile. Run it with:
+
+~~~sh
+./build/exec/fibril run --source-dir examples/modules/operations examples/modules/operations/Main.fib
+~~~
+
+It prints Hello, Fibril! No interface syntax, dictionary records, implementation
+search, or algebraic law proofs are claimed. See the
+[interface design contract](../docs/interfaces.md) for staging/quantity decisions.
+
 ## Proposed Fibril programs
 
 `proposed/` illustrates the intended user experience, from hello world and

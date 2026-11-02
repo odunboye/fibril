@@ -1,0 +1,11 @@
+module Algebra.Operation
+
+-- Explicit operation arguments, not interfaces or law certificates.
+export
+combineThree : (0 A : Type 0) -> (combine : (left : A) -> (right : A) -> A) -> (left : A) -> (middle : A) -> (right : A) -> A
+combineThree = \(0 A : Type 0) => \(combine : (left : A) -> (right : A) -> A) => \(left : A) => \(middle : A) => \(right : A) => combine (combine left middle) right
+
+-- The caller supplies an identity candidate. No identity law is assumed.
+export
+surround : (0 A : Type 0) -> (combine : (left : A) -> (right : A) -> A) -> (identity : A) -> (value : A) -> A
+surround = \(0 A : Type 0) => \(combine : (left : A) -> (right : A) -> A) => \(identity : A) => \(value : A) => combineThree A combine identity value identity

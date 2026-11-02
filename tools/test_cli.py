@@ -193,6 +193,50 @@ class CLITests(unittest.TestCase):
         self.assertEqual(result.stdout, "")
         self.assertIn("use eval", result.stderr)
 
+    def test_explicit_generic_operation_profiles(self):
+        root = "examples/modules/operations"
+        result = run("run", "--source-dir", root, root + "/Main.fib")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout, "Hello, Fibril!\n")
+        result = run("eval", "--source-dir", root, root + "/Main.fib")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn('Normal: (WriteLine "Hello, Fibril!")', result.stdout)
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory)
+            for path in (ROOT / root).rglob("*.fib"):
+                destination = target / path.relative_to(ROOT / root)
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                destination.write_bytes(path.read_bytes())
+            entry = target / "Main.fib"
+            failures = [
+                ('module Main\nimport Algebra.Operation\nmain : IO Unit\n'
+                 'main = putStrLn (Algebra.Operation.combineThree String appendString "a" "b" "c")\n'),
+                ('module Main\nimport Algebra.Operation\nimport Instances.Text\n'
+                 'bad : (1 text : String) -> String\n'
+                 'bad = \\(1 text : String) => Algebra.Operation.combineThree String Instances.Text.append text "" ""\n'
+                 'main : IO Unit\nmain = putStrLn "must not execute"\n'),
+                ('module Main\nAlias : Type 0\nAlias = String\n'
+                 'main : IO Unit\nmain = putStrLn "must not execute"\n'),
+                ('module Main\n0 Alias : Type 0\nAlias = String\n'
+                 'main : IO Unit\nmain = putStrLn "must not execute"\n'),
+            ]
+            for source in failures:
+                entry.write_text(source, encoding="utf-8")
+                result = run("run", "--source-dir", str(target), str(entry))
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(result.stdout, "")
+            # An operation profile alone does not enforce associativity.
+            entry.write_text(
+                'module Main\nimport Algebra.Operation\n'
+                'nand : (left : Bool) -> (right : Bool) -> Bool\n'
+                'nand = \\(left : Bool) => \\(right : Bool) => notBool (andBool left right)\n'
+                'main : IO Unit\n'
+                'main = putStrLn (if Algebra.Operation.combineThree Bool nand True True False then "shape only" else "unexpected")\n',
+                encoding="utf-8")
+            result = run("run", "--source-dir", str(target), str(entry))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, "shape only\n")
+
     def test_builtin_and_prelude_references(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "Reference.fib"

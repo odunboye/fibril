@@ -64,6 +64,10 @@ without the explicit project preparation path. Same-file navigation does not mis
 variables and returns no cross-file target. Imported checking, name visibility, and elaboration admission now exist;
 version-2 project JSON is available; FibrilCheckProject validates snapshots and maps only already-loaded source buffers.
 
+The next language slice is specified in [Interfaces: explicit operations before
+search](interfaces.md). Its runnable multi-file String/Bool operation example
+uses current higher-order functions, not an implemented dictionary elaborator.
+
 ## Checked interfaces
 
 ~~~sh

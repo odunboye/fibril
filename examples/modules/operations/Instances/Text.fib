@@ -1,0 +1,10 @@
+module Instances.Text
+
+-- Explicit quantity adaptation: linear and unrestricted Pi types are distinct.
+export
+append : (left : String) -> (right : String) -> String
+append = \(left : String) => \(right : String) => appendString left right
+
+export
+empty : String
+empty = ""

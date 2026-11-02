@@ -1,0 +1,10 @@
+digraph interfaces {
+  rankdir=LR;
+  node [shape=box, fontname="sans-serif"];
+  operations [label="Implemented\nExplicit higher-order operations\nString + Bool examples"];
+  staging [label="Next\nErased named globals\nPreserve stage across lookup", style=dashed];
+  records [label="Planned\nChecked dictionary representation\nResource-aware elimination", style=dashed];
+  explicit [label="Planned\nExplicit interfaces / implementations\nLaw obligations separate", style=dashed];
+  search [label="Later\nCoherent bounded lookup\nGeneric operators", style=dashed];
+  operations -> staging -> records -> explicit -> search;
+}

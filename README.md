@@ -21,6 +21,10 @@ including [LazyVim installation](docs/editor-highlighting.md#install-in-lazyvim)
 is available for .fib files. Navigation uses a saved-buffer CLI command; cross-file
 navigation and an LSP server remain future work.
 
+The next abstraction step is documented in [the interface contract](docs/interfaces.md),
+with a runnable multi-file generic String/Bool operation example. Interfaces and
+implicit dictionary search are not implemented yet.
+
 ## Build
 
 Use the Idris 2 `pack` tool from this project directory:
