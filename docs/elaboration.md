@@ -11,7 +11,7 @@ fixed at eight; [singletons](unary-records.md) use a checked unary core wrapper.
 
 [Source.Declaration.Syntax](../src/Fibril/Source/Declaration/Syntax.idr) defines
 authored ordinary/record declarations, parameters, fields and projection requests,
-as well as the lowered named declaration IR. A parsed record retains its actual
+and explicit interface/implementation items, as well as the lowered named declaration IR. A parsed record retains its actual
 tokens, quantities, field/domain expressions and source spans. It is not replaced
 by constructor/getter expressions during document parsing.
 
@@ -64,7 +64,7 @@ The command emits version-1 JSON containing:
 - checked: false and representation: named-ir;not-source.
 - The module/import names, without loading imports.
 - Every lowered declaration, including its name, quantity, export/generated flags,
-  readable signature/value IR, and actual source-name origin span.
+  readable signature/value IR, implementation marker, and actual source-name origin span.
 - Expression IR for an expression document.
 
 It prints the full local generated definitions rather than precomputed runtime
@@ -84,6 +84,11 @@ project checking remains the separate --source-dir path. Source spans use the
 existing Unicode-scalar coordinate convention.
 
 ## API and compatibility
+
+Explicit interfaces retain authored method signatures; elaboration owns their
+automatic getter requests. Implementations retain an explicit ordinary typed
+body; checking enforces a structural dictionary target, not nominal membership
+or registration. See [the implemented syntax](explicit-interfaces.md).
 
 New compiler clients use parseDocument/parseAuthoredDeclarations followed by
 elaborateDeclarations, then resolution/checking. The raw syntax/IR records are
@@ -107,8 +112,8 @@ surface syntax where tooling needs it.
 ## Next boundaries
 
 Constructor/eliminator names are still explicit in source. Automatic naming,
-projection defaults, interface lowering, implicit argument inference and method
-lookup need their own policy and source-origin design. They belong in elaboration,
+projection defaults, inferred method-body blocks, implicit argument inference and
+instance lookup need their own policy and source-origin design. They belong in elaboration,
 not parser-specific function recognition.
 
 [Source formatting](formatting.md) is separate. The initial formatter normalizes

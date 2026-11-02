@@ -1,0 +1,10 @@
+module Instances.Boolean
+import Algebra
+
+-- Deliberately nonassociative: operation shape is not an algebraic law proof.
+nand : (1 left : Bool) -> (1 right : Bool) -> Bool
+nand = \(1 left : Bool) => \(1 right : Bool) => notBool (andBool left right)
+
+export
+implementation booleanSemigroup : Algebra.Semigroup Bool
+booleanSemigroup = Algebra.MkSemigroup Bool nand

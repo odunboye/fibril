@@ -18,6 +18,7 @@ import Fibril.Driver.JSON
 declarationJSON : Declaration -> String
 declarationJSON decl = jsonObject
   [("name", jsonString decl.name), ("quantity", jsonString (show decl.quantity)),
+   ("implementation", if decl.dictionary then "true" else "false"),
    ("generated", if decl.generated then "true" else "false"),
    ("exported", if decl.exported then "true" else "false"),
    ("origin", jsonObject [("start", jsonPosition decl.nameSpan.start),

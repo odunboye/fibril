@@ -8,6 +8,7 @@ import Fibril.Core.Context
 import Fibril.Core.Runtime
 import Fibril.Core.Erased
 import Fibril.Core.Reduction
+import Fibril.Core.WeakHead
 import Fibril.Core.Pretty
 import Fibril.Source.Text
 import Fibril.Source.Lexer
@@ -137,6 +138,8 @@ compileDeclarations snapshot name globals (decl :: rest) remaining = do
      then Left (problem snapshot (Just decl.nameSpan.start)
                 "Module globals require erased/unrestricted quantities and referenceable names")
      else Right ()
+  if decl.dictionary && decl.quantity /= Unrestricted
+     then Left (problem snapshot (Just decl.nameSpan.start) "Implementations require unrestricted named dictionary values") else Right ()
   let estimate = cost remaining globals [] decl.expected + cost remaining globals [] decl.value
   if estimate > remaining then Left (problem snapshot (Just decl.nameSpan.start)
                                      "Expanded core construction budget exhausted (200000)")
@@ -153,6 +156,14 @@ compileDeclarations snapshot name globals (decl :: rest) remaining = do
     _ => case checkRuntime checkingDepth typeReductionFuel Empty value ty of
       Left err => Left ({ stage := "runtime-checking" } (problem snapshot Nothing ("Module checking: " ++ show err)))
       Right _ => Right ()
+  if decl.dictionary then case weakHead typeReductionFuel ty of
+    HeadForm (BoxType _ _) => Right ()
+    HeadForm (Sigma _ _ _ _) => Right ()
+    HeadForm _ => Left ({ stage := "runtime-checking" } (problem snapshot (Just decl.nameSpan.start)
+      "Implementation signature must be a dictionary-shaped unary or dependent-pair type"))
+    HeadLimit _ => Left ({ stage := "runtime-checking" } (problem snapshot (Just decl.nameSpan.start)
+      "Implementation dictionary type reduction budget exhausted"))
+    else Right ()
   let local = weighted (GlobalWithQuantity decl.quantity decl.name ty value)
   let qualified = Weight (GlobalWithQuantity decl.quantity (moduleText name ++ "." ++ decl.name) ty value) local.size
   following <- compileDeclarations snapshot name (local :: qualified :: globals) rest (minus remaining estimate)

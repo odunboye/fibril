@@ -26,7 +26,8 @@ Recursive declarations/modules remain future work.
 
 A separate declaration elaborator now lowers explicit records, constructors,
 eliminators and safe projections into independently checked code. Typed consuming
-patterns are supported. Implicit argument/interface elaboration and tactics remain
+patterns and explicit interface/named dictionary implementation elaboration are
+supported. Implicit arguments, constraints/instance search and tactics remain
 future work; any generator or derivation tool must still produce checked terms.
 
 The first [Neovim/Vim lexical runtime](../editor-highlighting.md) now supplies

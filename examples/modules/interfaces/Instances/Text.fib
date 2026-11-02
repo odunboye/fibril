@@ -1,0 +1,10 @@
+module Instances.Text
+import Algebra
+
+export
+implementation textSemigroup : Algebra.Semigroup String
+textSemigroup = Algebra.MkSemigroup String appendString
+
+export
+implementation textMonoid : Algebra.Monoid String
+textMonoid = Algebra.MkMonoid String appendString ""

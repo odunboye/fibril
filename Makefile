@@ -56,6 +56,7 @@ examples: build
 	./build/exec/fibril run --source-dir examples/modules/wider-records examples/modules/wider-records/ManyFields.fib
 	./build/exec/fibril run --source-dir examples/modules/singleton-records examples/modules/singleton-records/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/singleton-records examples/modules/singleton-records/Dependent.fib
+	./build/exec/fibril run --source-dir examples/modules/interfaces examples/modules/interfaces/Main.fib
 
 bench:
 	python3 tools/benchmark.py

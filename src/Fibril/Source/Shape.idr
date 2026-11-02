@@ -54,8 +54,14 @@ sameProjection a b = a.name.spelling == b.name.spelling && a.field.spelling == b
 
 sameAuthored : AuthoredDeclaration -> AuthoredDeclaration -> Bool
 sameAuthored (Ordinary a) (Ordinary b) = a.name == b.name && a.quantity == b.quantity &&
-  a.exported == b.exported && a.generated == b.generated && sameExpr a.expected b.expected && sameExpr a.value b.value
+  a.exported == b.exported && a.generated == b.generated && a.dictionary == b.dictionary && sameExpr a.expected b.expected && sameExpr a.value b.value
+sameAuthored (ImplementationItem a) (ImplementationItem b) = a.name == b.name && a.quantity == b.quantity &&
+  a.exported == b.exported && a.generated == b.generated && a.dictionary == b.dictionary && sameExpr a.expected b.expected && sameExpr a.value b.value
 sameAuthored (RecordItem a) (RecordItem b) = a.name.spelling == b.name.spelling && a.level == b.level &&
+  a.exported == b.exported && sameList sameParameter a.params b.params &&
+  a.constructorName.spelling == b.constructorName.spelling && a.eliminatorName.spelling == b.eliminatorName.spelling &&
+  sameList sameField a.fields b.fields && sameList sameProjection a.projections b.projections
+sameAuthored (InterfaceItem a) (InterfaceItem b) = a.name.spelling == b.name.spelling && a.level == b.level &&
   a.exported == b.exported && sameList sameParameter a.params b.params &&
   a.constructorName.spelling == b.constructorName.spelling && a.eliminatorName.spelling == b.eliminatorName.spelling &&
   sameList sameField a.fields b.fields && sameList sameProjection a.projections b.projections

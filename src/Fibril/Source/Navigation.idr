@@ -118,7 +118,21 @@ declarations context env (Ordinary decl :: rest) =
   (if decl.generated then [] else walk context env decl.expected ++ walk context env decl.value) ++
   declarations context ((decl.name, Just (context.localTarget decl.definitionNameSpan)) :: env) rest
 
+declarations context env (ImplementationItem decl :: rest) =
+  (if decl.name == "_" then [] else if decl.generated then
+    [RefersTo decl.nameSpan (context.localTarget decl.definitionNameSpan)] else
+    [RefersTo decl.nameSpan (context.localTarget decl.definitionNameSpan),
+     RefersTo decl.definitionNameSpan (context.localTarget decl.definitionNameSpan)]) ++
+  (if decl.generated then [] else walk context env decl.expected ++ walk context env decl.value) ++
+  declarations context ((decl.name, Just (context.localTarget decl.definitionNameSpan)) :: env) rest
+
 declarations context env (item@(RecordItem _) :: rest) =
+  let sites = bindingSites item
+      refs = map (\site => RefersTo site.nameSpan (context.localTarget site.definitionNameSpan)) sites
+      following = foldl (\scope, site => (site.name, Just (context.localTarget site.definitionNameSpan)) :: scope) env sites
+   in refs ++ declarations context following rest
+
+declarations context env (item@(InterfaceItem _) :: rest) =
   let sites = bindingSites item
       refs = map (\site => RefersTo site.nameSpan (context.localTarget site.definitionNameSpan)) sites
       following = foldl (\scope, site => (site.name, Just (context.localTarget site.definitionNameSpan)) :: scope) env sites

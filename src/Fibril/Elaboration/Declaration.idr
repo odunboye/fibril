@@ -365,12 +365,30 @@ admit (S slots) seen (decl :: rest) =
 lowerItem : Nat -> AuthoredDeclaration -> Either ElaborationError (Nat, List Declaration)
 lowerItem nodes (Ordinary decl) = Right (0, [decl])
 lowerItem nodes (RecordItem sourceRecord) = lowerRecord nodes sourceRecord
+lowerItem nodes (InterfaceItem sourceRecord) = do
+  if not (null sourceRecord.projections)
+     then Left (ElaborationFailure sourceRecord.span.start "Interface methods generate getters; explicit projections are not allowed") else Right ()
+  traverse_ (\field => if field.quantity /= Unrestricted
+    then Left (ElaborationFailure field.token.span.start "Interface methods require unrestricted fields; method argument quantities remain explicit")
+    else Right ()) sourceRecord.fields
+  let methods = map (\field => Projected field.token field.token field.token) sourceRecord.fields
+  lowerRecord nodes ({ projections := methods } sourceRecord)
+lowerItem nodes (ImplementationItem decl) =
+  if decl.quantity /= Unrestricted
+     then Left (ElaborationFailure decl.nameSpan.start "Implementations require unrestricted named dictionary values")
+     else Right (0, [{ dictionary := True } decl])
+
+authoredPosition : AuthoredDeclaration -> Position
+authoredPosition (Ordinary decl) = decl.nameSpan.start
+authoredPosition (ImplementationItem decl) = decl.nameSpan.start
+authoredPosition (RecordItem sourceRecord) = sourceRecord.name.span.start
+authoredPosition (InterfaceItem sourceRecord) = sourceRecord.name.span.start
 
 lower : Nat -> Nat -> List String -> List AuthoredDeclaration -> Either ElaborationError (List Declaration)
 lower nodes slots seen [] = Right []
 lower nodes slots seen (item :: rest) = do
   if length (bindingSites item) > slots
-     then Left (ElaborationFailure (case item of Ordinary decl => decl.nameSpan.start; RecordItem sourceRecord => sourceRecord.name.span.start) "Elaborated declaration budget exhausted") else Right ()
+     then Left (ElaborationFailure (authoredPosition item) "Elaborated declaration budget exhausted") else Right ()
   (used, declarations) <- lowerItem nodes item
   (remaining, names) <- admit slots seen declarations
   following <- lower (minus nodes used) remaining names rest

@@ -144,7 +144,10 @@ breakpoints document = case document.body of
   DeclarationDocument authored => concatMap (\item => case item of
     Ordinary decl => planExpression document.tokens (length (unpack decl.name) + 5) decl.expected ++
                      planExpression document.tokens (length (unpack decl.name) + 3) decl.value
-    RecordItem _ => []) authored
+    ImplementationItem decl => planExpression document.tokens (length (unpack decl.name) + 20) decl.expected ++
+                               planExpression document.tokens (length (unpack decl.name) + 3) decl.value
+    RecordItem _ => []
+    InterfaceItem _ => []) authored
   EmptyDocument => []
 
 -- Preserve homogeneous newline styles; mixed/lone-CR input gets spacing only.

@@ -8,7 +8,7 @@ set cpo&vim
 " Apostrophes belong to ASCII identifiers; if' is not the keyword if.
 syntax iskeyword @,48-57,_,39
 
-syntax keyword fibrilKeyword let in case of return if then else module import export record constructor eliminator where projection
+syntax keyword fibrilKeyword let in case of return if then else module import export record interface implementation constructor eliminator where projection
 syntax keyword fibrilType Type Unit Bool String
 syntax keyword fibrilBoolean True False
 " IO/putStrLn are resolved names; do and module headers are syntax, not typing evidence.

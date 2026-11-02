@@ -80,6 +80,10 @@
         "path": "docs/interfaces.md"
       },
       {
+        "title": "Explicit interfaces and implementations",
+        "path": "docs/explicit-interfaces.md"
+      },
+      {
         "title": "Python interoperability",
         "path": "docs/python-interop.md"
       },

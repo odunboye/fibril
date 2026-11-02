@@ -416,6 +416,121 @@ class CLITests(unittest.TestCase):
             self.assertEqual(diagnostic["path"], str(entry.resolve()))
             self.assertEqual(diagnostic["position"]["line"], 7)
 
+    def test_explicit_interfaces_and_implementations(self):
+        example = ROOT / "examples/modules/interfaces"
+        result = run("run", "--source-dir", str(example), str(example / "Main.fib"))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout, "Hello, interfaces!\nExplicit dictionaries!\nMonoid shape!\n")
+        report = json.loads(run("elaborate", str(example / "Algebra.fib")).stdout)
+        self.assertFalse(report["checked"])
+        self.assertEqual([d["name"] for d in report["declarations"][:4]],
+                         ["Semigroup", "MkSemigroup", "useSemigroup", "combine"])
+        self.assertTrue(all(d["generated"] for d in report["declarations"][:4]))
+        inspected = json.loads(run("elaborate", str(example / "Instances/Text.fib")).stdout)
+        self.assertTrue(all(d["implementation"] for d in inspected["declarations"]))
+        # Definition targets are actual method tokens, not generated syntax.
+        source = (example / "Algebra.fib").read_text()
+        lines = source.splitlines()
+        line = next(i + 1 for i, text in enumerate(lines) if "combine A dictionary" in text)
+        column = lines[line - 1].index("combine A") + 1
+        result = run("definition", "--source-dir", str(example), "--entry", str(example / "Main.fib"),
+                     str(line), str(column), str(example / "Algebra.fib"))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        location = json.loads(result.stdout)["definition"]
+        self.assertEqual(location["path"], str((example / "Algebra.fib").resolve()))
+        begin, end = location["range"]["start"]["offset"], location["range"]["end"]["offset"]
+        self.assertEqual(source[begin:end], "combine")
+        self.assertEqual(location["range"]["start"]["line"],
+                         next(i + 1 for i, text in enumerate(lines) if text.startswith("  combine :")))
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / "Main.fib"
+            base = (
+                'module Main\ninterface Flag : Type 0 where\n'
+                '  constructor MkFlag\n  eliminator useFlag\n  flag : Bool\n'
+                'implementation first : Flag\nfirst = MkFlag True\n'
+                'implementation second : Flag\nsecond = MkFlag False\n'
+                'main : IO Unit\nmain = putStrLn (if flag second then "true" else "false")\n')
+            path.write_text(base)
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, "false\n")  # No automatic instance selection.
+            formatted = run("format", str(path))
+            self.assertEqual(formatted.returncode, 0, formatted.stderr)
+            path.write_text(formatted.stdout)
+            self.assertEqual(run("format", str(path)).stdout, formatted.stdout)
+            for bad in (
+                base.replace("second = MkFlag False", "second = MkFlag"),
+                base.replace("second = MkFlag False", 'second = MkFlag "wrong"'),
+                base.replace("  flag : Bool", "  1 flag : Bool"),
+                base.replace("  flag : Bool", "  0 flag : Bool"),
+                base.replace("  flag : Bool", "  flag : Bool\n  projection get flag"),
+                base.replace("  flag : Bool", "  flag : Bool\n  flag : Bool"),
+                base.replace("implementation second : Flag", "implementation 0 second : Flag"),
+                base.replace("implementation second : Flag", "implementation first : Flag"),
+                base.replace("module Main\n", ""),
+                base.replace("implementation second", "implementation\nsecond"),
+            ):
+                path.write_text(bad)
+                result = run("run", "--source-dir", str(root), str(path))
+                self.assertNotEqual(result.returncode, 0, bad)
+                self.assertEqual(result.stdout, "")
+            # A named primitive alias is still not a structural dictionary.
+            path.write_text('module Main\n0 Text : Type 0\nText = String\n'
+                            'implementation wrong : Text\nwrong = "no"\n'
+                            'main : IO Unit\nmain = putStrLn "never"\n')
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("dictionary-shaped", result.stderr)
+            self.assertEqual(result.stdout, "")
+            # Introspection is expressly unchecked, even for this bad target.
+            self.assertEqual(run("elaborate", str(path)).returncode, 0)
+            # Quantities inside methods are invariant, not silently adapted.
+            operation = (
+                'module Main\ninterface Operation : Type 0 where\n'
+                '  constructor MkOperation\n  eliminator useOperation\n'
+                '  apply : (left : String) -> (right : String) -> String\n'
+                'implementation operation : Operation\noperation = MkOperation appendString\n'
+                'main : IO Unit\nmain = putStrLn (apply operation "explicit" " adapter")\n')
+            path.write_text(operation)
+            self.assertNotEqual(run("run", "--source-dir", str(root), str(path)).returncode, 0)
+            path.write_text(operation.replace(
+                "implementation operation",
+                'adapter : (left : String) -> (right : String) -> String\n'
+                'adapter = \\(left : String) => \\(right : String) => appendString left right\n'
+                'implementation operation').replace("operation = MkOperation appendString", "operation = MkOperation adapter"))
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, "explicit adapter\n")
+            # All unused implementations are checked before publication/output.
+            path.write_text(base.replace("second = MkFlag False", 'second = MkFlag "bad"')
+                            .replace("flag second", "flag first"))
+            self.assertNotEqual(run("run", "--source-dir", str(root), str(path)).returncode, 0)
+            # Automatic method binders consume the normal declaration quota.
+            fields = "".join(f"  method{i} : Bool\n" for i in range(62))
+            path.write_text('module Main\ninterface TooMany : Type 0 where\n'
+                            '  constructor MkTooMany\n  eliminator useTooMany\n' + fields)
+            result = run("elaborate", str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("budget", result.stderr)
+            # Copy and format the actual imported example graph, then execute it.
+            for original in example.rglob("*.fib"):
+                destination = root / original.relative_to(example)
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                destination.write_bytes(original.read_bytes())
+                formatted = run("format", str(destination))
+                self.assertEqual(formatted.returncode, 0, formatted.stderr)
+                destination.write_text(formatted.stdout)
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            # Private interface group members are not imported by guessing names.
+            algebra = root / "Algebra.fib"
+            algebra.write_text(algebra.read_text().replace("export\ninterface Semigroup", "interface Semigroup"))
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, "")
+
     def test_singleton_records_and_dependent_elimination(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

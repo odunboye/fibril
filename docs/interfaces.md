@@ -1,14 +1,16 @@
 # Interfaces: explicit operations before search
 
-**Status:** design contract plus runnable higher-order Fibril examples. Interface,
-implementation, implicit dictionary, and operator syntax are **not implemented**.
+**Status:** explicit [interface and named implementation syntax](explicit-interfaces.md)
+now lowers to checked dictionaries with consuming method functions. Implicit
+lookup, constrained functions, operators and law checking remain unimplemented.
 A bounded [resource-budgeted named record prototype](records.md) now provides checked
 constructors, erased parameters and explicit consuming eliminators, but not nominality. Nothing here establishes associativity, identity laws, quantitative
 soundness, or a computational HoTT equality theory.
 
 The [module boundary](modules.md) is now executable. We should use it to build
 reusable abstractions instead of permanently growing a monomorphic prelude.
-This page records the next implementation order and its outstanding checks.
+This page records the staged design contract and remaining checks; the
+[implemented explicit slice](explicit-interfaces.md) specifies its narrower syntax and policies.
 
 ![Implementation order and current boundary](diagrams/interfaces.svg)
 
@@ -180,9 +182,10 @@ Implementation order:
 1. Implemented: staged erased globals and import/runtime rejection tests.
 2. In progress: dependent records/dictionary representation (core formation and
    construction/elimination and resource-budgeted source records implemented; erased parameters implemented;
-   typed consuming patterns and explicit safe projections implemented; broader
-   singleton wrappers implemented; dot-field syntax and nominality decisions pending) and all affected core infrastructure.
-3. Explicit operational interfaces and implementations, including failed methods.
+   typed consuming patterns, explicit safe projections and singleton wrappers implemented; dot-field syntax and nominality decisions pending) and all affected core infrastructure.
+3. Implemented: explicit operational interfaces, automatic checked method getters
+   and named dictionary implementations, including negative method checks. No
+   inferred method blocks or instance registry.
 4. Law representation once equality supports it; distinguish data from proofs.
 5. Constrained functions, bounded/coherent lookup, then generic operators.
 

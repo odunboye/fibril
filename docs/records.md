@@ -3,8 +3,9 @@
 **Status:** core dependent pairs and a bounded named-record source prototype are
 implemented, including explicitly requested safe projection functions. Source records have no fixed field-count cap (at least one field), an explicit
 constructor and an explicit eliminator. Explicit erased parameter telescopes are supported; recursive/nominal records,
-constructor-discriminating/inferred patterns, dot-field syntax, interface declarations
-and instance inference remain unimplemented. No preservation or erasure theorem is claimed.
+constructor-discriminating/inferred patterns, dot-field syntax and instance
+inference remain unimplemented. [Explicit interfaces](explicit-interfaces.md)
+now reuse these checked dictionary foundations. No preservation or erasure theorem is claimed.
 
 Records will elaborate into genuinely dependent structure, not a temporary
 nondependent product. [Erased named globals](interfaces.md#first-prerequisite-erased-global-type-declarations-implemented)
@@ -545,7 +546,8 @@ not preservation or quantitative soundness proofs.
 
 The constructor/eliminator core and resource-budgeted source record declarations
 are in place, including erased parameter telescopes and explicit binary consuming
-patterns. Next work includes explicit interface declarations, dot-field elaboration,
+patterns. [Explicit interface declarations](explicit-interfaces.md) are now implemented;
+next work includes interface constraints/selection, dot-field elaboration,
 richer/inferred pattern syntax, nominality decisions, and richer visibility. Do not implement fst/snd by
 silently discarding a linear component. The nesting policy above preserves existing two-field representations and uses
 linear internal tails; generated eliminators preserve the authored field quantities.

@@ -9,7 +9,7 @@ import Fibril.Source.StringLiteral
 
 ||| Token categories for the initial explicitly annotated expression grammar.
 public export
-data TokenKind = Name | Number | StringToken | StringKeyword | TypeKeyword | UnitKeyword | BoolKeyword | TrueKeyword | FalseKeyword | IfKeyword | ThenKeyword | ElseKeyword | DoKeyword | CaseKeyword | OfKeyword | LetKeyword | InKeyword | ProjectionKeyword | ReturnKeyword | RecordKeyword | ConstructorKeyword | EliminatorKeyword | WhereKeyword | ModuleKeyword | ImportKeyword | ExportKeyword | Dot | Equals | OpenParen | CloseParen | Colon | Arrow | BindArrow | BodyArrow | Lambda
+data TokenKind = Name | Number | StringToken | StringKeyword | TypeKeyword | UnitKeyword | BoolKeyword | TrueKeyword | FalseKeyword | IfKeyword | ThenKeyword | ElseKeyword | DoKeyword | CaseKeyword | OfKeyword | LetKeyword | InKeyword | ProjectionKeyword | ReturnKeyword | RecordKeyword | InterfaceKeyword | ImplementationKeyword | ConstructorKeyword | EliminatorKeyword | WhereKeyword | ModuleKeyword | ImportKeyword | ExportKeyword | Dot | Equals | OpenParen | CloseParen | Colon | Arrow | BindArrow | BodyArrow | Lambda
 
 public export
 Show TokenKind where
@@ -33,6 +33,8 @@ Show TokenKind where
   show ProjectionKeyword = "projection"
   show ReturnKeyword = "return"
   show RecordKeyword = "record"
+  show InterfaceKeyword = "interface"
+  show ImplementationKeyword = "implementation"
   show ConstructorKeyword = "constructor"
   show EliminatorKeyword = "eliminator"
   show WhereKeyword = "where"
@@ -71,6 +73,8 @@ Eq TokenKind where
   ProjectionKeyword == ProjectionKeyword = True
   ReturnKeyword == ReturnKeyword = True
   RecordKeyword == RecordKeyword = True
+  InterfaceKeyword == InterfaceKeyword = True
+  ImplementationKeyword == ImplementationKeyword = True
   ConstructorKeyword == ConstructorKeyword = True
   EliminatorKeyword == EliminatorKeyword = True
   WhereKeyword == WhereKeyword = True
@@ -201,6 +205,8 @@ scan (S fuel) at (c :: rest) =
              "projection" => ProjectionKeyword
              "return" => ReturnKeyword
              "record" => RecordKeyword
+             "interface" => InterfaceKeyword
+             "implementation" => ImplementationKeyword
              "constructor" => ConstructorKeyword
              "eliminator" => EliminatorKeyword
              "where" => WhereKeyword

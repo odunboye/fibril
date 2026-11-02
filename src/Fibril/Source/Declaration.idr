@@ -21,11 +21,11 @@ expressionChunk : Nat -> List Token -> (List Token, List Token)
 expressionChunk headerLine =
   span (\token => token.span.start.line == headerLine || token.span.start.column > 1)
 
-parsePair : Nat -> Position -> List Token ->
+parsePairAt : Nat -> Nat -> Position -> List Token ->
            Either ParseError (Declaration, List Token)
-parsePair expressionBudget end [] = Left (ParseFailure end "Expected declaration signature")
-parsePair expressionBudget end tokens@(first :: _) = do
-  if first.span.start.column /= 1
+parsePairAt column expressionBudget end [] = Left (ParseFailure end "Expected declaration signature")
+parsePairAt column expressionBudget end tokens@(first :: _) = do
+  if first.span.start.column /= column
      then Left (ParseFailure first.span.start "Declaration headers must start in column 1")
      else Right ()
   (q, afterQuantity) <- binderQuantity tokens
@@ -55,6 +55,9 @@ parsePair expressionBudget end tokens@(first :: _) = do
   Right (Defined (Between first.span.start (extent value).finish)
                  name.span definedName.span False q name.spelling expected value, remaining)
 
+
+parsePair : Nat -> Position -> List Token -> Either ParseError (Declaration, List Token)
+parsePair = parsePairAt 1
 
 directive : TokenKind -> Nat -> Position -> List Token ->
             Either ParseError (Token, Token, List Token)
@@ -122,9 +125,9 @@ recordParameters fuel expressions end tokens = case tokens of
         Right (Parameter parameter.span parameter.quantity parameter.name parameter.domain :: rest, remaining)
   [] => Right ([], [])
 
-parseRecord : Nat -> Position -> List Token -> Either ParseError (AuthoredDeclaration, List Token)
-parseRecord budget end tokens = do
-  (keyword, rest) <- expect RecordKeyword end tokens
+parseRecordLike : TokenKind -> Nat -> Position -> List Token -> Either ParseError (AuthoredDeclaration, List Token)
+parseRecordLike kind budget end tokens = do
+  (keyword, rest) <- expect kind end tokens
   (name, rest) <- expect Name end rest
   (params, rest) <- recordParameters 8 budget end rest
   (_, rest) <- expect Colon end rest
@@ -144,6 +147,8 @@ parseRecord budget end tokens = do
   (eliminatorKeyword, eliminatorName, rest) <- directive EliminatorKeyword indent end rest
   (fields, rest) <- parseFields (length rest) budget indent end rest
   if null fields then Left (ParseFailure eliminatorName.span.finish "Records require at least one field") else Right ()
+  if kind == InterfaceKeyword && (case rest of token :: _ => token.kind == ProjectionKeyword; [] => False)
+     then Left (ParseFailure (nextPosition end rest) "Interface methods generate getters; projection directives are not allowed") else Right ()
   (projections, rest) <- parseProjections (length rest) indent end rest
   case rest of
     token :: _ => if token.span.start.column > 1
@@ -156,7 +161,17 @@ parseRecord budget end tokens = do
           [] => eliminatorName.span.finish
         final :: _ => final.field.span.finish
   let region = Between keyword.span.start finish
-  Right (RecordItem (RecordSyntax region name level params constructorKeyword constructorName eliminatorKeyword eliminatorName fields projections False), rest)
+  let authored = RecordSyntax region name level params constructorKeyword constructorName eliminatorKeyword eliminatorName fields projections False
+  Right (if kind == InterfaceKeyword then InterfaceItem authored else RecordItem authored, rest)
+
+parseImplementation : Nat -> Position -> List Token -> Either ParseError (AuthoredDeclaration, List Token)
+parseImplementation budget end [] = Left (ParseFailure end "Expected implementation declaration")
+parseImplementation budget end (keyword :: rest) = do
+  let position = nextPosition end rest
+  if keyword.span.start.column /= 1 || position.line /= keyword.span.start.line
+     then Left (ParseFailure keyword.span.start "Expected implementation name : DictionaryType on a column-one header") else Right ()
+  (decl, remaining) <- parsePairAt position.column budget end rest
+  Right (ImplementationItem ({ dictionary := True, span := Between keyword.span.start decl.span.finish } decl), remaining)
 
 
 parseOne : Nat -> Position -> List Token -> Either ParseError (AuthoredDeclaration, List Token)
@@ -171,13 +186,18 @@ parseOne budget end tokens@(token :: rest) =
     let start = case item of
           Ordinary decl => decl.span.start
           RecordItem sourceRecord => sourceRecord.span.start
+          InterfaceItem sourceRecord => sourceRecord.span.start
+          ImplementationItem decl => decl.span.start
     if start.line <= token.span.start.line
        then Left (ParseFailure start "export must precede the declaration on its own line") else Right ()
     let marked = case item of
           Ordinary decl => Ordinary ({ exported := True, span := Between token.span.start decl.span.finish } decl)
           RecordItem sourceRecord => RecordItem ({ exported := True, span := Between token.span.start sourceRecord.span.finish } sourceRecord)
+          InterfaceItem sourceRecord => InterfaceItem ({ exported := True, span := Between token.span.start sourceRecord.span.finish } sourceRecord)
+          ImplementationItem decl => ImplementationItem ({ exported := True, span := Between token.span.start decl.span.finish } decl)
     Right (marked, remaining)
-  else if token.kind == RecordKeyword then parseRecord budget end tokens
+  else if token.kind == RecordKeyword || token.kind == InterfaceKeyword then parseRecordLike token.kind budget end tokens
+  else if token.kind == ImplementationKeyword then parseImplementation budget end tokens
   else do
     (decl, remaining) <- parsePair budget end tokens
     Right (Ordinary decl, remaining)
@@ -213,7 +233,7 @@ public export
 parseDeclarations : Nat -> Nat -> Position -> List Token -> Either ParseError (List Declaration)
 parseDeclarations budget expressions end tokens = do
   authored <- parseAuthoredDeclarations budget expressions end tokens
-  if any isRecord authored then Left (ParseFailure end "Records require the authored document/elaboration pipeline")
+  if any requiresElaboration authored then Left (ParseFailure end "Records/interfaces/implementations require the authored document/elaboration pipeline")
      else Right (ordinaryDeclarations authored)
 
 -- Synthetic entry reference is at EOF; all lowered let extents stay ordered.
@@ -231,6 +251,8 @@ declarationAhead (Located Name _ _ :: Located Colon _ _ :: _) = True
 declarationAhead (Located Name _ _ :: Located Equals _ _ :: _) = True
 declarationAhead (Located Number _ _ :: _) = True
 declarationAhead (Located RecordKeyword _ _ :: _) = True
+declarationAhead (Located InterfaceKeyword _ _ :: _) = True
+declarationAhead (Located ImplementationKeyword _ _ :: _) = True
 declarationAhead (Located ExportKeyword _ _ :: _) = True
 declarationAhead _ = False
 

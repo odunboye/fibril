@@ -28,12 +28,13 @@ A [conservative formatter](docs/formatting.md) is available as fibril format PAT
 or fibril format --check PATH. It normalizes token spacing and safely lays out long applications, lambdas, signatures and cases,
 without writing files or changing comments/literal spelling.
 
-The next abstraction step is documented in [the interface contract](docs/interfaces.md),
+The abstraction contract is documented in [the interface contract](docs/interfaces.md),
 with a runnable multi-file generic String/Bool operation example. Erased named
 globals now support exported type abbreviations without granting runtime access;
 dependent pair formation/construction/elimination are now in the core.
-A resource-budgeted named-record prototype now runs, without a fixed field-count cap; see [record foundations](docs/records.md) and [singleton rules](docs/unary-records.md). Interfaces and
-implicit dictionary search are not implemented yet.
+A resource-budgeted named-record prototype now runs, without a fixed field-count cap; see [record foundations](docs/records.md) and [singleton rules](docs/unary-records.md). [Explicit interfaces and named implementations](docs/explicit-interfaces.md) now
+lower to checked dictionary values and method functions. Implicit dictionary
+search and algebraic-law checking remain unimplemented.
 
 ## Build
 

@@ -103,8 +103,8 @@ parseTokens declarations expressions end tokens = do
     first :: _ =>
       if isJust moduleHeader || declarationAhead remaining then do
         values <- parseAuthoredDeclarations declarations expressions end remaining
-        if isNothing moduleHeader && any isRecord values
-           then Left (ParseFailure first.span.start "Record declarations require a named module")
+        if isNothing moduleHeader && any requiresElaboration values
+           then Left (ParseFailure first.span.start "Record/interface/implementation declarations require a named module")
            else Right ()
         if isNothing moduleHeader && any declarationExported values
            then Left (ParseFailure first.span.start "export requires a named module")

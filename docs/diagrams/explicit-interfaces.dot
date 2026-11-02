@@ -1,0 +1,13 @@
+digraph ExplicitInterfaces {
+  rankdir=LR;
+  node [shape=box];
+  authored [label="Authored interface\nmethod signatures + real names"];
+  generation [label="Elaboration\nBox/Sigma dictionary + safe method getters"];
+  implementation [label="Named implementation\nexplicit typed dictionary expression"];
+  check [label="Resolution + budgets\nerased/runtime checking\nimplementation shape gate"];
+  calls [label="Explicit dictionary arguments\nordinary checked calls"];
+  authored -> generation -> check;
+  implementation -> check -> calls;
+  laws [label="Not supplied:\nlaws / search / coherence", style=dashed];
+  calls -> laws [style=dashed];
+}
