@@ -1,0 +1,13 @@
+digraph PatternInference {
+  rankdir=LR;
+  node [shape=box];
+  parse [label="Typed source pattern\nNInferCase (arity 1 or 2)"];
+  context [label="Contextual expression elaboration\nresolve original branch"];
+  infer [label="Erased branch-type inference\nbounded result-type normalization"];
+  scope [label="Remove field binders\nreject dependent result"];
+  core [label="Explicit BoxCase / PairCase\nconstant erased motive"];
+  check [label="Independent core checking\nshape, quantities, usage"];
+  parse -> context -> infer -> scope -> core -> check;
+  explicit [label="Dependent / exhausted?\nrequest explicit return", style=dashed];
+  scope -> explicit [style=dashed];
+}

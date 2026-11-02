@@ -48,7 +48,7 @@ getter is now an elaboration failure, not a parsing failure. Core failures remai
 unlocated. Parsing a graph still reports checked: false; a graph can be
 syntactically valid while its declarations fail elaboration.
 
-Erased named globals, headerless typed-let opacity, explicit consuming motives,
+Erased named globals, headerless typed-let opacity, explicit core motives,
 Pi/quantity invariance, module visibility and IO planning are unchanged. Existing
 structural host proofs cover the same core language; this refactor is not a new
 soundness theorem.
@@ -65,7 +65,8 @@ The command emits version-1 JSON containing:
 - The module/import names, without loading imports.
 - Every lowered declaration, including its name, quantity, export/generated flags,
   readable signature/value IR, implementation marker, and actual source-name origin span.
-- Expression IR for an expression document.
+- Expression IR for an expression document; pending infer-record-case nodes
+  remain pending, without contextual inference or checking.
 
 It prints the full local generated definitions rather than precomputed runtime
 results. It does **not** resolve globals, typecheck the program, normalize/evaluate
@@ -105,8 +106,10 @@ DocumentBody now contains AuthoredDeclaration values. Internal clients and tests
 have migrated rather than pretending the old body was already elaborated.
 
 This refactor isolates **record declaration expansion**. It does not claim every
-older expression sugar has moved: existing do parsing and expression-to-core
-resolution remain their own documented stages. Future changes can preserve more
+older expression sugar has moved out of parsing: do syntax still retains its
+historical parser lowering. Contextual named-to-core processing now lives in
+[Elaboration.Expression](../src/Fibril/Elaboration/Expression.idr), including
+[bounded pattern motive inference](pattern-inference.md). Future changes can preserve more
 surface syntax where tooling needs it.
 
 ## Next boundaries

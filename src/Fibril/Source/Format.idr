@@ -105,6 +105,19 @@ layout tokens indentation forced value@(NPairCase _ motive scrutinee branch) =
       layout tokens indentation split scrutinee ++
       layout tokens (indentation + 4) False motive ++
       layout tokens (indentation + 2) split branch
+layout tokens indentation forced value@(NBoxCase _ motive scrutinee branch) =
+  let split = forced || wide tokens indentation value
+   in (if split then
+         keyword tokens ReturnKeyword (extent scrutinee).finish.offset (extent motive).start.offset (indentation + 2) ++
+         keyword tokens OfKeyword (extent motive).finish.offset (extent branch).start.offset (indentation + 2)
+       else []) ++
+      layout tokens indentation split scrutinee ++
+      layout tokens (indentation + 4) False motive ++
+      layout tokens (indentation + 2) split branch
+layout tokens indentation forced value@(NInferCase _ _ scrutinee branch) =
+  let split = forced || wide tokens indentation value
+   in (if split then keyword tokens OfKeyword (extent scrutinee).finish.offset (extent branch).start.offset (indentation + 2) else []) ++
+      layout tokens indentation split scrutinee ++ layout tokens (indentation + 2) split branch
 layout tokens indentation forced value@(NIf _ condition yes no) =
   let split = forced || wide tokens indentation value
    in (if split then

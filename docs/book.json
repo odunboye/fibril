@@ -76,6 +76,10 @@
         "path": "docs/unary-records.md"
       },
       {
+        "title": "Typed patterns and motive inference",
+        "path": "docs/pattern-inference.md"
+      },
+      {
         "title": "Interfaces and explicit operations",
         "path": "docs/interfaces.md"
       },

@@ -154,7 +154,7 @@ delimits the expression; indentation is currently cosmetic.
 2. [Syntax](../src/Fibril/Source/Syntax.idr): named expression nodes with extents.
 3. [Parser](../src/Fibril/Source/Parser.idr): bounded recursive descent, complete
    input consumption, positional syntax errors.
-4. [Resolve](../src/Fibril/Source/Resolve.idr): names to scoped core indices.
+4. [Expression elaboration](../src/Fibril/Elaboration/Expression.idr): contextual names to scoped core, explicit sugar lowering and bounded independent-result motive inference. [Source.Resolve](../src/Fibril/Source/Resolve.idr) remains a compatibility facade.
 5. [Driver.Check](../src/Fibril/Driver/Check.idr): orchestration into existing
    erased/runtime checkers, independent of the core algorithms.
 

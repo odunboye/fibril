@@ -416,6 +416,112 @@ class CLITests(unittest.TestCase):
             self.assertEqual(diagnostic["path"], str(entry.resolve()))
             self.assertEqual(diagnostic["position"]["line"], 7)
 
+    def test_inferred_record_pattern_motives(self):
+        example = ROOT / "examples/modules/pattern-inference/Main.fib"
+        result = run("run", "--source-dir", str(example.parent), str(example))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout, "Inferred patterns!\n")
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / "Main.fib"
+            source = example.read_text()
+            path.write_text(source)
+            formatted = run("format", str(path))
+            self.assertEqual(formatted.returncode, 0, formatted.stderr)
+            path.write_text(formatted.stdout)
+            self.assertEqual(run("format", str(path)).stdout, formatted.stdout)
+            self.assertEqual(run("run", "--source-dir", str(root), str(path)).stdout, "Inferred patterns!\n")
+            # Inferred matching still respects exact quantities and type annotations.
+            for before, after in (
+                ('(1 value : A) => value', '(1 value : A) => "discarded"'),
+                ('(1 text : String) => if enabled then appendString text "!" else text',
+                 '(1 text : String) => if enabled then appendString text text else text'),
+                ('case box of (1 value : A)', 'case box of (value : A)'),
+                ('case box of (1 value : A)', 'case box of (1 value : Bool)'),
+                ('case box of (1 value : A) => value', 'case box of (1 _ : A) => "discarded"'),
+                ('case message of (1 enabled : Bool) (1 text : String)',
+                 'case message of (1 enabled : Bool) (1 enabled : String)'),
+            ):
+                path.write_text(source.replace(before, after))
+                result = run("run", "--source-dir", str(root), str(path))
+                self.assertNotEqual(result.returncode, 0, (before, after, result.stdout))
+                self.assertEqual(result.stdout, "")
+            # Inference preserves outer type parameters under a result's own Pi.
+            closure = source.replace(
+                "main : IO Unit",
+                'constant : (0 A : Type 0) -> (1 box : Box A) -> (0 unused : A) -> A\n'
+                'constant = \\(0 A : Type 0) => \\(1 box : Box A) => case box of (1 value : A) => \\(0 unused : A) => value\n'
+                'main : IO Unit').replace(
+                    'putStrLn (render (MkMessage True (recover String (MkBox String "Inferred patterns"))))',
+                    'putStrLn (constant String (MkBox String "Closure!") "erased")')
+            path.write_text(closure)
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, "Closure!\n")
+            path.write_text(source)
+            lines = source.splitlines()
+            line = next(i + 1 for i, text in enumerate(lines) if text.startswith("recover ="))
+            column = lines[line - 1].rindex("value") + 1
+            result = run("definition", "--source-dir", str(root), "--entry", str(path),
+                         str(line), str(column), str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            target = json.loads(result.stdout)["definition"]
+            begin, end = target["range"]["start"]["offset"], target["range"]["end"]["offset"]
+            self.assertEqual(source[begin:end], "value")
+            self.assertLess(target["range"]["start"]["column"], column)
+            # Stage-preserving runtime analysis must still reject erased extraction.
+            path.write_text('module Main\nrecord R : Type 0 where\n'
+                            '  constructor MkR\n  eliminator useR\n  0 value : String\n'
+                            'main : IO Unit\nmain = putStrLn (case MkR "secret" of (0 value : String) => value)\n')
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, "")
+            # Definitionally constant families are normalized only in result types.
+            path.write_text(
+                'module Main\n0 Constant : (0 flag : Bool) -> Type 0\n'
+                'Constant = \\(0 flag : Bool) => String\n'
+                'record R : Type 0 where\n  constructor MkR\n  eliminator useR\n  1 flag : Bool\n'
+                'main : IO Unit\nmain = putStrLn (case MkR True of (1 flag : Bool) => '
+                '((if flag then "Constant!" else "other") : Constant flag))\n')
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, "Constant!\n")
+            # A dependent result needs an explicit motive; no guessed refinement.
+            dependent = (ROOT / "examples/modules/singleton-records/Dependent.fib").read_text().replace(
+                "module Dependent", "module Main")
+            start = dependent.index("identityFor =")
+            finish = dependent.index("\n\nmain :", start)
+            implicit = ('identityFor = \\(1 tag : Tag) => case tag of (0 Item : Type 0) => '
+                        '\\(1 x : Item) => x')
+            path.write_text(dependent[:start] + implicit + dependent[finish:])
+            result = run("check", "--json", "--source-dir", str(root), str(path))
+            self.assertNotEqual(result.returncode, 0)
+            report = json.loads(result.stdout)
+            diagnostic = next(d for d in report["diagnostics"] if d["stage"] == "elaboration")
+            self.assertIn("explicit return motive", diagnostic["message"])
+            self.assertEqual(diagnostic["position"]["line"], path.read_text()[:path.read_text().index("case tag")].count("\n") + 1)
+            # Named IR inspection preserves pending inference without claiming checked output.
+            inspected = json.loads(run("elaborate", str(path)).stdout)
+            self.assertFalse(inspected["checked"])
+            self.assertIn("infer-record-case", str(inspected))
+            explicit = ('identityFor = \\(1 tag : Tag) => case tag '
+                        'return (\\(0 self : Tag) => ((1 x : itemType self) -> itemType self : Type 1)) '
+                        'of (0 Item : Type 0) => \\(1 x : Item) => x')
+            path.write_text(dependent[:start] + explicit + dependent[finish:])
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, "Dependent singleton!\n")
+            # Ordinary do bind/let contexts are propagated through result-header lowering.
+            path.write_text(
+                'module Main\nrecord R : Type 0 where\n  constructor MkR\n  eliminator useR\n  1 value : String\n'
+                'main : IO Unit\nmain = do (Unit)\n'
+                '  (1 text : String) <- pure String "Do context!"\n'
+                '  let (1 box : R) = MkR text\n'
+                '  putStrLn (case box of (1 value : String) => value)\n')
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, "Do context!\n")
+
     def test_explicit_interfaces_and_implementations(self):
         example = ROOT / "examples/modules/interfaces"
         result = run("run", "--source-dir", str(example), str(example / "Main.fib"))

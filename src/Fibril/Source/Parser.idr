@@ -251,31 +251,48 @@ mutual
             [] => Right (domain, [])
       [] => Left (ParseFailure end "Expected expression")
 
+  typedCase : Nat -> Position -> Token -> Expr -> Maybe Expr -> List Token -> Either ParseError (Expr, List Token)
+  typedCase depth end token scrutinee motive tokens = do
+    first <- binder depth end tokens
+    (second, afterBinders) <- if (case first.remaining of next :: _ => next.kind == OpenParen; [] => False) then do
+        second <- binder depth end first.remaining
+        if first.name == second.name && first.name /= "_"
+           then Left (ParseFailure second.span.start "Record pattern binders must be distinct") else Right ()
+        Right (Just second, second.remaining)
+      else Right (Nothing, first.remaining)
+    (_, afterArrow) <- expect BodyArrow end afterBinders
+    (body, remaining) <- expression depth end afterArrow
+    let inside = case second of
+          Nothing => body
+          Just header => NLambda (Between header.span.start (extent body).finish)
+                           header.quantity header.name header.domain body
+    let branch = NLambda (Between first.span.start (extent body).finish)
+                   first.quantity first.name first.domain inside
+    let region = Between token.span.start (extent body).finish
+    let result = case motive of
+          Nothing => NInferCase region (case second of Nothing => 1; Just _ => 2) scrutinee branch
+          Just explicit => case second of
+            Nothing => NBoxCase region explicit scrutinee branch
+            Just _ => NPairCase region explicit scrutinee branch
+    Right (result, remaining)
+
   pairCase : Nat -> Position -> Token -> Expr -> List Token -> Either ParseError (Expr, List Token)
   pairCase depth end token scrutinee afterReturn = do
     (motive, afterMotive) <- expression depth end afterReturn
     (_, afterOf) <- expect OfKeyword end afterMotive
-    first <- binder depth end afterOf
-    second <- binder depth end first.remaining
-    if first.name == second.name && first.name /= "_"
-       then Left (ParseFailure second.span.start "Record pattern binders must be distinct")
-       else Right ()
-    (_, afterArrow) <- expect BodyArrow end second.remaining
-    (body, remaining) <- expression depth end afterArrow
-    let branch = NLambda (Between first.span.start (extent body).finish)
-                   first.quantity first.name first.domain
-                   (NLambda (Between second.span.start (extent body).finish)
-                     second.quantity second.name second.domain body)
-    Right (NPairCase (Between token.span.start (extent body).finish) motive scrutinee branch, remaining)
+    typedCase depth end token scrutinee (Just motive) afterOf
 
   unitCase : Nat -> Position -> Token -> Expr -> List Token -> Either ParseError (Expr, List Token)
   unitCase depth end token scrutinee tokens = do
     (_, afterOf) <- expect OfKeyword end tokens
-    (_, afterOpen) <- expect OpenParen end afterOf
-    (_, afterClose) <- expect CloseParen end afterOpen
-    (_, afterArrow) <- expect BodyArrow end afterClose
-    (body, remaining) <- expression depth end afterArrow
-    Right (NUnitCase (Between token.span.start (extent body).finish) scrutinee body, remaining)
+    case afterOf of
+      opening :: closing :: rest =>
+        if opening.kind == OpenParen && closing.kind == CloseParen then do
+          (_, afterArrow) <- expect BodyArrow end rest
+          (body, remaining) <- expression depth end afterArrow
+          Right (NUnitCase (Between token.span.start (extent body).finish) scrutinee body, remaining)
+        else typedCase depth end token scrutinee Nothing afterOf
+      _ => typedCase depth end token scrutinee Nothing afterOf
 
   doStatement : Nat -> Position -> List Token -> Either ParseError (DoStatement, List Token)
   doStatement depth end tokens@(opening :: _) =

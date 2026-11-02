@@ -9,7 +9,7 @@ import Fibril.Source.Declaration
 import Fibril.Elaboration.Declaration
 import Fibril.Source.Document
 import Fibril.Source.StringLiteral
-import Fibril.Source.Resolve
+import Fibril.Elaboration.Expression
 import Fibril.Source.Global
 import Fibril.Source.File
 import Fibril.Source.Diagnostic
@@ -131,8 +131,10 @@ prepareSource source = do
   globals <- case preludeGlobals of
     Left err => Left (PreludeUnavailable err)
     Right globals => Right globals
-  case resolveClosedWith globals syntax of
-    Left err => Left (Resolving err)
+  case elaborateClosedWith globals syntax of
+    Left err => if err.elaborating
+                   then Left (Elaborating (ElaborationFailure err.position err.name))
+                   else Left (Resolving err)
     Right term => Right (CoreSource term)
 
 public export

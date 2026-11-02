@@ -1,0 +1,21 @@
+module Main
+
+record Box (0 A : Type 0) : Type 0 where
+  constructor MkBox
+  eliminator useBox
+  1 value : A
+
+record Message : Type 0 where
+  constructor MkMessage
+  eliminator useMessage
+  1 enabled : Bool
+  1 text : String
+
+recover : (0 A : Type 0) -> (1 box : Box A) -> A
+recover = \(0 A : Type 0) => \(1 box : Box A) => case box of (1 value : A) => value
+
+render : (1 message : Message) -> String
+render = \(1 message : Message) => case message of (1 enabled : Bool) (1 text : String) => if enabled then appendString text "!" else text
+
+main : IO Unit
+main = putStrLn (render (MkMessage True (recover String (MkBox String "Inferred patterns"))))

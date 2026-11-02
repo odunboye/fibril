@@ -29,6 +29,7 @@ renderExpr (NPairValue _ ty first second) = node "pair" [renderExpr ty, renderEx
 renderExpr (NBoxType _ q ty) = node "box-type" [show q, renderExpr ty]
 renderExpr (NBoxValue _ ty value) = node "box-value" [renderExpr ty, renderExpr value]
 renderExpr (NBoxCase _ motive value branch) = node "box-case" [renderExpr motive, renderExpr value, renderExpr branch]
+renderExpr (NInferCase _ arity value branch) = node "infer-record-case" [show arity, renderExpr value, renderExpr branch]
 renderExpr (NPairCase _ motive value branch) = node "pair-case" [renderExpr motive, renderExpr value, renderExpr branch]
 renderExpr (NApply _ function argument) = node "apply" [renderExpr function, renderExpr argument]
 renderExpr (NSequence _ first rest) = node "sequence" [renderExpr first, renderExpr rest]

@@ -9,7 +9,7 @@ Implemented:
 - `src/Fibril/Source/Primitive.idr`: small IO primitive boundary, without putStrLn.
 - `src/Fibril/Driver/Prelude.idr`: parse/core-check bundled library definitions.
 - `stdlib/Prelude.fib`: actual Fibril putStrLn/pure/bind definitions.
-- `src/Fibril/Driver/Limits.idr`: shared checking/type-reduction budgets.
+- `src/Fibril/Core/Limits.idr`: shared checking/type-reduction defaults; Driver.Limits re-exports them for compatibility.
 - `src/Fibril/Driver/Console.idr`: pure typed IO-description planning before any host action executes.
 - `src/Fibril/Effect/Console.idr`: pure action data, separate from ordinary terms.
 - `src/Fibril/Runtime/Console.idr`: host stdout adapter and first-error action sequencer; no core normalization hooks.
@@ -27,7 +27,10 @@ Implemented:
 - `src/Fibril/Source/Declaration/Syntax.idr`: authored record ASTs, actual binding sites, and lowered named IR data.
 - `src/Fibril/Elaboration/Declaration.idr`: declaration admission, record expansion, source origins and ordinary typed-let lowering for the compiler pipeline.
 - `src/Fibril/Source/Parser.idr`: bounded expression grammar with flat Unit-result do sequencing.
-- `src/Fibril/Source/Resolve.idr`: lexical/global names to scoped core, ascriptions, typed lets, and do lowering.
+- `src/Fibril/Source/Resolve.idr`: compatibility facade for contextual expression elaboration; arbitrary untyped name-vector entrypoints retain lexical behavior.
+- `src/Fibril/Elaboration/Expression.idr`: contextual names-to-core elaboration, typed lets/do lowering and bounded constant-motive inference for typed unary/binary patterns; original core values still need independent checking.
+- `src/Fibril/Elaboration/Expression/Scope.idr`: partial scope transport and saturated result-type counting for untrusted motive inference.
+- `src/Fibril/Source/Resolve/Error.idr`: lexical versus contextual-elaboration failures at actual scalar source points.
 - `src/Fibril/Driver/JSON.idr`: shared escaped JSON strings, objects, positions, and protocol envelope.
 - `src/Fibril/Driver/Reference.idr`: tagged built-in documentation and real bundled Prelude definition snapshots, with lexical shadowing and no guessed primitive source locations.
 - `src/Fibril/Driver/ProjectNavigation.idr`: checked project definition preparation and version-2 source-aware targets, sharing generic lexical traversal with same-file navigation.
@@ -49,7 +52,7 @@ Implemented:
 - `src/Fibril/Core/Renaming.idr`: total host-checked structural laws, separate from runtime checking/reduction.
 - `src/Fibril/Core/Pretty.idr`: shared explicit-term diagnostics; no parsing or evaluation.
 - [Declaration elaboration](elaboration.md): authored syntax is parsed separately from record expansion; a dedicated admission/lowering pass produces named IR for resolution/checking. elaborate PATH inspects unchecked IR.
-- [Dependent record foundations](records.md): core Sigma/PairValue formation and construction with dependent fields and quantitative usage; consuming dependent elimination and a two-field named source record prototype are implemented; erased parameters and explicit consuming patterns are supported; explicit safe projections are supported; dot-field syntax and nominality remain pending.
+- [Dependent record foundations](records.md): core Sigma/PairValue formation and construction with dependent fields and quantitative usage; consuming dependent elimination, unary wrappers and resource-budgeted record telescopes are implemented; erased parameters and explicit consuming patterns are supported; explicit safe projections are supported; dot-field syntax and nominality remain pending.
 - `src/Fibril/Core/Runtime.idr`: experimental ordinary runtime usage checking layered over erased typing; not backend execution or cubical checking.
 - `src/Fibril/Core/Erased.idr`: experimental erased ordinary context formation, inference/checking, and bounded beta type comparison; no runtime or cubical term checking.
 - `src/Fibril/Core/Compatibility.idr`: directional literal-universe acceptance after normalization; separate from beta conversion.

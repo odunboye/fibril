@@ -17,7 +17,8 @@ import Fibril.Source.Document
 import Fibril.Source.Declaration
 import Fibril.Elaboration.Declaration
 import Fibril.Source.Global
-import Fibril.Source.Resolve
+import Fibril.Elaboration.Expression
+import Fibril.Elaboration.Expression.Scope
 import Fibril.Driver.Limits
 import Fibril.Driver.Check
 import Fibril.Driver.Prelude
@@ -86,6 +87,7 @@ cost limit globals env expression = min (S limit) $ case expression of
   NBoxType _ _ a => 1 + cost limit globals env a
   NBoxValue _ a b => 1 + cost limit globals env a + cost limit globals env b
   NBoxCase _ a b c => 1 + cost limit globals env a + cost limit globals env b + cost limit globals env c
+  NInferCase _ _ value branch => 8 + cost limit globals env value + 2 * cost limit globals env branch + inferredResultNodes
   NPairCase _ motive value branch => 1 + cost limit globals env motive + cost limit globals env value + cost limit globals env branch
   NPi _ _ name a b => 1 + cost limit globals env a + cost limit globals (name :: env) b
   NLambda _ _ name a b => 1 + cost limit globals env a + cost limit globals (name :: env) b
@@ -126,8 +128,8 @@ moduleText : List String -> String
 moduleText names = concat (intersperse "." names)
 
 resolve : ModuleSnapshot -> List Weighted -> Expr -> Either GraphError (Term 0)
-resolve snapshot globals expression = case resolveClosedWith (map global globals) expression of
-  Left err => Left ({ stage := "resolution" } (problem snapshot (Just err.position) (show err)))
+resolve snapshot globals expression = case elaborateClosedWith (map global globals) expression of
+  Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
   Right term => Right term
 
 compileDeclarations : ModuleSnapshot -> List String -> List Weighted -> List Declaration -> Nat ->

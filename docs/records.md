@@ -146,13 +146,13 @@ a dependent motive, then consumes a message and prints Patterns! The
 also rebuilds a value using this syntax.
 
 Pattern motives use the core's universe-valued motive rule, rather than being
-limited to the named generated eliminator's fixed result universe. An explicit
-motive is still required; there is no implicit motive/binder-type inference,
-multi-branch coverage checking, nested constructor pattern grammar, or boolean/
-inductive dependent pattern refinement in this slice.
+limited to the named generated eliminator's fixed result universe. [Bounded motive inference](pattern-inference.md) now permits omission when the
+inferred result is independent of the pattern fields. Dependent results still
+require an explicit return. Binder types remain authored; multi-branch coverage,
+constructor-pattern grammar and boolean/inductive refinement remain absent.
 
-The old case value of () => body syntax is unchanged. A return-clause case
-requires exactly two typed binders and one body. General expression layout works
+The old case value of () => body syntax is unchanged. A typed record case
+has one unary or two pair binders and one body, with an optional return clause. General expression layout works
 inside declarations; the existing flat physical-line do-statement restriction
 has not been lifted.
 
@@ -500,7 +500,7 @@ For fields f1 ... fn, n at least one, subject to resource admission:
 - Each nested elimination reconstructs its enclosing pair in the erased motive.
   No eta law, quantity coercion or new core constructor is introduced.
 
-The existing typed case syntax still binds exactly two core fields; use the
+Typed case syntax binds one unary field or two pair fields; use the
 generated eliminator for a complete wider-record telescope. Requested getters
 consume the whole record, and every nonselected field must permit zero use.
 Each getter request consumes a declaration slot, not an eight-request quota.

@@ -57,6 +57,7 @@ examples: build
 	./build/exec/fibril run --source-dir examples/modules/singleton-records examples/modules/singleton-records/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/singleton-records examples/modules/singleton-records/Dependent.fib
 	./build/exec/fibril run --source-dir examples/modules/interfaces examples/modules/interfaces/Main.fib
+	./build/exec/fibril run --source-dir examples/modules/pattern-inference examples/modules/pattern-inference/Main.fib
 
 bench:
 	python3 tools/benchmark.py
