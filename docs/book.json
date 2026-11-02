@@ -72,6 +72,10 @@
         "path": "docs/records.md"
       },
       {
+        "title": "Singleton records and the unary kernel",
+        "path": "docs/unary-records.md"
+      },
+      {
         "title": "Interfaces and explicit operations",
         "path": "docs/interfaces.md"
       },

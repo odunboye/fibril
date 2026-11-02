@@ -20,6 +20,8 @@ stepHead (BoolCase BoolTrue yes no) = Just yes
 stepHead (BoolCase BoolFalse yes no) = Just no
 stepHead (BoolCase condition yes no) =
   map (\next => BoolCase next yes no) (stepHead condition)
+stepHead (BoxCase motive (BoxValue ty value) branch) = Just (Apply branch value)
+stepHead (BoxCase motive value branch) = map (\next => BoxCase motive next branch) (stepHead value)
 stepHead (PairCase motive (PairValue ty first second) branch) = Just (Apply (Apply branch first) second)
 stepHead (PairCase motive scrutinee branch) = map (\next => PairCase motive next branch) (stepHead scrutinee)
 stepHead (IOBind a b (IOPure value) next) = Just (Apply next value)

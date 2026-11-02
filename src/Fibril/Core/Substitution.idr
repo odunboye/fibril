@@ -31,6 +31,7 @@ substituteCongruent left right agree BoolFalse = Refl
 substituteCongruent left right agree StringType = Refl
 substituteCongruent left right agree (StringValue _) = Refl
 substituteCongruent left right agree (IOType value) = cong IOType (substituteCongruent left right agree value)
+substituteCongruent left right agree (BoxType q value) = cong (BoxType q) (substituteCongruent left right agree value)
 substituteCongruent left right agree (IOPure value) = cong IOPure (substituteCongruent left right agree value)
 substituteCongruent left right agree (WriteLine value) = cong WriteLine (substituteCongruent left right agree value)
 substituteCongruent left right agree (IOBind a b action next) =
@@ -43,6 +44,10 @@ substituteCongruent left right agree (BoolCase condition yes no) =
   rewrite substituteCongruent left right agree yes in
   rewrite substituteCongruent left right agree no in Refl
 substituteCongruent left right agree (PairCase motive scrutinee branch) =
+  rewrite substituteCongruent left right agree motive in
+  rewrite substituteCongruent left right agree scrutinee in
+  rewrite substituteCongruent left right agree branch in Refl
+substituteCongruent left right agree (BoxCase motive scrutinee branch) =
   rewrite substituteCongruent left right agree motive in
   rewrite substituteCongruent left right agree scrutinee in
   rewrite substituteCongruent left right agree branch in Refl
@@ -66,6 +71,9 @@ substituteCongruent left right agree (Apply function argument) =
   rewrite substituteCongruent left right agree function in
   rewrite substituteCongruent left right agree argument in Refl
 substituteCongruent left right agree (StringAppend function argument) =
+  rewrite substituteCongruent left right agree function in
+  rewrite substituteCongruent left right agree argument in Refl
+substituteCongruent left right agree (BoxValue function argument) =
   rewrite substituteCongruent left right agree function in
   rewrite substituteCongruent left right agree argument in Refl
 substituteCongruent left right agree (StringEqual function argument) =
@@ -95,6 +103,7 @@ renameAsSubstitution env BoolFalse = Refl
 renameAsSubstitution env StringType = Refl
 renameAsSubstitution env (StringValue _) = Refl
 renameAsSubstitution env (IOType value) = cong IOType (renameAsSubstitution env value)
+renameAsSubstitution env (BoxType q value) = cong (BoxType q) (renameAsSubstitution env value)
 renameAsSubstitution env (IOPure value) = cong IOPure (renameAsSubstitution env value)
 renameAsSubstitution env (WriteLine value) = cong WriteLine (renameAsSubstitution env value)
 renameAsSubstitution env (IOBind a b action next) =
@@ -107,6 +116,10 @@ renameAsSubstitution env (BoolCase condition yes no) =
   rewrite renameAsSubstitution env yes in
   rewrite renameAsSubstitution env no in Refl
 renameAsSubstitution env (PairCase motive scrutinee branch) =
+  rewrite renameAsSubstitution env motive in
+  rewrite renameAsSubstitution env scrutinee in
+  rewrite renameAsSubstitution env branch in Refl
+renameAsSubstitution env (BoxCase motive scrutinee branch) =
   rewrite renameAsSubstitution env motive in
   rewrite renameAsSubstitution env scrutinee in
   rewrite renameAsSubstitution env branch in Refl
@@ -136,6 +149,9 @@ renameAsSubstitution env (Apply function argument) =
   rewrite renameAsSubstitution env function in
   rewrite renameAsSubstitution env argument in Refl
 renameAsSubstitution env (StringAppend function argument) =
+  rewrite renameAsSubstitution env function in
+  rewrite renameAsSubstitution env argument in Refl
+renameAsSubstitution env (BoxValue function argument) =
   rewrite renameAsSubstitution env function in
   rewrite renameAsSubstitution env argument in Refl
 renameAsSubstitution env (StringEqual function argument) =

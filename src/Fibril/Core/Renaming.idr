@@ -28,6 +28,7 @@ renameCongruent left right agree BoolFalse = Refl
 renameCongruent left right agree StringType = Refl
 renameCongruent left right agree (StringValue _) = Refl
 renameCongruent left right agree (IOType value) = cong IOType (renameCongruent left right agree value)
+renameCongruent left right agree (BoxType q value) = cong (BoxType q) (renameCongruent left right agree value)
 renameCongruent left right agree (IOPure value) = cong IOPure (renameCongruent left right agree value)
 renameCongruent left right agree (WriteLine value) = cong WriteLine (renameCongruent left right agree value)
 renameCongruent left right agree (IOBind a b action next) =
@@ -40,6 +41,10 @@ renameCongruent left right agree (BoolCase condition yes no) =
   rewrite renameCongruent left right agree yes in
   rewrite renameCongruent left right agree no in Refl
 renameCongruent left right agree (PairCase motive scrutinee branch) =
+  rewrite renameCongruent left right agree motive in
+  rewrite renameCongruent left right agree scrutinee in
+  rewrite renameCongruent left right agree branch in Refl
+renameCongruent left right agree (BoxCase motive scrutinee branch) =
   rewrite renameCongruent left right agree motive in
   rewrite renameCongruent left right agree scrutinee in
   rewrite renameCongruent left right agree branch in Refl
@@ -63,6 +68,9 @@ renameCongruent left right agree (Apply function argument) =
   rewrite renameCongruent left right agree function in
   rewrite renameCongruent left right agree argument in Refl
 renameCongruent left right agree (StringAppend function argument) =
+  rewrite renameCongruent left right agree function in
+  rewrite renameCongruent left right agree argument in Refl
+renameCongruent left right agree (BoxValue function argument) =
   rewrite renameCongruent left right agree function in
   rewrite renameCongruent left right agree argument in Refl
 renameCongruent left right agree (StringEqual function argument) =
@@ -89,6 +97,7 @@ renameIdentity BoolFalse = Refl
 renameIdentity StringType = Refl
 renameIdentity (StringValue _) = Refl
 renameIdentity (IOType value) = cong IOType (renameIdentity value)
+renameIdentity (BoxType q value) = cong (BoxType q) (renameIdentity value)
 renameIdentity (IOPure value) = cong IOPure (renameIdentity value)
 renameIdentity (WriteLine value) = cong WriteLine (renameIdentity value)
 renameIdentity (IOBind a b action next) =
@@ -101,6 +110,10 @@ renameIdentity (BoolCase condition yes no) =
   rewrite renameIdentity yes in
   rewrite renameIdentity no in Refl
 renameIdentity (PairCase motive scrutinee branch) =
+  rewrite renameIdentity motive in
+  rewrite renameIdentity scrutinee in
+  rewrite renameIdentity branch in Refl
+renameIdentity (BoxCase motive scrutinee branch) =
   rewrite renameIdentity motive in
   rewrite renameIdentity scrutinee in
   rewrite renameIdentity branch in Refl
@@ -124,6 +137,9 @@ renameIdentity (Apply function argument) =
   rewrite renameIdentity function in
   rewrite renameIdentity argument in Refl
 renameIdentity (StringAppend function argument) =
+  rewrite renameIdentity function in
+  rewrite renameIdentity argument in Refl
+renameIdentity (BoxValue function argument) =
   rewrite renameIdentity function in
   rewrite renameIdentity argument in Refl
 renameIdentity (StringEqual function argument) =
@@ -156,6 +172,7 @@ renameComposition first second BoolFalse = Refl
 renameComposition first second StringType = Refl
 renameComposition first second (StringValue _) = Refl
 renameComposition first second (IOType value) = cong IOType (renameComposition first second value)
+renameComposition first second (BoxType q value) = cong (BoxType q) (renameComposition first second value)
 renameComposition first second (IOPure value) = cong IOPure (renameComposition first second value)
 renameComposition first second (WriteLine value) = cong WriteLine (renameComposition first second value)
 renameComposition first second (IOBind a b action next) =
@@ -168,6 +185,10 @@ renameComposition first second (BoolCase condition yes no) =
   rewrite renameComposition first second yes in
   rewrite renameComposition first second no in Refl
 renameComposition first second (PairCase motive scrutinee branch) =
+  rewrite renameComposition first second motive in
+  rewrite renameComposition first second scrutinee in
+  rewrite renameComposition first second branch in Refl
+renameComposition first second (BoxCase motive scrutinee branch) =
   rewrite renameComposition first second motive in
   rewrite renameComposition first second scrutinee in
   rewrite renameComposition first second branch in Refl
@@ -197,6 +218,9 @@ renameComposition first second (Apply function argument) =
   rewrite renameComposition first second function in
   rewrite renameComposition first second argument in Refl
 renameComposition first second (StringAppend function argument) =
+  rewrite renameComposition first second function in
+  rewrite renameComposition first second argument in Refl
+renameComposition first second (BoxValue function argument) =
   rewrite renameComposition first second function in
   rewrite renameComposition first second argument in Refl
 renameComposition first second (StringEqual function argument) =

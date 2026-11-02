@@ -1,0 +1,9 @@
+module Data.CombineOperations
+
+-- An operation dictionary, not a proof of associativity.
+export
+record Combine (0 A : Type 0) : Type 0 where
+  constructor MkCombine
+  eliminator useCombine
+  combine : (left : A) -> (right : A) -> A
+  projection operation combine

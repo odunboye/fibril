@@ -1,7 +1,7 @@
 # Dependent records: kernel foundations
 
 **Status:** core dependent pairs and a bounded named-record source prototype are
-implemented, including explicitly requested safe projection functions. Source records have no fixed field-count cap (at least two fields), an explicit
+implemented, including explicitly requested safe projection functions. Source records have no fixed field-count cap (at least one field), an explicit
 constructor and an explicit eliminator. Explicit erased parameter telescopes are supported; recursive/nominal records,
 constructor-discriminating/inferred patterns, dot-field syntax, interface declarations
 and instance inference remain unimplemented. No preservation or erasure theorem is claimed.
@@ -39,7 +39,7 @@ The field value has the type supplied in Item. For example, MkPackage String
 the payload is linear. This is not a parser shortcut for a particular record.
 
 The current grammar requires a named module, a column-one record header, then
-aligned indented constructor/eliminator directives and at least two single-line
+aligned indented constructor/eliminator directives and at least one single-line
 typed fields. Comments/blank lines are allowed. No defaults,
 recursive references, multiline field expressions, inferred field types or
 automatically inferred accessors are added. Optional projection directives follow
@@ -229,8 +229,9 @@ Safe projections! Tests cover both positions across all quantity combinations,
 dependent Bool-indexed and type-indexed results, private/parameterized module
 behavior, source targets, declaration budgets, and linear double-use rejection.
 
-This slice adds no core constructor, conversion rule, borrowing/lens semantics,
-or metatheoretic certificate. Optional functions are still transparent checked
+Getter generation itself adds no conversion rule, borrowing/lens semantics,
+or metatheoretic certificate. Singleton records use the explicit unary kernel
+constructors described separately. Optional functions are still transparent checked
 lowerings into PairCase; nominality and richer visibility remain separate work.
 
 ### Structural, not nominal
@@ -485,7 +486,9 @@ tags. Wider records with the same normalized ordered types/quantities remain
 definitionally compatible; future nominal identity needs a kernel-level design
 and rechecking, not elaborator metadata.
 
-For fields f1 ... fn, n at least two, subject to resource admission:
+For fields f1 ... fn, n at least one, subject to resource admission:
+
+- One field uses the quantity-aware [unary wrapper](unary-records.md), not Unit padding.
 
 - Two fields keep exactly the original Sigma q r A B representation.
 - Each preceding field lowers to Sigma q 1 A Tail. The tail is consumed once,
@@ -526,11 +529,10 @@ This is operational data, not interface syntax or a proof of monoid laws.
 [ManyFields](../examples/modules/wider-records/ManyFields.fib) demonstrates twelve
 fields and prints Beyond eight fields!.
 
-**Singletons remain rejected.** Padding a one-field record with erased Unit
-does not make an arbitrary padding variable definitionally equal to (). A
-generated dependent branch returning P (pair value ()) cannot in general satisfy
-P (pair value padding). A proper unary wrapper or a separately justified kernel
-rule is needed; this slice does not pretend otherwise.
+**Singletons are implemented using a proper unary wrapper.** Their constructor
+and dependent eliminator preserve the field quantity without Unit padding or eta.
+See [singleton rules, examples and evidence](unary-records.md). Empty records
+remain rejected.
 
 Regressions execute widths through sixteen, reject linear-field loss,
 check a motive observing a reconstructed dependent record, sparse transitive
@@ -543,8 +545,8 @@ not preservation or quantitative soundness proofs.
 
 The constructor/eliminator core and resource-budgeted source record declarations
 are in place, including erased parameter telescopes and explicit binary consuming
-patterns. Next work includes a proper singleton representation, dot-field elaboration,
+patterns. Next work includes explicit interface declarations, dot-field elaboration,
 richer/inferred pattern syntax, nominality decisions, and richer visibility. Do not implement fst/snd by
-silently discarding a linear component. The nesting policy below preserves existing two-field representations and uses
+silently discarding a linear component. The nesting policy above preserves existing two-field representations and uses
 linear internal tails; generated eliminators preserve the authored field quantities.
 Interfaces can then lower into those checked values. No automatic/dot-field projection, record eta, or dictionary inference is claimed yet.

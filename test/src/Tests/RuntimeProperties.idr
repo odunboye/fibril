@@ -45,6 +45,12 @@ runtimeGen Z = pure base
 runtimeGen (S depth) =
   choice
     [ pure base
+    , (\sample => let ty = BoxType Linear sample.expected
+                    in MkSample (BoxValue ty sample.term) ty) <$> runtimeGen depth
+    , (\sample => let ty = BoxType Linear sample.expected
+                      motive = Lambda Erased ty (weaken sample.expected)
+                      branch = Lambda Linear sample.expected (Variable FZ)
+                    in MkSample (BoxCase motive (BoxValue ty sample.term) branch) sample.expected) <$> runtimeGen depth
     , (\sample => let ty = Sigma Erased Linear UnitType (weaken sample.expected)
                     in MkSample (PairValue ty UnitValue sample.term) ty) <$> runtimeGen depth
     , (\sample => let ty = Sigma Erased Linear UnitType (weaken sample.expected)

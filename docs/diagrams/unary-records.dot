@@ -1,0 +1,16 @@
+digraph UnaryRecords {
+  rankdir=LR;
+  node [shape=box];
+  authored [label="One authored field\nquantity q, type A"];
+  type [label="BoxType q A\nno Unit padding"];
+  ctor [label="Constructor\n(q x : A) -> R"];
+  elim [label="Dependent eliminator\nP : (0 self : R) -> Type v\nk : (q x : A) -> P (MkR x)"];
+  check [label="Ordinary erased/runtime checking\nexact field quantity"];
+  reduce [label="BoxCase P (BoxValue T x) k\nreduces to k x"];
+  authored -> type;
+  type -> ctor;
+  type -> elim;
+  ctor -> check;
+  elim -> check;
+  check -> reduce;
+}

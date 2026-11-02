@@ -31,6 +31,9 @@ sameExpr (NPi _ q name a b) (NPi _ r other x y) = q == r && name == other && sam
 sameExpr (NLambda _ q name a b) (NLambda _ r other x y) = q == r && name == other && sameExpr a x && sameExpr b y
 sameExpr (NSigma _ q r name a b) (NSigma _ s t other x y) = q == s && r == t && name == other && sameExpr a x && sameExpr b y
 sameExpr (NPairValue _ a b c) (NPairValue _ x y z) = sameExpr a x && sameExpr b y && sameExpr c z
+sameExpr (NBoxType _ q a) (NBoxType _ r b) = q == r && sameExpr a b
+sameExpr (NBoxValue _ a b) (NBoxValue _ x y) = sameExpr a x && sameExpr b y
+sameExpr (NBoxCase _ a b c) (NBoxCase _ x y z) = sameExpr a x && sameExpr b y && sameExpr c z
 sameExpr (NPairCase _ a b c) (NPairCase _ x y z) = sameExpr a x && sameExpr b y && sameExpr c z
 sameExpr (NApply _ a b) (NApply _ x y) = sameExpr a x && sameExpr b y
 sameExpr (NSequence _ a b) (NSequence _ x y) = sameExpr a x && sameExpr b y

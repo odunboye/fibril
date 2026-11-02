@@ -20,6 +20,9 @@ data Expr
   | NBoolValue SourceSpan Bool
   | NIf SourceSpan Expr Expr Expr
   | NUnitCase SourceSpan Expr Expr
+  | NBoxType SourceSpan Quantity Expr
+  | NBoxValue SourceSpan Expr Expr
+  | NBoxCase SourceSpan Expr Expr Expr
   | NSigma SourceSpan Quantity Quantity String Expr Expr
   | NPairValue SourceSpan Expr Expr Expr
   | NPairCase SourceSpan Expr Expr Expr
@@ -46,6 +49,9 @@ extent (NBoolType span) = span
 extent (NBoolValue span _) = span
 extent (NIf span _ _ _) = span
 extent (NUnitCase span _ _) = span
+extent (NBoxType span _ _) = span
+extent (NBoxValue span _ _) = span
+extent (NBoxCase span _ _ _) = span
 extent (NSigma span _ _ _ _ _) = span
 extent (NPairValue span _ _ _) = span
 extent (NPairCase span _ _ _) = span
@@ -72,6 +78,9 @@ withExtent span (NBoolType _) = NBoolType span
 withExtent span (NBoolValue _ value) = NBoolValue span value
 withExtent span (NIf _ condition yes no) = NIf span condition yes no
 withExtent span (NUnitCase _ scrutinee body) = NUnitCase span scrutinee body
+withExtent span (NBoxType _ q ty) = NBoxType span q ty
+withExtent span (NBoxValue _ ty value) = NBoxValue span ty value
+withExtent span (NBoxCase _ motive value branch) = NBoxCase span motive value branch
 withExtent span (NSigma _ q r name domain body) = NSigma span q r name domain body
 withExtent span (NPairValue _ ty first second) = NPairValue span ty first second
 withExtent span (NPairCase _ motive value branch) = NPairCase span motive value branch

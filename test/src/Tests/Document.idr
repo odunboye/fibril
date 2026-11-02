@@ -62,6 +62,14 @@ checks =
             _ => False
           _ => False
         _ => False)
+  , ("singleton constructor and eliminator use explicit unary IR",
+      case parseDocument 64 256 "module A\nrecord R : Type 0 where\n  constructor MkR\n  eliminator useR\n  1 field : Bool\n" of
+        Right document => case document.body of
+          DeclarationDocument authored => case (elaborateDeclarationsWithBudget 46 64 authored, elaborateDeclarationsWithBudget 47 64 authored) of
+            (Left _, Right _) => True
+            _ => False
+          _ => False
+        _ => False)
   , ("requested projections retain actual name selections",
       case documentSymbols "module A\nexport\nrecord R : Type 0 where\n  constructor MkR\n  eliminator useR\n  x : Bool\n  y : Bool\n  projection getX x\n" of
         Right [ty, ctor, elim, getter] => getter.name == "getX" && getter.exported &&

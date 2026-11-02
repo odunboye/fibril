@@ -21,6 +21,8 @@ data CheckError : Type where
   ReductionLimit : CheckError
   ExpectedUniverse : {0 n : Nat} -> (found : Term n) -> CheckError
   ExpectedPairMotive : {0 n : Nat} -> (found : Term n) -> CheckError
+  ExpectedBoxMotive : {0 n : Nat} -> (found : Term n) -> CheckError
+  ExpectedBoxType : {0 n : Nat} -> (found : Term n) -> CheckError
   ExpectedPairType : {0 n : Nat} -> (found : Term n) -> CheckError
   ExpectedFunction : {0 n : Nat} -> (found : Term n) -> CheckError
   ||| Both types retain a shared scope; payloads are diagnostic data, not proofs.
@@ -34,6 +36,8 @@ Show CheckError where
   show (ExpectedUniverse found) = "Expected a universe; found: " ++ renderTerm found
   show (ExpectedPairMotive found) = "Expected an erased pair motive returning a universe; found: " ++ renderTerm found
   show (ExpectedPairType found) = "Expected a dependent pair type; found: " ++ renderTerm found
+  show (ExpectedBoxMotive found) = "Expected an erased box motive returning a universe; found: " ++ renderTerm found
+  show (ExpectedBoxType found) = "Expected a unary box type; found: " ++ renderTerm found
   show (ExpectedFunction found) = "Expected a dependent function type; found: " ++ renderTerm found
   show (TypeMismatch actual expected) =
     "Inferred type is not compatible with expected type; inferred: " ++ renderTerm actual ++
@@ -109,6 +113,39 @@ mutual
       EqualNormalForms => Right yesType
       DifferentNormalForms => Left (BranchTypeMismatch yesType noType)
       Inconclusive => Left ReductionLimit
+  infer (S depth) reduction context (BoxType q domain) = do
+    level <- sortOf depth reduction context domain
+    Right (Universe level)
+  infer (S depth) reduction context (BoxValue annotation value) = do
+    _ <- sortOf depth reduction context annotation
+    exposed <- exposeType reduction annotation
+    case exposed of
+      BoxType q domain => do
+        valueType <- infer depth reduction context value
+        requireCompatible reduction valueType domain
+        Right annotation
+      _ => Left (ExpectedBoxType exposed)
+  infer (S depth) reduction context (BoxCase motive scrutinee branch) = do
+    scrutineeType <- infer depth reduction context scrutinee
+    exposed <- exposeType reduction scrutineeType
+    case exposed of
+      BoxType q domain => do
+        motiveType <- infer depth reduction context motive
+        motiveHead <- exposeType reduction motiveType
+        case motiveHead of
+          Pi Erased parameter result => do
+            requireCompatible reduction parameter scrutineeType
+            resultHead <- exposeType reduction result
+            case resultHead of
+              Universe _ => Right ()
+              _ => Left (ExpectedUniverse resultHead)
+          _ => Left (ExpectedBoxMotive motiveHead)
+        let packed = BoxValue (weaken scrutineeType) (Variable FZ)
+        let resultType = Apply (weaken motive) packed
+        branchType <- infer depth reduction context branch
+        requireCompatible reduction branchType (Pi q domain resultType)
+        Right (Apply motive scrutinee)
+      _ => Left (ExpectedBoxType exposed)
   infer (S depth) reduction context (Sigma q r domain body) = do
     domainLevel <- sortOf depth reduction context domain
     bodyLevel <- sortOf depth reduction (Extend context q domain) body

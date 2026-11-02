@@ -64,6 +64,12 @@ typedGen Z = seed
 typedGen (S depth) =
   choice
     [ seed
+    , (\sample => let ty = BoxType Linear sample.expected
+                    in Sample (BoxValue ty sample.term) ty) <$> typedGen depth
+    , (\sample => let ty = BoxType Linear sample.expected
+                      motive = Lambda Erased ty (weaken sample.expected)
+                      branch = Lambda Linear sample.expected (Variable FZ)
+                    in Sample (BoxCase motive (BoxValue ty sample.term) branch) sample.expected) <$> typedGen depth
     , (\sample => let ty = Sigma Erased Linear UnitType (weaken sample.expected)
                     in Sample (PairValue ty UnitValue sample.term) ty) <$> typedGen depth
     , (\sample => let ty = Sigma Erased Linear UnitType (weaken sample.expected)

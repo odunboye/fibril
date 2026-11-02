@@ -1,0 +1,14 @@
+module Main
+import Data.CombineOperations
+
+append : (left : String) -> (right : String) -> String
+append = \(left : String) => \(right : String) => appendString left right
+
+dictionary : Data.CombineOperations.Combine String
+dictionary = Data.CombineOperations.MkCombine String append
+
+applyOperation : (0 A : Type 0) -> (1 operations : Data.CombineOperations.Combine A) -> (left : A) -> (right : A) -> A
+applyOperation = \(0 A : Type 0) => \(1 operations : Data.CombineOperations.Combine A) => \(left : A) => \(right : A) => Data.CombineOperations.operation A operations left right
+
+main : IO Unit
+main = putStrLn (applyOperation String dictionary "Singleton " "records!")

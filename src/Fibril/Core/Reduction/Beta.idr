@@ -9,6 +9,19 @@ import Fibril.Core.Substitution.Instantiation
 
 %default total
 
+||| A known unary elimination contracts into one ordinary application.
+public export
+renameBoxCaseStep : (env : Fin n -> Fin m) -> (motive, ty, value, branch : Term n) ->
+  step (rename env (BoxCase motive (BoxValue ty value) branch)) =
+    Just (rename env (Apply branch value))
+renameBoxCaseStep env motive ty value branch = Refl
+
+public export
+substituteBoxCaseStep : (env : Fin n -> Term m) -> (motive, ty, value, branch : Term n) ->
+  step (substituteTerm env (BoxCase motive (BoxValue ty value) branch)) =
+    Just (substituteTerm env (Apply branch value))
+substituteBoxCaseStep env motive ty value branch = Refl
+
 ||| Pair elimination opens into ordinary applications. Subsequent substitution
 ||| uses the existing capture-safe lambda machinery, not an ad hoc two-index map.
 public export

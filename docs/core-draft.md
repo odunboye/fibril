@@ -74,6 +74,14 @@ Both are scope-independent atoms; literals contribute zero runtime usage and
 compare by exact literal data. There is no new reduction, eliminator, Unicode
 normalization, IO behavior, or implicit quantity coercion.
 
+## Implemented unary wrappers
+
+[Quantity-aware unary wrappers](unary-records.md) add BoxType, BoxValue and
+BoxCase for singleton records. Formation preserves the domain universe;
+dependent elimination checks an erased motive and exact field quantity, then
+reduces to one ordinary application. No hidden Unit padding, eta rule or
+preservation/erasure theorem is introduced.
+
 ## Experimental IO descriptions
 
 [IO rules and the Fibril prelude](console-runner.md) now type pure effect

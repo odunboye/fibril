@@ -27,6 +27,16 @@ step (StringEqual (StringValue left) (StringValue right)) = Just (if left == rig
 step (StringEqual left right) = case step left of
   Just next => Just (StringEqual next right)
   Nothing => map (StringEqual left) (step right)
+step (BoxType q ty) = map (BoxType q) (step ty)
+step (BoxValue ty value) = case step ty of
+  Just next => Just (BoxValue next value)
+  Nothing => map (BoxValue ty) (step value)
+step (BoxCase motive (BoxValue ty value) branch) = Just (Apply branch value)
+step (BoxCase motive value branch) = case step motive of
+  Just next => Just (BoxCase next value branch)
+  Nothing => case step value of
+    Just next => Just (BoxCase motive next branch)
+    Nothing => map (BoxCase motive value) (step branch)
 step (IOType ty) = map IOType (step ty)
 step (IOPure value) = map IOPure (step value)
 step (WriteLine text) = map WriteLine (step text)

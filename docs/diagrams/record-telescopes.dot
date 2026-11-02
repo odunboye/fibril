@@ -1,14 +1,17 @@
 digraph RecordTelescopes {
   rankdir=LR;
   node [shape=box];
-  authored [label="Ordered authored fields (n >= 2)\n0 / 1 / unrestricted"];
+  authored [label="Ordered authored fields (n >= 1)\n0 / 1 / unrestricted"];
   admission [label="Source-bound parsing\nSlots + cumulative named-IR budget"];
   lowering [label="Declaration elaboration\nright-nested Sigma"];
+  one [label="One field:\nBoxType q A"];
   two [label="Final two fields:\nSigma q r A B"];
   tail [label="Earlier field:\nSigma q 1 A Tail"];
   generated [label="3 + requested getters\nordinary declarations"];
   checker [label="Resolution + size admission\nerased/runtime checking"];
   authored -> admission -> lowering;
+  lowering -> one;
+  one -> generated;
   lowering -> two;
   lowering -> tail;
   two -> generated;

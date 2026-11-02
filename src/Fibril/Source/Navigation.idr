@@ -84,6 +84,9 @@ walk context env (NUnitCase _ value body) = walk context env value ++ walk conte
 walk context env (NSigma span q r name domain body) =
   let target = binderToken name span domain context.tokens
    in walk context env domain ++ self context target ++ walk context ((name, map context.localTarget target) :: env) body
+walk context env (NBoxType _ _ ty) = walk context env ty
+walk context env (NBoxValue _ ty value) = walk context env ty ++ walk context env value
+walk context env (NBoxCase _ motive value branch) = walk context env motive ++ walk context env value ++ walk context env branch
 walk context env (NPairValue _ ty first second) = walk context env ty ++ walk context env first ++ walk context env second
 walk context env (NPairCase _ motive value branch) = walk context env motive ++ walk context env value ++ walk context env branch
 walk context env (NPi span q name domain body) =

@@ -143,7 +143,7 @@ parseRecord budget end tokens = do
      else Right ()
   (eliminatorKeyword, eliminatorName, rest) <- directive EliminatorKeyword indent end rest
   (fields, rest) <- parseFields (length rest) budget indent end rest
-  if length fields < 2 then Left (ParseFailure eliminatorName.span.finish "Records require at least two fields; singleton records need a unary representation") else Right ()
+  if null fields then Left (ParseFailure eliminatorName.span.finish "Records require at least one field") else Right ()
   (projections, rest) <- parseProjections (length rest) indent end rest
   case rest of
     token :: _ => if token.span.start.column > 1

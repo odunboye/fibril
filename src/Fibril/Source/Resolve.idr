@@ -63,6 +63,10 @@ mutual
     Right (Sigma q r domain body)
   resolveInWith globals env (NPairValue span ty first second) =
     [| PairValue (resolveInWith globals env ty) (resolveInWith globals env first) (resolveInWith globals env second) |]
+  resolveInWith globals env (NBoxType span q ty) = [| BoxType (pure q) (resolveInWith globals env ty) |]
+  resolveInWith globals env (NBoxValue span ty value) = [| BoxValue (resolveInWith globals env ty) (resolveInWith globals env value) |]
+  resolveInWith globals env (NBoxCase span motive value branch) =
+    [| BoxCase (resolveInWith globals env motive) (resolveInWith globals env value) (resolveInWith globals env branch) |]
   resolveInWith globals env (NPairCase span motive value branch) =
     [| PairCase (resolveInWith globals env motive) (resolveInWith globals env value) (resolveInWith globals env branch) |]
   resolveInWith globals env (NPi span q name domain body) = do

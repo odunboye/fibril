@@ -1,0 +1,15 @@
+module Dependent
+
+record Tag : Type 1 where
+  constructor MkTag
+  eliminator useTag
+  0 Item : Type 0
+
+0 itemType : (0 tag : Tag) -> Type 0
+itemType = \(0 tag : Tag) => useTag (\(0 self : Tag) => Type 0) tag (\(0 Item : Type 0) => Item)
+
+identityFor : (1 tag : Tag) -> (1 x : itemType tag) -> itemType tag
+identityFor = \(1 tag : Tag) => useTag (\(0 self : Tag) => ((1 x : itemType self) -> itemType self : Type 1)) tag (\(0 Item : Type 0) => \(1 x : Item) => x)
+
+main : IO Unit
+main = putStrLn (identityFor (MkTag String) "Dependent singleton!")

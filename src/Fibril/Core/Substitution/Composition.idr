@@ -32,6 +32,7 @@ renameAfterSubstitution env sigma BoolFalse = Refl
 renameAfterSubstitution env sigma StringType = Refl
 renameAfterSubstitution env sigma (StringValue _) = Refl
 renameAfterSubstitution env sigma (IOType value) = cong IOType (renameAfterSubstitution env sigma value)
+renameAfterSubstitution env sigma (BoxType q value) = cong (BoxType q) (renameAfterSubstitution env sigma value)
 renameAfterSubstitution env sigma (IOPure value) = cong IOPure (renameAfterSubstitution env sigma value)
 renameAfterSubstitution env sigma (WriteLine value) = cong WriteLine (renameAfterSubstitution env sigma value)
 renameAfterSubstitution env sigma (IOBind a b action next) =
@@ -44,6 +45,10 @@ renameAfterSubstitution env sigma (BoolCase condition yes no) =
   rewrite renameAfterSubstitution env sigma yes in
   rewrite renameAfterSubstitution env sigma no in Refl
 renameAfterSubstitution env sigma (PairCase motive scrutinee branch) =
+  rewrite renameAfterSubstitution env sigma motive in
+  rewrite renameAfterSubstitution env sigma scrutinee in
+  rewrite renameAfterSubstitution env sigma branch in Refl
+renameAfterSubstitution env sigma (BoxCase motive scrutinee branch) =
   rewrite renameAfterSubstitution env sigma motive in
   rewrite renameAfterSubstitution env sigma scrutinee in
   rewrite renameAfterSubstitution env sigma branch in Refl
@@ -73,6 +78,9 @@ renameAfterSubstitution env sigma (Apply function argument) =
   rewrite renameAfterSubstitution env sigma function in
   rewrite renameAfterSubstitution env sigma argument in Refl
 renameAfterSubstitution env sigma (StringAppend function argument) =
+  rewrite renameAfterSubstitution env sigma function in
+  rewrite renameAfterSubstitution env sigma argument in Refl
+renameAfterSubstitution env sigma (BoxValue function argument) =
   rewrite renameAfterSubstitution env sigma function in
   rewrite renameAfterSubstitution env sigma argument in Refl
 renameAfterSubstitution env sigma (StringEqual function argument) =
@@ -105,6 +113,7 @@ substituteAfterRenaming env sigma BoolFalse = Refl
 substituteAfterRenaming env sigma StringType = Refl
 substituteAfterRenaming env sigma (StringValue _) = Refl
 substituteAfterRenaming env sigma (IOType value) = cong IOType (substituteAfterRenaming env sigma value)
+substituteAfterRenaming env sigma (BoxType q value) = cong (BoxType q) (substituteAfterRenaming env sigma value)
 substituteAfterRenaming env sigma (IOPure value) = cong IOPure (substituteAfterRenaming env sigma value)
 substituteAfterRenaming env sigma (WriteLine value) = cong WriteLine (substituteAfterRenaming env sigma value)
 substituteAfterRenaming env sigma (IOBind a b action next) =
@@ -117,6 +126,10 @@ substituteAfterRenaming env sigma (BoolCase condition yes no) =
   rewrite substituteAfterRenaming env sigma yes in
   rewrite substituteAfterRenaming env sigma no in Refl
 substituteAfterRenaming env sigma (PairCase motive scrutinee branch) =
+  rewrite substituteAfterRenaming env sigma motive in
+  rewrite substituteAfterRenaming env sigma scrutinee in
+  rewrite substituteAfterRenaming env sigma branch in Refl
+substituteAfterRenaming env sigma (BoxCase motive scrutinee branch) =
   rewrite substituteAfterRenaming env sigma motive in
   rewrite substituteAfterRenaming env sigma scrutinee in
   rewrite substituteAfterRenaming env sigma branch in Refl
@@ -146,6 +159,9 @@ substituteAfterRenaming env sigma (Apply function argument) =
   rewrite substituteAfterRenaming env sigma function in
   rewrite substituteAfterRenaming env sigma argument in Refl
 substituteAfterRenaming env sigma (StringAppend function argument) =
+  rewrite substituteAfterRenaming env sigma function in
+  rewrite substituteAfterRenaming env sigma argument in Refl
+substituteAfterRenaming env sigma (BoxValue function argument) =
   rewrite substituteAfterRenaming env sigma function in
   rewrite substituteAfterRenaming env sigma argument in Refl
 substituteAfterRenaming env sigma (StringEqual function argument) =
@@ -188,6 +204,7 @@ substituteComposition first second BoolFalse = Refl
 substituteComposition first second StringType = Refl
 substituteComposition first second (StringValue _) = Refl
 substituteComposition first second (IOType value) = cong IOType (substituteComposition first second value)
+substituteComposition first second (BoxType q value) = cong (BoxType q) (substituteComposition first second value)
 substituteComposition first second (IOPure value) = cong IOPure (substituteComposition first second value)
 substituteComposition first second (WriteLine value) = cong WriteLine (substituteComposition first second value)
 substituteComposition first second (IOBind a b action next) =
@@ -200,6 +217,10 @@ substituteComposition first second (BoolCase condition yes no) =
   rewrite substituteComposition first second yes in
   rewrite substituteComposition first second no in Refl
 substituteComposition first second (PairCase motive scrutinee branch) =
+  rewrite substituteComposition first second motive in
+  rewrite substituteComposition first second scrutinee in
+  rewrite substituteComposition first second branch in Refl
+substituteComposition first second (BoxCase motive scrutinee branch) =
   rewrite substituteComposition first second motive in
   rewrite substituteComposition first second scrutinee in
   rewrite substituteComposition first second branch in Refl
@@ -229,6 +250,9 @@ substituteComposition first second (Apply function argument) =
   rewrite substituteComposition first second function in
   rewrite substituteComposition first second argument in Refl
 substituteComposition first second (StringAppend function argument) =
+  rewrite substituteComposition first second function in
+  rewrite substituteComposition first second argument in Refl
+substituteComposition first second (BoxValue function argument) =
   rewrite substituteComposition first second function in
   rewrite substituteComposition first second argument in Refl
 substituteComposition first second (StringEqual function argument) =

@@ -49,16 +49,16 @@ fieldRef : RecordField -> Expr
 fieldRef field = NRef field.token.span field.token.spelling
 
 -- Preserve the historical two-field representation exactly. Wider records
--- consume their right-nested tail once. Fewer than two fields are not admitted.
+-- consume their right-nested tail once. Singleton records use a unary box.
 recordType : SourceSpan -> List RecordField -> Expr
 recordType region [] = NUnitType region
-recordType region [field] = field.ty
+recordType region [field] = NBoxType region field.quantity field.ty
 recordType region [first, second] = NSigma region first.quantity second.quantity first.token.spelling first.ty second.ty
 recordType region (first :: rest) = NSigma region first.quantity Linear first.token.spelling first.ty (recordType region rest)
 
 recordValue : SourceSpan -> List RecordField -> Expr
 recordValue region [] = NUnitValue region
-recordValue region [field] = fieldRef field
+recordValue region [field] = NBoxValue region (recordType region [field]) (fieldRef field)
 recordValue region [first, second] = NPairValue region (recordType region [first, second]) (fieldRef first) (fieldRef second)
 recordValue region fields@(first :: rest) =
   NPairValue region (recordType region fields) (fieldRef first) (recordValue region rest)
@@ -71,7 +71,7 @@ applyFields region function (field :: rest) = applyFields region (NApply region 
 -- enclosing pair. No eta rule, resource coercion, or unchecked core is needed.
 consume : SourceSpan -> List RecordField -> Expr -> Expr -> Expr -> Expr
 consume region [] motive value branch = branch
-consume region [field] motive value branch = NApply region branch value
+consume region [field] motive value branch = NBoxCase region motive value branch
 consume region [first, second] motive value branch = NPairCase region motive value branch
 consume region fields@(first :: rest) motive value branch =
   let tail = "$record.tail." ++ show (length rest)
@@ -93,6 +93,9 @@ mentions name (NRef _ reference) = name == reference
 mentions name (NPi _ _ binder domain body) = mentions name domain || (binder /= name && mentions name body)
 mentions name (NLambda _ _ binder domain body) = mentions name domain || (binder /= name && mentions name body)
 mentions name (NSigma _ _ _ binder domain body) = mentions name domain || (binder /= name && mentions name body)
+mentions name (NBoxType _ _ ty) = mentions name ty
+mentions name (NBoxValue _ a b) = mentions name a || mentions name b
+mentions name (NBoxCase _ a b c) = mentions name a || mentions name b || mentions name c
 mentions name (NApply _ a b) = mentions name a || mentions name b
 mentions name (NAscribe _ a b) = mentions name a || mentions name b
 mentions name (NUnitCase _ a b) = mentions name a || mentions name b
@@ -130,6 +133,7 @@ extractField (S fuel) region typeRef fields earlier selected value =
           (takeWhile (\field => field.token.spelling /= previous.token.spelling) earlier) previous (NRef region self))
       motive = NLambda region Erased self typeRef result
    in case fields of
+        [field] => NBoxCase region motive value (fieldLambdas region fields (fieldRef selected))
         [first, second] => NPairCase region motive value (fieldLambdas region fields (fieldRef selected))
         first :: rest =>
           let tail = "$record.extract.tail." ++ show (length rest)
@@ -231,6 +235,9 @@ capped : Nat -> Nat
 capped = min (S defaultConstructionBudget)
 
 syntaxNodes : Expr -> Nat
+syntaxNodes (NBoxType _ _ ty) = capped (1 + syntaxNodes ty)
+syntaxNodes (NBoxValue _ a b) = capped (1 + syntaxNodes a + syntaxNodes b)
+syntaxNodes (NBoxCase _ a b c) = capped (1 + syntaxNodes a + syntaxNodes b + syntaxNodes c)
 syntaxNodes (NPi _ _ _ a b) = capped (1 + syntaxNodes a + syntaxNodes b)
 syntaxNodes (NLambda _ _ _ a b) = capped (1 + syntaxNodes a + syntaxNodes b)
 syntaxNodes (NSigma _ _ _ _ a b) = capped (1 + syntaxNodes a + syntaxNodes b)
@@ -251,19 +258,19 @@ fieldTypeNodes fields = foldl (\accum, field => capped (accum + syntaxNodes fiel
 
 recordTypeNodes : List RecordField -> Nat
 recordTypeNodes [] = 1
-recordTypeNodes [field] = syntaxNodes field.ty
+recordTypeNodes [field] = capped (1 + syntaxNodes field.ty)
 recordTypeNodes fields = capped (fieldTypeNodes fields + minus (length fields) 1)
 
 recordValueNodes : List RecordField -> Nat
 recordValueNodes [] = 1
-recordValueNodes [field] = 1
+recordValueNodes [field] = capped (recordTypeNodes [field] + 2)
 recordValueNodes [first, second] = capped (recordTypeNodes [first, second] + 3)
 recordValueNodes fields@(first :: rest) =
   capped (recordTypeNodes fields + recordValueNodes rest + 2)
 
 consumeNodes : List RecordField -> Nat -> Nat -> Nat
 consumeNodes [] motive branch = branch
-consumeNodes [field] motive branch = capped (branch + 2)
+consumeNodes [field] motive branch = capped (motive + branch + 2)
 consumeNodes [first, second] motive branch = capped (motive + branch + 2)
 consumeNodes fields@(first :: rest) motive branch =
   let tailType = recordTypeNodes rest
@@ -296,6 +303,7 @@ extractionRow typeNodes fields@(first :: rest) =
           body = if selected.token.spelling == first.token.spelling then 1
                     else maybe 0 id (lookup selected.token.spelling below)
           cost = case all of
+            [a] => capped (motive + syntaxNodes a.ty + 4)
             [a, b] => capped (motive + fieldTypeNodes all + 5)
             _ => capped (motive + syntaxNodes first.ty + recordTypeNodes rest + body + 4)
        in row all below (earlier ++ [selected]) following ((selected.token.spelling, cost) :: costs)
@@ -328,8 +336,8 @@ lowerRecord : Nat -> RecordDeclaration -> Either ElaborationError (Nat, List Dec
 lowerRecord budget sourceRecord = do
   if length sourceRecord.params > 8
      then Left (ElaborationFailure sourceRecord.span.start "Record parameter admission budget exhausted (8)") else Right ()
-  if length sourceRecord.fields < 2
-     then Left (ElaborationFailure sourceRecord.span.start "Records require at least two fields") else Right ()
+  if null sourceRecord.fields
+     then Left (ElaborationFailure sourceRecord.span.start "Records require at least one field") else Right ()
   -- Reject oversized base expansion before even walking dependency graphs.
   if constructionCost sourceRecord [] > budget
      then Left (ElaborationFailure sourceRecord.span.start "Generated declaration construction budget exhausted") else Right ()

@@ -29,6 +29,9 @@ data Term : Nat -> Type where
   StringAppend : Term n -> Term n -> Term n
   StringEqual : Term n -> Term n -> Term n
   ||| Pure descriptions of effects; only the external runner performs writes.
+  BoxType : Quantity -> Term n -> Term n
+  BoxValue : Term n -> Term n -> Term n
+  BoxCase : Term n -> Term n -> Term n -> Term n
   IOType : Term n -> Term n
   IOPure : Term n -> Term n
   IOBind : Term n -> Term n -> Term n -> Term n -> Term n
@@ -63,8 +66,10 @@ rename env BoolFalse = BoolFalse
 rename env StringType = StringType
 rename env (StringValue value) = StringValue value
 rename env (StringAppend left right) = StringAppend (rename env left) (rename env right)
+rename env (BoxValue left right) = BoxValue (rename env left) (rename env right)
 rename env (StringEqual left right) = StringEqual (rename env left) (rename env right)
 rename env (IOType ty) = IOType (rename env ty)
+rename env (BoxType q ty) = BoxType q (rename env ty)
 rename env (IOPure value) = IOPure (rename env value)
 rename env (WriteLine text) = WriteLine (rename env text)
 rename env (IOBind a b action next) =
@@ -73,6 +78,8 @@ rename env (BoolCase condition yes no) =
   BoolCase (rename env condition) (rename env yes) (rename env no)
 rename env (PairCase motive scrutinee branch) =
   PairCase (rename env motive) (rename env scrutinee) (rename env branch)
+rename env (BoxCase motive scrutinee branch) =
+  BoxCase (rename env motive) (rename env scrutinee) (rename env branch)
 rename env (PairValue annotation firstValue secondValue) =
   PairValue (rename env annotation) (rename env firstValue) (rename env secondValue)
 rename env (Pi q domain body) =
@@ -109,9 +116,12 @@ substituteTerm env StringType = StringType
 substituteTerm env (StringValue value) = StringValue value
 substituteTerm env (StringAppend left right) =
   StringAppend (substituteTerm env left) (substituteTerm env right)
+substituteTerm env (BoxValue left right) =
+  BoxValue (substituteTerm env left) (substituteTerm env right)
 substituteTerm env (StringEqual left right) =
   StringEqual (substituteTerm env left) (substituteTerm env right)
 substituteTerm env (IOType ty) = IOType (substituteTerm env ty)
+substituteTerm env (BoxType q ty) = BoxType q (substituteTerm env ty)
 substituteTerm env (IOPure value) = IOPure (substituteTerm env value)
 substituteTerm env (WriteLine text) = WriteLine (substituteTerm env text)
 substituteTerm env (IOBind a b action next) =
@@ -121,6 +131,8 @@ substituteTerm env (BoolCase condition yes no) =
   BoolCase (substituteTerm env condition) (substituteTerm env yes) (substituteTerm env no)
 substituteTerm env (PairCase motive scrutinee branch) =
   PairCase (substituteTerm env motive) (substituteTerm env scrutinee) (substituteTerm env branch)
+substituteTerm env (BoxCase motive scrutinee branch) =
+  BoxCase (substituteTerm env motive) (substituteTerm env scrutinee) (substituteTerm env branch)
 substituteTerm env (PairValue annotation firstValue secondValue) =
   PairValue (substituteTerm env annotation) (substituteTerm env firstValue) (substituteTerm env secondValue)
 substituteTerm env (Pi q domain body) =
@@ -159,7 +171,9 @@ sameSyntax BoolFalse BoolFalse = True
 sameSyntax StringType StringType = True
 sameSyntax (StringValue left) (StringValue right) = left == right
 sameSyntax (StringAppend a b) (StringAppend c d) = sameSyntax a c && sameSyntax b d
+sameSyntax (BoxValue a b) (BoxValue c d) = sameSyntax a c && sameSyntax b d
 sameSyntax (StringEqual a b) (StringEqual c d) = sameSyntax a c && sameSyntax b d
+sameSyntax (BoxType q a) (BoxType r b) = q == r && sameSyntax a b
 sameSyntax (IOType a) (IOType b) = sameSyntax a b
 sameSyntax (IOPure a) (IOPure b) = sameSyntax a b
 sameSyntax (WriteLine a) (WriteLine b) = sameSyntax a b
@@ -169,6 +183,7 @@ sameSyntax (BoolCase c t e) (BoolCase d u f) =
   sameSyntax c d && sameSyntax t u && sameSyntax e f
 sameSyntax (Sigma q r a b) (Sigma s t c d) = q == s && r == t && sameSyntax a c && sameSyntax b d
 sameSyntax (PairCase p a f) (PairCase q b g) = sameSyntax p q && sameSyntax a b && sameSyntax f g
+sameSyntax (BoxCase p a f) (BoxCase q b g) = sameSyntax p q && sameSyntax a b && sameSyntax f g
 sameSyntax (PairValue ty a b) (PairValue expected c d) = sameSyntax ty expected && sameSyntax a c && sameSyntax b d
 sameSyntax (Pi q a b) (Pi r c d) = q == r && sameSyntax a c && sameSyntax b d
 sameSyntax (Lambda q a b) (Lambda r c d) = q == r && sameSyntax a c && sameSyntax b d

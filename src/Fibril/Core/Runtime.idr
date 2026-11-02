@@ -68,6 +68,22 @@ analyze (S depth) reduction context (BoolCase condition yes no) = do
   yesUsage <- analyze depth reduction context yes
   noUsage <- analyze depth reduction context no
   Right (combineUsage conditionUsage (joinUsage yesUsage noUsage))
+analyze (S depth) reduction context (BoxType _ _) = Left RuntimeTypeExpression
+analyze (S depth) reduction context (BoxCase motive scrutinee branch) = do
+  valueUsage <- analyze depth reduction context scrutinee
+  branchUsage <- analyze depth reduction context branch
+  Right (combineUsage valueUsage branchUsage)
+analyze (S depth) reduction context (BoxValue annotation value) = do
+  exposed <- case weakHead reduction annotation of
+    HeadForm ty => Right ty
+    HeadLimit _ => Left (TypingError ReductionLimit)
+  case exposed of
+    BoxType q _ => do
+      valueUsage <- case q of
+        Erased => Right zeroUsage
+        _ => analyze depth reduction context value
+      Right (scaleUsage q valueUsage)
+    _ => Left (TypingError (ExpectedBoxType exposed))
 analyze (S depth) reduction context (Sigma _ _ _ _) = Left RuntimeTypeExpression
 -- The branch has already been checked against the Sigma's exact Pi quantities.
 -- Its ordinary lambda analysis discharges both fields; it is invoked once.

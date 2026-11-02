@@ -416,6 +416,81 @@ class CLITests(unittest.TestCase):
             self.assertEqual(diagnostic["path"], str(entry.resolve()))
             self.assertEqual(diagnostic["position"]["line"], 7)
 
+    def test_singleton_records_and_dependent_elimination(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / "Main.fib"
+
+            def program(quantity, getter=True):
+                return ('module Main\nrecord R : Type 0 where\n'
+                        '  constructor MkR\n  eliminator useR\n'
+                        '  ' + (quantity + ' ' if quantity else '') + 'value : String\n' +
+                        ('  projection get value\n' if getter else '') +
+                        'main : IO Unit\nmain = putStrLn (get (MkR "Singleton!"))\n')
+
+            for quantity in ("1", ""):
+                path.write_text(program(quantity))
+                result = run("run", "--source-dir", str(root), str(path))
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(result.stdout, "Singleton!\n")
+                inspected = json.loads(run("elaborate", str(path)).stdout)
+                self.assertFalse(inspected["checked"])
+                formatted = run("format", str(path)).stdout
+                path.write_text(formatted)
+                self.assertEqual(run("format", str(path)).stdout, formatted)
+            path.write_text(program("0"))
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Erased fields", result.stderr + result.stdout)
+            self.assertEqual(result.stdout, "")
+            path.write_text(program("0", False).replace(
+                'putStrLn (get (MkR "Singleton!"))',
+                'useR (\\(0 self : R) => IO Unit) (MkR "erased") (\\(0 value : String) => putStrLn "Erased!")'))
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, "Erased!\n")
+            # Erased IO descriptions stored in a singleton never execute.
+            path.write_text(
+                'module Main\nrecord Actions : Type 0 where\n'
+                '  constructor MkActions\n  eliminator useActions\n  0 action : IO Unit\n'
+                'main : IO Unit\nmain = useActions (\\(0 self : Actions) => IO Unit) '
+                '(MkActions (putStrLn "never")) (\\(0 action : IO Unit) => putStrLn "Only!")\n')
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, "Only!\n")
+            # An arbitrary dependent motive inspects an erased wrapped type.
+            path.write_text(
+                'module Main\nrecord Tag : Type 1 where\n'
+                '  constructor MkTag\n  eliminator useTag\n  0 Item : Type 0\n'
+                '0 itemType : (0 tag : Tag) -> Type 0\n'
+                'itemType = \\(0 tag : Tag) => useTag (\\(0 self : Tag) => Type 0) tag (\\(0 Item : Type 0) => Item)\n'
+                'identityFor : (1 tag : Tag) -> (1 x : itemType tag) -> itemType tag\n'
+                'identityFor = \\(1 tag : Tag) => useTag (\\(0 self : Tag) => ((1 x : itemType self) -> itemType self : Type 1)) tag (\\(0 Item : Type 0) => \\(1 x : Item) => x)\n'
+                'main : IO Unit\nmain = putStrLn (identityFor (MkTag String) "Dependent singleton!")\n')
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, "Dependent singleton!\n")
+            # Quantity-aware unary wrappers are not their naked payloads.
+            path.write_text(program("1").replace('get (MkR "Singleton!")', 'MkR "Singleton!"'))
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, "")
+            compatible = ('record S : Type 0 where\n  constructor MkS\n'
+                          '  eliminator useS\n  1 other : String\n')
+            source = program("1").replace("main : IO Unit", compatible + "main : IO Unit").replace(
+                'get (MkR "Singleton!")', 'get (MkS "Singleton!")')
+            path.write_text(source)
+            self.assertEqual(run("run", "--source-dir", str(root), str(path)).stdout, "Singleton!\n")
+            path.write_text(source.replace("  1 other : String", "  other : String"))
+            self.assertNotEqual(run("check", "--source-dir", str(root), str(path)).returncode, 0)
+            for body in ('"dropped"', 'appendString (get record) (get record)'):
+                path.write_text(program("1").replace(
+                    'main : IO Unit', 'bad : (1 record : R) -> String\n'
+                    'bad = \\(1 record : R) => ' + body + '\nmain : IO Unit'))
+                result = run("run", "--source-dir", str(root), str(path))
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(result.stdout, "")
+
     def test_wider_dependent_records(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -516,7 +591,7 @@ class CLITests(unittest.TestCase):
             result = run("run", "--source-dir", str(root), str(path))
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertEqual(result.stdout, "Structural!\n")
-            for bad_fields in ([], ["value : Bool"],
+            for bad_fields in ([],
                                ["first : Bool", "second : Bool", "first : String"]):
                 path.write_text(program(bad_fields))
                 self.assertNotEqual(run("check", "--source-dir", str(root), str(path)).returncode, 0)

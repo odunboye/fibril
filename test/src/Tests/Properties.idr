@@ -47,6 +47,9 @@ termGen Z n = atom n
 termGen (S depth) n =
   choice
     [ atom n
+    , BoxType <$> quantityGen <*> termGen depth n
+    , BoxValue <$> termGen depth n <*> termGen depth n
+    , BoxCase <$> termGen depth n <*> termGen depth n <*> termGen depth n
     , Sigma <$> quantityGen <*> quantityGen <*> termGen depth n <*> termGen depth (S n)
     , PairCase <$> termGen depth n <*> termGen depth n <*> termGen depth n
     , PairValue <$> termGen depth n <*> termGen depth n <*> termGen depth n
