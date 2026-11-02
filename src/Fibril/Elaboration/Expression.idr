@@ -17,6 +17,7 @@ import Fibril.Core.Limits
 import Fibril.Elaboration.Expression.Scope
 import Fibril.Elaboration.Expression.Motive
 import Fibril.Elaboration.Expression.Constructor
+import Fibril.Elaboration.Expression.Parameters
 
 %default total
 
@@ -102,8 +103,9 @@ mutual
     typedContext <- case context of
       Nothing => Left (CannotElaborate span.start "Named pattern checking requires a typed context")
       Just ctx => Right ctx
-    named <- elaborateInWith globals context env constructor
+    candidate <- elaborateInWith globals context env constructor
     value <- elaborateInWith globals context env scrutinee
+    named <- instantiateParameters (extent constructor).start arity typedContext candidate value
     branch <- elaboratePatternBranch globals typedContext env (extent constructor).start arity named branch
     case motive of
       Nothing => inferCase span.start arity typedContext value branch

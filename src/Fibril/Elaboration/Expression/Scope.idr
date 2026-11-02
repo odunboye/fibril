@@ -11,6 +11,7 @@ liftPartial : (Fin n -> Maybe (Fin m)) -> Fin (S n) -> Maybe (Fin (S m))
 liftPartial env FZ = Just FZ
 liftPartial env (FS i) = map FS (env i)
 
+public export
 thin : (Fin n -> Maybe (Fin m)) -> Term n -> Maybe (Term m)
 thin env (Variable i) = Variable <$> env i
 thin env (Universe level) = Just (Universe level)

@@ -1,0 +1,12 @@
+digraph PatternParameters {
+  rankdir=LR;
+  node [shape=box];
+  prefix [label="Constructor signature\nleading erased prefix"];
+  target [label="Checked scrutinee type\noriginal value unchanged"];
+  matching [label="Bounded structural type matching\nscoped elaborator metavariables"];
+  arguments [label="Consistent ordinary term arguments\nno phantom guesses / local escape"];
+  validate [label="Apply erased arguments\ncheck constructor + fields + motive"];
+  core [label="Existing core elimination\nindependent type/resource checking"];
+  prefix -> matching;
+  target -> matching -> arguments -> validate -> core;
+}

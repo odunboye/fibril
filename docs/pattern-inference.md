@@ -28,7 +28,8 @@ extractions under result Pi binders.
 
 Unnamed pattern domains and quantities remain explicit. [Constructor-named
 patterns](constructor-patterns.md) can instead infer the complete field telescope
-from an explicitly instantiated constructor, without nominal discrimination or
+from a checked constructor, with [bounded erased-prefix inference](pattern-parameters.md)
+when parameters are recoverable, without nominal discrimination or
 general inductive refinement.
 
 ![Contextual expression elaboration](diagrams/pattern-inference.svg)
@@ -153,6 +154,6 @@ conversion rule or metatheoretic proof is added.
 
 Unit matching remains case value of () => body; no dependent Unit eliminator
 is introduced. Wider telescopes still use generated consuming eliminators.
-Erased-constructor-parameter inference, expected-type-driven motive
+General implicit arguments, expected-type-driven motive
 selection, general inductive coverage/refinement and recursion termination
 remain separate work.

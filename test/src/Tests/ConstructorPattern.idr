@@ -7,6 +7,7 @@ import Fibril.Core.Context
 import Fibril.Source.Text
 import Fibril.Source.Resolve.Error
 import Fibril.Elaboration.Expression.Constructor
+import Fibril.Elaboration.Expression.Parameters
 
 %default total
 
@@ -44,6 +45,15 @@ checks =
           fields = Lambda Erased domain UnitValue
        in (case inferConstructorFields (At 0 1 1) 1 Empty ctor of Left _ => True; _ => False) &&
           accepts (checkConstructor (At 0 1 1) 1 Empty ctor fields))
+  , ("parameter inference is budgeted while explicitly instantiated constructors remain available",
+      let domain = balancedType 9
+          generic = Lambda Erased (Universe 0)
+            (Lambda Erased (Variable FZ) (BoxValue (BoxType Erased (Variable (FS FZ))) (Variable FZ)))
+          context = Extend Empty Erased (BoxType Erased domain)
+          candidate = weaken generic
+          explicit = Apply candidate (weaken domain)
+       in (case instantiateParameters (At 0 1 1) 1 context candidate (Variable FZ) of Left _ => True; _ => False) &&
+          accepts (instantiateParameters (At 0 1 1) 1 context explicit (Variable FZ)))
   , ("a correctly typed but constant packer is not a constructor pattern",
       not (accepts (checkConstructor (At 0 1 1) 1 Empty
         (Lambda Linear StringType (BoxValue (weaken boxed) (StringValue "fixed"))) branch)))

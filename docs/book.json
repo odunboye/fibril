@@ -84,6 +84,10 @@
         "path": "docs/constructor-patterns.md"
       },
       {
+        "title": "Erased constructor parameters in patterns",
+        "path": "docs/pattern-parameters.md"
+      },
+      {
         "title": "Interfaces and explicit operations",
         "path": "docs/interfaces.md"
       },

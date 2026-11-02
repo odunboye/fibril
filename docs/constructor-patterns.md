@@ -46,9 +46,10 @@ permit discarding a linear field.
 ## Parameters and syntax
 
 A nonparameterized constructor can be a bare qualified or unqualified name.
-For parameterized records, supply the erased parameters explicitly inside a
-parenthesized constructor application, for example (Data.Box.MkBox String).
-There is no implicit-parameter inference here.
+For parameterized records, [bounded erased-prefix inference](pattern-parameters.md)
+can recover arguments from the scrutinee type. Explicit parenthesized applications
+such as (Data.Box.MkBox String) remain available for phantom parameters,
+non-invertible families, inference limits, or explicit control.
 
 Field quantities and types can be explicit or inferred from the constructor. Prefix resolution happens outside
 the field binders, so a field cannot accidentally capture its constructor
@@ -64,7 +65,7 @@ case message return (\(0 self : Message) => String)
 ~~~
 
 Unnamed typed cases remain supported. Nullary/n-ary constructor patterns,
-nested patterns, alternatives, erased-parameter inference and general inductive
+nested patterns, alternatives, general implicit-argument inference and general inductive
 coverage/refinement are not added.
 
 ![Named pattern validation](diagrams/constructor-patterns.svg)

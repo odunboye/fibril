@@ -519,6 +519,86 @@ class CLITests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertEqual(result.stdout, "Do context!\n")
 
+    def test_erased_constructor_parameter_inference(self):
+        example = ROOT / "examples/modules/pattern-inference/InferredParameters.fib"
+        result = run("run", "--source-dir", str(example.parent), str(example))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout, "Inferred parameters!\n")
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / "Main.fib"
+            pair = ('module Main\nrecord Both (0 A : Type 0) (0 B : Type 0) : Type 0 where\n'
+                    '  constructor MkBoth\n  1 left : A\n  1 right : B\n'
+                    'main : IO Unit\nmain = putStrLn (case MkBoth String Bool "Both" True of '
+                    'MkBoth left right => if right then appendString left "!" else left)\n')
+            path.write_text(pair)
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, "Both!\n")
+            formatted = run("format", str(path)).stdout
+            path.write_text(formatted)
+            self.assertEqual(run("format", str(path)).stdout, formatted)
+            self.assertEqual(run("run", "--source-dir", str(root), str(path)).stdout, "Both!\n")
+            # Typed field annotations remain an alternative; inference is still type-only.
+            path.write_text(pair.replace("of MkBoth left right", "of MkBoth (1 left : String) (1 right : Bool)"))
+            self.assertEqual(run("run", "--source-dir", str(root), str(path)).stdout, "Both!\n")
+            # Phantom parameters are not invented from unrelated binder annotations.
+            phantom = ('module Main\nrecord Phantom (0 A : Type 0) : Type 0 where\n'
+                       '  constructor MkPhantom\n  1 value : String\n'
+                       'main : IO Unit\nmain = putStrLn (case MkPhantom Bool "Explicit phantom!" of MkPhantom value => value)\n')
+            path.write_text(phantom)
+            result = run("check", "--json", "--source-dir", str(root), str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertTrue(any(d["stage"] == "elaboration" and "supply them explicitly" in d["message"]
+                                for d in json.loads(result.stdout)["diagnostics"]))
+            path.write_text(phantom.replace("of MkPhantom value", "of (MkPhantom Bool) value"))
+            self.assertEqual(run("run", "--source-dir", str(root), str(path)).stdout, "Explicit phantom!\n")
+            # No inversion of a computational type family.
+            indexed = ('module Main\nrecord Indexed (0 flag : Bool) : Type 0 where\n'
+                       '  constructor MkIndexed\n  1 value : if flag then String else Bool\n'
+                       'main : IO Unit\nmain = putStrLn (case MkIndexed True "Explicit index!" of MkIndexed value => value)\n')
+            path.write_text(indexed)
+            self.assertNotEqual(run("run", "--source-dir", str(root), str(path)).returncode, 0)
+            path.write_text(indexed.replace("of MkIndexed value", "of (MkIndexed True) value"))
+            self.assertEqual(run("run", "--source-dir", str(root), str(path)).stdout, "Explicit index!\n")
+            # Repeated constraints must agree, not silently choose the first occurrence.
+            conflict = ('module Main\nrecord Same (0 A : Type 0) : Type 0 where\n'
+                        '  constructor MkSame\n  1 first : A\n  1 second : A\n'
+                        'record Mixed : Type 0 where\n  constructor MkMixed\n'
+                        '  1 text : String\n  1 flag : Bool\n'
+                        'main : IO Unit\nmain = putStrLn (case MkMixed "never" True of MkSame text flag => '
+                        'if flag then appendString text "!" else text)\n')
+            path.write_text(conflict)
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, "")
+            # A solved parameter cannot capture a binder local to the matched type.
+            escaping = ('module Main\nrecord Constant (0 A : Type 0) : Type 1 where\n'
+                        '  constructor MkConstant\n  function : (0 X : Type 0) -> A\n'
+                        'record Polymorphic : Type 1 where\n  constructor MkPolymorphic\n'
+                        '  function : (0 X : Type 0) -> X\n'
+                        'bad : (1 p : Polymorphic) -> String\n'
+                        'bad = \\(1 p : Polymorphic) => case p of MkConstant function => "never"\n'
+                        'main : IO Unit\nmain = putStrLn "never"\n')
+            path.write_text(escaping)
+            self.assertNotEqual(run("run", "--source-dir", str(root), str(path)).returncode, 0)
+            # Inferred parameters do not normalize away an erased scrutinee demand.
+            erased = ('module Main\nrecord Box (0 A : Type 0) : Type 0 where\n'
+                      '  constructor MkBox\n  1 value : A\n'
+                      '0 secret : Box String\nsecret = MkBox String "secret"\n'
+                      'main : IO Unit\nmain = putStrLn (case secret of MkBox value => value)\n')
+            path.write_text(erased)
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, "")
+            # Qualified imported constructors need no separate inference registry.
+            library = root / "Library.fib"
+            library.write_text('module Library\nexport\nrecord Box (0 A : Type 0) : Type 0 where\n'
+                               '  constructor MkBox\n  1 value : A\n')
+            path.write_text('module Main\nimport Library\nmain : IO Unit\nmain = putStrLn '
+                            '(case Library.MkBox String "Imported parameters!" of Library.MkBox value => value)\n')
+            self.assertEqual(run("run", "--source-dir", str(root), str(path)).stdout, "Imported parameters!\n")
+
     def test_inferred_constructor_field_binders(self):
         example = ROOT / "examples/modules/pattern-inference/InferredFields.fib"
         result = run("run", "--source-dir", str(example.parent), str(example))
@@ -561,7 +641,7 @@ class CLITests(unittest.TestCase):
             path.write_text(unary)
             self.assertEqual(run("run", "--source-dir", str(root), str(path)).stdout, "Unary!\n")
             path.write_text(unary.replace("of (MkBox String) value", "of MkBox value"))
-            self.assertNotEqual(run("run", "--source-dir", str(root), str(path)).returncode, 0)
+            self.assertEqual(run("run", "--source-dir", str(root), str(path)).stdout, "Unary!\n")
             explicit = unary.replace('of (MkBox String)', 'return (\\(0 self : Box String) => String) of (MkBox String)')
             path.write_text(explicit)
             self.assertEqual(run("run", "--source-dir", str(root), str(path)).stdout, "Unary!\n")
@@ -609,7 +689,6 @@ class CLITests(unittest.TestCase):
             target = json.loads(result.stdout)["definition"]["range"]
             self.assertEqual(source[target["start"]["offset"]:target["end"]["offset"]], "MkBox")
             for bad in (
-                source.replace("(MkBox A) (1 value : A)", "MkBox (1 value : A)"),
                 source.replace("(MkBox A) (1 value : A)", "(MkBox Bool) (1 value : A)"),
                 source.replace("of MkPackage", "of Missing"),
                 source.replace("(MkBox A) (1 value : A)", "(MkBox A) (value : A)"),

@@ -40,7 +40,9 @@ dependent motives within resource bounds; explicit return clauses retain control
 Named record/interface eliminators are optional; omitted helpers are not generated.
 [Constructor-named structural patterns](docs/constructor-patterns.md) validate
 transparent packing and can infer field types and quantities from the constructor
-signature; erased constructor parameters remain explicit.
+signature. [Erased constructor parameters](docs/pattern-parameters.md) can also
+be inferred from structural scrutinee-type constraints; explicit arguments remain
+available when inference cannot recover them.
 
 ## Build
 
