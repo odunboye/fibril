@@ -1,0 +1,14 @@
+digraph ImplementationBlocks {
+  rankdir=LR;
+  node [shape=box];
+  source [label="Authored named methods\nexplicit target + parameters"];
+  dependency [label="Entire dependency checks\nexported direct-import schema"];
+  local [label="Earlier local interface schema"];
+  lowering [label="Validate method names\nreorder into declared telescope"];
+  dictionary [label="Ordinary constructor application\nno instance registration"];
+  checker [label="Resolution + node admission\nerased/runtime checking\ndictionary-shape gate"];
+  source -> lowering;
+  dependency -> lowering;
+  local -> lowering;
+  lowering -> dictionary -> checker;
+}

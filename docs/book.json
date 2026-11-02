@@ -96,6 +96,10 @@
         "path": "docs/explicit-interfaces.md"
       },
       {
+        "title": "Named method implementation blocks",
+        "path": "docs/implementation-blocks.md"
+      },
+      {
         "title": "Python interoperability",
         "path": "docs/python-interop.md"
       },

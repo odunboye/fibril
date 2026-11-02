@@ -16,6 +16,7 @@ import Fibril.Source.Syntax
 import Fibril.Source.Document
 import Fibril.Source.Declaration
 import Fibril.Elaboration.Declaration
+import Fibril.Elaboration.Interface
 import Fibril.Source.Global
 import Fibril.Elaboration.Expression
 import Fibril.Elaboration.Expression.Scope
@@ -112,6 +113,7 @@ record Interface where
   constructor Exports
   name : List String
   bindings : List Weighted
+  schemas : List InterfaceSchema
 
 record Compiled where
   constructor Definitions
@@ -187,18 +189,25 @@ directImports snapshot interfaces = collect snapshot.document.imports
       Nothing => Left (problem snapshot (Just dependency.span.start) "Missing checked dependency interface")
       Just entry => (entry.bindings ++) <$> collect rest
 
-elaborateAt : ModuleSnapshot -> List AuthoredDeclaration -> Either GraphError (List Declaration)
-elaborateAt snapshot authored = case elaborateDeclarations 64 authored of
+directSchemas : ModuleSnapshot -> List Interface -> List InterfaceSchema
+directSchemas snapshot interfaces = concatMap (\dependency =>
+  case find (\entry => entry.name == dependency.components) interfaces of
+    Nothing => []
+    Just entry => entry.schemas) snapshot.document.imports
+
+elaborateAt : ModuleSnapshot -> List InterfaceSchema -> List AuthoredDeclaration -> Either GraphError (List Declaration)
+elaborateAt snapshot schemas authored = case elaborateDeclarationsIn
+  (map (\header => moduleText header.components) snapshot.document.moduleHeader) schemas 64 authored of
   Left err => Left ({ stage := "elaboration" } (problem snapshot (Just err.position) err.message))
   Right declarations => Right declarations
 
-anonymous : ModuleSnapshot -> List Weighted -> Nat -> Either GraphError (Term 0)
-anonymous snapshot globals remaining = do
+anonymous : ModuleSnapshot -> List InterfaceSchema -> List Weighted -> Nat -> Either GraphError (Term 0)
+anonymous snapshot schemas globals remaining = do
   expression <- case snapshot.document.body of
     EmptyDocument => Left (problem snapshot Nothing "Entry requires an expression or main")
     ExpressionDocument expression => Right expression
     DeclarationDocument authored => do
-      declarations <- elaborateAt snapshot authored
+      declarations <- elaborateAt snapshot schemas authored
       if any (\decl => decl.name == "main") declarations
          then Right (lowerDeclarations snapshot.document.end declarations)
          else Left (problem snapshot Nothing "Entry requires a main definition")
@@ -219,10 +228,11 @@ compileGraph graph prelude interfaces remaining (snapshot :: rest) = do
      then Left (problem snapshot Nothing "Entry snapshot must be last in dependency order")
      else Right ()
   imported <- directImports snapshot interfaces
+  let schemas = directSchemas snapshot interfaces
   let globals = imported ++ prelude
   case snapshot.document.moduleHeader of
     Nothing => if snapshot.path /= graph.entry then Left (problem snapshot Nothing "Anonymous dependency") else do
-      term <- anonymous snapshot globals remaining
+      term <- anonymous snapshot schemas globals remaining
       case inferRuntime checkingDepth typeReductionFuel Empty term of
         Left err => Left ({ stage := "runtime-checking" } (problem snapshot Nothing ("Entry checking: " ++ show err)))
         Right checked => Right (Project graph term checked.inferredType)
@@ -231,7 +241,7 @@ compileGraph graph prelude interfaces remaining (snapshot :: rest) = do
          then Left (problem snapshot (Just header.nameSpan.start) "Duplicate checked module identity")
          else Right ()
       declarations <- case snapshot.document.body of
-        DeclarationDocument authored => elaborateAt snapshot authored
+        DeclarationDocument authored => elaborateAt snapshot schemas authored
         EmptyDocument => Right []
         _ => Left (problem snapshot Nothing "Named modules require declarations")
       compiled <- compileDeclarations snapshot header.components globals declarations remaining
@@ -252,7 +262,10 @@ compileGraph graph prelude interfaces remaining (snapshot :: rest) = do
             case inferRuntime checkingDepth typeReductionFuel Empty term of
               Left err => Left ({ stage := "runtime-checking" } (problem snapshot Nothing ("Entry checking: " ++ show err)))
               Right checked => Right (Project graph term checked.inferredType)
-         else compileGraph graph prelude (Exports header.components compiled.exports :: interfaces)
+         else let visible = case snapshot.document.body of
+                    DeclarationDocument authored => exportedSchemas (moduleText header.components) authored
+                    _ => []
+               in compileGraph graph prelude (Exports header.components compiled.exports visible :: interfaces)
                            compiled.remaining rest
 
 ||| Check every dependency declaration before exposing its qualified exports.

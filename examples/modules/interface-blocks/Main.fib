@@ -1,0 +1,10 @@
+module Main
+import Algebra
+import Instances.Text
+import Instances.Boolean
+
+main : IO Unit
+main = do
+  putStrLn (Algebra.concatThree String Instances.Text.textSemigroup "Hello" ", " "interfaces!")
+  putStrLn (if Algebra.concatThree Bool Instances.Boolean.booleanSemigroup True True False then "Explicit dictionaries!" else "Unexpected")
+  putStrLn (Algebra.withIdentity String Instances.Text.textMonoid "Monoid shape!")

@@ -13,7 +13,9 @@ fixed at eight; [singletons](unary-records.md) use a checked unary core wrapper.
 authored ordinary/record declarations, parameters, fields and projection requests,
 and explicit interface/implementation items, as well as the lowered named declaration IR. A parsed record retains its actual
 tokens, quantities, field/domain expressions and source spans. It is not replaced
-by constructor/getter expressions during document parsing.
+by constructor/getter expressions during document parsing. Named implementation
+blocks likewise retain method values and actual tokens until schema-guided
+elaboration.
 
 [Source.Declaration](../src/Fibril/Source/Declaration.idr) handles grammar and
 framing. It has **no dependency on the elaboration layer**. It still checks layout,
@@ -87,7 +89,8 @@ existing Unicode-scalar coordinate convention.
 ## API and compatibility
 
 Explicit interfaces retain authored method signatures; elaboration owns their
-automatic getter requests. Implementations retain an explicit ordinary typed
+automatic getter requests. Named method blocks use earlier local or checked
+direct-import schemas, with ordinary constructor checking after generation. Implementations retain an explicit ordinary typed
 body; checking enforces a structural dictionary target, not nominal membership
 or registration. See [the implemented syntax](explicit-interfaces.md).
 
@@ -117,8 +120,8 @@ surface syntax where tooling needs it.
 Constructor names remain explicit; named eliminator directives are optional.
 Omitting one generates no helper or fabricated source location, and consumes no
 eliminator declaration slot. Automatic constructor naming,
-projection defaults, inferred method-body blocks, implicit argument inference and
-instance lookup need their own policy and source-origin design. They belong in elaboration,
+projection defaults, inferred method argument clauses, general implicit arguments
+and instance lookup need their own policy and source-origin design. They belong in elaboration,
 not parser-specific function recognition.
 
 [Source formatting](formatting.md) is separate. The initial formatter normalizes

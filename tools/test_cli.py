@@ -519,6 +519,115 @@ class CLITests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertEqual(result.stdout, "Do context!\n")
 
+    def test_named_implementation_method_blocks(self):
+        example = ROOT / "examples/modules/interface-blocks"
+        result = run("run", "--source-dir", str(example), str(example / "Main.fib"))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout, "Hello, interfaces!\nExplicit dictionaries!\nMonoid shape!\n")
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / "Main.fib"
+            base = ('module Main\ninterface C (0 A : Type 0) : Type 0 where\n'
+                    '  constructor MkC\n  method : (1 x : A) -> A\n'
+                    'implementation c : C String where\n'
+                    '  method = \\(1 x : String) => x\n'
+                    'main : IO Unit\nmain = putStrLn (method String c "Method block!")\n')
+            path.write_text(base)
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, "Method block!\n")
+            inspected = json.loads(run("elaborate", str(path)).stdout)
+            self.assertFalse(inspected["checked"])
+            instance = next(d for d in inspected["declarations"] if d["name"] == "c")
+            self.assertTrue(instance["implementation"])
+            self.assertTrue(instance["generated"])
+            self.assertIn("global[MkC]", instance["value"])
+            formatted = run("format", str(path))
+            self.assertEqual(formatted.returncode, 0, formatted.stderr)
+            path.write_text(formatted.stdout)
+            self.assertEqual(run("format", str(path)).stdout, formatted.stdout)
+            for bad in (
+                base.replace('  method = \\(1 x : String) => x', '  missing = \\(1 x : String) => x'),
+                base.replace('  method = \\(1 x : String) => x', '  method = True'),
+                base.replace('  method = \\(1 x : String) => x', '  method = \\(1 x : String) => "discarded"'),
+                base.replace('  method = \\(1 x : String) => x', '  method = \\(1 x : String) => x\n  method = \\(1 x : String) => x'),
+                base.replace('implementation c : C String where', 'implementation c : C where'),
+                base.replace('implementation c : C String where', 'implementation c : Unknown String where'),
+                base.replace('  method = \\(1 x : String) => x', '  method ='),
+                base.replace('  method = \\(1 x : String) => x', '  method = \\(x : String) => x'),
+            ):
+                path.write_text(bad)
+                result = run("run", "--source-dir", str(root), str(path))
+                self.assertNotEqual(result.returncode, 0, bad)
+                self.assertEqual(result.stdout, "")
+            # Multiline method expressions have their own indentation frame.
+            path.write_text(base.replace(
+                '  method = \\(1 x : String) => x',
+                '  method = \\(1 x : String) =>\n    appendString\n      "Prefix: "\n      x'))
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, "Prefix: Method block!\n")
+            long_body = ('  method = \\(1 input : String) => appendString '
+                         '(appendString "This method deliberately has a lengthy readable prefix: " "continued: ") input')
+            path.write_text(base.replace('  method = \\(1 x : String) => x', long_body))
+            formatted = run("format", str(path))
+            self.assertEqual(formatted.returncode, 0, formatted.stderr)
+            self.assertIn('=>\n    ', formatted.stdout)
+            path.write_text(formatted.stdout)
+            self.assertEqual(run("format", str(path)).stdout, formatted.stdout)
+            self.assertEqual(run("run", "--source-dir", str(root), str(path)).returncode, 0)
+            # Missing methods report admission failure before typechecking a partial constructor.
+            binary = ('module Main\ninterface C : Type 0 where\n'
+                      '  constructor MkC\n  first : Bool\n  second : Bool\n'
+                      'implementation c : C where\n  first = True\n'
+                      'main : IO Unit\nmain = putStrLn "never"\n')
+            path.write_text(binary)
+            result = run("check", "--source-dir", str(root), str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Missing implementation method second", result.stderr)
+            # Blocks can use their own module qualifier but not future interface declarations.
+            path.write_text(base.replace("implementation c : C String", "implementation c : Main.C String"))
+            self.assertEqual(run("run", "--source-dir", str(root), str(path)).stdout, "Method block!\n")
+            header = base[:base.index("implementation c")]
+            block = base[base.index("implementation c"):base.index("main : IO Unit")]
+            path.write_text("module Main\n" + block + header.replace("module Main\n", "") +
+                            'main : IO Unit\nmain = putStrLn "never"\n')
+            self.assertNotEqual(run("run", "--source-dir", str(root), str(path)).returncode, 0)
+            # Schema-guided mapping does not pretend ordinary record aliases are interfaces.
+            path.write_text(base.replace("interface C", "record C").replace(
+                'main = putStrLn (method String c "Method block!")', 'main = putStrLn "never"'))
+            self.assertNotEqual(run("run", "--source-dir", str(root), str(path)).returncode, 0)
+            # All imported source is formatted/executed through normal checking.
+            for file in example.rglob("*.fib"):
+                destination = root / file.relative_to(example)
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                destination.write_bytes(file.read_bytes())
+                formatted = run("format", str(destination))
+                self.assertEqual(formatted.returncode, 0, formatted.stderr)
+                destination.write_text(formatted.stdout)
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            # Single-file inspection does not silently load imported schemas.
+            result = run("elaborate", str(root / "Instances/Text.fib"))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("schema unavailable", result.stderr)
+            # Reachability alone does not grant a transitive schema import.
+            instance_path = root / "Instances/Text.fib"
+            instance_source = instance_path.read_text()
+            instance_path.write_text(instance_source.replace("import Algebra\n", ""))
+            self.assertNotEqual(run("run", "--source-dir", str(root), str(path)).returncode, 0)
+            instance_path.write_text(instance_source)
+            # Unused invalid dependency bodies prevent schema publication.
+            algebra = root / "Algebra.fib"
+            algebra_source = algebra.read_text()
+            algebra.write_text(algebra_source + '\nbad : String\nbad = True\n')
+            self.assertNotEqual(run("run", "--source-dir", str(root), str(path)).returncode, 0)
+            algebra.write_text(algebra_source)
+            # A private class publishes neither methods nor construction metadata.
+            algebra = root / "Algebra.fib"
+            algebra.write_text(algebra.read_text().replace("export\ninterface Semigroup", "interface Semigroup"))
+            self.assertNotEqual(run("run", "--source-dir", str(root), str(path)).returncode, 0)
+
     def test_erased_constructor_parameter_inference(self):
         example = ROOT / "examples/modules/pattern-inference/InferredParameters.fib"
         result = run("run", "--source-dir", str(example.parent), str(example))

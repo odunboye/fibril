@@ -126,6 +126,11 @@ declarations context env (Ordinary decl :: rest) =
   (if decl.generated then [] else walk context env decl.expected ++ walk context env decl.value) ++
   declarations context ((decl.name, Just (context.localTarget decl.definitionNameSpan)) :: env) rest
 
+declarations context env (ImplementationBlock block :: rest) =
+  [RefersTo block.name.span (context.localTarget block.name.span)] ++
+  walk context env block.target ++ concatMap (\method => walk context env method.value) block.methods ++
+  declarations context ((block.name.spelling, Just (context.localTarget block.name.span)) :: env) rest
+
 declarations context env (ImplementationItem decl :: rest) =
   (if decl.name == "_" then [] else if decl.generated then
     [RefersTo decl.nameSpan (context.localTarget decl.definitionNameSpan)] else

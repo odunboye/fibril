@@ -1,0 +1,33 @@
+module Algebra
+
+export
+interface Semigroup (0 A : Type 0) : Type 0 where
+  constructor MkSemigroup
+  eliminator useSemigroup
+  combine : (1 left : A) -> (1 right : A) -> A
+
+export
+interface Monoid (0 A : Type 0) : Type 0 where
+  constructor MkMonoid
+  eliminator useMonoid
+  merge : (1 left : A) -> (1 right : A) -> A
+  identity : A
+
+export
+concatThree : (0 A : Type 0) ->
+  (dictionary : Semigroup A) ->
+  (1 left : A) ->
+  (1 middle : A) ->
+  (1 right : A) ->
+  A
+concatThree = \(0 A : Type 0) =>
+  \(dictionary : Semigroup A) =>
+    \(1 left : A) =>
+      \(1 middle : A) =>
+        \(1 right : A) => combine A dictionary (combine A dictionary left middle) right
+
+export
+withIdentity : (0 A : Type 0) -> (dictionary : Monoid A) -> (1 value : A) -> A
+withIdentity = \(0 A : Type 0) =>
+  \(dictionary : Monoid A) =>
+    \(1 value : A) => merge A dictionary (identity A dictionary) value

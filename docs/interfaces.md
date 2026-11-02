@@ -184,8 +184,8 @@ Implementation order:
    construction/elimination and resource-budgeted source records implemented; erased parameters implemented;
    typed consuming patterns, explicit safe projections and singleton wrappers implemented; dot-field syntax and nominality decisions pending) and all affected core infrastructure.
 3. Implemented: explicit operational interfaces, automatic checked method getters
-   and named dictionary implementations, including negative method checks. No
-   inferred method blocks or instance registry.
+   and named dictionary implementations, including [method-value blocks](implementation-blocks.md)
+   and negative method checks. No instance registry or inferred method arguments.
 4. Law representation once equality supports it; distinguish data from proofs.
 5. Constrained functions, bounded/coherent lookup, then generic operators.
 

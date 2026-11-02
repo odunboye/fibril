@@ -99,6 +99,18 @@ checks =
                   _ => False)
               _ => False
             _ => False)
+  , ("method blocks retain authored values and consume only their real binding slot",
+      let source = "module A\ninterface I : Type 0 where\n  constructor MkI\n  method : Bool\nimplementation i : I where\n  method = True\n"
+       in case parseDocument 4 256 source of
+            Right document => case document.body of
+              DeclarationDocument authored@[InterfaceItem _, ImplementationBlock block] =>
+                block.name.spelling == "i" && map (\method => method.name.spelling) block.methods == ["method"] &&
+                map name (bindingSites (ImplementationBlock block)) == ["i"] &&
+                (case (elaborateDeclarationsWithBudget 28 4 authored, elaborateDeclarationsWithBudget 29 4 authored) of
+                  (Left _, Right declarations) => map name declarations == ["I", "MkI", "method", "i"]
+                  _ => False)
+              _ => False
+            _ => False)
   , ("requested projections retain actual name selections",
       case documentSymbols "module A\nexport\nrecord R : Type 0 where\n  constructor MkR\n  eliminator useR\n  x : Bool\n  y : Bool\n  projection getX x\n" of
         Right [ty, ctor, elim, getter] => getter.name == "getX" && getter.exported &&

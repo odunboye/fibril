@@ -25,7 +25,8 @@ Implemented:
 - `src/Fibril/Source/Declaration.idr`: authored declaration/record grammar and binding-site quotas, with ordinary-only legacy adapters; no record expansion or elaborator dependency.
 - `src/Fibril/Source/Format.idr` / `Source/Shape.idr`: conservative source-token gap formatting with reparsing and structural comparison, distinct from IR printing and checking.
 - `src/Fibril/Source/Declaration/Syntax.idr`: authored record ASTs, actual binding sites, and lowered named IR data.
-- `src/Fibril/Elaboration/Declaration.idr`: declaration admission, record expansion, source origins and ordinary typed-let lowering for the compiler pipeline.
+- `src/Fibril/Elaboration/Interface.idr`: interface layout schemas, scoped local lookup and exported schema data; imported metadata is published only after dependency checking.
+- `src/Fibril/Elaboration/Declaration.idr`: schema-guided named method-block lowering, declaration admission, record expansion, source origins and ordinary typed-let lowering for the compiler pipeline.
 - `src/Fibril/Source/Parser.idr`: bounded expression grammar with flat Unit-result do sequencing.
 - `src/Fibril/Source/Resolve.idr`: compatibility facade for contextual expression elaboration; arbitrary untyped name-vector entrypoints retain lexical behavior.
 - `src/Fibril/Elaboration/Expression.idr`: contextual names-to-core elaboration, typed lets/do lowering and bounded constant/dependent motive inference for typed unary/binary patterns; original core values still need independent checking.

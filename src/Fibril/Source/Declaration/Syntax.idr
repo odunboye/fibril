@@ -67,8 +67,24 @@ record RecordDeclaration where
   exported : Bool
 
 public export
+record MethodDefinition where
+  constructor MethodBody
+  name : Token
+  value : Expr
+
+public export
+record ImplementationDefinition where
+  constructor ImplementationSyntax
+  span : SourceSpan
+  name : Token
+  target : Expr
+  methods : List MethodDefinition
+  exported : Bool
+
+public export
 data AuthoredDeclaration = Ordinary Declaration | RecordItem RecordDeclaration
                          | InterfaceItem RecordDeclaration | ImplementationItem Declaration
+                         | ImplementationBlock ImplementationDefinition
 
 public export
 declarationExported : AuthoredDeclaration -> Bool
@@ -76,6 +92,7 @@ declarationExported (Ordinary decl) = decl.exported
 declarationExported (RecordItem sourceRecord) = sourceRecord.exported
 declarationExported (InterfaceItem sourceRecord) = sourceRecord.exported
 declarationExported (ImplementationItem decl) = decl.exported
+declarationExported (ImplementationBlock block) = block.exported
 
 public export
 isRecord : AuthoredDeclaration -> Bool
@@ -117,6 +134,8 @@ public export
 bindingSites : AuthoredDeclaration -> List BindingSite
 bindingSites (Ordinary decl) =
   [Binding decl.name decl.quantity decl.span decl.nameSpan decl.definitionNameSpan decl.exported]
+bindingSites (ImplementationBlock block) =
+  [Binding block.name.spelling Unrestricted block.span block.name.span block.name.span block.exported]
 bindingSites (ImplementationItem decl) =
   [Binding decl.name decl.quantity decl.span decl.nameSpan decl.definitionNameSpan decl.exported]
 bindingSites (InterfaceItem sourceRecord) =
@@ -132,3 +151,4 @@ ordinaryDeclarations (Ordinary decl :: rest) = decl :: ordinaryDeclarations rest
 ordinaryDeclarations (RecordItem _ :: rest) = ordinaryDeclarations rest
 ordinaryDeclarations (InterfaceItem _ :: rest) = ordinaryDeclarations rest
 ordinaryDeclarations (ImplementationItem decl :: rest) = decl :: ordinaryDeclarations rest
+ordinaryDeclarations (ImplementationBlock _ :: rest) = ordinaryDeclarations rest

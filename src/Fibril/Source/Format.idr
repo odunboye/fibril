@@ -173,6 +173,10 @@ breakpoints document = case document.body of
   DeclarationDocument authored => concatMap (\item => case item of
     Ordinary decl => planExpression document.tokens (length (unpack decl.name) + 5) decl.expected ++
                      planExpression document.tokens (length (unpack decl.name) + 3) decl.value
+    ImplementationBlock block => concatMap (\method =>
+      let indentation = minus method.name.span.start.column 1
+       in map (\(point, column) => (point, column + indentation))
+            (planExpression document.tokens (indentation + length (unpack method.name.spelling) + 3) method.value)) block.methods
     ImplementationItem decl => planExpression document.tokens (length (unpack decl.name) + 20) decl.expected ++
                                planExpression document.tokens (length (unpack decl.name) + 3) decl.value
     RecordItem _ => []

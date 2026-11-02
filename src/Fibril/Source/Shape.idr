@@ -59,6 +59,9 @@ sameProjection : RecordProjection -> RecordProjection -> Bool
 sameProjection a b = a.name.spelling == b.name.spelling && a.field.spelling == b.field.spelling
 
 sameAuthored : AuthoredDeclaration -> AuthoredDeclaration -> Bool
+sameAuthored (ImplementationBlock a) (ImplementationBlock b) =
+  a.name.spelling == b.name.spelling && a.exported == b.exported && sameExpr a.target b.target &&
+    sameList (\x, y => x.name.spelling == y.name.spelling && sameExpr x.value y.value) a.methods b.methods
 sameAuthored (Ordinary a) (Ordinary b) = a.name == b.name && a.quantity == b.quantity &&
   a.exported == b.exported && a.generated == b.generated && a.dictionary == b.dictionary && sameExpr a.expected b.expected && sameExpr a.value b.value
 sameAuthored (ImplementationItem a) (ImplementationItem b) = a.name == b.name && a.quantity == b.quantity &&

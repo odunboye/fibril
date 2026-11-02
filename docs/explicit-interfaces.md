@@ -3,8 +3,9 @@
 **Implemented prototype:** interface declarations, generated checked method
 functions, and explicitly typed named dictionary implementations. Dictionaries
 are passed explicitly. No instance search, constraints, inheritance, overloaded
-operators, nominal class identity, method-block inference or law checking is
-implemented.
+operators, nominal class identity or law checking is implemented.
+[Named method-body blocks](implementation-blocks.md) now provide schema-guided
+constructor elaboration without instance search.
 
 ![Explicit dictionary pipeline](diagrams/explicit-interfaces.svg)
 
@@ -61,9 +62,9 @@ It does not generate expression bodies or perform instance lookup.
 checked record generator: a unary wrapper for one method, dependent Sigma
 telescopes for multiple methods, and an independently checked getter per method.
 
-An implementation supplies a **complete ordinary dictionary expression**.
-It does not use a named method block, infer constructor arguments, search for
-missing methods or install a global instance. The ordinary constructor checker
+An implementation can supply a **complete ordinary dictionary expression**,
+or a [named method block](implementation-blocks.md) guided by a visible interface
+schema. Neither form searches for missing methods or installs a global instance. The ordinary constructor checker
 rejects missing fields, wrong method types and quantity mismatches.
 
 The compiler independently requires implementation globals to be unrestricted
@@ -133,6 +134,6 @@ unsafe method quantities, private groups, unused bad implementations, automatic
 getter origins, declaration budgets, formatting and execution after formatting
 the imported graph. These are prototype tests, not a soundness theorem.
 
-**Next:** named method-body elaboration/argument convenience and an explicit
-constraint/selection design. Bounded coherent search and operators come only
+**Next:** argument convenience and an explicit constraint/selection design.
+Named method-value block elaboration is now implemented. Bounded coherent search and operators come only
 after visibility, ambiguity and quantity policies are specified.

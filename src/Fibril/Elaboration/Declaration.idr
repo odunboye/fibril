@@ -7,6 +7,7 @@ import Fibril.Source.Text
 import Fibril.Source.Lexer
 import Fibril.Source.Syntax
 import Fibril.Source.Declaration.Syntax
+import Fibril.Elaboration.Interface
 
 %default total
 
@@ -379,10 +380,50 @@ admit (S slots) seen (decl :: rest) =
   if elem decl.name seen then Left (ElaborationFailure decl.nameSpan.start ("Duplicate declaration " ++ show decl.name))
      else admit slots (decl.name :: seen) rest
 
-lowerItem : Nat -> AuthoredDeclaration -> Either ElaborationError (Nat, List Declaration)
-lowerItem nodes (Ordinary decl) = Right (0, [decl])
-lowerItem nodes (RecordItem sourceRecord) = lowerRecord nodes sourceRecord
-lowerItem nodes (InterfaceItem sourceRecord) = do
+dictionaryTarget : Expr -> List Expr -> Maybe (String, List Expr)
+dictionaryTarget (NApply _ function argument) args = dictionaryTarget function (argument :: args)
+dictionaryTarget (NRef _ name) args = Just (name, args)
+dictionaryTarget (NQualifiedRef _ name) args = Just (name, args)
+dictionaryTarget _ args = Nothing
+
+validateMethods : List String -> List String -> List MethodDefinition -> Either ElaborationError ()
+validateMethods allowed seen [] = Right ()
+validateMethods allowed seen (method :: rest) = do
+  if elem method.name.spelling seen
+     then Left (ElaborationFailure method.name.span.start "Duplicate implementation method") else Right ()
+  if not (elem method.name.spelling allowed)
+     then Left (ElaborationFailure method.name.span.start ("Unknown implementation method " ++ method.name.spelling)) else Right ()
+  validateMethods allowed (method.name.spelling :: seen) rest
+
+lowerImplementation : List InterfaceSchema -> Nat -> ImplementationDefinition -> Either ElaborationError (Nat, List Declaration)
+lowerImplementation schemas budget block = do
+  (target, args) <- case dictionaryTarget block.target [] of
+    Nothing => Left (ElaborationFailure (extent block.target).start "Implementation block target must name a visible interface")
+    Just result => Right result
+  schema <- case find (\schema => schema.name == target) schemas of
+    Nothing => Left (ElaborationFailure (extent block.target).start
+      "Interface schema unavailable for method block; use a visible interface or an explicit dictionary expression")
+    Just schema => Right schema
+  if length args /= schema.parameterCount
+     then Left (ElaborationFailure (extent block.target).start "Implementation block interface parameters must be explicit") else Right ()
+  validateMethods schema.methods [] block.methods
+  values <- traverse (\method => case find (\body => body.name.spelling == method) block.methods of
+    Nothing => Left (ElaborationFailure block.name.span.start ("Missing implementation method " ++ method))
+    Just body => Right body.value) schema.methods
+  let arguments = args ++ values
+  let cost = foldl (\accum, value => capped (accum + 1 + syntaxNodes value))
+               (capped (1 + syntaxNodes block.target)) arguments
+  if cost > budget
+     then Left (ElaborationFailure block.name.span.start "Generated declaration construction budget exhausted") else Right ()
+  let value = foldl (NApply block.span) (NQualifiedRef block.name.span schema.constructorName) arguments
+  let generated = { dictionary := True } (Declared True block.span block.name.span block.name.span
+                    block.exported Unrestricted block.name.spelling block.target value)
+  Right (cost, [generated])
+
+lowerItem : List InterfaceSchema -> Nat -> AuthoredDeclaration -> Either ElaborationError (Nat, List Declaration)
+lowerItem schemas nodes (Ordinary decl) = Right (0, [decl])
+lowerItem schemas nodes (RecordItem sourceRecord) = lowerRecord nodes sourceRecord
+lowerItem schemas nodes (InterfaceItem sourceRecord) = do
   if not (null sourceRecord.projections)
      then Left (ElaborationFailure sourceRecord.span.start "Interface methods generate getters; explicit projections are not allowed") else Right ()
   traverse_ (\field => if field.quantity /= Unrestricted
@@ -390,26 +431,35 @@ lowerItem nodes (InterfaceItem sourceRecord) = do
     else Right ()) sourceRecord.fields
   let methods = map (\field => Projected field.token field.token field.token) sourceRecord.fields
   lowerRecord nodes ({ projections := methods } sourceRecord)
-lowerItem nodes (ImplementationItem decl) =
+lowerItem schemas nodes (ImplementationItem decl) =
   if decl.quantity /= Unrestricted
      then Left (ElaborationFailure decl.nameSpan.start "Implementations require unrestricted named dictionary values")
      else Right (0, [{ dictionary := True } decl])
 
+lowerItem schemas nodes (ImplementationBlock block) = lowerImplementation schemas nodes block
+
 authoredPosition : AuthoredDeclaration -> Position
 authoredPosition (Ordinary decl) = decl.nameSpan.start
 authoredPosition (ImplementationItem decl) = decl.nameSpan.start
+authoredPosition (ImplementationBlock block) = block.name.span.start
 authoredPosition (RecordItem sourceRecord) = sourceRecord.name.span.start
 authoredPosition (InterfaceItem sourceRecord) = sourceRecord.name.span.start
 
-lower : Nat -> Nat -> List String -> List AuthoredDeclaration -> Either ElaborationError (List Declaration)
-lower nodes slots seen [] = Right []
-lower nodes slots seen (item :: rest) = do
+lower : Maybe String -> List InterfaceSchema -> Nat -> Nat -> List String -> List AuthoredDeclaration -> Either ElaborationError (List Declaration)
+lower moduleName schemas nodes slots seen [] = Right []
+lower moduleName schemas nodes slots seen (item :: rest) = do
   if length (bindingSites item) > slots
      then Left (ElaborationFailure (authoredPosition item) "Elaborated declaration budget exhausted") else Right ()
-  (used, declarations) <- lowerItem nodes item
+  (used, declarations) <- lowerItem schemas nodes item
   (remaining, names) <- admit slots seen declarations
-  following <- lower (minus nodes used) remaining names rest
+  let visible = case item of InterfaceItem authored => localSchemas moduleName authored ++ schemas; _ => schemas
+  following <- lower moduleName visible (minus nodes used) remaining names rest
   Right (declarations ++ following)
+
+||| Imported schemas are supplied only from checked direct dependencies by drivers.
+public export
+elaborateDeclarationsIn : Maybe String -> List InterfaceSchema -> Nat -> List AuthoredDeclaration -> Either ElaborationError (List Declaration)
+elaborateDeclarationsIn moduleName schemas slots = lower moduleName schemas defaultConstructionBudget slots []
 
 ||| Ordinary headerless declarations retain their nonrecursive typed-let lowering.
 public export
@@ -422,10 +472,10 @@ lowerDeclarations end (decl :: rest) =
 ||| Pure, bounded lowering. This validates declaration policy, not core typing.
 public export
 elaborateDeclarations : Nat -> List AuthoredDeclaration -> Either ElaborationError (List Declaration)
-elaborateDeclarations budget = lower defaultConstructionBudget budget []
+elaborateDeclarations budget = lower Nothing [] defaultConstructionBudget budget []
 
 ||| Override the generated-IR budget (up to the default safety ceiling).
 ||| Source and expanded-core/checker limits remain independent.
 public export
 elaborateDeclarationsWithBudget : Nat -> Nat -> List AuthoredDeclaration -> Either ElaborationError (List Declaration)
-elaborateDeclarationsWithBudget nodes slots = lower (min nodes defaultConstructionBudget) slots []
+elaborateDeclarationsWithBudget nodes slots = lower Nothing [] (min nodes defaultConstructionBudget) slots []

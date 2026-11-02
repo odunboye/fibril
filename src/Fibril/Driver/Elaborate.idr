@@ -9,6 +9,7 @@ import Fibril.Source.Declaration
 import Fibril.Source.Diagnostic
 import Fibril.Source.Lexer
 import Fibril.Elaboration.Declaration
+import Fibril.Elaboration.Interface
 import Fibril.Elaboration.Pretty
 import Fibril.Driver.Check
 import Fibril.Driver.JSON
@@ -35,7 +36,8 @@ elaborationReport source = do
     Left (SymbolParsing err) => Left (FrontendFailure (Parsing err))
     Right document => Right document
   declarations <- case document.body of
-    DeclarationDocument authored => case elaborateDeclarations 64 authored of
+    DeclarationDocument authored => case elaborateDeclarationsIn
+      (map (\header => concat (intersperse "." header.components)) document.moduleHeader) [] 64 authored of
       Left err => Left (FrontendFailure (Elaborating err))
       Right declarations => Right declarations
     _ => Right []

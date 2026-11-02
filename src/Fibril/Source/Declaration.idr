@@ -172,14 +172,51 @@ parseRecordLike kind budget end tokens = do
   let authored = RecordSyntax region name level params constructorKeyword constructorName eliminator fields projections False
   Right (if kind == InterfaceKeyword then InterfaceItem authored else RecordItem authored, rest)
 
+methodBodies : Nat -> Nat -> Nat -> Position -> List Token ->
+               Either ParseError (List MethodDefinition, List Token)
+methodBodies fuel expressions indent end [] = Right ([], [])
+methodBodies fuel expressions indent end tokens@(first :: _) =
+  if first.span.start.column <= 1 then Right ([], tokens) else case fuel of
+    Z => Left (ParseFailure first.span.start "Implementation method token budget exhausted")
+    S fuel => do
+      if first.span.start.column /= indent
+         then Left (ParseFailure first.span.start "Implementation methods must align") else Right ()
+      let (frame, following) = span (\token => token.span.start.line == first.span.start.line || token.span.start.column > indent) tokens
+      (name, afterName) <- expect Name end frame
+      (equals, valueTokens) <- expect Equals end afterName
+      if equals.span.start.line /= name.span.start.line
+         then Left (ParseFailure equals.span.start "Method name and = must share their header line") else Right ()
+      value <- parseExpression expressions (nextPosition end following) valueTokens
+      (rest, remaining) <- methodBodies fuel expressions indent end following
+      Right (MethodBody name value :: rest, remaining)
+
+parseImplementationBlock : Nat -> Position -> Token -> List Token -> List Token ->
+                           Either ParseError (AuthoredDeclaration, List Token)
+parseImplementationBlock budget end keyword header following = do
+  (name, rest) <- expect Name end header
+  (_, rest) <- expect Colon end rest
+  let (typeTokens, whereTokens) = break (\token => token.kind == WhereKeyword) rest
+  (_, afterWhere) <- expect WhereKeyword end whereTokens
+  if not (null afterWhere)
+     then Left (ParseFailure (nextPosition end afterWhere) "where must end the implementation header") else Right ()
+  target <- parseExpression budget (nextPosition end following) typeTokens
+  let indent = case following of token :: _ => token.span.start.column; [] => 0
+  (methods, remaining) <- methodBodies (length following) budget indent end following
+  if null methods then Left (ParseFailure name.span.start "Implementation blocks require at least one method") else Right ()
+  let finish = case reverse methods of method :: _ => (extent method.value).finish; [] => name.span.finish
+  Right (ImplementationBlock (ImplementationSyntax (Between keyword.span.start finish) name target methods False), remaining)
+
 parseImplementation : Nat -> Position -> List Token -> Either ParseError (AuthoredDeclaration, List Token)
 parseImplementation budget end [] = Left (ParseFailure end "Expected implementation declaration")
 parseImplementation budget end (keyword :: rest) = do
   let position = nextPosition end rest
   if keyword.span.start.column /= 1 || position.line /= keyword.span.start.line
      then Left (ParseFailure keyword.span.start "Expected implementation name : DictionaryType on a column-one header") else Right ()
-  (decl, remaining) <- parsePairAt position.column budget end rest
-  Right (ImplementationItem ({ dictionary := True, span := Between keyword.span.start decl.span.finish } decl), remaining)
+  let (header, following) = span (\token => token.span.start.line == keyword.span.start.line) rest
+  if any (\token => token.kind == WhereKeyword) header
+     then parseImplementationBlock budget end keyword header following else do
+       (decl, remaining) <- parsePairAt position.column budget end rest
+       Right (ImplementationItem ({ dictionary := True, span := Between keyword.span.start decl.span.finish } decl), remaining)
 
 
 parseOne : Nat -> Position -> List Token -> Either ParseError (AuthoredDeclaration, List Token)
@@ -196,6 +233,7 @@ parseOne budget end tokens@(token :: rest) =
           RecordItem sourceRecord => sourceRecord.span.start
           InterfaceItem sourceRecord => sourceRecord.span.start
           ImplementationItem decl => decl.span.start
+          ImplementationBlock block => block.span.start
     if start.line <= token.span.start.line
        then Left (ParseFailure start "export must precede the declaration on its own line") else Right ()
     let marked = case item of
@@ -203,6 +241,7 @@ parseOne budget end tokens@(token :: rest) =
           RecordItem sourceRecord => RecordItem ({ exported := True, span := Between token.span.start sourceRecord.span.finish } sourceRecord)
           InterfaceItem sourceRecord => InterfaceItem ({ exported := True, span := Between token.span.start sourceRecord.span.finish } sourceRecord)
           ImplementationItem decl => ImplementationItem ({ exported := True, span := Between token.span.start decl.span.finish } decl)
+          ImplementationBlock block => ImplementationBlock ({ exported := True, span := Between token.span.start block.span.finish } block)
     Right (marked, remaining)
   else if token.kind == RecordKeyword || token.kind == InterfaceKeyword then parseRecordLike token.kind budget end tokens
   else if token.kind == ImplementationKeyword then parseImplementation budget end tokens
