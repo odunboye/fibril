@@ -26,6 +26,7 @@ Implemented:
 - `src/Fibril/Source/Parser.idr`: bounded expression grammar with flat Unit-result do sequencing.
 - `src/Fibril/Source/Resolve.idr`: lexical/global names to scoped core, ascriptions, typed lets, and do lowering.
 - `src/Fibril/Driver/JSON.idr`: shared escaped JSON strings, objects, positions, and protocol envelope.
+- `src/Fibril/Driver/Reference.idr`: tagged built-in documentation and real bundled Prelude definition snapshots, with lexical shadowing and no guessed primitive source locations.
 - `src/Fibril/Driver/ProjectNavigation.idr`: checked project definition preparation and version-2 source-aware targets, sharing generic lexical traversal with same-file navigation.
 - `src/Fibril/Driver/ProjectReport.idr`: version-2 project check reporting with source snapshots, real file identities, scalar/byte separation, and no v1 location coercion.
 - `src/Fibril/Driver/CheckReport.idr`: structured check outcomes with genuine frontend points and explicitly unlocated core/file failures.

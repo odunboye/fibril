@@ -294,6 +294,11 @@ text or applying a snapshot jump, canonical aliases,
 malformed query/target/range/snapshot packets without movement/list changes, and
 command/Plug cleanup. Compiler tests alone do not validate editor conversion.
 
+Reference lookup tests distinguish built-in documentation from actual bundled
+Prelude declaration spans, reject lexical shadowing/comment/string/qualified-name
+false links, and exercise readonly scratch displays through real Vim/Neovim.
+These are reference metadata tests, not program acceptance or metatheory proofs.
+
 ## Hedgehog dependency
 
 Repository: https://github.com/stefan-hoeck/idris2-hedgehog

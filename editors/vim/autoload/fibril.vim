@@ -123,7 +123,7 @@ function! fibril#definition() abort
     return 0
   endif
   if response.value is v:null
-    return s:warn('no same-file definition at the cursor')
+    return fibril#reference()
   endif
   try
     let item = s:location(response.value)
@@ -423,7 +423,7 @@ function! fibril#definition_project(root, entry) abort
     endif
     let target = response.value
     if target is v:null
-      return s:warn('no project definition at the cursor')
+      return fibril#reference()
     endif
     if type(target) != v:t_dict || type(get(target, 'path', 0)) != v:t_string ||
           \ !has_key(contexts, target.path) || type(get(target, 'range', 0)) != v:t_dict ||
@@ -459,6 +459,69 @@ function! fibril#definition_project(root, entry) abort
     return 1
   catch
     return s:warn('project definition refused: ' . v:exception)
+  endtry
+endfunction
+
+" Display compiled reference data, never a guessed filesystem definition.
+function! fibril#reference() abort
+  let response = s:request('reference')
+  if empty(response)
+    return 0
+  endif
+  try
+    let target = response.value
+    if target is v:null
+      return s:warn('no built-in or Prelude reference at the cursor')
+    endif
+    if type(target) != v:t_dict || type(get(target, 'name', 0)) != v:t_string ||
+          \ empty(target.name) || strlen(target.name) > 256
+      throw 'Invalid reference identity'
+    endif
+    let kind = get(target, 'kind', '')
+    let position = [1, 1]
+    if kind ==# 'builtin-documentation'
+      let lines = get(target, 'lines', 0)
+      if type(lines) != v:t_list || empty(lines) || len(lines) > 64
+        throw 'Invalid built-in reference'
+      endif
+      for text in lines
+        if type(text) != v:t_string || strlen(text) > 4096 || stridx(text, "\n") >= 0
+          throw 'Invalid reference line'
+        endif
+      endfor
+      let lines = ['Built-in reference: ' . target.name, '(documentation, not a source declaration)', ''] + lines
+      let title = 'Fibril reference: ' . target.name
+    elseif kind ==# 'bundled-prelude-source'
+      if type(get(target, 'source', 0)) != v:t_string || strlen(target.source) > 65536 ||
+            \ type(get(target, 'range', 0)) != v:t_dict
+        throw 'Invalid Prelude snapshot'
+      endif
+      let context = s:source_context(target.source)
+      let position = s:definition_position(get(target.range, 'start', 0), context)
+      call s:definition_position(get(target.range, 'end', 0), context)
+      if target.range.start.line != target.range.end.line ||
+            \ target.range.start.column >= target.range.end.column
+        throw 'Invalid Prelude name range'
+      endif
+      let lines = context.lines
+      let title = 'Fibril Prelude (bundled source snapshot)'
+    else
+      throw 'Unsupported reference kind'
+    endif
+    botright vnew
+    setlocal buftype=nofile bufhidden=wipe noswapfile nomodeline
+    execute 'file ' . fnameescape(title . ' #' . bufnr('%'))
+    call setline(1, lines)
+    if kind ==# 'bundled-prelude-source'
+      setlocal filetype=fibril
+    else
+      setlocal filetype=text
+    endif
+    setlocal nomodifiable readonly nomodified
+    call cursor(position[0], position[1])
+    return 1
+  catch
+    return s:warn('reference refused: ' . v:exception)
   endtry
 endfunction
 

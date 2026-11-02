@@ -58,7 +58,7 @@ There is no published remote plugin repository to install yet.
    elsewhere, `:echo stdpath('config')` shows its root; use its `lua/plugins/`
    directory instead.
 2. Build the compiler with make build in the Fibril checkout. Add the following,
-   replacing both absolute paths with your checkout location. The gd/gr and
+   replacing both absolute paths with your checkout location. The gd/gD/gr/K and
    <leader>cr/<leader>ck/<leader>cK mappings are optional and affect only Fibril buffers. The <leader>cr mapping
    replaces LazyVim's usual rename action in those buffers with a preview:
 
@@ -78,6 +78,9 @@ return {
         callback = function()
           vim.keymap.set("n", "gd", "<Plug>(FibrilDefinition)", {
             buffer = true, remap = true, desc = "Fibril: go to definition",
+          })
+          vim.keymap.set("n", "K", "<Plug>(FibrilReference)", {
+            buffer = true, remap = true, desc = "Fibril: built-in / Prelude reference",
           })
           vim.keymap.set("n", "gD", "<Plug>(FibrilDefinitionProject)", {
             buffer = true, remap = true, desc = "Fibril: project definition",
@@ -322,6 +325,46 @@ after display. Project buffers with unsaved changes are not checked.
 Project-wide references/rename, automatic loading from diagnostic lists, LSP,
 cancellation, and incremental checking remain separate work.
 
+## Built-in and Prelude references
+
+Use :FibrilReference (or the optional LazyVim K mapping above) on a supported
+built-in or an unshadowed Prelude name. Both definition commands fall back to
+this service when no source definition is found.
+
+- String, Unit, Bool, Type, and IO open concise **documentation**, not invented
+  source definitions. IO is a primitive constructor; it is not declared in
+  Prelude.fib. Primitive prim* names have an infrastructure reference too.
+- putStrLn, pure, bind, map, String/Bool wrappers, and other ordinary Prelude
+  names open the actual declaration in the compiler's **bundled Prelude source
+  snapshot**, positioned at its definition name.
+
+Both views are read-only, nonmodifiable scratch splits without swapfiles or
+source writes. Close with :close. The source snapshot is explicitly labelled:
+it is not a guessed filesystem path or necessarily the current checkout's
+stdlib/Prelude.fib. It is the embedded source used by that compiler build.
+It is not an editable workspace file; return to the original source for further
+compiler queries.
+
+Lookup parses the document and respects lexical shadowing. A local IO or
+putStrLn does not become a primitive/Prelude link. Comments, strings, qualified
+references, module headers, and unknown names are not text-matched into links.
+This is syntax/lexical reference information, not program acceptance, a proof,
+or a complete language-keyword manual. Incomplete syntax may still reject the
+request. No general hover server, LSP, web lookup, or native effect execution is
+involved. The optional <Plug>(FibrilReference) mapping has no default key and is
+removed with the buffer-local command by the undo hook.
+
+The corresponding compiler API is:
+
+~~~sh
+./build/exec/fibril reference LINE COLUMN PATH
+~~~
+
+Version-1 JSON contains reference: null or a tagged object:
+builtin-documentation has name/lines and no source range;
+bundled-prelude-source has name/source/range. The range belongs to the supplied
+bundled source, never to the query buffer.
+
 ## Project definitions in the editor
 
 Use :FibrilDefinitionProject for checked source-aware lookup; the ordinary
@@ -409,7 +452,7 @@ FibrilDefinitionProject consumes this version-2 API with snapshot validation and
 validated automatic target opening. The ordinary version-1 definition client remains
 separate and rejects version 2 rather than attach a dependency span to the
 current buffer. Project-wide
-references, rename, prelude-source navigation, stable symbol IDs, and incremental
+references, rename, stable symbol IDs, and incremental
 caching remain separate work.
 
 ## Parsed document symbols
@@ -685,5 +728,6 @@ Editor columns in these tests are UTF-8 bytes, unlike compiler scalar positions.
 
 Normal make test/build has no editor dependency. Future work is a grammar-backed
 incremental highlighter and compiler-provided semantic tokens/symbol identities.
-Cross-file/prelude definitions, project-wide references/rename, LSP UTF-16
-conversion, and Tree-sitter-based folding/selections remain unimplemented.
+Project-wide references/rename, LSP UTF-16 conversion, and Tree-sitter-based
+folding/selections remain unimplemented. Checked cross-file definition navigation
+and read-only bundled Prelude references are implemented as described above.

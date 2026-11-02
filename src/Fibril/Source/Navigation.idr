@@ -26,6 +26,7 @@ record Walker (destination : Type) where
   tokens : List Token
   localTarget : SourceSpan -> destination
   qualifiedTarget : String -> Maybe destination
+  globalTarget : String -> Maybe destination
 
 Environment : Type -> Type
 Environment destination = List (String, Maybe destination)
@@ -56,7 +57,10 @@ self context (Just span) = [RefersTo span (context.localTarget span)]
 
 walk : Walker destination -> Environment destination -> Expr -> List (ReferenceTo destination)
 walk context env (NRef span name) =
-  case (nameToken name span context.tokens, lexicalTarget name env) of
+  let target = case lexicalTarget name env of
+        Just target => Just target
+        Nothing => if any (\entry => fst entry == name) env then Nothing else context.globalTarget name
+   in case (nameToken name span context.tokens, target) of
     (Just origin, Just target) => [RefersTo origin target]
     _ => []
 -- Only the final identifier is selectable, not module qualifiers or dots.
@@ -105,17 +109,24 @@ declarations context env (decl :: rest) =
   walk context env decl.expected ++ walk context env decl.value ++
   declarations context ((decl.name, Just (context.localTarget decl.definitionNameSpan)) :: env) rest
 
-||| Shared traversal over parsed data, not a checking certificate. Qualified
-||| lookup and source-aware target identity are supplied by the caller.
+||| Shared traversal with lexical shadowing before unqualified global lookup.
 public export
-documentReferencesUsing : (SourceSpan -> destination) -> (String -> Maybe destination) ->
-                          ParsedDocument -> List (ReferenceTo destination)
-documentReferencesUsing local qualified document =
-  let context = Walking document.tokens local qualified
+documentReferencesWithGlobals : (SourceSpan -> destination) -> (String -> Maybe destination) ->
+                               (String -> Maybe destination) -> ParsedDocument ->
+                               List (ReferenceTo destination)
+documentReferencesWithGlobals local globals qualified document =
+  let context = Walking document.tokens local qualified globals
    in case document.body of
         EmptyDocument => []
         DeclarationDocument values => declarations context [] values
         ExpressionDocument value => walk context [] value
+
+||| Shared traversal over parsed data, not a checking certificate.
+public export
+documentReferencesUsing : (SourceSpan -> destination) -> (String -> Maybe destination) ->
+                          ParsedDocument -> List (ReferenceTo destination)
+documentReferencesUsing local qualified document =
+  documentReferencesWithGlobals local (const Nothing) qualified document
 
 ||| Source-order, nonrecursive declarations and nearest lexical binders only.
 ||| Unresolved/prelude names have no local target. No type-checking claim.

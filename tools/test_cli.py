@@ -193,6 +193,44 @@ class CLITests(unittest.TestCase):
         self.assertEqual(result.stdout, "")
         self.assertIn("use eval", result.stderr)
 
+    def test_builtin_and_prelude_references(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "Reference.fib"
+            def reference(source, token, skip=0):
+                path.write_text(source, encoding="utf-8")
+                offset = source.index(token) + skip
+                line = source[:offset].count("\n") + 1
+                column = len(source[:offset].rsplit("\n", 1)[-1]) + 1
+                result = run("reference", str(line), str(column), str(path))
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                return json.loads(result.stdout)["reference"]
+            for name in ("String", "Unit", "Bool", "Type"):
+                target = reference(name + (" 0" if name == "Type" else ""), name)
+                self.assertEqual(target["kind"], "builtin-documentation")
+                self.assertEqual(target["name"], name)
+                self.assertNotIn("range", target)
+            target = reference("IO Unit", "IO")
+            self.assertEqual(target["kind"], "builtin-documentation")
+            self.assertIn("Compiler primitive", " ".join(target["lines"]))
+            for name in ("putStrLn", "pure", "bind", "map", "appendString"):
+                target = reference(name, name)
+                self.assertEqual(target["kind"], "bundled-prelude-source")
+                source = target["source"]
+                start = target["range"]["start"]["offset"]
+                end = target["range"]["end"]["offset"]
+                self.assertEqual(source[start:end], name)
+                self.assertTrue(source[end:].startswith(" ="))
+                self.assertEqual(source, (ROOT / "stdlib/Prelude.fib").read_text())
+            for source, token, skip in [
+                ('"String IO putStrLn"', "IO", 0),
+                ("-- IO\nTrue", "IO", 0),
+                ("\\(1 IO : String) => IO", "=> IO", 3),
+                ("putStrLn : String\nputStrLn = \"local\"\nmain : String\nmain = putStrLn",
+                 "main = putStrLn", 7),
+                ("Text.putStrLn", "putStrLn", 0),
+            ]:
+                self.assertIsNone(reference(source, token, skip))
+
     def test_checked_project_definition_queries(self):
         for ending in ("\n", "\r\n"):
             with self.subTest(ending=ending), tempfile.TemporaryDirectory(prefix="definitions 'quoted' ") as directory:
