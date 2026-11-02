@@ -85,7 +85,7 @@ Field counts still have no fixed maximum; generated-IR, source, declaration and
 checker budgets apply. Empty records remain rejected. Binary records retain
 their existing Sigma representation, and wider records retain linear nested
 tails. Typed source case patterns now support one unary binder, with an explicit
-return or [bounded independent-result inference](pattern-inference.md).
+return or [bounded motive inference](pattern-inference.md).
 
 Identity remains structural: two singleton records with equal normalized field
 types/quantities are compatible, but neither is its naked payload type or a

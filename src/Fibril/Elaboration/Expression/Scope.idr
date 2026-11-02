@@ -47,32 +47,41 @@ public export
 inferredResultNodes : Nat
 inferredResultNodes = 512
 
-||| Saturated counting for inference admission, not an allocation guarantee.
+-- Preserve locally bound variables when estimating a substitution under binders.
+liftWeights : (Fin n -> Nat) -> Fin (S n) -> Nat
+liftWeights env FZ = 1
+liftWeights env (FS i) = env i
+
+||| Saturated size of a substitution tree, before building it.
+public export
+substitutionNodes : (Fin n -> Nat) -> Term n -> Nat
+substitutionNodes env (Variable i) = min (S inferredResultNodes) (env i)
+substitutionNodes env (Universe _) = 1
+substitutionNodes env UnitType = 1
+substitutionNodes env UnitValue = 1
+substitutionNodes env BoolType = 1
+substitutionNodes env BoolTrue = 1
+substitutionNodes env BoolFalse = 1
+substitutionNodes env StringType = 1
+substitutionNodes env (StringValue _) = 1
+substitutionNodes env (StringAppend a b) = min (S inferredResultNodes) (1 + substitutionNodes env a + substitutionNodes env b)
+substitutionNodes env (StringEqual a b) = min (S inferredResultNodes) (1 + substitutionNodes env a + substitutionNodes env b)
+substitutionNodes env (BoolCase a b c) = min (S inferredResultNodes) (1 + substitutionNodes env a + substitutionNodes env b + substitutionNodes env c)
+substitutionNodes env (IOType a) = min (S inferredResultNodes) (1 + substitutionNodes env a)
+substitutionNodes env (IOPure a) = min (S inferredResultNodes) (1 + substitutionNodes env a)
+substitutionNodes env (WriteLine a) = min (S inferredResultNodes) (1 + substitutionNodes env a)
+substitutionNodes env (IOBind a b c d) = min (S inferredResultNodes) (1 + substitutionNodes env a + substitutionNodes env b + substitutionNodes env c + substitutionNodes env d)
+substitutionNodes env (BoxType _ a) = min (S inferredResultNodes) (1 + substitutionNodes env a)
+substitutionNodes env (BoxValue a b) = min (S inferredResultNodes) (1 + substitutionNodes env a + substitutionNodes env b)
+substitutionNodes env (BoxCase a b c) = min (S inferredResultNodes) (1 + substitutionNodes env a + substitutionNodes env b + substitutionNodes env c)
+substitutionNodes env (Sigma _ _ a b) = min (S inferredResultNodes) (1 + substitutionNodes env a + substitutionNodes (liftWeights env) b)
+substitutionNodes env (PairValue a b c) = min (S inferredResultNodes) (1 + substitutionNodes env a + substitutionNodes env b + substitutionNodes env c)
+substitutionNodes env (PairCase a b c) = min (S inferredResultNodes) (1 + substitutionNodes env a + substitutionNodes env b + substitutionNodes env c)
+substitutionNodes env (Pi _ a b) = min (S inferredResultNodes) (1 + substitutionNodes env a + substitutionNodes (liftWeights env) b)
+substitutionNodes env (Lambda _ a b) = min (S inferredResultNodes) (1 + substitutionNodes env a + substitutionNodes (liftWeights env) b)
+substitutionNodes env (Apply a b) = min (S inferredResultNodes) (1 + substitutionNodes env a + substitutionNodes env b)
+substitutionNodes env (UnitCase a b) = min (S inferredResultNodes) (1 + substitutionNodes env a + substitutionNodes env b)
+
 public export
 typeNodes : Term n -> Nat
-typeNodes (Variable _) = 1
-typeNodes (Universe _) = 1
-typeNodes UnitType = 1
-typeNodes UnitValue = 1
-typeNodes BoolType = 1
-typeNodes BoolTrue = 1
-typeNodes BoolFalse = 1
-typeNodes StringType = 1
-typeNodes (StringValue _) = 1
-typeNodes (StringAppend a b) = min (S inferredResultNodes) (1 + typeNodes a + typeNodes b)
-typeNodes (StringEqual a b) = min (S inferredResultNodes) (1 + typeNodes a + typeNodes b)
-typeNodes (BoolCase a b c) = min (S inferredResultNodes) (1 + typeNodes a + typeNodes b + typeNodes c)
-typeNodes (IOType a) = min (S inferredResultNodes) (1 + typeNodes a)
-typeNodes (IOPure a) = min (S inferredResultNodes) (1 + typeNodes a)
-typeNodes (WriteLine a) = min (S inferredResultNodes) (1 + typeNodes a)
-typeNodes (IOBind a b c d) = min (S inferredResultNodes) (1 + typeNodes a + typeNodes b + typeNodes c + typeNodes d)
-typeNodes (BoxType _ a) = min (S inferredResultNodes) (1 + typeNodes a)
-typeNodes (BoxValue a b) = min (S inferredResultNodes) (1 + typeNodes a + typeNodes b)
-typeNodes (BoxCase a b c) = min (S inferredResultNodes) (1 + typeNodes a + typeNodes b + typeNodes c)
-typeNodes (Sigma _ _ a b) = min (S inferredResultNodes) (1 + typeNodes a + typeNodes b)
-typeNodes (PairValue a b c) = min (S inferredResultNodes) (1 + typeNodes a + typeNodes b + typeNodes c)
-typeNodes (PairCase a b c) = min (S inferredResultNodes) (1 + typeNodes a + typeNodes b + typeNodes c)
-typeNodes (Pi _ a b) = min (S inferredResultNodes) (1 + typeNodes a + typeNodes b)
-typeNodes (Lambda _ a b) = min (S inferredResultNodes) (1 + typeNodes a + typeNodes b)
-typeNodes (Apply a b) = min (S inferredResultNodes) (1 + typeNodes a + typeNodes b)
-typeNodes (UnitCase a b) = min (S inferredResultNodes) (1 + typeNodes a + typeNodes b)
+typeNodes = substitutionNodes (const 1)

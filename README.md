@@ -35,8 +35,8 @@ dependent pair formation/construction/elimination are now in the core.
 A resource-budgeted named-record prototype now runs, without a fixed field-count cap; see [record foundations](docs/records.md) and [singleton rules](docs/unary-records.md). [Explicit interfaces and named implementations](docs/explicit-interfaces.md) now
 lower to checked dictionary values and method functions. Implicit dictionary
 search and algebraic-law checking remain unimplemented.
-[Typed record patterns](docs/pattern-inference.md) now infer constant motives
-for independent results; dependent results retain explicit return clauses.
+[Typed record patterns](docs/pattern-inference.md) infer constant or canonical
+dependent motives within resource bounds; explicit return clauses retain control.
 
 ## Build
 

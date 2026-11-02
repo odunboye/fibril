@@ -1,9 +1,9 @@
 # Bounded motive inference for typed record patterns
 
 **Implemented prototype:** unary and binary typed record patterns may omit the
-return motive when the branch's inferred result type is definitionally
-independent of the pattern-bound fields. The emitted core still contains an
-explicit erased motive and is independently checked.
+return motive. Independent results get a constant motive; dependent results use
+a canonical motive built from erased field extractions. Emitted terms still
+contain explicit motives and are independently checked.
 
 ~~~fibril
 recover : (0 A : Type 0) -> (1 box : Box A) -> A
@@ -11,19 +11,24 @@ recover = \(0 A : Type 0) => \(1 box : Box A) =>
   case box of (1 value : A) => value
 ~~~
 
-A can depend on outer erased parameters; it must not depend on the newly
-introduced value binder. Binary patterns retain both typed field binders:
+Binary patterns retain both typed binders. Dependent packages now work too:
 
 ~~~fibril
-render : (1 message : Message) -> String
-render = \(1 message : Message) =>
-  case message of (1 enabled : Bool) (1 text : String) =>
-    if enabled then appendString text "!" else text
+recover : (1 package : Package) -> payloadType package
+recover = \(1 package : Package) =>
+  case package of (0 Item : Type 0) (1 value : Item) => value
 ~~~
 
-[The runnable example](../examples/modules/pattern-inference/Main.fib) prints
-Inferred patterns!. Pattern domains and quantities remain explicit; there is no
-constructor-name matching or inferred field-type annotation.
+[The simple example](../examples/modules/pattern-inference/Main.fib) prints
+Inferred patterns!.
+[The dependent example](../examples/modules/pattern-inference/Dependent.fib)
+prints Dependent payload! and Dependent family!. Its second record contains
+a type and a family indexed by that type; its inferred motive uses both field
+extractions under result Pi binders.
+
+Pattern domains and quantities remain explicit. There is no constructor-name
+matching, inferred binder annotation, constructor discrimination or general
+inductive refinement.
 
 ![Contextual expression elaboration](diagrams/pattern-inference.svg)
 
@@ -31,7 +36,7 @@ constructor-name matching or inferred field-type annotation.
 
 The parser retains NInferCase with its arity, scrutinee and typed branch. It
 does not manufacture a guessed result type. Syntax-only symbols, navigation,
-formatting and named-IR inspection do not perform this inference.
+formatting and named-IR inspection do not perform contextual inference.
 
 [Elaboration.Expression](../src/Fibril/Elaboration/Expression.idr) tracks a scoped
 typed context through explicit binders, typed lets and do statements:
@@ -40,85 +45,103 @@ typed context through explicit binders, typed lets and do statements:
 2. Infer the branch type with the existing erased checker.
 3. Extract its result type after one or two field binders.
 4. Bound and normalize **that type**, not the branch value.
-5. Remove the pattern variables by partial scope transport. Dependence on any
-   removed variable is an error, including occurrences under nested binders.
-6. Build a constant motive over the unary/pair type described by the pattern.
+5. If scope strengthening removes the fields, use a constant erased motive.
+6. Otherwise substitute canonical erased field extractions for the field
+   variables in the result type, preserving outer variables and inner binders.
 7. Emit ordinary BoxCase or PairCase with the original scrutinee and branch.
 
-The core independently verifies the actual scrutinee shape, annotation domains,
+The core independently verifies actual scrutinee shape, annotation domains,
 exact field quantities, motive formation, branch type and runtime usage.
-Pattern annotations do not assert those facts. Inference acceptance alone is
-not publication or a checking certificate.
+Pattern annotations and successful inference do not certify those facts.
 
-A definitionally constant family can normalize away a field occurrence in the
-result type. A genuinely dependent result cannot. Result types may contain
-their own Pi binders: scope transport preserves these while rejecting forbidden
-references to the outer pattern fields.
+A definitionally constant family can normalize away field dependence and use
+the smaller constant motive. Result types can contain their own Pi binders;
+scope transport and substitution preserve those binders.
 
-## Dependent results retain explicit motives
+## Canonical dependent motives
 
-For an erased wrapped type, a branch returning an identity at that type has a
-result depending on the bound Item. Omitted return produces:
+[Expression.Motive](../src/Fibril/Elaboration/Expression/Motive.idr) builds
+ordinary typed eliminations, not primitive projections:
 
-~~~text
-Dependent pattern result requires an explicit return motive
-~~~
+- Unary field extraction uses BoxCase.
+- First-field extraction uses PairCase returning its first branch variable.
+- Second-field extraction uses PairCase whose result type substitutes an
+  erased first-field extraction into the dependent second domain.
 
-The explicit unary form is now supported too:
+The inferred motive replaces occurrences of the branch fields with those
+extractions of its erased self parameter. For a reconstructed constructor,
+the extraction reduces to the corresponding field. Thus branch compatibility
+uses existing computation, not an eta rule or equality reflection.
+
+All such extractions occur in types/motives. They may inspect erased fields
+during erased checking but do not supply a public runtime getter or revive an
+erased value. Original runtime branches remain unchanged and must use their
+linear inputs exactly as checked.
+
+This defines one canonical elaboration for this explicit unary/binary fragment,
+not general motive search or proof-directed refinement. Structural records do
+not gain nominal constructor identity from this rule.
+
+## Explicit control and bounded expansion
+
+Explicit return is still available for both unary and binary patterns:
 
 ~~~fibril
 case tag return
-  (\(0 self : Tag) => ((1 x : itemType self) -> itemType self : Type 1))
-  of (0 Item : Type 0) => \(1 x : Item) => x
+  (\(0 self : Tag) => functionType self)
+  of (0 Item : Type 0) => branch
 ~~~
 
-Binary explicit motives remain unchanged. Unit matching remains
-case value of () => body; this does not add a dependent Unit eliminator.
-For wider record telescopes use the generated consuming eliminator.
+It is especially useful when a compact explicit motive avoids repeating many
+canonical projections in a large dependent function type. The test suite
+includes a case where bounded inference rejects expansion but the explicit
+motive checks and runs.
 
-This slice does not infer dependent substitutions, motives from an expected
-function result, constructor patterns, branch refinement, coverage or recursion
-termination. It is deliberately narrower than Idris 2 dependent matching.
+Checking depth 512 and type-reduction fuel 128 are unchanged; defaults live in
+[Core.Limits](../src/Fibril/Core/Limits.idr), re-exported by Driver.Limits.
+The inferred result type has a 512-node admission limit before and after
+normalization. The substituted dependent motive body also has a 512-node limit.
 
-## Resource and diagnostic boundary
+Before substituting, a saturated weighted traversal estimates projection and
+substitution tree sizes, accounting for occurrences under nested binders and
+dependencies in the second domain. It rejects excess without constructing that
+expanded tree; a post-count check detects insufficient estimates. Larger or
+exhausted inference requests explicit return, never guessed success.
 
-Checking depth 512 and type-reduction fuel 128 are unchanged; defaults now live
-in [Core.Limits](../src/Fibril/Core/Limits.idr), re-exported by Driver.Limits.
-An inferred result type has a 512-node admission limit before and after
-normalization. Larger types and exhausted normalization require an explicit
-return motive, not guessed success.
+Project pre-clone admission reserves space for source branch annotations and
+the generated motive, including its bounded body. The expanded-core post-count
+check remains independent. Existing source/parser, generated-declaration,
+checker and IO-plan limits still apply. These policies are not allocation or
+wall-clock guarantees; reduction fuel alone does not bound term growth.
 
-Project pre-clone admission reserves space for both the source branch annotations
-and the generated motive, including its maximum result-type size. The existing
-expanded-core post-count check remains independent. Existing source/parser,
-generated-declaration, checker and IO-plan limits still apply. These policies
-are not allocation or wall-clock guarantees; reduction fuel alone does not
-bound term growth.
-
-Failures from contextual inference carry the original case-keyword point and
-the elaboration stage in human/version-2 JSON diagnostics. Ordinary unbound
-names remain resolution failures; ordinary core checking failures remain
+Inference failures carry the original case-expression point and elaboration stage.
+Unbound names remain resolution failures. Ordinary core failures remain
 unlocated unless the driver has a genuine declaration-policy point.
 
-Erased fields cannot become runtime data; linear fields cannot be dropped or
-duplicated; ambient captures still combine normally. Inference never normalizes
-the original branch before runtime checking or executes an effect description.
+## API, evidence and remaining boundaries
 
-## API and evidence
+Driver checking calls contextual expression elaboration directly.
+[Source.Resolve](../src/Fibril/Source/Resolve.idr) remains a compatibility facade:
+closed entrypoints supply an empty typed context; arbitrary untyped name-vector
+entrypoints cannot infer motives without typed context.
 
-Driver checking now calls contextual expression elaboration directly.
-[Source.Resolve](../src/Fibril/Source/Resolve.idr) is a compatibility facade.
-Closed compatibility entrypoints use an empty typed context; arbitrary
-name-vector entrypoints remain lexical and cannot infer motives without typed
-context. Existing explicit expressions continue to resolve there.
+Declaration elaboration remains earlier and separate. elaborate PATH reports
+checked: false and preserves pending infer-record-case nodes, without import
+resolution or contextual inference.
 
-Declaration elaboration remains a separate earlier pass. elaborate PATH still
-reports checked: false and leaves pending infer-record-case nodes in named IR;
-it does not resolve imports or run contextual expression inference.
+Tests cover independent and dependent unary/binary results, genuinely dependent
+second domains, outer parameters and nested result binders, definitionally
+constant families, type-level erasure versus runtime leaks, linear misuse,
+explicit fallback after bounded expansion rejection, do contexts, binder
+navigation, formatting/idempotence and execution after formatting.
 
-Tests cover unary/binary execution, outer polymorphic types, result Pi binders,
-definitionally constant families, erased extraction and linear misuse rejection,
-dependent failure/explicit fallback, typed do contexts, actual binder navigation,
-formatter idempotence and scope transport. The transport utility is untrusted
-elaboration code, not a typed substitution theorem. No new kernel term,
-conversion rule or metatheoretic proof is introduced.
+The builders, scope transport and size estimator are untrusted elaboration
+code; sampled tests and independent checking are not typed-substitution,
+preservation or quantitative soundness theorems. No kernel constructor,
+conversion rule or metatheoretic proof is added.
+
+Unit matching remains case value of () => body; no dependent Unit eliminator
+is introduced. Wider telescopes still use generated consuming eliminators.
+Constructor-named patterns, binder-type inference, expected-type-driven motive
+selection, general inductive coverage/refinement and recursion termination
+remain separate work.

@@ -146,9 +146,10 @@ a dependent motive, then consumes a message and prints Patterns! The
 also rebuilds a value using this syntax.
 
 Pattern motives use the core's universe-valued motive rule, rather than being
-limited to the named generated eliminator's fixed result universe. [Bounded motive inference](pattern-inference.md) now permits omission when the
-inferred result is independent of the pattern fields. Dependent results still
-require an explicit return. Binder types remain authored; multi-branch coverage,
+limited to the named generated eliminator's fixed result universe. [Bounded motive inference](pattern-inference.md) now permits omission for
+independent results and canonical dependent results built from erased field
+extractions. Explicit return remains available, including after inference-budget
+exhaustion. Binder types remain authored; multi-branch coverage,
 constructor-pattern grammar and boolean/inductive refinement remain absent.
 
 The old case value of () => body syntax is unchanged. A typed record case

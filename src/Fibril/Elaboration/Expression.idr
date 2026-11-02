@@ -15,6 +15,7 @@ import Fibril.Core.Erased
 import Fibril.Core.Reduction
 import Fibril.Core.Limits
 import Fibril.Elaboration.Expression.Scope
+import Fibril.Elaboration.Expression.Motive
 
 %default total
 
@@ -39,17 +40,11 @@ inferCase position arity context scrutinee branch = do
   case (arity, branch, branchType) of
     (1, Lambda q domain _, Pi _ _ result) => do
       result <- boundedResult position result
-      outer <- case dropNewest result of
-        Nothing => Left (CannotElaborate position "Dependent pattern result requires an explicit return motive")
-        Just ty => Right ty
-      let motive = Lambda Erased (BoxType q domain) (weaken outer)
+      motive <- unaryMotive position q domain result
       Right (BoxCase motive scrutinee branch)
     (2, Lambda q domain (Lambda r second _), Pi _ _ (Pi _ _ result)) => do
       result <- boundedResult position result
-      outer <- case dropNewest result >>= dropNewest of
-        Nothing => Left (CannotElaborate position "Dependent pattern result requires an explicit return motive")
-        Just ty => Right ty
-      let motive = Lambda Erased (Sigma q r domain second) (weaken outer)
+      motive <- binaryMotive position q r domain second result
       Right (PairCase motive scrutinee branch)
     _ => Left (CannotElaborate position "Record motive inference requires one or two typed pattern binders")
 

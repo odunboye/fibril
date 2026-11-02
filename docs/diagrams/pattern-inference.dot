@@ -4,10 +4,11 @@ digraph PatternInference {
   parse [label="Typed source pattern\nNInferCase (arity 1 or 2)"];
   context [label="Contextual expression elaboration\nresolve original branch"];
   infer [label="Erased branch-type inference\nbounded result-type normalization"];
-  scope [label="Remove field binders\nreject dependent result"];
-  core [label="Explicit BoxCase / PairCase\nconstant erased motive"];
+  scope [label="Strengthen independent result\nor substitute erased field extractions"];
+  budget [label="Preflight dependent substitution\n512-node body limit"];
+  core [label="Explicit BoxCase / PairCase\nconstant or dependent erased motive"];
   check [label="Independent core checking\nshape, quantities, usage"];
-  parse -> context -> infer -> scope -> core -> check;
-  explicit [label="Dependent / exhausted?\nrequest explicit return", style=dashed];
-  scope -> explicit [style=dashed];
+  parse -> context -> infer -> scope -> budget -> core -> check;
+  explicit [label="Oversized / exhausted?\nrequest explicit return", style=dashed];
+  budget -> explicit [style=dashed];
 }

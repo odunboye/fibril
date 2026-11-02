@@ -486,7 +486,7 @@ class CLITests(unittest.TestCase):
             result = run("run", "--source-dir", str(root), str(path))
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertEqual(result.stdout, "Constant!\n")
-            # A dependent result needs an explicit motive; no guessed refinement.
+            # Canonical dependent unary motives now infer under result Pi binders.
             dependent = (ROOT / "examples/modules/singleton-records/Dependent.fib").read_text().replace(
                 "module Dependent", "module Main")
             start = dependent.index("identityFor =")
@@ -494,12 +494,9 @@ class CLITests(unittest.TestCase):
             implicit = ('identityFor = \\(1 tag : Tag) => case tag of (0 Item : Type 0) => '
                         '\\(1 x : Item) => x')
             path.write_text(dependent[:start] + implicit + dependent[finish:])
-            result = run("check", "--json", "--source-dir", str(root), str(path))
-            self.assertNotEqual(result.returncode, 0)
-            report = json.loads(result.stdout)
-            diagnostic = next(d for d in report["diagnostics"] if d["stage"] == "elaboration")
-            self.assertIn("explicit return motive", diagnostic["message"])
-            self.assertEqual(diagnostic["position"]["line"], path.read_text()[:path.read_text().index("case tag")].count("\n") + 1)
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, "Dependent singleton!\n")
             # Named IR inspection preserves pending inference without claiming checked output.
             inspected = json.loads(run("elaborate", str(path)).stdout)
             self.assertFalse(inspected["checked"])
@@ -521,6 +518,62 @@ class CLITests(unittest.TestCase):
             result = run("run", "--source-dir", str(root), str(path))
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertEqual(result.stdout, "Do context!\n")
+
+    def test_dependent_motive_inference_and_budget(self):
+        example = ROOT / "examples/modules/pattern-inference/Dependent.fib"
+        result = run("run", "--source-dir", str(example.parent), str(example))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout, "Dependent payload!\nDependent family!\n")
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / "Main.fib"
+            source = example.read_text().replace("module Dependent", "module Main")
+            path.write_text(source)
+            formatted = run("format", str(path))
+            self.assertEqual(formatted.returncode, 0, formatted.stderr)
+            path.write_text(formatted.stdout)
+            self.assertEqual(run("format", str(path)).stdout, formatted.stdout)
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            # Type-level projections do not permit runtime erased-field extraction.
+            path.write_text(source.replace("  1 value : Item", "  0 value : Item").replace(
+                "(1 value : Item)", "(0 value : Item)"))
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, "")
+            # Runtime use of the linear payload is still counted in the original branch.
+            path.write_text(source.replace("(1 value : Item) => value",
+                                           "(1 value : Item) => (\\(unused : Item) => value) value"))
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, "")
+
+            # Small source result type, large canonical dependent substitution.
+            count = 60
+            result_type = "".join(f"(0 x{i} : Item) -> " for i in range(count)) + "Bool"
+            result_value = "".join(f"\\(0 x{i} : Item) => " for i in range(count)) + "True"
+            header = (
+                'module Main\nrecord Tag : Type 1 where\n  constructor MkTag\n'
+                '  eliminator useTag\n  0 Item : Type 0\n'
+                '0 functionType : (0 tag : Tag) -> Type 0\n'
+                'functionType = \\(0 tag : Tag) => useTag (\\(0 self : Tag) => Type 0) tag '
+                '(\\(0 Item : Type 0) => (' + result_type + '))\n'
+                'choose : (1 tag : Tag) -> functionType tag\n')
+            implicit = 'choose = \\(1 tag : Tag) => case tag of (0 Item : Type 0) => ' + result_value
+            ending = '\nmain : IO Unit\nmain = putStrLn "Checked explicit motive!"\n'
+            path.write_text(header + implicit + ending)
+            result = run("check", "--json", "--source-dir", str(root), str(path))
+            self.assertNotEqual(result.returncode, 0)
+            diagnostic = next(d for d in json.loads(result.stdout)["diagnostics"] if d["stage"] == "elaboration")
+            self.assertIn("dependent motive exceeds 512", diagnostic["message"])
+            self.assertEqual(diagnostic["position"]["line"], 9)
+            # Explicit user intent avoids that expanded canonical projection tree.
+            explicit = ('choose = \\(1 tag : Tag) => case tag '
+                        'return (\\(0 self : Tag) => functionType self) of (0 Item : Type 0) => ' + result_value)
+            path.write_text(header + explicit + ending)
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, "Checked explicit motive!\n")
 
     def test_explicit_interfaces_and_implementations(self):
         example = ROOT / "examples/modules/interfaces"

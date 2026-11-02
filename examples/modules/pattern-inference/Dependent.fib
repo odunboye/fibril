@@ -1,0 +1,33 @@
+module Dependent
+
+record Package : Type 1 where
+  constructor MkPackage
+  eliminator usePackage
+  0 Item : Type 0
+  1 value : Item
+
+0 payloadType : (0 package : Package) -> Type 0
+payloadType = \(0 package : Package) => case package of (0 Item : Type 0) (1 value : Item) => Item
+
+recover : (1 package : Package) -> payloadType package
+recover = \(1 package : Package) => case package of (0 Item : Type 0) (1 value : Item) => value
+
+record Family : Type 1 where
+  constructor MkFamily
+  eliminator useFamily
+  0 A : Type 0
+  0 F : (0 x : A) -> Type 0
+
+0 domainOf : (0 family : Family) -> Type 0
+domainOf = \(0 family : Family) => case family of (0 A : Type 0) (0 F : (0 x : A) -> Type 0) => A
+
+0 familyOf : (0 family : Family) -> (0 x : domainOf family) -> Type 0
+familyOf = \(0 family : Family) => case family of (0 A : Type 0) (0 F : (0 x : A) -> Type 0) => F
+
+identityAt : (1 family : Family) -> (0 x : domainOf family) -> (1 value : familyOf family x) -> familyOf family x
+identityAt = \(1 family : Family) => case family of (0 A : Type 0) (0 F : (0 x : A) -> Type 0) => \(0 x : A) => \(1 value : F x) => value
+
+main : IO Unit
+main = do
+  putStrLn (recover (MkPackage String "Dependent payload!"))
+  putStrLn (identityAt (MkFamily Unit (\(0 x : Unit) => String)) () "Dependent family!")

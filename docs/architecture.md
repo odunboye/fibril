@@ -28,7 +28,7 @@ Implemented:
 - `src/Fibril/Elaboration/Declaration.idr`: declaration admission, record expansion, source origins and ordinary typed-let lowering for the compiler pipeline.
 - `src/Fibril/Source/Parser.idr`: bounded expression grammar with flat Unit-result do sequencing.
 - `src/Fibril/Source/Resolve.idr`: compatibility facade for contextual expression elaboration; arbitrary untyped name-vector entrypoints retain lexical behavior.
-- `src/Fibril/Elaboration/Expression.idr`: contextual names-to-core elaboration, typed lets/do lowering and bounded constant-motive inference for typed unary/binary patterns; original core values still need independent checking.
+- `src/Fibril/Elaboration/Expression.idr`: contextual names-to-core elaboration, typed lets/do lowering and bounded constant/dependent motive inference for typed unary/binary patterns; original core values still need independent checking.
 - `src/Fibril/Elaboration/Expression/Scope.idr`: partial scope transport and saturated result-type counting for untrusted motive inference.
 - `src/Fibril/Source/Resolve/Error.idr`: lexical versus contextual-elaboration failures at actual scalar source points.
 - `src/Fibril/Driver/JSON.idr`: shared escaped JSON strings, objects, positions, and protocol envelope.
