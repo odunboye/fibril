@@ -59,7 +59,7 @@ There is no published remote plugin repository to install yet.
    directory instead.
 2. Build the compiler with make build in the Fibril checkout. Add the following,
    replacing both absolute paths with your checkout location. The gd/gr and
-   <leader>cr/<leader>ck mappings are optional and affect only Fibril buffers. The <leader>cr mapping
+   <leader>cr/<leader>ck/<leader>cK mappings are optional and affect only Fibril buffers. The <leader>cr mapping
    replaces LazyVim's usual rename action in those buffers with a preview:
 
 ~~~lua
@@ -88,6 +88,9 @@ return {
           vim.keymap.set("n", "<leader>ck", "<Plug>(FibrilCheck)", {
             buffer = true, remap = true, desc = "Fibril: check",
           })
+          vim.keymap.set("n", "<leader>cK", "<Plug>(FibrilCheckProject)", {
+            buffer = true, remap = true, desc = "Fibril: check project",
+          })
         end,
       })
     end,
@@ -110,6 +113,36 @@ fetching a plugin. Keeping the checkout updated also updates the runtime files.
    dismisses it. No source is modified or saved. These queries are same-file
    only and do not type-check the source. For runtime checking, run :FibrilCheck
    or press <leader>ck. This checks without executing program IO.
+   For multi-file checking, open the saved entry buffer (usually Main.fib), then
+   configure its source root explicitly:
+
+~~~vim
+:lua vim.b.fibril_source_dir = "/absolute/path/to/project/sources"
+:FibrilCheckProject
+~~~
+
+   Or press <leader>cK (uppercase K) with the optional mapping above. The root
+   contains the module hierarchy, not necessarily a nested entry's directory.
+   For the bundled example, open examples/modules/checked/Main.fib and set the
+   root to the absolute path of examples/modules/checked.
+
+   To persist a root for a single workspace, optionally add this to your own
+   lua/config/options.lua:
+
+~~~lua
+vim.g.fibril_source_dir = "/absolute/path/to/project/sources"
+~~~
+
+   The buffer-local setting overrides this global fallback. Avoid a global root
+   when switching between unrelated projects; configure the relevant entry
+   buffer instead. Roots are not automatically discovered.
+
+   Dependency points are jumpable only in already-loaded UTF-8 buffers. Open a
+   dependency in a split, return to the entry, and rerun the check. Unloaded
+   points remain labelled but nonjumpable. Save modified dependencies first.
+   See [Project checking in the editor](#project-checking-in-the-editor) for
+   snapshot checks and limitations. Neither check command executes program IO.
+
 4. Run `:Lazy` and confirm `fibril-syntax` is loaded. Then check:
 
 ~~~vim
