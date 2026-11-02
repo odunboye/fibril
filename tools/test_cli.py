@@ -193,6 +193,76 @@ class CLITests(unittest.TestCase):
         self.assertEqual(result.stdout, "")
         self.assertIn("use eval", result.stderr)
 
+    def test_conservative_source_formatting(self):
+        with tempfile.TemporaryDirectory(prefix="format 'quoted' ") as directory:
+            path = Path(directory) / "Main.fib"
+            for ending in ("\n", "\r\n"):
+                source = ('-- comment  spacing\t stays  \n'
+                          'main:IO  Unit\nmain=putStrLn(appendString"🌍  e\u0301""!")  -- trailing  text  \n')
+                expected = ('-- comment  spacing\t stays  \n'
+                            'main : IO Unit\nmain = putStrLn (appendString "🌍  e\u0301" "!")  -- trailing  text  \n')
+                original = source.replace("\n", ending).encode()
+                path.write_bytes(original)
+                result = run("format", str(path))
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                # subprocess text mode normalizes CRLF, so inspect actual output bytes.
+                raw = subprocess.run([str(EXE), "format", str(path)], capture_output=True)
+                self.assertEqual(raw.stdout, expected.replace("\n", ending).encode())
+                self.assertEqual(path.read_bytes(), original)
+                self.assertEqual(run("format", "--check", str(path)).returncode, 1)
+                path.write_bytes(raw.stdout)
+                canonical = path.read_bytes()
+                again = subprocess.run([str(EXE), "format", str(path)], capture_output=True)
+                self.assertEqual(again.stdout, canonical)
+                result = run("format", "--check", str(path))
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(result.stdout, "")
+                self.assertEqual(result.stderr, "")
+            for source in ("", "-- only comment  ", "True", 'main : IO Unit\nmain = do\n\tputStrLn  "x"\n\tputStrLn "y"\n'):
+                path.write_text(source)
+                result = run("format", str(path))
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                if source in ("", "-- only comment  ", "True"):
+                    self.assertEqual(result.stdout, source)
+                else:
+                    self.assertIn('\n\tputStrLn "x"\n\tputStrLn "y"\n', result.stdout)
+            # Formatting is syntax-only, not elaboration admission or checking.
+            path.write_text('module Main\nrecord R:Type 0 where\n  constructor MkR\n'
+                            '  eliminator useR\n  1 x:Bool\n  1 y:Bool\n  projection getX x\n'
+                            'main:Bool\nmain="wrong"\n')
+            result = run("format", str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("record R : Type 0 where", result.stdout)
+            for content in (b"\xff", b"\xef\xbb\xbfTrue", b"main :", b"\x00"):
+                path.write_bytes(content)
+                result = run("format", str(path))
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(result.stdout, "")
+                self.assertEqual(path.read_bytes(), content)
+            # Insertion of canonical spaces cannot evade the output cap.
+            prefix = 'main:String\nmain="'
+            content = prefix + "a" * (65536 - len(prefix) - 2) + '"\n'
+            path.write_text(content)
+            result = run("format", str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, "")
+            self.assertIn("65536", result.stderr)
+
+    def test_formatter_corpus_idempotence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory)
+            for path in sorted((ROOT / "examples/core").glob("*.fib")):
+                result = run("format", str(path))
+                # Every current core fixture should remain syntactically inspectable.
+                self.assertEqual(result.returncode, 0, str(path) + result.stderr)
+                formatted = target / path.name
+                formatted.write_text(result.stdout)
+                again = run("format", str(formatted))
+                self.assertEqual(again.returncode, 0, again.stderr)
+                self.assertEqual(again.stdout, result.stdout, str(path))
+                self.assertEqual(run("check", str(path)).returncode,
+                                 run("check", str(formatted)).returncode, str(path))
+
     def test_explicit_declaration_elaboration(self):
         result = run("elaborate", "examples/modules/record-projections/Data/Dictionary.fib")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

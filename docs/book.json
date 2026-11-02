@@ -60,6 +60,10 @@
         "path": "docs/packages.md"
       },
       {
+        "title": "Source formatting",
+        "path": "docs/formatting.md"
+      },
+      {
         "title": "Elaboration and inspection",
         "path": "docs/elaboration.md"
       },

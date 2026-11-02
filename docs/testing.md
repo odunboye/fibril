@@ -346,6 +346,13 @@ with real JSON stage/points, complete generated definition/origin inspection, an
 unchecked output for unresolved imports/ill-typed bodies. Existing record and IO
 regressions exercise the new explicit pipeline. Core rules/proofs are unchanged.
 
+Formatter tests cover exact comment/literal/Unicode/line-ending preservation,
+empty/comment-only/no-final-newline text, leading-tab retention, syntax-only
+operation, invalid byte/BOM/control/syntax rejection, output-size admission,
+unchanged input files and idempotence. The current core fixture corpus is
+formatted twice and independently rechecked for matching acceptance status.
+These are sampled/runtime structural guards, not semantic-preservation proofs.
+
 ## Hedgehog dependency
 
 Repository: https://github.com/stefan-hoeck/idris2-hedgehog

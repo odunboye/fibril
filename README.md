@@ -24,6 +24,10 @@ navigation and an LSP server remain future work.
 Record parsing and generation now use a [separate elaboration layer](docs/elaboration.md).
 Use fibril elaborate PATH to inspect expanded named IR (explicitly unchecked).
 
+A [conservative formatter](docs/formatting.md) is available as fibril format PATH
+or fibril format --check PATH. It normalizes horizontal token spacing without
+rewriting files, indentation, comments or literals.
+
 The next abstraction step is documented in [the interface contract](docs/interfaces.md),
 with a runnable multi-file generic String/Bool operation example. Erased named
 globals now support exported type abbreviations without granting runtime access;

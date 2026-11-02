@@ -23,6 +23,7 @@ Implemented:
 - `src/Fibril/Driver/ModuleGraph.idr`: bounded canonical dependency discovery, syntax snapshots, and dependency-first graph inspection; not imported checking.
 - `src/Fibril/Source/Document.idr`: shared expression/declaration/module metadata parsing with original tokens and header/import/export spans; no filesystem loader.
 - `src/Fibril/Source/Declaration.idr`: authored declaration/record grammar and binding-site quotas, with ordinary-only legacy adapters; no record expansion or elaborator dependency.
+- `src/Fibril/Source/Format.idr` / `Source/Shape.idr`: conservative source-token gap formatting with reparsing and structural comparison, distinct from IR printing and checking.
 - `src/Fibril/Source/Declaration/Syntax.idr`: authored record ASTs, actual binding sites, and lowered named IR data.
 - `src/Fibril/Elaboration/Declaration.idr`: declaration admission, record expansion, source origins and ordinary typed-let lowering for the compiler pipeline.
 - `src/Fibril/Source/Parser.idr`: bounded expression grammar with flat Unit-result do sequencing.

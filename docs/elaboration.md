@@ -105,5 +105,7 @@ projection defaults, interface lowering, implicit argument inference and method
 lookup need their own policy and source-origin design. They belong in elaboration,
 not parser-specific function recognition.
 
-Automatic source formatting is separate. It must preserve comments/trivia and
-meaning; the named-IR printer is not a shortcut for rewriting source files.
+[Source formatting](formatting.md) is separate. The initial formatter normalizes
+horizontal gaps with reparsing/structure checks and no source writes. Broader
+automatic formatting still needs trivia-aware rules; the named-IR printer is not
+a shortcut for rewriting source files.
