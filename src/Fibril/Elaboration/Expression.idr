@@ -16,6 +16,7 @@ import Fibril.Core.Reduction
 import Fibril.Core.Limits
 import Fibril.Elaboration.Expression.Scope
 import Fibril.Elaboration.Expression.Motive
+import Fibril.Elaboration.Expression.Constructor
 
 %default total
 
@@ -47,6 +48,12 @@ inferCase position arity context scrutinee branch = do
       motive <- binaryMotive position q r domain second result
       Right (PairCase motive scrutinee branch)
     _ => Left (CannotElaborate position "Record motive inference requires one or two typed pattern binders")
+
+namedConstructor : Expr -> Bool
+namedConstructor (NRef _ _) = True
+namedConstructor (NQualifiedRef _ _) = True
+namedConstructor (NApply _ function _) = namedConstructor function
+namedConstructor _ = False
 
 mutual
   ||| Resolve with newest-first names. Binder domains see the old environment;
@@ -87,6 +94,21 @@ mutual
   elaborateInWith globals context env (NBoxValue span ty value) = [| BoxValue (elaborateInWith globals context env ty) (elaborateInWith globals context env value) |]
   elaborateInWith globals context env (NBoxCase span motive value branch) =
     [| BoxCase (elaborateInWith globals context env motive) (elaborateInWith globals context env value) (elaborateInWith globals context env branch) |]
+  elaborateInWith globals context env (NConstructorCase span arity constructor scrutinee branch motive) = do
+    if not (namedConstructor constructor)
+       then Left (CannotElaborate (extent constructor).start "Pattern constructor must be a named function, optionally explicitly instantiated") else Right ()
+    typedContext <- case context of
+      Nothing => Left (CannotElaborate span.start "Named pattern checking requires a typed context")
+      Just ctx => Right ctx
+    named <- elaborateInWith globals context env constructor
+    value <- elaborateInWith globals context env scrutinee
+    branch <- elaborateInWith globals context env branch
+    checkConstructor (extent constructor).start arity typedContext named branch
+    case motive of
+      Nothing => inferCase span.start arity typedContext value branch
+      Just authored => do
+        explicit <- elaborateInWith globals context env authored
+        Right (if arity == 1 then BoxCase explicit value branch else PairCase explicit value branch)
   elaborateInWith globals context env (NInferCase span arity scrutinee branch) = do
     typedContext <- case context of
       Nothing => Left (CannotElaborate span.start "Motive inference requires a typed context; use contextual expression elaboration")

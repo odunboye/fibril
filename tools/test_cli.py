@@ -519,6 +519,90 @@ class CLITests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertEqual(result.stdout, "Do context!\n")
 
+    def test_constructor_named_record_patterns(self):
+        example = ROOT / "examples/modules/pattern-inference/Named.fib"
+        result = run("run", "--source-dir", str(example.parent), str(example))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout, "Named patterns!\n")
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / "Main.fib"
+            source = example.read_text().replace("module Named", "module Main")
+            path.write_text(source)
+            inspected = json.loads(run("elaborate", str(path)).stdout)
+            self.assertFalse(inspected["checked"])
+            self.assertIn("constructor-record-case", str(inspected))
+            formatted = run("format", str(path))
+            self.assertEqual(formatted.returncode, 0, formatted.stderr)
+            path.write_text(formatted.stdout)
+            self.assertEqual(run("format", str(path)).stdout, formatted.stdout)
+            self.assertEqual(run("run", "--source-dir", str(root), str(path)).stdout, "Named patterns!\n")
+            # Constructor and field variables resolve in different scopes.
+            path.write_text(source)
+            lines = source.splitlines()
+            line = next(i + 1 for i, text in enumerate(lines) if text.startswith("unbox ="))
+            column = lines[line - 1].index("MkBox A") + 1
+            result = run("definition", "--source-dir", str(root), "--entry", str(path),
+                         str(line), str(column), str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            target = json.loads(result.stdout)["definition"]["range"]
+            self.assertEqual(source[target["start"]["offset"]:target["end"]["offset"]], "MkBox")
+            for bad in (
+                source.replace("(MkBox A) (1 value : A)", "MkBox (1 value : A)"),
+                source.replace("(MkBox A) (1 value : A)", "(MkBox Bool) (1 value : A)"),
+                source.replace("of MkPackage", "of Missing"),
+                source.replace("(MkBox A) (1 value : A)", "(MkBox A) (value : A)"),
+                source.replace("(1 value : A) => value", "(1 value : A) => \"discarded\""),
+            ):
+                path.write_text(bad)
+                result = run("run", "--source-dir", str(root), str(path))
+                self.assertNotEqual(result.returncode, 0, bad)
+                self.assertEqual(result.stdout, "")
+
+            base = ('module Main\nrecord R : Type 0 where\n  constructor MkR\n  1 text : String\n'
+                    'alias : (1 text : String) -> R\nalias = MkR\n'
+                    'main : IO Unit\nmain = putStrLn (case MkR "Alias!" of alias (1 text : String) => text)\n')
+            path.write_text(base)
+            self.assertEqual(run("run", "--source-dir", str(root), str(path)).stdout, "Alias!\n")
+            # A value-transforming packer is not a constructor pattern.
+            path.write_text(base.replace("alias = MkR",
+                                        'alias = \\(1 text : String) => MkR (appendString text "!")'))
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("transparently pack", result.stderr)
+            self.assertEqual(result.stdout, "")
+            # Structural compatibility is not nominal constructor discrimination.
+            other = 'record S : Type 0 where\n  constructor MkS\n  1 other : String\n'
+            path.write_text(base.replace("alias :", other + "alias :").replace(
+                'of alias (1 text', 'of MkS (1 text'))
+            self.assertEqual(run("run", "--source-dir", str(root), str(path)).stdout, "Alias!\n")
+            # Explicit motives remain available with constructor names.
+            explicit = base.replace('of alias (1 text',
+                                    'return (\\(0 self : R) => String) of alias (1 text')
+            path.write_text(explicit)
+            formatted = run("format", str(path))
+            self.assertEqual(formatted.returncode, 0, formatted.stderr)
+            path.write_text(formatted.stdout)
+            self.assertEqual(run("format", str(path)).stdout, formatted.stdout)
+            self.assertEqual(run("run", "--source-dir", str(root), str(path)).stdout, "Alias!\n")
+            # Local shadowing is respected: don't guess an unshadowed global constructor.
+            path.write_text(base.replace("main : IO Unit",
+                'bad : (MkR : (1 text : String) -> R) -> (1 r : R) -> String\n'
+                'bad = \\(MkR : (1 text : String) -> R) => \\(1 r : R) => case r of MkR (1 text : String) => text\n'
+                'main : IO Unit'))
+            self.assertNotEqual(run("check", "--source-dir", str(root), str(path)).returncode, 0)
+            # Cross-module qualified constructor prefixes use ordinary direct exports.
+            library = root / "Library.fib"
+            library.write_text('module Library\nexport\nrecord Box (0 A : Type 0) : Type 0 where\n'
+                               '  constructor MkBox\n  1 value : A\n')
+            path.write_text('module Main\nimport Library\nmain : IO Unit\nmain = putStrLn '
+                            '(case Library.MkBox String "Imported!" of (Library.MkBox String) (1 value : String) => value)\n')
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, "Imported!\n")
+            library.write_text(library.read_text().replace("export\nrecord", "record"))
+            self.assertNotEqual(run("check", "--source-dir", str(root), str(path)).returncode, 0)
+
     def test_optional_named_record_eliminators(self):
         example = ROOT / "examples/modules/pattern-inference/Minimal.fib"
         result = run("run", "--source-dir", str(example.parent), str(example))

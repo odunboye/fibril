@@ -3,7 +3,7 @@
 **Status:** core dependent pairs and a bounded named-record source prototype are
 implemented, including explicitly requested safe projection functions. Source records have no fixed field-count cap (at least one field), an explicit
 constructor and an optional named eliminator. Explicit erased parameter telescopes are supported; recursive/nominal records,
-constructor-discriminating/inferred patterns, dot-field syntax and instance
+nominal constructor discrimination and inferred binder annotations, dot-field syntax and instance
 inference remain unimplemented. [Explicit interfaces](explicit-interfaces.md)
 now reuse these checked dictionary foundations. No preservation or erasure theorem is claimed.
 
@@ -151,7 +151,9 @@ limited to the named generated eliminator's fixed result universe. [Bounded moti
 independent results and canonical dependent results built from erased field
 extractions. Explicit return remains available, including after inference-budget
 exhaustion. Binder types remain authored; multi-branch coverage,
-constructor-pattern grammar and boolean/inductive refinement remain absent.
+general constructor grammar and boolean/inductive refinement remain absent.
+[Named unary/binary structural constructor prefixes](constructor-patterns.md)
+are now checked using transparent canonical-packing comparisons.
 
 The old case value of () => body syntax is unchanged. A typed record case
 has one unary or two pair binders and one body, with an optional return clause. General expression layout works

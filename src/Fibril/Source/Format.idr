@@ -114,6 +114,18 @@ layout tokens indentation forced value@(NBoxCase _ motive scrutinee branch) =
       layout tokens indentation split scrutinee ++
       layout tokens (indentation + 4) False motive ++
       layout tokens (indentation + 2) split branch
+layout tokens indentation forced value@(NConstructorCase _ _ constructor scrutinee branch motive) =
+  let split = forced || wide tokens indentation value
+      markers = if split then
+        keyword tokens OfKeyword (extent scrutinee).finish.offset (extent constructor).start.offset (indentation + 2) ++
+        (case motive of
+          Nothing => []
+          Just result => keyword tokens ReturnKeyword (extent scrutinee).finish.offset (extent result).start.offset (indentation + 2))
+        else []
+   in markers ++ layout tokens indentation split scrutinee ++
+      layout tokens (indentation + 2) False constructor ++
+      (case motive of Nothing => []; Just result => layout tokens (indentation + 4) False result) ++
+      layout tokens (indentation + 2) split branch
 layout tokens indentation forced value@(NInferCase _ _ scrutinee branch) =
   let split = forced || wide tokens indentation value
    in (if split then keyword tokens OfKeyword (extent scrutinee).finish.offset (extent branch).start.offset (indentation + 2) else []) ++

@@ -56,6 +56,11 @@ binderAhead (Located OpenParen _ _ :: rest@(Located Number _ _ :: Located Name _
   groupArrow 1 rest
 binderAhead _ = False
 
+typedPatternAhead : List Token -> Bool
+typedPatternAhead (Located OpenParen _ _ :: Located Name _ _ :: Located Colon _ _ :: _) = True
+typedPatternAhead (Located OpenParen _ _ :: Located Number _ _ :: Located Name _ _ :: Located Colon _ _ :: _) = True
+typedPatternAhead _ = False
+
 startsAtom : TokenKind -> Bool
 startsAtom Name = True
 startsAtom TypeKeyword = True
@@ -253,7 +258,10 @@ mutual
 
   typedCase : Nat -> Position -> Token -> Expr -> Maybe Expr -> List Token -> Either ParseError (Expr, List Token)
   typedCase depth end token scrutinee motive tokens = do
-    first <- binder depth end tokens
+    (constructor, afterConstructor) <- if typedPatternAhead tokens then Right (Nothing, tokens) else do
+      (constructor, following) <- atom depth end tokens
+      Right (Just constructor, following)
+    first <- binder depth end afterConstructor
     (second, afterBinders) <- if (case first.remaining of next :: _ => next.kind == OpenParen; [] => False) then do
         second <- binder depth end first.remaining
         if first.name == second.name && first.name /= "_"
@@ -269,11 +277,15 @@ mutual
     let branch = NLambda (Between first.span.start (extent body).finish)
                    first.quantity first.name first.domain inside
     let region = Between token.span.start (extent body).finish
-    let result = case motive of
+    let arity : Nat = case second of Nothing => 1; Just _ => 2
+    let unnamed : Expr = case motive of
           Nothing => NInferCase region (case second of Nothing => 1; Just _ => 2) scrutinee branch
           Just explicit => case second of
             Nothing => NBoxCase region explicit scrutinee branch
             Just _ => NPairCase region explicit scrutinee branch
+    let result : Expr = case constructor of
+          Nothing => unnamed
+          Just named => NConstructorCase region arity named scrutinee branch motive
     Right (result, remaining)
 
   pairCase : Nat -> Position -> Token -> Expr -> List Token -> Either ParseError (Expr, List Token)

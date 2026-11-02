@@ -1,0 +1,45 @@
+-- Definitional constructor checking for structural record patterns.
+module Fibril.Elaboration.Expression.Constructor
+
+import Data.Fin
+import Fibril.Core.Quantity
+import Fibril.Core.Term
+import Fibril.Core.Context
+import Fibril.Core.Erased
+import Fibril.Core.Reduction
+import Fibril.Core.Limits
+import Fibril.Source.Text
+import Fibril.Source.Resolve.Error
+
+%default total
+
+equal : Position -> String -> Term n -> Term n -> Either ResolveError ()
+equal position message actual expected = case betaCompare typeReductionFuel actual expected of
+  EqualNormalForms => Right ()
+  DifferentNormalForms => Left (CannotElaborate position message)
+  Inconclusive => Left (CannotElaborate position "Pattern constructor comparison exhausted its reduction budget")
+
+||| The constructor expression is compile-time data, not part of the emitted case.
+||| No nominal identity or runtime constructor discrimination is asserted.
+public export
+checkConstructor : Position -> Nat -> Context n -> Term n -> Term n -> Either ResolveError ()
+checkConstructor position arity context constructor branch = do
+  ty <- case inferErased checkingDepth typeReductionFuel context constructor of
+    Left err => Left (CannotElaborate position ("Cannot infer pattern constructor type: " ++ show err))
+    Right ty => Right ty
+  case (arity, branch) of
+    (1, Lambda q domain _) => do
+      let boxed = BoxType q domain
+      equal position "Pattern constructor type does not match the typed fields; instantiate erased parameters explicitly"
+        ty (Pi q domain (weaken boxed))
+      equal position "Pattern constructor does not transparently pack its field"
+        (Apply (weaken constructor) (Variable FZ))
+        (BoxValue (weaken boxed) (Variable FZ))
+    (2, Lambda q domain (Lambda r second _)) => do
+      let pair = Sigma q r domain second
+      equal position "Pattern constructor type does not match the typed fields; instantiate erased parameters explicitly"
+        ty (Pi q domain (Pi r second (weaken (weaken pair))))
+      equal position "Pattern constructor does not transparently pack its fields in order"
+        (Apply (Apply (weaken (weaken constructor)) (Variable (FS FZ))) (Variable FZ))
+        (PairValue (weaken (weaken pair)) (Variable (FS FZ)) (Variable FZ))
+    _ => Left (CannotElaborate position "Named record patterns require one or two typed field binders")

@@ -80,6 +80,10 @@
         "path": "docs/pattern-inference.md"
       },
       {
+        "title": "Constructor-named record patterns",
+        "path": "docs/constructor-patterns.md"
+      },
+      {
         "title": "Interfaces and explicit operations",
         "path": "docs/interfaces.md"
       },

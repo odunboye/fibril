@@ -1,0 +1,12 @@
+digraph ConstructorPatterns {
+  rankdir=LR;
+  node [shape=box];
+  source [label="Named constructor prefix\nexplicit parameters + typed fields"];
+  type [label="Erased type check\nexact curried field quantities"];
+  packing [label="Apply to fresh field variables\nbounded equality with canonical packing"];
+  emit [label="Emit existing BoxCase / PairCase\nexplicit or inferred motive"];
+  check [label="Independent core type/usage checking"];
+  source -> type -> packing -> emit -> check;
+  note [label="Structural aliases allowed\nnot nominal discrimination", style=dashed];
+  packing -> note [style=dashed];
+}

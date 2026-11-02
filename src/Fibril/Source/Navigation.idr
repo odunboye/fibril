@@ -88,6 +88,8 @@ walk context env (NBoxType _ _ ty) = walk context env ty
 walk context env (NBoxValue _ ty value) = walk context env ty ++ walk context env value
 walk context env (NBoxCase _ motive value branch) = walk context env motive ++ walk context env value ++ walk context env branch
 walk context env (NPairValue _ ty first second) = walk context env ty ++ walk context env first ++ walk context env second
+walk context env (NConstructorCase _ _ constructor value branch motive) =
+  walk context env constructor ++ walk context env value ++ (case motive of Nothing => []; Just result => walk context env result) ++ walk context env branch
 walk context env (NInferCase _ _ value branch) = walk context env value ++ walk context env branch
 walk context env (NPairCase _ motive value branch) = walk context env motive ++ walk context env value ++ walk context env branch
 walk context env (NPi span q name domain body) =

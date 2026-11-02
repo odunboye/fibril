@@ -103,6 +103,7 @@ mentions name (NSequence _ a b) = mentions name a || mentions name b
 mentions name (NDoResult _ a b) = mentions name a || mentions name b
 mentions name (NIf _ a b c) = mentions name a || mentions name b || mentions name c
 mentions name (NPairValue _ a b c) = mentions name a || mentions name b || mentions name c
+mentions name (NConstructorCase _ _ c a b motive) = mentions name c || mentions name a || mentions name b || (case motive of Nothing => False; Just result => mentions name result)
 mentions name (NInferCase _ _ a b) = mentions name a || mentions name b
 mentions name (NPairCase _ a b c) = mentions name a || mentions name b || mentions name c
 mentions name (NLet _ _ binder a b c) = mentions name a || mentions name b || (binder /= name && mentions name c)
@@ -260,6 +261,7 @@ syntaxNodes (NSequence _ a b) = capped (1 + syntaxNodes a + syntaxNodes b)
 syntaxNodes (NDoResult _ a b) = capped (1 + syntaxNodes a + syntaxNodes b)
 syntaxNodes (NIf _ a b c) = capped (1 + syntaxNodes a + syntaxNodes b + syntaxNodes c)
 syntaxNodes (NPairValue _ a b c) = capped (1 + syntaxNodes a + syntaxNodes b + syntaxNodes c)
+syntaxNodes (NConstructorCase _ _ c a b motive) = capped (1 + syntaxNodes c + syntaxNodes a + syntaxNodes b + (case motive of Nothing => 0; Just result => syntaxNodes result))
 syntaxNodes (NInferCase _ _ a b) = capped (1 + syntaxNodes a + syntaxNodes b)
 syntaxNodes (NPairCase _ a b c) = capped (1 + syntaxNodes a + syntaxNodes b + syntaxNodes c)
 syntaxNodes (NLet _ _ _ a b c) = capped (1 + syntaxNodes a + syntaxNodes b + syntaxNodes c)

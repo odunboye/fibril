@@ -38,6 +38,8 @@ search and algebraic-law checking remain unimplemented.
 [Typed record patterns](docs/pattern-inference.md) infer constant or canonical
 dependent motives within resource bounds; explicit return clauses retain control.
 Named record/interface eliminators are optional; omitted helpers are not generated.
+[Constructor-named structural patterns](docs/constructor-patterns.md) validate
+transparent packing while retaining explicit field types and quantities.
 
 ## Build
 

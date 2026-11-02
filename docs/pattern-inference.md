@@ -26,9 +26,9 @@ prints Dependent payload! and Dependent family!. Its second record contains
 a type and a family indexed by that type; its inferred motive uses both field
 extractions under result Pi binders.
 
-Pattern domains and quantities remain explicit. There is no constructor-name
-matching, inferred binder annotation, constructor discrimination or general
-inductive refinement.
+Pattern domains and quantities remain explicit. [Constructor-named structural
+patterns](constructor-patterns.md) are now supported, without nominal constructor
+discrimination, inferred binder annotations or general inductive refinement.
 
 ![Contextual expression elaboration](diagrams/pattern-inference.svg)
 
@@ -152,6 +152,6 @@ conversion rule or metatheoretic proof is added.
 
 Unit matching remains case value of () => body; no dependent Unit eliminator
 is introduced. Wider telescopes still use generated consuming eliminators.
-Constructor-named patterns, binder-type inference, expected-type-driven motive
+Binder-type inference, expected-type-driven motive
 selection, general inductive coverage/refinement and recursion termination
 remain separate work.

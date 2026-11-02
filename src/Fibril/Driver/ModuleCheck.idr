@@ -87,6 +87,9 @@ cost limit globals env expression = min (S limit) $ case expression of
   NBoxType _ _ a => 1 + cost limit globals env a
   NBoxValue _ a b => 1 + cost limit globals env a + cost limit globals env b
   NBoxCase _ a b c => 1 + cost limit globals env a + cost limit globals env b + cost limit globals env c
+  NConstructorCase _ _ constructor value branch motive =>
+    8 + 3 * cost limit globals env constructor + cost limit globals env value + 2 * cost limit globals env branch +
+      (case motive of Nothing => inferredResultNodes; Just explicit => cost limit globals env explicit)
   NInferCase _ _ value branch => 8 + cost limit globals env value + 2 * cost limit globals env branch + inferredResultNodes
   NPairCase _ motive value branch => 1 + cost limit globals env motive + cost limit globals env value + cost limit globals env branch
   NPi _ _ name a b => 1 + cost limit globals env a + cost limit globals (name :: env) b
