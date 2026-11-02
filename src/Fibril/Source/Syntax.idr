@@ -29,6 +29,8 @@ data Expr
   | NInferCase SourceSpan Nat Expr Expr
   | NPatternLambda SourceSpan (List Token) Expr
   | NConstructorCase SourceSpan Nat Expr Expr Expr (Maybe Expr)
+  | NConstraintPi SourceSpan Quantity String Expr Expr
+  | NDictionaryApply SourceSpan SourceSpan Expr (Maybe Expr)
   | NPi SourceSpan Quantity String Expr Expr
   | NLambda SourceSpan Quantity String Expr Expr
   | NApply SourceSpan Expr Expr
@@ -61,6 +63,8 @@ extent (NPairCase span _ _ _) = span
 extent (NInferCase span _ _ _) = span
 extent (NPatternLambda span _ _) = span
 extent (NConstructorCase span _ _ _ _ _) = span
+extent (NConstraintPi span _ _ _ _) = span
+extent (NDictionaryApply span _ _ _) = span
 extent (NPi span _ _ _ _) = span
 extent (NLambda span _ _ _ _) = span
 extent (NApply span _ _) = span
@@ -93,6 +97,8 @@ withExtent span (NPairCase _ motive value branch) = NPairCase span motive value 
 withExtent span (NInferCase _ arity value branch) = NInferCase span arity value branch
 withExtent span (NPatternLambda _ names body) = NPatternLambda span names body
 withExtent span (NConstructorCase _ arity constructor value branch motive) = NConstructorCase span arity constructor value branch motive
+withExtent span (NConstraintPi _ q name domain body) = NConstraintPi span q name domain body
+withExtent span (NDictionaryApply _ origin function argument) = NDictionaryApply span origin function argument
 withExtent span (NPi _ q name domain body) = NPi span q name domain body
 withExtent span (NLambda _ q name domain body) = NLambda span q name domain body
 withExtent span (NApply _ function argument) = NApply span function argument

@@ -118,5 +118,5 @@ Monoid shape!
 
 Tests cover local/imported/qualified schemas, ordering, errors, multiline bodies,
 guarded formatting, declaration/construction quotas, private/transitive visibility
-and rejection of unused invalid dependencies before schema publication. Algebraic
-laws, coherent instance lookup, constraints and operators remain separate work.
+and rejection of unused invalid dependencies before schema publication. [Named constraints/local selection](constraints.md) now use these dictionaries.
+Algebraic laws, coherent global instance lookup and operators remain separate work.

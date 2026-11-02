@@ -96,6 +96,8 @@ cost limit globals env expression = min (S limit) $ case expression of
       (case motive of Nothing => inferredResultNodes; Just explicit => cost limit globals env explicit)
   NInferCase _ _ value branch => 8 + cost limit globals env value + 2 * cost limit globals env branch + inferredResultNodes
   NPairCase _ motive value branch => 1 + cost limit globals env motive + cost limit globals env value + cost limit globals env branch
+  NConstraintPi _ _ name a b => 1 + cost limit globals env a + cost limit globals (name :: env) b
+  NDictionaryApply _ _ function argument => 2 + cost limit globals env function + (case argument of Nothing => 1; Just value => cost limit globals env value)
   NPi _ _ name a b => 1 + cost limit globals env a + cost limit globals (name :: env) b
   NLambda _ _ name a b => 1 + cost limit globals env a + cost limit globals (name :: env) b
   NApply _ a b => 1 + cost limit globals env a + cost limit globals env b

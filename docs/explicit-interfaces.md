@@ -2,7 +2,8 @@
 
 **Implemented prototype:** interface declarations, generated checked method
 functions, and explicitly typed named dictionary implementations. Dictionaries
-are passed explicitly. No instance search, constraints, inheritance, overloaded
+are passed explicitly or selected by a [unique-local request](constraints.md).
+Named constraints are supported; no global instance search, inheritance, overloaded
 operators, nominal class identity or law checking is implemented.
 [Named method-body blocks](implementation-blocks.md) now provide schema-guided
 constructor elaboration without instance search.
@@ -134,6 +135,7 @@ unsafe method quantities, private groups, unused bad implementations, automatic
 getter origins, declaration budgets, formatting and execution after formatting
 the imported graph. These are prototype tests, not a soundness theorem.
 
-**Next:** argument convenience and an explicit constraint/selection design.
-Named method-value block elaboration is now implemented. Bounded coherent search and operators come only
+**Next:** global selection/coherence policies and generic operators.
+Named method-value blocks and [named constraints/local selection](constraints.md)
+are implemented; implicit global instance resolution is not. Bounded coherent search and operators come only
 after visibility, ambiguity and quantity policies are specified.

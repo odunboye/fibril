@@ -2,7 +2,9 @@
 
 **Status:** explicit [interface and named implementation syntax](explicit-interfaces.md)
 now lowers to checked dictionaries with consuming method functions. Implicit
-lookup, constrained functions, operators and law checking remain unimplemented.
+global lookup, operators and law checking remain unimplemented.
+[Named constrained functions and unique local selection](constraints.md) now
+lower to ordinary checked dictionary applications.
 A bounded [resource-budgeted named record prototype](records.md) now provides checked
 constructors, erased parameters and explicit consuming eliminators, but not nominality. Nothing here establishes associativity, identity laws, quantitative
 soundness, or a computational HoTT equality theory.
@@ -187,7 +189,8 @@ Implementation order:
    and named dictionary implementations, including [method-value blocks](implementation-blocks.md)
    and negative method checks. No instance registry or inferred method arguments.
 4. Law representation once equality supports it; distinguish data from proofs.
-5. Constrained functions, bounded/coherent lookup, then generic operators.
+5. Implemented: named constraint binders and explicit/unique-local dictionary
+   selection. Next: bounded/coherent global lookup, then generic operators.
 
 This order keeps failures local and avoids committing to surface syntax before
 its core and resource meaning is known.

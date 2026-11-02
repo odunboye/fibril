@@ -18,6 +18,7 @@ import Fibril.Elaboration.Expression.Scope
 import Fibril.Elaboration.Expression.Motive
 import Fibril.Elaboration.Expression.Constructor
 import Fibril.Elaboration.Expression.Parameters
+import Fibril.Elaboration.Expression.Dictionary
 
 %default total
 
@@ -121,6 +122,20 @@ mutual
     inferCase span.start arity typedContext value branch
   elaborateInWith globals context env (NPairCase span motive value branch) =
     [| PairCase (elaborateInWith globals context env motive) (elaborateInWith globals context env value) (elaborateInWith globals context env branch) |]
+  elaborateInWith globals context env (NConstraintPi span q name domain body) = do
+    domain <- elaborateInWith globals context env domain
+    constraintType span.start q domain
+    body <- elaborateInWith globals (map (\ctx => Extend ctx q domain) context) (name :: env) body
+    Right (Pi q domain body)
+  elaborateInWith globals context env (NDictionaryApply span origin function argument) = do
+    typed <- case context of
+      Nothing => Left (CannotElaborate origin.start "Dictionary selection requires a typed context")
+      Just ctx => Right ctx
+    function <- elaborateInWith globals context env function
+    argument <- case argument of
+      Nothing => Right Nothing
+      Just value => Just <$> elaborateInWith globals context env value
+    selectDictionary origin.start typed env function argument
   elaborateInWith globals context env (NPi span q name domain body) = do
     domain <- elaborateInWith globals context env domain
     body <- elaborateInWith globals (map (\ctx => Extend ctx q domain) context) (name :: env) body

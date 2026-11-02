@@ -27,6 +27,7 @@ sameExpr (NBoolType _) (NBoolType _) = True
 sameExpr (NBoolValue _ a) (NBoolValue _ b) = a == b
 sameExpr (NIf _ a b c) (NIf _ x y z) = sameExpr a x && sameExpr b y && sameExpr c z
 sameExpr (NUnitCase _ a b) (NUnitCase _ x y) = sameExpr a x && sameExpr b y
+sameExpr (NConstraintPi _ q name a b) (NConstraintPi _ r other x y) = q == r && name == other && sameExpr a x && sameExpr b y
 sameExpr (NPi _ q name a b) (NPi _ r other x y) = q == r && name == other && sameExpr a x && sameExpr b y
 sameExpr (NLambda _ q name a b) (NLambda _ r other x y) = q == r && name == other && sameExpr a x && sameExpr b y
 sameExpr (NSigma _ q r name a b) (NSigma _ s t other x y) = q == s && r == t && name == other && sameExpr a x && sameExpr b y
@@ -41,6 +42,8 @@ sameExpr (NConstructorCase _ n c a b (Just p)) (NConstructorCase _ m d x y (Just
   n == m && sameExpr c d && sameExpr a x && sameExpr b y && sameExpr p q
 sameExpr (NInferCase _ n a b) (NInferCase _ m x y) = n == m && sameExpr a x && sameExpr b y
 sameExpr (NPairCase _ a b c) (NPairCase _ x y z) = sameExpr a x && sameExpr b y && sameExpr c z
+sameExpr (NDictionaryApply _ _ f Nothing) (NDictionaryApply _ _ g Nothing) = sameExpr f g
+sameExpr (NDictionaryApply _ _ f (Just a)) (NDictionaryApply _ _ g (Just b)) = sameExpr f g && sameExpr a b
 sameExpr (NApply _ a b) (NApply _ x y) = sameExpr a x && sameExpr b y
 sameExpr (NSequence _ a b) (NSequence _ x y) = sameExpr a x && sameExpr b y
 sameExpr (NDoBind _ name a b c) (NDoBind _ other x y z) = name == other && sameExpr a x && sameExpr b y && sameExpr c z

@@ -44,7 +44,7 @@ groupArrow depth (token :: rest) =
       case depth of
         Z => False
         S Z => case rest of
-          next :: _ => next.kind == Arrow
+          next :: _ => next.kind == Arrow || next.kind == BodyArrow
           [] => False
         S remaining => groupArrow remaining rest
     _ => groupArrow depth rest
@@ -240,10 +240,13 @@ mutual
                          header.quantity header.name header.domain body, remaining)
         else if binderAhead tokens then do
           header <- binder depth end tokens
-          (_, afterArrow) <- expect Arrow end header.remaining
+          (arrow, afterArrow) <- case header.remaining of
+            arrow :: rest => Right (arrow, rest)
+            [] => Left (ParseFailure end "Expected -> or => after binder")
           (body, remaining) <- expression depth end afterArrow
-          Right (NPi (Between header.span.start (extent body).finish)
-                     header.quantity header.name header.domain body, remaining)
+          let region = Between header.span.start (extent body).finish
+          Right (if arrow.kind == BodyArrow then NConstraintPi region header.quantity header.name header.domain body
+                    else NPi region header.quantity header.name header.domain body, remaining)
         else do
           (domain, afterDomain) <- application depth end tokens
           case afterDomain of
@@ -402,11 +405,23 @@ mutual
     (head, remaining) <- atom depth end tokens
     arguments depth end head remaining
 
+  dictionaryArgument : Nat -> Position -> List Token -> Either ParseError (Maybe Expr, Token, List Token)
+  dictionaryArgument depth end [] = Left (ParseFailure end "Expected dictionary expression or }")
+  dictionaryArgument depth end rest@(close :: following) =
+    if close.kind == CloseBrace then Right (Nothing, close, following) else do
+      (value, following) <- expression depth end rest
+      (close, remaining) <- expect CloseBrace end following
+      Right (Just value, close, remaining)
+
   arguments : Nat -> Position -> Expr -> List Token -> Either ParseError (Expr, List Token)
   arguments depth end function [] = Right (function, [])
   arguments Z end function tokens = limit end tokens
   arguments (S depth) end function tokens@(token :: rest) =
-    if startsAtom token.kind then do
+    if token.kind == DictionaryOpen then do
+      (argument, closing, remaining) <- dictionaryArgument depth end rest
+      arguments depth end (NDictionaryApply (Between (extent function).start closing.span.finish)
+        (Between token.span.start closing.span.finish) function argument) remaining
+    else if startsAtom token.kind then do
       (argument, remaining) <- atom depth end tokens
       arguments depth end
         (NApply (Between (extent function).start (extent argument).finish) function argument) remaining

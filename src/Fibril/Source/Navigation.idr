@@ -97,12 +97,16 @@ walk context env (NConstructorCase _ _ constructor value branch motive) =
   walk context env constructor ++ walk context env value ++ (case motive of Nothing => []; Just result => walk context env result) ++ walk context env branch
 walk context env (NInferCase _ _ value branch) = walk context env value ++ walk context env branch
 walk context env (NPairCase _ motive value branch) = walk context env motive ++ walk context env value ++ walk context env branch
+walk context env (NConstraintPi span q name domain body) =
+  let target = binderToken name span domain context.tokens
+   in walk context env domain ++ self context target ++ walk context ((name, map context.localTarget target) :: env) body
 walk context env (NPi span q name domain body) =
   let target = binderToken name span domain context.tokens
    in walk context env domain ++ self context target ++ walk context ((name, map context.localTarget target) :: env) body
 walk context env (NLambda span q name domain body) =
   let target = binderToken name span domain context.tokens
    in walk context env domain ++ self context target ++ walk context ((name, map context.localTarget target) :: env) body
+walk context env (NDictionaryApply _ _ function argument) = walk context env function ++ (case argument of Nothing => []; Just value => walk context env value)
 walk context env (NApply _ function argument) = walk context env function ++ walk context env argument
 walk context env (NSequence _ first rest) = walk context env first ++ walk context env rest
 walk context env (NDoBind span name domain action body) =

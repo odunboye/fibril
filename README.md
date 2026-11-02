@@ -34,8 +34,10 @@ globals now support exported type abbreviations without granting runtime access;
 dependent pair formation/construction/elimination are now in the core.
 A resource-budgeted named-record prototype now runs, without a fixed field-count cap; see [record foundations](docs/records.md) and [singleton rules](docs/unary-records.md). [Explicit interfaces and named implementations](docs/explicit-interfaces.md) now
 lower to checked dictionary values and method functions. [Named method blocks](docs/implementation-blocks.md)
-can now construct those dictionaries from local or checked direct-import interface schemas. Implicit dictionary
-search and algebraic-law checking remain unimplemented.
+can now construct those dictionaries from local or checked direct-import interface schemas.
+Global instance search and algebraic-law checking remain unimplemented.
+[Named constraints and local dictionary selection](docs/constraints.md) now
+support explicit @{dictionary} and unique-local @{} applications.
 [Typed record patterns](docs/pattern-inference.md) infer constant or canonical
 dependent motives within resource bounds; explicit return clauses retain control.
 Named record/interface eliminators are optional; omitted helpers are not generated.

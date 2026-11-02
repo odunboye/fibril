@@ -9,7 +9,7 @@ import Fibril.Source.StringLiteral
 
 ||| Token categories for the initial explicitly annotated expression grammar.
 public export
-data TokenKind = Name | Number | StringToken | StringKeyword | TypeKeyword | UnitKeyword | BoolKeyword | TrueKeyword | FalseKeyword | IfKeyword | ThenKeyword | ElseKeyword | DoKeyword | CaseKeyword | OfKeyword | LetKeyword | InKeyword | ProjectionKeyword | ReturnKeyword | RecordKeyword | InterfaceKeyword | ImplementationKeyword | ConstructorKeyword | EliminatorKeyword | WhereKeyword | ModuleKeyword | ImportKeyword | ExportKeyword | Dot | Equals | OpenParen | CloseParen | Colon | Arrow | BindArrow | BodyArrow | Lambda
+data TokenKind = Name | Number | StringToken | StringKeyword | TypeKeyword | UnitKeyword | BoolKeyword | TrueKeyword | FalseKeyword | IfKeyword | ThenKeyword | ElseKeyword | DoKeyword | CaseKeyword | OfKeyword | LetKeyword | InKeyword | ProjectionKeyword | ReturnKeyword | RecordKeyword | InterfaceKeyword | ImplementationKeyword | ConstructorKeyword | EliminatorKeyword | WhereKeyword | ModuleKeyword | ImportKeyword | ExportKeyword | Dot | Equals | OpenParen | CloseParen | DictionaryOpen | CloseBrace | Colon | Arrow | BindArrow | BodyArrow | Lambda
 
 public export
 Show TokenKind where
@@ -43,6 +43,8 @@ Show TokenKind where
   show ExportKeyword = "export"
   show Dot = "."
   show Equals = "="
+  show DictionaryOpen = "@{"
+  show CloseBrace = "}"
   show OpenParen = "("
   show CloseParen = ")"
   show Colon = ":"
@@ -83,6 +85,8 @@ Eq TokenKind where
   ExportKeyword == ExportKeyword = True
   Dot == Dot = True
   Equals == Equals = True
+  DictionaryOpen == DictionaryOpen = True
+  CloseBrace == CloseBrace = True
   OpenParen == OpenParen = True
   CloseParen == CloseParen = True
   Colon == Colon = True
@@ -179,6 +183,10 @@ scan (S fuel) at ('=' :: '>' :: rest) = do
   let token = emit at BodyArrow ['=', '>']
   tokens <- scan fuel token.span.finish rest
   Right (token :: tokens)
+scan (S fuel) at ('@' :: '{' :: rest) = do
+  let token = emit at DictionaryOpen ['@', '{']
+  tokens <- scan fuel token.span.finish rest
+  Right (token :: tokens)
 scan (S fuel) at (c :: rest) =
   if whitespace c
      then let (spaces, remaining) = span whitespace rest
@@ -228,6 +236,7 @@ scan (S fuel) at (c :: rest) =
       '.' => Right Dot
       '(' => Right OpenParen
       ')' => Right CloseParen
+      '}' => Right CloseBrace
       ':' => Right Colon
       '=' => Right Equals
       '\\' => Right Lambda

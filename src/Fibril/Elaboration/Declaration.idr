@@ -91,12 +91,14 @@ consume region fields@(first :: rest) motive value branch =
 -- getter result types without requiring a pair eta/conversion rule.
 mentions : String -> Expr -> Bool
 mentions name (NRef _ reference) = name == reference
+mentions name (NConstraintPi _ _ binder domain body) = mentions name domain || (binder /= name && mentions name body)
 mentions name (NPi _ _ binder domain body) = mentions name domain || (binder /= name && mentions name body)
 mentions name (NLambda _ _ binder domain body) = mentions name domain || (binder /= name && mentions name body)
 mentions name (NSigma _ _ _ binder domain body) = mentions name domain || (binder /= name && mentions name body)
 mentions name (NBoxType _ _ ty) = mentions name ty
 mentions name (NBoxValue _ a b) = mentions name a || mentions name b
 mentions name (NBoxCase _ a b c) = mentions name a || mentions name b || mentions name c
+mentions name (NDictionaryApply _ _ function argument) = mentions name function || (case argument of Nothing => False; Just value => mentions name value)
 mentions name (NApply _ a b) = mentions name a || mentions name b
 mentions name (NAscribe _ a b) = mentions name a || mentions name b
 mentions name (NUnitCase _ a b) = mentions name a || mentions name b
@@ -253,6 +255,8 @@ syntaxNodes : Expr -> Nat
 syntaxNodes (NBoxType _ _ ty) = capped (1 + syntaxNodes ty)
 syntaxNodes (NBoxValue _ a b) = capped (1 + syntaxNodes a + syntaxNodes b)
 syntaxNodes (NBoxCase _ a b c) = capped (1 + syntaxNodes a + syntaxNodes b + syntaxNodes c)
+syntaxNodes (NConstraintPi _ _ _ a b) = capped (1 + syntaxNodes a + syntaxNodes b)
+syntaxNodes (NDictionaryApply _ _ function argument) = capped (1 + syntaxNodes function + (case argument of Nothing => 0; Just value => syntaxNodes value))
 syntaxNodes (NPi _ _ _ a b) = capped (1 + syntaxNodes a + syntaxNodes b)
 syntaxNodes (NLambda _ _ _ a b) = capped (1 + syntaxNodes a + syntaxNodes b)
 syntaxNodes (NSigma _ _ _ _ a b) = capped (1 + syntaxNodes a + syntaxNodes b)

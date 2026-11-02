@@ -1,0 +1,12 @@
+digraph Constraints {
+  rankdir=LR;
+  node [shape=box];
+  signature [label="Named constraint Pi\n(dictionary : C) => result"];
+  request [label="Explicit @{dictionary}\nor local request @{}"];
+  local [label="Visible typed locals only\nexclude erased/wildcard/shadowed"];
+  choice [label="Exactly one convertible dictionary\nno global registry / no backtracking"];
+  core [label="Existing Pi / Apply\noriginal quantities retained"];
+  checker [label="Independent erased/runtime checking"];
+  signature -> core;
+  request -> local -> choice -> core -> checker;
+}

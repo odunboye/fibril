@@ -519,6 +519,102 @@ class CLITests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertEqual(result.stdout, "Do context!\n")
 
+    def test_named_constraints_and_local_dictionary_selection(self):
+        example = ROOT / "examples/modules/constraints"
+        result = run("run", "--source-dir", str(example), str(example / "Main.fib"))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout, "Hello, interfaces!\nExplicit dictionaries!\nMonoid shape!\n")
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / "Main.fib"
+            base = ('module Main\ninterface C : Type 0 where\n  constructor MkC\n'
+                    '  method : (1 text : String) -> String\n'
+                    'implementation instance : C where\n  method = \\(1 text : String) => text\n'
+                    'apply : (ops : C) => (1 text : String) -> String\n'
+                    'apply = \\(ops : C) => \\(1 text : String) => method @{} text\n'
+                    'main : IO Unit\nmain = putStrLn (apply @{instance} "Local selection!")\n')
+            path.write_text(base)
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, "Local selection!\n")
+            inspected = json.loads(run("elaborate", str(path)).stdout)
+            self.assertFalse(inspected["checked"])
+            self.assertIn("constraint-pi", str(inspected))
+            self.assertIn("local-unique", str(inspected))
+            formatted = run("format", str(path))
+            self.assertEqual(formatted.returncode, 0, formatted.stderr)
+            self.assertIn("@{}", formatted.stdout)
+            self.assertIn("@{instance}", formatted.stdout)
+            path.write_text(formatted.stdout)
+            self.assertEqual(run("format", str(path)).stdout, formatted.stdout)
+            # A global implementation is never silently found by local search.
+            missing = base.replace("apply @{instance}", "apply @{}")
+            path.write_text(missing)
+            result = run("check", "--json", "--source-dir", str(root), str(path))
+            self.assertNotEqual(result.returncode, 0)
+            diagnostic = next(d for d in json.loads(result.stdout)["diagnostics"] if d["stage"] == "elaboration")
+            self.assertIn("No matching visible local", diagnostic["message"])
+            self.assertEqual(diagnostic["position"]["offset"], missing.rindex("@{}"))
+            # Two matching locals reject rather than selecting by order.
+            ambiguous = base.replace('(ops : C) => (1 text', '(ops : C) => (other : C) => (1 text').replace(
+                'apply = \\(ops : C) =>', 'apply = \\(ops : C) => \\(other : C) =>').replace(
+                "apply @{instance}", "apply @{instance} @{instance}")
+            path.write_text(ambiguous)
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Ambiguous local dictionaries", result.stderr)
+            self.assertEqual(result.stdout, "")
+            path.write_text(ambiguous.replace("method @{}", "method @{ops}"))
+            self.assertEqual(run("run", "--source-dir", str(root), str(path)).stdout, "Local selection!\n")
+            # Selection does not weaken a linear dictionary or revive erased locals.
+            linear = base.replace('(ops : C)', '(1 ops : C)').replace(
+                'method @{} text', 'appendString (method @{} text) (method @{} "twice")')
+            path.write_text(linear)
+            self.assertNotEqual(run("run", "--source-dir", str(root), str(path)).returncode, 0)
+            path.write_text(base.replace('(ops : C)', '(0 ops : C)'))
+            self.assertNotEqual(run("run", "--source-dir", str(root), str(path)).returncode, 0)
+            # Ordinary erased dictionary binders are not eligible automatic candidates.
+            path.write_text(base.replace('(ops : C) => (1 text', '(0 ops : C) -> (1 text').replace(
+                '\\(ops : C) =>', '\\(0 ops : C) =>'))
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("No matching visible local", result.stderr)
+            # Lexical shadowing hides an older candidate with the same name.
+            path.write_text(base.replace("method @{} text", 'let (ops : Bool) = True in method @{} text'))
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("No matching visible local", result.stderr)
+            for bad in (
+                base.replace("(ops : C) => (1 text", "(ops : Bool) => (1 text"),
+                base.replace("method @{} text", "method @{True} text"),
+                base.replace("method @{} text", "appendString @{} text"),
+                base.replace("method @{} text", "method @{ops text"),
+            ):
+                path.write_text(bad)
+                result = run("run", "--source-dir", str(root), str(path))
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(result.stdout, "")
+            # Explicit selection references retain their real lexical target.
+            explicit = base.replace("method @{} text", "method @{ops} text")
+            path.write_text(explicit)
+            lines = explicit.splitlines()
+            line = next(i + 1 for i, text in enumerate(lines) if "method @{ops}" in text)
+            column = lines[line - 1].index("@{ops}") + 3
+            result = run("definition", "--source-dir", str(root), "--entry", str(path),
+                         str(line), str(column), str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            point = json.loads(result.stdout)["definition"]["range"]
+            self.assertEqual(explicit[point["start"]["offset"]:point["end"]["offset"]], "ops")
+            # Imported graph formatted through syntax-only services still executes.
+            for file in example.rglob("*.fib"):
+                destination = root / file.relative_to(example)
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                destination.write_bytes(file.read_bytes())
+                formatted = run("format", str(destination))
+                self.assertEqual(formatted.returncode, 0, formatted.stderr)
+                destination.write_text(formatted.stdout)
+            self.assertEqual(run("run", "--source-dir", str(root), str(path)).returncode, 0)
+
     def test_module_core_errors_have_declaration_locations(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

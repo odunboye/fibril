@@ -31,6 +31,7 @@ Implemented:
 - `src/Fibril/Source/Resolve.idr`: compatibility facade for contextual expression elaboration; arbitrary untyped name-vector entrypoints retain lexical behavior.
 - `src/Fibril/Elaboration/Expression.idr`: contextual names-to-core elaboration, typed lets/do lowering and bounded constant/dependent motive inference for typed unary/binary patterns; original core values still need independent checking.
 - `src/Fibril/Elaboration/Expression/Scope.idr`: partial scope transport and saturated substitution/type counting for untrusted inference.
+- `src/Fibril/Elaboration/Expression/Dictionary.idr`: structural constraint validation and explicit/unique visible-local dictionary requests; no global instance search or core rule.
 - `src/Fibril/Elaboration/Expression/Parameters.idr`: bounded structural recovery of erased constructor-prefix arguments from checked scrutinee types; no core metavariables, phantom guesses or general implicit search.
 - `src/Fibril/Source/Resolve/Error.idr`: lexical versus contextual-elaboration failures at actual scalar source points.
 - `src/Fibril/Driver/JSON.idr`: shared escaped JSON strings, objects, positions, and protocol envelope.

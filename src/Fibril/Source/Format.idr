@@ -25,6 +25,7 @@ separator : Token -> Token -> List Char
 separator previous next =
   if previous.kind == Dot || next.kind == Dot ||
      previous.kind == OpenParen || next.kind == CloseParen ||
+     previous.kind == DictionaryOpen || next.kind == CloseBrace ||
      (previous.kind == Lambda && next.kind == OpenParen)
      then [] else [' ']
 
@@ -79,6 +80,9 @@ grouped tokens value = any (\token => token.kind == OpenParen &&
                            token.span.start.offset == (extent value).start.offset) tokens
 
 layout : List Token -> Nat -> Bool -> Expr -> Plan
+layout tokens indentation forced (NDictionaryApply _ _ function Nothing) = layout tokens indentation forced function
+layout tokens indentation forced (NDictionaryApply _ _ function (Just value)) =
+  layout tokens indentation forced function ++ layout tokens (indentation + 2) False value
 layout tokens indentation forced value@(NApply _ function argument) =
   let split = forced || wide tokens indentation value
       groupedArgument = grouped tokens argument
@@ -92,6 +96,10 @@ layout tokens indentation forced value@(NLambda _ _ _ domain body) =
    in (if split then atStart childIndent body else []) ++
       layout tokens (indentation + 2) False domain ++
       layout tokens childIndent (forced && not (hasArrow tokens BodyArrow domain body)) body
+layout tokens indentation forced value@(NConstraintPi _ _ _ domain body) =
+  let split = forced || wide tokens indentation value
+   in (if split && hasArrow tokens BodyArrow domain body then atStart (indentation + 2) body else []) ++
+      layout tokens (indentation + 2) False domain ++ layout tokens indentation split body
 layout tokens indentation forced value@(NPi _ _ _ domain body) =
   let split = forced || wide tokens indentation value
    in (if split && hasArrow tokens Arrow domain body then atStart (indentation + 2) body else []) ++

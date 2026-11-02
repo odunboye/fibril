@@ -100,6 +100,10 @@
         "path": "docs/implementation-blocks.md"
       },
       {
+        "title": "Named constraints and dictionary selection",
+        "path": "docs/constraints.md"
+      },
+      {
         "title": "Python interoperability",
         "path": "docs/python-interop.md"
       },
