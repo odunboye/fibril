@@ -47,6 +47,16 @@ step (BoolCase condition yes no) =
     Nothing => case step yes of
       Just next => Just (BoolCase condition next no)
       Nothing => map (BoolCase condition yes) (step no)
+step (Sigma q r domain body) =
+  case step domain of
+    Just next => Just (Sigma q r next body)
+    Nothing => map (Sigma q r domain) (step body)
+step (PairValue ty first second) =
+  case step ty of
+    Just next => Just (PairValue next first second)
+    Nothing => case step first of
+      Just next => Just (PairValue ty next second)
+      Nothing => map (PairValue ty first) (step second)
 step (Pi q domain body) =
   case step domain of
     Just next => Just (Pi q next body)

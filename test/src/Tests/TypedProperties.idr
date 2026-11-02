@@ -25,7 +25,10 @@ Show TypedSample where
 
 seed : Gen TypedSample
 seed = element
-  [ Sample (IOType StringType) (Universe 0)
+  [ Sample (Sigma Erased Linear (Universe 0) (Variable FZ)) (Universe 1)
+  , Sample (PairValue (Sigma Erased Linear (Universe 0) (Variable FZ)) StringType (StringValue "packed"))
+           (Sigma Erased Linear (Universe 0) (Variable FZ))
+  , Sample (IOType StringType) (Universe 0)
   , Sample (IOPure (StringValue "pure")) (IOType StringType)
   , Sample (WriteLine (StringValue "request")) (IOType UnitType)
   , Sample StringType (Universe 0)
@@ -61,6 +64,8 @@ typedGen Z = seed
 typedGen (S depth) =
   choice
     [ seed
+    , (\sample => let ty = Sigma Erased Linear UnitType (weaken sample.expected)
+                    in Sample (PairValue ty UnitValue sample.term) ty) <$> typedGen depth
     , wrapLambda <$> element [Erased, Linear, Unrestricted] <*> typedGen depth
     , wrapBeta <$> element [Erased, Linear, Unrestricted] <*> typedGen depth
     , (\sample => Sample (UnitCase UnitValue sample.term) sample.expected) <$> typedGen depth

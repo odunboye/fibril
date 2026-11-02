@@ -43,7 +43,17 @@ renameAfterSubstitution env sigma (BoolCase condition yes no) =
   rewrite renameAfterSubstitution env sigma condition in
   rewrite renameAfterSubstitution env sigma yes in
   rewrite renameAfterSubstitution env sigma no in Refl
+renameAfterSubstitution env sigma (PairValue annotation firstValue secondValue) =
+  rewrite renameAfterSubstitution env sigma annotation in
+  rewrite renameAfterSubstitution env sigma firstValue in
+  rewrite renameAfterSubstitution env sigma secondValue in Refl
 renameAfterSubstitution env sigma (Pi q domain body) =
+  rewrite renameAfterSubstitution env sigma domain in
+  rewrite renameAfterSubstitution (liftRenaming env) (liftSubstitution sigma) body in
+  rewrite substituteCongruent (rename (liftRenaming env) . liftSubstitution sigma)
+                            (liftSubstitution (rename env . sigma))
+                            (liftRenameSubstitution env sigma) body in Refl
+renameAfterSubstitution env sigma (Sigma q r domain body) =
   rewrite renameAfterSubstitution env sigma domain in
   rewrite renameAfterSubstitution (liftRenaming env) (liftSubstitution sigma) body in
   rewrite substituteCongruent (rename (liftRenaming env) . liftSubstitution sigma)
@@ -102,7 +112,17 @@ substituteAfterRenaming env sigma (BoolCase condition yes no) =
   rewrite substituteAfterRenaming env sigma condition in
   rewrite substituteAfterRenaming env sigma yes in
   rewrite substituteAfterRenaming env sigma no in Refl
+substituteAfterRenaming env sigma (PairValue annotation firstValue secondValue) =
+  rewrite substituteAfterRenaming env sigma annotation in
+  rewrite substituteAfterRenaming env sigma firstValue in
+  rewrite substituteAfterRenaming env sigma secondValue in Refl
 substituteAfterRenaming env sigma (Pi q domain body) =
+  rewrite substituteAfterRenaming env sigma domain in
+  rewrite substituteAfterRenaming (liftRenaming env) (liftSubstitution sigma) body in
+  rewrite substituteCongruent (liftSubstitution sigma . liftRenaming env)
+                            (liftSubstitution (sigma . env))
+                            (liftSubstituteRenaming env sigma) body in Refl
+substituteAfterRenaming env sigma (Sigma q r domain body) =
   rewrite substituteAfterRenaming env sigma domain in
   rewrite substituteAfterRenaming (liftRenaming env) (liftSubstitution sigma) body in
   rewrite substituteCongruent (liftSubstitution sigma . liftRenaming env)
@@ -171,7 +191,17 @@ substituteComposition first second (BoolCase condition yes no) =
   rewrite substituteComposition first second condition in
   rewrite substituteComposition first second yes in
   rewrite substituteComposition first second no in Refl
+substituteComposition first second (PairValue annotation firstValue secondValue) =
+  rewrite substituteComposition first second annotation in
+  rewrite substituteComposition first second firstValue in
+  rewrite substituteComposition first second secondValue in Refl
 substituteComposition first second (Pi q domain body) =
+  rewrite substituteComposition first second domain in
+  rewrite substituteComposition (liftSubstitution first) (liftSubstitution second) body in
+  rewrite substituteCongruent (substituteTerm (liftSubstitution second) . liftSubstitution first)
+                            (liftSubstitution (substituteTerm second . first))
+                            (liftComposition first second) body in Refl
+substituteComposition first second (Sigma q r domain body) =
   rewrite substituteComposition first second domain in
   rewrite substituteComposition (liftSubstitution first) (liftSubstitution second) body in
   rewrite substituteCongruent (substituteTerm (liftSubstitution second) . liftSubstitution first)

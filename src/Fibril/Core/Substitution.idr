@@ -42,7 +42,15 @@ substituteCongruent left right agree (BoolCase condition yes no) =
   rewrite substituteCongruent left right agree condition in
   rewrite substituteCongruent left right agree yes in
   rewrite substituteCongruent left right agree no in Refl
+substituteCongruent left right agree (PairValue annotation firstValue secondValue) =
+  rewrite substituteCongruent left right agree annotation in
+  rewrite substituteCongruent left right agree firstValue in
+  rewrite substituteCongruent left right agree secondValue in Refl
 substituteCongruent left right agree (Pi q domain body) =
+  rewrite substituteCongruent left right agree domain in
+  rewrite substituteCongruent (liftSubstitution left) (liftSubstitution right)
+                            (liftAgreement left right agree) body in Refl
+substituteCongruent left right agree (Sigma q r domain body) =
   rewrite substituteCongruent left right agree domain in
   rewrite substituteCongruent (liftSubstitution left) (liftSubstitution right)
                             (liftAgreement left right agree) body in Refl
@@ -94,7 +102,17 @@ renameAsSubstitution env (BoolCase condition yes no) =
   rewrite renameAsSubstitution env condition in
   rewrite renameAsSubstitution env yes in
   rewrite renameAsSubstitution env no in Refl
+renameAsSubstitution env (PairValue annotation firstValue secondValue) =
+  rewrite renameAsSubstitution env annotation in
+  rewrite renameAsSubstitution env firstValue in
+  rewrite renameAsSubstitution env secondValue in Refl
 renameAsSubstitution env (Pi q domain body) =
+  rewrite renameAsSubstitution env domain in
+  rewrite renameAsSubstitution (liftRenaming env) body in
+  rewrite substituteCongruent (Variable . liftRenaming env)
+                            (liftSubstitution (Variable . env))
+                            (liftVariables env) body in Refl
+renameAsSubstitution env (Sigma q r domain body) =
   rewrite renameAsSubstitution env domain in
   rewrite renameAsSubstitution (liftRenaming env) body in
   rewrite substituteCongruent (Variable . liftRenaming env)

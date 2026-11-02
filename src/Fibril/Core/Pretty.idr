@@ -32,6 +32,10 @@ renderTerm (IOBind a b action next) =
   " " ++ renderTerm next ++ ")"
 renderTerm (BoolCase condition yes no) =
   "(If " ++ renderTerm condition ++ " " ++ renderTerm yes ++ " " ++ renderTerm no ++ ")"
+renderTerm (Sigma q r domain body) =
+  "(Sigma " ++ show q ++ " " ++ show r ++ " " ++ renderTerm domain ++ " " ++ renderTerm body ++ ")"
+renderTerm (PairValue ty first second) =
+  "(Pair " ++ renderTerm ty ++ " " ++ renderTerm first ++ " " ++ renderTerm second ++ ")"
 renderTerm (Pi q domain body) =
   "(Pi " ++ show q ++ " " ++ renderTerm domain ++ " " ++ renderTerm body ++ ")"
 renderTerm (Lambda q domain body) =

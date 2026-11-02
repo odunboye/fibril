@@ -39,7 +39,15 @@ renameCongruent left right agree (BoolCase condition yes no) =
   rewrite renameCongruent left right agree condition in
   rewrite renameCongruent left right agree yes in
   rewrite renameCongruent left right agree no in Refl
+renameCongruent left right agree (PairValue annotation firstValue secondValue) =
+  rewrite renameCongruent left right agree annotation in
+  rewrite renameCongruent left right agree firstValue in
+  rewrite renameCongruent left right agree secondValue in Refl
 renameCongruent left right agree (Pi q domain body) =
+  rewrite renameCongruent left right agree domain in
+  rewrite renameCongruent (liftRenaming left) (liftRenaming right)
+                         (liftAgreement left right agree) body in Refl
+renameCongruent left right agree (Sigma q r domain body) =
   rewrite renameCongruent left right agree domain in
   rewrite renameCongruent (liftRenaming left) (liftRenaming right)
                          (liftAgreement left right agree) body in Refl
@@ -88,7 +96,15 @@ renameIdentity (BoolCase condition yes no) =
   rewrite renameIdentity condition in
   rewrite renameIdentity yes in
   rewrite renameIdentity no in Refl
+renameIdentity (PairValue annotation firstValue secondValue) =
+  rewrite renameIdentity annotation in
+  rewrite renameIdentity firstValue in
+  rewrite renameIdentity secondValue in Refl
 renameIdentity (Pi q domain body) =
+  rewrite renameIdentity domain in
+  rewrite renameCongruent (liftRenaming Prelude.id) Prelude.id liftIdentity body in
+  rewrite renameIdentity body in Refl
+renameIdentity (Sigma q r domain body) =
   rewrite renameIdentity domain in
   rewrite renameCongruent (liftRenaming Prelude.id) Prelude.id liftIdentity body in
   rewrite renameIdentity body in Refl
@@ -143,7 +159,17 @@ renameComposition first second (BoolCase condition yes no) =
   rewrite renameComposition first second condition in
   rewrite renameComposition first second yes in
   rewrite renameComposition first second no in Refl
+renameComposition first second (PairValue annotation firstValue secondValue) =
+  rewrite renameComposition first second annotation in
+  rewrite renameComposition first second firstValue in
+  rewrite renameComposition first second secondValue in Refl
 renameComposition first second (Pi q domain body) =
+  rewrite renameComposition first second domain in
+  rewrite renameComposition (liftRenaming first) (liftRenaming second) body in
+  rewrite renameCongruent (liftRenaming second . liftRenaming first)
+                         (liftRenaming (second . first))
+                         (liftComposition first second) body in Refl
+renameComposition first second (Sigma q r domain body) =
   rewrite renameComposition first second domain in
   rewrite renameComposition (liftRenaming first) (liftRenaming second) body in
   rewrite renameCongruent (liftRenaming second . liftRenaming first)

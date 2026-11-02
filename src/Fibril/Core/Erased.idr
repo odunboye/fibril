@@ -19,6 +19,7 @@ data CheckError : Type where
   CheckingLimit : CheckError
   ReductionLimit : CheckError
   ExpectedUniverse : {0 n : Nat} -> (found : Term n) -> CheckError
+  ExpectedPairType : {0 n : Nat} -> (found : Term n) -> CheckError
   ExpectedFunction : {0 n : Nat} -> (found : Term n) -> CheckError
   ||| Both types retain a shared scope; payloads are diagnostic data, not proofs.
   TypeMismatch : {0 n : Nat} -> (actual, expected : Term n) -> CheckError
@@ -29,6 +30,7 @@ Show CheckError where
   show CheckingLimit = "Checking recursion budget exhausted"
   show ReductionLimit = "Reduction budget exhausted"
   show (ExpectedUniverse found) = "Expected a universe; found: " ++ renderTerm found
+  show (ExpectedPairType found) = "Expected a dependent pair type; found: " ++ renderTerm found
   show (ExpectedFunction found) = "Expected a dependent function type; found: " ++ renderTerm found
   show (TypeMismatch actual expected) =
     "Inferred type is not compatible with expected type; inferred: " ++ renderTerm actual ++
@@ -104,6 +106,21 @@ mutual
       EqualNormalForms => Right yesType
       DifferentNormalForms => Left (BranchTypeMismatch yesType noType)
       Inconclusive => Left ReductionLimit
+  infer (S depth) reduction context (Sigma q r domain body) = do
+    domainLevel <- sortOf depth reduction context domain
+    bodyLevel <- sortOf depth reduction (Extend context q domain) body
+    Right (Universe (max domainLevel bodyLevel))
+  infer (S depth) reduction context (PairValue annotation first second) = do
+    _ <- sortOf depth reduction context annotation
+    exposed <- exposeType reduction annotation
+    case exposed of
+      Sigma q r domain body => do
+        firstType <- infer depth reduction context first
+        requireCompatible reduction firstType domain
+        secondType <- infer depth reduction context second
+        requireCompatible reduction secondType (instantiateTerm first body)
+        Right annotation
+      _ => Left (ExpectedPairType exposed)
   infer (S depth) reduction context (Pi q domain body) = do
     domainLevel <- sortOf depth reduction context domain
     bodyLevel <- sortOf depth reduction (Extend context q domain) body

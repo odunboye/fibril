@@ -112,6 +112,11 @@ feature does not add project check --erased or implicit type-level declarations.
 
 ## Second prerequisite: dictionary representation
 
+[Dependent pair formation and construction](records.md) are now implemented in
+the core, with quantities on both fields and a genuinely dependent second field.
+Consuming elimination and named record syntax remain the next steps; this is not
+yet a complete dictionary representation.
+
 Choose a small, explicit record or dependent-product representation before
 surface interface syntax. Specify formation, introduction, elimination,
 computation, conversion, and quantitative usage together. Record metadata must
@@ -171,7 +176,8 @@ or soundness theorem in this slice.
 Implementation order:
 
 1. Implemented: staged erased globals and import/runtime rejection tests.
-2. Next: minimal checked dependent records/dictionary representation and all affected core infrastructure.
+2. In progress: dependent records/dictionary representation (core formation and
+   construction implemented; elimination and source records pending) and all affected core infrastructure.
 3. Explicit operational interfaces and implementations, including failed methods.
 4. Law representation once equality supports it; distinguish data from proofs.
 5. Constrained functions, bounded/coherent lookup, then generic operators.

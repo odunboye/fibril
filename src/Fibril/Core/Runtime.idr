@@ -28,7 +28,7 @@ Show RuntimeError where
     "Binder usage: expected " ++ show expected ++ ", observed " ++ show observed
   show (ContextUsage i expected observed) =
     "Variable " ++ show i ++ ": expected " ++ show expected ++ ", observed " ++ show observed
-  show RuntimeTypeExpression = "Runtime type expressions (universe/Pi/Unit/Bool/String/IO) are not supported"
+  show RuntimeTypeExpression = "Runtime type expressions (universe/Pi/Sigma/Unit/Bool/String/IO) are not supported"
 
 liftTyping : Either CheckError a -> Either RuntimeError a
 liftTyping (Left err) = Left (TypingError err)
@@ -68,6 +68,21 @@ analyze (S depth) reduction context (BoolCase condition yes no) = do
   yesUsage <- analyze depth reduction context yes
   noUsage <- analyze depth reduction context no
   Right (combineUsage conditionUsage (joinUsage yesUsage noUsage))
+analyze (S depth) reduction context (Sigma _ _ _ _) = Left RuntimeTypeExpression
+analyze (S depth) reduction context (PairValue annotation first second) = do
+  exposed <- case weakHead reduction annotation of
+    HeadForm ty => Right ty
+    HeadLimit _ => Left (TypingError ReductionLimit)
+  case exposed of
+    Sigma q r _ _ => do
+      firstUsage <- case q of
+        Erased => Right zeroUsage
+        _ => analyze depth reduction context first
+      secondUsage <- case r of
+        Erased => Right zeroUsage
+        _ => analyze depth reduction context second
+      Right (combineUsage (scaleUsage q firstUsage) (scaleUsage r secondUsage))
+    _ => Left (TypingError (ExpectedPairType exposed))
 analyze (S depth) reduction context (Pi _ _ _) = Left RuntimeTypeExpression
 analyze (S depth) reduction context (Lambda q domain body) = do
   bodyUsage <- analyze depth reduction (Extend context q domain) body

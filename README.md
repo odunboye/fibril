@@ -24,7 +24,8 @@ navigation and an LSP server remain future work.
 The next abstraction step is documented in [the interface contract](docs/interfaces.md),
 with a runnable multi-file generic String/Bool operation example. Erased named
 globals now support exported type abbreviations without granting runtime access;
-dependent records are next. Interfaces and
+dependent pair formation/construction are now in the core. Consuming elimination
+and named record syntax are next; see [record foundations](docs/records.md). Interfaces and
 implicit dictionary search are not implemented yet.
 
 ## Build

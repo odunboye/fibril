@@ -60,6 +60,10 @@
         "path": "docs/packages.md"
       },
       {
+        "title": "Dependent record foundations",
+        "path": "docs/records.md"
+      },
+      {
         "title": "Interfaces and explicit operations",
         "path": "docs/interfaces.md"
       },

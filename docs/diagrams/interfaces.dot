@@ -3,7 +3,7 @@ digraph interfaces {
   node [shape=box, fontname="sans-serif"];
   operations [label="Implemented\nExplicit higher-order operations\nString + Bool examples"];
   staging [label="Implemented\nErased named globals\nStage-preserving lookup"];
-  records [label="Next\nChecked dependent records\nResource-aware elimination", style=dashed];
+  records [label="In progress\nDependent pair formation + construction\nNext: consuming elimination", style=dashed];
   explicit [label="Planned\nExplicit interfaces / implementations\nLaw obligations separate", style=dashed];
   search [label="Later\nCoherent bounded lookup\nGeneric operators", style=dashed];
   operations -> staging -> records -> explicit -> search;

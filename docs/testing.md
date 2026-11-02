@@ -312,6 +312,13 @@ Bool/String/pure/bind use, invalid unused erased bodies with truthful JSON stage
 and erased-main rejection. Existing local opacity and expansion tests remain in
 force. No new core structural-proof cases are needed: lookup uses existing terms.
 
+Dependent-pair core tests cover universe formation, actual-first-field-dependent
+second types, erased type/value packages, annotation/method mismatch rejection,
+linear duplication and unrestricted scaling, erased field typing, invariant
+quantities, and full versus head computation. Structural proof clauses and raw,
+erased-typed, and runtime recipe generators include Sigma/PairValue. No surface
+record syntax or eliminator is claimed by this slice.
+
 ## Hedgehog dependency
 
 Repository: https://github.com/stefan-hoeck/idris2-hedgehog
