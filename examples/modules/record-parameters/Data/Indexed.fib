@@ -8,5 +8,9 @@ record Indexed (0 A : Type 0) (0 Family : (0 index : A) -> Type 0) : Type 0 wher
   1 value : Family index
 
 export
+rebuildPattern : (0 A : Type 0) -> (0 Family : (0 index : A) -> Type 0) -> (1 original : Indexed A Family) -> Indexed A Family
+rebuildPattern = \(0 A : Type 0) => \(0 Family : (0 index : A) -> Type 0) => \(1 original : Indexed A Family) => case original return (\(0 self : Indexed A Family) => Indexed A Family) of (1 item : A) (1 payload : Family item) => MkIndexed A Family item payload
+
+export
 rebuild : (0 A : Type 0) -> (0 Family : (0 index : A) -> Type 0) -> (1 original : Indexed A Family) -> Indexed A Family
 rebuild = \(0 A : Type 0) => \(0 Family : (0 index : A) -> Type 0) => \(1 original : Indexed A Family) => useIndexed A Family (\(0 self : Indexed A Family) => Indexed A Family) original (\(1 index : A) => \(1 value : Family index) => MkIndexed A Family index value)

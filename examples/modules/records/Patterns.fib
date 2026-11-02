@@ -1,0 +1,12 @@
+module Patterns
+import Data.Package
+import Data.Message
+
+0 payloadType : (0 package : Data.Package.Package) -> Type 0
+payloadType = \(0 package : Data.Package.Package) => case package return (\(0 self : Data.Package.Package) => Type 0) of (0 Item : Type 0) (1 value : Item) => Item
+
+recover : (1 package : Data.Package.Package) -> payloadType package
+recover = \(1 package : Data.Package.Package) => case package return (\(0 self : Data.Package.Package) => payloadType self) of (0 Item : Type 0) (1 value : Item) => value
+
+main : IO Unit
+main = putStrLn (case Data.Message.MkMessage True (recover (Data.Package.MkPackage String "Patterns")) return (\(0 self : Data.Message.Message) => String) of (1 enabled : Bool) (1 text : String) => if enabled then appendString text "!" else text)

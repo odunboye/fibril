@@ -330,7 +330,11 @@ Parameterized-record tests additionally cover eight/nine parameter admission,
 erased quantity requirements, duplicate/shadowing rejection, ordered dependent
 parameter domains, value-index specialization, wrong arguments and field types,
 generated-name capture resistance, and explicit dictionaries at String and Bool.
-No source consuming-pattern syntax or automatic projection is claimed.
+Consuming-pattern tests cover dependent erased/runtime cases, evaluation and
+normal-form rechecking, dropped/duplicated fields, quantity/type mismatch,
+wildcards, duplicate and extra/missing binders, outer motive scope, actual
+binder definition locations and lexical rename. The typed two-field pattern
+syntax is implemented; automatic projections remain pending.
 
 ## Hedgehog dependency
 

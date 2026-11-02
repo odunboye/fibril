@@ -214,12 +214,11 @@ mutual
           Right (NIf (Between token.span.start (extent no).finish) condition yes no, remaining)
         else if token.kind == CaseKeyword then do
           (scrutinee, afterScrutinee) <- expression depth end rest
-          (_, afterOf) <- expect OfKeyword end afterScrutinee
-          (_, afterOpen) <- expect OpenParen end afterOf
-          (_, afterClose) <- expect CloseParen end afterOpen
-          (_, afterArrow) <- expect BodyArrow end afterClose
-          (body, remaining) <- expression depth end afterArrow
-          Right (NUnitCase (Between token.span.start (extent body).finish) scrutinee body, remaining)
+          case afterScrutinee of
+            marker :: afterReturn =>
+              if marker.kind == ReturnKeyword then pairCase depth end token scrutinee afterReturn
+                 else unitCase depth end token scrutinee afterScrutinee
+            [] => unitCase depth end token scrutinee afterScrutinee
         else if token.kind == LetKeyword then do
           header <- binder depth end rest
           (_, afterEquals) <- expect Equals end header.remaining
@@ -251,6 +250,32 @@ mutual
               else Right (domain, afterDomain)
             [] => Right (domain, [])
       [] => Left (ParseFailure end "Expected expression")
+
+  pairCase : Nat -> Position -> Token -> Expr -> List Token -> Either ParseError (Expr, List Token)
+  pairCase depth end token scrutinee afterReturn = do
+    (motive, afterMotive) <- expression depth end afterReturn
+    (_, afterOf) <- expect OfKeyword end afterMotive
+    first <- binder depth end afterOf
+    second <- binder depth end first.remaining
+    if first.name == second.name && first.name /= "_"
+       then Left (ParseFailure second.span.start "Record pattern binders must be distinct")
+       else Right ()
+    (_, afterArrow) <- expect BodyArrow end second.remaining
+    (body, remaining) <- expression depth end afterArrow
+    let branch = NLambda (Between first.span.start (extent body).finish)
+                   first.quantity first.name first.domain
+                   (NLambda (Between second.span.start (extent body).finish)
+                     second.quantity second.name second.domain body)
+    Right (NPairCase (Between token.span.start (extent body).finish) motive scrutinee branch, remaining)
+
+  unitCase : Nat -> Position -> Token -> Expr -> List Token -> Either ParseError (Expr, List Token)
+  unitCase depth end token scrutinee tokens = do
+    (_, afterOf) <- expect OfKeyword end tokens
+    (_, afterOpen) <- expect OpenParen end afterOf
+    (_, afterClose) <- expect CloseParen end afterOpen
+    (_, afterArrow) <- expect BodyArrow end afterClose
+    (body, remaining) <- expression depth end afterArrow
+    Right (NUnitCase (Between token.span.start (extent body).finish) scrutinee body, remaining)
 
   doStatement : Nat -> Position -> List Token -> Either ParseError (DoStatement, List Token)
   doStatement depth end tokens@(opening :: _) =

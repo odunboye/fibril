@@ -193,6 +193,75 @@ class CLITests(unittest.TestCase):
         self.assertEqual(result.stdout, "")
         self.assertIn("use eval", result.stderr)
 
+    def test_consuming_record_patterns(self):
+        root = "examples/modules/records"
+        result = run("run", "--source-dir", root, root + "/Patterns.fib")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout, "Patterns!\n")
+        result = run("eval", "--source-dir", root, root + "/Patterns.fib")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn('Normal: (WriteLine "Patterns!")', result.stdout)
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory)
+            for path in (ROOT / root).rglob("*.fib"):
+                destination = target / path.relative_to(ROOT / root)
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                destination.write_bytes(path.read_bytes())
+            entry = target / "Main.fib"
+            header = "module Main\nimport Data.Message\nmain : IO Unit\nmain = putStrLn "
+            prefix = ('(case Data.Message.MkMessage True "payload" return '
+                      '(\\(0 self : Data.Message.Message) => String) of ')
+            failures = [
+                '(1 loud : Bool) (1 text : String) => text)',
+                '(1 loud : Bool) (1 text : String) => if loud then appendString text text else text)',
+                '(loud : Bool) (text : String) => if loud then text else text)',
+                '(1 _ : Bool) (1 text : String) => text)',
+                '(1 loud : Bool) (1 text : Bool) => if loud then "wrong" else "wrong")',
+                '(1 same : Bool) (1 same : String) => same)',
+                '(1 loud : Bool) => "missing")',
+                '(1 loud : Bool) (1 text : String) (1 extra : Unit) => text)',
+            ]
+            for body in failures:
+                entry.write_text(header + prefix + body + "\n")
+                result = run("run", "--source-dir", str(target), str(entry))
+                self.assertNotEqual(result.returncode, 0, body)
+                self.assertEqual(result.stdout, "")
+            # Erased wildcards are allowed; linear wildcards above cannot discard.
+            entry.write_text(
+                'module Main\nrecord Marked : Type 0 where\n  constructor MkMarked\n'
+                '  eliminator useMarked\n  0 mark : Unit\n  1 value : String\n'
+                'main : IO Unit\nmain = putStrLn (case MkMarked () "wildcard" return '
+                '(\\(0 self : Marked) => String) of (0 _ : Unit) (1 value : String) => value)\n')
+            result = run("run", "--source-dir", str(target), str(entry))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, "wildcard\n")
+            # Motive is outside pattern scope, not re-resolved after binding.
+            entry.write_text(header + '(case Data.Message.MkMessage True "x" return missing of '
+                             '(1 missing : Bool) (1 text : String) => if missing then text else text)\n')
+            result = run("check", "--source-dir", str(target), str(entry))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('Unbound name "missing"', result.stderr)
+            # Shared lexical traversal identifies authored pattern binders, not synthetic spans.
+            source = ('case unknown return (\\(0 self : Unknown) => String) of\n'
+                      '  (0 A : Type 0) (1 value : A) => value\n')
+            entry.write_text(source)
+            offset = source.rindex("value")
+            line = source[:offset].count("\n") + 1
+            column = len(source[:offset].rsplit("\n", 1)[-1]) + 1
+            result = run("definition", str(line), str(column), str(entry))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            span = json.loads(result.stdout)["definition"]
+            self.assertEqual(span["start"]["offset"], source.index("value :"))
+            domain = source.index("A) =>")
+            result = run("definition", "2", str(len(source[:domain].rsplit("\n", 1)[-1]) + 1), str(entry))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            span = json.loads(result.stdout)["definition"]
+            self.assertEqual(span["start"]["offset"], source.index("A :"))
+            # Rename is lexical only and preserves the pattern scopes.
+            result = run("rename-preview", str(line), str(column), "payload", str(entry))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(len(json.loads(result.stdout)["edits"]), 2)
+
     def test_record_parameter_telescopes(self):
         root = "examples/modules/record-parameters"
         result = run("run", "--source-dir", root, root + "/Main.fib")

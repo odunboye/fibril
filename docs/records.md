@@ -3,7 +3,7 @@
 **Status:** core dependent pairs and a bounded named-record source prototype are
 implemented. Source records currently have exactly two fields, an explicit
 constructor and an explicit eliminator. Explicit erased parameter telescopes are supported; recursive/nominal records,
-pattern syntax, projections, field-name resolution and interface dictionaries
+constructor-discriminating/inferred patterns, projections, field-name resolution and interface dictionaries
 remain unimplemented. No preservation or erasure theorem is claimed.
 
 Records will elaborate into genuinely dependent structure, not a temporary
@@ -102,8 +102,56 @@ consumeMessage (\(0 self : Message) => String) message
 
 Both fields are used according to their quantities. A branch that drops loud,
 duplicates text, changes the binder quantities, or extracts an erased field at
-runtime is rejected. There is no special syntax for patterns yet: callers pass
-an ordinary explicitly typed branch function.
+runtime is rejected. The pattern form below is equivalent core elimination.
+
+### Explicit consuming patterns
+
+Two-field consuming patterns are now accepted:
+
+~~~fibril
+case message return (\(0 self : Message) => String) of
+  (1 loud : Bool) (1 text : String) =>
+    if loud then appendString text "!" else text
+~~~
+
+The return clause is an explicit **motive**: a type-level function of the whole
+scrutinee. It is not an IO return operation. return is now reserved syntax.
+The two parenthesized binders provide quantities, names and types; the second
+type sees the first binder. The body sees both. Non-wildcard names must be
+distinct. The scrutinee and motive are resolved in the outer environment, never
+under pattern binders.
+
+This lowers directly to PairCase with a curried branch function, not to text
+substitution, record-specific host execution, or unchecked generated getters.
+Core checking verifies the scrutinee is a Sigma, the motive returns a type, and
+branch quantities/types match exactly. Fields may be named differently from
+their declaration: this is structural, not constructor-discriminating matching.
+
+An underscore is a typed wildcard, not permission to discard anything. An erased
+or unrestricted field can be ignored when its permission allows it. A wildcard
+on a linear field still fails if that field is not consumed. Erased fields do
+not become runtime data through a pattern.
+
+The [Patterns example](../examples/modules/records/Patterns.fib) computes a
+dependent payload type using an erased case, recovers the linear payload with
+a dependent motive, then consumes a message and prints Patterns! The
+[parameterized Indexed example](../examples/modules/record-parameters/Data/Indexed.fib)
+also rebuilds a value using this syntax.
+
+Pattern motives use the core's universe-valued motive rule, rather than being
+limited to the named generated eliminator's fixed result universe. An explicit
+motive is still required; there is no implicit motive/binder-type inference,
+multi-branch coverage checking, nested constructor pattern grammar, or boolean/
+inductive dependent pattern refinement in this slice.
+
+The old case value of () => body syntax is unchanged. A return-clause case
+requires exactly two typed binders and one body. General expression layout works
+inside declarations; the existing flat physical-line do-statement restriction
+has not been lifted.
+
+Definition/reference/lexical rename traversal uses the actual pattern binder
+tokens and domains. Generated record bodies still have no invented authored
+locations. Project-wide rename remains unsupported.
 
 ### Structural, not nominal
 
@@ -350,8 +398,9 @@ or quantitative soundness theorem.
 ## Remaining record work
 
 The constructor/eliminator core and the bounded two-field source declarations
-are in place, including erased parameter telescopes. Next work includes broader field counts,
-consuming pattern syntax, nominality decisions, and richer visibility. Do not implement fst/snd by
+are in place, including erased parameter telescopes and explicit two-field
+consuming patterns. Next work includes safe projections, broader field counts,
+richer/inferred pattern syntax, nominality decisions, and richer visibility. Do not implement fst/snd by
 silently discarding a linear component. Multiple fields need an explicit
 nesting/tail policy and generated eliminators must preserve the same permissions.
 Interfaces can then lower into those checked values. No automatic projection, record eta, or dictionary inference is claimed yet.

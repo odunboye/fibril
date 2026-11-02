@@ -49,6 +49,7 @@ examples: build
 	./build/exec/fibril run --source-dir examples/modules/checked examples/modules/checked/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/operations examples/modules/operations/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/records examples/modules/records/Main.fib
+	./build/exec/fibril run --source-dir examples/modules/records examples/modules/records/Patterns.fib
 	./build/exec/fibril run --source-dir examples/modules/record-parameters examples/modules/record-parameters/Main.fib
 
 bench:

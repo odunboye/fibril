@@ -150,9 +150,19 @@ payload through dependent elimination, and consumes a two-field message. Run it:
 It prints Records! Record types, constructors and explicit eliminators are
 checked ordinary declarations after lowering. This first source grammar supports
 exactly two single-line fields in a named module; it is structurally transparent,
-not nominal, and provides no patterns or projections yet. Explicit erased
-parameters are supported. See
+not nominal, and provides no projections yet. Explicit erased parameters and
+typed two-field consuming patterns are supported. See
 [record foundations](../docs/records.md).
+
+The alternate entry `modules/records/Patterns.fib` uses explicit consuming
+patterns and dependent motives instead of named eliminator calls:
+
+~~~sh
+./build/exec/fibril run --source-dir examples/modules/records examples/modules/records/Patterns.fib
+~~~
+
+It prints Patterns! No inferred or constructor-discriminating pattern grammar
+is claimed.
 
 ## Parameterized record dictionaries
 
