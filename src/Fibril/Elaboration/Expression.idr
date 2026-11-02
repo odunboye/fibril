@@ -127,6 +127,12 @@ mutual
     constraintType span.start q domain
     body <- elaborateInWith globals (map (\ctx => Extend ctx q domain) context) (name :: env) body
     Right (Pi q domain body)
+  elaborateInWith globals context env (NImplementationApply span origin function) = do
+    typed <- case context of
+      Nothing => Left (CannotElaborate origin.start "Implementation lookup requires a typed context")
+      Just ctx => Right ctx
+    function <- elaborateInWith globals context env function
+    selectImplementation origin.start globals typed function
   elaborateInWith globals context env (NDictionaryApply span origin function argument) = do
     typed <- case context of
       Nothing => Left (CannotElaborate origin.start "Dictionary selection requires a typed context")

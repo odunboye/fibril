@@ -12,11 +12,17 @@ import Fibril.Core.Term
 ||| Ordinary checking still validates the entire resulting term; these are not axioms.
 public export
 record GlobalDefinition where
-  constructor GlobalWithQuantity
+  constructor GlobalEntry
+  provider : Maybe String
   quantity : Quantity
   name : String
   declaredType : Term 0
   value : Term 0
+
+||| Compatibility constructors do not opt ordinary globals into provider lookup.
+public export
+GlobalWithQuantity : Quantity -> String -> Term 0 -> Term 0 -> GlobalDefinition
+GlobalWithQuantity = GlobalEntry Nothing
 
 ||| Existing primitive/prelude definitions remain unrestricted.
 public export

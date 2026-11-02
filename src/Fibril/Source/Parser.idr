@@ -417,15 +417,23 @@ mutual
   arguments depth end function [] = Right (function, [])
   arguments Z end function tokens = limit end tokens
   arguments (S depth) end function tokens@(token :: rest) =
-    if token.kind == DictionaryOpen then do
-      (argument, closing, remaining) <- dictionaryArgument depth end rest
-      arguments depth end (NDictionaryApply (Between (extent function).start closing.span.finish)
-        (Between token.span.start closing.span.finish) function argument) remaining
+    if token.kind == DictionaryOpen then case rest of
+      marker :: closing :: remaining => if marker.kind == ImplementationKeyword && closing.kind == CloseBrace then
+        arguments depth end (NImplementationApply (Between (extent function).start closing.span.finish)
+          (Between token.span.start closing.span.finish) function) remaining
+        else dictionaryApplication depth end function token rest
+      _ => dictionaryApplication depth end function token rest
     else if startsAtom token.kind then do
       (argument, remaining) <- atom depth end tokens
       arguments depth end
         (NApply (Between (extent function).start (extent argument).finish) function argument) remaining
     else Right (function, tokens)
+
+  dictionaryApplication : Nat -> Position -> Expr -> Token -> List Token -> Either ParseError (Expr, List Token)
+  dictionaryApplication depth end function token rest = do
+      (argument, closing, remaining) <- dictionaryArgument depth end rest
+      arguments depth end (NDictionaryApply (Between (extent function).start closing.span.finish)
+        (Between token.span.start closing.span.finish) function argument) remaining
 
   atom : Nat -> Position -> List Token -> Either ParseError (Expr, List Token)
   atom Z end tokens = limit end tokens

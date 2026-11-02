@@ -190,7 +190,8 @@ Implementation order:
    and negative method checks. No instance registry or inferred method arguments.
 4. Law representation once equality supports it; distinguish data from proofs.
 5. Implemented: named constraint binders and explicit/unique-local dictionary
-   selection. Next: bounded/coherent global lookup, then generic operators.
+   selection and opt-in unique visible named implementation lookup. Next:
+   recursive/parameterized lookup and global coherence policies, then generic operators.
 
 This order keeps failures local and avoids committing to surface syntax before
 its core and resource meaning is known.

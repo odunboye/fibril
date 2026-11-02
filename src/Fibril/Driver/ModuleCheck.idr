@@ -70,6 +70,12 @@ referenceCost [] name = 1
 referenceCost (entry :: rest) name =
   if entry.global.name == name then entry.size else referenceCost rest name
 
+providerCost : List Weighted -> Nat
+providerCost [] = 0
+providerCost (entry :: rest) = case entry.global.provider of
+  Nothing => providerCost rest
+  Just _ => max entry.size (providerCost rest)
+
 -- Conservative elaboration size before any global is renamed/cloned. Counts
 -- annotations and identity ascriptions; saturation avoids huge intermediate costs.
 cost : Nat -> List Weighted -> List String -> Expr -> Nat
@@ -97,6 +103,7 @@ cost limit globals env expression = min (S limit) $ case expression of
   NInferCase _ _ value branch => 8 + cost limit globals env value + 2 * cost limit globals env branch + inferredResultNodes
   NPairCase _ motive value branch => 1 + cost limit globals env motive + cost limit globals env value + cost limit globals env branch
   NConstraintPi _ _ name a b => 1 + cost limit globals env a + cost limit globals (name :: env) b
+  NImplementationApply _ _ function => 1 + cost limit globals env function + providerCost globals
   NDictionaryApply _ _ function argument => 2 + cost limit globals env function + (case argument of Nothing => 1; Just value => cost limit globals env value)
   NPi _ _ name a b => 1 + cost limit globals env a + cost limit globals (name :: env) b
   NLambda _ _ name a b => 1 + cost limit globals env a + cost limit globals (name :: env) b
@@ -183,8 +190,10 @@ compileDeclarations snapshot name globals (decl :: rest) remaining = do
     HeadLimit _ => Left ({ stage := "runtime-checking" } (problem snapshot (Just decl.nameSpan.start)
       "Implementation dictionary type reduction budget exhausted"))
     else Right ()
-  let local = weighted (GlobalWithQuantity decl.quantity decl.name ty value)
-  let qualified = Weight (GlobalWithQuantity decl.quantity (moduleText name ++ "." ++ decl.name) ty value) local.size
+  let identity = moduleText name ++ "." ++ decl.name
+  let definition = GlobalEntry (if decl.dictionary then Just identity else Nothing) decl.quantity decl.name ty value
+  let local = weighted definition
+  let qualified = Weight ({ name := identity } definition) local.size
   following <- compileDeclarations snapshot name (local :: qualified :: globals) rest (minus remaining estimate)
   Right (Definitions (local :: following.locals)
            (if decl.exported then qualified :: following.exports else following.exports) following.remaining)

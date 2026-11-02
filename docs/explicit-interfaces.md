@@ -3,7 +3,7 @@
 **Implemented prototype:** interface declarations, generated checked method
 functions, and explicitly typed named dictionary implementations. Dictionaries
 are passed explicitly or selected by a [unique-local request](constraints.md).
-Named constraints are supported; no global instance search, inheritance, overloaded
+Named constraints are supported; no automatic/recursive global instance search, inheritance, overloaded
 operators, nominal class identity or law checking is implemented.
 [Named method-body blocks](implementation-blocks.md) now provide schema-guided
 constructor elaboration without instance search.
@@ -65,7 +65,9 @@ telescopes for multiple methods, and an independently checked getter per method.
 
 An implementation can supply a **complete ordinary dictionary expression**,
 or a [named method block](implementation-blocks.md) guided by a visible interface
-schema. Neither form searches for missing methods or installs a global instance. The ordinary constructor checker
+schema. Neither form searches for missing methods. Checked named values are now eligible
+for explicitly requested [visible implementation lookup](visible-implementations.md),
+not automatic implicit application or recursive instance construction. The ordinary constructor checker
 rejects missing fields, wrong method types and quantity mismatches.
 
 The compiler independently requires implementation globals to be unrestricted
@@ -107,7 +109,7 @@ Propositional equality, law representation and calculational reasoning remain
 separate foundational work.
 
 Multiple named implementations at the same structural dictionary type are
-allowed. Callers choose the value explicitly; no coherence, preferred-instance,
+allowed. Callers choose a value explicitly or request unique visible lookup; no coherence, preferred-instance,
 ambiguity-resolution or algebraic-law guarantee follows.
 
 ## Tooling, admission and evidence
@@ -136,6 +138,7 @@ getter origins, declaration budgets, formatting and execution after formatting
 the imported graph. These are prototype tests, not a soundness theorem.
 
 **Next:** global selection/coherence policies and generic operators.
-Named method-value blocks and [named constraints/local selection](constraints.md)
-are implemented; implicit global instance resolution is not. Bounded coherent search and operators come only
+Named method-value blocks, [local selection](constraints.md) and opt-in
+[visible implementation lookup](visible-implementations.md) are implemented;
+implicit/recursive global instance resolution is not. Bounded coherent search and operators come only
 after visibility, ambiguity and quantity policies are specified.

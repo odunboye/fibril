@@ -24,6 +24,7 @@ renderExpr (NBoolValue _ value) = if value then "True" else "False"
 renderExpr (NIf _ condition yes no) = node "if" [renderExpr condition, renderExpr yes, renderExpr no]
 renderExpr (NUnitCase _ value body) = node "unit-case" [renderExpr value, renderExpr body]
 renderExpr (NConstraintPi _ q name domain body) = node "constraint-pi" [show q, name, renderExpr domain, renderExpr body]
+renderExpr (NImplementationApply _ _ function) = node "implementation-apply" [renderExpr function]
 renderExpr (NDictionaryApply _ _ function argument) = node "dictionary-apply" [renderExpr function, (case argument of Nothing => "local-unique"; Just value => renderExpr value)]
 renderExpr (NPi _ q name domain body) = node "Pi" [show q, name, renderExpr domain, renderExpr body]
 renderExpr (NLambda _ q name domain body) = node "lambda" [show q, name, renderExpr domain, renderExpr body]

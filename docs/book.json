@@ -104,6 +104,10 @@
         "path": "docs/constraints.md"
       },
       {
+        "title": "Visible named implementation lookup",
+        "path": "docs/visible-implementations.md"
+      },
+      {
         "title": "Python interoperability",
         "path": "docs/python-interop.md"
       },

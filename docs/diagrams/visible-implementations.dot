@@ -1,0 +1,12 @@
+digraph VisibleImplementations {
+  rankdir=LR;
+  node [shape=box];
+  source [label="Explicit @{implementation} request"];
+  visible [label="Earlier own + checked direct imports\nexported named implementations only"];
+  identity [label="Canonical identity deduplication\nlocal/qualified aliases"];
+  matching [label="Bounded exact type comparison\nrequire unique result"];
+  core [label="Signature-preserving global occurrence\nordinary Apply + independent checking"];
+  source -> visible -> identity -> matching -> core;
+  note [label="No recursion / priority / nominality\nmissing or ambiguous => explicit dictionary", style=dashed];
+  matching -> note [style=dashed];
+}

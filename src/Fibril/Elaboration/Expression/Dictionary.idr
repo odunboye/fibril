@@ -13,6 +13,7 @@ import Fibril.Core.WeakHead
 import Fibril.Core.Compatibility
 import Fibril.Core.Limits
 import Fibril.Source.Text
+import Fibril.Source.Global
 import Fibril.Source.Resolve.Error
 
 %default total
@@ -71,6 +72,35 @@ candidates position context expected seen ((name, index) :: rest) =
            else Right False
          remaining <- candidates position context expected following rest
          Right (if matches then index :: remaining else remaining)
+
+globalCandidates : Position -> Term n -> List String -> List GlobalDefinition ->
+                   Either ResolveError (List GlobalDefinition)
+globalCandidates position expected seen [] = Right []
+globalCandidates position expected seen (entry :: rest) = case entry.provider of
+  Nothing => globalCandidates position expected seen rest
+  Just identity =>
+    if elem identity seen || entry.quantity /= Unrestricted
+       then globalCandidates position expected seen rest else do
+         matches <- case betaCompare typeReductionFuel (rename absurd entry.declaredType) expected of
+           EqualNormalForms => Right True
+           DifferentNormalForms => Right False
+           Inconclusive => Left (CannotElaborate position "Visible implementation comparison exhausted its reduction budget")
+         remaining <- globalCandidates position expected (identity :: seen) rest
+         Right (if matches then entry :: remaining else remaining)
+
+||| Opt-in finite lookup of already checked visible named implementation values.
+public export
+selectImplementation : Position -> List GlobalDefinition -> Context n -> Term n ->
+                       Either ResolveError (Term n)
+selectImplementation position globals context function = do
+  expected <- nextDictionary position context function
+  available <- globalCandidates position expected [] globals
+  case available of
+    [entry] => case lookupGlobal entry.name [entry] of
+      Nothing => Left (CannotElaborate position "Visible implementation has no runtime occurrence")
+      Just value => Right (Apply function (rename absurd value))
+    [] => Left (CannotElaborate position "No matching visible named implementation; supply @{dictionary} explicitly")
+    _ => Left (CannotElaborate position "Ambiguous visible named implementations; supply @{dictionary} explicitly")
 
 public export
 selectDictionary : Position -> Context n -> Vect n String -> Term n -> Maybe (Term n) ->

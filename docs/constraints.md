@@ -2,7 +2,7 @@
 
 **Implemented prototype:** a named constraint is a dictionary-shaped parameter,
 and dictionary applications can request explicit or unique local selection.
-There is no global instance search, anonymous constraint insertion, subclass
+There is no automatic or recursive global instance search, anonymous constraint insertion, subclass
 search, operator overloading or algebraic-law checking.
 
 ~~~fibril
@@ -27,6 +27,7 @@ constraints are not part of this slice.
 
 - function @{dictionary} supplies an explicitly selected dictionary.
 - function @{} requests the unique matching visible local dictionary.
+- @{implementation} separately opts into [visible named implementation lookup](visible-implementations.md).
 - Ordinary explicit application function dictionary remains valid.
 
 Both selection forms inspect the next function argument type, which must be a
@@ -101,5 +102,5 @@ shadowing, erased exclusion, linear reuse rejection, malformed/non-dictionary
 requests, formatter idempotence and explicit argument definition targets.
 
 **Remaining:** anonymous constraints, implicit application insertion,
-global/coherent instance lookup, defaults/inheritance and generic operators need
+recursive/parameterized instance lookup, global coherence, defaults/inheritance and generic operators need
 separate scope, ambiguity, resource and reproducibility policies.

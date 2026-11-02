@@ -42,6 +42,7 @@ sameExpr (NConstructorCase _ n c a b (Just p)) (NConstructorCase _ m d x y (Just
   n == m && sameExpr c d && sameExpr a x && sameExpr b y && sameExpr p q
 sameExpr (NInferCase _ n a b) (NInferCase _ m x y) = n == m && sameExpr a x && sameExpr b y
 sameExpr (NPairCase _ a b c) (NPairCase _ x y z) = sameExpr a x && sameExpr b y && sameExpr c z
+sameExpr (NImplementationApply _ _ f) (NImplementationApply _ _ g) = sameExpr f g
 sameExpr (NDictionaryApply _ _ f Nothing) (NDictionaryApply _ _ g Nothing) = sameExpr f g
 sameExpr (NDictionaryApply _ _ f (Just a)) (NDictionaryApply _ _ g (Just b)) = sameExpr f g && sameExpr a b
 sameExpr (NApply _ a b) (NApply _ x y) = sameExpr a x && sameExpr b y

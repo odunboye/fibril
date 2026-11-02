@@ -519,6 +519,79 @@ class CLITests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertEqual(result.stdout, "Do context!\n")
 
+    def test_visible_named_implementation_selection(self):
+        example = ROOT / "examples/modules/visible-implementations"
+        result = run("run", "--source-dir", str(example), str(example / "Main.fib"))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout, "Hello, interfaces!\nExplicit dictionaries!\nMonoid shape!\n")
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / "Main.fib"
+            base = ('module Main\ninterface C : Type 0 where\n  constructor MkC\n'
+                    '  method : (1 text : String) -> String\n'
+                    'implementation instance : C where\n  method = \\(1 text : String) => text\n'
+                    'main : IO Unit\nmain = putStrLn (method @{implementation} "Visible!")\n')
+            path.write_text(base)
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, "Visible!\n")  # local and qualified aliases count once
+            inspected = json.loads(run("elaborate", str(path)).stdout)
+            self.assertFalse(inspected["checked"])
+            self.assertIn("implementation-apply", str(inspected))
+            formatted = run("format", str(path)).stdout
+            self.assertIn("@{implementation}", formatted)
+            path.write_text(formatted)
+            self.assertEqual(run("format", str(path)).stdout, formatted)
+            # Local-only requests do not silently change policy.
+            path.write_text(base.replace("@{implementation}", "@{}"))
+            self.assertNotEqual(run("run", "--source-dir", str(root), str(path)).returncode, 0)
+            # Ordinary same-shaped dictionary values are not implicit providers.
+            ordinary = base.replace('implementation instance : C where\n  method = \\(1 text : String) => text',
+                                    'instance : C\ninstance = MkC (\\(1 text : String) => text)')
+            path.write_text(ordinary)
+            result = run("check", "--json", "--source-dir", str(root), str(path))
+            self.assertNotEqual(result.returncode, 0)
+            diagnostic = next(d for d in json.loads(result.stdout)["diagnostics"] if d["stage"] == "elaboration")
+            self.assertIn("No matching visible named implementation", diagnostic["message"])
+            self.assertEqual(diagnostic["position"]["offset"], ordinary.index("@{implementation}"))
+            path.write_text(ordinary.replace("@{implementation}", "@{instance}"))
+            self.assertEqual(run("run", "--source-dir", str(root), str(path)).stdout, "Visible!\n")
+            extra = ('implementation second : C where\n'
+                     '  method = \\(1 text : String) => appendString text "second"\n')
+            ambiguous = base.replace("main : IO Unit", extra + "main : IO Unit")
+            path.write_text(ambiguous)
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Ambiguous visible named implementations", result.stderr)
+            self.assertEqual(result.stdout, "")
+            path.write_text(ambiguous.replace("@{implementation}", "@{instance}"))
+            self.assertEqual(run("run", "--source-dir", str(root), str(path)).stdout, "Visible!\n")
+            same_value = base.replace("main : IO Unit", "implementation alias : C\nalias = instance\nmain : IO Unit")
+            path.write_text(same_value)
+            self.assertNotEqual(run("run", "--source-dir", str(root), str(path)).returncode, 0)
+            # Direct imports, not transitive reachability, grant provider visibility.
+            library = root / "Library.fib"
+            library_source = ('module Library\nexport\ninterface C : Type 0 where\n'
+                              '  constructor MkC\n  method : (1 text : String) -> String\n'
+                              'export\nimplementation instance : C where\n  method = \\(1 text : String) => text\n')
+            library.write_text(library_source)
+            (root / "Bridge.fib").write_text(
+                'module Bridge\nimport Library\nexport\nuse : (dictionary : Library.C) -> String\n'
+                'use = \\(dictionary : Library.C) => Library.method @{dictionary} "Imported!"\n')
+            entry = 'module Main\nimport Bridge\nmain : IO Unit\nmain = putStrLn (Bridge.use @{implementation})\n'
+            path.write_text(entry)
+            self.assertNotEqual(run("run", "--source-dir", str(root), str(path)).returncode, 0)
+            path.write_text(entry.replace("import Bridge", "import Bridge\nimport Library"))
+            self.assertEqual(run("run", "--source-dir", str(root), str(path)).stdout, "Imported!\n")
+            # A private implementation is checked but not offered to importers.
+            library.write_text(library_source.replace("export\nimplementation", "implementation"))
+            self.assertNotEqual(run("run", "--source-dir", str(root), str(path)).returncode, 0)
+            # Unused invalid providers cannot be filtered out to admit a program.
+            library.write_text(library_source.replace('method = \\(1 text : String) => text', 'method = True'))
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, "")
+
     def test_named_constraints_and_local_dictionary_selection(self):
         example = ROOT / "examples/modules/constraints"
         result = run("run", "--source-dir", str(example), str(example / "Main.fib"))

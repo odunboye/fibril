@@ -80,6 +80,7 @@ grouped tokens value = any (\token => token.kind == OpenParen &&
                            token.span.start.offset == (extent value).start.offset) tokens
 
 layout : List Token -> Nat -> Bool -> Expr -> Plan
+layout tokens indentation forced (NImplementationApply _ _ function) = layout tokens indentation forced function
 layout tokens indentation forced (NDictionaryApply _ _ function Nothing) = layout tokens indentation forced function
 layout tokens indentation forced (NDictionaryApply _ _ function (Just value)) =
   layout tokens indentation forced function ++ layout tokens (indentation + 2) False value
