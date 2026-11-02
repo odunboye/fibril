@@ -469,9 +469,12 @@ def inspect_project_checking(name, executable, line_ending):
             f"let g:fibril_project_entry = {vim_literal(entry)}",
             "call cursor(4, 16)", "let original_position = getpos('.')",
             "execute 'bunload ' . dependency_buffer",
+            "let saved_encodings = &fileencodings", "set fileencodings=latin1,utf-8",
             "let report.definition_unloaded = fibril#definition_project(g:fibril_source_dir, g:fibril_project_entry)",
-            "let report.definition_stayed = bufnr('%') == entry_buffer && getpos('.') == original_position && !bufloaded(dependency_buffer)",
+            "let &fileencodings = saved_encodings",
+            "let report.definition_auto = resolve(expand('%:p')) ==# resolve(fnamemodify(bufname(dependency_buffer), ':p')) && line('.') == 4 && col('.') == 1",
             "execute 'buffer ' . dependency_buffer", "execute 'buffer ' . entry_buffer",
+            "call cursor(4, 16)",
             "call setbufline(dependency_buffer, 4, getbufline(dependency_buffer, 4)[0] . ' ')",
             "let report.definition_modified = fibril#definition_project(g:fibril_source_dir, g:fibril_project_entry)",
             "execute 'buffer! ' . dependency_buffer", "edit!",
@@ -480,6 +483,19 @@ def inspect_project_checking(name, executable, line_ending):
             "let report.definition_jump = resolve(expand('%:p')) ==# resolve(fnamemodify(bufname(dependency_buffer), ':p')) && line('.') == 4 && col('.') == 1",
             "call cursor(3, 1)", "FibrilDefinitionProject",
             "let report.library_definition = resolve(expand('%:p')) ==# resolve(fnamemodify(bufname(dependency_buffer), ':p')) && line('.') == 4 && col('.') == 1",
+            "execute 'buffer ' . entry_buffer",
+            "for info in getbufinfo({'bufloaded': 1})",
+            "  if resolve(fnamemodify(info.name, ':p')) ==# resolve(fnamemodify(bufname(dependency_buffer), ':p'))",
+            "    execute 'bunload ' . info.bufnr",
+            "  endif",
+            "endfor",
+            "augroup FibrilTestReadHook", "autocmd!",
+            "autocmd BufReadPost *.fib call setline(4, getline(4) . ' ') | call cursor(1, 1)",
+            "augroup END",
+            "call cursor(4, 16)",
+            "let report.read_hook_refused = fibril#definition_project(g:fibril_source_dir, g:fibril_project_entry)",
+            "let report.read_hook_preserved = getline(4) =~# ' $'",
+            "augroup FibrilTestReadHook", "autocmd!", "augroup END", "edit!",
             "let report.definition_plug = !empty(maparg('<Plug>(FibrilDefinitionProject)', 'n'))",
             "let report.plug = !empty(maparg('<Plug>(FibrilCheckProject)', 'n'))",
             "let report.messages = execute('messages')",
@@ -567,11 +583,13 @@ class EditorTests(unittest.TestCase):
                     self.assertEqual(report["accepted_items"], [])
                     self.assertTrue(report["no_extra_window"])
                     self.assertTrue(report["plug"])
-                    self.assertEqual(report["definition_unloaded"], 0)
-                    self.assertTrue(report["definition_stayed"])
+                    self.assertEqual(report["definition_unloaded"], 1, report["messages"])
+                    self.assertTrue(report["definition_auto"], report["messages"])
                     self.assertEqual(report["definition_modified"], 0)
                     self.assertTrue(report["definition_jump"], report["messages"])
                     self.assertTrue(report["library_definition"], report["messages"])
+                    self.assertEqual(report["read_hook_refused"], 0)
+                    self.assertTrue(report["read_hook_preserved"], report["messages"])
                     self.assertTrue(report["definition_plug"])
                     self.assertTrue(all(report["definition_faults"]), report["messages"])
                     self.assertEqual(report["definition_undo_command"], 0)

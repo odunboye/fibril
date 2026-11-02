@@ -13,7 +13,7 @@ plans; a complete effect calculus and compiler backends remain future work.
 See [checker scope and limits](docs/erased-checker.md). The [local module/import work](docs/modules.md) now has shared metadata parsing and read-only POSIX dependency discovery;
 check/eval/run --source-dir now support checked closed qualified imports and
 hosted execution. Version-2 project JSON retains source identity/snapshots; FibrilCheckProject validates project snapshots with conservative loaded-buffer
-jumps. FibrilDefinitionProject provides checked cross-file lookup into loaded buffers;
+jumps. FibrilDefinitionProject provides checked cross-file lookup and opens targets automatically;
 project-wide reference indexing and rename remain unimplemented.
 
 Optional [Neovim/Vim highlighting, checking, and same-file navigation](docs/editor-highlighting.md),

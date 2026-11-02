@@ -319,8 +319,8 @@ for single-file checks.
 This is a manual synchronous snapshot check, not a filesystem transaction or
 live diagnostic subscription. Rerun after edits; locations can become stale
 after display. Project buffers with unsaved changes are not checked.
-Cross-file definition/reference/rename services, automatic dependency loading,
-LSP, cancellation, and incremental checking remain separate work.
+Project-wide references/rename, automatic loading from diagnostic lists, LSP,
+cancellation, and incremental checking remain separate work.
 
 ## Project definitions in the editor
 
@@ -344,22 +344,27 @@ too before making further project queries there.
 
 Place the cursor on the final identifier in Text.Greeting.greet and invoke the
 command. It checks the project, verifies query/entry/root identities and all
-reported source snapshots, and switches to the already-loaded target buffer at
-the actual definition name. Local definitions use the same traversal. Source
-buffers must be saved, unmodified UTF-8; no file is automatically loaded or saved.
+reported source snapshots, and opens the target file at the actual definition
+name. Unloaded targets are opened automatically as UTF-8; you do not need to
+pre-open dependencies. Local definitions use the same traversal. Source
+buffers must be saved, unmodified UTF-8; no source is automatically saved.
 
-An unloaded target produces a warning without changing buffers: open it in a
-split, return to the query, and retry. Null targets, malformed packets, stale
+Null targets, malformed packets, stale
 snapshots, hidden/unsupported positions, and modified dependency aliases do not
 produce guessed jumps. No location list is replaced. Buffer-enter hooks are
 outside the compiler's control; after switching buffers, identity/encoding/text
-are checked again before positioning. This is manual snapshot navigation, not a
+are checked again before positioning, including all available project snapshots.
+If a read/enter hook changes text or identity, the file may remain open but no
+snapshot-based cursor jump is applied; the adapter warns and preserves the
+changed text. Opening uses normal editor hooks and does not bypass Vim security
+settings or overwrite modified buffers. This is manual snapshot navigation, not a
 live index or atomic filesystem transaction.
 
 The command and Plug mapping are removed by the ftplugin undo hook. No default
 key is assigned by the runtime; the LazyVim gD mapping is an optional user choice.
-IO descriptions are not executed. Project references/rename and automatic
-dependency loading remain unimplemented.
+IO descriptions are not executed. Project references/rename remain unimplemented.
+Project checking still does not automatically load dependency buffers; automatic
+opening is performed only when explicitly navigating to a definition.
 
 ## Checked project definition API
 
@@ -401,7 +406,7 @@ caller-supplied target identities and qualified bindings; those raw inputs are
 not checking certificates. The project service admits them only after checking.
 
 FibrilDefinitionProject consumes this version-2 API with snapshot validation and
-already-loaded-buffer jumps. The ordinary version-1 definition client remains
+validated automatic target opening. The ordinary version-1 definition client remains
 separate and rejects version 2 rather than attach a dependency span to the
 current buffer. Project-wide
 references, rename, prelude-source navigation, stable symbol IDs, and incremental

@@ -375,6 +375,32 @@ function! s:project_contexts(result, root, entry) abort
   return contexts
 endfunction
 
+" Validate coordinates against source text without requiring a loaded buffer.
+function! s:definition_position(point, context) abort
+  if !a:context.validate || a:context.bomb || type(a:point) != v:t_dict
+    throw 'Unsupported definition source representation'
+  endif
+  let row = get(a:point, 'line', 0)
+  let column = get(a:point, 'column', 0)
+  let offset = get(a:point, 'offset', -1)
+  if type(row) != v:t_number || type(column) != v:t_number ||
+        \ type(offset) != v:t_number || row < 1 || row > len(a:context.lines) ||
+        \ column < 1 || column > strchars(a:context.lines[row - 1]) + 1 ||
+        \ offset < 0 || offset > 65536
+    throw 'Definition point is outside its source snapshot'
+  endif
+  let expected = column - 1
+  if row > 1
+    for text in a:context.lines[:row - 2]
+      let expected += strchars(text) + (a:context.ff ==# 'dos' ? 2 : 1)
+    endfor
+  endif
+  if offset != expected
+    throw 'Definition offset disagrees with its scalar line/column'
+  endif
+  return [row, byteidxcomp(a:context.lines[row - 1], column - 1) + 1]
+endfunction
+
 function! fibril#definition_project(root, entry) abort
   if type(a:root) != v:t_string || empty(a:root) ||
         \ type(a:entry) != v:t_string || empty(a:entry)
@@ -406,30 +432,30 @@ function! fibril#definition_project(root, entry) abort
       throw 'Invalid project definition target'
     endif
     let context = contexts[target.path]
-    let diagnostic = {'severity': 'error', 'stage': 'definition', 'message': '',
-          \ 'byteOffset': v:null, 'position': target.range.start}
-    let start = s:diagnostic_item(diagnostic, context)
-    let diagnostic.position = target.range.end
-    let finish = s:diagnostic_item(diagnostic, context)
+    let start = s:definition_position(target.range.start, context)
+    call s:definition_position(target.range.end, context)
     if target.range.start.line != target.range.end.line ||
           \ target.range.start.column >= target.range.end.column
       throw 'Invalid definition name range'
     endif
-    if !context.bufnr || !start.valid || !finish.valid
-      return s:warn('open the target in a UTF-8 buffer and retry project navigation: ' . target.path)
-    endif
     let source_window = win_getid()
     normal! m'
-    execute 'keepalt buffer ' . context.bufnr
+    if context.bufnr
+      execute 'keepalt buffer ' . context.bufnr
+    else
+      execute 'keepalt edit ++enc=utf-8 ' . fnameescape(target.path)
+    endif
     " Buffer-enter hooks are user configuration; never position using stale text.
-    if win_getid() != source_window || bufnr('%') != context.bufnr ||
+    if win_getid() != source_window ||
           \ s:canonical(expand('%:p')) !=# target.path || &modified ||
           \ index(['', 'utf-8'], &l:fileencoding) < 0 ||
           \ index(['unix', 'dos'], &l:fileformat) < 0 ||
           \ s:buffer_snapshot() !=# context.text || s:snapshot(target.path) !=# context.text
       return s:warn('target changed while entering its buffer; retry after saving')
     endif
-    call cursor(start.lnum, start.col)
+    " Revalidate the whole project after read/enter hooks, not only the target.
+    call s:project_contexts(extend(copy(result), {'accepted': v:true}), a:root, a:entry)
+    call cursor(start[0], start[1])
     return 1
   catch
     return s:warn('project definition refused: ' . v:exception)

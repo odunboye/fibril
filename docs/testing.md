@@ -288,7 +288,9 @@ grouped references, Unicode/CRLF snapshots, punctuation and prelude misses,
 unreachable files, rejected private/transitive access, and invalid unused bodies.
 The original same-file navigation/rename tests exercise the shared traversal too.
 Separate real-editor tests cover FibrilDefinitionProject's loaded-target jumps,
-library-entry configuration, unloaded/modified target refusal, canonical aliases,
+library-entry configuration, automatic UTF-8 opening despite Latin-1-first
+editor defaults, modified-source refusal, read-hook changes without overwriting
+text or applying a snapshot jump, canonical aliases,
 malformed query/target/range/snapshot packets without movement/list changes, and
 command/Plug cleanup. Compiler tests alone do not validate editor conversion.
 
