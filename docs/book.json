@@ -80,7 +80,7 @@
         "path": "docs/pattern-inference.md"
       },
       {
-        "title": "Constructor-named record patterns",
+        "title": "Constructor patterns and field inference",
         "path": "docs/constructor-patterns.md"
       },
       {

@@ -2,6 +2,7 @@
 module Fibril.Elaboration.Pretty
 
 import Fibril.Core.Quantity
+import Fibril.Source.Lexer
 import Fibril.Source.Syntax
 
 %default total
@@ -29,6 +30,7 @@ renderExpr (NPairValue _ ty first second) = node "pair" [renderExpr ty, renderEx
 renderExpr (NBoxType _ q ty) = node "box-type" [show q, renderExpr ty]
 renderExpr (NBoxValue _ ty value) = node "box-value" [renderExpr ty, renderExpr value]
 renderExpr (NBoxCase _ motive value branch) = node "box-case" [renderExpr motive, renderExpr value, renderExpr branch]
+renderExpr (NPatternLambda _ names body) = node "infer-field-binders" [node "names" (map spelling names), renderExpr body]
 renderExpr (NConstructorCase _ arity constructor value branch motive) = node "constructor-record-case" [show arity, renderExpr constructor, renderExpr value, renderExpr branch, (case motive of Nothing => "infer"; Just result => renderExpr result)]
 renderExpr (NInferCase _ arity value branch) = node "infer-record-case" [show arity, renderExpr value, renderExpr branch]
 renderExpr (NPairCase _ motive value branch) = node "pair-case" [renderExpr motive, renderExpr value, renderExpr branch]

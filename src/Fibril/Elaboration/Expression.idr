@@ -94,6 +94,8 @@ mutual
   elaborateInWith globals context env (NBoxValue span ty value) = [| BoxValue (elaborateInWith globals context env ty) (elaborateInWith globals context env value) |]
   elaborateInWith globals context env (NBoxCase span motive value branch) =
     [| BoxCase (elaborateInWith globals context env motive) (elaborateInWith globals context env value) (elaborateInWith globals context env branch) |]
+  elaborateInWith globals context env (NPatternLambda span _ _) =
+    Left (CannotElaborate span.start "Inferred field binders require a constructor-named pattern")
   elaborateInWith globals context env (NConstructorCase span arity constructor scrutinee branch motive) = do
     if not (namedConstructor constructor)
        then Left (CannotElaborate (extent constructor).start "Pattern constructor must be a named function, optionally explicitly instantiated") else Right ()
@@ -102,8 +104,7 @@ mutual
       Just ctx => Right ctx
     named <- elaborateInWith globals context env constructor
     value <- elaborateInWith globals context env scrutinee
-    branch <- elaborateInWith globals context env branch
-    checkConstructor (extent constructor).start arity typedContext named branch
+    branch <- elaboratePatternBranch globals typedContext env (extent constructor).start arity named branch
     case motive of
       Nothing => inferCase span.start arity typedContext value branch
       Just authored => do
@@ -157,6 +158,24 @@ mutual
     ty <- elaborateInWith globals context env result
     value <- elaborateDo globals context env ty body
     Right (Apply (Lambda Linear (IOType ty) (Variable FZ)) value)
+
+  elaboratePatternBranch : List GlobalDefinition -> Context n -> Vect n String -> Position ->
+                           Nat -> Term n -> Expr -> Either ResolveError (Term n)
+  elaboratePatternBranch globals context env position arity constructor (NPatternLambda span names body) = do
+    fields <- inferConstructorFields position arity context constructor
+    case (fields, names) of
+      (OneField q domain, [name]) => do
+        body <- elaborateInWith globals (Just (Extend context q domain)) (name.spelling :: env) body
+        Right (Lambda q domain body)
+      (TwoFields q domain r second, [first, last]) => do
+        body <- elaborateInWith globals (Just (Extend (Extend context q domain) r second))
+                  (last.spelling :: first.spelling :: env) body
+        Right (Lambda q domain (Lambda r second body))
+      _ => Left (CannotElaborate span.start "Constructor field count does not match the pattern names")
+  elaboratePatternBranch globals context env position arity constructor branch = do
+    resolved <- elaborateInWith globals (Just context) env branch
+    checkConstructor position arity context constructor resolved
+    Right resolved
 
   -- The block result is resolved outside its statements and weakened under each
   -- local binder. It must never be re-resolved under a shadowing statement name.

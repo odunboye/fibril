@@ -1,7 +1,9 @@
-# Constructor-named structural record patterns
+# Constructor-named patterns and field inference
 
-**Implemented prototype:** typed unary/binary record cases may name a transparent
-constructor before their field binders. Motives may be inferred or supplied.
+**Implemented prototype:** unary/binary record cases may name a transparent
+constructor before their field binders. Field names can infer types and
+quantities from that constructor; typed binders remain available. Motives may
+be inferred or supplied.
 The core still receives only the existing BoxCase/PairCase eliminations.
 
 ~~~fibril
@@ -15,6 +17,32 @@ case package of MkPackage (0 Item : Type 0) (1 value : Item) => value
 [Named](../examples/modules/pattern-inference/Named.fib) runs a polymorphic unary
 and genuinely dependent binary example and prints Named patterns!.
 
+## Inferred field binders
+
+~~~fibril
+case box of (MkBox String) value => value
+case package of MkPackage Item value => value
+~~~
+
+The constructor's checked signature supplies the complete field telescope,
+including quantities and dependency of the second type on the first field.
+The inferred erased Item is not runtime data; the inferred linear value still
+cannot be dropped or duplicated. An unrestricted field may be reused.
+
+[InferredFields](../examples/modules/pattern-inference/InferredFields.fib)
+executes packaged payload recovery and a genuinely dependent family example,
+printing Inferred payload! and Inferred family!.
+
+Constructor type and canonical packing are validated before elaborating the
+body under the inferred typed context. The final ordinary core checker remains
+independent. The user-supplied field names are real lexical binders, with normal
+shadowing and definition/reference targets; no source locations are guessed.
+
+The inferred form accepts one or two names, all unannotated. The alternative
+typed form accepts one or two fully typed binders. Mixed typed/untyped lists are
+not supported. Duplicate names except wildcard _ reject; a wildcard does not
+permit discarding a linear field.
+
 ## Parameters and syntax
 
 A nonparameterized constructor can be a bare qualified or unqualified name.
@@ -22,7 +50,7 @@ For parameterized records, supply the erased parameters explicitly inside a
 parenthesized constructor application, for example (Data.Box.MkBox String).
 There is no implicit-parameter inference here.
 
-Field quantities and types remain explicit. Prefix resolution happens outside
+Field quantities and types can be explicit or inferred from the constructor. Prefix resolution happens outside
 the field binders, so a field cannot accidentally capture its constructor
 reference. Ordinary lexical shadowing and direct-import/export visibility apply.
 The grouped prefix must have a named function head, not an arbitrary anonymous
@@ -36,7 +64,7 @@ case message return (\(0 self : Message) => String)
 ~~~
 
 Unnamed typed cases remain supported. Nullary/n-ary constructor patterns,
-nested patterns, alternatives, inferred binder annotations and general inductive
+nested patterns, alternatives, erased-parameter inference and general inductive
 coverage/refinement are not added.
 
 ![Named pattern validation](diagrams/constructor-patterns.svg)
@@ -85,12 +113,15 @@ law or general constructor coverage from this feature.
 ## Bounds and tooling
 
 Constructor-type and packing comparisons use the existing type-reduction fuel
-128 and checker depth 512. Exhaustion is an elaboration failure, not equality.
+128 and checker depth 512. Inferred field domains have a combined 512-node
+admission limit before constructing the branch. Oversized telescopes request
+typed binders; this is an inference budget, not a restriction on field types. Exhaustion is an elaboration failure, not equality.
 Project pre-clone estimates account for constructor validation expressions and
 the bounded emitted motive. Existing source, parser, construction and checker
 budgets apply; they are not allocation/time guarantees.
 
-Syntax-only tools retain NConstructorCase without validating it. elaborate PATH
+Syntax-only tools retain NConstructorCase and pending NPatternLambda name
+binders without validating or inferring them. elaborate PATH
 still reports checked: false and prints pending constructor-record-case IR.
 Navigation traverses the prefix in the outer scope and targets its actual source
 definition; branch variables retain their separate binder targets. Formatting
@@ -99,6 +130,7 @@ the usual reparse/shape guard.
 
 Tests execute unary/binary/dependent and imported patterns, verify constructor
 targets and formatter idempotence, and reject uninstantiated/wrong parameters,
-wrong quantities, transformed or reordered packing, unbound/private names and
+wrong quantities, transformed or reordered packing, erased extraction, inferred
+linear discard/duplication, field-count errors, unbound/private names and
 opaque local shadows. Structural aliases are explicitly tested as accepted.
 No kernel constructor, conversion rule or metatheoretic theorem is added.

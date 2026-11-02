@@ -19,6 +19,7 @@ import Fibril.Elaboration.Declaration
 import Fibril.Source.Global
 import Fibril.Elaboration.Expression
 import Fibril.Elaboration.Expression.Scope
+import Fibril.Elaboration.Expression.Constructor
 import Fibril.Driver.Limits
 import Fibril.Driver.Check
 import Fibril.Driver.Prelude
@@ -87,6 +88,7 @@ cost limit globals env expression = min (S limit) $ case expression of
   NBoxType _ _ a => 1 + cost limit globals env a
   NBoxValue _ a b => 1 + cost limit globals env a + cost limit globals env b
   NBoxCase _ a b c => 1 + cost limit globals env a + cost limit globals env b + cost limit globals env c
+  NPatternLambda _ names body => 4 + 2 * inferredFieldNodes + cost limit globals (reverse (map spelling names) ++ env) body
   NConstructorCase _ _ constructor value branch motive =>
     8 + 3 * cost limit globals env constructor + cost limit globals env value + 2 * cost limit globals env branch +
       (case motive of Nothing => inferredResultNodes; Just explicit => cost limit globals env explicit)

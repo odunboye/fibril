@@ -8,10 +8,21 @@ import Fibril.Core.Context
 import Fibril.Core.Erased
 import Fibril.Core.Reduction
 import Fibril.Core.Limits
+import Fibril.Core.WeakHead
+import Fibril.Elaboration.Expression.Scope
 import Fibril.Source.Text
 import Fibril.Source.Resolve.Error
 
 %default total
+
+public export
+inferredFieldNodes : Nat
+inferredFieldNodes = 512
+
+public export
+data ConstructorFields : Nat -> Type where
+  OneField : Quantity -> Term n -> ConstructorFields n
+  TwoFields : Quantity -> Term n -> Quantity -> Term (S n) -> ConstructorFields n
 
 equal : Position -> String -> Term n -> Term n -> Either ResolveError ()
 equal position message actual expected = case betaCompare typeReductionFuel actual expected of
@@ -43,3 +54,33 @@ checkConstructor position arity context constructor branch = do
         (Apply (Apply (weaken (weaken constructor)) (Variable (FS FZ))) (Variable FZ))
         (PairValue (weaken (weaken pair)) (Variable (FS FZ)) (Variable FZ))
     _ => Left (CannotElaborate position "Named record patterns require one or two typed field binders")
+
+expose : Position -> Term n -> Either ResolveError (Term n)
+expose position ty = case weakHead typeReductionFuel ty of
+  HeadForm result => Right result
+  HeadLimit _ => Left (CannotElaborate position "Constructor field inference exhausted its reduction budget")
+
+||| Infer the complete unary/binary field telescope, not erased parameters.
+||| Canonical packing is checked before elaborating the pattern body.
+public export
+inferConstructorFields : Position -> Nat -> Context n -> Term n -> Either ResolveError (ConstructorFields n)
+inferConstructorFields position arity context constructor = do
+  ty <- case inferErased checkingDepth typeReductionFuel context constructor of
+    Left err => Left (CannotElaborate position ("Cannot infer pattern constructor fields: " ++ show err))
+    Right ty => expose position ty
+  case (arity, ty) of
+    (1, Pi q domain _) => do
+      if typeNodes domain > inferredFieldNodes
+         then Left (CannotElaborate position "Inferred constructor fields exceed 512 nodes; use typed pattern binders") else Right ()
+      checkConstructor position 1 context constructor (Lambda q domain UnitValue)
+      Right (OneField q domain)
+    (2, Pi q domain rest) => do
+      rest <- expose position rest
+      case rest of
+        Pi r second _ => do
+          if typeNodes domain + typeNodes second > inferredFieldNodes
+             then Left (CannotElaborate position "Inferred constructor fields exceed 512 nodes; use typed pattern binders") else Right ()
+          checkConstructor position 2 context constructor (Lambda q domain (Lambda r second UnitValue))
+          Right (TwoFields q domain r second)
+        _ => Left (CannotElaborate position "Constructor does not expose two fields; instantiate erased parameters explicitly")
+    _ => Left (CannotElaborate position "Constructor does not expose the requested fields; instantiate erased parameters explicitly")

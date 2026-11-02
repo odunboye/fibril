@@ -3,7 +3,7 @@
 **Status:** core dependent pairs and a bounded named-record source prototype are
 implemented, including explicitly requested safe projection functions. Source records have no fixed field-count cap (at least one field), an explicit
 constructor and an optional named eliminator. Explicit erased parameter telescopes are supported; recursive/nominal records,
-nominal constructor discrimination and inferred binder annotations, dot-field syntax and instance
+nominal constructor discrimination, dot-field syntax and instance
 inference remain unimplemented. [Explicit interfaces](explicit-interfaces.md)
 now reuse these checked dictionary foundations. No preservation or erasure theorem is claimed.
 
@@ -150,7 +150,8 @@ Pattern motives use the core's universe-valued motive rule, rather than being
 limited to the named generated eliminator's fixed result universe. [Bounded motive inference](pattern-inference.md) now permits omission for
 independent results and canonical dependent results built from erased field
 extractions. Explicit return remains available, including after inference-budget
-exhaustion. Binder types remain authored; multi-branch coverage,
+exhaustion. Unnamed binder types remain authored; constructor-named patterns can infer
+types and quantities from the constructor signature. Multi-branch coverage,
 general constructor grammar and boolean/inductive refinement remain absent.
 [Named unary/binary structural constructor prefixes](constructor-patterns.md)
 are now checked using transparent canonical-packing comparisons.

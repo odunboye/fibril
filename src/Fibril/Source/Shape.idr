@@ -34,6 +34,7 @@ sameExpr (NPairValue _ a b c) (NPairValue _ x y z) = sameExpr a x && sameExpr b 
 sameExpr (NBoxType _ q a) (NBoxType _ r b) = q == r && sameExpr a b
 sameExpr (NBoxValue _ a b) (NBoxValue _ x y) = sameExpr a x && sameExpr b y
 sameExpr (NBoxCase _ a b c) (NBoxCase _ x y z) = sameExpr a x && sameExpr b y && sameExpr c z
+sameExpr (NPatternLambda _ names body) (NPatternLambda _ other value) = map spelling names == map spelling other && sameExpr body value
 sameExpr (NConstructorCase _ n c a b Nothing) (NConstructorCase _ m d x y Nothing) =
   n == m && sameExpr c d && sameExpr a x && sameExpr b y
 sameExpr (NConstructorCase _ n c a b (Just p)) (NConstructorCase _ m d x y (Just q)) =

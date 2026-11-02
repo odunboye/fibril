@@ -261,7 +261,33 @@ mutual
     (constructor, afterConstructor) <- if typedPatternAhead tokens then Right (Nothing, tokens) else do
       (constructor, following) <- atom depth end tokens
       Right (Just constructor, following)
-    first <- binder depth end afterConstructor
+    case (constructor, afterConstructor) of
+      (Just named, first :: _) =>
+        if first.kind == Name then inferredFieldsCase depth end token scrutinee named motive afterConstructor
+           else typedFieldsCase depth end token scrutinee constructor motive afterConstructor
+      _ => typedFieldsCase depth end token scrutinee constructor motive afterConstructor
+
+  inferredFieldsCase : Nat -> Position -> Token -> Expr -> Expr -> Maybe Expr -> List Token -> Either ParseError (Expr, List Token)
+  inferredFieldsCase depth end token scrutinee constructor motive tokens = do
+    (first, rest) <- expect Name end tokens
+    let parsed : (List Token, List Token) = case rest of
+          next :: following => if next.kind == Name then ([first, next], following) else ([first], rest)
+          [] => ([first], [])
+    let names = fst parsed
+    let afterNames = snd parsed
+    case names of
+      [a, b] => if a.spelling == b.spelling && a.spelling /= "_"
+        then Left (ParseFailure b.span.start "Record pattern binders must be distinct") else Right ()
+      _ => Right ()
+    (_, afterArrow) <- expect BodyArrow end afterNames
+    (body, remaining) <- expression depth end afterArrow
+    let branch = NPatternLambda (Between first.span.start (extent body).finish) names body
+    Right (NConstructorCase (Between token.span.start (extent body).finish)
+      (length names) constructor scrutinee branch motive, remaining)
+
+  typedFieldsCase : Nat -> Position -> Token -> Expr -> Maybe Expr -> Maybe Expr -> List Token -> Either ParseError (Expr, List Token)
+  typedFieldsCase depth end token scrutinee constructor motive tokens = do
+    first <- binder depth end tokens
     (second, afterBinders) <- if (case first.remaining of next :: _ => next.kind == OpenParen; [] => False) then do
         second <- binder depth end first.remaining
         if first.name == second.name && first.name /= "_"

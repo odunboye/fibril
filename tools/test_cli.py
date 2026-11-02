@@ -519,6 +519,67 @@ class CLITests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertEqual(result.stdout, "Do context!\n")
 
+    def test_inferred_constructor_field_binders(self):
+        example = ROOT / "examples/modules/pattern-inference/InferredFields.fib"
+        result = run("run", "--source-dir", str(example.parent), str(example))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout, "Inferred payload!\nInferred family!\n")
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / "Main.fib"
+            source = example.read_text().replace("module InferredFields", "module Main")
+            path.write_text(source)
+            inspected = json.loads(run("elaborate", str(path)).stdout)
+            self.assertFalse(inspected["checked"])
+            self.assertIn("infer-field-binders", str(inspected))
+            formatted = run("format", str(path))
+            self.assertEqual(formatted.returncode, 0, formatted.stderr)
+            path.write_text(formatted.stdout)
+            self.assertEqual(run("format", str(path)).stdout, formatted.stdout)
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            for old, new in (
+                ("of MkPackage Item value => value", 'of MkPackage Item value => "discarded"'),
+                ("of MkPackage Item value => value", "of MkPackage Item value => (\\(unused : Item) => value) value"),
+                ("of MkPackage Item value", "of MkPackage Item Item"),
+                ("of MkPackage Item value", "of MkPackage Item value extra"),
+                ("of MkPackage Item value", "of MkPackage Item"),
+                ("of MkPackage Item value", "of MkPackage Item _"),
+            ):
+                path.write_text(source.replace(old, new))
+                result = run("run", "--source-dir", str(root), str(path))
+                self.assertNotEqual(result.returncode, 0, (old, new))
+                self.assertEqual(result.stdout, "")
+            path.write_text(source.replace("  1 value : Item", "  0 value : Item"))
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, "")
+            # Unary parameters remain explicit; names infer both type and quantity.
+            unary = ('module Main\nrecord Box (0 A : Type 0) : Type 0 where\n'
+                     '  constructor MkBox\n  1 value : A\n'
+                     'main : IO Unit\nmain = putStrLn (case MkBox String "Unary!" of (MkBox String) value => value)\n')
+            path.write_text(unary)
+            self.assertEqual(run("run", "--source-dir", str(root), str(path)).stdout, "Unary!\n")
+            path.write_text(unary.replace("of (MkBox String) value", "of MkBox value"))
+            self.assertNotEqual(run("run", "--source-dir", str(root), str(path)).returncode, 0)
+            explicit = unary.replace('of (MkBox String)', 'return (\\(0 self : Box String) => String) of (MkBox String)')
+            path.write_text(explicit)
+            self.assertEqual(run("run", "--source-dir", str(root), str(path)).stdout, "Unary!\n")
+            # Unrestricted field reuse is allowed, but linear wildcard discard is not.
+            path.write_text(unary.replace("  1 value : A", "  value : A")
+                            .replace("value => value)", "value => appendString value value)"))
+            self.assertEqual(run("run", "--source-dir", str(root), str(path)).stdout, "Unary!Unary!\n")
+            # Fresh inferred names remain selectable lexical binder targets.
+            path.write_text(unary)
+            line = 6
+            column = unary.splitlines()[line - 1].rindex("value") + 1
+            result = run("definition", "--source-dir", str(root), "--entry", str(path),
+                         str(line), str(column), str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            target = json.loads(result.stdout)["definition"]["range"]
+            self.assertEqual(unary[target["start"]["offset"]:target["end"]["offset"]], "value")
+            self.assertLess(target["start"]["column"], column)
+
     def test_constructor_named_record_patterns(self):
         example = ROOT / "examples/modules/pattern-inference/Named.fib"
         result = run("run", "--source-dir", str(example.parent), str(example))
