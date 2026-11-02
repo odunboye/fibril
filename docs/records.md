@@ -1,10 +1,10 @@
 # Dependent records: kernel foundations
 
 **Status:** core dependent pairs and a bounded named-record source prototype are
-implemented, including explicitly requested safe projection functions. Source records currently have exactly two fields, an explicit
+implemented, including explicitly requested safe projection functions. Source records currently have two to eight fields, an explicit
 constructor and an explicit eliminator. Explicit erased parameter telescopes are supported; recursive/nominal records,
-constructor-discriminating/inferred patterns, dot-field syntax and interface dictionaries
-remain unimplemented. No preservation or erasure theorem is claimed.
+constructor-discriminating/inferred patterns, dot-field syntax, interface declarations
+and instance inference remain unimplemented. No preservation or erasure theorem is claimed.
 
 Records will elaborate into genuinely dependent structure, not a temporary
 nondependent product. [Erased named globals](interfaces.md#first-prerequisite-erased-global-type-declarations-implemented)
@@ -39,16 +39,16 @@ The field value has the type supplied in Item. For example, MkPackage String
 the payload is linear. This is not a parser shortcut for a particular record.
 
 The current grammar requires a named module, a column-one record header, then
-aligned indented constructor/eliminator directives and exactly two single-line
+aligned indented constructor/eliminator directives and two to eight single-line
 typed fields. Comments/blank lines are allowed. No defaults,
 recursive references, multiline field expressions, inferred field types or
 automatically inferred accessors are added. Optional projection directives follow
-the two fields, as described below. Field names must be distinct and referenceable.
+the fields, as described below. Field names must be distinct and referenceable.
 Quantities are 0, 1 or unrestricted (the existing omitted-quantity default).
 record, constructor, eliminator and where are now reserved lowercase keywords.
 
-Source ordering is meaningful: the first type sees the outer environment; the
-second type additionally sees the first field. It cannot refer to itself or a
+Source ordering is meaningful: each field type additionally sees all earlier
+fields, forming a genuinely dependent telescope. It cannot refer to itself or a
 later field. Generated internal binders cannot be captured by legal source names;
 even fields named Package or MkPackage do not capture generated global references.
 
@@ -193,7 +193,7 @@ Invoke these as ordinary functions with explicit parameters, for example
 getCombine String dictionary left right. projection is now reserved syntax.
 There is **no .field syntax** or automatic name/field inference.
 
-The current grammar permits up to two aligned projection getter field lines
+The current grammar permits up to eight aligned projection getter field lines
 per record. Targets must be declared field names; getter names must be
 referenceable and distinct from existing declarations. Each request generates
 one unrestricted function, taking the record with quantity 1 after its erased
@@ -203,7 +203,7 @@ declaration slot. Its symbol/definition points to the actual getter name token.
 Generation requires both:
 
 1. The selected field permits one runtime use (quantity 1 or unrestricted).
-2. The discarded field permits zero uses (quantity 0 or unrestricted).
+2. Every discarded field permits zero uses (quantity 0 or unrestricted).
 
 A request selecting an erased field or dropping a linear one is rejected, not
 silently omitted and not granted a weaker quantity. The generated function is
@@ -212,13 +212,14 @@ not an unchecked core projection rule.
 
 Two calls on the same quantity-1 record still use that record twice and reject.
 A reusable record binder can permit repeated calls; calling a getter does not
-make a linear record reusable. When both fields are linear, use a consuming
-pattern to access both rather than requesting an unsafe getter.
+make a linear record reusable. For two linear fields, use a consuming pattern;
+for wider records, use the generated eliminator rather than an unsafe getter.
 
-For a second-field getter, its result type substitutes a type-level extraction
-of the first field into the dependent second type. That extraction lives only
+A getter's result type substitutes erased extractions of the earlier fields it
+depends on, including transitive type dependencies. Unneeded predecessors are not
+expanded. Type-level extraction follows only the required nested-pair path. That extraction lives only
 inside types and motives, using erased checking. It is not a public/runtime
-getter for erased data. The runtime branch returns the second field and must
+getter for erased data. The runtime branch returns the selected field and must
 obey the original quantities. This is why a Package payload getter works
 without reviving its erased type field or discarding a linear runtime field.
 
@@ -240,7 +241,7 @@ compatible even if names differ. **No generative nominal identity or record eta
 rule is implemented.** The tests record this policy explicitly; do not assume
 the full Idris record model or an opaque abstraction boundary.
 
-Nominality, richer export policy and parameters need separate design before
+Nominality, richer export policy and inferred arguments need separate design before
 claiming general-purpose interface record identity. Changing those rules will
 require rechecking affected programs, not a metadata-only change.
 
@@ -474,12 +475,56 @@ subsequent beta naturality reuses the existing laws. Generators include raw
 cases and typed/runtime case recipes. This still is not a general preservation
 or quantitative soundness theorem.
 
+## Wider record representation and identity
+
+![Bounded telescope lowering](diagrams/record-telescopes.svg)
+
+The current identity decision is **transparent structural abbreviations**, not
+generative nominal record types. Field and record spellings are not nominal
+tags. Wider records with the same normalized ordered types/quantities remain
+definitionally compatible; future nominal identity needs a kernel-level design
+and rechecking, not elaborator metadata.
+
+For fields f1 ... fn, n between two and eight:
+
+- Two fields keep exactly the original Sigma q r A B representation.
+- Each preceding field lowers to Sigma q 1 A Tail. The tail is consumed once,
+  irrespective of its fields' authored quantities.
+- Constructors take all fields explicitly, in telescope order.
+- Eliminators take an explicit record motive and one branch curried over all
+  authored fields, with their original quantities.
+- Each nested elimination reconstructs its enclosing pair in the erased motive.
+  No eta law, quantity coercion or new core constructor is introduced.
+
+The existing typed case syntax still binds exactly two core fields; use the
+generated eliminator for a complete wider-record telescope. Requested getters
+consume the whole record, and every nonselected field must permit zero use.
+Up to eight getter requests are admitted, each consuming a declaration slot.
+Existing eight-parameter, 64-declaration and expanded-core budgets still apply.
+
+[Wider operational dictionaries](../examples/modules/wider-records/Main.fib)
+prints Wider records! using a three-field parameterized operation/identity/label
+dictionary. Its explicit append adapter bridges quantities without coercion.
+This is operational data, not interface syntax or a proof of monoid laws.
+
+**Singletons remain rejected.** Padding a one-field record with erased Unit
+does not make an arbitrary padding variable definitionally equal to (). A
+generated dependent branch returning P (pair value ()) cannot in general satisfy
+P (pair value padding). A proper unary wrapper or a separately justified kernel
+rule is needed; this slice does not pretend otherwise.
+
+Regressions execute every width from two to eight, reject linear-field loss,
+check a motive observing a reconstructed dependent record, sparse transitive
+dependencies in an eight-field getter, wrong late payloads, all eight getter
+requests, structural compatibility, and field/request limits. They are tests,
+not preservation or quantitative soundness proofs.
+
 ## Remaining record work
 
-The constructor/eliminator core and the bounded two-field source declarations
-are in place, including erased parameter telescopes and explicit two-field
-consuming patterns. Next work includes broader field counts, dot-field elaboration,
+The constructor/eliminator core and bounded two-to-eight-field source declarations
+are in place, including erased parameter telescopes and explicit binary consuming
+patterns. Next work includes a proper singleton representation, dot-field elaboration,
 richer/inferred pattern syntax, nominality decisions, and richer visibility. Do not implement fst/snd by
-silently discarding a linear component. Multiple fields need an explicit
-nesting/tail policy and generated eliminators must preserve the same permissions.
+silently discarding a linear component. The nesting policy below preserves existing two-field representations and uses
+linear internal tails; generated eliminators preserve the authored field quantities.
 Interfaces can then lower into those checked values. No automatic/dot-field projection, record eta, or dictionary inference is claimed yet.

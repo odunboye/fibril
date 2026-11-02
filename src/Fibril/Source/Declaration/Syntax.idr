@@ -58,8 +58,7 @@ record RecordDeclaration where
   constructorName : Token
   eliminatorKeyword : Token
   eliminatorName : Token
-  first : RecordField
-  second : RecordField
+  fields : List RecordField
   projections : List RecordProjection
   exported : Bool
 

@@ -416,6 +416,108 @@ class CLITests(unittest.TestCase):
             self.assertEqual(diagnostic["path"], str(entry.resolve()))
             self.assertEqual(diagnostic["position"]["line"], 7)
 
+    def test_wider_dependent_records(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / "Main.fib"
+
+            def program(fields, requests="", body='putStrLn "unused"'):
+                return ('module Main\nrecord R : Type 1 where\n'
+                        '  constructor MkR\n  eliminator useR\n' +
+                        "".join("  " + field + "\n" for field in fields) + requests +
+                        'main : IO Unit\nmain = ' + body + '\n')
+
+            # Third-field type depends on two distinct erased predecessors.
+            fields = ["0 Item : Type 0", "0 flag : Bool",
+                      "1 value : if flag then Item else Bool"]
+            path.write_text(program(fields, "  projection get value\n",
+                                    'putStrLn (get (MkR String True "Dependent!"))'))
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, "Dependent!\n")
+            # Dependent motive observes the complete reconstructed record.
+            path.write_text(
+                program(fields, "  projection get value\n", 'putStrLn (recover (MkR String True "Motive!"))')
+                .replace('main : IO Unit',
+                         '0 valueType : (0 r : R) -> Type 0\n'
+                         'valueType = \\(0 r : R) => useR (\\(0 self : R) => Type 0) r '
+                         '(\\(0 Item : Type 0) => \\(0 flag : Bool) => \\(1 value : if flag then Item else Bool) => if flag then Item else Bool)\n'
+                         'recover : (1 r : R) -> valueType r\n'
+                         'recover = \\(1 r : R) => useR (\\(0 self : R) => (valueType self : Type 1)) r '
+                         '(\\(0 Item : Type 0) => \\(0 flag : Bool) => \\(1 value : if flag then Item else Bool) => value)\n'
+                         'main : IO Unit'))
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, "Motive!\n")
+
+            # Sparse transitive type dependencies in an eight-field telescope.
+            fields = ["0 A : Type 0", "0 Family : (0 x : A) -> Type 0", "0 x : A",
+                      "0 witness : Family x", "0 flag : Bool", "0 unused0 : Unit",
+                      "0 unused1 : Unit", "1 value : Family x"]
+            path.write_text(program(fields, "  projection get value\n",
+                'putStrLn (get (MkR Unit (\\(0 x : Unit) => String) () "witness" True () () "Sparse!"))'))
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, "Sparse!\n")
+            # Late payload mismatches still reject before any effects.
+            path.write_text(program(fields, "  projection get value\n",
+                'putStrLn (get (MkR Unit (\\(0 x : Unit) => String) () "witness" True () () False))'))
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, "")
+
+            # Every width, including eight fields, consumes every linear field.
+            for width in range(2, 9):
+                names = [f"field{i}" for i in range(width)]
+                fields = [f"1 {name} : String" for name in names]
+                combine = names[-1]
+                for name in reversed(names[:-1]):
+                    combine = f"appendString {name} ({combine})"
+                args = " ".join(f'"{i}"' for i in range(width))
+                path.write_text(program(fields, body=f'useR (\\(0 self : R) => (IO Unit : Type 1)) (MkR {args}) '
+                                        f'(\\(1 {names[0]} : String) => ' +
+                                        "".join(f"\\(1 {name} : String) => " for name in names[1:]) +
+                                        f'putStrLn ({combine}))'))
+                result = run("run", "--source-dir", str(root), str(path))
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(result.stdout, "".join(map(str, range(width))) + "\n")
+                # No linear field may vanish in the generated branch.
+                path.write_text(program(fields, body=f'useR (\\(0 self : R) => (IO Unit : Type 1)) (MkR {args}) '
+                                        '(' + "".join(f"\\(1 {name} : String) => " for name in names) +
+                                        f'putStrLn {names[0]})'))
+                result = run("run", "--source-dir", str(root), str(path))
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(result.stdout, "")
+
+            # All eight independent getters remain within construction bounds.
+            fields = [f"field{i} : Bool" for i in range(8)]
+            requests = "".join(f"  projection get{i} field{i}\n" for i in range(8))
+            path.write_text(program(fields, requests,
+                                    'putStrLn (if get7 (MkR True True True True True True True True) then "Getters!" else "bad")'))
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, "Getters!\n")
+            # Same normalized telescope, different record/field names: structural.
+            compatible = (
+                'record S : Type 1 where\n  constructor MkS\n  eliminator useS\n' +
+                "".join(f"  other{i} : Bool\n" for i in range(8)))
+            path.write_text(program(fields, requests,
+                                    'putStrLn (if get7 (MkS True True True True True True True True) then "Structural!" else "bad")')
+                            .replace("main : IO Unit", compatible + "main : IO Unit"))
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, "Structural!\n")
+            for bad_fields in ([], ["value : Bool"], fields + ["ninth : Bool"],
+                               ["first : Bool", "second : Bool", "first : String"]):
+                path.write_text(program(bad_fields))
+                self.assertNotEqual(run("check", "--source-dir", str(root), str(path)).returncode, 0)
+            # A getter must reject a discarded linear field anywhere in the tail.
+            fields = ["0 Item : Type 0", "0 flag : Bool", "1 kept : String", "1 lost : String"]
+            path.write_text(program(fields, "  projection get kept\n"))
+            result = run("check", "--source-dir", str(root), str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("linear", result.stderr + result.stdout)
+
     def test_safe_record_projections(self):
         root = "examples/modules/record-projections"
         result = run("run", "--source-dir", root, root + "/Main.fib")
@@ -468,7 +570,7 @@ class CLITests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertEqual(result.stdout, "dependent\n")
             for requests in ([("get", "missing")], [("get", "left"), ("get", "right")],
-                             [("get", "left"), ("other", "right"), ("third", "left")]):
+                             [(f"get{i}", "left") for i in range(9)]):
                 entry.write_text(program("left : Bool", "right : Bool", requests, 'putStrLn "never"'))
                 result = run("run", "--source-dir", str(target), str(entry))
                 self.assertNotEqual(result.returncode, 0)

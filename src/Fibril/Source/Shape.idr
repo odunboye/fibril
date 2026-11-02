@@ -55,7 +55,7 @@ sameAuthored (Ordinary a) (Ordinary b) = a.name == b.name && a.quantity == b.qua
 sameAuthored (RecordItem a) (RecordItem b) = a.name.spelling == b.name.spelling && a.level == b.level &&
   a.exported == b.exported && sameList sameParameter a.params b.params &&
   a.constructorName.spelling == b.constructorName.spelling && a.eliminatorName.spelling == b.eliminatorName.spelling &&
-  sameField a.first b.first && sameField a.second b.second && sameList sameProjection a.projections b.projections
+  sameList sameField a.fields b.fields && sameList sameProjection a.projections b.projections
 sameAuthored _ _ = False
 
 sameBody : DocumentBody -> DocumentBody -> Bool

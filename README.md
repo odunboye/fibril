@@ -32,7 +32,7 @@ The next abstraction step is documented in [the interface contract](docs/interfa
 with a runnable multi-file generic String/Bool operation example. Erased named
 globals now support exported type abbreviations without granting runtime access;
 dependent pair formation/construction/elimination are now in the core.
-A two-field named-record prototype now runs; see [record foundations](docs/records.md). Interfaces and
+A bounded two-to-eight-field named-record prototype now runs; see [record foundations](docs/records.md). Interfaces and
 implicit dictionary search are not implemented yet.
 
 ## Build

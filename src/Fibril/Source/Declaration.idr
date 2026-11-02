@@ -80,12 +80,24 @@ parseField budget indent end tokens@(first :: _) = do
   ty <- parseExpression budget (nextPosition end remaining) following
   Right (Field name q ty, remaining)
 
+parseFields : Nat -> Nat -> Nat -> Position -> List Token ->
+              Either ParseError (List RecordField, List Token)
+parseFields fuel budget indent end tokens = case tokens of
+  token :: _ => if token.span.start.column <= 1 || token.kind == ProjectionKeyword
+    then Right ([], tokens) else case fuel of
+      Z => Left (ParseFailure token.span.start "Record field budget exhausted (8)")
+      S fuel => do
+        (field, rest) <- parseField budget indent end tokens
+        (following, remaining) <- parseFields fuel budget indent end rest
+        Right (field :: following, remaining)
+  [] => Right ([], [])
+
 parseProjections : Nat -> Nat -> Position -> List Token ->
                    Either ParseError (List RecordProjection, List Token)
 parseProjections fuel indent end tokens = case tokens of
   token :: rest => if token.kind /= ProjectionKeyword then Right ([], tokens) else
     case fuel of
-      Z => Left (ParseFailure token.span.start "Record projection budget exhausted (2)")
+      Z => Left (ParseFailure token.span.start "Record projection budget exhausted (8)")
       S fuel => do
         (name, rest) <- expect Name end rest
         (field, rest) <- expect Name end rest
@@ -130,19 +142,21 @@ parseRecord budget end tokens = do
      then Left (ParseFailure constructorKeyword.span.start "constructor must follow the record header")
      else Right ()
   (eliminatorKeyword, eliminatorName, rest) <- directive EliminatorKeyword indent end rest
-  (first, rest) <- parseField budget indent end rest
-  (second, rest) <- parseField budget indent end rest
-  (projections, rest) <- parseProjections 2 indent end rest
+  (fields, rest) <- parseFields 8 budget indent end rest
+  if length fields < 2 then Left (ParseFailure eliminatorName.span.finish "Records require two to eight fields; singleton records need a unary representation") else Right ()
+  (projections, rest) <- parseProjections 8 indent end rest
   case rest of
     token :: _ => if token.span.start.column > 1
-                    then Left (ParseFailure token.span.start "Prototype records require exactly two single-line fields followed by optional projections")
+                    then Left (ParseFailure token.span.start "Records require two to eight single-line fields followed by optional projections")
                     else Right ()
     [] => Right ()
   let finish = case reverse projections of
-        [] => (extent second.ty).finish
+        [] => case reverse fields of
+          field :: _ => (extent field.ty).finish
+          [] => eliminatorName.span.finish
         final :: _ => final.field.span.finish
   let region = Between keyword.span.start finish
-  Right (RecordItem (RecordSyntax region name level params constructorKeyword constructorName eliminatorKeyword eliminatorName first second projections False), rest)
+  Right (RecordItem (RecordSyntax region name level params constructorKeyword constructorName eliminatorKeyword eliminatorName fields projections False), rest)
 
 
 parseOne : Nat -> Position -> List Token -> Either ParseError (AuthoredDeclaration, List Token)

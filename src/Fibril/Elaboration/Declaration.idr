@@ -20,16 +20,15 @@ public export
 Show ElaborationError where
   show err = show err.position ++ ": " ++ err.message
 
-validateProjection : RecordField -> RecordField -> RecordProjection -> Either ElaborationError ()
-validateProjection first second projection = do
-  let selected = if projection.field.spelling == first.token.spelling then first else second
-  let discarded = if projection.field.spelling == first.token.spelling then second else first
-  if not (elem projection.field.spelling [first.token.spelling, second.token.spelling])
-     then Left (ElaborationFailure projection.field.span.start "Unknown projected field") else Right ()
-  if not (allows selected.quantity Linear)
-     then Left (ElaborationFailure projection.field.span.start "Erased fields cannot be projected as runtime values") else Right ()
-  if not (allows discarded.quantity Erased)
-     then Left (ElaborationFailure projection.field.span.start "Projection would discard a linear field; consume both fields with a pattern instead") else Right ()
+fieldPis : SourceSpan -> List RecordField -> Expr -> Expr
+fieldPis region [] body = body
+fieldPis region (field :: rest) body =
+  NPi region field.quantity field.token.spelling field.ty (fieldPis region rest body)
+
+fieldLambdas : SourceSpan -> List RecordField -> Expr -> Expr
+fieldLambdas region [] body = body
+fieldLambdas region (field :: rest) body =
+  NLambda region field.quantity field.token.spelling field.ty (fieldLambdas region rest body)
 
 parameterPis : SourceSpan -> List RecordParameter -> Expr -> Expr
 parameterPis region [] body = body
@@ -46,75 +45,171 @@ applyParameters region function [] = function
 applyParameters region function (parameter :: rest) =
   applyParameters region (NApply region function (NRef parameter.span parameter.name)) rest
 
-projectionDeclaration : SourceSpan -> Token -> List RecordParameter -> RecordField -> RecordField ->
-                        RecordProjection -> Declaration
-projectionDeclaration region recordName params first second projection =
+fieldRef : RecordField -> Expr
+fieldRef field = NRef field.token.span field.token.spelling
+
+-- Preserve the historical two-field representation exactly. Wider records
+-- consume their right-nested tail once. Fewer than two fields are not admitted.
+recordType : SourceSpan -> List RecordField -> Expr
+recordType region [] = NUnitType region
+recordType region [field] = field.ty
+recordType region [first, second] = NSigma region first.quantity second.quantity first.token.spelling first.ty second.ty
+recordType region (first :: rest) = NSigma region first.quantity Linear first.token.spelling first.ty (recordType region rest)
+
+recordValue : SourceSpan -> List RecordField -> Expr
+recordValue region [] = NUnitValue region
+recordValue region [field] = fieldRef field
+recordValue region [first, second] = NPairValue region (recordType region [first, second]) (fieldRef first) (fieldRef second)
+recordValue region fields@(first :: rest) =
+  NPairValue region (recordType region fields) (fieldRef first) (recordValue region rest)
+
+applyFields : SourceSpan -> Expr -> List RecordField -> Expr
+applyFields region function [] = function
+applyFields region function (field :: rest) = applyFields region (NApply region function (fieldRef field)) rest
+
+-- Every recursive tail elimination has an explicit motive rebuilding the
+-- enclosing pair. No eta rule, resource coercion, or unchecked core is needed.
+consume : SourceSpan -> List RecordField -> Expr -> Expr -> Expr -> Expr
+consume region [] motive value branch = branch
+consume region [field] motive value branch = NApply region branch value
+consume region [first, second] motive value branch = NPairCase region motive value branch
+consume region fields@(first :: rest) motive value branch =
+  let tail = "$record.tail." ++ show (length rest)
+      self = "$record.self." ++ show (length rest)
+      tailType = recordType region rest
+      tailRef = NRef region tail
+      selfRef = NRef region self
+      nextMotive = NLambda region Erased self tailType
+        (NApply region motive (NPairValue region (recordType region fields) (fieldRef first) selfRef))
+      next = consume region rest nextMotive tailRef (NApply region branch (fieldRef first))
+   in NPairCase region motive value
+        (NLambda region first.quantity first.token.spelling first.ty (NLambda region Linear tail tailType next))
+
+-- Substitute needed earlier dependent field names using explicitly erased
+-- applications. Even unused substitutions reduce away, preserving constant
+-- getter result types without requiring a pair eta/conversion rule.
+mentions : String -> Expr -> Bool
+mentions name (NRef _ reference) = name == reference
+mentions name (NPi _ _ binder domain body) = mentions name domain || (binder /= name && mentions name body)
+mentions name (NLambda _ _ binder domain body) = mentions name domain || (binder /= name && mentions name body)
+mentions name (NSigma _ _ _ binder domain body) = mentions name domain || (binder /= name && mentions name body)
+mentions name (NApply _ a b) = mentions name a || mentions name b
+mentions name (NAscribe _ a b) = mentions name a || mentions name b
+mentions name (NUnitCase _ a b) = mentions name a || mentions name b
+mentions name (NSequence _ a b) = mentions name a || mentions name b
+mentions name (NDoResult _ a b) = mentions name a || mentions name b
+mentions name (NIf _ a b c) = mentions name a || mentions name b || mentions name c
+mentions name (NPairValue _ a b c) = mentions name a || mentions name b || mentions name c
+mentions name (NPairCase _ a b c) = mentions name a || mentions name b || mentions name c
+mentions name (NLet _ _ binder a b c) = mentions name a || mentions name b || (binder /= name && mentions name c)
+mentions name (NDoBind _ binder a b c) = mentions name a || mentions name b || (binder /= name && mentions name c)
+mentions _ _ = False
+
+-- Keep a dependency-closed subsequence, not all preceding fields. Otherwise
+-- even independent getters generate recursively repeated erased extractions.
+dependencies : List RecordField -> List Expr -> (List RecordField, List Expr)
+dependencies [] needed = ([], needed)
+dependencies (field :: rest) needed =
+  let (later, types) = dependencies rest needed
+   in if any (mentions field.token.spelling) types
+         then (field :: later, field.ty :: types) else (later, types)
+
+fieldResult : SourceSpan -> List RecordField -> RecordField -> (RecordField -> Expr) -> Expr
+fieldResult region earlier selected extract =
+  let relevant = fst (dependencies earlier [selected.ty])
+   in foldl (NApply region)
+        (foldr (\field, body => NLambda region Erased field.token.spelling field.ty body) selected.ty relevant)
+        (map extract relevant)
+
+extractField : Nat -> SourceSpan -> Expr -> List RecordField -> List RecordField -> RecordField -> Expr -> Expr
+extractField Z region typeRef fields earlier selected value = NRef region "$record.extraction.budget"
+extractField (S fuel) region typeRef fields earlier selected value =
+  let self = "$record.extract.self." ++ show (length earlier)
+      result = fieldResult region earlier selected
+        (\previous => extractField fuel region typeRef fields
+          (takeWhile (\field => field.token.spelling /= previous.token.spelling) earlier) previous (NRef region self))
+      motive = NLambda region Erased self typeRef result
+   in case fields of
+        [first, second] => NPairCase region motive value (fieldLambdas region fields (fieldRef selected))
+        first :: rest =>
+          let tail = "$record.extract.tail." ++ show (length rest)
+              tailType = recordType region rest
+              body = if first.token.spelling == selected.token.spelling then fieldRef first else
+                extractField fuel region tailType rest (drop 1 earlier) selected (NRef region tail)
+           in NPairCase region motive value
+                (NLambda region first.quantity first.token.spelling first.ty (NLambda region Linear tail tailType body))
+        [] => NRef region "$record.extraction.empty"
+
+projectionDeclaration : SourceSpan -> Token -> List RecordParameter -> List RecordField ->
+                        List RecordField -> RecordField -> RecordProjection -> Declaration
+projectionDeclaration region recordName params fields earlier selected projection =
   let typeRef = applyParameters region (NQualifiedRef recordName.span recordName.spelling) params
-      x = first.token.spelling
-      y = second.token.spelling
-      xRef = NRef first.token.span x
-      yRef = NRef second.token.span y
       argument = "$projection.record"
       self = "$projection.self"
-      argumentRef = NRef projection.name.span argument
-      selfRef = NRef projection.name.span self
-      lam = \q, name, ty, body => NLambda region q name ty body
-      app = \f, value => NApply region f value
-      branch = \body => lam first.quantity x first.ty (lam second.quantity y second.ty body)
-      -- This extraction occurs only in types/motives. Erased checking may
-      -- inspect an erased field, but it is never emitted as runtime data.
-      firstOf = \value => NPairCase region (lam Erased self typeRef first.ty) value (branch xRef)
-      secondType = \value => app (lam Erased x first.ty second.ty) (firstOf value)
-      selectedFirst = projection.field.spelling == first.token.spelling
-      result = if selectedFirst then first.ty else secondType argumentRef
-      motive = lam Erased self typeRef (if selectedFirst then first.ty else secondType selfRef)
-      ty = NPi region Linear argument typeRef result
-      value = lam Linear argument typeRef
-                (NPairCase region motive argumentRef (branch (if selectedFirst then xRef else yRef)))
+      resultAt = \value => fieldResult region earlier selected
+        (\previous => extractField 8 region typeRef fields
+          (takeWhile (\field => field.token.spelling /= previous.token.spelling) earlier) previous value)
+      motive = NLambda region Erased self typeRef (resultAt (NRef region self))
+      ty = NPi region Linear argument typeRef (resultAt (NRef region argument))
+      value = NLambda region Linear argument typeRef
+        (consume region fields motive (NRef region argument) (fieldLambdas region fields (fieldRef selected)))
    in Declared True (Between projection.keyword.span.start projection.field.span.finish)
         projection.name.span projection.name.span False Unrestricted projection.name.spelling
         (parameterPis region params ty) (parameterLambdas region params value)
 
--- Generated binders cannot be captured by any legal source identifier.
--- Global-only references use the resolver's separate qualified namespace,
--- even for these unqualified generated declaration names.
-recordDeclarations : SourceSpan -> Token -> Nat -> List RecordParameter -> Token -> Token -> Token -> Token ->
-                     RecordField -> RecordField -> List RecordProjection -> List Declaration
-recordDeclarations region name level params constructorKeyword constructorName eliminatorKeyword eliminatorName first second projections =
-  let typeRef = applyParameters region (NQualifiedRef name.span name.spelling) params
-      ctorRef = applyParameters region (NQualifiedRef constructorName.span constructorName.spelling) params
-      x = first.token.spelling
-      y = second.token.spelling
-      xRef = NRef first.token.span x
-      yRef = NRef second.token.span y
+validateProjection : List RecordField -> RecordProjection -> Either ElaborationError RecordField
+validateProjection fields projection = do
+  selected <- case find (\field => field.token.spelling == projection.field.spelling) fields of
+    Nothing => Left (ElaborationFailure projection.field.span.start "Unknown projected field")
+    Just field => Right field
+  if not (allows selected.quantity Linear)
+     then Left (ElaborationFailure projection.field.span.start "Erased fields cannot be projected as runtime values") else Right ()
+  if any (\field => field.token.spelling /= selected.token.spelling && not (allows field.quantity Erased)) fields
+     then Left (ElaborationFailure projection.field.span.start "Projection would discard a linear field; consume all fields with the eliminator instead")
+     else Right ()
+  Right selected
+
+recordDeclarations : RecordDeclaration -> List (RecordProjection, RecordField) -> List Declaration
+recordDeclarations sourceRecord projections =
+  let region = sourceRecord.span
+      name = sourceRecord.name
+      params = sourceRecord.params
+      fields = sourceRecord.fields
+      typeRef = applyParameters region (NQualifiedRef name.span name.spelling) params
+      ctorRef = applyParameters region (NQualifiedRef sourceRecord.constructorName.span sourceRecord.constructorName.spelling) params
       p = "$record.motive"
       value = "$record.value"
       next = "$record.branch"
       self = "$record.self"
-      pRef = NRef eliminatorName.span p
-      valueRef = NRef eliminatorName.span value
-      nextRef = NRef eliminatorName.span next
-      bind = \q, binder, ty, body => NPi region q binder ty body
-      lam = \q, binder, ty, body => NLambda region q binder ty body
-      app = \f, arg => NApply region f arg
-      fields = \body => bind first.quantity x first.ty (bind second.quantity y second.ty body)
-      sigma = NSigma region first.quantity second.quantity x first.ty second.ty
-      ctorType = fields typeRef
-      ctorValue = lam first.quantity x first.ty (lam second.quantity y second.ty (NPairValue region typeRef xRef yRef))
-      motiveType = bind Erased self typeRef (NSort eliminatorName.span level)
-      branchType = fields (app pRef (app (app ctorRef xRef) yRef))
+      pRef = NRef region p
+      valueRef = NRef region value
+      nextRef = NRef region next
+      bind = NPi region
+      lam = NLambda region
+      app = NApply region
+      motiveType = bind Erased self typeRef (NSort region sourceRecord.level)
+      branchType = fieldPis region fields (app pRef (applyFields region ctorRef fields))
       elimType = bind Erased p motiveType (bind Linear value typeRef (bind Linear next branchType (app pRef valueRef)))
-      elimValue = lam Erased p motiveType (lam Linear value typeRef (lam Linear next branchType (NPairCase region pRef valueRef nextRef)))
+      elimValue = lam Erased p motiveType (lam Linear value typeRef (lam Linear next branchType (consume region fields pRef valueRef nextRef)))
    in [ Declared True region name.span name.span False Erased name.spelling
-          (parameterPis region params (NSort name.span level)) (parameterLambdas region params sigma),
-        Declared True (Between constructorKeyword.span.start constructorName.span.finish)
-          constructorName.span constructorName.span False Unrestricted constructorName.spelling
-          (parameterPis region params ctorType) (parameterLambdas region params ctorValue),
-        Declared True (Between eliminatorKeyword.span.start eliminatorName.span.finish)
-          eliminatorName.span eliminatorName.span False Unrestricted eliminatorName.spelling
+          (parameterPis region params (NSort name.span sourceRecord.level)) (parameterLambdas region params (recordType region fields)),
+        Declared True (Between sourceRecord.constructorKeyword.span.start sourceRecord.constructorName.span.finish)
+          sourceRecord.constructorName.span sourceRecord.constructorName.span False Unrestricted sourceRecord.constructorName.spelling
+          (parameterPis region params (fieldPis region fields typeRef)) (parameterLambdas region params (fieldLambdas region fields (recordValue region fields))),
+        Declared True (Between sourceRecord.eliminatorKeyword.span.start sourceRecord.eliminatorName.span.finish)
+          sourceRecord.eliminatorName.span sourceRecord.eliminatorName.span False Unrestricted sourceRecord.eliminatorName.spelling
           (parameterPis region params elimType) (parameterLambdas region params elimValue) ] ++
-      map (projectionDeclaration region name params first second) projections
+      map (\(projection, selected) => projectionDeclaration region name params fields
+        (takeWhile (\field => field.token.spelling /= selected.token.spelling) fields) selected projection) projections
 
+validateFields : List String -> List RecordParameter -> List RecordField -> Either ElaborationError ()
+validateFields seen params [] = Right ()
+validateFields seen params (field :: rest) = do
+  if elem field.token.spelling seen then Left (ElaborationFailure field.token.span.start "Duplicate record field") else Right ()
+  if field.token.spelling == "_" then Left (ElaborationFailure field.token.span.start "Record fields need referenceable names") else Right ()
+  if any (\p => p.name == field.token.spelling) params
+     then Left (ElaborationFailure field.token.span.start "Record fields must not shadow record parameters") else Right ()
+  validateFields (field.token.spelling :: seen) params rest
 
 validateParameters : List String -> List RecordParameter -> Either ElaborationError ()
 validateParameters seen [] = Right ()
@@ -128,21 +223,16 @@ validateParameters seen (parameter :: rest) = do
 
 lowerRecord : RecordDeclaration -> Either ElaborationError (List Declaration)
 lowerRecord sourceRecord = do
-  if length sourceRecord.params > 8 || length sourceRecord.projections > 2
+  if length sourceRecord.params > 8 || length sourceRecord.projections > 8
      then Left (ElaborationFailure sourceRecord.span.start "Record parameter/projection admission budget exhausted") else Right ()
+  if length sourceRecord.fields < 2 || length sourceRecord.fields > 8
+     then Left (ElaborationFailure sourceRecord.span.start "Records require two to eight fields") else Right ()
   validateParameters [] sourceRecord.params
-  if sourceRecord.first.token.spelling == sourceRecord.second.token.spelling
-     then Left (ElaborationFailure sourceRecord.second.token.span.start "Duplicate record field") else Right ()
-  traverse_ (\field => if field.token.spelling == "_"
-                        then Left (ElaborationFailure field.token.span.start "Record fields need referenceable names")
-                        else Right ()) [sourceRecord.first, sourceRecord.second]
-  traverse_ (\field => if any (\p => p.name == field.token.spelling) sourceRecord.params
-                        then Left (ElaborationFailure field.token.span.start "Record fields must not shadow record parameters")
-                        else Right ()) [sourceRecord.first, sourceRecord.second]
-  traverse_ (validateProjection sourceRecord.first sourceRecord.second) sourceRecord.projections
-  Right (map (\decl => { exported := sourceRecord.exported } decl)
-    (recordDeclarations sourceRecord.span sourceRecord.name sourceRecord.level sourceRecord.params sourceRecord.constructorKeyword
-      sourceRecord.constructorName sourceRecord.eliminatorKeyword sourceRecord.eliminatorName sourceRecord.first sourceRecord.second sourceRecord.projections))
+  validateFields [] sourceRecord.params sourceRecord.fields
+  projections <- traverse (\projection => do
+    selected <- validateProjection sourceRecord.fields projection
+    Right (projection, selected)) sourceRecord.projections
+  Right (map (\decl => { exported := sourceRecord.exported } decl) (recordDeclarations sourceRecord projections))
 
 admit : Nat -> List String -> List Declaration -> Either ElaborationError (Nat, List String)
 admit slots seen [] = Right (slots, seen)

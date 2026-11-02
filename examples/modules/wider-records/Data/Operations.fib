@@ -1,0 +1,13 @@
+module Data.Operations
+
+-- Operational shape only; associativity/identity laws are not proved here.
+export
+record Operations (0 A : Type 0) : Type 0 where
+  constructor MkOperations
+  eliminator useOperations
+  combine : (left : A) -> (right : A) -> A
+  identity : A
+  label : String
+  projection getCombine combine
+  projection getIdentity identity
+  projection getLabel label

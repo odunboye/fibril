@@ -1,0 +1,14 @@
+module Main
+import Data.Operations
+
+append : (left : String) -> (right : String) -> String
+append = \(left : String) => \(right : String) => appendString left right
+
+operations : Data.Operations.Operations String
+operations = Data.Operations.MkOperations String append "" "Wider records!"
+
+main : IO Unit
+main = putStrLn
+  (Data.Operations.getCombine String operations
+    (Data.Operations.getIdentity String operations)
+    (Data.Operations.getLabel String operations))

@@ -43,7 +43,7 @@ checks =
         Right document => case document.body of
           DeclarationDocument [RecordItem sourceRecord] =>
             sourceRecord.name.spelling == "Package" &&
-            sourceRecord.first.token.spelling == "Item" && sourceRecord.second.token.spelling == "value"
+            map (\field => field.token.spelling) sourceRecord.fields == ["Item", "value"]
           _ => False
         _ => False)
   , ("requested projections retain actual name selections",
