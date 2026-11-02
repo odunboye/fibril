@@ -8,6 +8,8 @@ setlocal commentstring=--\ %s
 setlocal comments=:--
 setlocal iskeyword+=39
 
+command! -buffer FibrilCheckProject call fibril#check_project(get(b:, 'fibril_source_dir', get(g:, 'fibril_source_dir', '')))
+nnoremap <buffer> <silent> <Plug>(FibrilCheckProject) :<C-U>FibrilCheckProject<CR>
 command! -buffer FibrilCheck call fibril#check()
 nnoremap <buffer> <silent> <Plug>(FibrilCheck) :<C-U>FibrilCheck<CR>
 command! -buffer FibrilDefinition call fibril#definition()
@@ -18,6 +20,8 @@ command! -buffer FibrilReferences call fibril#references()
 nnoremap <buffer> <silent> <Plug>(FibrilReferences) :FibrilReferences<CR>
 
 let b:undo_ftplugin = 'setlocal commentstring< comments< iskeyword<' .
+      \ ' | silent! delcommand -buffer FibrilCheckProject' .
+      \ ' | execute "silent! nunmap <buffer> <Plug>(FibrilCheckProject)"' .
       \ ' | silent! delcommand -buffer FibrilDefinition' .
       \ ' | execute "silent! nunmap <buffer> <Plug>(FibrilDefinition)"' .
       \ ' | silent! delcommand -buffer FibrilReferences' .

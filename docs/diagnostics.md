@@ -182,9 +182,10 @@ snapshots do not establish authenticity or an atomic filesystem transaction.
 
 Clients must verify file identity and snapshot contents against the relevant
 buffers/files before attaching diagnostics or trusting a displayed acceptance.
-A dependency point must never be converted against the entry buffer. The current
-version-1 Vim/Neovim adapter intentionally rejects version 2; project-aware editor
-consumption is the next step. Existing single-file JSON remains version 1.
+A dependency point must never be converted against the entry buffer. The version-1 FibrilCheck adapter intentionally rejects version 2. The separate
+[FibrilCheckProject adapter](editor-highlighting.md#project-checking-in-the-editor)
+validates source identities/snapshots and only maps points into already-loaded
+UTF-8 buffers. Existing single-file JSON remains version 1.
 
 ## Tests and next work
 

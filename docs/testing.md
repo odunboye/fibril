@@ -276,7 +276,11 @@ Project JSON tests distinguish entry/dependency identities, original Unicode/CRL
 snapshots, located resolver errors, unlocated runtime failures, byte-only decoding
 errors, unavailable policy-error text, missing imports, and known empty sources.
 Existing real-editor tests confirm version-1 clients reject version-2 reports
-without changing their lists. No cross-file editor consumption is claimed yet.
+without changing their lists. Separate real Vim/Neovim project tests cover
+entry/dependency identity, Unicode/combining byte columns, LF/CRLF, quoted roots,
+loaded-buffer jumps, unloaded nonjumpable points, modified dependencies, stale
+disk snapshots, unavailable byte-only errors, malformed/partial reports, accepted
+list clearing without IO execution, and command/Plug undo cleanup.
 
 ## Hedgehog dependency
 

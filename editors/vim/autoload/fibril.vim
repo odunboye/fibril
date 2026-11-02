@@ -10,15 +10,20 @@ function! s:snapshot(path) abort
   return join(readfile(a:path, 'b'), "\n")
 endfunction
 
-function! s:buffer_snapshot() abort
-  let text = join(getline(1, '$'), "\n")
-  if &l:endofline
+function! s:buffer_snapshot(...) abort
+  let number = a:0 ? a:1 : bufnr('%')
+  let lines = getbufline(number, 1, '$')
+  if getfsize(bufname(number)) == 0 && lines ==# ['']
+    return ''
+  endif
+  let text = join(lines, "\n")
+  if getbufvar(number, '&endofline')
     let text .= "\n"
   endif
-  if &l:fileformat ==# 'dos'
+  if getbufvar(number, '&fileformat') ==# 'dos'
     let text = substitute(text, "\n", "\r\n", 'g')
   endif
-  if &l:bomb
+  if getbufvar(number, '&bomb')
     let text = "\ufeff" . text
   endif
   return text
@@ -55,15 +60,18 @@ function! s:request(query, ...) abort
       return s:warn('buffer differs from disk; reload or save it before requesting compiler services')
     endif
     let scalar_column = strchars(strpart(getline('.'), 0, col('.') - 1)) + 1
-    let args = a:query ==# 'check' ? [binary, 'check', '--json', path] :
+    let checking = index(['check', 'check-project'], a:query) >= 0
+    let protocol_version = a:query ==# 'check-project' ? 2 : 1
+    let args = a:query ==# 'check-project' ? [binary, 'check', '--json', '--source-dir', a:1, path] :
+          \ a:query ==# 'check' ? [binary, 'check', '--json', path] :
           \ [binary, a:query, string(line('.')), string(scalar_column)] + a:000 + [path]
-    let field = a:query ==# 'check' ? 'diagnostics' :
+    let field = checking ? 'diagnostics' :
           \ (a:query ==# 'rename-preview' ? 'edits' : a:query)
     " String-form system() is portable across Vim and Neovim. Quote each argument;
     " the configuration is an executable path, never a shell command fragment.
     let output = system(join(map(args, 'shellescape(v:val)'), ' '))
     let status = v:shell_error
-    if status && !(a:query ==# 'check' && status == 1)
+    if status && !(checking && status == 1)
       return s:warn(a:query . ' request failed: ' . strpart(output, 0, 512))
     endif
     if bufnr('%') != buffer_number || win_getid() != window || expand('%:p') !=# path ||
@@ -72,7 +80,7 @@ function! s:request(query, ...) abort
     endif
     let result = json_decode(output)
     if type(result) != v:t_dict || type(get(result, 'version', 0)) != v:t_number ||
-          \ get(result, 'version', 0) != 1 ||
+          \ get(result, 'version', 0) != protocol_version ||
           \ get(result, 'coordinates', '') !=# 'unicode-scalars;offset=0;line=1;column=1' ||
           \ !has_key(result, field)
       return s:warn('unsupported ' . a:query . ' response')
@@ -215,7 +223,10 @@ endfunction
 
 " Points may be at EOF, and core/decoding errors may have no scalar point at all.
 " Such entries are deliberately nonjumpable rather than fabricated at line one.
-function! s:diagnostic_item(diagnostic) abort
+function! s:diagnostic_item(diagnostic, ...) abort
+  let context = a:0 ? a:1 : {'bufnr': bufnr('%'), 'lines': getline(1, '$'),
+        \ 'ff': &l:fileformat, 'bomb': &l:bomb, 'eol': &l:endofline, 'validate': 1,
+        \ 'reason': ''}
   let diagnostic = a:diagnostic
   if type(diagnostic) != v:t_dict || type(get(diagnostic, 'severity', 0)) != v:t_string ||
         \ diagnostic.severity !=# 'error' ||
@@ -227,7 +238,7 @@ function! s:diagnostic_item(diagnostic) abort
   let point = diagnostic.position
   let byte = diagnostic.byteOffset
   let label = '[' . diagnostic.stage . '] '
-  let item = {'bufnr': bufnr('%'), 'lnum': 0, 'col': 0, 'valid': 0, 'type': 'E'}
+  let item = {'bufnr': context.bufnr, 'lnum': 0, 'col': 0, 'valid': 0, 'type': 'E'}
   if byte isnot v:null
     if point isnot v:null || type(byte) != v:t_number || byte < 0 || byte > 65536
       throw 'Invalid decoding byte offset'
@@ -243,25 +254,29 @@ function! s:diagnostic_item(diagnostic) abort
     let column = get(point, 'column', 0)
     let offset = get(point, 'offset', -1)
     if type(row) != v:t_number || type(column) != v:t_number || type(offset) != v:t_number ||
-          \ row < 1 || column < 1 || offset < 0 || offset > 65536
+          \ row < 1 || row > 65537 || column < 1 || column > 65537 || offset < 0 || offset > 65536
       throw 'Invalid diagnostic coordinates'
     endif
-    if row == line('$') + 1 && column == 1 && &l:endofline
+    if !context.validate
+      let label .= '[source ' . row . ':' . column . '; ' . context.reason . '] '
+    elseif row == len(context.lines) + 1 && column == 1 && context.eol
       let label .= '[source ' . row . ':1; EOF has no buffer line] '
-    elseif row > line('$') || column > strchars(getline(row)) + 1
+    elseif row > len(context.lines) || column > strchars(context.lines[row - 1]) + 1
       throw 'Diagnostic point is outside the saved source'
-    elseif &l:bomb
+    elseif context.bomb
       let label .= '[source ' . row . ':' . column . '; hidden byte-order mark] '
+    elseif !context.bufnr
+      let label .= '[source ' . row . ':' . column . '; ' . context.reason . '] '
     else
       let item.lnum = row
-      let item.col = byteidxcomp(getline(row), column - 1) + 1
+      let item.col = byteidxcomp(context.lines[row - 1], column - 1) + 1
       let item.valid = 1
     endif
-    if !&l:bomb
+    if context.validate && !context.bomb
       let expected_offset = column - 1
       if row > 1
-        for text in getline(1, row - 1)
-          let expected_offset += strchars(text) + (&l:fileformat ==# 'dos' ? 2 : 1)
+        for text in context.lines[:row - 2]
+          let expected_offset += strchars(text) + (context.ff ==# 'dos' ? 2 : 1)
         endfor
       endif
       if offset != expected_offset
@@ -271,6 +286,146 @@ function! s:diagnostic_item(diagnostic) abort
   endif
   let item.text = label . diagnostic.message
   return item
+endfunction
+
+" Canonical identity is checked independently of the diagnostic's display path.
+function! s:canonical(path) abort
+  let path = resolve(fnamemodify(a:path, ':p'))
+  return path ==# '/' ? path : substitute(path, '/\+$', '', '')
+endfunction
+
+function! s:source_context(text) abort
+  let context = {'bufnr': 0, 'bomb': 0, 'validate': 1, 'eol': 0, 'ff': 'unix',
+        \ 'lines': [''], 'reason': 'open source and rerun project check'}
+  let remainder = substitute(a:text, "\r\n", '', 'g')
+  if stridx(remainder, "\r") >= 0 ||
+        \ (stridx(a:text, "\r\n") >= 0 && stridx(remainder, "\n") >= 0) ||
+        \ strpart(a:text, 0, 3) ==# "\ufeff"
+    let context.validate = 0
+    let context.reason = 'unsupported line endings or hidden byte-order mark'
+    return context
+  endif
+  let context.ff = stridx(a:text, "\r\n") >= 0 ? 'dos' : 'unix'
+  let text = substitute(a:text, "\r\n", "\n", 'g')
+  let context.lines = split(text, "\n", 1)
+  let context.eol = !empty(text) && strpart(text, strlen(text) - 1) ==# "\n"
+  if context.eol
+    call remove(context.lines, -1)
+  endif
+  if empty(context.lines)
+    let context.lines = ['']
+  endif
+  return context
+endfunction
+
+" Never load a dependency buffer just to obtain coordinates. Validate every
+" available snapshot against disk and all aliases of already-loaded buffers.
+function! s:project_contexts(result, root, entry) abort
+  if type(get(a:result, 'entry', 0)) != v:t_string ||
+        \ s:canonical(a:result.entry) !=# s:canonical(a:entry) ||
+        \ !has_key(a:result, 'root') || type(get(a:result, 'sources', 0)) != v:t_list ||
+        \ len(a:result.sources) > 32
+    throw 'Invalid project identity or sources'
+  endif
+  if a:result.accepted && a:result.root is v:null
+    throw 'Accepted project report omitted its canonical root'
+  endif
+  let root = s:canonical(a:root)
+  if a:result.root isnot v:null &&
+        \ (type(a:result.root) != v:t_string || a:result.root !=# root)
+    throw 'Project root disagrees with the request'
+  endif
+  let prefix = root ==# '/' ? '/' : root . '/'
+  let contexts = {}
+  let bytes = 0
+  let buffers = getbufinfo({'bufloaded': 1})
+  for source in a:result.sources
+    if type(source) != v:t_dict || type(get(source, 'path', 0)) != v:t_string ||
+          \ type(get(source, 'text', 0)) != v:t_string ||
+          \ has_key(contexts, source.path) || source.path !=# s:canonical(source.path) ||
+          \ stridx(source.path, prefix) != 0 || strlen(source.text) > 65536
+      throw 'Invalid project source snapshot'
+    endif
+    let bytes += strlen(source.text)
+    if bytes > 524288 || !filereadable(source.path) || getfsize(source.path) > 65536 ||
+          \ s:snapshot(source.path) !=# source.text
+      throw 'Project source changed on disk'
+    endif
+    let context = s:source_context(source.text)
+    for buffer in buffers
+      if !empty(buffer.name) && s:canonical(buffer.name) ==# source.path
+        if getbufvar(buffer.bufnr, '&modified') ||
+              \ index(['', 'utf-8'], getbufvar(buffer.bufnr, '&fileencoding')) < 0 ||
+              \ index(['unix', 'dos'], getbufvar(buffer.bufnr, '&fileformat')) < 0 ||
+              \ s:buffer_snapshot(buffer.bufnr) !=# source.text
+          throw 'Project buffer is modified, differently encoded, or differs from disk'
+        endif
+        let context.bufnr = buffer.bufnr
+      endif
+    endfor
+    let contexts[source.path] = context
+  endfor
+  if (a:result.accepted || a:result.root isnot v:null) &&
+        \ !has_key(contexts, s:canonical(a:entry))
+    throw 'Complete project report omitted its entry snapshot'
+  endif
+  return contexts
+endfunction
+
+function! fibril#check_project(root) abort
+  if type(a:root) != v:t_string || empty(a:root)
+    return s:warn('set b:fibril_source_dir or g:fibril_source_dir before project checking')
+  endif
+  let response = s:request('check-project', a:root)
+  if empty(response)
+    return 0
+  endif
+  try
+    let result = response.result
+    if type(get(result, 'accepted', 0)) != v:t_bool ||
+          \ type(response.value) != v:t_list || type(get(result, 'report', 0)) != v:t_list ||
+          \ (result.accepted && (response.status != 0 || !empty(response.value))) ||
+          \ (!result.accepted && (response.status != 1 || empty(response.value) || !empty(result.report)))
+      throw 'Inconsistent project check report'
+    endif
+    for message in result.report
+      if type(message) != v:t_string
+        throw 'Invalid project check information'
+      endif
+    endfor
+    let contexts = s:project_contexts(result, a:root, response.path)
+    let items = []
+    for diagnostic in response.value
+      if type(diagnostic) != v:t_dict || type(get(diagnostic, 'path', 0)) != v:t_string ||
+            \ type(get(diagnostic, 'sourceAvailable', 0)) != v:t_bool
+        throw 'Invalid diagnostic source identity'
+      endif
+      if diagnostic.sourceAvailable
+        if !has_key(contexts, diagnostic.path)
+          throw 'Diagnostic has no matching source snapshot'
+        endif
+        let context = contexts[diagnostic.path]
+      else
+        let context = {'bufnr': 0, 'validate': 0, 'reason': 'snapshot unavailable'}
+      endif
+      let item = s:diagnostic_item(diagnostic, context)
+      let item.text = diagnostic.path . ': ' . item.text
+      call add(items, item)
+    endfor
+    if setloclist(0, [], ' ', {'title': 'Fibril project check: ' .
+          \ (result.accepted ? 'accepted' : 'rejected'), 'items': items}) != 0
+      return s:warn('could not create project check location list')
+    endif
+    if result.accepted
+      echomsg 'Fibril: ' . (empty(result.report) ? 'project checking accepted' :
+            \ strpart(join(result.report, ' | '), 0, 512))
+    else
+      lopen
+    endif
+    return 1
+  catch
+    return s:warn('project check refused: ' . v:exception)
+  endtry
 endfunction
 
 function! fibril#check() abort

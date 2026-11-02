@@ -179,7 +179,7 @@ read/new-buffer events without replacing an already assigned filetype.
 
 [ftplugin/fibril.vim](../editors/vim/ftplugin/fibril.vim) sets commentstring to
 -- %s, line-comment metadata, and apostrophe-aware word motion. It supplies the
-standard undo hook and optional FibrilCheck/FibrilDefinition/FibrilReferences/
+standard undo hook and optional FibrilCheck/FibrilCheckProject/FibrilDefinition/FibrilReferences/
 FibrilRenamePreview commands and Plug mappings. It does
 not change indentation/formatting or override user keys such as gd.
 
@@ -230,6 +230,61 @@ This is synchronous, manual, file-based checking, not automatic diagnostics,
 unsaved-buffer checking, async cancellation, an incremental checker, or an LSP.
 The underlying compiler's experimental typing/resource rules and evidence limits
 are unchanged. A displayed acceptance is not a metatheoretic certificate.
+
+## Project checking in the editor
+
+Open the saved **entry** buffer (normally Main.fib), select its explicit source
+root, then request a project check:
+
+~~~vim
+:let b:fibril_source_dir = '/absolute/path/to/project/sources'
+:FibrilCheckProject
+~~~
+
+In Neovim the same buffer-local configuration can be set with:
+
+~~~lua
+vim.b.fibril_source_dir = "/absolute/path/to/project/sources"
+~~~
+
+A global g:fibril_source_dir is an optional fallback. No root is inferred from
+the current directory, repository markers, manifests, or file contents. The
+buffer-local setting wins. g:fibril_executable remains an executable **path**;
+root and entry are separately quoted arguments, including spaces/apostrophes.
+
+This invokes check --json --source-dir ROOT ENTRY and consumes the
+[version-2 project report](diagnostics.md#source-aware-project-reports-version-2),
+not the version-1 FibrilCheck adapter. Every available project snapshot must match
+disk; all already-loaded buffer aliases must also be unmodified UTF-8, with
+supported line endings and matching text. Stale dependencies, missing/duplicate/
+outside-root source identities, malformed diagnostics, and inconsistent status
+leave the prior list intact. All entries are validated before replacing the UI.
+
+Rejection opens a window-local list with each diagnostic's real file path.
+Scalar points can jump to an **already-loaded** dependency buffer, converting
+against that file's snapshot rather than the entry. Unloaded sources are not
+automatically loaded: their entries retain recorded coordinates and an
+"open source and rerun project check" label, but are nonjumpable. Open the file
+in a split (or keep it loaded with hidden enabled), return to the entry, and
+rerun to enable its jumps. This avoids hidden buffer-read hooks and assumptions
+about the encoding of a file that Vim has not loaded.
+
+Core failures, decoding byte offsets, unavailable source text, EOF beyond the
+last buffer line, and unsupported snapshot line endings never acquire guessed
+jumps. Known-empty sources remain distinct from unavailable snapshots.
+Acceptance creates an empty project-check list and displays the type/status;
+IO descriptions are never executed. No source is written or automatically saved.
+
+The optional <Plug>(FibrilCheckProject) mapping and command are buffer-local and
+removed by the undo hook; no default key is assigned. For example, a personal
+LazyVim FileType mapping may use <leader>cK for this Plug alongside <leader>ck
+for single-file checks.
+
+This is a manual synchronous snapshot check, not a filesystem transaction or
+live diagnostic subscription. Rerun after edits; locations can become stale
+after display. Project buffers with unsaved changes are not checked.
+Cross-file definition/reference/rename services, automatic dependency loading,
+LSP, cancellation, and incremental checking remain separate work.
 
 ## Parsed document symbols
 

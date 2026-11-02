@@ -367,7 +367,166 @@ def inspect_checking(name, executable, line_ending="\n"):
         return data
 
 
+def inspect_project_checking(name, executable, line_ending):
+    import shlex
+    with tempfile.TemporaryDirectory(prefix="fibril project 'quoted' ") as directory:
+        directory = Path(directory)
+        entry = directory / "Main.fib"
+        dependency = directory / "Library.fib"
+        entry_source = "module Main\nimport Library\nmain : IO Unit\nmain = Library.output\n"
+        bad_source = ('module Library\nexport\noutput : IO Unit\n'
+                      'output = let (0 ignored : String) = "🌍e\u0301" in missing\n')
+        valid_source = 'module Library\nexport\noutput : IO Unit\noutput = putStrLn "must not execute"\n'
+        entry.write_bytes(entry_source.replace("\n", line_ending).encode())
+        dependency.write_bytes(bad_source.replace("\n", line_ending).encode())
+        binary = ROOT / "build/exec/fibril"
+        outcome = subprocess.run(
+            [str(binary), "check", "--json", "--source-dir", str(directory), str(entry)],
+            capture_output=True, text=True, check=False)
+        envelope = json.loads(outcome.stdout)
+        fake = directory / "fake compiler"
+        fake.write_text("#!/bin/sh\nexit 2\n")
+        fake.chmod(0o755)
+        faults = [
+            {**envelope, "version": 1},
+            {**envelope, "sources": []},
+            {**envelope, "diagnostics": envelope["diagnostics"] + [{"path": 0}]},
+            {**envelope, "diagnostics": [{**envelope["diagnostics"][0],
+                "position": {"offset": 1, "line": 1, "column": 1}}]},
+            {**envelope, "sources": [
+                {**source, "text": source["text"] + " "} for source in envelope["sources"]]},
+            {**envelope, "root": str(directory / "other")},
+        ]
+        result_path = directory / "report.json"
+        commands = [
+            "set nocompatible", "set encoding=utf-8", "set nomore", "set hidden",
+            f"execute 'set runtimepath^=' . fnameescape({vim_literal(RUNTIME)})",
+            "filetype plugin on",
+            f"let g:fibril_executable = {vim_literal(binary)}",
+            f"let g:fibril_source_dir = {vim_literal(directory)}",
+            f"execute 'edit ' . fnameescape({vim_literal(entry)})",
+            "let source_window = win_getid()", "let entry_buffer = bufnr('%')", "let report = {}",
+            "let report.unloaded = fibril#check_project(g:fibril_source_dir)",
+            "call win_gotoid(source_window)",
+            "let report.unloaded_item = getloclist(0)[0]", "lclose",
+            f"let report.not_loaded = !bufloaded({vim_literal(dependency)})",
+            f"execute 'edit ' . fnameescape({vim_literal(dependency)})",
+            "let dependency_buffer = bufnr('%')",
+            "execute 'buffer ' . entry_buffer",
+            "call cursor(2, 3)", "let position = getpos('.')",
+            "FibrilCheckProject", "call win_gotoid(source_window)",
+            "let report.loaded_item = getloclist(0)[0]",
+            "let report.correct_buffer = report.loaded_item.bufnr == dependency_buffer",
+            "let report.unchanged = getpos('.') == position && !&modified",
+            "lclose", "lfirst",
+            "let report.jumped = bufnr('%') == dependency_buffer && line('.') == 4 && col('.') == report.loaded_item.col",
+            "execute 'buffer ' . entry_buffer",
+            "let previous_list = getloclist(0, {'id': 0}).id",
+            "let saved_line = getbufline(dependency_buffer, 4)[0]",
+            "call setbufline(dependency_buffer, 4, saved_line . ' ')",
+            "let report.modified = fibril#check_project(g:fibril_source_dir)",
+            "let report.preserved = getloclist(0, {'id': 0}).id == previous_list",
+            "call setbufline(dependency_buffer, 4, saved_line)",
+            "call setbufvar(dependency_buffer, '&modified', 0)",
+            f"let g:fibril_executable = {vim_literal(fake)}",
+            "let report.faults = []",
+        ]
+        for payload in faults:
+            shell = ["#!/bin/sh", "printf '%s\\n' " + shlex.quote(json.dumps(payload)), "exit 1"]
+            commands += [
+                f"call writefile([{', '.join(vim_literal(x) for x in shell)}], {vim_literal(fake)})",
+                "let handled = fibril#check_project(g:fibril_source_dir)",
+                "call add(report.faults, handled == 0 && getloclist(0, {'id': 0}).id == previous_list && winnr('$') == 1)",
+            ]
+        # Simulate a dependency changing while the compiler handles the request.
+        shell = ["#!/bin/sh", "printf ' ' >> " + shlex.quote(str(dependency)),
+                 "printf '%s\\n' " + shlex.quote(json.dumps(envelope)), "exit 1"]
+        commands += [
+            f"call writefile([{', '.join(vim_literal(x) for x in shell)}], {vim_literal(fake)})",
+            "let report.stale = fibril#check_project(g:fibril_source_dir)",
+            "let report.stale_preserved = getloclist(0, {'id': 0}).id == previous_list",
+        ]
+        unavailable = {**envelope, "root": None, "sources": [], "diagnostics": [{
+            **envelope["diagnostics"][0], "sourceAvailable": False, "position": None,
+            "byteOffset": 4, "stage": "decoding"}]}
+        shell = ["#!/bin/sh", "printf '%s\\n' " + shlex.quote(json.dumps(unavailable)), "exit 1"]
+        commands += [
+            f"call writefile([{', '.join(vim_literal(x) for x in shell)}], {vim_literal(fake)})",
+            "let report.unavailable = fibril#check_project(g:fibril_source_dir)",
+            "call win_gotoid(source_window)",
+            "let report.unavailable_item = getloclist(0)[0]", "lclose",
+        ]
+        valid = directory / "valid.template"
+        valid.write_bytes(valid_source.replace("\n", line_ending).encode())
+        commands += [
+            f"call writefile(readfile({vim_literal(valid)}, 'b'), {vim_literal(dependency)}, 'b')",
+            "execute 'buffer ' . dependency_buffer", "edit!",
+            "execute 'buffer ' . entry_buffer",
+            f"let g:fibril_executable = {vim_literal(binary)}",
+            "let report.accepted = fibril#check_project(g:fibril_source_dir)",
+            "let report.accepted_items = getloclist(0)",
+            "let report.no_extra_window = winnr('$') == 1",
+            "let report.plug = !empty(maparg('<Plug>(FibrilCheckProject)', 'n'))",
+            "let report.messages = execute('messages')",
+            "execute b:undo_ftplugin",
+            "let report.undo_command = exists(':FibrilCheckProject')",
+            "let report.undo_plug = maparg('<Plug>(FibrilCheckProject)', 'n')",
+            f"call writefile([json_encode(report)], {vim_literal(result_path)})",
+            "qa!",
+        ]
+        script = directory / "project.vim"
+        script.write_text("\n".join(commands) + "\n")
+        flags = ["--headless", "-u", "NONE", "-i", "NONE", "-n"] if name == "nvim" else [
+            "-Nu", "NONE", "-i", "NONE", "-n", "-es"]
+        result = subprocess.run([executable, *flags, "-S", str(script)],
+                                capture_output=True, text=True, timeout=30, cwd=ROOT)
+        if result.returncode or not result_path.exists():
+            raise AssertionError(f"{name} project checking failed: {result.stdout}\n{result.stderr}")
+        report = json.loads(result_path.read_text())
+        report["expected_column"] = len(bad_source.splitlines()[3].split("missing")[0].encode()) + 1
+        report["dependency"] = str(dependency.resolve())
+        assert entry.read_bytes() == entry_source.replace("\n", line_ending).encode()
+        assert dependency.read_bytes() == valid_source.replace("\n", line_ending).encode()
+        return report
+
+
 class EditorTests(unittest.TestCase):
+    def test_project_checking_in_installed_editors(self):
+        if not (ROOT / "build/exec/fibril").exists():
+            self.skipTest("build Fibril first")
+        for name, executable in EDITORS:
+            for ending in ("\n", "\r\n"):
+                with self.subTest(editor=name, line_ending=ending):
+                    report = inspect_project_checking(name, executable, ending)
+                    self.assertEqual(report["unloaded"], 1)
+                    self.assertTrue(report["not_loaded"])
+                    self.assertEqual(report["unloaded_item"]["valid"], 0)
+                    self.assertEqual(report["unloaded_item"]["lnum"], 0)
+                    self.assertIn("open source", report["unloaded_item"]["text"])
+                    self.assertIn(report["dependency"], report["unloaded_item"]["text"])
+                    self.assertEqual(report["loaded_item"]["valid"], 1)
+                    self.assertEqual(report["loaded_item"]["lnum"], 4)
+                    self.assertEqual(report["loaded_item"]["col"], report["expected_column"])
+                    self.assertTrue(report["correct_buffer"])
+                    self.assertTrue(report["jumped"])
+                    self.assertTrue(report["unchanged"])
+                    self.assertEqual(report["modified"], 0)
+                    self.assertTrue(report["preserved"])
+                    self.assertTrue(all(report["faults"]), report["messages"])
+                    self.assertEqual(report["stale"], 0)
+                    self.assertTrue(report["stale_preserved"])
+                    self.assertEqual(report["unavailable"], 1)
+                    self.assertEqual(report["unavailable_item"]["valid"], 0)
+                    self.assertEqual(report["unavailable_item"]["lnum"], 0)
+                    self.assertIn("byte offset 4", report["unavailable_item"]["text"])
+                    self.assertEqual(report["accepted"], 1, report["messages"])
+                    self.assertEqual(report["accepted_items"], [])
+                    self.assertTrue(report["no_extra_window"])
+                    self.assertTrue(report["plug"])
+                    self.assertEqual(report["undo_command"], 0)
+                    self.assertEqual(report["undo_plug"], "")
+                    self.assertNotIn("must not execute", report["messages"])
+
     def test_checking_in_installed_editors(self):
         if not (ROOT / "build/exec/fibril").exists():
             self.skipTest("build Fibril first to test optional checking")
