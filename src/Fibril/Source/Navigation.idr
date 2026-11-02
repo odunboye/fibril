@@ -1,4 +1,4 @@
--- Same-document lexical navigation; not type checking or cross-file resolution.
+-- Shared lexical traversal. Project clients supply checked qualified bindings.
 module Fibril.Source.Navigation
 
 import Data.List
@@ -12,15 +12,25 @@ import Fibril.Source.Symbol
 %default total
 
 public export
-record Reference where
+record ReferenceTo (destination : Type) where
   constructor RefersTo
   origin : SourceSpan
-  target : SourceSpan
+  target : destination
 
-Environment : Type
-Environment = List (String, Maybe SourceSpan)
+public export
+Reference : Type
+Reference = ReferenceTo SourceSpan
 
-lexicalTarget : String -> Environment -> Maybe SourceSpan
+record Walker (destination : Type) where
+  constructor Walking
+  tokens : List Token
+  localTarget : SourceSpan -> destination
+  qualifiedTarget : String -> Maybe destination
+
+Environment : Type -> Type
+Environment destination = List (String, Maybe destination)
+
+lexicalTarget : String -> Environment destination -> Maybe destination
 lexicalTarget name [] = Nothing
 lexicalTarget name ((bound, target) :: rest) =
   if name == "_" then Nothing
@@ -40,54 +50,72 @@ binderToken name region domain tokens =
   if name == "_" then Nothing else
     nameToken name (Between region.start (extent domain).start) (reverse tokens)
 
-self : Maybe SourceSpan -> List Reference
-self Nothing = []
-self (Just span) = [RefersTo span span]
+self : Walker destination -> Maybe SourceSpan -> List (ReferenceTo destination)
+self context Nothing = []
+self context (Just span) = [RefersTo span (context.localTarget span)]
 
-walk : List Token -> Environment -> Expr -> List Reference
-walk tokens env (NRef span name) =
-  case (nameToken name span tokens, lexicalTarget name env) of
+walk : Walker destination -> Environment destination -> Expr -> List (ReferenceTo destination)
+walk context env (NRef span name) =
+  case (nameToken name span context.tokens, lexicalTarget name env) of
     (Just origin, Just target) => [RefersTo origin target]
     _ => []
--- Module-qualified targets need the checked project graph, not local-name lookup.
-walk tokens env (NQualifiedRef _ _) = []
-walk tokens env (NSort _ _) = []
-walk tokens env (NUnitType _) = []
-walk tokens env (NUnitValue _) = []
-walk tokens env (NStringType _) = []
-walk tokens env (NStringValue _ _) = []
-walk tokens env (NBoolType _) = []
-walk tokens env (NBoolValue _ _) = []
-walk tokens env (NIf _ condition yes no) =
-  walk tokens env condition ++ walk tokens env yes ++ walk tokens env no
-walk tokens env (NUnitCase _ value body) = walk tokens env value ++ walk tokens env body
-walk tokens env (NPi span q name domain body) =
-  let target = binderToken name span domain tokens
-   in walk tokens env domain ++ self target ++ walk tokens ((name, target) :: env) body
-walk tokens env (NLambda span q name domain body) =
-  let target = binderToken name span domain tokens
-   in walk tokens env domain ++ self target ++ walk tokens ((name, target) :: env) body
-walk tokens env (NApply _ function argument) = walk tokens env function ++ walk tokens env argument
-walk tokens env (NSequence _ first rest) = walk tokens env first ++ walk tokens env rest
-walk tokens env (NDoBind span name domain action body) =
-  let target = binderToken name span domain tokens
-   in walk tokens env domain ++ walk tokens env action ++ self target ++
-      walk tokens ((name, target) :: env) body
-walk tokens env (NDoResult _ result body) = walk tokens env result ++ walk tokens env body
-walk tokens env (NAscribe _ term expected) = walk tokens env term ++ walk tokens env expected
-walk tokens env (NLet span q name domain value body) =
-  let target = binderToken name span domain tokens
-   in walk tokens env domain ++ walk tokens env value ++ self target ++
-      walk tokens ((name, target) :: env) body
+-- Only the final identifier is selectable, not module qualifiers or dots.
+walk context env (NQualifiedRef region name) =
+  case (find (\token => token.kind == Name &&
+                      token.span.start.offset >= region.start.offset &&
+                      token.span.finish.offset <= region.finish.offset) (reverse context.tokens),
+        context.qualifiedTarget name) of
+    (Just token, Just target) => [RefersTo token.span target]
+    _ => []
+walk context env (NSort _ _) = []
+walk context env (NUnitType _) = []
+walk context env (NUnitValue _) = []
+walk context env (NStringType _) = []
+walk context env (NStringValue _ _) = []
+walk context env (NBoolType _) = []
+walk context env (NBoolValue _ _) = []
+walk context env (NIf _ condition yes no) =
+  walk context env condition ++ walk context env yes ++ walk context env no
+walk context env (NUnitCase _ value body) = walk context env value ++ walk context env body
+walk context env (NPi span q name domain body) =
+  let target = binderToken name span domain context.tokens
+   in walk context env domain ++ self context target ++ walk context ((name, map context.localTarget target) :: env) body
+walk context env (NLambda span q name domain body) =
+  let target = binderToken name span domain context.tokens
+   in walk context env domain ++ self context target ++ walk context ((name, map context.localTarget target) :: env) body
+walk context env (NApply _ function argument) = walk context env function ++ walk context env argument
+walk context env (NSequence _ first rest) = walk context env first ++ walk context env rest
+walk context env (NDoBind span name domain action body) =
+  let target = binderToken name span domain context.tokens
+   in walk context env domain ++ walk context env action ++ self context target ++
+      walk context ((name, map context.localTarget target) :: env) body
+walk context env (NDoResult _ result body) = walk context env result ++ walk context env body
+walk context env (NAscribe _ term expected) = walk context env term ++ walk context env expected
+walk context env (NLet span q name domain value body) =
+  let target = binderToken name span domain context.tokens
+   in walk context env domain ++ walk context env value ++ self context target ++
+      walk context ((name, map context.localTarget target) :: env) body
 
-declarations : List Token -> Environment -> List Declaration -> List Reference
-declarations tokens env [] = []
-declarations tokens env (decl :: rest) =
+declarations : Walker destination -> Environment destination -> List Declaration -> List (ReferenceTo destination)
+declarations context env [] = []
+declarations context env (decl :: rest) =
   (if decl.name == "_" then [] else
-    [RefersTo decl.nameSpan decl.definitionNameSpan,
-     RefersTo decl.definitionNameSpan decl.definitionNameSpan]) ++
-  walk tokens env decl.expected ++ walk tokens env decl.value ++
-  declarations tokens ((decl.name, Just decl.definitionNameSpan) :: env) rest
+    [RefersTo decl.nameSpan (context.localTarget decl.definitionNameSpan),
+     RefersTo decl.definitionNameSpan (context.localTarget decl.definitionNameSpan)]) ++
+  walk context env decl.expected ++ walk context env decl.value ++
+  declarations context ((decl.name, Just (context.localTarget decl.definitionNameSpan)) :: env) rest
+
+||| Shared traversal over parsed data, not a checking certificate. Qualified
+||| lookup and source-aware target identity are supplied by the caller.
+public export
+documentReferencesUsing : (SourceSpan -> destination) -> (String -> Maybe destination) ->
+                          ParsedDocument -> List (ReferenceTo destination)
+documentReferencesUsing local qualified document =
+  let context = Walking document.tokens local qualified
+   in case document.body of
+        EmptyDocument => []
+        DeclarationDocument values => declarations context [] values
+        ExpressionDocument value => walk context [] value
 
 ||| Source-order, nonrecursive declarations and nearest lexical binders only.
 ||| Unresolved/prelude names have no local target. No type-checking claim.
@@ -95,10 +123,7 @@ public export
 documentReferences : String -> Either SymbolError (List Reference)
 documentReferences source = do
   document <- parseDocument 64 256 source
-  case document.body of
-    EmptyDocument => Right []
-    DeclarationDocument values => Right (declarations document.tokens [] values)
-    ExpressionDocument value => Right (walk document.tokens [] value)
+  Right (documentReferencesUsing id (const Nothing) document)
 
 contains : Nat -> Nat -> SourceSpan -> Bool
 contains line column span = line == span.start.line &&

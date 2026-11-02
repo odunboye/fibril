@@ -319,6 +319,52 @@ after display. Project buffers with unsaved changes are not checked.
 Cross-file definition/reference/rename services, automatic dependency loading,
 LSP, cancellation, and incremental checking remain separate work.
 
+## Checked project definition API (compiler only)
+
+The same-file gd mapping is unchanged. For explicit project lookup, the compiler
+now provides:
+
+~~~sh
+./build/exec/fibril definition --source-dir ROOT --entry ENTRY LINE COLUMN PATH
+~~~
+
+ENTRY selects the checked program; PATH selects any reachable source file to
+query, including a library without its own main. Paths are relative to the
+process working directory unless absolute. Coordinates are one-based Unicode
+scalars, with the same decimal bounds as other location queries.
+
+The service checks the complete graph before lookup. It uses a shared lexical
+traversal for local bindings and direct imported qualified exports. Own-qualified
+earlier definitions, including private helpers, resolve within their module.
+Imported private definitions and transitive leakage are rejected by checking
+before any successful navigation packet is emitted.
+
+Only a qualified reference's **final identifier** is selectable. Module
+qualifiers, dots, imports, whitespace, strings, and unknown/prelude targets return
+definition: null. Parentheses do not become part of the selected identifier.
+A local variable with the same spelling as a module component cannot capture a
+qualified reference.
+
+A successful version-2 packet contains entry, root, query, checked: true,
+sources, and definition. Sources are exact path/text snapshots of the reachable
+project. Definition is null or a path/range object; its range selects the
+definition's actual name token, not its signature or an invented body location.
+A type/loading failure or query file outside the graph reports stderr with
+nonzero status and no success packet. IO descriptions are not executed.
+
+[prepareProjectDefinition](../src/Fibril/Driver/ProjectNavigation.idr) exposes
+structured data separately from JSON rendering. The generic
+[documentReferencesUsing](../src/Fibril/Source/Navigation.idr) traversal takes
+caller-supplied target identities and qualified bindings; those raw inputs are
+not checking certificates. The project service admits them only after checking.
+
+This API does **not yet wire cross-file gd into Vim/Neovim**. A future adapter
+must validate source identities/snapshots and target-buffer encoding before
+jumping. Existing version-1 definition clients reject this explicit version-2
+form rather than attach a dependency span to the current buffer. Project-wide
+references, rename, prelude-source navigation, stable symbol IDs, and incremental
+caching remain separate work.
+
 ## Parsed document symbols
 
 The compiler now exposes a syntax-only declaration service:

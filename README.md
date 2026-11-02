@@ -13,7 +13,8 @@ plans; a complete effect calculus and compiler backends remain future work.
 See [checker scope and limits](docs/erased-checker.md). The [local module/import work](docs/modules.md) now has shared metadata parsing and read-only POSIX dependency discovery;
 check/eval/run --source-dir now support checked closed qualified imports and
 hosted execution. Version-2 project JSON retains source identity/snapshots; FibrilCheckProject validates project snapshots with conservative loaded-buffer
-jumps; cross-file definition/reference/rename services remain unimplemented.
+jumps. Compiler-side project definition queries are available; project-aware gd,
+reference indexing, and rename remain unimplemented.
 
 Optional [Neovim/Vim highlighting, checking, and same-file navigation](docs/editor-highlighting.md),
 including [LazyVim installation](docs/editor-highlighting.md#install-in-lazyvim),

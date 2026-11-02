@@ -282,6 +282,13 @@ loaded-buffer jumps, unloaded nonjumpable points, modified dependencies, stale
 disk snapshots, unavailable byte-only errors, malformed/partial reports, accepted
 list clearing without IO execution, and command/Plug undo cleanup.
 
+Project definition tests cover direct qualified exports, own-private helpers,
+library queries with an explicit entry, local/module namespace separation,
+grouped references, Unicode/CRLF snapshots, punctuation and prelude misses,
+unreachable files, rejected private/transitive access, and invalid unused bodies.
+The original same-file navigation/rename tests exercise the shared traversal too.
+No editor cross-file definition mapping is claimed by these compiler tests.
+
 ## Hedgehog dependency
 
 Repository: https://github.com/stefan-hoeck/idris2-hedgehog

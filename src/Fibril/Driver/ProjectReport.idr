@@ -14,6 +14,10 @@ sourceJSON path source = jsonObject [("path", jsonString path), ("text", jsonStr
 sourcesJSON : ModuleGraph -> List String
 sourcesJSON graph = map (\snapshot => sourceJSON snapshot.path snapshot.source) graph.modules
 
+public export
+projectSourcesJSON : ModuleGraph -> String
+projectSourcesJSON graph = jsonArray (sourcesJSON graph)
+
 diagnosticJSON : GraphError -> String
 diagnosticJSON err = jsonObject
   [("path", jsonString err.path), ("severity", jsonString "error"),

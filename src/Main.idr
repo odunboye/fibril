@@ -11,6 +11,7 @@ import Fibril.Driver.Run
 import Fibril.Driver.ModuleGraph
 import Fibril.Driver.ModuleCheck
 import Fibril.Driver.ProjectReport
+import Fibril.Driver.ProjectNavigation
 import Fibril.Driver.Symbols
 import Fibril.Source.File
 import Fibril.Source.Lexer
@@ -30,6 +31,7 @@ Usage:
   fibril validate-source PATH   Validate UTF-8 and source controls (not typing)
   fibril rename-preview LINE COLUMN NEWNAME PATH  Capture-checked same-file edits (no writes)
   fibril references LINE COLUMN PATH  Same-file lexical occurrences, including declarations
+  fibril definition --source-dir ROOT --entry ENTRY LINE COLUMN PATH  Checked project target
   fibril definition LINE COLUMN PATH  Same-file lexical target (scalar coordinates)
   fibril symbols PATH           JSON declaration ranges (syntax only, not checking)
   fibril lex-source PATH        Print source tokens/spans (not parsing/checking)
@@ -131,6 +133,8 @@ main = do
           putStrLn "Fuel must be decimal 0..4096."
           exitFailure
     ["rename-preview", line, column, name, path] => runLocationQuery (\row, col, file => renameFile row col name file) line column path
+    ["definition", "--source-dir", root, "--entry", entry, line, column, path] =>
+      runLocationQuery (projectDefinitionFile root entry) line column path
     ["definition", line, column, path] => runLocationQuery definitionFile line column path
     ["references", line, column, path] => runLocationQuery referencesFile line column path
     ["symbols", path] => do

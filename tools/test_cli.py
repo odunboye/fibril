@@ -193,6 +193,93 @@ class CLITests(unittest.TestCase):
         self.assertEqual(result.stdout, "")
         self.assertIn("use eval", result.stderr)
 
+    def test_checked_project_definition_queries(self):
+        for ending in ("\n", "\r\n"):
+            with self.subTest(ending=ending), tempfile.TemporaryDirectory(prefix="definitions 'quoted' ") as directory:
+                root = Path(directory)
+                (root / "Text").mkdir()
+                entry = root / "Main.fib"
+                library = root / "Text/Greeting.fib"
+                shared = root / "Shared.fib"
+                sources = {
+                    entry: ('-- 🌍e\u0301\nmodule Main\nimport Text.Greeting\nmain : IO Unit\n'
+                            'main = let (1 Text : String) = "local" in (Text.Greeting.greet) Text\n'),
+                    library: ('module Text.Greeting\nimport Shared\n'
+                              'helper : (1 value : String) -> String\n'
+                              'helper = \\(1 value : String) => appendString "prefix" value\n'
+                              'export\ngreet : (1 text : String) -> IO Unit\n'
+                              'greet = \\(1 text : String) => putStrLn (Text.Greeting.helper (appendString Shared.message text))\n'),
+                    shared: 'module Shared\nexport\nmessage : String\nmessage = "shared"\n',
+                }
+                sources = {path: text.replace("\n", ending) for path, text in sources.items()}
+                for path, text in sources.items():
+                    path.write_bytes(text.encode("utf-8"))
+
+                def point(text, offset):
+                    return {"offset": offset, "line": text[:offset].count("\n") + 1,
+                            "column": len(text[:offset].rsplit("\n", 1)[-1]) + 1}
+
+                def query(path, text, token, skip=0):
+                    position = point(text, text.index(token) + skip)
+                    result = run("definition", "--source-dir", str(root), "--entry", str(entry),
+                                 str(position["line"]), str(position["column"]), str(path))
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertEqual(result.stderr, "")
+                    report = json.loads(result.stdout)
+                    self.assertEqual(report["version"], 2)
+                    self.assertTrue(report["checked"])
+                    self.assertEqual(report["query"], str(path.resolve()))
+                    self.assertEqual({s["path"]: s["text"] for s in report["sources"]},
+                                     {str(p.resolve()): t for p, t in sources.items()})
+                    return report["definition"]
+
+                def expect(target, path, token):
+                    self.assertEqual(target["path"], str(path.resolve()))
+                    start = sources[path].index(token)
+                    self.assertEqual(target["range"]["start"], point(sources[path], start))
+                    name = token.split()[0]
+                    self.assertEqual(target["range"]["end"], point(sources[path], start + len(name)))
+
+                expect(query(entry, sources[entry], "Text.Greeting.greet", len("Text.Greeting.")),
+                       library, "greet =")
+                # Query a library without inventing its own main.
+                expect(query(library, sources[library], "Text.Greeting.helper", len("Text.Greeting.")),
+                       library, "helper =")
+                expect(query(library, sources[library], "Shared.message", len("Shared.")),
+                       shared, "message =")
+                # The local Text binder does not capture the qualified namespace.
+                local = query(entry, sources[entry], ") Text", 2)
+                self.assertEqual(local["path"], str(entry.resolve()))
+                self.assertEqual(local["range"]["start"],
+                                 point(sources[entry], sources[entry].index("Text :")))
+                for token, skip in (("Text.Greeting.greet", 0), ("Text.Greeting.greet", len("Text")),
+                                    ('"local"', 1), ("import Text", 7)):
+                    self.assertIsNone(query(entry, sources[entry], token, skip))
+                self.assertIsNone(query(library, sources[library], "putStrLn"))
+                outside = root / "Unreachable.fib"
+                outside.write_text("module Unreachable\n", encoding="utf-8")
+                result = run("definition", "--source-dir", str(root), "--entry", str(entry),
+                             "1", "1", str(outside))
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(result.stdout, "")
+                self.assertIn("not in the checked project graph", result.stderr)
+                for replacement in ("Text.Greeting.helper", "Shared.message"):
+                    entry.write_text("module Main\nimport Text.Greeting\nmain : String\nmain = " +
+                                     replacement + "\n", encoding="utf-8")
+                    result = run("definition", "--source-dir", str(root), "--entry", str(entry),
+                                 "4", "8", str(entry))
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertEqual(result.stdout, "")
+                entry.write_bytes(sources[entry].encode("utf-8"))
+                # No successful navigation packet is emitted for an invalid unused body.
+                shared.write_text('module Shared\nexport\nmessage : String\nmessage = "shared"\n'
+                                  'unused : Bool\nunused = "wrong"\n', encoding="utf-8")
+                result = run("definition", "--source-dir", str(root), "--entry", str(entry),
+                             "1", "1", str(library))
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(result.stdout, "")
+                self.assertIn(str(shared.resolve()), result.stderr)
+
     def test_project_json_source_provenance(self):
         with tempfile.TemporaryDirectory(prefix="project json ") as directory:
             root = Path(directory)
