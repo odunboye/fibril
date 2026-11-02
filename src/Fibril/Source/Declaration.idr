@@ -106,14 +106,47 @@ parseField budget indent end tokens@(first :: _) = do
   ty <- parseExpression budget (nextPosition end remaining) following
   Right (Field name q ty, remaining)
 
+recordParameters : Nat -> Nat -> Position -> List String -> List Token ->
+                   Either ParseError (List ParsedBinder, List Token)
+recordParameters fuel expressions end seen tokens = case tokens of
+  token :: _ => if token.kind /= OpenParen then Right ([], tokens) else
+    case fuel of
+      Z => Left (ParseFailure token.span.start "Record parameter budget exhausted (8)")
+      S fuel => do
+        parameter <- binder expressions end tokens
+        if parameter.quantity /= Erased || parameter.name == "_"
+           then Left (ParseFailure parameter.span.start "Record parameters require explicit 0 and a referenceable name")
+           else Right ()
+        if elem parameter.name seen
+           then Left (ParseFailure parameter.span.start "Duplicate record parameter")
+           else Right ()
+        (rest, remaining) <- recordParameters fuel expressions end (parameter.name :: seen) parameter.remaining
+        Right (parameter :: rest, remaining)
+  [] => Right ([], [])
+
+parameterPis : SourceSpan -> List ParsedBinder -> Expr -> Expr
+parameterPis region [] body = body
+parameterPis region (parameter :: rest) body =
+  NPi region Erased parameter.name parameter.domain (parameterPis region rest body)
+
+parameterLambdas : SourceSpan -> List ParsedBinder -> Expr -> Expr
+parameterLambdas region [] body = body
+parameterLambdas region (parameter :: rest) body =
+  NLambda region Erased parameter.name parameter.domain (parameterLambdas region rest body)
+
+applyParameters : SourceSpan -> Expr -> List ParsedBinder -> Expr
+applyParameters region function [] = function
+applyParameters region function (parameter :: rest) =
+  applyParameters region (NApply region function (NRef parameter.span parameter.name)) rest
+
 -- Generated binders cannot be captured by any legal source identifier.
 -- Global-only references use the resolver's separate qualified namespace,
 -- even for these unqualified generated declaration names.
-recordDeclarations : SourceSpan -> Token -> Nat -> Token -> Token -> Token -> Token ->
+recordDeclarations : SourceSpan -> Token -> Nat -> List ParsedBinder -> Token -> Token -> Token -> Token ->
                      ParsedField -> ParsedField -> List Declaration
-recordDeclarations region name level constructorKeyword constructorName eliminatorKeyword eliminatorName first second =
-  let typeRef = NQualifiedRef name.span name.spelling
-      ctorRef = NQualifiedRef constructorName.span constructorName.spelling
+recordDeclarations region name level params constructorKeyword constructorName eliminatorKeyword eliminatorName first second =
+  let typeRef = applyParameters region (NQualifiedRef name.span name.spelling) params
+      ctorRef = applyParameters region (NQualifiedRef constructorName.span constructorName.spelling) params
       x = first.token.spelling
       y = second.token.spelling
       xRef = NRef first.token.span x
@@ -136,16 +169,20 @@ recordDeclarations region name level constructorKeyword constructorName eliminat
       branchType = fields (app pRef (app (app ctorRef xRef) yRef))
       elimType = bind Erased p motiveType (bind Linear value typeRef (bind Linear next branchType (app pRef valueRef)))
       elimValue = lam Erased p motiveType (lam Linear value typeRef (lam Linear next branchType (NPairCase region pRef valueRef nextRef)))
-   in [ Declared True region name.span name.span False Erased name.spelling (NSort name.span level) sigma,
+   in [ Declared True region name.span name.span False Erased name.spelling
+          (parameterPis region params (NSort name.span level)) (parameterLambdas region params sigma),
         Declared True (Between constructorKeyword.span.start constructorName.span.finish)
-          constructorName.span constructorName.span False Unrestricted constructorName.spelling ctorType ctorValue,
+          constructorName.span constructorName.span False Unrestricted constructorName.spelling
+          (parameterPis region params ctorType) (parameterLambdas region params ctorValue),
         Declared True (Between eliminatorKeyword.span.start eliminatorName.span.finish)
-          eliminatorName.span eliminatorName.span False Unrestricted eliminatorName.spelling elimType elimValue ]
+          eliminatorName.span eliminatorName.span False Unrestricted eliminatorName.spelling
+          (parameterPis region params elimType) (parameterLambdas region params elimValue) ]
 
 parseRecord : Nat -> Position -> List Token -> Either ParseError (List Declaration, List Token)
 parseRecord budget end tokens = do
   (keyword, rest) <- expect RecordKeyword end tokens
   (name, rest) <- expect Name end rest
+  (params, rest) <- recordParameters 8 budget end [] rest
   (_, rest) <- expect Colon end rest
   (_, rest) <- expect TypeKeyword end rest
   (universe, rest) <- expect Number end rest
@@ -153,7 +190,7 @@ parseRecord budget end tokens = do
   (whereToken, rest) <- expect WhereKeyword end rest
   if keyword.span.start.column /= 1 || name.spelling == "_" ||
      whereToken.span.start.line /= keyword.span.start.line
-     then Left (ParseFailure keyword.span.start "Expected column-one record Name : Type n where")
+     then Left (ParseFailure keyword.span.start "Expected a single-line, column-one record header ending : Type n where")
      else Right ()
   let indent = case rest of token :: _ => token.span.start.column; [] => 0
   (constructorKeyword, constructorName, rest) <- directive ConstructorKeyword indent end rest
@@ -163,6 +200,12 @@ parseRecord budget end tokens = do
   (eliminatorKeyword, eliminatorName, rest) <- directive EliminatorKeyword indent end rest
   (first, rest) <- parseField budget indent end rest
   (second, rest) <- parseField budget indent end rest
+  if any (\parameter => parameter.name == first.token.spelling) params
+     then Left (ParseFailure first.token.span.start "Record fields must not shadow record parameters")
+     else Right ()
+  if any (\parameter => parameter.name == second.token.spelling) params
+     then Left (ParseFailure second.token.span.start "Record fields must not shadow record parameters")
+     else Right ()
   if first.token.spelling == second.token.spelling
      then Left (ParseFailure second.token.span.start "Duplicate record field")
      else Right ()
@@ -172,7 +215,7 @@ parseRecord budget end tokens = do
                     else Right ()
     [] => Right ()
   let region = Between keyword.span.start (extent second.ty).finish
-  Right (recordDeclarations region name level constructorKeyword constructorName eliminatorKeyword eliminatorName first second, rest)
+  Right (recordDeclarations region name level params constructorKeyword constructorName eliminatorKeyword eliminatorName first second, rest)
 
 parseOne : Nat -> Position -> List Token -> Either ParseError (List Declaration, List Token)
 parseOne budget end tokens@(token :: rest) =

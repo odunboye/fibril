@@ -1,0 +1,18 @@
+module Main
+import Data.AppendDictionary
+import Data.Indexed
+
+append : (left : String) -> (right : String) -> String
+append = \(left : String) => \(right : String) => appendString left right
+
+dictionary : Data.AppendDictionary.AppendDictionary String
+dictionary = Data.AppendDictionary.MkAppendDictionary String append ""
+
+0 Choose : (0 flag : Bool) -> Type 0
+Choose = \(0 flag : Bool) => if flag then String else Bool
+
+checked : Data.Indexed.Indexed Bool Choose
+checked = Data.Indexed.rebuild Bool Choose (Data.Indexed.MkIndexed Bool Choose True "dependent")
+
+main : IO Unit
+main = putStrLn (Data.AppendDictionary.appendWith String dictionary "Record " "parameters!")

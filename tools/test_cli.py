@@ -193,6 +193,66 @@ class CLITests(unittest.TestCase):
         self.assertEqual(result.stdout, "")
         self.assertIn("use eval", result.stderr)
 
+    def test_record_parameter_telescopes(self):
+        root = "examples/modules/record-parameters"
+        result = run("run", "--source-dir", root, root + "/Main.fib")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout, "Record parameters!\n")
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory)
+            for path in (ROOT / root).rglob("*.fib"):
+                destination = target / path.relative_to(ROOT / root)
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                destination.write_bytes(path.read_bytes())
+            entry = target / "Main.fib"
+            # Value indices, not only Type parameters; branch types specialize.
+            flagged = ('module Main\nrecord Flagged (0 flag : Bool) : Type 0 where\n'
+                       '  constructor MkFlagged\n  eliminator useFlagged\n'
+                       '  0 tag : Unit\n  1 payload : if flag then String else Bool\n')
+            entry.write_text(flagged + 'main : IO Unit\nmain = putStrLn '
+                             '(useFlagged True (\\(0 self : Flagged True) => String) '
+                             '(MkFlagged True () "indexed") (\\(0 tag : Unit) => \\(1 payload : String) => payload))\n')
+            result = run("run", "--source-dir", str(target), str(entry))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, "indexed\n")
+            bad_programs = [
+                flagged + 'main : Flagged False\nmain = MkFlagged False () "wrong"\n',
+                flagged + 'bad : (0 flag : Bool) -> Bool\n'
+                'bad = \\(0 flag : Bool) => flag\nmain : IO Unit\nmain = putStrLn "never"\n',
+                'module Main\nrecord R (0 B : A) (0 A : Type 0) : Type 0 where\n'
+                '  constructor MkR\n  eliminator useR\n  1 x : Bool\n  1 y : Bool\n'
+                'main : IO Unit\nmain = putStrLn "never"\n',
+                'module Main\nimport Data.AppendDictionary\nmain : IO Unit\n'
+                'main = putStrLn (Data.AppendDictionary.appendWith String '
+                '(Data.AppendDictionary.MkAppendDictionary String appendString "") "a" "b")\n',
+                'module Main\nimport Data.Indexed\nmain : IO Unit\n'
+                'main = putStrLn (Data.Indexed.MkIndexed True True True "bad")\n',
+            ]
+            for source in bad_programs:
+                entry.write_text(source)
+                result = run("check", "--source-dir", str(target), str(entry))
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(result.stdout, "")
+            # Parameters can equal global declaration names without capture.
+            entry.write_text(
+                'module Main\nrecord Capture (0 Capture : Type 0) (0 MkCapture : Type 0) : Type 0 where\n'
+                '  constructor MkCapture\n  eliminator useCapture\n'
+                '  1 left : Capture\n  1 right : MkCapture\n'
+                'main : Capture String Bool\nmain = MkCapture String Bool "left" True\n')
+            result = run("eval", "--source-dir", str(target), str(entry))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn('"left"', result.stdout)
+            # A reusable dictionary works at Bool too; methods/identity are data.
+            entry.write_text(
+                'module Main\nimport Data.AppendDictionary\n'
+                'both : (left : Bool) -> (right : Bool) -> Bool\n'
+                'both = \\(left : Bool) => \\(right : Bool) => andBool left right\n'
+                'main : IO Unit\nmain = putStrLn (if Data.AppendDictionary.appendWith Bool '
+                '(Data.AppendDictionary.MkAppendDictionary Bool both True) True False then "wrong" else "bool")\n')
+            result = run("run", "--source-dir", str(target), str(entry))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, "bool\n")
+
     def test_named_dependent_records(self):
         root = "examples/modules/records"
         result = run("run", "--source-dir", root, root + "/Main.fib")

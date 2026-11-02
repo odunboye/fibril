@@ -326,6 +326,10 @@ dependent constructor arguments, consuming branches, quantity/type failures,
 private export groups, capture-resistant generated binders, malformed/unused
 records, cross-file constructor targets, and current structural (not nominal)
 compatibility. The record example prints Records! through checked hosted IO.
+Parameterized-record tests additionally cover eight/nine parameter admission,
+erased quantity requirements, duplicate/shadowing rejection, ordered dependent
+parameter domains, value-index specialization, wrong arguments and field types,
+generated-name capture resistance, and explicit dictionaries at String and Bool.
 No source consuming-pattern syntax or automatic projection is claimed.
 
 ## Hedgehog dependency

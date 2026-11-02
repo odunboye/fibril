@@ -21,10 +21,23 @@ importsText (S n) = "import M" ++ show n ++ "\n" ++ importsText n
 recordSource : String
 recordSource = "module Library\nexport\nrecord Package : Type 1 where\n  constructor MkPackage\n  eliminator unpackPackage\n  0 Item : Type 0\n  1 value : Item\n"
 
+parameterRecord : Nat -> String
+parameterRecord count = "module Test\nrecord R " ++
+  concat (map (\i => "(0 A" ++ show i ++ " : Type 0) ") [0 .. count]) ++
+  ": Type 0 where\n  constructor MkR\n  eliminator useR\n  1 x : Bool\n  1 y : Bool\n"
+
 public export
 checks : List (String, Bool)
 checks =
-  [ ("record expansion has three real, exported name selections",
+  [ ("record parameter telescope accepts eight parameters", not (fails (parameterRecord 7)))
+  , ("record parameter telescope rejects nine parameters", fails (parameterRecord 8))
+  , ("record parameters require erased quantities",
+      fails "module A\nrecord R (A : Type 0) : Type 0 where\n  constructor MkR\n  eliminator useR\n  1 x : A\n  1 y : A\n")
+  , ("record parameters cannot repeat",
+      fails "module A\nrecord R (0 A : Type 0) (0 A : Type 0) : Type 0 where\n  constructor MkR\n  eliminator useR\n  1 x : A\n  1 y : A\n")
+  , ("record fields cannot shadow parameters",
+      fails "module A\nrecord R (0 A : Type 0) : Type 0 where\n  constructor MkR\n  eliminator useR\n  1 x : A\n  1 A : A\n")
+  , ("record expansion has three real, exported name selections",
       case documentSymbols recordSource of
         Right [ty, ctor, elim] => ty.name == "Package" && ctor.name == "MkPackage" &&
           elim.name == "unpackPackage" && all exported [ty, ctor, elim] &&

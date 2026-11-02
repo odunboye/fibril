@@ -2,7 +2,7 @@
 
 **Status:** core dependent pairs and a bounded named-record source prototype are
 implemented. Source records currently have exactly two fields, an explicit
-constructor and an explicit eliminator. Parameters, recursive/nominal records,
+constructor and an explicit eliminator. Explicit erased parameter telescopes are supported; recursive/nominal records,
 pattern syntax, projections, field-name resolution and interface dictionaries
 remain unimplemented. No preservation or erasure theorem is claimed.
 
@@ -35,7 +35,7 @@ the payload is linear. This is not a parser shortcut for a particular record.
 
 The current grammar requires a named module, a column-one record header, then
 aligned indented constructor/eliminator directives and exactly two single-line
-typed fields. Comments/blank lines are allowed. No parameters, defaults,
+typed fields. Comments/blank lines are allowed. No defaults,
 recursive references, multiline field expressions, inferred field types or
 automatic accessors are added. Field names must be distinct and referenceable.
 Quantities are 0, 1 or unrestricted (the existing omitted-quantity default).
@@ -126,6 +126,68 @@ navigation deliberately does not walk their synthetic copies. Field-level
 references/rename/navigation inside the declaration are not implemented rather
 than duplicated or attached to guessed locations. Existing module rename
 previews remain blocked. Core failures remain unlocated.
+
+## Record parameters
+
+Record headers accept up to eight explicit erased binders on the same physical
+header line. For example, a reusable operational dictionary is ordinary source:
+
+~~~fibril
+record AppendDictionary (0 A : Type 0) : Type 0 where
+  constructor MkAppendDictionary
+  eliminator useAppendDictionary
+  combine : (left : A) -> (right : A) -> A
+  identity : A
+~~~
+
+The [parameterized record example](../examples/modules/record-parameters/Main.fib)
+constructs this record at String and passes it to a generic appendWith. Tests
+also instantiate it at Bool. It is an explicit first-class record dictionary,
+not interface syntax, inferred implementation search, or a law certificate.
+
+All three generated declarations receive the same ordered parameter telescope:
+the erased type constructor, runtime constructor, and consuming eliminator.
+For the example, calls explicitly supply A:
+
+~~~text
+AppendDictionary String
+MkAppendDictionary String append ""
+useAppendDictionary String motive dictionary branch
+~~~
+
+No implicit inference or quantity conversion is inserted. Parameter domains see
+earlier parameters, not themselves/later ones; fields see all parameters, and
+the second field additionally sees the first. Parameters must be distinct,
+referenceable and explicitly quantity 0; field names may not shadow them.
+Runtime or linear record parameters are not supported. These are type/index
+parameters, not live constructor payloads.
+
+Value indices and dependent parameter types are supported too:
+
+~~~fibril
+record Indexed (0 A : Type 0) (0 Family : (0 index : A) -> Type 0) : Type 0 where
+  constructor MkIndexed
+  eliminator useIndexed
+  1 index : A
+  1 value : Family index
+~~~
+
+The runnable example rebuilds such a value, preserving both linear fields. A
+separate test uses an erased Bool parameter to choose String versus Bool payload
+types. Wrong parameter arguments/field types and runtime use of an erased index
+are rejected before effects.
+
+Lowering uses existing Pi/lambda/application syntax and core checking; there are
+no new core terms or unchecked constructor facts. Type/constructor global
+references remain capture-resistant even when a parameter is named like its
+record or constructor. All generated syntax is included in the existing
+pre-clone admission estimate. Each record still consumes three declaration
+slots, not one per parameter. The original nonparameterized records are unchanged.
+
+There is no universe polymorphism: the declared record universe still controls
+the motive result universe, and Pi compatibility remains invariant. Parameter
+and field declaration-site navigation inside record headers is still limited;
+tooling does not invent spans for duplicated generated bodies.
 
 ## Two-field core representation
 
@@ -288,7 +350,7 @@ or quantitative soundness theorem.
 ## Remaining record work
 
 The constructor/eliminator core and the bounded two-field source declarations
-are in place. Next work includes record parameters, broader field counts,
+are in place, including erased parameter telescopes. Next work includes broader field counts,
 consuming pattern syntax, nominality decisions, and richer visibility. Do not implement fst/snd by
 silently discarding a linear component. Multiple fields need an explicit
 nesting/tail policy and generated eliminators must preserve the same permissions.

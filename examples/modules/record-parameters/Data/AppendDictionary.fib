@@ -1,0 +1,13 @@
+module Data.AppendDictionary
+
+-- An operational dictionary, not a certificate of associativity or identity.
+export
+record AppendDictionary (0 A : Type 0) : Type 0 where
+  constructor MkAppendDictionary
+  eliminator useAppendDictionary
+  combine : (left : A) -> (right : A) -> A
+  identity : A
+
+export
+appendWith : (0 A : Type 0) -> (dictionary : AppendDictionary A) -> (left : A) -> (right : A) -> A
+appendWith = \(0 A : Type 0) => \(dictionary : AppendDictionary A) => \(left : A) => \(right : A) => useAppendDictionary A (\(0 self : AppendDictionary A) => A) dictionary (\(combine : (left : A) -> (right : A) -> A) => \(identity : A) => combine left right)

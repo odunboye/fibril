@@ -3,7 +3,7 @@
 **Status:** design contract plus runnable higher-order Fibril examples. Interface,
 implementation, implicit dictionary, and operator syntax are **not implemented**.
 A bounded [two-field named record prototype](records.md) now provides checked
-constructors and explicit consuming eliminators, but not parameters or nominality. Nothing here establishes associativity, identity laws, quantitative
+constructors, erased parameters and explicit consuming eliminators, but not nominality. Nothing here establishes associativity, identity laws, quantitative
 soundness, or a computational HoTT equality theory.
 
 The [module boundary](modules.md) is now executable. We should use it to build
@@ -178,8 +178,8 @@ Implementation order:
 
 1. Implemented: staged erased globals and import/runtime rejection tests.
 2. In progress: dependent records/dictionary representation (core formation and
-   construction/elimination and two-field source records implemented; parameters,
-   broader field counts and nominality decisions pending) and all affected core infrastructure.
+   construction/elimination and two-field source records implemented; erased parameters implemented;
+   broader field counts, patterns and nominality decisions pending) and all affected core infrastructure.
 3. Explicit operational interfaces and implementations, including failed methods.
 4. Law representation once equality supports it; distinguish data from proofs.
 5. Constrained functions, bounded/coherent lookup, then generic operators.

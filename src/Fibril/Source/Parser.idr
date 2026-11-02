@@ -94,6 +94,7 @@ binderQuantity tokens@(token :: rest) =
        _ => Left (ParseFailure token.span.start "Binder quantity must be 0 or 1 (omit for unrestricted)")
      else Right (Unrestricted, tokens)
 
+public export
 record ParsedBinder where
   constructor Binder
   span : SourceSpan
@@ -303,6 +304,7 @@ mutual
              Right (action :: actions, rest)
 
   -- A binder domain is parsed before adding the name to any scope.
+  public export
   binder : Nat -> Position -> List Token -> Either ParseError ParsedBinder
   binder Z end tokens = limit end tokens
   binder (S depth) end tokens = do

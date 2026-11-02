@@ -150,8 +150,23 @@ payload through dependent elimination, and consumes a two-field message. Run it:
 It prints Records! Record types, constructors and explicit eliminators are
 checked ordinary declarations after lowering. This first source grammar supports
 exactly two single-line fields in a named module; it is structurally transparent,
-not nominal, and provides no parameters, patterns or projections yet. See
+not nominal, and provides no patterns or projections yet. Explicit erased
+parameters are supported. See
 [record foundations](../docs/records.md).
+
+## Parameterized record dictionaries
+
+`modules/record-parameters/` prints Record parameters! using an explicit generic
+operation/identity record. It also checks rebuilding a dependent indexed record
+whose second parameter is a type family over its first. Run with:
+
+~~~sh
+./build/exec/fibril run --source-dir examples/modules/record-parameters examples/modules/record-parameters/Main.fib
+~~~
+
+This is checked explicit record passing, not interface syntax, law checking,
+implicit parameter inference or instance search. Constructors/eliminators take
+erased parameters explicitly. See [record parameters](../docs/records.md#record-parameters).
 
 ## Proposed Fibril programs
 

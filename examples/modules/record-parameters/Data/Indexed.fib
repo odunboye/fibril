@@ -1,0 +1,12 @@
+module Data.Indexed
+
+export
+record Indexed (0 A : Type 0) (0 Family : (0 index : A) -> Type 0) : Type 0 where
+  constructor MkIndexed
+  eliminator useIndexed
+  1 index : A
+  1 value : Family index
+
+export
+rebuild : (0 A : Type 0) -> (0 Family : (0 index : A) -> Type 0) -> (1 original : Indexed A Family) -> Indexed A Family
+rebuild = \(0 A : Type 0) => \(0 Family : (0 index : A) -> Type 0) => \(1 original : Indexed A Family) => useIndexed A Family (\(0 self : Indexed A Family) => Indexed A Family) original (\(1 index : A) => \(1 value : Family index) => MkIndexed A Family index value)
