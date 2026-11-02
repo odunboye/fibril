@@ -1,0 +1,11 @@
+module Data.Dictionary
+
+-- Explicit operational fields, not checked algebraic laws.
+export
+record Dictionary (0 A : Type 0) : Type 0 where
+  constructor MkDictionary
+  eliminator useDictionary
+  combine : (left : A) -> (right : A) -> A
+  identity : A
+  projection getCombine combine
+  projection getIdentity identity

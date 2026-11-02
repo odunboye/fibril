@@ -1,6 +1,7 @@
 module Tests.Document
 
 import Data.List
+import Fibril.Core.Quantity
 import Fibril.Source.Text
 import Fibril.Source.Lexer
 import Fibril.Source.Declaration
@@ -29,7 +30,16 @@ parameterRecord count = "module Test\nrecord R " ++
 public export
 checks : List (String, Bool)
 checks =
-  [ ("record parameter telescope accepts eight parameters", not (fails (parameterRecord 7)))
+  [ ("requested projections retain actual name selections",
+      case documentSymbols "module A\nexport\nrecord R : Type 0 where\n  constructor MkR\n  eliminator useR\n  x : Bool\n  y : Bool\n  projection getX x\n" of
+        Right [ty, ctor, elim, getter] => getter.name == "getX" && getter.exported &&
+          getter.definitionSelection.start.line == 8 && getter.quantity == Unrestricted
+        _ => False)
+  , ("projection declarations consume an additional slot",
+      case parseDocument 3 256 "module A\nrecord R : Type 0 where\n  constructor MkR\n  eliminator useR\n  x : Bool\n  y : Bool\n  projection getX x\n" of
+        Left _ => True
+        _ => False)
+  , ("record parameter telescope accepts eight parameters", not (fails (parameterRecord 7)))
   , ("record parameter telescope rejects nine parameters", fails (parameterRecord 8))
   , ("record parameters require erased quantities",
       fails "module A\nrecord R (A : Type 0) : Type 0 where\n  constructor MkR\n  eliminator useR\n  1 x : A\n  1 y : A\n")

@@ -45,7 +45,7 @@ Implemented:
 - `src/Fibril/Core/Substitution.idr`: total pointwise/variable-correspondence laws; derives substitution identity from renaming.
 - `src/Fibril/Core/Renaming.idr`: total host-checked structural laws, separate from runtime checking/reduction.
 - `src/Fibril/Core/Pretty.idr`: shared explicit-term diagnostics; no parsing or evaluation.
-- [Dependent record foundations](records.md): core Sigma/PairValue formation and construction with dependent fields and quantitative usage; consuming dependent elimination and a two-field named source record prototype are implemented; erased parameters and explicit consuming patterns are supported; projections and nominality remain pending.
+- [Dependent record foundations](records.md): core Sigma/PairValue formation and construction with dependent fields and quantitative usage; consuming dependent elimination and a two-field named source record prototype are implemented; erased parameters and explicit consuming patterns are supported; explicit safe projections are supported; dot-field syntax and nominality remain pending.
 - `src/Fibril/Core/Runtime.idr`: experimental ordinary runtime usage checking layered over erased typing; not backend execution or cubical checking.
 - `src/Fibril/Core/Erased.idr`: experimental erased ordinary context formation, inference/checking, and bounded beta type comparison; no runtime or cubical term checking.
 - `src/Fibril/Core/Compatibility.idr`: directional literal-universe acceptance after normalization; separate from beta conversion.

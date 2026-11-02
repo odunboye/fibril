@@ -334,7 +334,11 @@ Consuming-pattern tests cover dependent erased/runtime cases, evaluation and
 normal-form rechecking, dropped/duplicated fields, quantity/type mismatch,
 wildcards, duplicate and extra/missing binders, outer motive scope, actual
 binder definition locations and lexical rename. The typed two-field pattern
-syntax is implemented; automatic projections remain pending.
+syntax is implemented; explicitly requested safe projection functions are implemented. Projection tests
+cover both positions over every 0/1/unrestricted combination, dependent result
+types, parameterized imports and source targets, extra declaration accounting,
+unknown/duplicate/excess requests and linear record double use. Automatic/dot-field
+projection elaboration remains pending.
 
 ## Hedgehog dependency
 

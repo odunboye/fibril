@@ -106,6 +106,41 @@ parseField budget indent end tokens@(first :: _) = do
   ty <- parseExpression budget (nextPosition end remaining) following
   Right (Field name q ty, remaining)
 
+record ParsedProjection where
+  constructor Projected
+  keyword : Token
+  name : Token
+  field : Token
+
+parseProjections : Nat -> Nat -> Position -> List Token ->
+                   Either ParseError (List ParsedProjection, List Token)
+parseProjections fuel indent end tokens = case tokens of
+  token :: rest => if token.kind /= ProjectionKeyword then Right ([], tokens) else
+    case fuel of
+      Z => Left (ParseFailure token.span.start "Record projection budget exhausted (2)")
+      S fuel => do
+        (name, rest) <- expect Name end rest
+        (field, rest) <- expect Name end rest
+        if token.span.start.column /= indent || name.spelling == "_" ||
+           field.span.start.line /= token.span.start.line ||
+           (case rest of next :: _ => next.span.start.line == token.span.start.line; [] => False)
+           then Left (ParseFailure token.span.start "Expected aligned projection getter field on its own line")
+           else Right ()
+        (following, remaining) <- parseProjections fuel indent end rest
+        Right (Projected token name field :: following, remaining)
+  [] => Right ([], [])
+
+validateProjection : ParsedField -> ParsedField -> ParsedProjection -> Either ParseError ()
+validateProjection first second projection = do
+  let selected = if projection.field.spelling == first.token.spelling then first else second
+  let discarded = if projection.field.spelling == first.token.spelling then second else first
+  if not (elem projection.field.spelling [first.token.spelling, second.token.spelling])
+     then Left (ParseFailure projection.field.span.start "Unknown projected field") else Right ()
+  if not (allows selected.quantity Linear)
+     then Left (ParseFailure projection.field.span.start "Erased fields cannot be projected as runtime values") else Right ()
+  if not (allows discarded.quantity Erased)
+     then Left (ParseFailure projection.field.span.start "Projection would discard a linear field; consume both fields with a pattern instead") else Right ()
+
 recordParameters : Nat -> Nat -> Position -> List String -> List Token ->
                    Either ParseError (List ParsedBinder, List Token)
 recordParameters fuel expressions end seen tokens = case tokens of
@@ -139,12 +174,41 @@ applyParameters region function [] = function
 applyParameters region function (parameter :: rest) =
   applyParameters region (NApply region function (NRef parameter.span parameter.name)) rest
 
+projectionDeclaration : SourceSpan -> Token -> List ParsedBinder -> ParsedField -> ParsedField ->
+                        ParsedProjection -> Declaration
+projectionDeclaration region recordName params first second projection =
+  let typeRef = applyParameters region (NQualifiedRef recordName.span recordName.spelling) params
+      x = first.token.spelling
+      y = second.token.spelling
+      xRef = NRef first.token.span x
+      yRef = NRef second.token.span y
+      argument = "$projection.record"
+      self = "$projection.self"
+      argumentRef = NRef projection.name.span argument
+      selfRef = NRef projection.name.span self
+      lam = \q, name, ty, body => NLambda region q name ty body
+      app = \f, value => NApply region f value
+      branch = \body => lam first.quantity x first.ty (lam second.quantity y second.ty body)
+      -- This extraction occurs only in types/motives. Erased checking may
+      -- inspect an erased field, but it is never emitted as runtime data.
+      firstOf = \value => NPairCase region (lam Erased self typeRef first.ty) value (branch xRef)
+      secondType = \value => app (lam Erased x first.ty second.ty) (firstOf value)
+      selectedFirst = projection.field.spelling == first.token.spelling
+      result = if selectedFirst then first.ty else secondType argumentRef
+      motive = lam Erased self typeRef (if selectedFirst then first.ty else secondType selfRef)
+      ty = NPi region Linear argument typeRef result
+      value = lam Linear argument typeRef
+                (NPairCase region motive argumentRef (branch (if selectedFirst then xRef else yRef)))
+   in Declared True (Between projection.keyword.span.start projection.field.span.finish)
+        projection.name.span projection.name.span False Unrestricted projection.name.spelling
+        (parameterPis region params ty) (parameterLambdas region params value)
+
 -- Generated binders cannot be captured by any legal source identifier.
 -- Global-only references use the resolver's separate qualified namespace,
 -- even for these unqualified generated declaration names.
 recordDeclarations : SourceSpan -> Token -> Nat -> List ParsedBinder -> Token -> Token -> Token -> Token ->
-                     ParsedField -> ParsedField -> List Declaration
-recordDeclarations region name level params constructorKeyword constructorName eliminatorKeyword eliminatorName first second =
+                     ParsedField -> ParsedField -> List ParsedProjection -> List Declaration
+recordDeclarations region name level params constructorKeyword constructorName eliminatorKeyword eliminatorName first second projections =
   let typeRef = applyParameters region (NQualifiedRef name.span name.spelling) params
       ctorRef = applyParameters region (NQualifiedRef constructorName.span constructorName.spelling) params
       x = first.token.spelling
@@ -176,7 +240,8 @@ recordDeclarations region name level params constructorKeyword constructorName e
           (parameterPis region params ctorType) (parameterLambdas region params ctorValue),
         Declared True (Between eliminatorKeyword.span.start eliminatorName.span.finish)
           eliminatorName.span eliminatorName.span False Unrestricted eliminatorName.spelling
-          (parameterPis region params elimType) (parameterLambdas region params elimValue) ]
+          (parameterPis region params elimType) (parameterLambdas region params elimValue) ] ++
+      map (projectionDeclaration region name params first second) projections
 
 parseRecord : Nat -> Position -> List Token -> Either ParseError (List Declaration, List Token)
 parseRecord budget end tokens = do
@@ -209,13 +274,18 @@ parseRecord budget end tokens = do
   if first.token.spelling == second.token.spelling
      then Left (ParseFailure second.token.span.start "Duplicate record field")
      else Right ()
+  (projections, rest) <- parseProjections 2 indent end rest
+  traverse_ (validateProjection first second) projections
   case rest of
     token :: _ => if token.span.start.column > 1
-                    then Left (ParseFailure token.span.start "Prototype records require exactly two single-line fields")
+                    then Left (ParseFailure token.span.start "Prototype records require exactly two single-line fields followed by optional projections")
                     else Right ()
     [] => Right ()
-  let region = Between keyword.span.start (extent second.ty).finish
-  Right (recordDeclarations region name level params constructorKeyword constructorName eliminatorKeyword eliminatorName first second, rest)
+  let finish = case reverse projections of
+        [] => (extent second.ty).finish
+        final :: _ => final.field.span.finish
+  let region = Between keyword.span.start finish
+  Right (recordDeclarations region name level params constructorKeyword constructorName eliminatorKeyword eliminatorName first second projections, rest)
 
 parseOne : Nat -> Position -> List Token -> Either ParseError (List Declaration, List Token)
 parseOne budget end tokens@(token :: rest) =

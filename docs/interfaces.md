@@ -179,8 +179,8 @@ Implementation order:
 1. Implemented: staged erased globals and import/runtime rejection tests.
 2. In progress: dependent records/dictionary representation (core formation and
    construction/elimination and two-field source records implemented; erased parameters implemented;
-   typed consuming patterns implemented; broader field counts, projections and
-   nominality decisions pending) and all affected core infrastructure.
+   typed consuming patterns and explicit safe projections implemented; broader
+   field counts, dot-field syntax and nominality decisions pending) and all affected core infrastructure.
 3. Explicit operational interfaces and implementations, including failed methods.
 4. Law representation once equality supports it; distinguish data from proofs.
 5. Constrained functions, bounded/coherent lookup, then generic operators.

@@ -9,7 +9,7 @@ import Fibril.Source.StringLiteral
 
 ||| Token categories for the initial explicitly annotated expression grammar.
 public export
-data TokenKind = Name | Number | StringToken | StringKeyword | TypeKeyword | UnitKeyword | BoolKeyword | TrueKeyword | FalseKeyword | IfKeyword | ThenKeyword | ElseKeyword | DoKeyword | CaseKeyword | OfKeyword | LetKeyword | InKeyword | ReturnKeyword | RecordKeyword | ConstructorKeyword | EliminatorKeyword | WhereKeyword | ModuleKeyword | ImportKeyword | ExportKeyword | Dot | Equals | OpenParen | CloseParen | Colon | Arrow | BindArrow | BodyArrow | Lambda
+data TokenKind = Name | Number | StringToken | StringKeyword | TypeKeyword | UnitKeyword | BoolKeyword | TrueKeyword | FalseKeyword | IfKeyword | ThenKeyword | ElseKeyword | DoKeyword | CaseKeyword | OfKeyword | LetKeyword | InKeyword | ProjectionKeyword | ReturnKeyword | RecordKeyword | ConstructorKeyword | EliminatorKeyword | WhereKeyword | ModuleKeyword | ImportKeyword | ExportKeyword | Dot | Equals | OpenParen | CloseParen | Colon | Arrow | BindArrow | BodyArrow | Lambda
 
 public export
 Show TokenKind where
@@ -30,6 +30,7 @@ Show TokenKind where
   show OfKeyword = "of"
   show LetKeyword = "let"
   show InKeyword = "in"
+  show ProjectionKeyword = "projection"
   show ReturnKeyword = "return"
   show RecordKeyword = "record"
   show ConstructorKeyword = "constructor"
@@ -67,6 +68,7 @@ Eq TokenKind where
   OfKeyword == OfKeyword = True
   LetKeyword == LetKeyword = True
   InKeyword == InKeyword = True
+  ProjectionKeyword == ProjectionKeyword = True
   ReturnKeyword == ReturnKeyword = True
   RecordKeyword == RecordKeyword = True
   ConstructorKeyword == ConstructorKeyword = True
@@ -196,6 +198,7 @@ scan (S fuel) at (c :: rest) =
              "of" => OfKeyword
              "let" => LetKeyword
              "in" => InKeyword
+             "projection" => ProjectionKeyword
              "return" => ReturnKeyword
              "record" => RecordKeyword
              "constructor" => ConstructorKeyword

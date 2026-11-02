@@ -1,0 +1,12 @@
+module Main
+import Data.Package
+import Data.Dictionary
+
+append : (left : String) -> (right : String) -> String
+append = \(left : String) => \(right : String) => appendString left right
+
+dictionary : Data.Dictionary.Dictionary String
+dictionary = Data.Dictionary.MkDictionary String append ""
+
+main : IO Unit
+main = putStrLn (appendString (Data.Dictionary.getIdentity String dictionary) (Data.Dictionary.getCombine String dictionary "Safe " (Data.Package.getValue (Data.Package.MkPackage String "projections!"))))

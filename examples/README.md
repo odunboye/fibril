@@ -150,7 +150,8 @@ payload through dependent elimination, and consumes a two-field message. Run it:
 It prints Records! Record types, constructors and explicit eliminators are
 checked ordinary declarations after lowering. This first source grammar supports
 exactly two single-line fields in a named module; it is structurally transparent,
-not nominal, and provides no projections yet. Explicit erased parameters and
+not nominal. Projection functions require explicit safe requests; dot-field
+syntax is not provided. Explicit erased parameters and
 typed two-field consuming patterns are supported. See
 [record foundations](../docs/records.md).
 
@@ -177,6 +178,19 @@ whose second parameter is a type family over its first. Run with:
 This is checked explicit record passing, not interface syntax, law checking,
 implicit parameter inference or instance search. Constructors/eliminators take
 erased parameters explicitly. See [record parameters](../docs/records.md#record-parameters).
+
+## Safe record projections
+
+`modules/record-projections/` combines a dependent payload getter with generic
+operation/identity getters and prints Safe projections!:
+
+~~~sh
+./build/exec/fibril run --source-dir examples/modules/record-projections examples/modules/record-projections/Main.fib
+~~~
+
+Each getter consumes its record once. A request that discards a linear field or
+extracts an erased field at runtime is rejected. Calls are ordinary functions,
+not .field syntax. See [safe projection functions](../docs/records.md#safe-projection-functions).
 
 ## Proposed Fibril programs
 

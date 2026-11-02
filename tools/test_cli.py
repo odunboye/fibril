@@ -193,6 +193,90 @@ class CLITests(unittest.TestCase):
         self.assertEqual(result.stdout, "")
         self.assertIn("use eval", result.stderr)
 
+    def test_safe_record_projections(self):
+        root = "examples/modules/record-projections"
+        result = run("run", "--source-dir", root, root + "/Main.fib")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout, "Safe projections!\n")
+        result = run("eval", "--source-dir", root, root + "/Main.fib")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn('Normal: (WriteLine "Safe projections!")', result.stdout)
+        with tempfile.TemporaryDirectory(prefix="projections ") as directory:
+            target = Path(directory)
+            entry = target / "Main.fib"
+            def program(first, second, requests, body, result_type="IO Unit"):
+                return ('module Main\nrecord R : Type 0 where\n'
+                        '  constructor MkR\n  eliminator useR\n'
+                        f'  {first}\n  {second}\n' +
+                        "".join(f"  projection {name} {field}\n" for name, field in requests) +
+                        f'main : {result_type}\nmain = {body}\n')
+            # Both positions, all permitted discard/selection quantity combinations.
+            for left in ("0 left : Bool", "1 left : Bool", "left : Bool"):
+                for right in ("0 right : Bool", "1 right : Bool", "right : Bool"):
+                    for selected in ("left", "right"):
+                        selected_decl = left if selected == "left" else right
+                        other_decl = right if selected == "left" else left
+                        allowed = not selected_decl.startswith("0 ") and not other_decl.startswith("1 ")
+                        entry.write_text(program(left, right, [("get", selected)],
+                                                 'putStrLn (if get (MkR True False) then "true" else "false")'))
+                        result = run("run", "--source-dir", str(target), str(entry))
+                        if allowed:
+                            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                            self.assertEqual(result.stdout, "true\n" if selected == "left" else "false\n")
+                        else:
+                            self.assertNotEqual(result.returncode, 0)
+                            self.assertEqual(result.stdout, "")
+            # A getter consumes its record, even when its fields are reusable.
+            entry.write_text(program("left : Bool", "right : Bool",
+                                     [("getLeft", "left"), ("getRight", "right")],
+                                     'putStrLn "never"').replace(
+                'main : IO Unit',
+                'bad : (1 record : R) -> Bool\n'
+                'bad = \\(1 record : R) => andBool (getLeft record) (getRight record)\n'
+                'main : IO Unit'))
+            result = run("run", "--source-dir", str(target), str(entry))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, "")
+            # The second result type genuinely depends on an erased first field.
+            entry.write_text(program(
+                "0 flag : Bool", "1 value : if flag then String else Bool", [("getValue", "value")],
+                'putStrLn (getValue (MkR True "dependent"))'))
+            result = run("run", "--source-dir", str(target), str(entry))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, "dependent\n")
+            for requests in ([("get", "missing")], [("get", "left"), ("get", "right")],
+                             [("get", "left"), ("other", "right"), ("third", "left")]):
+                entry.write_text(program("left : Bool", "right : Bool", requests, 'putStrLn "never"'))
+                result = run("run", "--source-dir", str(target), str(entry))
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(result.stdout, "")
+            # Dependent parameterized second-field projection, across a module boundary.
+            library = target / "Library.fib"
+            library_source = ('module Library\nexport\nrecord Box (0 A : Type 0) : Type 0 where\n'
+                              '  constructor MkBox\n  eliminator useBox\n'
+                              '  0 tag : Unit\n  1 value : A\n  projection payload value\n')
+            library.write_text(library_source)
+            entry.write_text('module Main\nimport Library\nmain : IO Unit\n'
+                             'main = putStrLn (Library.payload String (Library.MkBox String () "imported"))\n')
+            result = run("run", "--source-dir", str(target), str(entry))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, "imported\n")
+            source = entry.read_text()
+            offset = source.index("payload")
+            point = source[:offset].rsplit("\n", 1)[-1]
+            result = run("definition", "--source-dir", str(target), "--entry", str(entry),
+                         "4", str(len(point) + 1), str(entry))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            location = json.loads(result.stdout)["definition"]
+            self.assertEqual(location["path"], str(library.resolve()))
+            self.assertEqual(library_source[location["range"]["start"]["offset"]:
+                                            location["range"]["end"]["offset"]], "payload")
+            library.write_text(library_source.replace("export\nrecord", "record"))
+            result = run("check", "--source-dir", str(target), str(entry))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, "")
+            self.assertIn("Unbound name", result.stderr)
+
     def test_consuming_record_patterns(self):
         root = "examples/modules/records"
         result = run("run", "--source-dir", root, root + "/Patterns.fib")

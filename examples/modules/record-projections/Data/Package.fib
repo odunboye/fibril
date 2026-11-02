@@ -1,0 +1,9 @@
+module Data.Package
+
+export
+record Package : Type 1 where
+  constructor MkPackage
+  eliminator unpackPackage
+  0 Item : Type 0
+  1 value : Item
+  projection getValue value

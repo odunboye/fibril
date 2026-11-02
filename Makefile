@@ -51,6 +51,7 @@ examples: build
 	./build/exec/fibril run --source-dir examples/modules/records examples/modules/records/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/records examples/modules/records/Patterns.fib
 	./build/exec/fibril run --source-dir examples/modules/record-parameters examples/modules/record-parameters/Main.fib
+	./build/exec/fibril run --source-dir examples/modules/record-projections examples/modules/record-projections/Main.fib
 
 bench:
 	python3 tools/benchmark.py
