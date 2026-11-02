@@ -467,7 +467,7 @@ class CLITests(unittest.TestCase):
             self.assertEqual(result.stdout, "")
 
             # Every width, including eight fields, consumes every linear field.
-            for width in range(2, 9):
+            for width in list(range(2, 10)) + [12, 16]:
                 names = [f"field{i}" for i in range(width)]
                 fields = [f"1 {name} : String" for name in names]
                 combine = names[-1]
@@ -489,25 +489,34 @@ class CLITests(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0)
                 self.assertEqual(result.stdout, "")
 
-            # All eight independent getters remain within construction bounds.
-            fields = [f"field{i} : Bool" for i in range(8)]
-            requests = "".join(f"  projection get{i} field{i}\n" for i in range(8))
+            # Erased extraction traverses past field eight; no fixed fuel of 8.
+            fields = [f"0 tag{i} : Bool" for i in range(9)] + ["0 Item : Type 0", "1 value : Item"]
+            path.write_text(program(fields, "  projection get value\n",
+                                    'putStrLn (get (MkR True True True True True True True True True String "Long path!"))'))
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, "Long path!\n")
+
+            # More than eight getter requests are ordinary declaration slots.
+            # All nine independent getters remain within construction bounds.
+            fields = [f"field{i} : Bool" for i in range(9)]
+            requests = "".join(f"  projection get{i} field{i}\n" for i in range(9))
             path.write_text(program(fields, requests,
-                                    'putStrLn (if get7 (MkR True True True True True True True True) then "Getters!" else "bad")'))
+                                    'putStrLn (if get8 (MkR True True True True True True True True True) then "Getters!" else "bad")'))
             result = run("run", "--source-dir", str(root), str(path))
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertEqual(result.stdout, "Getters!\n")
             # Same normalized telescope, different record/field names: structural.
             compatible = (
                 'record S : Type 1 where\n  constructor MkS\n  eliminator useS\n' +
-                "".join(f"  other{i} : Bool\n" for i in range(8)))
+                "".join(f"  other{i} : Bool\n" for i in range(9)))
             path.write_text(program(fields, requests,
-                                    'putStrLn (if get7 (MkS True True True True True True True True) then "Structural!" else "bad")')
+                                    'putStrLn (if get8 (MkS True True True True True True True True True) then "Structural!" else "bad")')
                             .replace("main : IO Unit", compatible + "main : IO Unit"))
             result = run("run", "--source-dir", str(root), str(path))
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertEqual(result.stdout, "Structural!\n")
-            for bad_fields in ([], ["value : Bool"], fields + ["ninth : Bool"],
+            for bad_fields in ([], ["value : Bool"],
                                ["first : Bool", "second : Bool", "first : String"]):
                 path.write_text(program(bad_fields))
                 self.assertNotEqual(run("check", "--source-dir", str(root), str(path)).returncode, 0)
@@ -517,6 +526,36 @@ class CLITests(unittest.TestCase):
             result = run("check", "--source-dir", str(root), str(path))
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("linear", result.stderr + result.stdout)
+
+    def test_record_construction_admission_not_field_cap(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / "Main.fib"
+
+            def record(name, width):
+                return (f"record {name} : Type 0 where\n  constructor Mk{name}\n  eliminator use{name}\n" +
+                        "".join(f"  field{i} : Bool\n" for i in range(width)))
+
+            # Syntax-only tools retain an oversized telescope without expanding it.
+            source = "module Main\n" + record("R", 200) + 'main : IO Unit\nmain = putStrLn "never"\n'
+            path.write_text(source)
+            self.assertEqual(run("symbols", str(path)).returncode, 0)
+            self.assertEqual(run("format", str(path)).returncode, 0)
+            result = run("check", "--json", "--source-dir", str(root), str(path))
+            self.assertNotEqual(result.returncode, 0)
+            report = json.loads(result.stdout)
+            self.assertTrue(any(d["stage"] == "elaboration" and
+                                "construction budget exhausted" in d["message"]
+                                for d in report["diagnostics"]))
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, "")
+            # The construction allowance is cumulative, not reset for each record.
+            path.write_text("module Main\n" + "".join(record(f"R{i}", 32) for i in range(7)) +
+                            "main : Bool\nmain = True\n")
+            result = run("elaborate", str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("construction budget exhausted", result.stdout + result.stderr)
 
     def test_safe_record_projections(self):
         root = "examples/modules/record-projections"
@@ -570,7 +609,7 @@ class CLITests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertEqual(result.stdout, "dependent\n")
             for requests in ([("get", "missing")], [("get", "left"), ("get", "right")],
-                             [(f"get{i}", "left") for i in range(9)]):
+                             [(f"get{i}", "left") for i in range(61)]):
                 entry.write_text(program("left : Bool", "right : Bool", requests, 'putStrLn "never"'))
                 result = run("run", "--source-dir", str(target), str(entry))
                 self.assertNotEqual(result.returncode, 0)

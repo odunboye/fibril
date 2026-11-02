@@ -46,6 +46,22 @@ checks =
             map (\field => field.token.spelling) sourceRecord.fields == ["Item", "value"]
           _ => False
         _ => False)
+  , ("generated construction budget can be reduced independently of declaration slots",
+      case parseDocument 64 256 recordSource of
+        Right document => case document.body of
+          DeclarationDocument authored => case (elaborateDeclarationsWithBudget 0 64 authored, elaborateDeclarations 64 authored) of
+            (Left err, Right _) => err.message == "Generated declaration construction budget exhausted"
+            _ => False
+          _ => False
+        _ => False)
+  , ("record construction admission matches the simple generated IR boundary",
+      case parseDocument 64 256 recordSource of
+        Right document => case document.body of
+          DeclarationDocument authored => case (elaborateDeclarationsWithBudget 61 64 authored, elaborateDeclarationsWithBudget 62 64 authored) of
+            (Left _, Right _) => True
+            _ => False
+          _ => False
+        _ => False)
   , ("requested projections retain actual name selections",
       case documentSymbols "module A\nexport\nrecord R : Type 0 where\n  constructor MkR\n  eliminator useR\n  x : Bool\n  y : Bool\n  projection getX x\n" of
         Right [ty, ctor, elim, getter] => getter.name == "getX" && getter.exported &&

@@ -53,6 +53,7 @@ examples: build
 	./build/exec/fibril run --source-dir examples/modules/record-parameters examples/modules/record-parameters/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/record-projections examples/modules/record-projections/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/wider-records examples/modules/wider-records/Main.fib
+	./build/exec/fibril run --source-dir examples/modules/wider-records examples/modules/wider-records/ManyFields.fib
 
 bench:
 	python3 tools/benchmark.py

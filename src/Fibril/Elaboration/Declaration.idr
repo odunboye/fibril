@@ -147,7 +147,7 @@ projectionDeclaration region recordName params fields earlier selected projectio
       argument = "$projection.record"
       self = "$projection.self"
       resultAt = \value => fieldResult region earlier selected
-        (\previous => extractField 8 region typeRef fields
+        (\previous => extractField (length fields) region typeRef fields
           (takeWhile (\field => field.token.spelling /= previous.token.spelling) earlier) previous value)
       motive = NLambda region Erased self typeRef (resultAt (NRef region self))
       ty = NPi region Linear argument typeRef (resultAt (NRef region argument))
@@ -221,18 +221,131 @@ validateParameters seen (parameter :: rest) = do
      then Left (ElaborationFailure parameter.span.start "Duplicate record parameter") else Right ()
   validateParameters (parameter.name :: seen) rest
 
-lowerRecord : RecordDeclaration -> Either ElaborationError (List Declaration)
-lowerRecord sourceRecord = do
-  if length sourceRecord.params > 8 || length sourceRecord.projections > 8
-     then Left (ElaborationFailure sourceRecord.span.start "Record parameter/projection admission budget exhausted") else Right ()
-  if length sourceRecord.fields < 2 || length sourceRecord.fields > 8
-     then Left (ElaborationFailure sourceRecord.span.start "Records require two to eight fields") else Right ()
+-- This conservative preflight bounds named IR before constructing any record
+-- expansion. Core expansion/checking budgets still apply independently.
+public export
+defaultConstructionBudget : Nat
+defaultConstructionBudget = 200000
+
+capped : Nat -> Nat
+capped = min (S defaultConstructionBudget)
+
+syntaxNodes : Expr -> Nat
+syntaxNodes (NPi _ _ _ a b) = capped (1 + syntaxNodes a + syntaxNodes b)
+syntaxNodes (NLambda _ _ _ a b) = capped (1 + syntaxNodes a + syntaxNodes b)
+syntaxNodes (NSigma _ _ _ _ a b) = capped (1 + syntaxNodes a + syntaxNodes b)
+syntaxNodes (NApply _ a b) = capped (1 + syntaxNodes a + syntaxNodes b)
+syntaxNodes (NAscribe _ a b) = capped (1 + syntaxNodes a + syntaxNodes b)
+syntaxNodes (NUnitCase _ a b) = capped (1 + syntaxNodes a + syntaxNodes b)
+syntaxNodes (NSequence _ a b) = capped (1 + syntaxNodes a + syntaxNodes b)
+syntaxNodes (NDoResult _ a b) = capped (1 + syntaxNodes a + syntaxNodes b)
+syntaxNodes (NIf _ a b c) = capped (1 + syntaxNodes a + syntaxNodes b + syntaxNodes c)
+syntaxNodes (NPairValue _ a b c) = capped (1 + syntaxNodes a + syntaxNodes b + syntaxNodes c)
+syntaxNodes (NPairCase _ a b c) = capped (1 + syntaxNodes a + syntaxNodes b + syntaxNodes c)
+syntaxNodes (NLet _ _ _ a b c) = capped (1 + syntaxNodes a + syntaxNodes b + syntaxNodes c)
+syntaxNodes (NDoBind _ _ a b c) = capped (1 + syntaxNodes a + syntaxNodes b + syntaxNodes c)
+syntaxNodes _ = 1
+
+fieldTypeNodes : List RecordField -> Nat
+fieldTypeNodes fields = foldl (\accum, field => capped (accum + syntaxNodes field.ty)) 0 fields
+
+recordTypeNodes : List RecordField -> Nat
+recordTypeNodes [] = 1
+recordTypeNodes [field] = syntaxNodes field.ty
+recordTypeNodes fields = capped (fieldTypeNodes fields + minus (length fields) 1)
+
+recordValueNodes : List RecordField -> Nat
+recordValueNodes [] = 1
+recordValueNodes [field] = 1
+recordValueNodes [first, second] = capped (recordTypeNodes [first, second] + 3)
+recordValueNodes fields@(first :: rest) =
+  capped (recordTypeNodes fields + recordValueNodes rest + 2)
+
+consumeNodes : List RecordField -> Nat -> Nat -> Nat
+consumeNodes [] motive branch = branch
+consumeNodes [field] motive branch = capped (branch + 2)
+consumeNodes [first, second] motive branch = capped (motive + branch + 2)
+consumeNodes fields@(first :: rest) motive branch =
+  let tailType = recordTypeNodes rest
+      nextMotive = capped (motive + tailType + recordTypeNodes fields + 5)
+      next = consumeNodes rest nextMotive (capped (branch + 2))
+   in capped (motive + syntaxNodes first.ty + tailType + next + 4)
+
+-- Count fieldResult without generating its recursively repeated extractions.
+resultNodes : List (String, Nat) -> List RecordField -> RecordField -> Nat
+resultNodes costs earlier selected =
+  foldl (\accum, field => capped (accum + 2 + syntaxNodes field.ty +
+    maybe 0 id (lookup field.token.spelling costs)))
+    (syntaxNodes selected.ty) (fst (dependencies earlier [selected.ty]))
+
+-- Each row contains extraction sizes for a suffix of the telescope. Build the
+-- shorter-tail row first, then the current row in dependency order. This follows
+-- the generator's sharing-free tree size without exponentially generating it.
+extractionRow : Nat -> List RecordField -> List (String, Nat)
+extractionRow typeNodes [] = []
+extractionRow typeNodes fields@(first :: rest) =
+  let tailType = recordTypeNodes rest
+      below = extractionRow tailType rest
+   in row fields below [] fields []
+  where
+    row : List RecordField -> List (String, Nat) -> List RecordField ->
+          List RecordField -> List (String, Nat) -> List (String, Nat)
+    row all below earlier [] costs = costs
+    row all below earlier (selected :: following) costs =
+      let motive = capped (1 + typeNodes + resultNodes costs earlier selected)
+          body = if selected.token.spelling == first.token.spelling then 1
+                    else maybe 0 id (lookup selected.token.spelling below)
+          cost = case all of
+            [a, b] => capped (motive + fieldTypeNodes all + 5)
+            _ => capped (motive + syntaxNodes first.ty + recordTypeNodes rest + body + 4)
+       in row all below (earlier ++ [selected]) following ((selected.token.spelling, cost) :: costs)
+
+constructionCost : RecordDeclaration -> List (RecordProjection, RecordField) -> Nat
+constructionCost sourceRecord projections =
+  let fields = sourceRecord.fields
+      width = length fields
+      types = fieldTypeNodes fields
+      binders = capped (types + width)
+      paramNodes = foldl (\accum, param => capped (accum + 1 + syntaxNodes param.domain)) 0 sourceRecord.params
+      typeRef = 1 + 2 * length sourceRecord.params
+      motiveType = typeRef + 2
+      branchType = capped (binders + typeRef + 2 * width + 2)
+      domains = capped (3 + motiveType + typeRef + branchType)
+      recordCost = capped (1 + recordTypeNodes fields + 2 * paramNodes)
+      ctorCost = capped (binders + typeRef + binders + recordValueNodes fields + 2 * paramNodes)
+      elimCost = capped (domains + 3 + domains + consumeNodes fields 1 1 + 2 * paramNodes)
+      costs = if null projections then [] else extractionRow typeRef fields
+      getterCost = \selected =>
+        let earlier = takeWhile (\field => field.token.spelling /= selected.token.spelling) fields
+            result = resultNodes costs earlier selected
+            motive = capped (1 + typeRef + result)
+            branch = capped (binders + 1)
+         in capped (2 + 2 * typeRef + result + consumeNodes fields motive branch + 2 * paramNodes)
+   in foldl (\accum, pair => capped (accum + getterCost (snd pair)))
+        (capped (recordCost + ctorCost + elimCost)) projections
+
+lowerRecord : Nat -> RecordDeclaration -> Either ElaborationError (Nat, List Declaration)
+lowerRecord budget sourceRecord = do
+  if length sourceRecord.params > 8
+     then Left (ElaborationFailure sourceRecord.span.start "Record parameter admission budget exhausted (8)") else Right ()
+  if length sourceRecord.fields < 2
+     then Left (ElaborationFailure sourceRecord.span.start "Records require at least two fields") else Right ()
+  -- Reject oversized base expansion before even walking dependency graphs.
+  if constructionCost sourceRecord [] > budget
+     then Left (ElaborationFailure sourceRecord.span.start "Generated declaration construction budget exhausted") else Right ()
   validateParameters [] sourceRecord.params
   validateFields [] sourceRecord.params sourceRecord.fields
   projections <- traverse (\projection => do
     selected <- validateProjection sourceRecord.fields projection
     Right (projection, selected)) sourceRecord.projections
-  Right (map (\decl => { exported := sourceRecord.exported } decl) (recordDeclarations sourceRecord projections))
+  let cost = constructionCost sourceRecord projections
+  if cost > budget
+     then Left (ElaborationFailure sourceRecord.span.start "Generated declaration construction budget exhausted") else Right ()
+  let generated = recordDeclarations sourceRecord projections
+  let observed = foldl (\accum, decl => capped (accum + syntaxNodes decl.expected + syntaxNodes decl.value)) 0 generated
+  if observed > cost
+     then Left (ElaborationFailure sourceRecord.span.start "Internal record construction estimate was insufficient") else Right ()
+  Right (cost, map (\decl => { exported := sourceRecord.exported } decl) generated)
 
 admit : Nat -> List String -> List Declaration -> Either ElaborationError (Nat, List String)
 admit slots seen [] = Right (slots, seen)
@@ -241,14 +354,18 @@ admit (S slots) seen (decl :: rest) =
   if elem decl.name seen then Left (ElaborationFailure decl.nameSpan.start ("Duplicate declaration " ++ show decl.name))
      else admit slots (decl.name :: seen) rest
 
-lower : Nat -> List String -> List AuthoredDeclaration -> Either ElaborationError (List Declaration)
-lower slots seen [] = Right []
-lower slots seen (item :: rest) = do
-  declarations <- case item of
-    Ordinary decl => Right [decl]
-    RecordItem sourceRecord => lowerRecord sourceRecord
+lowerItem : Nat -> AuthoredDeclaration -> Either ElaborationError (Nat, List Declaration)
+lowerItem nodes (Ordinary decl) = Right (0, [decl])
+lowerItem nodes (RecordItem sourceRecord) = lowerRecord nodes sourceRecord
+
+lower : Nat -> Nat -> List String -> List AuthoredDeclaration -> Either ElaborationError (List Declaration)
+lower nodes slots seen [] = Right []
+lower nodes slots seen (item :: rest) = do
+  if length (bindingSites item) > slots
+     then Left (ElaborationFailure (case item of Ordinary decl => decl.nameSpan.start; RecordItem sourceRecord => sourceRecord.name.span.start) "Elaborated declaration budget exhausted") else Right ()
+  (used, declarations) <- lowerItem nodes item
   (remaining, names) <- admit slots seen declarations
-  following <- lower remaining names rest
+  following <- lower (minus nodes used) remaining names rest
   Right (declarations ++ following)
 
 ||| Ordinary headerless declarations retain their nonrecursive typed-let lowering.
@@ -262,4 +379,10 @@ lowerDeclarations end (decl :: rest) =
 ||| Pure, bounded lowering. This validates declaration policy, not core typing.
 public export
 elaborateDeclarations : Nat -> List AuthoredDeclaration -> Either ElaborationError (List Declaration)
-elaborateDeclarations budget = lower budget []
+elaborateDeclarations budget = lower defaultConstructionBudget budget []
+
+||| Override the generated-IR budget (up to the default safety ceiling).
+||| Source and expanded-core/checker limits remain independent.
+public export
+elaborateDeclarationsWithBudget : Nat -> Nat -> List AuthoredDeclaration -> Either ElaborationError (List Declaration)
+elaborateDeclarationsWithBudget nodes slots = lower (min nodes defaultConstructionBudget) slots []

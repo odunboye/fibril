@@ -2,7 +2,8 @@
 
 **Implemented:** parsing and record elaboration are separate compiler stages.
 This is an explicit, bounded declaration elaborator, not yet a full Idris-style
-implicit/unification elaborator. Record syntax and resource rules have not changed.
+implicit/unification elaborator. Record field counts are resource-admitted, not
+fixed at eight; singleton representation remains separate work.
 
 ![Stages and trust boundaries](diagrams/elaboration.svg)
 
@@ -32,7 +33,9 @@ will be admitted or checked.
 type/constructor/eliminator/projection generation and declaration admission.
 It checks erased parameter policy, parameter/field shadowing, duplicate fields,
 safe projection permissions, generated-name uniqueness and expanded declaration
-quotas. Generated expressions retain their source origins.
+quotas. A cumulative generated-IR node budget is checked with a size-only
+preflight before expansion; a post-generation count detects underestimated output.
+Generated expressions retain their source origins.
 
 Every generated declaration still passes through global resolution, pre-clone
 core construction admission, and erased/runtime checking. The elaborator does
@@ -84,8 +87,11 @@ existing Unicode-scalar coordinate convention.
 
 New compiler clients use parseDocument/parseAuthoredDeclarations followed by
 elaborateDeclarations, then resolution/checking. The raw syntax/IR records are
-ordinary data, not checking certificates. Elaboration bounds parameter/projection
-lists again when given manually constructed records.
+ordinary data, not checking certificates. Elaboration rechecks parameter policy,
+minimum field arity, declaration slots and generated-IR construction admission
+when given manually constructed records. elaborateDeclarationsWithBudget can
+lower the default 200000-node allowance; it cannot bypass the safety ceiling or
+independent core/checker limits. Field/getter counts have no fixed eight-item cap.
 
 The old parseDeclarations/parseSource compatibility entrypoints remain
 ordinary-only. Their legacy ordinary-let adapter is not the project compiler

@@ -85,7 +85,7 @@ parseFields : Nat -> Nat -> Nat -> Position -> List Token ->
 parseFields fuel budget indent end tokens = case tokens of
   token :: _ => if token.span.start.column <= 1 || token.kind == ProjectionKeyword
     then Right ([], tokens) else case fuel of
-      Z => Left (ParseFailure token.span.start "Record field budget exhausted (8)")
+      Z => Left (ParseFailure token.span.start "Record field token budget exhausted")
       S fuel => do
         (field, rest) <- parseField budget indent end tokens
         (following, remaining) <- parseFields fuel budget indent end rest
@@ -97,7 +97,7 @@ parseProjections : Nat -> Nat -> Position -> List Token ->
 parseProjections fuel indent end tokens = case tokens of
   token :: rest => if token.kind /= ProjectionKeyword then Right ([], tokens) else
     case fuel of
-      Z => Left (ParseFailure token.span.start "Record projection budget exhausted (8)")
+      Z => Left (ParseFailure token.span.start "Record projection token budget exhausted")
       S fuel => do
         (name, rest) <- expect Name end rest
         (field, rest) <- expect Name end rest
@@ -142,12 +142,12 @@ parseRecord budget end tokens = do
      then Left (ParseFailure constructorKeyword.span.start "constructor must follow the record header")
      else Right ()
   (eliminatorKeyword, eliminatorName, rest) <- directive EliminatorKeyword indent end rest
-  (fields, rest) <- parseFields 8 budget indent end rest
-  if length fields < 2 then Left (ParseFailure eliminatorName.span.finish "Records require two to eight fields; singleton records need a unary representation") else Right ()
-  (projections, rest) <- parseProjections 8 indent end rest
+  (fields, rest) <- parseFields (length rest) budget indent end rest
+  if length fields < 2 then Left (ParseFailure eliminatorName.span.finish "Records require at least two fields; singleton records need a unary representation") else Right ()
+  (projections, rest) <- parseProjections (length rest) indent end rest
   case rest of
     token :: _ => if token.span.start.column > 1
-                    then Left (ParseFailure token.span.start "Records require two to eight single-line fields followed by optional projections")
+                    then Left (ParseFailure token.span.start "Records require single-line fields followed by optional projections")
                     else Right ()
     [] => Right ()
   let finish = case reverse projections of

@@ -2,7 +2,7 @@
 
 **Status:** design contract plus runnable higher-order Fibril examples. Interface,
 implementation, implicit dictionary, and operator syntax are **not implemented**.
-A bounded [two-to-eight-field named record prototype](records.md) now provides checked
+A bounded [resource-budgeted named record prototype](records.md) now provides checked
 constructors, erased parameters and explicit consuming eliminators, but not nominality. Nothing here establishes associativity, identity laws, quantitative
 soundness, or a computational HoTT equality theory.
 
@@ -115,7 +115,7 @@ feature does not add project check --erased or implicit type-level declarations.
 
 [Dependent pair formation and construction](records.md) are now implemented in
 the core, with quantities on both fields and a genuinely dependent second field.
-Consuming elimination is now checked too; a bounded two-to-eight-field named-record prototype is available; this is not
+Consuming elimination is now checked too; a bounded resource-budgeted named-record prototype is available; this is not
 yet a complete dictionary representation.
 
 Choose a small, explicit record or dependent-product representation before
@@ -179,7 +179,7 @@ Implementation order:
 
 1. Implemented: staged erased globals and import/runtime rejection tests.
 2. In progress: dependent records/dictionary representation (core formation and
-   construction/elimination and two-to-eight-field source records implemented; erased parameters implemented;
+   construction/elimination and resource-budgeted source records implemented; erased parameters implemented;
    typed consuming patterns and explicit safe projections implemented; broader
    singleton representation, dot-field syntax and nominality decisions pending) and all affected core infrastructure.
 3. Explicit operational interfaces and implementations, including failed methods.

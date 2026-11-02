@@ -1,7 +1,7 @@
 # Dependent records: kernel foundations
 
 **Status:** core dependent pairs and a bounded named-record source prototype are
-implemented, including explicitly requested safe projection functions. Source records currently have two to eight fields, an explicit
+implemented, including explicitly requested safe projection functions. Source records have no fixed field-count cap (at least two fields), an explicit
 constructor and an explicit eliminator. Explicit erased parameter telescopes are supported; recursive/nominal records,
 constructor-discriminating/inferred patterns, dot-field syntax, interface declarations
 and instance inference remain unimplemented. No preservation or erasure theorem is claimed.
@@ -39,7 +39,7 @@ The field value has the type supplied in Item. For example, MkPackage String
 the payload is linear. This is not a parser shortcut for a particular record.
 
 The current grammar requires a named module, a column-one record header, then
-aligned indented constructor/eliminator directives and two to eight single-line
+aligned indented constructor/eliminator directives and at least two single-line
 typed fields. Comments/blank lines are allowed. No defaults,
 recursive references, multiline field expressions, inferred field types or
 automatically inferred accessors are added. Optional projection directives follow
@@ -193,8 +193,8 @@ Invoke these as ordinary functions with explicit parameters, for example
 getCombine String dictionary left right. projection is now reserved syntax.
 There is **no .field syntax** or automatic name/field inference.
 
-The current grammar permits up to eight aligned projection getter field lines
-per record. Targets must be declared field names; getter names must be
+The grammar permits aligned projection getter field lines after the fields,
+without a fixed per-record request cap. Targets must be declared field names; getter names must be
 referenceable and distinct from existing declarations. Each request generates
 one unrestricted function, taking the record with quantity 1 after its erased
 parameters. It shares the record group's export policy and consumes one
@@ -485,7 +485,7 @@ tags. Wider records with the same normalized ordered types/quantities remain
 definitionally compatible; future nominal identity needs a kernel-level design
 and rechecking, not elaborator metadata.
 
-For fields f1 ... fn, n between two and eight:
+For fields f1 ... fn, n at least two, subject to resource admission:
 
 - Two fields keep exactly the original Sigma q r A B representation.
 - Each preceding field lowers to Sigma q 1 A Tail. The tail is consumed once,
@@ -499,13 +499,32 @@ For fields f1 ... fn, n between two and eight:
 The existing typed case syntax still binds exactly two core fields; use the
 generated eliminator for a complete wider-record telescope. Requested getters
 consume the whole record, and every nonselected field must permit zero use.
-Up to eight getter requests are admitted, each consuming a declaration slot.
-Existing eight-parameter, 64-declaration and expanded-core budgets still apply.
+Each getter request consumes a declaration slot, not an eight-request quota.
+Field/projection parsing uses fuel derived from the bounded input token stream;
+type-expression depth remains bounded independently. Erased extraction depth is
+derived from the telescope length, not hard-coded to eight.
+
+Before generating expressions, a size-only calculation follows the constructor,
+eliminator and getter recurrences. It uses dynamic programming for repeated
+erased extractions instead of constructing exponentially repeated syntax just to
+measure it. Admission has a cumulative 200000-node generated-IR budget per
+elaboration call. A post-generation node-count check rejects an insufficient
+estimate. This is distinct from the project's 200000-node expanded-core budget:
+neither admission substitutes for checking.
+
+Existing 65536-byte source, eight-parameter, 64-declaration, parser/checker depth
+and reduction budgets remain. Thus arbitrary field counts are language syntax,
+not a promise that every finite record compiles within the current resource
+limits. API clients can lower the generated-IR allowance with
+elaborateDeclarationsWithBudget; the CLI uses the default safety ceiling. These
+are node/work admission policies, not allocation or wall-clock guarantees.
 
 [Wider operational dictionaries](../examples/modules/wider-records/Main.fib)
 prints Wider records! using a three-field parameterized operation/identity/label
 dictionary. Its explicit append adapter bridges quantities without coercion.
 This is operational data, not interface syntax or a proof of monoid laws.
+[ManyFields](../examples/modules/wider-records/ManyFields.fib) demonstrates twelve
+fields and prints Beyond eight fields!.
 
 **Singletons remain rejected.** Padding a one-field record with erased Unit
 does not make an arbitrary padding variable definitionally equal to (). A
@@ -513,15 +532,16 @@ generated dependent branch returning P (pair value ()) cannot in general satisfy
 P (pair value padding). A proper unary wrapper or a separately justified kernel
 rule is needed; this slice does not pretend otherwise.
 
-Regressions execute every width from two to eight, reject linear-field loss,
+Regressions execute widths through sixteen, reject linear-field loss,
 check a motive observing a reconstructed dependent record, sparse transitive
-dependencies in an eight-field getter, wrong late payloads, all eight getter
-requests, structural compatibility, and field/request limits. They are tests,
+dependencies and extraction past field eight, wrong late payloads, nine getter
+requests, structural compatibility, declaration limits and cumulative generated-IR
+exhaustion. Syntax-only tools can inspect an oversized record without expanding it. They are tests,
 not preservation or quantitative soundness proofs.
 
 ## Remaining record work
 
-The constructor/eliminator core and bounded two-to-eight-field source declarations
+The constructor/eliminator core and resource-budgeted source record declarations
 are in place, including erased parameter telescopes and explicit binary consuming
 patterns. Next work includes a proper singleton representation, dot-field elaboration,
 richer/inferred pattern syntax, nominality decisions, and richer visibility. Do not implement fst/snd by

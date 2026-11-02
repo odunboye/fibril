@@ -1,0 +1,24 @@
+module ManyFields
+
+record Flags : Type 0 where
+  constructor MkFlags
+  eliminator useFlags
+  flag0 : Bool
+  flag1 : Bool
+  flag2 : Bool
+  flag3 : Bool
+  flag4 : Bool
+  flag5 : Bool
+  flag6 : Bool
+  flag7 : Bool
+  flag8 : Bool
+  flag9 : Bool
+  flag10 : Bool
+  flag11 : Bool
+  projection lastFlag flag11
+
+main : IO Unit
+main = putStrLn
+  (if lastFlag (MkFlags True True True True True True True True True True True True)
+    then "Beyond eight fields!"
+    else "Unexpected")
