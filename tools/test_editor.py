@@ -466,14 +466,58 @@ def inspect_project_checking(name, executable, line_ending):
             "let report.accepted = fibril#check_project(g:fibril_source_dir)",
             "let report.accepted_items = getloclist(0)",
             "let report.no_extra_window = winnr('$') == 1",
+            f"let g:fibril_project_entry = {vim_literal(entry)}",
+            "call cursor(4, 16)", "let original_position = getpos('.')",
+            "execute 'bunload ' . dependency_buffer",
+            "let report.definition_unloaded = fibril#definition_project(g:fibril_source_dir, g:fibril_project_entry)",
+            "let report.definition_stayed = bufnr('%') == entry_buffer && getpos('.') == original_position && !bufloaded(dependency_buffer)",
+            "execute 'buffer ' . dependency_buffer", "execute 'buffer ' . entry_buffer",
+            "call setbufline(dependency_buffer, 4, getbufline(dependency_buffer, 4)[0] . ' ')",
+            "let report.definition_modified = fibril#definition_project(g:fibril_source_dir, g:fibril_project_entry)",
+            "execute 'buffer! ' . dependency_buffer", "edit!",
+            "execute 'buffer ' . entry_buffer",
+            "call cursor(4, 16)", "FibrilDefinitionProject",
+            "let report.definition_jump = resolve(expand('%:p')) ==# resolve(fnamemodify(bufname(dependency_buffer), ':p')) && line('.') == 4 && col('.') == 1",
+            "call cursor(3, 1)", "FibrilDefinitionProject",
+            "let report.library_definition = resolve(expand('%:p')) ==# resolve(fnamemodify(bufname(dependency_buffer), ':p')) && line('.') == 4 && col('.') == 1",
+            "let report.definition_plug = !empty(maparg('<Plug>(FibrilDefinitionProject)', 'n'))",
             "let report.plug = !empty(maparg('<Plug>(FibrilCheckProject)', 'n'))",
             "let report.messages = execute('messages')",
             "execute b:undo_ftplugin",
+            "let report.definition_undo_command = exists(':FibrilDefinitionProject')",
+            "let report.definition_undo_plug = maparg('<Plug>(FibrilDefinitionProject)', 'n')",
             "let report.undo_command = exists(':FibrilCheckProject')",
             "let report.undo_plug = maparg('<Plug>(FibrilCheckProject)', 'n')",
             f"call writefile([json_encode(report)], {vim_literal(result_path)})",
             "qa!",
         ]
+        # Insert malformed definition packets before final messages/undo capture.
+        location = {"path": str(dependency.resolve()), "range": {
+            "start": {"offset": 0, "line": 1, "column": 1},
+            "end": {"offset": 6, "line": 1, "column": 7}}}
+        definition_packet = {**envelope, "checked": True, "query": str(dependency.resolve()),
+            "sources": [{"path": str(p.resolve()), "text": text.replace("\n", line_ending)}
+                        for p, text in ((entry, entry_source), (dependency, valid_source))],
+            "definition": location}
+        bad_packets = [
+            {**definition_packet, "query": str(entry.resolve())},
+            {**definition_packet, "definition": {**location, "path": str(directory / "outside.fib")}},
+            {**definition_packet, "definition": {**location, "range": {
+                **location["range"], "end": {"offset": 0, "line": 1, "column": 1}}}},
+            {**definition_packet, "sources": []},
+        ]
+        extra = [f"let g:fibril_executable = {vim_literal(fake)}",
+                 "let report.definition_faults = []", "let previous_position = getpos('.')",
+                 "let previous_buffer = bufnr('%')", "let previous_list = getloclist(0, {'id': 0}).id"]
+        for payload in bad_packets:
+            shell = ["#!/bin/sh", "printf '%s\\n' " + shlex.quote(json.dumps(payload)), "exit 0"]
+            extra += [
+                f"call writefile([{', '.join(vim_literal(x) for x in shell)}], {vim_literal(fake)})",
+                "let handled = fibril#definition_project(g:fibril_source_dir, g:fibril_project_entry)",
+                "call add(report.definition_faults, handled == 0 && bufnr('%') == previous_buffer && getpos('.') == previous_position && getloclist(0, {'id': 0}).id == previous_list)",
+            ]
+        insertion = commands.index("let report.messages = execute('messages')")
+        commands[insertion:insertion] = extra
         script = directory / "project.vim"
         script.write_text("\n".join(commands) + "\n")
         flags = ["--headless", "-u", "NONE", "-i", "NONE", "-n"] if name == "nvim" else [
@@ -523,6 +567,15 @@ class EditorTests(unittest.TestCase):
                     self.assertEqual(report["accepted_items"], [])
                     self.assertTrue(report["no_extra_window"])
                     self.assertTrue(report["plug"])
+                    self.assertEqual(report["definition_unloaded"], 0)
+                    self.assertTrue(report["definition_stayed"])
+                    self.assertEqual(report["definition_modified"], 0)
+                    self.assertTrue(report["definition_jump"], report["messages"])
+                    self.assertTrue(report["library_definition"], report["messages"])
+                    self.assertTrue(report["definition_plug"])
+                    self.assertTrue(all(report["definition_faults"]), report["messages"])
+                    self.assertEqual(report["definition_undo_command"], 0)
+                    self.assertEqual(report["definition_undo_plug"], "")
                     self.assertEqual(report["undo_command"], 0)
                     self.assertEqual(report["undo_plug"], "")
                     self.assertNotIn("must not execute", report["messages"])

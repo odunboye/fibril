@@ -12,6 +12,8 @@ command! -buffer FibrilCheckProject call fibril#check_project(get(b:, 'fibril_so
 nnoremap <buffer> <silent> <Plug>(FibrilCheckProject) :<C-U>FibrilCheckProject<CR>
 command! -buffer FibrilCheck call fibril#check()
 nnoremap <buffer> <silent> <Plug>(FibrilCheck) :<C-U>FibrilCheck<CR>
+command! -buffer FibrilDefinitionProject call fibril#definition_project(get(b:, 'fibril_source_dir', get(g:, 'fibril_source_dir', '')), get(b:, 'fibril_project_entry', get(g:, 'fibril_project_entry', expand('%:p'))))
+nnoremap <buffer> <silent> <Plug>(FibrilDefinitionProject) :<C-U>FibrilDefinitionProject<CR>
 command! -buffer FibrilDefinition call fibril#definition()
 nnoremap <buffer> <silent> <Plug>(FibrilDefinition) :FibrilDefinition<CR>
 command! -buffer -nargs=1 FibrilRenamePreview call fibril#rename_preview(<q-args>)
@@ -20,6 +22,8 @@ command! -buffer FibrilReferences call fibril#references()
 nnoremap <buffer> <silent> <Plug>(FibrilReferences) :FibrilReferences<CR>
 
 let b:undo_ftplugin = 'setlocal commentstring< comments< iskeyword<' .
+      \ ' | silent! delcommand -buffer FibrilDefinitionProject' .
+      \ ' | execute "silent! nunmap <buffer> <Plug>(FibrilDefinitionProject)"' .
       \ ' | silent! delcommand -buffer FibrilCheckProject' .
       \ ' | execute "silent! nunmap <buffer> <Plug>(FibrilCheckProject)"' .
       \ ' | silent! delcommand -buffer FibrilDefinition' .

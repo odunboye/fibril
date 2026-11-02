@@ -61,11 +61,13 @@ function! s:request(query, ...) abort
     endif
     let scalar_column = strchars(strpart(getline('.'), 0, col('.') - 1)) + 1
     let checking = index(['check', 'check-project'], a:query) >= 0
-    let protocol_version = a:query ==# 'check-project' ? 2 : 1
-    let args = a:query ==# 'check-project' ? [binary, 'check', '--json', '--source-dir', a:1, path] :
+    let protocol_version = index(['check-project', 'definition-project'], a:query) >= 0 ? 2 : 1
+    let args = a:query ==# 'definition-project' ?
+          \ [binary, 'definition', '--source-dir', a:1, '--entry', a:2, string(line('.')), string(scalar_column), path] :
+          \ a:query ==# 'check-project' ? [binary, 'check', '--json', '--source-dir', a:1, path] :
           \ a:query ==# 'check' ? [binary, 'check', '--json', path] :
           \ [binary, a:query, string(line('.')), string(scalar_column)] + a:000 + [path]
-    let field = checking ? 'diagnostics' :
+    let field = a:query ==# 'definition-project' ? 'definition' : checking ? 'diagnostics' :
           \ (a:query ==# 'rename-preview' ? 'edits' : a:query)
     " String-form system() is portable across Vim and Neovim. Quote each argument;
     " the configuration is an executable path, never a shell command fragment.
@@ -352,6 +354,7 @@ function! s:project_contexts(result, root, entry) abort
       throw 'Project source changed on disk'
     endif
     let context = s:source_context(source.text)
+    let context.text = source.text
     for buffer in buffers
       if !empty(buffer.name) && s:canonical(buffer.name) ==# source.path
         if getbufvar(buffer.bufnr, '&modified') ||
@@ -370,6 +373,67 @@ function! s:project_contexts(result, root, entry) abort
     throw 'Complete project report omitted its entry snapshot'
   endif
   return contexts
+endfunction
+
+function! fibril#definition_project(root, entry) abort
+  if type(a:root) != v:t_string || empty(a:root) ||
+        \ type(a:entry) != v:t_string || empty(a:entry)
+    return s:warn('configure a source root and project entry before project navigation')
+  endif
+  let response = s:request('definition-project', a:root, a:entry)
+  if empty(response)
+    return 0
+  endif
+  try
+    let result = response.result
+    if type(get(result, 'checked', 0)) != v:t_bool || !result.checked ||
+          \ type(get(result, 'query', 0)) != v:t_string ||
+          \ result.query !=# s:canonical(response.path)
+      throw 'Invalid project definition identity'
+    endif
+    let contexts = s:project_contexts(extend(copy(result), {'accepted': v:true}), a:root, a:entry)
+    if !has_key(contexts, result.query)
+      throw 'Query source snapshot omitted'
+    endif
+    let target = response.value
+    if target is v:null
+      return s:warn('no project definition at the cursor')
+    endif
+    if type(target) != v:t_dict || type(get(target, 'path', 0)) != v:t_string ||
+          \ !has_key(contexts, target.path) || type(get(target, 'range', 0)) != v:t_dict ||
+          \ type(get(target.range, 'start', 0)) != v:t_dict ||
+          \ type(get(target.range, 'end', 0)) != v:t_dict
+      throw 'Invalid project definition target'
+    endif
+    let context = contexts[target.path]
+    let diagnostic = {'severity': 'error', 'stage': 'definition', 'message': '',
+          \ 'byteOffset': v:null, 'position': target.range.start}
+    let start = s:diagnostic_item(diagnostic, context)
+    let diagnostic.position = target.range.end
+    let finish = s:diagnostic_item(diagnostic, context)
+    if target.range.start.line != target.range.end.line ||
+          \ target.range.start.column >= target.range.end.column
+      throw 'Invalid definition name range'
+    endif
+    if !context.bufnr || !start.valid || !finish.valid
+      return s:warn('open the target in a UTF-8 buffer and retry project navigation: ' . target.path)
+    endif
+    let source_window = win_getid()
+    normal! m'
+    execute 'keepalt buffer ' . context.bufnr
+    " Buffer-enter hooks are user configuration; never position using stale text.
+    if win_getid() != source_window || bufnr('%') != context.bufnr ||
+          \ s:canonical(expand('%:p')) !=# target.path || &modified ||
+          \ index(['', 'utf-8'], &l:fileencoding) < 0 ||
+          \ index(['unix', 'dos'], &l:fileformat) < 0 ||
+          \ s:buffer_snapshot() !=# context.text || s:snapshot(target.path) !=# context.text
+      return s:warn('target changed while entering its buffer; retry after saving')
+    endif
+    call cursor(start.lnum, start.col)
+    return 1
+  catch
+    return s:warn('project definition refused: ' . v:exception)
+  endtry
 endfunction
 
 function! fibril#check_project(root) abort

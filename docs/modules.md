@@ -107,9 +107,9 @@ Project eval/run now reuse this service; version-2 project JSON now preserves so
 consumes them separately from the version-1 single-file adapter.
 
 Compiler-side definition lookup is now available through the explicit
-[checked project definition API](editor-highlighting.md#checked-project-definition-api-compiler-only).
-It returns a real target file/name span plus snapshots, but is not wired into
-the existing same-file gd mapping. Project-wide references/rename remain pending.
+[checked project definition API](editor-highlighting.md#checked-project-definition-api).
+It returns a real target file/name span plus snapshots. FibrilDefinitionProject
+consumes it with conservative loaded-buffer jumps; the same-file gd is unchanged. Project-wide references/rename remain pending.
 
 ## Evaluating and running modules
 
@@ -140,7 +140,7 @@ entry errors, not guessed locations inside an inlined dependency. Original
 dependency checking/resolution failures retain their dependency file.
 
 This is hosted execution/reference evaluation, not C/JS generation. Unsaved project buffers, automatic dependency buffer loading,
-cross-file editor definition/reference/rename navigation, recursive modules, erased/
+project-wide reference/rename navigation, recursive modules, erased/
 linear globals, and opaque interfaces are not provided by this path.
 
 ## Dependency discovery is now inspectable

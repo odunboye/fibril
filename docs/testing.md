@@ -287,7 +287,10 @@ library queries with an explicit entry, local/module namespace separation,
 grouped references, Unicode/CRLF snapshots, punctuation and prelude misses,
 unreachable files, rejected private/transitive access, and invalid unused bodies.
 The original same-file navigation/rename tests exercise the shared traversal too.
-No editor cross-file definition mapping is claimed by these compiler tests.
+Separate real-editor tests cover FibrilDefinitionProject's loaded-target jumps,
+library-entry configuration, unloaded/modified target refusal, canonical aliases,
+malformed query/target/range/snapshot packets without movement/list changes, and
+command/Plug cleanup. Compiler tests alone do not validate editor conversion.
 
 ## Hedgehog dependency
 

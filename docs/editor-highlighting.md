@@ -79,6 +79,9 @@ return {
           vim.keymap.set("n", "gd", "<Plug>(FibrilDefinition)", {
             buffer = true, remap = true, desc = "Fibril: go to definition",
           })
+          vim.keymap.set("n", "gD", "<Plug>(FibrilDefinitionProject)", {
+            buffer = true, remap = true, desc = "Fibril: project definition",
+          })
           vim.keymap.set("n", "gr", "<Plug>(FibrilReferences)", {
             buffer = true, remap = true, desc = "Fibril: references",
           })
@@ -319,7 +322,46 @@ after display. Project buffers with unsaved changes are not checked.
 Cross-file definition/reference/rename services, automatic dependency loading,
 LSP, cancellation, and incremental checking remain separate work.
 
-## Checked project definition API (compiler only)
+## Project definitions in the editor
+
+Use :FibrilDefinitionProject for checked source-aware lookup; the ordinary
+:FibrilDefinition / gd remains same-file. The optional LazyVim example above maps
+gD to <Plug>(FibrilDefinitionProject), only in Fibril buffers.
+
+The source-root setting is shared with project checking. Entry selection uses
+b:fibril_project_entry, then g:fibril_project_entry, then the current file.
+For a single workspace, configure both globals in lua/config/options.lua:
+
+~~~lua
+vim.g.fibril_source_dir = "/absolute/path/to/project/sources"
+vim.g.fibril_project_entry = "/absolute/path/to/project/sources/Main.fib"
+~~~
+
+Buffer-local settings override globals for multi-project sessions. Library
+queries need an explicit entry: a library is not assumed to have its own main.
+If only the entry buffer has buffer-local settings, configure the library buffer
+too before making further project queries there.
+
+Place the cursor on the final identifier in Text.Greeting.greet and invoke the
+command. It checks the project, verifies query/entry/root identities and all
+reported source snapshots, and switches to the already-loaded target buffer at
+the actual definition name. Local definitions use the same traversal. Source
+buffers must be saved, unmodified UTF-8; no file is automatically loaded or saved.
+
+An unloaded target produces a warning without changing buffers: open it in a
+split, return to the query, and retry. Null targets, malformed packets, stale
+snapshots, hidden/unsupported positions, and modified dependency aliases do not
+produce guessed jumps. No location list is replaced. Buffer-enter hooks are
+outside the compiler's control; after switching buffers, identity/encoding/text
+are checked again before positioning. This is manual snapshot navigation, not a
+live index or atomic filesystem transaction.
+
+The command and Plug mapping are removed by the ftplugin undo hook. No default
+key is assigned by the runtime; the LazyVim gD mapping is an optional user choice.
+IO descriptions are not executed. Project references/rename and automatic
+dependency loading remain unimplemented.
+
+## Checked project definition API
 
 The same-file gd mapping is unchanged. For explicit project lookup, the compiler
 now provides:
@@ -358,10 +400,10 @@ structured data separately from JSON rendering. The generic
 caller-supplied target identities and qualified bindings; those raw inputs are
 not checking certificates. The project service admits them only after checking.
 
-This API does **not yet wire cross-file gd into Vim/Neovim**. A future adapter
-must validate source identities/snapshots and target-buffer encoding before
-jumping. Existing version-1 definition clients reject this explicit version-2
-form rather than attach a dependency span to the current buffer. Project-wide
+FibrilDefinitionProject consumes this version-2 API with snapshot validation and
+already-loaded-buffer jumps. The ordinary version-1 definition client remains
+separate and rejects version 2 rather than attach a dependency span to the
+current buffer. Project-wide
 references, rename, prelude-source navigation, stable symbol IDs, and incremental
 caching remain separate work.
 
