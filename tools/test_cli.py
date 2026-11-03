@@ -2,6 +2,9 @@
 """Smoke-test the built CLI independently of its pure implementation helpers."""
 from pathlib import Path
 import subprocess
+import signal
+import time
+from unittest.mock import patch
 import tempfile
 import random
 import unittest
@@ -13,12 +16,40 @@ ROOT = Path(__file__).resolve().parents[1]
 EXE = ROOT / "build/exec/fibril"
 
 
+def run_cli(*args, cwd=ROOT, text=True, timeout=20):
+    command = [str(EXE), *args]
+    # The executable is a shell wrapper: its Chez child inherits both pipes.
+    # Killing only the wrapper can leave communicate() waiting indefinitely.
+    process = subprocess.Popen(command, cwd=cwd, text=text, stdout=subprocess.PIPE,
+                               stderr=subprocess.PIPE, start_new_session=True)
+    try:
+        stdout, stderr = process.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        stdout, stderr = process.communicate()
+        raise subprocess.TimeoutExpired(command, timeout, output=stdout, stderr=stderr)
+    return subprocess.CompletedProcess(command, process.returncode, stdout, stderr)
+
+
 def run(*args, cwd=ROOT):
-    return subprocess.run([str(EXE), *args], cwd=cwd, text=True,
-                          capture_output=True, timeout=20)
+    return run_cli(*args, cwd=cwd)
 
 
 class CLITests(unittest.TestCase):
+    def test_timeout_cleans_up_wrapper_children_with_open_pipes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            wrapper = Path(directory) / 'wrapper'
+            wrapper.write_text('#!/bin/sh\nsleep 30 &\nwait\n')
+            wrapper.chmod(0o700)
+            start = time.monotonic()
+            with patch(__name__ + '.EXE', wrapper):
+                with self.assertRaises(subprocess.TimeoutExpired):
+                    run_cli(timeout=0.2)
+            self.assertLess(time.monotonic() - start, 5)
+
     def test_help(self):
         result = run("--help")
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -887,8 +918,7 @@ class CLITests(unittest.TestCase):
                 "putStrLn : Bool -> IO Unit\n"
                 "putStrLn = \\(flag : Bool) => pure Unit ()\n"
                 "main : IO Unit\nmain = putStrLn True\n", encoding="utf-8")
-            result = subprocess.run([str(EXE), "run", str(path)], cwd=directory,
-                                    text=True, capture_output=True, timeout=20)
+            result = run("run", str(path), cwd=directory)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertEqual(result.stdout, "")
             path.write_text(
@@ -1016,12 +1046,12 @@ class CLITests(unittest.TestCase):
                         data = data[:-len(ending)]
                         formatted = formatted[:-len(ending)]
                     path.write_bytes(data.encode())
-                    result = subprocess.run([str(EXE), "format", str(path)], capture_output=True)
+                    result = run_cli("format", str(path), text=False)
                     self.assertEqual(result.returncode, 0, result.stderr.decode())
                     self.assertEqual(result.stdout, formatted.encode())
                     self.assertEqual(path.read_bytes(), data.encode())
                     path.write_bytes(result.stdout)
-                    again = subprocess.run([str(EXE), "format", str(path)], capture_output=True)
+                    again = run_cli("format", str(path), text=False)
                     self.assertEqual(again.stdout, result.stdout)
             # Flat do actions must not accidentally become multiline statements.
             do_source = 'main : IO Unit\nmain = do\n  putStrLn (appendString "' + "a" * 110 + '" "b")\n'
@@ -1037,7 +1067,7 @@ class CLITests(unittest.TestCase):
             for file in original.rglob("*.fib"):
                 destination = Path(directory) / file.relative_to(original)
                 destination.parent.mkdir(parents=True, exist_ok=True)
-                text = subprocess.run([str(EXE), "format", str(file)], capture_output=True)
+                text = run_cli("format", str(file), text=False)
                 self.assertEqual(text.returncode, 0, text.stderr.decode())
                 destination.write_bytes(text.stdout)
             result = run("run", "--source-dir", directory, str(path))
@@ -1057,7 +1087,7 @@ class CLITests(unittest.TestCase):
                 result = run("format", str(path))
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                 # subprocess text mode normalizes CRLF, so inspect actual output bytes.
-                raw = subprocess.run([str(EXE), "format", str(path)], capture_output=True)
+                raw = run_cli("format", str(path), text=False)
                 self.assertEqual(raw.stdout, expected.replace("\n", ending).encode())
                 self.assertEqual(path.read_bytes(), original)
                 report = json.loads(run("format", "--json", str(path)).stdout)
@@ -1066,7 +1096,7 @@ class CLITests(unittest.TestCase):
                 self.assertEqual(run("format", "--check", str(path)).returncode, 1)
                 path.write_bytes(raw.stdout)
                 canonical = path.read_bytes()
-                again = subprocess.run([str(EXE), "format", str(path)], capture_output=True)
+                again = run_cli("format", str(path), text=False)
                 self.assertEqual(again.stdout, canonical)
                 result = run("format", "--check", str(path))
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
