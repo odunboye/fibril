@@ -25,6 +25,130 @@ class CLITests(unittest.TestCase):
         self.assertIn("fibril demo", result.stdout)
         self.assertIn("not implemented yet", result.stdout)
 
+    def test_strict_local_manifest_inspection(self):
+        baseline = ('schema: 1\nname: mailer-app\nmodule-prefix: Mailer\nsource-dir: src\n'
+                    'foundation: de-morgan\nentry: Main\ndependencies:\n  email-core:\n    path: ../email-core\n')
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / "fibril.yaml"
+            path.write_text(baseline)
+            result = run("manifest", str(path), cwd=root)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            report = json.loads(result.stdout)
+            self.assertFalse(report["checked"])
+            self.assertFalse(report["resolved"])
+            self.assertFalse(report["locked"])
+            self.assertEqual(report["name"], "mailer-app")
+            self.assertEqual(report["dependencies"], [{"name": "email-core", "path": "../email-core"}])
+            self.assertEqual(sorted(p.name for p in root.iterdir()), ["fibril.yaml"])
+            positives = [baseline.replace("source-dir: src", 'source-dir: "src/日本 語"'),
+                         baseline.replace("module-prefix: Mailer", "module-prefix: MainView"),
+                         baseline.replace("module-prefix: Mailer", "module-prefix: Text.Core"),
+                         baseline.replace("\n", "\r\n"), baseline.replace("\n", "\r"),
+                         '# comment\n---\n' + baseline,
+                         baseline[:baseline.index("dependencies:")],
+                         baseline[:baseline.index("dependencies:")] + 'dependencies: {}\n']
+            for text in positives:
+                path.write_bytes(text.encode("utf-8"))
+                result = run("manifest", str(path), cwd=root)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            bads = [
+                "", "# only a comment\n", "[]", "true", "null", baseline + "---\n",
+                baseline + "---\n" + baseline, "%YAML 1.2\n---\n" + baseline,
+                "%TAG !e! tag:example.org,2020:\n---\n" + baseline,
+                "%FOO ignored\n---\n" + baseline, "\ufeff%YAML 1.2\n---\n" + baseline,
+                "&root\n" + baseline,
+                baseline.replace("name: mailer-app", "name: &name mailer-app"),
+                baseline.replace("name: mailer-app", "name: *missing"),
+                baseline.replace("name: mailer-app", "name: !!str mailer-app"),
+                baseline.replace("name: mailer-app", "name: ! mailer-app"),
+                baseline.replace("name: mailer-app", "name: !custom mailer-app"),
+                baseline.replace("name: mailer-app", "name: |\n  mailer-app"),
+                baseline.replace("name: mailer-app", "name: >\n  mailer-app"),
+                baseline.replace("name: mailer-app", "name: true"),
+                baseline.replace("source-dir: src", "source-dir: null"),
+                baseline.replace("source-dir: src", "source-dir: 123"),
+                baseline.replace("source-dir: src", "source-dir: [src]"),
+                baseline.replace("source-dir: src", "source-dir: ''"),
+                baseline.replace("source-dir: src", "source-dir: /src"),
+                baseline.replace("source-dir: src", "source-dir: src/../lib"),
+                baseline.replace("source-dir: src", "source-dir: src/./lib"),
+                baseline.replace("source-dir: src", "source-dir: src/"),
+                baseline.replace("schema: 1", 'schema: "1"'),
+                baseline.replace("schema: 1", "schema: true"),
+                baseline.replace("schema: 1", "schema: 1.0"),
+                baseline.replace("schema: 1", "schema: +1"),
+                baseline.replace("schema: 1", "schema: 0x1"),
+                baseline.replace("schema: 1", "schema: 2"),
+                baseline + "scripts: {}\n", baseline + "git: ignored\n",
+                baseline + "name: duplicate\n", baseline + '"name": duplicate\n',
+                baseline + '"na\\u006de": duplicate\n', baseline + "true: ignored\n",
+                baseline + "? {nested: key}\n: ignored\n",
+                baseline.replace("module-prefix: Mailer", "module-prefix: Main"),
+                baseline.replace("module-prefix: Mailer", "module-prefix: Main.Library"),
+                baseline.replace("module-prefix: Mailer", "module-prefix: lower"),
+                baseline.replace("module-prefix: Mailer", "module-prefix: Mail..Core"),
+                baseline.replace("foundation: de-morgan", "foundation: other"),
+                baseline.replace("entry: Main", "entry: App.Main"),
+                baseline.replace("    path: ../email-core", "    path: ../email-core\n    path: ../other"),
+                baseline.replace("    path: ../email-core", "    path: ../email-core\n    url: ignored"),
+                baseline.replace("  email-core:\n    path: ../email-core", "  email-core: ../email-core"),
+                baseline.replace("  email-core:\n    path: ../email-core", "  email-core: {}"),
+                baseline.replace("  email-core:\n    path: ../email-core", "  mailer-app:\n    path: ."),
+                baseline[:baseline.index("dependencies:")] + 'dependencies: null\n',
+                baseline + 'extra:\n  one:\n    two:\n      three: value\n',
+                '[' * 65 + ']' * 65,
+            ]
+            for prefix in ("\t", "\t\t", "\t ", " \t"):
+                for directive in ("%FOO ignored", "%YAML 1.2", "%TAG !e! tag:example.org,2020:"):
+                    for newline in ("\n", "\r\n", "\r"):
+                        bads.append(prefix + directive + newline + "---" + newline + baseline)
+            for field in ("schema", "name", "module-prefix", "source-dir", "foundation"):
+                bads.append("\n".join(line for line in baseline.splitlines() if not line.startswith(field + ":")))
+            for escaped in (r'\0', r'\t', r'\n', r'\r', r'\x1b', r'\x7f', r'\u0085'):
+                bads.append(baseline.replace("source-dir: src", f'source-dir: "src/{escaped}"'))
+                bads.append(baseline.replace("path: ../email-core", f'path: "../{escaped}"'))
+            for text in bads:
+                with self.subTest(text=text[:120]):
+                    path.write_bytes(text.encode("utf-8"))
+                    result = run("manifest", str(path), cwd=root)
+                    self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertEqual(result.stdout, "")
+                    self.assertEqual(sorted(p.name for p in root.iterdir()), ["fibril.yaml"])
+            schema_error = baseline + 'scripts: {}\n'
+            path.write_text(schema_error)
+            result = run("manifest", str(path))
+            self.assertIn("Unknown manifest field", result.stderr)
+            self.assertNotIn("fibril.yaml:1:", result.stderr)
+            # Independent admission boundaries; conservative raw guards are intentional.
+            for count, expected in ((1024, 0), (1025, 1)):
+                path.write_text(baseline.replace("source-dir: src", 'source-dir: "' + 'x' * count + '"'))
+                self.assertEqual(run("manifest", str(path)).returncode == 0, expected == 0)
+            for count, expected in ((128, 0), (129, 1)):
+                path.write_text(baseline.replace("source-dir: src", 'source-dir: "' + '[' * count + '"'))
+                self.assertEqual(run("manifest", str(path)).returncode == 0, expected == 0)
+            for count, expected in ((256, 0), (257, 1)):
+                path.write_text(baseline + '# comment\n' * (count - len(baseline.splitlines())))
+                self.assertEqual(run("manifest", str(path)).returncode == 0, expected == 0)
+            for count, expected in ((64, 0), (65, 1)):
+                path.write_text(baseline[:baseline.index("dependencies:")] + 'dependencies:\n' +
+                                ''.join(f'  pkg-{i}:\n    path: ../pkg-{i}\n' for i in range(count)))
+                self.assertEqual(run("manifest", str(path)).returncode == 0, expected == 0)
+            path.write_bytes(b'\xff')
+            self.assertNotEqual(run("manifest", str(path)).returncode, 0)
+            # Byte admission happens before file-buffer allocation and parser invocation.
+            path.write_bytes((baseline + '#' + '.' * (8192 - len(baseline.encode()) - 1)).encode())
+            self.assertEqual(run("manifest", str(path)).returncode, 0)
+            path.write_bytes(path.read_bytes() + b'.')
+            result = run("manifest", str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("8192-byte read limit", result.stderr)
+            # Event admission is separate from composition/schema checks.
+            path.write_text('{' + ', '.join(f'k{i}: value' for i in range(260)) + '}')
+            result = run("manifest", str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("event admission", result.stderr)
+
     def test_new_console_project_is_offline_and_runnable(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

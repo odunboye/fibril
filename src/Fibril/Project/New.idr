@@ -78,7 +78,7 @@ nextSteps name = ["Created " ++ name ++ " (console template).", "Next:",
   "  cd " ++ name,
   "  fibril check --source-dir src src/Main.fib",
   "  fibril run --source-dir src src/Main.fib",
-  "Package manifests and implicit project discovery are not implemented yet."]
+  "Workspace loading and implicit project discovery are not implemented; manifest inspection is read-only."]
 
 ||| Runtime identifiers differ by bootstrap backend: Chez calls GNU/Linux and
 ||| BSD unix; RefC reports Linux/macOS. This is a POSIX selection policy, not

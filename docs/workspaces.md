@@ -10,8 +10,8 @@ ordinary module tree for a small program with no reusable package boundary.
 **Implemented now:** a pure local inventory planner in
 [Project.Workspace](../src/Fibril/Project/Workspace.idr), with ordering, namespace
 ownership and direct-dependency checks. It has no filesystem effects or compiler
-imports. This is not a manifest reader, workspace-aware check/run command, package
-fetcher or lockfile implementation. The current explicit single-root CLI remains
+imports. A separate [strict manifest inspector](manifests.md) now decodes the schema.
+Neither supplies workspace-aware check/run, fetching or locks. The explicit single-root CLI remains
 unchanged; fibril new still emits no manifest.
 
 ![Workspace planning boundary](diagrams/workspaces.svg)
@@ -117,7 +117,7 @@ workspace through a declared relative path. source-dir must resolve inside its
 package directory; source symlinks escaping that boundary are rejected. No path
 source implies permission to execute scripts or fetch remote content.
 
-## Version-one logical manifest schema (reader pending)
+## Version-one manifest schema (inspection implemented)
 
 The intended fibril.yaml schema is deliberately local-only:
 
@@ -150,11 +150,10 @@ name selects only the explicitly declared target. One name/prefix owner wins by
 validation, never by path-search order. No version solver or side-by-side version
 selection is included.
 
-These are integration contracts, **not executable configuration yet**. Select a
-maintained YAML parser/profile before implementing the reader. Reject duplicate
-and unknown keys, aliases/tags, schema mismatches, implicit scalar surprises,
-unsupported dependency sources and resource exhaustion. Do not hand-roll a YAML
-parser or accept fields with no implemented meaning.
+The package schema has a [maintained-parser decoder](manifests.md), rejecting
+duplicate/unknown keys, aliases/tags/directives, scalar surprises and unsupported
+sources under explicit admission. This is **not executable workspace configuration**:
+canonical path and target-manifest identity checks still need the filesystem loader.
 
 ## Reproducibility, foundation and foreign trust
 
@@ -184,7 +183,7 @@ transitive routing, unknown requesters, forged ambiguity and Main separation.
 Root tests deliberately use nonexistent paths: no filesystem validation is claimed.
 Read-only parallel review supplied the module-loader integration constraints.
 
-Next: maintained manifest decoding -> canonical local-root resolution -> real
+Manifest decoding is now implemented. Next: canonical local-root resolution -> real
 workspace-aware module loading/reporting/navigation -> source snapshot locking.
 Keep all present single-root commands compatible until that path is tested end to
-end. Project scaffolding can emit manifests only when the reader really works.
+end. Scaffolding still emits no manifest until namespace and loader integration work.

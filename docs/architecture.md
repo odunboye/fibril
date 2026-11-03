@@ -2,9 +2,11 @@
 
 Implemented:
 
+- `src/Fibril/Project/Manifest.idr`: strict local schema decoder using pinned maintained YAML events/composition. No dependency/source loading or checking; `Driver.Manifest` selects an 8192-byte bounded read and reports checked/resolved/locked false. [Manifest inspection](manifests.md) documents profile limits and unlocated schema diagnostics.
+
 - `src/Fibril/Project/Workspace.idr`: pure local inventory admission, dependency-first ordering and direct package namespace routing. No filesystem discovery, manifest parsing, checked module graph or authority certificate. `Project.Name` deliberately separates package/slug validation APIs from module syntax.
 
-- `src/Fibril/Project/{Template,New}.idr`: pure bundled console plan/name policy and CLI scaffolding orchestration, with no compiler/checker dependency. `Runtime.Project` provides private fresh directories and exclusive checked file writes in a trusted POSIX cwd; no recursive rollback, manifest reader or language FFI.
+- `src/Fibril/Project/{Template,New}.idr`: pure bundled console plan/name policy and CLI scaffolding orchestration, with no compiler/checker dependency. `Runtime.Project` provides private fresh directories and exclusive checked file writes in a trusted POSIX cwd; no recursive rollback or language FFI.
 
 - [Non-recursive source data](data.md): authored data/constructor/field syntax, shared qualified key allocation, named nominal/variant IR, resource-admitted telescope packing, checked constructors and optional consuming eliminators. Ordinary module exports carry checked definitions; direct data cases/layout-schema publication remain future work.
 

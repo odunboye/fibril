@@ -1,0 +1,9 @@
+schema: 1
+name: mailer-app
+module-prefix: Mailer
+source-dir: src
+foundation: de-morgan
+entry: Main
+dependencies:
+  email-core:
+    path: ../email-core

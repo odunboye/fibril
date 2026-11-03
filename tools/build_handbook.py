@@ -93,6 +93,10 @@ def main():
     destinations = {p: OUT / p.relative_to(ROOT).with_suffix(".html") for p in pages}
     destinations.update({p: OUT / "source" / (str(p.relative_to(ROOT)) + ".html")
                          for p in sources})
+    # Markdown links to copied notices/fonts/assets need their relocated targets.
+    destinations.update({p: OUT / "assets" / p.relative_to(ROOT / "docs/assets")
+                         for p in (ROOT / "docs/assets").rglob("*")
+                         if p.is_file() and p not in destinations})
     # One manifest owns reading order and labels; Markdown owns chapter content.
     parts = json.loads((ROOT / "docs/book.json").read_text())
     nav = [("Book contents", OUT / "index.html")]

@@ -108,6 +108,13 @@ class TextbookTests(unittest.TestCase):
             self.assertIn('id="search"', content)
             self.assertIn('id="outline-links"', content)
 
+    def test_manifest_parser_notice_is_copied_and_linked_offline(self):
+        notice = Path("licenses/idris2-yaml.txt")
+        self.assertEqual((OUT / "assets" / notice).read_bytes(),
+                         (ROOT / "docs/assets" / notice).read_bytes())
+        self.assertIn('../assets/licenses/idris2-yaml.txt',
+                      (OUT / "docs/manifests.html").read_text())
+
     def test_search_index_contains_every_chapter(self):
         script = (OUT / "assets/search-data.js").read_text()
         prefix = "window.FIBRIL_SEARCH = "

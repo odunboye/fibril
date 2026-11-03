@@ -2,8 +2,8 @@
 
 Status: [offline console scaffolding](project-creation.md) is implemented.
 [Pure workspace planning and direct-dependency routing](workspaces.md) are implemented
-as internal APIs. Manifest reading, filesystem workspace loading, locks and fetching
-remain unimplemented.
+as internal APIs. [Strict local manifest inspection](manifests.md) is implemented;
+filesystem workspace loading, locks and fetching remain unimplemented.
 
 ## Bootstrap versus user projects
 
@@ -12,13 +12,14 @@ remain unimplemented.
   **fibril.lock** lockfile.
 - Borrow Dart pub's readable project description and integrated workflow, not its
   complete registry/version-solving machinery.
-- This does not replace the existing pack setup or add a dependency today.
+- This does not replace the existing pack setup. The bootstrap now uses the
+  collection-pinned yaml library for strict inspection, not application fetching.
 
 ## Local-only version-one contract
 
 The [workspace contract](workspaces.md) now defines explicit package names,
 owned module prefixes, source roots, direct dependencies and separate entry
-selection. The logical manifest schema is local-only; its reader is pending:
+selection. The schema is local-only and can now be inspected with fibril manifest PATH:
 
 ~~~yaml
 schema: 1
@@ -40,7 +41,7 @@ names do not infer namespaces or grant source-level visibility.
 
 The first [local module/import contract](modules.md) precedes package resolution:
 one explicit source root, checked qualified exports, an acyclic graph, and no
-network or manifest reader. Syntax/discovery and imported checking are implemented; package resolution
+network or implicit manifest discovery. Syntax/discovery and imported checking are implemented; package resolution
 remains future work.
 
 ## Tooling boundary and first scaffold
@@ -54,7 +55,7 @@ plugins or template hooks.
 
 fibril new NAME [--template console] [--dry-run] now creates only a source tree,
 README and gitignore. It intentionally emits no pretend-operational manifest or
-lockfile before a supported schema/reader exists. init into existing directories,
+lockfile before workspace loading and namespace integration exist. init into existing directories,
 local workspaces, fetching and remote templates remain future slices.
 
 ## Minimal implementation sequence
@@ -93,9 +94,10 @@ small schema/profile; reject duplicate keys, unknown fields, custom tags, aliase
 and implicit scalar surprises. Require quoted compiler constraints/revisions where
 ambiguity exists. Pin the parser/profile and bound input size and expansion work.
 
-No YAML library has been selected. Manifest parsing and lock format/versioning
-remain pending; the [local workspace ownership/order contract](workspaces.md) is
-now specified and tested. Target conditions and compatibility/version-selection
+The [strict reader](manifests.md) selects collection-pinned idris2-yaml, validates
+events before composition and rejects unsupported YAML/schema features. Filesystem
+loading and lock format/versioning remain pending; the
+[local workspace ownership/order contract](workspaces.md) is specified and tested. Target conditions and compatibility/version-selection
 policies need separate later schema work.
 
 ## References

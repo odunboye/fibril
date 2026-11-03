@@ -1,5 +1,8 @@
 # Examples
 
+Strict YAML inspection fixtures live in [manifests/](manifests/README.md). They are
+not executable workspace projects or source-checking examples.
+
 ## Runnable bootstrap project (Idris 2)
 
 These programs use Idris 2 and the current Fibril implementation library.

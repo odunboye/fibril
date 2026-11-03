@@ -68,6 +68,10 @@
         "path": "docs/project-creation.md"
       },
       {
+        "title": "Strict local manifest inspection",
+        "path": "docs/manifests.md"
+      },
+      {
         "title": "Local workspace contract and planner",
         "path": "docs/workspaces.md"
       },
@@ -311,6 +315,10 @@
       {
         "title": "Examples",
         "path": "examples/README.md"
+      },
+      {
+        "title": "Manifest inspection fixtures",
+        "path": "examples/manifests/README.md"
       },
       {
         "title": "Proposed univalence example",

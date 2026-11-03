@@ -54,6 +54,12 @@ component text = case unpack text of
     allowed : Char -> Bool
     allowed c = upper c || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_'
 
+||| Shared namespace/request component profile; Main remains separately reserved
+||| for ownership, not rejected as a syntactic module name.
+public export
+validModuleComponents : List String -> Bool
+validModuleComponents parts = not (null parts) && length parts <= 16 && all component parts
+
 ownsPrefix : List String -> List String -> Bool
 ownsPrefix [] moduleName = True
 ownsPrefix (_ :: _) [] = False
@@ -70,7 +76,7 @@ validateInventory seen [] = Right ()
 validateInventory seen (spec :: rest) = do
   if not (validPackageName spec.name) then Left (InvalidWorkspace "Invalid package name") else Right ()
   if spec.sourceRoot == "" then Left (InvalidWorkspace ("Missing source root for " ++ spec.name)) else Right ()
-  if null spec.modulePrefix || length spec.modulePrefix > 16 || not (all component spec.modulePrefix)
+  if not (validModuleComponents spec.modulePrefix)
      then Left (InvalidWorkspace ("Package namespace needs nonempty ASCII capitalized identifier components: " ++ spec.name)) else Right ()
   if any (\reserved => ownsPrefix [reserved] spec.modulePrefix) ["Main"]
      then Left (InvalidWorkspace ("Reserved namespace root for " ++ spec.name)) else Right ()
@@ -128,7 +134,7 @@ moduleOwner plan importer moduleName = do
   current <- case findPackage importer plan.inventory of
     Nothing => Left (InvalidWorkspace ("Unknown importing package: " ++ show importer))
     Just spec => Right spec
-  if null moduleName || length moduleName > 16 || not (all component moduleName)
+  if not (validModuleComponents moduleName)
      then Left (InvalidWorkspace "Invalid requested module component vector") else Right ()
   owner <- case filter (\spec => not (null spec.modulePrefix) && ownsPrefix spec.modulePrefix moduleName) plan.inventory of
     [spec] => Right spec

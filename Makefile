@@ -17,6 +17,8 @@ test: build
 
 examples: build
 	$(PACK) run fibril-examples
+	./build/exec/fibril manifest examples/manifests/mailer/fibril.yaml
+	./build/exec/fibril manifest examples/manifests/email-core/fibril.yaml
 	./build/exec/fibril check examples/core/identity.fib
 	./build/exec/fibril check examples/core/identity-unicode.fib
 	./build/exec/fibril check --erased examples/core/identity-type.fib

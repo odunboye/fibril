@@ -1,0 +1,14 @@
+digraph Manifests {
+  rankdir=LR;
+  node [shape=box];
+  file [label="One explicit local file\n8192-byte pre-read cap"];
+  input [label="UTF-8/control + conservative raw admission\nno directives after spaces/tabs"];
+  parse [label="Maintained YAML parseEvents"];
+  policy [label="Bound events/depth; reject tags, anchors, aliases\nsequences, multiline scalars, extra documents"];
+  compose [label="Maintained Core composition\nduplicate-key rejection"];
+  schema [label="Strict v1 schema\nstring fields + plain integer 1"];
+  report [label="Inspection JSON\nchecked / resolved / locked: false"];
+  later [label="Future canonical roots + multi-root checking\nno current dependency traversal or lock", style=dashed];
+  file -> input -> parse -> policy -> compose -> schema -> report;
+  schema -> later [style=dashed];
+}

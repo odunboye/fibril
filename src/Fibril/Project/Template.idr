@@ -18,5 +18,5 @@ consoleFiles : String -> List ProjectFile
 consoleFiles name =
   [ PlannedFile "src/Main.fib" ("module Main\n\nmain : IO Unit\nmain = putStrLn \"Hello from " ++ name ++ "!\"\n")
   , PlannedFile ".gitignore" "build/\n"
-  , PlannedFile "README.md" ("# " ++ name ++ "\n\nA minimal Fibril console project.\n\n```sh\nfibril check --source-dir src src/Main.fib\nfibril run --source-dir src src/Main.fib\n```\n\nThe compiler is an experimental bootstrap. Package manifest reading and implicit\nproject discovery are not implemented: these commands use the explicit source root.\nNo dependencies were fetched, no hooks ran, and no Git repository was initialized.\n")
+  , PlannedFile "README.md" ("# " ++ name ++ "\n\nA minimal Fibril console project.\n\n```sh\nfibril check --source-dir src src/Main.fib\nfibril run --source-dir src src/Main.fib\n```\n\nThe compiler is an experimental bootstrap. Implicit project discovery and workspace\nloading are not implemented: these commands use the explicit source root.\nNo dependencies were fetched, no hooks ran, and no Git repository was initialized.\n")
   ]
