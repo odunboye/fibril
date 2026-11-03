@@ -248,7 +248,7 @@ mutual
           Right (if arrow.kind == BodyArrow then NConstraintPi region header.quantity header.name header.domain body
                     else NPi region header.quantity header.name header.domain body, remaining)
         else do
-          (domain, afterDomain) <- application depth end tokens
+          (domain, afterDomain) <- infixExpression depth end tokens
           case afterDomain of
             arrow :: rest =>
               if arrow.kind == Arrow then do
@@ -398,6 +398,21 @@ mutual
     (domain, afterDomain) <- expression depth end afterColon
     (closing, remaining) <- expect CloseParen end afterDomain
     Right (Binder (Between opening.span.start closing.span.finish) q name.spelling domain remaining)
+
+  infixExpression : Nat -> Position -> List Token -> Either ParseError (Expr, List Token)
+  infixExpression depth end tokens = do
+    (left, remaining) <- application depth end tokens
+    infixArguments depth end left remaining
+
+  infixArguments : Nat -> Position -> Expr -> List Token -> Either ParseError (Expr, List Token)
+  infixArguments depth end left [] = Right (left, [])
+  infixArguments Z end left tokens = limit end tokens
+  infixArguments (S depth) end left tokens@(opening :: rest) =
+    if opening.kind /= Backtick then Right (left, tokens) else do
+      (operator, following) <- application depth end rest
+      (closing, afterClosing) <- expect Backtick end following
+      (right, remaining) <- application depth end afterClosing
+      infixArguments depth end (NInfix (Between (extent left).start (extent right).finish) operator left right) remaining
 
   application : Nat -> Position -> List Token -> Either ParseError (Expr, List Token)
   application Z end tokens = limit end tokens

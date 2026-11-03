@@ -100,6 +100,7 @@ mentions name (NBoxValue _ a b) = mentions name a || mentions name b
 mentions name (NBoxCase _ a b c) = mentions name a || mentions name b || mentions name c
 mentions name (NImplementationApply _ _ function) = mentions name function
 mentions name (NDictionaryApply _ _ function argument) = mentions name function || (case argument of Nothing => False; Just value => mentions name value)
+mentions name (NInfix _ f a b) = mentions name f || mentions name a || mentions name b
 mentions name (NApply _ a b) = mentions name a || mentions name b
 mentions name (NAscribe _ a b) = mentions name a || mentions name b
 mentions name (NUnitCase _ a b) = mentions name a || mentions name b
@@ -262,6 +263,7 @@ syntaxNodes (NDictionaryApply _ _ function argument) = capped (1 + syntaxNodes f
 syntaxNodes (NPi _ _ _ a b) = capped (1 + syntaxNodes a + syntaxNodes b)
 syntaxNodes (NLambda _ _ _ a b) = capped (1 + syntaxNodes a + syntaxNodes b)
 syntaxNodes (NSigma _ _ _ _ a b) = capped (1 + syntaxNodes a + syntaxNodes b)
+syntaxNodes (NInfix _ f a b) = capped (1 + syntaxNodes f + syntaxNodes a + syntaxNodes b)
 syntaxNodes (NApply _ a b) = capped (1 + syntaxNodes a + syntaxNodes b)
 syntaxNodes (NAscribe _ a b) = capped (1 + syntaxNodes a + syntaxNodes b)
 syntaxNodes (NUnitCase _ a b) = capped (1 + syntaxNodes a + syntaxNodes b)

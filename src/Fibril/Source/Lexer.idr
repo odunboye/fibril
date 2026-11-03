@@ -9,7 +9,7 @@ import Fibril.Source.StringLiteral
 
 ||| Token categories for the initial explicitly annotated expression grammar.
 public export
-data TokenKind = Name | Number | StringToken | StringKeyword | TypeKeyword | UnitKeyword | BoolKeyword | TrueKeyword | FalseKeyword | IfKeyword | ThenKeyword | ElseKeyword | DoKeyword | CaseKeyword | OfKeyword | LetKeyword | InKeyword | ProjectionKeyword | ReturnKeyword | RecordKeyword | InterfaceKeyword | ImplementationKeyword | ConstructorKeyword | EliminatorKeyword | WhereKeyword | ModuleKeyword | ImportKeyword | ExportKeyword | Dot | Equals | OpenParen | CloseParen | DictionaryOpen | CloseBrace | Colon | Arrow | BindArrow | BodyArrow | Lambda
+data TokenKind = Name | Number | StringToken | StringKeyword | TypeKeyword | UnitKeyword | BoolKeyword | TrueKeyword | FalseKeyword | IfKeyword | ThenKeyword | ElseKeyword | DoKeyword | CaseKeyword | OfKeyword | LetKeyword | InKeyword | ProjectionKeyword | ReturnKeyword | RecordKeyword | InterfaceKeyword | ImplementationKeyword | ConstructorKeyword | EliminatorKeyword | WhereKeyword | ModuleKeyword | ImportKeyword | ExportKeyword | Dot | Equals | OpenParen | CloseParen | DictionaryOpen | CloseBrace | Backtick | Colon | Arrow | BindArrow | BodyArrow | Lambda
 
 public export
 Show TokenKind where
@@ -43,6 +43,7 @@ Show TokenKind where
   show ExportKeyword = "export"
   show Dot = "."
   show Equals = "="
+  show Backtick = "`"
   show DictionaryOpen = "@{"
   show CloseBrace = "}"
   show OpenParen = "("
@@ -85,6 +86,7 @@ Eq TokenKind where
   ExportKeyword == ExportKeyword = True
   Dot == Dot = True
   Equals == Equals = True
+  Backtick == Backtick = True
   DictionaryOpen == DictionaryOpen = True
   CloseBrace == CloseBrace = True
   OpenParen == OpenParen = True
@@ -233,6 +235,7 @@ scan (S fuel) at (c :: rest) =
        Right (token :: tokens)
   else do
     kind <- case c of
+      '`' => Right Backtick
       '.' => Right Dot
       '(' => Right OpenParen
       ')' => Right CloseParen

@@ -29,16 +29,27 @@ separator previous next =
      (previous.kind == Lambda && next.kind == OpenParen)
      then [] else [' ']
 
-formatTokens : Maybe Token -> Nat -> List Char -> List Token -> List Char
-formatTokens previous offset chars [] = chars
-formatTokens previous offset chars (token :: rest) =
+quoteState : TokenKind -> (Bool, List Bool) -> (Bool, List Bool)
+quoteState kind (quoted, frames) =
+  if kind == Backtick then (not quoted, frames)
+  else if kind == OpenParen || kind == DictionaryOpen then (False, quoted :: frames)
+  else if kind == CloseParen || kind == CloseBrace then case frames of
+    [] => (False, [])
+    outer :: rest => (outer, rest)
+  else (quoted, frames)
+
+formatTokens : Maybe Token -> (Bool, List Bool) -> Nat -> List Char -> List Token -> List Char
+formatTokens previous state offset chars [] = chars
+formatTokens previous state@(quoted, frames) offset chars (token :: rest) =
   let (gap, following) = splitAt (minus token.span.start.offset offset) chars
       (original, remaining) = splitAt (minus token.span.finish.offset token.span.start.offset) following
       spacing = case previous of
         Just before => if before.span.finish.line == token.span.start.line && all horizontal gap
-                          then separator before token else gap
+                          then if quoted && (token.kind == Backtick || before.kind == Backtick)
+                                  then [] else separator before token
+                          else gap
         Nothing => gap
-   in spacing ++ original ++ formatTokens (Just token) token.span.finish.offset remaining rest
+   in spacing ++ original ++ formatTokens (Just token) (quoteState token.kind state) token.span.finish.offset remaining rest
 
 -- Layout decisions depend on flattened token width, not current line breaks.
 -- That makes already-multiline definitions and repeat formatting consistent.
@@ -84,6 +95,12 @@ layout tokens indentation forced (NImplementationApply _ _ function) = layout to
 layout tokens indentation forced (NDictionaryApply _ _ function Nothing) = layout tokens indentation forced function
 layout tokens indentation forced (NDictionaryApply _ _ function (Just value)) =
   layout tokens indentation forced function ++ layout tokens (indentation + 2) False value
+layout tokens indentation forced value@(NInfix _ function left right) =
+  layout tokens indentation False left ++ layout tokens (indentation + 2) False function ++
+  layout tokens (indentation + 2) False right ++
+  (if forced || wide tokens indentation value
+      then keyword tokens Backtick (extent left).finish.offset (extent function).start.offset (indentation + 2)
+      else [])
 layout tokens indentation forced value@(NApply _ function argument) =
   let split = forced || wide tokens indentation value
       groupedArgument = grouped tokens argument
@@ -238,7 +255,7 @@ formatSource source = do
   original <- case parseDocument 64 256 source of
     Left err => Left (FormatDocument err)
     Right document => Right document
-  let formatted = pack (formatTokens Nothing 0 (unpack source) original.tokens)
+  let formatted = pack (formatTokens Nothing (False, []) 0 (unpack source) original.tokens)
   if byteCount formatted > 65536 then Left FormatSizeLimit else Right ()
   candidate <- case parseDocument 64 256 formatted of
     Left _ => Left FormatShapeChanged

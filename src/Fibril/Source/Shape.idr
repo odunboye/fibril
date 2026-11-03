@@ -45,6 +45,7 @@ sameExpr (NPairCase _ a b c) (NPairCase _ x y z) = sameExpr a x && sameExpr b y 
 sameExpr (NImplementationApply _ _ f) (NImplementationApply _ _ g) = sameExpr f g
 sameExpr (NDictionaryApply _ _ f Nothing) (NDictionaryApply _ _ g Nothing) = sameExpr f g
 sameExpr (NDictionaryApply _ _ f (Just a)) (NDictionaryApply _ _ g (Just b)) = sameExpr f g && sameExpr a b
+sameExpr (NInfix _ f a b) (NInfix _ g x y) = sameExpr f g && sameExpr a x && sameExpr b y
 sameExpr (NApply _ a b) (NApply _ x y) = sameExpr a x && sameExpr b y
 sameExpr (NSequence _ a b) (NSequence _ x y) = sameExpr a x && sameExpr b y
 sameExpr (NDoBind _ name a b c) (NDoBind _ other x y z) = name == other && sameExpr a x && sameExpr b y && sameExpr c z

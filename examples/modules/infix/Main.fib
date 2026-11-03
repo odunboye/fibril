@@ -1,0 +1,10 @@
+module Main
+import Algebra
+import Instances.Text
+import Instances.Boolean
+
+main : IO Unit
+main = do
+  putStrLn (Algebra.concatThree String @{implementation} "Hello" ", " "interfaces!")
+  putStrLn (if Algebra.concatThree Bool @{implementation} True True False then "Explicit dictionaries!" else "Unexpected")
+  putStrLn ("Monoid " `Algebra.merge String @{implementation}` "shape!")

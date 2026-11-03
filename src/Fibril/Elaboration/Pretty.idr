@@ -37,6 +37,7 @@ renderExpr (NPatternLambda _ names body) = node "infer-field-binders" [node "nam
 renderExpr (NConstructorCase _ arity constructor value branch motive) = node "constructor-record-case" [show arity, renderExpr constructor, renderExpr value, renderExpr branch, (case motive of Nothing => "infer"; Just result => renderExpr result)]
 renderExpr (NInferCase _ arity value branch) = node "infer-record-case" [show arity, renderExpr value, renderExpr branch]
 renderExpr (NPairCase _ motive value branch) = node "pair-case" [renderExpr motive, renderExpr value, renderExpr branch]
+renderExpr (NInfix _ function left right) = node "infix-apply" [renderExpr function, renderExpr left, renderExpr right]
 renderExpr (NApply _ function argument) = node "apply" [renderExpr function, renderExpr argument]
 renderExpr (NSequence _ first rest) = node "sequence" [renderExpr first, renderExpr rest]
 renderExpr (NDoBind _ name ty action body) = node "do-bind" [name, renderExpr ty, renderExpr action, renderExpr body]

@@ -85,4 +85,6 @@ providers before output. Existing local-only lookup tests remain unchanged.
 
 No kernel term, conversion rule, recursive resolution or soundness theorem is
 added. Parameterized factories, overlapping priorities, anonymous constraint
-insertion, inheritance, operators and law evidence remain separate work.
+insertion, inheritance, symbolic operators and law evidence remain separate work.
+[Named infix calls](infix.md) can now use this explicit lookup request in their
+quoted function application.

@@ -102,5 +102,6 @@ shadowing, erased exclusion, linear reuse rejection, malformed/non-dictionary
 requests, formatter idempotence and explicit argument definition targets.
 
 **Remaining:** anonymous constraints, implicit application insertion,
-recursive/parameterized instance lookup, global coherence, defaults/inheritance and generic operators need
+recursive/parameterized instance lookup, global coherence, defaults/inheritance and symbolic operators need
 separate scope, ambiguity, resource and reproducibility policies.
+[Named backtick infix calls](infix.md) now support ordinary constrained methods.

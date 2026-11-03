@@ -107,6 +107,7 @@ cost limit globals env expression = min (S limit) $ case expression of
   NDictionaryApply _ _ function argument => 2 + cost limit globals env function + (case argument of Nothing => 1; Just value => cost limit globals env value)
   NPi _ _ name a b => 1 + cost limit globals env a + cost limit globals (name :: env) b
   NLambda _ _ name a b => 1 + cost limit globals env a + cost limit globals (name :: env) b
+  NInfix _ function left right => 2 + cost limit globals env function + cost limit globals env left + cost limit globals env right
   NApply _ a b => 1 + cost limit globals env a + cost limit globals env b
   NAscribe _ a b => 3 + cost limit globals env a + cost limit globals env b
   NLet _ _ name a value body => 2 + cost limit globals env a + cost limit globals env value +

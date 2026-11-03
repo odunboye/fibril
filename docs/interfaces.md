@@ -2,7 +2,9 @@
 
 **Status:** explicit [interface and named implementation syntax](explicit-interfaces.md)
 now lowers to checked dictionaries with consuming method functions. Implicit
-global lookup, operators and law checking remain unimplemented.
+recursive global lookup, symbolic operators and law checking remain unimplemented.
+[Named infix calls](infix.md) support ordinary generic methods with explicit
+or requested dictionaries; no overloaded implicit insertion is performed.
 [Named constrained functions and unique local selection](constraints.md) now
 lower to ordinary checked dictionary applications.
 A bounded [resource-budgeted named record prototype](records.md) now provides checked
@@ -191,7 +193,8 @@ Implementation order:
 4. Law representation once equality supports it; distinguish data from proofs.
 5. Implemented: named constraint binders and explicit/unique-local dictionary
    selection and opt-in unique visible named implementation lookup. Next:
-   recursive/parameterized lookup and global coherence policies, then generic operators.
+   recursive/parameterized lookup and global coherence policies, then symbolic
+   operators/fixities. Named backtick infix application is now supported.
 
 This order keeps failures local and avoids committing to surface syntax before
 its core and resource meaning is known.

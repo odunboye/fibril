@@ -108,6 +108,7 @@ walk context env (NLambda span q name domain body) =
    in walk context env domain ++ self context target ++ walk context ((name, map context.localTarget target) :: env) body
 walk context env (NImplementationApply _ _ function) = walk context env function
 walk context env (NDictionaryApply _ _ function argument) = walk context env function ++ (case argument of Nothing => []; Just value => walk context env value)
+walk context env (NInfix _ function left right) = walk context env left ++ walk context env function ++ walk context env right
 walk context env (NApply _ function argument) = walk context env function ++ walk context env argument
 walk context env (NSequence _ first rest) = walk context env first ++ walk context env rest
 walk context env (NDoBind span name domain action body) =

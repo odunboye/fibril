@@ -34,6 +34,7 @@ data Expr
   | NImplementationApply SourceSpan SourceSpan Expr
   | NPi SourceSpan Quantity String Expr Expr
   | NLambda SourceSpan Quantity String Expr Expr
+  | NInfix SourceSpan Expr Expr Expr
   | NApply SourceSpan Expr Expr
   | NSequence SourceSpan Expr Expr
   | NDoBind SourceSpan String Expr Expr Expr
@@ -69,6 +70,7 @@ extent (NDictionaryApply span _ _ _) = span
 extent (NImplementationApply span _ _) = span
 extent (NPi span _ _ _ _) = span
 extent (NLambda span _ _ _ _) = span
+extent (NInfix span _ _ _) = span
 extent (NApply span _ _) = span
 extent (NSequence span _ _) = span
 extent (NDoBind span _ _ _ _) = span
@@ -104,6 +106,7 @@ withExtent span (NDictionaryApply _ origin function argument) = NDictionaryApply
 withExtent span (NImplementationApply _ origin function) = NImplementationApply span origin function
 withExtent span (NPi _ q name domain body) = NPi span q name domain body
 withExtent span (NLambda _ q name domain body) = NLambda span q name domain body
+withExtent span (NInfix _ function left right) = NInfix span function left right
 withExtent span (NApply _ function argument) = NApply span function argument
 withExtent span (NSequence _ first rest) = NSequence span first rest
 withExtent span (NDoBind _ name domain action body) = NDoBind span name domain action body

@@ -40,6 +40,8 @@ Recursive/implicit global instance search and algebraic-law checking remain unim
 support explicit @{dictionary} and unique-local @{} applications.
 [Opt-in @{implementation} lookup](docs/visible-implementations.md) selects a unique
 checked visible named implementation without recursive search.
+[Named infix calls](docs/infix.md) now support backtick function/method applications
+with fixed left associativity, ordinary quantities and no parser-special library operations.
 [Typed record patterns](docs/pattern-inference.md) infer constant or canonical
 dependent motives within resource bounds; explicit return clauses retain control.
 Named record/interface eliminators are optional; omitted helpers are not generated.

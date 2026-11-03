@@ -1,0 +1,9 @@
+digraph Infix {
+  rankdir=LR;
+  node [shape=box];
+  source [label="Authored left `function args` right\nreal function / operand spans"];
+  parse [label="Application tighter\nfixed left-associative infix layer"];
+  core [label="Apply (Apply function left) right\nno copied operands / no special library names"];
+  check [label="Ordinary erased/runtime checking\noriginal quantities and global signatures"];
+  source -> parse -> core -> check;
+}

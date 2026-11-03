@@ -20,7 +20,7 @@ syntax match fibrilNumber /\<[0-9]\+\>/
 syntax match fibrilQuantity /\<[01]\ze\s\+[A-Za-z_][A-Za-z0-9_']*\s*:/
 syntax match fibrilDeclaration /^\%([01]\s\+\)\?[A-Za-z_][A-Za-z0-9_']*\ze\s*\%(:\|=\%([>]\)\@!\)/ contains=fibrilQuantity
 syntax match fibrilOperator /@{\|<-\|->\|=>\|[\\=:λ→⇒.]/
-syntax match fibrilDelimiter /[(){}]/
+syntax match fibrilDelimiter /[(){}`]/
 
 " Later valid-escape rules take precedence over the contained error match.
 syntax match fibrilBadEscape /\\./ contained

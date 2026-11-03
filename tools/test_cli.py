@@ -519,6 +519,83 @@ class CLITests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertEqual(result.stdout, "Do context!\n")
 
+    def test_named_infix_calls_preserve_application_semantics(self):
+        example = ROOT / "examples/modules/infix"
+        result = run("run", "--source-dir", str(example), str(example / "Main.fib"))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout, "Hello, interfaces!\nExplicit dictionaries!\nMonoid shape!\n")
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / "Main.fib"
+            helpers = ('module Main\n'
+                       'backwards : (1 left : String) -> (1 right : String) -> String\n'
+                       'backwards = \\(1 left : String) => \\(1 right : String) => appendString right left\n'
+                       'nand : (left : Bool) -> (right : Bool) -> Bool\n'
+                       'nand = \\(left : Bool) => \\(right : Bool) => if left then if right then False else True else True\n')
+            source = helpers + ('main : IO Unit\nmain = do\n'
+                '  putStrLn ("a" `appendString` "b" `appendString` "c")\n'
+                '  putStrLn ("a" `backwards` "b" `backwards` "c")\n'
+                '  putStrLn (if True `nand` True `nand` False then "left" else "wrong")\n'
+                '  putStrLn (if True `nand` (True `nand` False) then "wrong" else "right")\n'
+                '  putStrLn (appendString "a" "b" `backwards` appendString "c" "d")\n'
+                '  putStrLn ("a" `(if True `nand` False then appendString else backwards)` "b")\n'
+                '  putStrLn ("tick`literal" `appendString` "!")\n')
+            path.write_text(source)
+            expected = "abc\ncba\nleft\nright\ncdab\nab\ntick`literal!\n"
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, expected)
+            inspected = json.loads(run("elaborate", str(path)).stdout)
+            self.assertFalse(inspected["checked"])
+            self.assertIn("infix-apply", str(inspected))
+            path.write_text(source.replace('`appendString`', '` appendString `'))
+            formatted = run("format", str(path))
+            self.assertEqual(formatted.returncode, 0, formatted.stderr)
+            self.assertIn('"a" `appendString` "b"', formatted.stdout)
+            path.write_text(formatted.stdout)
+            self.assertEqual(run("format", str(path)).stdout, formatted.stdout)
+            self.assertEqual(run("run", "--source-dir", str(root), str(path)).stdout, expected)
+            lines = formatted.stdout.splitlines()
+            line = next(i + 1 for i, text in enumerate(lines) if '"a" `backwards`' in text)
+            column = lines[line - 1].index("`backwards`") + 2
+            result = run("definition", "--source-dir", str(root), "--entry", str(path),
+                         str(line), str(column), str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            point = json.loads(result.stdout)["definition"]["range"]
+            self.assertEqual(formatted.stdout[point["start"]["offset"]:point["end"]["offset"]], "backwards")
+            long_source = helpers + 'main : IO Unit\nmain = putStrLn ("' + "a" * 55 + '" `appendString` "' + "b" * 55 + '")\n'
+            path.write_text(long_source)
+            formatted = run("format", str(path))
+            self.assertEqual(formatted.returncode, 0, formatted.stderr)
+            self.assertIn("\n", formatted.stdout[formatted.stdout.index('"aaaa'):])
+            path.write_text(formatted.stdout)
+            self.assertEqual(run("format", str(path)).stdout, formatted.stdout)
+            self.assertEqual(run("run", "--source-dir", str(root), str(path)).stdout, "a" * 55 + "b" * 55 + "\n")
+            for bad in (
+                helpers + '0 hidden : (1 a : String) -> (1 b : String) -> String\nhidden = appendString\nmain : IO Unit\nmain = putStrLn ("a" `hidden` "b")\n',
+                helpers + 'duplicate : (1 text : String) -> String\nduplicate = \\(1 text : String) => text `appendString` text\nmain : IO Unit\nmain = putStrLn (duplicate "x")\n',
+            ):
+                path.write_text(bad)
+                result = run("run", "--source-dir", str(root), str(path))
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(result.stdout, "")
+            for expression in ('"a" `` "b"', '"a" `appendString "b"',
+                               '"a" `appendString`', '"a" `True` "b"'):
+                path.write_text(helpers + f"main : IO Unit\nmain = putStrLn ({expression})\n")
+                result = run("run", "--source-dir", str(root), str(path))
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(result.stdout, "")
+            path.write_text(helpers + 'main : IO Unit\nmain = putStrLn (' + ' `appendString` '.join(['"x"'] * 300) + ')\n')
+            result = run("check", "--source-dir", str(root), str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("budget", result.stderr.lower())
+            local = 'putStrLn (let (op : (1 a : String) -> (1 b : String) -> String) = appendString in "a" `op` "b")\n'
+            path.write_text(local)
+            column = local.index("`op`") + 2
+            result = run("rename-preview", "1", str(column), "join", str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("join", result.stdout)
+
     def test_visible_named_implementation_selection(self):
         example = ROOT / "examples/modules/visible-implementations"
         result = run("run", "--source-dir", str(example), str(example / "Main.fib"))

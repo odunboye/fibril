@@ -108,6 +108,10 @@
         "path": "docs/visible-implementations.md"
       },
       {
+        "title": "Named infix calls",
+        "path": "docs/infix.md"
+      },
+      {
         "title": "Python interoperability",
         "path": "docs/python-interop.md"
       },

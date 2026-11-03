@@ -150,6 +150,11 @@ mutual
     domain <- elaborateInWith globals context env domain
     body <- elaborateInWith globals (map (\ctx => Extend ctx q domain) context) (name :: env) body
     Right (Lambda q domain body)
+  elaborateInWith globals context env (NInfix span function left right) = do
+    operator <- elaborateInWith globals context env function
+    left <- elaborateInWith globals context env left
+    right <- elaborateInWith globals context env right
+    Right (Apply (Apply operator left) right)
   elaborateInWith globals context env (NApply span function argument) =
     [| Apply (elaborateInWith globals context env function) (elaborateInWith globals context env argument) |]
   elaborateInWith globals context env (NSequence span first rest) = do
