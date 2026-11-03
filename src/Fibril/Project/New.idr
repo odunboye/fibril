@@ -25,7 +25,7 @@ parse : Maybe String -> Maybe String -> Maybe String -> Bool -> Bool -> Bool -> 
 parse name template owned sourceOnly library dry [] = case name of
   Nothing => Left "Missing project name. Run fibril new --help."
   Just name => if not (validProjectName name) then Left "Invalid project name: use 1..64 lowercase ASCII letters/digits/_/-, starting with a letter (no paths)."
-    else if library && not (validLibraryPrefix (maybe "App" id owned)) then Left "Library prefix must leave room for .Tests (15 components, 1018 characters maximum)."
+    else if not sourceOnly && not (validTestedPrefix (maybe "App" id owned)) then Left "Package prefix must leave room for .Tests (15 components, 1018 characters maximum)."
     else Right (NewOptions name dry (if sourceOnly then Nothing else Just (maybe "App" id owned)) library)
 parse name template owned sourceOnly True dry ("--lib" :: _) = Left "Duplicate --lib option."
 parse name template owned True False dry ("--lib" :: _) = Left "--lib conflicts with --source-only."
@@ -73,6 +73,12 @@ writeFiles operations name (entry :: rest) = do
 partialReport : String -> String -> String
 partialReport name error = error ++ "\nPartial project may remain at " ++ name ++ "; no rollback was attempted. Inspect it before retrying."
 
+writeDirectories : CreationOps -> String -> List String -> IO (Either String ())
+writeDirectories operations name [] = pure (Right ())
+writeDirectories operations name (directory :: rest) = do
+  Right () <- operations.directory (name ++ "/" ++ directory) | Left err => pure (Left err)
+  writeDirectories operations name rest
+
 ||| Fresh-directory creation followed by fixed exclusive files. Stop on first
 ||| represented failure and retain partial output: never recursively delete it.
 ||| This API validates names even when called without the command parser.
@@ -81,12 +87,12 @@ public export
 createPackageWith : CreationOps -> String -> Maybe String -> IO (Either String ())
 createPackageWith operations name namespacePrefix =
   if not (validProjectName name) then pure (Left "Invalid project name.")
-  else if not (maybe True validProjectPrefix namespacePrefix) then pure (Left "Invalid module prefix.") else do
+  else if not (maybe True validTestedPrefix namespacePrefix) then pure (Left "Invalid module prefix.") else do
     admitted <- operations.directory name
     case admitted of
       Left error => pure (Left error)
       Right () => do
-        source <- operations.directory (name ++ "/src")
+        source <- writeDirectories operations name (maybe ["src"] libraryDirectories namespacePrefix)
         case source of
           Left error => pure (Left (partialReport name error))
           Right () => do
@@ -94,12 +100,6 @@ createPackageWith operations name namespacePrefix =
             pure $ case result of
               Left error => Left (partialReport name error)
               Right () => Right ()
-
-writeDirectories : CreationOps -> String -> List String -> IO (Either String ())
-writeDirectories operations name [] = pure (Right ())
-writeDirectories operations name (directory :: rest) = do
-  Right () <- operations.directory (name ++ "/" ++ directory) | Left err => pure (Left err)
-  writeDirectories operations name rest
 
 ||| Independently validate the complete derived library/test namespace before IO.
 public export
@@ -121,6 +121,7 @@ nextSteps name (Just namespacePrefix) = ["Created " ++ name ++ " (console packag
   "  cd " ++ name,
   "  fibril check",
   "  fibril run",
+  "  fibril test",
   "Uses fibril.yaml in the current directory only; no parent search or lockfile."]
 nextSteps name Nothing = ["Created " ++ name ++ " (console template).", "Next:",
   "  cd " ++ name,
@@ -145,7 +146,7 @@ newProject args = case parse Nothing Nothing Nothing False False False args of
   Right options =>
     if options.dryRun then pure (Right
       (["Dry run: would attempt fresh project " ++ options.name ++ "/"] ++
-       map (\directory => "  " ++ options.name ++ "/" ++ directory ++ "/") (if options.library then libraryDirectories (maybe "App" id options.namespacePrefix) else ["src"]) ++
+       map (\directory => "  " ++ options.name ++ "/" ++ directory ++ "/") (maybe ["src"] libraryDirectories options.namespacePrefix) ++
        map (\entry => "  " ++ options.name ++ "/" ++ entry.path) (if options.library then libraryFiles options.name (maybe "App" id options.namespacePrefix) else files options.name options.namespacePrefix) ++
        ["No filesystem checks or changes performed; creation may still fail."]))
     else if not (supportedHost os)

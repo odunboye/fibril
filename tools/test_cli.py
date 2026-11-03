@@ -417,6 +417,37 @@ class CLITests(unittest.TestCase):
             self.assertEqual(tested.stdout, '')
             self.assertIn('Module count', tested.stderr)
 
+    def test_new_app_has_registered_starter_bool_suite(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            preview = run('new', 'hello', '--dry-run', cwd=root)
+            self.assertEqual(preview.returncode, 0, preview.stderr)
+            self.assertIn('hello/src/App/Tests.fib', preview.stdout)
+            self.assertEqual(list(root.iterdir()), [])
+            created = run('new', 'hello', cwd=root)
+            self.assertEqual(created.returncode, 0, created.stdout + created.stderr)
+            self.assertIn('fibril test', created.stdout)
+            project = root / 'hello'
+            self.assertEqual((project / 'src/App').stat().st_mode & 0o777, 0o700)
+            metadata = json.loads(run('manifest', 'fibril.yaml', cwd=project).stdout)
+            self.assertEqual(metadata['entry'], 'Main')
+            self.assertEqual(metadata['tests'], 'App.Tests')
+            self.assertEqual(run('run', cwd=project).stdout, 'Hello from hello!\n')
+            checked = run('check', cwd=project)
+            self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
+            tested = run('test', cwd=project)
+            self.assertEqual(tested.returncode, 0, tested.stdout + tested.stderr)
+            self.assertIn('Tests: passed', tested.stdout)
+            self.assertNotIn('Hello from', tested.stdout)
+            suite = project / 'src/App/Tests.fib'
+            suite.write_text(suite.read_text().replace('main = True', 'main = False'))
+            failed = run('test', cwd=project)
+            self.assertNotEqual(failed.returncode, 0)
+            self.assertEqual(failed.stdout, '')
+            self.assertIn('Tests: failed', failed.stderr)
+            self.assertEqual(run('check', cwd=project).returncode, 0)
+            self.assertIn('does not execute or verify application IO', (project / 'README.md').read_text())
+
     def test_new_source_only_scaffold(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -448,12 +479,14 @@ class CLITests(unittest.TestCase):
                 ['mailer', '--template', '--module-prefix', 'Mail', 'console'],
                 ['mailer', '--module-prefix', '--dry-run'],
                 ['mailer', '--module-prefix', '.'.join(['A'] * 17)],
+                ['mailer', '--module-prefix', 'A' * 1019],
+                ['mailer', '--module-prefix', '.'.join(['A'] * 16)],
                 ['mailer', '--module-prefix', 'A' * 1025],
             ]:
                 result = run('new', *arguments, cwd=root)
                 self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
                 self.assertEqual(list(root.iterdir()), [])
-            for name, owned in [('mailer', 'Mailer.Core'), ('true', 'Null'), ('null', 'MainView'), ('long-owner', 'A' * 1024)]:
+            for name, owned in [('mailer', 'Mailer.Core'), ('true', 'Null'), ('null', 'MainView'), ('long-owner', 'A' * 180)]:
                 result = run('new', '--module-prefix', owned, name, '--template', 'console', cwd=root)
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                 folder = root / name
@@ -464,6 +497,10 @@ class CLITests(unittest.TestCase):
                 self.assertEqual(metadata['name'], name)
                 self.assertEqual(metadata['module_prefix'], owned)
                 self.assertEqual(metadata['dependencies'], [])
+                self.assertEqual(metadata['tests'], owned + '.Tests')
+                tested = run('test', cwd=folder)
+                self.assertEqual(tested.returncode, 0, tested.stdout + tested.stderr)
+                self.assertIn('Tests: passed', tested.stdout)
                 checked = run('check', '--package', 'fibril.yaml', cwd=folder)
                 self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
                 executed = run('run', '--package', 'fibril.yaml', cwd=folder)
@@ -610,7 +647,7 @@ class CLITests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             project = root / "mailer"
             self.assertEqual(sorted(str(p.relative_to(project)) for p in project.rglob("*") if p.is_file()),
-                             [".gitignore", "README.md", "fibril.yaml", "src/Main.fib"])
+                             [".gitignore", "README.md", "fibril.yaml", "src/App/Tests.fib", "src/Main.fib"])
             self.assertEqual((project / "src/Main.fib").read_text(),
                              'module Main\n\nmain : IO Unit\nmain = putStrLn "Hello from mailer!"\n')
             self.assertEqual(project.stat().st_mode & 0o777, 0o700)

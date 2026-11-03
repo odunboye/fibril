@@ -15,6 +15,7 @@ fibril new mailer --template console --dry-run
 cd mailer
 fibril check
 fibril run
+fibril test
 ~~~
 
 The program prints Hello from mailer!. The tool does not run it automatically.
@@ -32,12 +33,15 @@ mailer/
   README.md
   src/
     Main.fib
+    App/
+      Tests.fib
 ~~~
 
 Main is an ordinary named module with main : IO Unit and a Prelude putStrLn call.
 By default, fibril.yaml and a package README are emitted using the explicit
 default namespace App. --module-prefix overrides App; it is not inferred from
-the project slug. --source-only omits the manifest and uses source-root commands. Neither mode creates a lockfile, Git
+the project slug. A registered App.Tests Bool smoke suite is included too.
+--source-only omits both manifest and suite and uses source-root commands. Neither mode creates a lockfile, Git
 repository, build script or dependency installation; no hooks/templates are
 fetched/executed. Bare commands select only ./fibril.yaml; parent search and workspace-member
 discovery are not implemented.
@@ -49,17 +53,26 @@ fibril new mailer --module-prefix Mailer
 cd mailer
 fibril check
 fibril run
+fibril test
 ~~~
 
 The default scaffold includes fibril.yaml with schema 1, quoted name/module-prefix, source-dir
-src, foundation de-morgan, entry Main and empty dependencies. The generated README
+src, foundation de-morgan, entry Main, tests PREFIX.Tests and empty dependencies. The generated README
 uses these package commands. App is a convenience default shared by new projects;
 packages used together need distinct owned prefixes, so override it when composing
-multiple packages. The planner rejects overlapping namespaces rather than guessing. Main remains the separate application entry; no
-namespace directories or reusable library definitions are invented. The prefix
-is either the documented default App or an explicit override, never derived from the slug. It accepts up to sixteen capitalized
-ASCII components within the manifest decoder's 1024-character scalar admission,
+multiple packages. The planner rejects overlapping namespaces rather than guessing.
+Main remains the separate application entry. Parent-first namespace directories
+contain the registered Tests module; no reusable application library is invented.
+The prefix is App or an explicit override, never derived from the slug. App and
+library scaffolds both reserve room for .Tests: at most 15 capitalized ASCII
+components and 1018 characters (derived module: 16 components/1024 characters),
 excluding Main and its descendants (MainView is allowed).
+
+The app suite starts with main : Bool returning True. It is a starter smoke test,
+not evidence that the application's behavior or IO is correct. Replace True with
+application assertions. fibril test checks the app and suite but never executes
+application IO; changing the suite to False fails with nonzero status. See
+[library/test boundaries](libraries-and-tests.md). Dry-run lists the suite path too.
 
 Use this for a project that will add local package dependencies. Use
 fibril new mailer --source-only for a small single-root experiment. This adds
@@ -67,7 +80,7 @@ workflow convenience, not language expressiveness or a new checking rule.
 Both modes use the same fresh-root/exclusive-file writer and partial-error policy;
 no locks, fetching, hooks, parent-directory search or existing-directory merging.
 Package metadata is generated only after validation; normal --package checking
-still independently checks source. Dry-run includes the manifest path but makes
+still independently checks source. Dry-run includes the manifest and test paths but makes
 no filesystem probes or acceptance promises.
 
 ## Standalone libraries

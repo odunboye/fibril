@@ -58,7 +58,9 @@ runProjectChecks = do
   tooLong <- simulateOwned 99 "mailer" (Just (pack (replicate 1025 'A')))
   invalidPrefix <- simulateOwned 99 "mailer" (Just "Main.Core")
   packageSuccess <- simulateOwned 99 "mailer" (Just "Mailer.Core")
-  manifestFailure <- simulateOwned 4 "mailer" (Just "Mailer.Core")
+  manifestFailure <- simulateOwned 7 "mailer" (Just "Mailer.Core")
+  appFailures <- traverse (\index => simulateOwned index "mailer" (Just "Mailer.Core")) [0,1,2,3,4,5,6,7,8]
+  appTooLong <- simulateOwned 99 "mailer" (Just (pack (replicate 1019 'A')))
   invalid <- simulate 99 "../escape"
   admission <- simulate 0 "mailer"
   directory <- simulate 1 "mailer"
@@ -72,6 +74,11 @@ runProjectChecks = do
         (case find (\file => file.path == "fibril.yaml") (libraryFiles "mailer" (pack (replicate 1018 'A'))) of
           Just file => case decodeManifest "fibril.yaml" file.contents of Right manifest => manifest.entry == Nothing && length manifest.listedModules == 1; _ => False
           _ => False))
+    , ("app derived test namespace roundtrips at scalar admission boundary",
+        validTestedPrefix (pack (replicate 1018 'A')) && not (validTestedPrefix (pack (replicate 1019 'A'))) &&
+        (case find (\file => file.path == "fibril.yaml") (packageFiles "mailer" (pack (replicate 1018 'A'))) of
+          Just file => case decodeManifest "fibril.yaml" file.contents of Right manifest => manifest.entry == Just "Main" && manifest.testModule /= Nothing; _ => False
+          _ => False))
     , ("library creation is parent-first and stops on every represented failure",
         (case librarySuccess.result of Right () => True; _ => False) &&
         librarySuccess.calls == ["directory mailer", "directory mailer/src", "directory mailer/src/Email", "directory mailer/src/Email/Core", "file mailer/src/Email/Core.fib", "file mailer/src/Email/Core/Tests.fib", "file mailer/.gitignore", "file mailer/fibril.yaml", "file mailer/README.md"] &&
@@ -84,8 +91,11 @@ runProjectChecks = do
         not (validProjectPrefix (pack (replicate 1025 'A'))))
     , ("package creation uses fixed exclusive manifest path and stops on manifest failure",
         (case packageSuccess.result of Right () => True; _ => False) &&
-        packageSuccess.calls == ["directory mailer", "directory mailer/src", "file mailer/src/Main.fib", "file mailer/.gitignore", "file mailer/fibril.yaml", "file mailer/README.md"] &&
-        partialReported manifestFailure.result && length manifestFailure.calls == 5)
+        packageSuccess.calls == ["directory mailer", "directory mailer/src", "directory mailer/src/Mailer", "directory mailer/src/Mailer/Core", "file mailer/src/Main.fib", "file mailer/.gitignore", "file mailer/src/Mailer/Core/Tests.fib", "file mailer/fibril.yaml", "file mailer/README.md"] &&
+        partialReported manifestFailure.result && length manifestFailure.calls == 8 &&
+        failed appTooLong.result && null appTooLong.calls &&
+        all (\(index, attempt) => failed attempt.result && length attempt.calls == S index &&
+          (index == 0 || partialReported attempt.result)) (zip [0,1,2,3,4,5,6,7,8] appFailures))
     , ("project names reject paths/options/controls and code injection",
         all (not . validProjectName) ["", "..", "../x", "a/b", "a\\b", "-x", "_x", "A", "a b", "a\n", "a\"", pack (replicate 65 'a')])
     , ("valid project directory slugs do not dictate module identity",

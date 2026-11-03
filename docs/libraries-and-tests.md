@@ -37,7 +37,9 @@ tests: Email.Core.Tests
 dependencies: {}
 ~~~
 
-entry: Main remains optional. An app may also list modules and register tests.
+entry: Main remains optional. App scaffolds now also register PREFIX.Tests and
+include its Fibril source. That app starter returns True until replaced with real
+application assertions; it does not test application IO. An app may also list modules.
 There is no separate app/lib kernel or rigid package-kind field.
 
 - modules is an explicit sequence of unique module-name strings owned by this
@@ -126,7 +128,7 @@ inventory-without-import visibility, transitive dependency inventories, shared
 32/33-module budgets, malformed schema, suite-in-inventory and terminal-suite
 conflicts. Creation tests exercise every represented directory/file failure.
 
-Library scaffolds reserve one component and six scalar characters for .Tests:
+App and library scaffolds reserve one component and six scalar characters for .Tests:
 prefixes may use at most 15 components and 1018 ASCII characters, so the derived
 module stays within the existing 16-component/1024-character profile. Pure tests
 cover exact/one-over derived limits before effects; actual filesystem component/

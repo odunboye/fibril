@@ -16,11 +16,16 @@ validProjectPrefix namespacePrefix =
   let parts = forget (split (== '.') namespacePrefix)
    in length (unpack namespacePrefix) <= 1024 && validModuleComponents parts && (case parts of "Main" :: _ => False; _ => True)
 
+||| App and library scaffolds both generate a .Tests module.
+public export
+validTestedPrefix : String -> Bool
+validTestedPrefix owned = validProjectPrefix owned && length (unpack owned) <= 1018 &&
+  length (forget (split (== '.') owned)) < 16
+
 ||| Leave room for .Tests in the existing module/scalar admission profile.
 public export
 validLibraryPrefix : String -> Bool
-validLibraryPrefix owned = validProjectPrefix owned && length (unpack owned) <= 1018 &&
-  length (forget (split (== '.') owned)) < 16
+validLibraryPrefix owned = validTestedPrefix owned
 
 public export
 libraryDirectories : String -> List String
@@ -52,8 +57,10 @@ public export
 packageFiles : String -> String -> List ProjectFile
 packageFiles name namespacePrefix =
   filter (\file => file.path /= "README.md") (consoleFiles name) ++
-  [ PlannedFile "fibril.yaml" ("schema: 1\nname: \"" ++ name ++ "\"\nmodule-prefix: \"" ++ namespacePrefix ++ "\"\nsource-dir: src\nfoundation: de-morgan\nentry: Main\ndependencies: {}\n")
-  , PlannedFile "README.md" ("# " ++ name ++ "\n\nA local Fibril console package owning " ++ namespacePrefix ++ ".\n\n```sh\nfibril check\nfibril run\n```\n\nMain is the separate application entry; the library namespace is explicit.\nNo lockfile, dependencies, hooks or Git repository were created/fetched.\nBare commands use only ./fibril.yaml; no parent search. Workspace-member files\nand locked builds are not implemented.\n")
+  [ PlannedFile ("src/" ++ concat (intersperse "/" (forget (split (== '.') namespacePrefix))) ++ "/Tests.fib")
+      ("module " ++ namespacePrefix ++ ".Tests\n\n-- Starter smoke suite: replace True with application assertions.\n-- This does not execute or assert the application IO.\nmain : Bool\nmain = True\n")
+  , PlannedFile "fibril.yaml" ("schema: 1\nname: \"" ++ name ++ "\"\nmodule-prefix: \"" ++ namespacePrefix ++ "\"\nsource-dir: src\nfoundation: de-morgan\nentry: Main\ntests: \"" ++ namespacePrefix ++ ".Tests\"\ndependencies: {}\n")
+  , PlannedFile "README.md" ("# " ++ name ++ "\n\nA local Fibril console package owning " ++ namespacePrefix ++ ".\n\n```sh\nfibril check\nfibril run\nfibril test\n```\n\nMain is the separate application entry; the library namespace is explicit.\nThe generated Bool smoke suite starts with True: replace it with application\nassertions. It does not execute or verify application IO.\nNo lockfile, dependencies, hooks or Git repository were created/fetched.\nBare commands use only ./fibril.yaml; no parent search. Workspace-member files\nand locked builds are not implemented.\n")
   ]
 
 ||| Fixed library plus a real pure Bool test entry, with no application Main.
