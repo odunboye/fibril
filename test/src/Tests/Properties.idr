@@ -47,6 +47,10 @@ termGen Z n = atom n
 termGen (S depth) n =
   choice
     [ atom n
+    , (\q, ty => VariantType [Nothing, Just (q, ty)]) <$> quantityGen <*> termGen depth n
+    , (\ty => VariantValue ty 3 Nothing) <$> termGen depth n
+    , (\ty, value => VariantValue ty 1 (Just value)) <$> termGen depth n <*> termGen depth n
+    , (\p, value, a, b => VariantCase p value [a, b]) <$> termGen depth n <*> termGen depth n <*> termGen depth n <*> termGen depth n
     , BoxType <$> quantityGen <*> termGen depth n
     , BoxValue <$> termGen depth n <*> termGen depth n
     , BoxCase <$> termGen depth n <*> termGen depth n <*> termGen depth n

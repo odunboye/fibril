@@ -172,7 +172,11 @@
         "path": "docs/diagnostics.md"
       },
       {
-        "title": "Inductive data landing plan (proposal)",
+        "title": "Finite-variant kernel",
+        "path": "docs/finite-variants.md"
+      },
+      {
+        "title": "Inductive data landing plan (D2 onward proposed)",
         "path": "docs/inductive-data.md"
       },
       {

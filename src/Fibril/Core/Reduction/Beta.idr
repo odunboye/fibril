@@ -9,6 +9,48 @@ import Fibril.Core.Substitution.Instantiation
 
 %default total
 
+||| Root selection commutes with scope transport at every valid or invalid tag.
+public export
+renameVariantContract : (env : Fin n -> Fin m) -> (tag : Nat) ->
+  (payload : Maybe (Term n)) -> (branches : List (Term n)) ->
+  map (rename env) (variantContract tag payload branches) =
+    variantContract tag (map (rename env) payload) (renameTerms env branches)
+renameVariantContract env _ payload [] = Refl
+renameVariantContract env Z Nothing (branch :: rest) = Refl
+renameVariantContract env Z (Just value) (branch :: rest) = Refl
+renameVariantContract env (S tag) payload (branch :: rest) = renameVariantContract env tag payload rest
+
+public export
+substituteVariantContract : (env : Fin n -> Term m) -> (tag : Nat) ->
+  (payload : Maybe (Term n)) -> (branches : List (Term n)) ->
+  map (substituteTerm env) (variantContract tag payload branches) =
+    variantContract tag (map (substituteTerm env) payload) (substituteTerms env branches)
+substituteVariantContract env _ payload [] = Refl
+substituteVariantContract env Z Nothing (branch :: rest) = Refl
+substituteVariantContract env Z (Just value) (branch :: rest) = Refl
+substituteVariantContract env (S tag) payload (branch :: rest) = substituteVariantContract env tag payload rest
+
+||| Actual reducer equations at a known selected nullary/payload root.
+public export
+renameVariantNullaryStep : (env : Fin n -> Fin m) -> (p, ty, branch : Term n) -> (rest : List (Term n)) ->
+  step (rename env (VariantCase p (VariantValue ty 0 Nothing) (branch :: rest))) = Just (rename env branch)
+renameVariantNullaryStep env p ty branch rest = Refl
+
+public export
+substituteVariantNullaryStep : (env : Fin n -> Term m) -> (p, ty, branch : Term n) -> (rest : List (Term n)) ->
+  step (substituteTerm env (VariantCase p (VariantValue ty 0 Nothing) (branch :: rest))) = Just (substituteTerm env branch)
+substituteVariantNullaryStep env p ty branch rest = Refl
+
+public export
+renameVariantPayloadStep : (env : Fin n -> Fin m) -> (p, ty, value, branch : Term n) -> (rest : List (Term n)) ->
+  step (rename env (VariantCase p (VariantValue ty 0 (Just value)) (branch :: rest))) = Just (rename env (Apply branch value))
+renameVariantPayloadStep env p ty value branch rest = Refl
+
+public export
+substituteVariantPayloadStep : (env : Fin n -> Term m) -> (p, ty, value, branch : Term n) -> (rest : List (Term n)) ->
+  step (substituteTerm env (VariantCase p (VariantValue ty 0 (Just value)) (branch :: rest))) = Just (substituteTerm env (Apply branch value))
+substituteVariantPayloadStep env p ty value branch rest = Refl
+
 ||| A known unary elimination contracts into one ordinary application.
 public export
 renameBoxCaseStep : (env : Fin n -> Fin m) -> (motive, ty, value, branch : Term n) ->

@@ -29,33 +29,48 @@ import Fibril.Driver.ModuleGraph
 
 %default total
 
-nodes : Term n -> Nat
-nodes (Variable _) = 1
-nodes (Universe _) = 1
-nodes UnitType = 1
-nodes UnitValue = 1
-nodes BoolType = 1
-nodes BoolTrue = 1
-nodes BoolFalse = 1
-nodes StringType = 1
-nodes (StringValue _) = 1
-nodes (StringAppend a b) = 1 + nodes a + nodes b
-nodes (StringEqual a b) = 1 + nodes a + nodes b
-nodes (BoxType _ a) = 1 + nodes a
-nodes (BoxValue a b) = 1 + nodes a + nodes b
-nodes (BoxCase a b c) = 1 + nodes a + nodes b + nodes c
-nodes (IOType a) = 1 + nodes a
-nodes (IOPure a) = 1 + nodes a
-nodes (WriteLine a) = 1 + nodes a
-nodes (IOBind a b c d) = 1 + nodes a + nodes b + nodes c + nodes d
-nodes (BoolCase a b c) = 1 + nodes a + nodes b + nodes c
-nodes (Sigma _ _ a b) = 1 + nodes a + nodes b
-nodes (PairCase motive value branch) = 1 + nodes motive + nodes value + nodes branch
-nodes (PairValue ty a b) = 1 + nodes ty + nodes a + nodes b
-nodes (Pi _ a b) = 1 + nodes a + nodes b
-nodes (Lambda _ a b) = 1 + nodes a + nodes b
-nodes (Apply a b) = 1 + nodes a + nodes b
-nodes (UnitCase a b) = 1 + nodes a + nodes b
+mutual
+  nodes : Term n -> Nat
+  nodes (Variable _) = 1
+  nodes (Universe _) = 1
+  nodes UnitType = 1
+  nodes UnitValue = 1
+  nodes BoolType = 1
+  nodes BoolTrue = 1
+  nodes BoolFalse = 1
+  nodes StringType = 1
+  nodes (StringValue _) = 1
+  nodes (StringAppend a b) = 1 + nodes a + nodes b
+  nodes (StringEqual a b) = 1 + nodes a + nodes b
+  nodes (VariantType arms) = 1 + variantArmNodes arms
+  nodes (VariantValue ty _ Nothing) = 1 + nodes ty
+  nodes (VariantValue ty _ (Just value)) = 1 + nodes ty + nodes value
+  nodes (VariantCase motive value branches) = 1 + nodes motive + nodes value + variantTermNodes branches
+  nodes (BoxType _ a) = 1 + nodes a
+  nodes (BoxValue a b) = 1 + nodes a + nodes b
+  nodes (BoxCase a b c) = 1 + nodes a + nodes b + nodes c
+  nodes (IOType a) = 1 + nodes a
+  nodes (IOPure a) = 1 + nodes a
+  nodes (WriteLine a) = 1 + nodes a
+  nodes (IOBind a b c d) = 1 + nodes a + nodes b + nodes c + nodes d
+  nodes (BoolCase a b c) = 1 + nodes a + nodes b + nodes c
+  nodes (Sigma _ _ a b) = 1 + nodes a + nodes b
+  nodes (PairCase motive value branch) = 1 + nodes motive + nodes value + nodes branch
+  nodes (PairValue ty a b) = 1 + nodes ty + nodes a + nodes b
+  nodes (Pi _ a b) = 1 + nodes a + nodes b
+  nodes (Lambda _ a b) = 1 + nodes a + nodes b
+  nodes (Apply a b) = 1 + nodes a + nodes b
+  nodes (UnitCase a b) = 1 + nodes a + nodes b
+
+  variantArmNodes : List (Maybe (Quantity, Term n)) -> Nat
+  variantArmNodes [] = 0
+  variantArmNodes (Nothing :: rest) = 1 + variantArmNodes rest
+  variantArmNodes (Just (_, ty) :: rest) = 1 + nodes ty + variantArmNodes rest
+
+  variantTermNodes : List (Term n) -> Nat
+  variantTermNodes [] = 0
+  variantTermNodes (x :: xs) = 1 + nodes x + variantTermNodes xs
+
 
 record Weighted where
   constructor Weight

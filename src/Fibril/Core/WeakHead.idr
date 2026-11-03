@@ -3,6 +3,7 @@
 module Fibril.Core.WeakHead
 
 import Fibril.Core.Term
+import Fibril.Core.Reduction
 
 %default total
 
@@ -20,6 +21,8 @@ stepHead (BoolCase BoolTrue yes no) = Just yes
 stepHead (BoolCase BoolFalse yes no) = Just no
 stepHead (BoolCase condition yes no) =
   map (\next => BoolCase next yes no) (stepHead condition)
+stepHead (VariantCase motive (VariantValue ty tag payload) branches) = variantContract tag payload branches
+stepHead (VariantCase motive value branches) = map (\next => VariantCase motive next branches) (stepHead value)
 stepHead (BoxCase motive (BoxValue ty value) branch) = Just (Apply branch value)
 stepHead (BoxCase motive value branch) = map (\next => BoxCase motive next branch) (stepHead value)
 stepHead (PairCase motive (PairValue ty first second) branch) = Just (Apply (Apply branch first) second)

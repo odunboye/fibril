@@ -2,6 +2,8 @@
 
 Implemented:
 
+- [Internal finite variants](finite-variants.md): nonempty ordered nullary/payload descriptors, positional constructors, erased dependent motives and exhaustive case branches; quantity checking joins branch demands. Structural scope proofs, counters and full/head reduction include the primitive. This is not source data syntax or recursive inductive checking.
+
 - `src/Fibril/Source/Diagnostic.idr`: bounded, escaped scalar-point excerpts; no invented core spans or LSP coordinates.
 - `src/Fibril/Source/Syntax.idr`: named expression AST with spans.
 - `src/Fibril/Source/StringLiteral.idr`: shared quoted-data decoding for ordinary String atoms and console literals; retains spelling/escapes and located failures.

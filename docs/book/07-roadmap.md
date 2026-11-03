@@ -12,9 +12,10 @@ prototype, not the intended complete checker.
 
 ## The next language milestone: inductive data
 
-The [inductive-data landing contract](../inductive-data.md) is a proposal, not
-implemented syntax. Start with a checked finite-variant kernel supporting real
-nullary/payload alternatives and dependent exhaustive elimination. Settle named
+The [inductive-data landing contract](../inductive-data.md) separates completed
+kernel work from proposed source features. The [finite-variant kernel](../finite-variants.md)
+now supports real nullary/payload alternatives and dependent exhaustive
+elimination. Source data syntax is still not implemented. Next settle named
 data identity before public non-recursive data declarations. Recursive Nat/List
 then require positivity and quantitative recursors; recursive source functions
 require termination checking. These gates must not be collapsed into an

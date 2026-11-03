@@ -99,6 +99,10 @@ path/cubical programs. Structural host proofs explain specific scope/substitutio
 operations, not complete language soundness or verified erasure. [Benchmarks](benchmarks.md)
 help compare measured workloads, not establish universal performance bounds.
 
+The [internal finite-variant kernel](finite-variants.md) now provides checked
+nullary/payload alternatives and dependent cases for compiler development and
+host tests. It is not yet a source-language feature.
+
 The [inductive-data plan](inductive-data.md) proposes Optional/Result for
 missing/failure/success values, then Nat/List for recursive data. These are not
 currently usable language features; finite alternatives, named identity,

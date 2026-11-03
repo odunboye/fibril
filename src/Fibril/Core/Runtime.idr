@@ -28,7 +28,7 @@ Show RuntimeError where
     "Binder usage: expected " ++ show expected ++ ", observed " ++ show observed
   show (ContextUsage i expected observed) =
     "Variable " ++ show i ++ ": expected " ++ show expected ++ ", observed " ++ show observed
-  show RuntimeTypeExpression = "Runtime type expressions (universe/Pi/Sigma/Unit/Bool/String/IO) are not supported"
+  show RuntimeTypeExpression = "Runtime type expressions (universe/Pi/Sigma/Box/Variant/Unit/Bool/String/IO) are not supported"
 
 liftTyping : Either CheckError a -> Either RuntimeError a
 liftTyping (Left err) = Left (TypingError err)
@@ -36,99 +36,126 @@ liftTyping (Right value) = Right value
 
 -- Types/annotations have already been checked through erased inference.
 -- Do not validate full ambient usage for each subterm: siblings share resources.
-analyze : {n : Nat} -> Nat -> Nat -> Context n -> Term n ->
-          Either RuntimeError (Usage n)
-analyze Z reduction context term = Left (TypingError CheckingLimit)
-analyze (S depth) reduction context (Variable i) = Right (variableUsage RuntimeMode i)
-analyze (S depth) reduction context (Universe _) = Left RuntimeTypeExpression
-analyze (S depth) reduction context UnitType = Left RuntimeTypeExpression
-analyze (S depth) reduction context UnitValue = Right zeroUsage
-analyze (S depth) reduction context BoolType = Left RuntimeTypeExpression
-analyze (S depth) reduction context BoolTrue = Right zeroUsage
-analyze (S depth) reduction context BoolFalse = Right zeroUsage
-analyze (S depth) reduction context StringType = Left RuntimeTypeExpression
-analyze (S depth) reduction context (StringValue _) = Right zeroUsage
-analyze (S depth) reduction context (StringAppend left right) = do
-  leftUsage <- analyze depth reduction context left
-  rightUsage <- analyze depth reduction context right
-  Right (combineUsage leftUsage rightUsage)
-analyze (S depth) reduction context (StringEqual left right) = do
-  leftUsage <- analyze depth reduction context left
-  rightUsage <- analyze depth reduction context right
-  Right (combineUsage leftUsage rightUsage)
-analyze (S depth) reduction context (IOType _) = Left RuntimeTypeExpression
-analyze (S depth) reduction context (IOPure value) = analyze depth reduction context value
-analyze (S depth) reduction context (WriteLine text) = analyze depth reduction context text
-analyze (S depth) reduction context (IOBind a b action next) = do
-  actionUsage <- analyze depth reduction context action
-  nextUsage <- analyze depth reduction context next
-  Right (combineUsage actionUsage nextUsage)
-analyze (S depth) reduction context (BoolCase condition yes no) = do
-  conditionUsage <- analyze depth reduction context condition
-  yesUsage <- analyze depth reduction context yes
-  noUsage <- analyze depth reduction context no
-  Right (combineUsage conditionUsage (joinUsage yesUsage noUsage))
-analyze (S depth) reduction context (BoxType _ _) = Left RuntimeTypeExpression
-analyze (S depth) reduction context (BoxCase motive scrutinee branch) = do
-  valueUsage <- analyze depth reduction context scrutinee
-  branchUsage <- analyze depth reduction context branch
-  Right (combineUsage valueUsage branchUsage)
-analyze (S depth) reduction context (BoxValue annotation value) = do
-  exposed <- case weakHead reduction annotation of
-    HeadForm ty => Right ty
-    HeadLimit _ => Left (TypingError ReductionLimit)
-  case exposed of
-    BoxType q _ => do
-      valueUsage <- case q of
-        Erased => Right zeroUsage
-        _ => analyze depth reduction context value
-      Right (scaleUsage q valueUsage)
-    _ => Left (TypingError (ExpectedBoxType exposed))
-analyze (S depth) reduction context (Sigma _ _ _ _) = Left RuntimeTypeExpression
--- The branch has already been checked against the Sigma's exact Pi quantities.
--- Its ordinary lambda analysis discharges both fields; it is invoked once.
-analyze (S depth) reduction context (PairCase motive scrutinee branch) = do
-  scrutineeUsage <- analyze depth reduction context scrutinee
-  branchUsage <- analyze depth reduction context branch
-  Right (combineUsage scrutineeUsage branchUsage)
-analyze (S depth) reduction context (PairValue annotation first second) = do
-  exposed <- case weakHead reduction annotation of
-    HeadForm ty => Right ty
-    HeadLimit _ => Left (TypingError ReductionLimit)
-  case exposed of
-    Sigma q r _ _ => do
-      firstUsage <- case q of
-        Erased => Right zeroUsage
-        _ => analyze depth reduction context first
-      secondUsage <- case r of
-        Erased => Right zeroUsage
-        _ => analyze depth reduction context second
-      Right (combineUsage (scaleUsage q firstUsage) (scaleUsage r secondUsage))
-    _ => Left (TypingError (ExpectedPairType exposed))
-analyze (S depth) reduction context (Pi _ _ _) = Left RuntimeTypeExpression
-analyze (S depth) reduction context (Lambda q domain body) = do
-  bodyUsage <- analyze depth reduction (Extend context q domain) body
-  case discharge RuntimeMode q bodyUsage of
-    Right outer => Right outer
-    Left err => Left (BoundUsage err.expected err.observed)
-analyze (S depth) reduction context (Apply function argument) = do
-  functionType <- liftTyping (inferErased depth reduction context function)
-  exposed <- case weakHead reduction functionType of
-    HeadForm ty => Right ty
-    HeadLimit _ => Left (TypingError ReductionLimit)
-  case exposed of
-    Pi q domain body => do
-      functionUsage <- analyze depth reduction context function
-      argumentUsage <- case q of
-        Erased => Right zeroUsage
-        _ => analyze depth reduction context argument
-      Right (combineUsage functionUsage (scaleUsage q argumentUsage))
-    _ => Left (TypingError (ExpectedFunction exposed))
+mutual
+  analyze : {n : Nat} -> Nat -> Nat -> Context n -> Term n ->
+            Either RuntimeError (Usage n)
+  analyze Z reduction context term = Left (TypingError CheckingLimit)
+  analyze (S depth) reduction context (Variable i) = Right (variableUsage RuntimeMode i)
+  analyze (S depth) reduction context (Universe _) = Left RuntimeTypeExpression
+  analyze (S depth) reduction context UnitType = Left RuntimeTypeExpression
+  analyze (S depth) reduction context UnitValue = Right zeroUsage
+  analyze (S depth) reduction context BoolType = Left RuntimeTypeExpression
+  analyze (S depth) reduction context BoolTrue = Right zeroUsage
+  analyze (S depth) reduction context BoolFalse = Right zeroUsage
+  analyze (S depth) reduction context StringType = Left RuntimeTypeExpression
+  analyze (S depth) reduction context (StringValue _) = Right zeroUsage
+  analyze (S depth) reduction context (StringAppend left right) = do
+    leftUsage <- analyze depth reduction context left
+    rightUsage <- analyze depth reduction context right
+    Right (combineUsage leftUsage rightUsage)
+  analyze (S depth) reduction context (StringEqual left right) = do
+    leftUsage <- analyze depth reduction context left
+    rightUsage <- analyze depth reduction context right
+    Right (combineUsage leftUsage rightUsage)
+  analyze (S depth) reduction context (IOType _) = Left RuntimeTypeExpression
+  analyze (S depth) reduction context (IOPure value) = analyze depth reduction context value
+  analyze (S depth) reduction context (WriteLine text) = analyze depth reduction context text
+  analyze (S depth) reduction context (IOBind a b action next) = do
+    actionUsage <- analyze depth reduction context action
+    nextUsage <- analyze depth reduction context next
+    Right (combineUsage actionUsage nextUsage)
+  analyze (S depth) reduction context (BoolCase condition yes no) = do
+    conditionUsage <- analyze depth reduction context condition
+    yesUsage <- analyze depth reduction context yes
+    noUsage <- analyze depth reduction context no
+    Right (combineUsage conditionUsage (joinUsage yesUsage noUsage))
+  analyze (S depth) reduction context (VariantType _) = Left RuntimeTypeExpression
+  analyze (S depth) reduction context (VariantValue annotation tag payload) = do
+    exposed <- case weakHead reduction annotation of
+      HeadForm ty => Right ty
+      HeadLimit _ => Left (TypingError ReductionLimit)
+    case exposed of
+      VariantType arms => case (variantAt tag arms, payload) of
+        (Just Nothing, Nothing) => Right zeroUsage
+        (Just (Just (Erased, _)), Just _) => Right zeroUsage
+        (Just (Just (q, _)), Just value) => scaleUsage q <$> analyze depth reduction context value
+        _ => Left (TypingError (VariantError "invalid runtime tag or payload arity"))
+      _ => Left (TypingError (VariantError "runtime constructor requires variant type"))
+  analyze (S depth) reduction context (VariantCase motive value branches) = do
+    valueUsage <- analyze depth reduction context value
+    branchUsage <- variantUsages depth reduction context branches
+    Right (combineUsage valueUsage branchUsage)
+  analyze (S depth) reduction context (BoxType _ _) = Left RuntimeTypeExpression
+  analyze (S depth) reduction context (BoxCase motive scrutinee branch) = do
+    valueUsage <- analyze depth reduction context scrutinee
+    branchUsage <- analyze depth reduction context branch
+    Right (combineUsage valueUsage branchUsage)
+  analyze (S depth) reduction context (BoxValue annotation value) = do
+    exposed <- case weakHead reduction annotation of
+      HeadForm ty => Right ty
+      HeadLimit _ => Left (TypingError ReductionLimit)
+    case exposed of
+      BoxType q _ => do
+        valueUsage <- case q of
+          Erased => Right zeroUsage
+          _ => analyze depth reduction context value
+        Right (scaleUsage q valueUsage)
+      _ => Left (TypingError (ExpectedBoxType exposed))
+  analyze (S depth) reduction context (Sigma _ _ _ _) = Left RuntimeTypeExpression
+  -- The branch has already been checked against the Sigma's exact Pi quantities.
+  -- Its ordinary lambda analysis discharges both fields; it is invoked once.
+  analyze (S depth) reduction context (PairCase motive scrutinee branch) = do
+    scrutineeUsage <- analyze depth reduction context scrutinee
+    branchUsage <- analyze depth reduction context branch
+    Right (combineUsage scrutineeUsage branchUsage)
+  analyze (S depth) reduction context (PairValue annotation first second) = do
+    exposed <- case weakHead reduction annotation of
+      HeadForm ty => Right ty
+      HeadLimit _ => Left (TypingError ReductionLimit)
+    case exposed of
+      Sigma q r _ _ => do
+        firstUsage <- case q of
+          Erased => Right zeroUsage
+          _ => analyze depth reduction context first
+        secondUsage <- case r of
+          Erased => Right zeroUsage
+          _ => analyze depth reduction context second
+        Right (combineUsage (scaleUsage q firstUsage) (scaleUsage r secondUsage))
+      _ => Left (TypingError (ExpectedPairType exposed))
+  analyze (S depth) reduction context (Pi _ _ _) = Left RuntimeTypeExpression
+  analyze (S depth) reduction context (Lambda q domain body) = do
+    bodyUsage <- analyze depth reduction (Extend context q domain) body
+    case discharge RuntimeMode q bodyUsage of
+      Right outer => Right outer
+      Left err => Left (BoundUsage err.expected err.observed)
+  analyze (S depth) reduction context (Apply function argument) = do
+    functionType <- liftTyping (inferErased depth reduction context function)
+    exposed <- case weakHead reduction functionType of
+      HeadForm ty => Right ty
+      HeadLimit _ => Left (TypingError ReductionLimit)
+    case exposed of
+      Pi q domain body => do
+        functionUsage <- analyze depth reduction context function
+        argumentUsage <- case q of
+          Erased => Right zeroUsage
+          _ => analyze depth reduction context argument
+        Right (combineUsage functionUsage (scaleUsage q argumentUsage))
+      _ => Left (TypingError (ExpectedFunction exposed))
 
-analyze (S depth) reduction context (UnitCase scrutinee body) = do
-  scrutineeUsage <- analyze depth reduction context scrutinee
-  bodyUsage <- analyze depth reduction context body
-  Right (combineUsage scrutineeUsage bodyUsage)
+  analyze (S depth) reduction context (UnitCase scrutinee body) = do
+    scrutineeUsage <- analyze depth reduction context scrutinee
+    bodyUsage <- analyze depth reduction context body
+    Right (combineUsage scrutineeUsage bodyUsage)
+
+
+  variantUsages : {n : Nat} -> Nat -> Nat -> Context n -> List (Term n) -> Either RuntimeError (Usage n)
+  variantUsages _ _ _ [] = Left (TypingError (VariantError "empty runtime branches"))
+  variantUsages Z _ _ (_ :: _) = Left (TypingError CheckingLimit)
+  variantUsages (S depth) reduction context [branch] = analyze depth reduction context branch
+  variantUsages (S depth) reduction context (branch :: following@(_ :: _)) = do
+    usage <- analyze depth reduction context branch
+    rest <- variantUsages depth reduction context following
+    Right (joinUsage usage rest)
 
 ||| A successful prototype result includes its ordinary type and observed usage.
 ||| It is not a proof of erasure correctness or quantitative preservation.

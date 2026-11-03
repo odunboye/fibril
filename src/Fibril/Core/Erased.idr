@@ -17,6 +17,7 @@ import Fibril.Core.Reduction
 ||| Failures distinguish exhausted checking/reduction from actual rejection.
 public export
 data CheckError : Type where
+  VariantError : String -> CheckError
   CheckingLimit : CheckError
   ReductionLimit : CheckError
   ExpectedUniverse : {0 n : Nat} -> (found : Term n) -> CheckError
@@ -31,6 +32,7 @@ data CheckError : Type where
 
 public export
 Show CheckError where
+  show (VariantError message) = "Variant: " ++ message
   show CheckingLimit = "Checking recursion budget exhausted"
   show ReductionLimit = "Reduction budget exhausted"
   show (ExpectedUniverse found) = "Expected a universe; found: " ++ renderTerm found
@@ -113,6 +115,38 @@ mutual
       EqualNormalForms => Right yesType
       DifferentNormalForms => Left (BranchTypeMismatch yesType noType)
       Inconclusive => Left ReductionLimit
+  infer (S depth) reduction context (VariantType []) = Left (VariantError "empty alternatives are not admitted")
+  infer (S depth) reduction context (VariantType arms) = Universe <$> variantSort depth reduction context arms
+  infer (S depth) reduction context (VariantValue annotation tag payload) = do
+    _ <- sortOf depth reduction context annotation
+    exposed <- exposeType reduction annotation
+    case exposed of
+      VariantType arms => case (variantAt tag arms, payload) of
+        (Just Nothing, Nothing) => Right annotation
+        (Just (Just (_, domain)), Just value) => do
+          actual <- infer depth reduction context value
+          requireCompatible reduction actual domain
+          Right annotation
+        _ => Left (VariantError "constructor tag or payload arity is invalid")
+      _ => Left (VariantError "constructor annotation must expose a variant type")
+  infer (S depth) reduction context (VariantCase motive scrutinee branches) = do
+    ty <- infer depth reduction context scrutinee
+    exposed <- exposeType reduction ty
+    case exposed of
+      VariantType arms => do
+        motiveType <- infer depth reduction context motive
+        exposedMotive <- exposeType reduction motiveType
+        case exposedMotive of
+          Pi Erased domain result => do
+            requireCompatible reduction domain exposed
+            resultSort <- exposeType reduction result
+            case resultSort of
+              Universe _ => Right ()
+              _ => Left (VariantError "motive must return a universe")
+          _ => Left (VariantError "motive must have an erased matching domain")
+        variantBranches depth reduction context motive exposed 0 arms branches
+        Right (Apply motive scrutinee)
+      _ => Left (VariantError "case scrutinee must have a variant type")
   infer (S depth) reduction context (BoxType q domain) = do
     level <- sortOf depth reduction context domain
     Right (Universe level)
@@ -205,6 +239,25 @@ mutual
     scrutineeType <- infer depth reduction context scrutinee
     requireCompatible reduction scrutineeType UnitType
     infer depth reduction context body
+
+  variantSort : Nat -> Nat -> Context n -> List (Maybe (Quantity, Term n)) -> Either CheckError Nat
+  variantSort depth reduction context [] = Right 0
+  variantSort Z reduction context (_ :: _) = Left CheckingLimit
+  variantSort (S depth) reduction context (Nothing :: rest) = variantSort depth reduction context rest
+  variantSort (S depth) reduction context (Just (_, ty) :: rest) = do
+    level <- sortOf depth reduction context ty
+    remaining <- variantSort depth reduction context rest
+    Right (max level remaining)
+
+  variantBranches : Nat -> Nat -> Context n -> Term n -> Term n -> Nat ->
+                    List (Maybe (Quantity, Term n)) -> List (Term n) -> Either CheckError ()
+  variantBranches depth reduction context motive ty tag [] [] = Right ()
+  variantBranches Z reduction context motive ty tag (_ :: _) (_ :: _) = Left CheckingLimit
+  variantBranches (S depth) reduction context motive ty tag (arm :: arms) (branch :: branches) = do
+    actual <- infer depth reduction context branch
+    requireCompatible reduction actual (variantBranchType motive ty tag arm)
+    variantBranches depth reduction context motive ty (S tag) arms branches
+  variantBranches _ _ _ _ _ _ _ _ = Left (VariantError "case requires exactly one branch per alternative")
 
   sortOf : Nat -> Nat -> Context n -> Term n -> Either CheckError Nat
   sortOf depth reduction context term = do

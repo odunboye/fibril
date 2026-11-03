@@ -1,0 +1,11 @@
+digraph FiniteVariants {
+  rankdir=LR;
+  node [shape=box];
+  raw [label="Raw ordered descriptors\nnullary / (quantity, payload type)"];
+  typing [label="Formation + tag/arity + motive\ncheck every positional branch"];
+  runtime [label="Scrutinee demand + branch permission join\noriginal erasure/linearity checks"];
+  reduction [label="Select nullary branch / apply payload branch\nshared full/head contraction"];
+  raw -> typing -> runtime -> reduction;
+  boundary [label="Internal kernel only\nno source data / recursion / nominal identity", shape=note];
+  typing -> boundary [style=dotted];
+}

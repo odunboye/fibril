@@ -1,8 +1,10 @@
 # Inductive data: staged design and landing contract
 
-**Status: proposal, not implemented.** This document specifies the next
-foundational work. It adds no accepted data syntax, kernel constructors,
-positivity/coverage/termination checker or soundness theorem.
+**Status: staged design; D1 is implemented, D2–D4 remain proposals.**
+The [finite-variant kernel](finite-variants.md) now implements the D1 primitive.
+This does not add accepted data syntax, a positivity/source coverage/termination
+checker or a soundness theorem. The remaining sections retain the landing
+contract; D2 identity must still be settled.
 
 ## Use cases
 
@@ -45,7 +47,7 @@ this gap.
 | Stage | Deliverable | Must not claim |
 | --- | --- | --- |
 | D0: this design | Rules, representations, open decisions and acceptance tests. | Implemented data support. |
-| D1: finite-variant kernel | Non-recursive finite alternatives, including nullary arms, dependent elimination and reduction. | Recursive inductives, nominal data declarations or a preservation proof. |
+| D1: finite-variant kernel (implemented) | Non-recursive finite alternatives, including nullary arms, dependent elimination and reduction. | Recursive inductives, nominal data declarations or a preservation proof. |
 | D2: authored non-recursive data | Declaration validation, a settled named-identity policy, checked constructors and exhaustive flat matching, module/editor integration. | Recursive self references, indices, nested coverage or termination checking. |
 | D3: recursive declarations | A specified checked declaration environment/representation, strict positivity and Nat/List eliminators with computation rules. | General recursion or arbitrary indexed/mutual datatypes. |
 | D4: recursive function convenience | Structural recursion/termination checks and case-tree elaboration into admitted core terms. | Unrestricted recursion in types or proofs. |
@@ -53,7 +55,7 @@ this gap.
 Complete each slice with tests, use cases, diagrams, compatibility notes and a
 commit. D1 does not silently authorize D2's public data syntax.
 
-## D1: proposed finite-variant representation
+## D1: finite-variant representation (implemented)
 
 Use an ordered, finite nonempty list of alternative descriptors:
 
@@ -65,8 +67,8 @@ VariantValue : Term n -> Nat -> Maybe (Term n) -> Term n
 VariantCase : Term n -> Term n -> List (Term n) -> Term n
 ~~~
 
-These are design names, not current Idris declarations. A descriptor can be
-represented with Maybe (Quantity, Term n); no runtime self-reference or recursive
+Arm(n) is notation; the current API uses Maybe (Quantity, Term n).
+The three Variant constructors are now implemented; no runtime self-reference or recursive
 signature environment is introduced. Raw syntax is not well-typed evidence:
 constructor indices, arities, annotations and branches must all be checked.
 
@@ -233,7 +235,9 @@ termination proof for a source-language recursive definition.
 
 ## Implementation inventory and acceptance gates
 
-D1 must update the actual exhaustive consumers, not just a new checker clause:
+D1 updates the actual exhaustive consumers, not just a new checker clause.
+See [the implementation evidence](finite-variants.md) for the completed checks.
+The acceptance inventory is:
 
 - [Core.Term](../src/Fibril/Core/Term.idr): raw constructors, scope operations,
   syntax comparison, and total list/descriptor traversal helpers.

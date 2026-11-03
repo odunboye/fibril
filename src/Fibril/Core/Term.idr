@@ -1,4 +1,4 @@
--- Scoped ordinary dependent-function, Unit, Boolean, and String syntax. This is not a type checker.
+-- Scoped quantitative dependent syntax, including internal finite variants; not a type checker.
 -- See docs/core-draft.md; cubical resource rules remain unresolved.
 -- Theory: DEBRUIJN72 (nameless indices); ATKEY18 sec. 2 (QTT background, not implemented typing).
 -- Bibliography and limitations: docs/references.md.
@@ -28,10 +28,16 @@ data Term : Nat -> Type where
   StringValue : String -> Term n
   StringAppend : Term n -> Term n -> Term n
   StringEqual : Term n -> Term n -> Term n
-  ||| Pure descriptions of effects; only the external runner performs writes.
+  ||| Internal finite variants; empty shapes and malformed tags are rejected by checking.
+  VariantType : List (Maybe (Quantity, Term n)) -> Term n
+  ||| Annotated positional constructor: nullary has Nothing, payload has Just value.
+  VariantValue : Term n -> Nat -> Maybe (Term n) -> Term n
+  ||| Explicit erased dependent motive, scrutinee and exhaustive positional branches.
+  VariantCase : Term n -> Term n -> List (Term n) -> Term n
   BoxType : Quantity -> Term n -> Term n
   BoxValue : Term n -> Term n -> Term n
   BoxCase : Term n -> Term n -> Term n -> Term n
+  ||| Pure descriptions of effects; only the external runner performs writes.
   IOType : Term n -> Term n
   IOPure : Term n -> Term n
   IOBind : Term n -> Term n -> Term n -> Term n -> Term n
@@ -47,146 +53,208 @@ data Term : Nat -> Type where
   ||| Consume a Unit scrutinee, then return a body with no new pattern binders.
   UnitCase : Term n -> Term n -> Term n
 
-||| Extend a renaming under one binder, preserving the newly bound variable.
+||| Total list selection for raw constructor tags; out-of-range is not an exception.
 public export
-liftRenaming : (Fin n -> Fin m) -> Fin (S n) -> Fin (S m)
-liftRenaming env FZ = FZ
-liftRenaming env (FS i) = FS (env i)
+variantAt : Nat -> List a -> Maybe a
+variantAt _ [] = Nothing
+variantAt Z (x :: _) = Just x
+variantAt (S tag) (_ :: rest) = variantAt tag rest
 
-||| Rename free variables; domain annotations remain outside the binder scope.
-public export
-rename : (Fin n -> Fin m) -> Term n -> Term m
-rename env (Variable i) = Variable (env i)
-rename env (Universe l) = Universe l
-rename env UnitType = UnitType
-rename env UnitValue = UnitValue
-rename env BoolType = BoolType
-rename env BoolTrue = BoolTrue
-rename env BoolFalse = BoolFalse
-rename env StringType = StringType
-rename env (StringValue value) = StringValue value
-rename env (StringAppend left right) = StringAppend (rename env left) (rename env right)
-rename env (BoxValue left right) = BoxValue (rename env left) (rename env right)
-rename env (StringEqual left right) = StringEqual (rename env left) (rename env right)
-rename env (IOType ty) = IOType (rename env ty)
-rename env (BoxType q ty) = BoxType q (rename env ty)
-rename env (IOPure value) = IOPure (rename env value)
-rename env (WriteLine text) = WriteLine (rename env text)
-rename env (IOBind a b action next) =
-  IOBind (rename env a) (rename env b) (rename env action) (rename env next)
-rename env (BoolCase condition yes no) =
-  BoolCase (rename env condition) (rename env yes) (rename env no)
-rename env (PairCase motive scrutinee branch) =
-  PairCase (rename env motive) (rename env scrutinee) (rename env branch)
-rename env (BoxCase motive scrutinee branch) =
-  BoxCase (rename env motive) (rename env scrutinee) (rename env branch)
-rename env (PairValue annotation firstValue secondValue) =
-  PairValue (rename env annotation) (rename env firstValue) (rename env secondValue)
-rename env (Pi q domain body) =
-  Pi q (rename env domain) (rename (liftRenaming env) body)
-rename env (Sigma q r domain body) =
-  Sigma q r (rename env domain) (rename (liftRenaming env) body)
-rename env (Lambda q domain body) =
-  Lambda q (rename env domain) (rename (liftRenaming env) body)
-rename env (Apply f x) = Apply (rename env f) (rename env x)
-rename env (UnitCase scrutinee body) = UnitCase (rename env scrutinee) (rename env body)
+mutual
+  ||| Extend a renaming under one binder, preserving the newly bound variable.
+  public export
+  liftRenaming : (Fin n -> Fin m) -> Fin (S n) -> Fin (S m)
+  liftRenaming env FZ = FZ
+  liftRenaming env (FS i) = FS (env i)
 
-||| Insert a newest variable, shifting all existing free references.
-public export
-weaken : Term n -> Term (S n)
-weaken = rename FS
+  ||| Rename free variables; domain annotations remain outside the binder scope.
+  public export
+  rename : (Fin n -> Fin m) -> Term n -> Term m
+  rename env (Variable i) = Variable (env i)
+  rename env (Universe l) = Universe l
+  rename env UnitType = UnitType
+  rename env UnitValue = UnitValue
+  rename env BoolType = BoolType
+  rename env BoolTrue = BoolTrue
+  rename env BoolFalse = BoolFalse
+  rename env StringType = StringType
+  rename env (StringValue value) = StringValue value
+  rename env (StringAppend left right) = StringAppend (rename env left) (rename env right)
+  rename env (BoxValue left right) = BoxValue (rename env left) (rename env right)
+  rename env (StringEqual left right) = StringEqual (rename env left) (rename env right)
+  rename env (IOType ty) = IOType (rename env ty)
+  rename env (VariantType arms) = VariantType (renameArms env arms)
+  rename env (VariantValue ty tag Nothing) = VariantValue (rename env ty) tag Nothing
+  rename env (VariantValue ty tag (Just value)) = VariantValue (rename env ty) tag (Just (rename env value))
+  rename env (VariantCase motive value branches) = VariantCase (rename env motive) (rename env value) (renameTerms env branches)
+  rename env (BoxType q ty) = BoxType q (rename env ty)
+  rename env (IOPure value) = IOPure (rename env value)
+  rename env (WriteLine text) = WriteLine (rename env text)
+  rename env (IOBind a b action next) =
+    IOBind (rename env a) (rename env b) (rename env action) (rename env next)
+  rename env (BoolCase condition yes no) =
+    BoolCase (rename env condition) (rename env yes) (rename env no)
+  rename env (PairCase motive scrutinee branch) =
+    PairCase (rename env motive) (rename env scrutinee) (rename env branch)
+  rename env (BoxCase motive scrutinee branch) =
+    BoxCase (rename env motive) (rename env scrutinee) (rename env branch)
+  rename env (PairValue annotation firstValue secondValue) =
+    PairValue (rename env annotation) (rename env firstValue) (rename env secondValue)
+  rename env (Pi q domain body) =
+    Pi q (rename env domain) (rename (liftRenaming env) body)
+  rename env (Sigma q r domain body) =
+    Sigma q r (rename env domain) (rename (liftRenaming env) body)
+  rename env (Lambda q domain body) =
+    Lambda q (rename env domain) (rename (liftRenaming env) body)
+  rename env (Apply f x) = Apply (rename env f) (rename env x)
+  rename env (UnitCase scrutinee body) = UnitCase (rename env scrutinee) (rename env body)
 
-||| Extend substitution under a binder, weakening replacements to avoid capture.
-public export
-liftSubstitution : (Fin n -> Term m) -> Fin (S n) -> Term (S m)
-liftSubstitution env FZ = Variable FZ
-liftSubstitution env (FS i) = weaken (env i)
+  ||| Insert a newest variable, shifting all existing free references.
+  public export
+  weaken : Term n -> Term (S n)
+  weaken = rename FS
 
-||| Simultaneous capture-avoiding substitution; performs no reduction.
-public export
-substituteTerm : (Fin n -> Term m) -> Term n -> Term m
-substituteTerm env (Variable i) = env i
-substituteTerm env (Universe l) = Universe l
-substituteTerm env UnitType = UnitType
-substituteTerm env UnitValue = UnitValue
-substituteTerm env BoolType = BoolType
-substituteTerm env BoolTrue = BoolTrue
-substituteTerm env BoolFalse = BoolFalse
-substituteTerm env StringType = StringType
-substituteTerm env (StringValue value) = StringValue value
-substituteTerm env (StringAppend left right) =
-  StringAppend (substituteTerm env left) (substituteTerm env right)
-substituteTerm env (BoxValue left right) =
-  BoxValue (substituteTerm env left) (substituteTerm env right)
-substituteTerm env (StringEqual left right) =
-  StringEqual (substituteTerm env left) (substituteTerm env right)
-substituteTerm env (IOType ty) = IOType (substituteTerm env ty)
-substituteTerm env (BoxType q ty) = BoxType q (substituteTerm env ty)
-substituteTerm env (IOPure value) = IOPure (substituteTerm env value)
-substituteTerm env (WriteLine text) = WriteLine (substituteTerm env text)
-substituteTerm env (IOBind a b action next) =
-  IOBind (substituteTerm env a) (substituteTerm env b)
-         (substituteTerm env action) (substituteTerm env next)
-substituteTerm env (BoolCase condition yes no) =
-  BoolCase (substituteTerm env condition) (substituteTerm env yes) (substituteTerm env no)
-substituteTerm env (PairCase motive scrutinee branch) =
-  PairCase (substituteTerm env motive) (substituteTerm env scrutinee) (substituteTerm env branch)
-substituteTerm env (BoxCase motive scrutinee branch) =
-  BoxCase (substituteTerm env motive) (substituteTerm env scrutinee) (substituteTerm env branch)
-substituteTerm env (PairValue annotation firstValue secondValue) =
-  PairValue (substituteTerm env annotation) (substituteTerm env firstValue) (substituteTerm env secondValue)
-substituteTerm env (Pi q domain body) =
-  Pi q (substituteTerm env domain) (substituteTerm (liftSubstitution env) body)
-substituteTerm env (Sigma q r domain body) =
-  Sigma q r (substituteTerm env domain) (substituteTerm (liftSubstitution env) body)
-substituteTerm env (Lambda q domain body) =
-  Lambda q (substituteTerm env domain) (substituteTerm (liftSubstitution env) body)
-substituteTerm env (Apply f x) = Apply (substituteTerm env f) (substituteTerm env x)
-substituteTerm env (UnitCase scrutinee body) =
-  UnitCase (substituteTerm env scrutinee) (substituteTerm env body)
+  ||| Extend substitution under a binder, weakening replacements to avoid capture.
+  public export
+  liftSubstitution : (Fin n -> Term m) -> Fin (S n) -> Term (S m)
+  liftSubstitution env FZ = Variable FZ
+  liftSubstitution env (FS i) = weaken (env i)
 
-||| Replacement map for removing the newest variable from a scope.
-||| Factored out so structural proofs use the exact same map as instantiation.
-public export
-replaceNewest : Term n -> Fin (S n) -> Term n
-replaceNewest value FZ = value
-replaceNewest value (FS i) = Variable i
+  ||| Simultaneous capture-avoiding substitution; performs no reduction.
+  public export
+  substituteTerm : (Fin n -> Term m) -> Term n -> Term m
+  substituteTerm env (Variable i) = env i
+  substituteTerm env (Universe l) = Universe l
+  substituteTerm env UnitType = UnitType
+  substituteTerm env UnitValue = UnitValue
+  substituteTerm env BoolType = BoolType
+  substituteTerm env BoolTrue = BoolTrue
+  substituteTerm env BoolFalse = BoolFalse
+  substituteTerm env StringType = StringType
+  substituteTerm env (StringValue value) = StringValue value
+  substituteTerm env (StringAppend left right) =
+    StringAppend (substituteTerm env left) (substituteTerm env right)
+  substituteTerm env (BoxValue left right) =
+    BoxValue (substituteTerm env left) (substituteTerm env right)
+  substituteTerm env (StringEqual left right) =
+    StringEqual (substituteTerm env left) (substituteTerm env right)
+  substituteTerm env (IOType ty) = IOType (substituteTerm env ty)
+  substituteTerm env (VariantType arms) = VariantType (substituteArms env arms)
+  substituteTerm env (VariantValue ty tag Nothing) = VariantValue (substituteTerm env ty) tag Nothing
+  substituteTerm env (VariantValue ty tag (Just value)) = VariantValue (substituteTerm env ty) tag (Just (substituteTerm env value))
+  substituteTerm env (VariantCase motive value branches) = VariantCase (substituteTerm env motive) (substituteTerm env value) (substituteTerms env branches)
+  substituteTerm env (BoxType q ty) = BoxType q (substituteTerm env ty)
+  substituteTerm env (IOPure value) = IOPure (substituteTerm env value)
+  substituteTerm env (WriteLine text) = WriteLine (substituteTerm env text)
+  substituteTerm env (IOBind a b action next) =
+    IOBind (substituteTerm env a) (substituteTerm env b)
+           (substituteTerm env action) (substituteTerm env next)
+  substituteTerm env (BoolCase condition yes no) =
+    BoolCase (substituteTerm env condition) (substituteTerm env yes) (substituteTerm env no)
+  substituteTerm env (PairCase motive scrutinee branch) =
+    PairCase (substituteTerm env motive) (substituteTerm env scrutinee) (substituteTerm env branch)
+  substituteTerm env (BoxCase motive scrutinee branch) =
+    BoxCase (substituteTerm env motive) (substituteTerm env scrutinee) (substituteTerm env branch)
+  substituteTerm env (PairValue annotation firstValue secondValue) =
+    PairValue (substituteTerm env annotation) (substituteTerm env firstValue) (substituteTerm env secondValue)
+  substituteTerm env (Pi q domain body) =
+    Pi q (substituteTerm env domain) (substituteTerm (liftSubstitution env) body)
+  substituteTerm env (Sigma q r domain body) =
+    Sigma q r (substituteTerm env domain) (substituteTerm (liftSubstitution env) body)
+  substituteTerm env (Lambda q domain body) =
+    Lambda q (substituteTerm env domain) (substituteTerm (liftSubstitution env) body)
+  substituteTerm env (Apply f x) = Apply (substituteTerm env f) (substituteTerm env x)
+  substituteTerm env (UnitCase scrutinee body) =
+    UnitCase (substituteTerm env scrutinee) (substituteTerm env body)
 
-||| Replace the newest free variable; older indices shift down.
-||| This is a syntactic operation, not a checked beta-reduction rule.
-public export
-instantiateTerm : Term n -> Term (S n) -> Term n
-instantiateTerm value = substituteTerm (replaceNewest value)
+  ||| Replacement map for removing the newest variable from a scope.
+  ||| Factored out so structural proofs use the exact same map as instantiation.
+  public export
+  replaceNewest : Term n -> Fin (S n) -> Term n
+  replaceNewest value FZ = value
+  replaceNewest value (FS i) = Variable i
 
-||| Structural syntax equality only, not definitional equality or path equality.
+  ||| Replace the newest free variable; older indices shift down.
+  ||| This is a syntactic operation, not a checked beta-reduction rule.
+  public export
+  instantiateTerm : Term n -> Term (S n) -> Term n
+  instantiateTerm value = substituteTerm (replaceNewest value)
+
+  ||| Structural syntax equality only, not definitional equality or path equality.
+  public export
+  sameSyntax : Term n -> Term n -> Bool
+  sameSyntax (Variable i) (Variable j) = i == j
+  sameSyntax (Universe l) (Universe k) = l == k
+  sameSyntax UnitType UnitType = True
+  sameSyntax UnitValue UnitValue = True
+  sameSyntax BoolType BoolType = True
+  sameSyntax BoolTrue BoolTrue = True
+  sameSyntax BoolFalse BoolFalse = True
+  sameSyntax StringType StringType = True
+  sameSyntax (StringValue left) (StringValue right) = left == right
+  sameSyntax (StringAppend a b) (StringAppend c d) = sameSyntax a c && sameSyntax b d
+  sameSyntax (BoxValue a b) (BoxValue c d) = sameSyntax a c && sameSyntax b d
+  sameSyntax (StringEqual a b) (StringEqual c d) = sameSyntax a c && sameSyntax b d
+  sameSyntax (VariantType xs) (VariantType ys) = sameArms xs ys
+  sameSyntax (VariantValue a i Nothing) (VariantValue b j Nothing) = i == j && sameSyntax a b
+  sameSyntax (VariantValue a i (Just x)) (VariantValue b j (Just y)) = i == j && sameSyntax a b && sameSyntax x y
+  sameSyntax (VariantCase p x fs) (VariantCase q y gs) = sameSyntax p q && sameSyntax x y && sameTerms fs gs
+  sameSyntax (BoxType q a) (BoxType r b) = q == r && sameSyntax a b
+  sameSyntax (IOType a) (IOType b) = sameSyntax a b
+  sameSyntax (IOPure a) (IOPure b) = sameSyntax a b
+  sameSyntax (WriteLine a) (WriteLine b) = sameSyntax a b
+  sameSyntax (IOBind a b c d) (IOBind e f g h) =
+    sameSyntax a e && sameSyntax b f && sameSyntax c g && sameSyntax d h
+  sameSyntax (BoolCase c t e) (BoolCase d u f) =
+    sameSyntax c d && sameSyntax t u && sameSyntax e f
+  sameSyntax (Sigma q r a b) (Sigma s t c d) = q == s && r == t && sameSyntax a c && sameSyntax b d
+  sameSyntax (PairCase p a f) (PairCase q b g) = sameSyntax p q && sameSyntax a b && sameSyntax f g
+  sameSyntax (BoxCase p a f) (BoxCase q b g) = sameSyntax p q && sameSyntax a b && sameSyntax f g
+  sameSyntax (PairValue ty a b) (PairValue expected c d) = sameSyntax ty expected && sameSyntax a c && sameSyntax b d
+  sameSyntax (Pi q a b) (Pi r c d) = q == r && sameSyntax a c && sameSyntax b d
+  sameSyntax (Lambda q a b) (Lambda r c d) = q == r && sameSyntax a c && sameSyntax b d
+  sameSyntax (Apply f x) (Apply g y) = sameSyntax f g && sameSyntax x y
+  sameSyntax (UnitCase u b) (UnitCase v c) = sameSyntax u v && sameSyntax b c
+  sameSyntax _ _ = False
+
+  public export
+  renameArms : (env : Fin n -> Fin m) -> List (Maybe (Quantity, Term n)) -> List (Maybe (Quantity, Term m))
+  renameArms env [] = []
+  renameArms env (Nothing :: rest) = Nothing :: renameArms env rest
+  renameArms env (Just (q, ty) :: rest) = Just (q, rename env ty) :: renameArms env rest
+
+  public export
+  renameTerms : (env : Fin n -> Fin m) -> List (Term n) -> List (Term m)
+  renameTerms env [] = []
+  renameTerms env (term :: rest) = rename env term :: renameTerms env rest
+
+  public export
+  substituteArms : (env : Fin n -> Term m) -> List (Maybe (Quantity, Term n)) -> List (Maybe (Quantity, Term m))
+  substituteArms env [] = []
+  substituteArms env (Nothing :: rest) = Nothing :: substituteArms env rest
+  substituteArms env (Just (q, ty) :: rest) = Just (q, substituteTerm env ty) :: substituteArms env rest
+
+  public export
+  substituteTerms : (env : Fin n -> Term m) -> List (Term n) -> List (Term m)
+  substituteTerms env [] = []
+  substituteTerms env (term :: rest) = substituteTerm env term :: substituteTerms env rest
+
+  public export
+  sameArms : List (Maybe (Quantity, Term n)) -> List (Maybe (Quantity, Term n)) -> Bool
+  sameArms [] [] = True
+  sameArms (Nothing :: xs) (Nothing :: ys) = sameArms xs ys
+  sameArms (Just (q, x) :: xs) (Just (r, y) :: ys) = q == r && sameSyntax x y && sameArms xs ys
+  sameArms _ _ = False
+
+  public export
+  sameTerms : List (Term n) -> List (Term n) -> Bool
+  sameTerms [] [] = True
+  sameTerms (x :: xs) (y :: ys) = sameSyntax x y && sameTerms xs ys
+  sameTerms _ _ = False
+
+||| Branch signature for a checked finite-variant descriptor.
 public export
-sameSyntax : Term n -> Term n -> Bool
-sameSyntax (Variable i) (Variable j) = i == j
-sameSyntax (Universe l) (Universe k) = l == k
-sameSyntax UnitType UnitType = True
-sameSyntax UnitValue UnitValue = True
-sameSyntax BoolType BoolType = True
-sameSyntax BoolTrue BoolTrue = True
-sameSyntax BoolFalse BoolFalse = True
-sameSyntax StringType StringType = True
-sameSyntax (StringValue left) (StringValue right) = left == right
-sameSyntax (StringAppend a b) (StringAppend c d) = sameSyntax a c && sameSyntax b d
-sameSyntax (BoxValue a b) (BoxValue c d) = sameSyntax a c && sameSyntax b d
-sameSyntax (StringEqual a b) (StringEqual c d) = sameSyntax a c && sameSyntax b d
-sameSyntax (BoxType q a) (BoxType r b) = q == r && sameSyntax a b
-sameSyntax (IOType a) (IOType b) = sameSyntax a b
-sameSyntax (IOPure a) (IOPure b) = sameSyntax a b
-sameSyntax (WriteLine a) (WriteLine b) = sameSyntax a b
-sameSyntax (IOBind a b c d) (IOBind e f g h) =
-  sameSyntax a e && sameSyntax b f && sameSyntax c g && sameSyntax d h
-sameSyntax (BoolCase c t e) (BoolCase d u f) =
-  sameSyntax c d && sameSyntax t u && sameSyntax e f
-sameSyntax (Sigma q r a b) (Sigma s t c d) = q == s && r == t && sameSyntax a c && sameSyntax b d
-sameSyntax (PairCase p a f) (PairCase q b g) = sameSyntax p q && sameSyntax a b && sameSyntax f g
-sameSyntax (BoxCase p a f) (BoxCase q b g) = sameSyntax p q && sameSyntax a b && sameSyntax f g
-sameSyntax (PairValue ty a b) (PairValue expected c d) = sameSyntax ty expected && sameSyntax a c && sameSyntax b d
-sameSyntax (Pi q a b) (Pi r c d) = q == r && sameSyntax a c && sameSyntax b d
-sameSyntax (Lambda q a b) (Lambda r c d) = q == r && sameSyntax a c && sameSyntax b d
-sameSyntax (Apply f x) (Apply g y) = sameSyntax f g && sameSyntax x y
-sameSyntax (UnitCase u b) (UnitCase v c) = sameSyntax u v && sameSyntax b c
-sameSyntax _ _ = False
+variantBranchType : Term n -> Term n -> Nat -> Maybe (Quantity, Term n) -> Term n
+variantBranchType motive ty tag Nothing = Apply motive (VariantValue ty tag Nothing)
+variantBranchType motive ty tag (Just (q, domain)) =
+  Pi q domain (Apply (weaken motive) (VariantValue (weaken ty) tag (Just (Variable FZ))))
