@@ -92,9 +92,14 @@ module declarations have checked. The hints preserve the defining module,
 constructor order, field quantities/types and authored spans; private data is not
 published. They are ordinary untrusted metadata, not certificates: no current
 expression consumes them and they do not implement case syntax or change type
-checking. Same-module incremental visibility, direct-import selection, ambiguity,
-substitution, resource admission and independently checked case lowering remain
-future work. This internal staging adds no language power or user-facing syntax.
+checking. A bounded `planDataArms` helper now rejects missing, duplicate or unknown
+constructor names and wrong field arities, returning indices in declaration
+order. `selectDataImports` filters a supplied module inventory by explicit direct
+imports and rejects missing/ambiguous inventories or mismatched origins. Both
+operate on ordinary untrusted data; they neither establish constructor identity
+nor type-check branch bodies. These helpers are not wired into the expression
+driver yet. Same-module incremental visibility, source-case parsing, telescope
+substitution and independently checked case lowering remain future work. This internal staging adds no language power or user-facing syntax.
 Until then, use the explicit eliminator or the Sum wrapper below.
 
 ### A reusable, non-Church Sum

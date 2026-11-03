@@ -34,5 +34,26 @@ checks =
               _ => False
           _ => False
         _ => False)
+  , ("coverage planning orders alternatives by declared constructor tag",
+      case hints of
+        [hint] => case planDataArms 4 hint [ArmHeader "Some" 1, ArmHeader "None" 0] of
+          Right [1, 0] => True
+          _ => False
+        _ => False)
+  , ("coverage planning rejects missing, duplicate, unknown, arity and admission failures",
+      case hints of
+        [hint] => all (\arms => case planDataArms 4 hint arms of Left _ => True; _ => False)
+          [[ArmHeader "None" 0], [ArmHeader "None" 0, ArmHeader "None" 0],
+           [ArmHeader "None" 0, ArmHeader "Foreign" 1], [ArmHeader "None" 0, ArmHeader "Some" 0]] &&
+          (case planDataArms 3 hint [ArmHeader "None" 0, ArmHeader "Some" 1] of Left _ => True; _ => False)
+        _ => False)
+  , ("direct import selection does not search unimported or transitive modules",
+      case hints of
+        [hint] => (case selectDataImports [] [("Example", [hint])] of Right [] => True; _ => False) &&
+          (case selectDataImports ["Other"] [("Example", [hint])] of Left _ => True; _ => False) &&
+          (case selectDataImports ["Example"] [("Example", [hint]), ("Transitive", [hint])] of Right [_] => True; _ => False) &&
+          (case selectDataImports ["Example"] [("Example", [hint]), ("Example", [hint])] of Left _ => True; _ => False) &&
+          (case selectDataImports ["Example"] [("Example", [{ moduleName := "Foreign" } hint])] of Left _ => True; _ => False)
+        _ => False)
   , ("empty input yields no data layout hints", null (exportedDataSchemas "Example" []))
   ]
