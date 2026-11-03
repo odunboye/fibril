@@ -28,6 +28,10 @@ A [conservative formatter](docs/formatting.md) is available as fibril format PAT
 or fibril format --check PATH. It normalizes token spacing and safely lays out long applications, lambdas, signatures and cases,
 without writing files or changing comments/literal spelling.
 
+The next proposed foundational milestone is [inductive data](docs/inductive-data.md):
+finite variants first, then named data/identity, recursive inductives and structural
+recursion. This is a landing plan, not implemented data syntax.
+
 Start with the [feature use-case guide](docs/use-cases.md) for what each feature
 is for, when to use it, and when a simpler alternative is better.
 

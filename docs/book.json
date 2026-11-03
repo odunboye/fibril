@@ -172,6 +172,10 @@
         "path": "docs/diagnostics.md"
       },
       {
+        "title": "Inductive data landing plan (proposal)",
+        "path": "docs/inductive-data.md"
+      },
+      {
         "title": "Ordinary core draft",
         "path": "docs/core-draft.md"
       },

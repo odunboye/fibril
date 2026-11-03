@@ -99,6 +99,11 @@ path/cubical programs. Structural host proofs explain specific scope/substitutio
 operations, not complete language soundness or verified erasure. [Benchmarks](benchmarks.md)
 help compare measured workloads, not establish universal performance bounds.
 
+The [inductive-data plan](inductive-data.md) proposes Optional/Result for
+missing/failure/success values, then Nat/List for recursive data. These are not
+currently usable language features; finite alternatives, named identity,
+positivity and termination have separate landing gates.
+
 General inductive data, recursive instance construction, symbolic fixities,
 checked equality/path terms and native/web/embedded backends remain future work.
 Do not choose an implemented feature on the assumption that those already exist.

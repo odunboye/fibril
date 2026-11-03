@@ -1,0 +1,13 @@
+digraph InductiveData {
+  rankdir=LR;
+  node [shape=box];
+  d0 [label="D0: proposed rules + acceptance gates\nDocumentation only"];
+  d1 [label="D1: finite-variant kernel\nnullary/payload arms + dependent cases", style=dashed];
+  identity [label="Settle named identity\nchecked declaration environment", style=dashed];
+  d2 [label="D2: non-recursive authored data\nchecked constructors + exhaustive flat cases", style=dashed];
+  d3 [label="D3: Nat/List\nstrict positivity + recursive eliminators", style=dashed];
+  d4 [label="D4: structural recursive functions\ntermination + richer pattern compilation", style=dashed];
+  d0 -> d1 -> identity -> d2 -> d3 -> d4;
+  boundary [label="No checked inductives implemented by this plan\nno cubical or soundness theorem implied", shape=note];
+  d0 -> boundary [style=dotted];
+}

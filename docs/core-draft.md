@@ -3,6 +3,14 @@
 Status: proposed typing rules with implemented scoped syntax and structural operations.
 Not a completed calculus or soundness proof.
 
+## Next extension (proposal only)
+
+The [inductive-data landing plan](inductive-data.md) specifies a finite-variant
+kernel before named data, recursive inductives and structural recursion. None of
+its proposed constructors/rules are implemented by this draft. Nullary arms need
+an explicit representation; hidden Unit padding does not support the required
+dependent motives under current Unit conversion.
+
 ## Theoretical correspondence
 
 See [ATKEY18](references.md#atkey18), especially §§2.1–2.3, for semiring usage,

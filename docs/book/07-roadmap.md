@@ -10,7 +10,17 @@ for an implemented compiler.
 Dashed stages are future work. The erased checker is a partial ordinary
 prototype, not the intended complete checker.
 
-## The next foundational gap
+## The next language milestone: inductive data
+
+The [inductive-data landing contract](../inductive-data.md) is a proposal, not
+implemented syntax. Start with a checked finite-variant kernel supporting real
+nullary/payload alternatives and dependent exhaustive elimination. Settle named
+data identity before public non-recursive data declarations. Recursive Nat/List
+then require positivity and quantitative recursors; recursive source functions
+require termination checking. These gates must not be collapsed into an
+unchecked declaration generator or a claim of metatheoretic soundness.
+
+## The cubical foundational gap
 
 Our ordinary quantities and cubical algebras currently coexist without combined
 term rules. Composition, overlapping boundaries, transport, and Glue need a
@@ -27,8 +37,12 @@ Recursive declarations/modules remain future work.
 A separate declaration elaborator now lowers explicit records, constructors,
 eliminators and safe projections into independently checked code. Typed consuming
 patterns and explicit interface/named dictionary implementation elaboration are
-supported. Implicit arguments, constraints/instance search and tactics remain
-future work; any generator or derivation tool must still produce checked terms.
+supported. Named constraints, unique local dictionary requests and opt-in unique
+visible closed implementation lookup now work. Explicit parameterized method
+blocks also build dictionary factories, and named backtick calls lower to
+ordinary application. General implicit insertion, recursive instance search and
+tactics remain future work; any generator or derivation tool must still produce
+checked terms.
 
 The first [Neovim/Vim lexical runtime](../editor-highlighting.md) now supplies
 syntax colors and file detection, saved-snapshot checking/navigation, conservative
