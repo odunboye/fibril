@@ -103,6 +103,10 @@ The [internal finite-variant kernel](finite-variants.md) now provides checked
 nullary/payload alternatives and dependent cases for compiler development and
 host tests. It is not yet a source-language feature.
 
+[Closed nominal wrappers](nominal-data.md) now distinguish equal-shaped internal
+data and preserve phantom arguments. They do not change record identity or add
+source declarations; source key allocation/checking remains future work.
+
 The [inductive-data plan](inductive-data.md) proposes Optional/Result for
 missing/failure/success values, then Nat/List for recursive data. These are not
 currently usable language features; finite alternatives, named identity,

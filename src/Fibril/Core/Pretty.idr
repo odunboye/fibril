@@ -25,6 +25,9 @@ mutual
   renderTerm (StringValue value) = show value
   renderTerm (StringAppend left right) = "(StringAppend " ++ renderTerm left ++ " " ++ renderTerm right ++ ")"
   renderTerm (StringEqual left right) = "(StringEqual " ++ renderTerm left ++ " " ++ renderTerm right ++ ")"
+  renderTerm (NominalType key indices shape) = "(Nominal " ++ show key ++ " [" ++ renderTerms indices ++ "] " ++ renderTerm shape ++ ")"
+  renderTerm (NominalValue ty value) = "(NominalValue " ++ renderTerm ty ++ " " ++ renderTerm value ++ ")"
+  renderTerm (NominalCase motive value branch) = "(NominalCase " ++ renderTerm motive ++ " " ++ renderTerm value ++ " " ++ renderTerm branch ++ ")"
   renderTerm (VariantType arms) = "(Variant " ++ renderArms arms ++ ")"
   renderTerm (VariantValue ty tag Nothing) = "(Inject " ++ renderTerm ty ++ " " ++ show tag ++ ")"
   renderTerm (VariantValue ty tag (Just value)) = "(Inject " ++ renderTerm ty ++ " " ++ show tag ++ " " ++ renderTerm value ++ ")"

@@ -17,6 +17,7 @@ import Fibril.Core.Reduction
 ||| Failures distinguish exhausted checking/reduction from actual rejection.
 public export
 data CheckError : Type where
+  NominalError : String -> CheckError
   VariantError : String -> CheckError
   CheckingLimit : CheckError
   ReductionLimit : CheckError
@@ -32,6 +33,7 @@ data CheckError : Type where
 
 public export
 Show CheckError where
+  show (NominalError message) = "Nominal: " ++ message
   show (VariantError message) = "Variant: " ++ message
   show CheckingLimit = "Checking recursion budget exhausted"
   show ReductionLimit = "Reduction budget exhausted"
@@ -115,6 +117,42 @@ mutual
       EqualNormalForms => Right yesType
       DifferentNormalForms => Left (BranchTypeMismatch yesType noType)
       Inconclusive => Left ReductionLimit
+  infer (S depth) reduction context (NominalType key indices shape) = do
+    nominalIndices depth reduction context indices
+    level <- sortOf depth reduction context shape
+    exposed <- exposeType reduction shape
+    case exposed of
+      VariantType _ => Right (Universe level)
+      _ => Left (NominalError "nominal shape must expose a variant type")
+  infer (S depth) reduction context (NominalValue annotation value) = do
+    _ <- sortOf depth reduction context annotation
+    exposed <- exposeType reduction annotation
+    case exposed of
+      NominalType _ _ shape => do
+        actual <- infer depth reduction context value
+        requireCompatible reduction actual shape
+        Right annotation
+      _ => Left (NominalError "nominal value annotation must expose a nominal type")
+  infer (S depth) reduction context (NominalCase motive scrutinee branch) = do
+    ty <- infer depth reduction context scrutinee
+    exposed <- exposeType reduction ty
+    case exposed of
+      NominalType _ _ shape => do
+        motiveType <- infer depth reduction context motive
+        exposedMotive <- exposeType reduction motiveType
+        case exposedMotive of
+          Pi Erased domain result => do
+            requireCompatible reduction domain exposed
+            resultSort <- exposeType reduction result
+            case resultSort of
+              Universe _ => Right ()
+              _ => Left (NominalError "nominal motive must return a universe")
+          _ => Left (NominalError "nominal motive must have an erased matching domain")
+        actual <- infer depth reduction context branch
+        requireCompatible reduction actual
+          (Pi Linear shape (Apply (weaken motive) (NominalValue (weaken exposed) (Variable FZ))))
+        Right (Apply motive scrutinee)
+      _ => Left (NominalError "nominal case scrutinee must have a nominal type")
   infer (S depth) reduction context (VariantType []) = Left (VariantError "empty alternatives are not admitted")
   infer (S depth) reduction context (VariantType arms) = Universe <$> variantSort depth reduction context arms
   infer (S depth) reduction context (VariantValue annotation tag payload) = do
@@ -239,6 +277,13 @@ mutual
     scrutineeType <- infer depth reduction context scrutinee
     requireCompatible reduction scrutineeType UnitType
     infer depth reduction context body
+
+  nominalIndices : Nat -> Nat -> Context n -> List (Term n) -> Either CheckError ()
+  nominalIndices _ _ _ [] = Right ()
+  nominalIndices Z _ _ (_ :: _) = Left CheckingLimit
+  nominalIndices (S depth) reduction context (index :: rest) = do
+    _ <- infer depth reduction context index
+    nominalIndices depth reduction context rest
 
   variantSort : Nat -> Nat -> Context n -> List (Maybe (Quantity, Term n)) -> Either CheckError Nat
   variantSort depth reduction context [] = Right 0

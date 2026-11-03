@@ -34,6 +34,9 @@ mutual
   renameAfterSubstitution env sigma StringType = Refl
   renameAfterSubstitution env sigma (StringValue _) = Refl
   renameAfterSubstitution env sigma (IOType value) = cong IOType (renameAfterSubstitution env sigma value)
+  renameAfterSubstitution env sigma (NominalType key indices shape) = rewrite renameAfterSubstitutionTerms env sigma indices in rewrite renameAfterSubstitution env sigma shape in Refl
+  renameAfterSubstitution env sigma (NominalValue ty value) = rewrite renameAfterSubstitution env sigma ty in rewrite renameAfterSubstitution env sigma value in Refl
+  renameAfterSubstitution env sigma (NominalCase motive value branch) = rewrite renameAfterSubstitution env sigma motive in rewrite renameAfterSubstitution env sigma value in rewrite renameAfterSubstitution env sigma branch in Refl
   renameAfterSubstitution env sigma (VariantType arms) = rewrite renameAfterSubstitutionArms env sigma arms in Refl
   renameAfterSubstitution env sigma (VariantValue ty tag Nothing) = rewrite renameAfterSubstitution env sigma ty in Refl
   renameAfterSubstitution env sigma (VariantValue ty tag (Just value)) = rewrite renameAfterSubstitution env sigma ty in rewrite renameAfterSubstitution env sigma value in Refl
@@ -119,6 +122,9 @@ mutual
   substituteAfterRenaming env sigma StringType = Refl
   substituteAfterRenaming env sigma (StringValue _) = Refl
   substituteAfterRenaming env sigma (IOType value) = cong IOType (substituteAfterRenaming env sigma value)
+  substituteAfterRenaming env sigma (NominalType key indices shape) = rewrite substituteAfterRenamingTerms env sigma indices in rewrite substituteAfterRenaming env sigma shape in Refl
+  substituteAfterRenaming env sigma (NominalValue ty value) = rewrite substituteAfterRenaming env sigma ty in rewrite substituteAfterRenaming env sigma value in Refl
+  substituteAfterRenaming env sigma (NominalCase motive value branch) = rewrite substituteAfterRenaming env sigma motive in rewrite substituteAfterRenaming env sigma value in rewrite substituteAfterRenaming env sigma branch in Refl
   substituteAfterRenaming env sigma (VariantType arms) = rewrite substituteAfterRenamingArms env sigma arms in Refl
   substituteAfterRenaming env sigma (VariantValue ty tag Nothing) = rewrite substituteAfterRenaming env sigma ty in Refl
   substituteAfterRenaming env sigma (VariantValue ty tag (Just value)) = rewrite substituteAfterRenaming env sigma ty in rewrite substituteAfterRenaming env sigma value in Refl
@@ -214,6 +220,9 @@ mutual
   substituteComposition first second StringType = Refl
   substituteComposition first second (StringValue _) = Refl
   substituteComposition first second (IOType value) = cong IOType (substituteComposition first second value)
+  substituteComposition first second (NominalType key indices shape) = rewrite substituteCompositionTerms first second indices in rewrite substituteComposition first second shape in Refl
+  substituteComposition first second (NominalValue ty value) = rewrite substituteComposition first second ty in rewrite substituteComposition first second value in Refl
+  substituteComposition first second (NominalCase motive value branch) = rewrite substituteComposition first second motive in rewrite substituteComposition first second value in rewrite substituteComposition first second branch in Refl
   substituteComposition first second (VariantType arms) = rewrite substituteCompositionArms first second arms in Refl
   substituteComposition first second (VariantValue ty tag Nothing) = rewrite substituteComposition first second ty in Refl
   substituteComposition first second (VariantValue ty tag (Just value)) = rewrite substituteComposition first second ty in rewrite substituteComposition first second value in Refl

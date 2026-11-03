@@ -30,6 +30,9 @@ mutual
   thin env (IOPure a) = IOPure <$> thin env a
   thin env (WriteLine a) = WriteLine <$> thin env a
   thin env (IOBind a b c d) = [| IOBind (thin env a) (thin env b) (thin env c) (thin env d) |]
+  thin env (NominalType key indices shape) = [| NominalType (pure key) (thinTerms env indices) (thin env shape) |]
+  thin env (NominalValue ty value) = [| NominalValue (thin env ty) (thin env value) |]
+  thin env (NominalCase motive value branch) = [| NominalCase (thin env motive) (thin env value) (thin env branch) |]
   thin env (VariantType arms) = VariantType <$> thinArms env arms
   thin env (VariantValue ty tag Nothing) = (\next => VariantValue next tag Nothing) <$> thin env ty
   thin env (VariantValue ty tag (Just value)) = [| VariantValue (thin env ty) (pure tag) (Just <$> thin env value) |]
@@ -77,6 +80,9 @@ mutual
   substitutionNodes env (IOPure a) = min (S inferredResultNodes) (1 + substitutionNodes env a)
   substitutionNodes env (WriteLine a) = min (S inferredResultNodes) (1 + substitutionNodes env a)
   substitutionNodes env (IOBind a b c d) = min (S inferredResultNodes) (1 + substitutionNodes env a + substitutionNodes env b + substitutionNodes env c + substitutionNodes env d)
+  substitutionNodes env (NominalType _ indices shape) = min (S inferredResultNodes) (1 + termNodes env indices + substitutionNodes env shape)
+  substitutionNodes env (NominalValue ty value) = min (S inferredResultNodes) (1 + substitutionNodes env ty + substitutionNodes env value)
+  substitutionNodes env (NominalCase motive value branch) = min (S inferredResultNodes) (1 + substitutionNodes env motive + substitutionNodes env value + substitutionNodes env branch)
   substitutionNodes env (VariantType arms) = min (S inferredResultNodes) (1 + armNodes env arms)
   substitutionNodes env (VariantValue ty _ Nothing) = min (S inferredResultNodes) (1 + substitutionNodes env ty)
   substitutionNodes env (VariantValue ty _ (Just value)) = min (S inferredResultNodes) (1 + substitutionNodes env ty + substitutionNodes env value)

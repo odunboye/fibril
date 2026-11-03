@@ -42,6 +42,9 @@ mutual
   nodes (StringValue _) = 1
   nodes (StringAppend a b) = 1 + nodes a + nodes b
   nodes (StringEqual a b) = 1 + nodes a + nodes b
+  nodes (NominalType _ indices shape) = 1 + variantTermNodes indices + nodes shape
+  nodes (NominalValue ty value) = 1 + nodes ty + nodes value
+  nodes (NominalCase motive value branch) = 1 + nodes motive + nodes value + nodes branch
   nodes (VariantType arms) = 1 + variantArmNodes arms
   nodes (VariantValue ty _ Nothing) = 1 + nodes ty
   nodes (VariantValue ty _ (Just value)) = 1 + nodes ty + nodes value

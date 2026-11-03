@@ -1,0 +1,11 @@
+digraph NominalData {
+  rankdir=LR;
+  node [shape=box];
+  identity [label="Exact key + all indices\nincluding phantom parameters"];
+  shape [label="Full independent variant shape checking\nkey alone grants no authority"];
+  value [label="NominalValue\nchecked underlying variant"];
+  elimination [label="Dependent NominalCase\nconsume variant once"];
+  identity -> shape -> value -> elimination;
+  next [label="Future: source key allocation + checked declarations\nrecursive environment remains separate", style=dashed];
+  elimination -> next [style=dashed];
+}

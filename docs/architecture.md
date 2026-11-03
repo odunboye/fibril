@@ -2,6 +2,7 @@
 
 Implemented:
 
+- [Closed nominal data](nominal-data.md): key + complete index vector + independently checked variant shape, consuming dependent wrapper elimination, no opaque name-authorized typing. Internal only; source allocation/declaration checking and recursive environments remain future work.
 - [Internal finite variants](finite-variants.md): nonempty ordered nullary/payload descriptors, positional constructors, erased dependent motives and exhaustive case branches; quantity checking joins branch demands. Structural scope proofs, counters and full/head reduction include the primitive. This is not source data syntax or recursive inductive checking.
 
 - `src/Fibril/Source/Diagnostic.idr`: bounded, escaped scalar-point excerpts; no invented core spans or LSP coordinates.

@@ -51,6 +51,17 @@ substituteVariantPayloadStep : (env : Fin n -> Term m) -> (p, ty, value, branch 
   step (substituteTerm env (VariantCase p (VariantValue ty 0 (Just value)) (branch :: rest))) = Just (substituteTerm env (Apply branch value))
 substituteVariantPayloadStep env p ty value branch rest = Refl
 
+||| Closed nominal wrappers retain the same consuming root equation as unary elimination.
+public export
+renameNominalCaseStep : (env : Fin n -> Fin m) -> (p, ty, value, branch : Term n) ->
+  step (rename env (NominalCase p (NominalValue ty value) branch)) = Just (rename env (Apply branch value))
+renameNominalCaseStep env p ty value branch = Refl
+
+public export
+substituteNominalCaseStep : (env : Fin n -> Term m) -> (p, ty, value, branch : Term n) ->
+  step (substituteTerm env (NominalCase p (NominalValue ty value) branch)) = Just (substituteTerm env (Apply branch value))
+substituteNominalCaseStep env p ty value branch = Refl
+
 ||| A known unary elimination contracts into one ordinary application.
 public export
 renameBoxCaseStep : (env : Fin n -> Fin m) -> (motive, ty, value, branch : Term n) ->

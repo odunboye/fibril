@@ -114,6 +114,7 @@ limits and inert erased IO payloads. Raw scoped and constructed erased/runtime
 generators now include variants; sampled reduction/rechecking tests remain tests,
 not canonicity, soundness, normalization or verified erasure proofs.
 
-Next: [D2's named identity/declaration contract](inductive-data.md). No source
+[Closed nominal wrappers](nominal-data.md) now add non-recursive identity without
+changing the structural variant primitive. Next: [D2 source declaration checking](inductive-data.md). No source
 parser keywords, instance registration, recursive data, positivity checker,
 termination checker or cubical computation are added by D1.

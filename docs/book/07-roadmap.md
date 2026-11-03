@@ -15,8 +15,9 @@ prototype, not the intended complete checker.
 The [inductive-data landing contract](../inductive-data.md) separates completed
 kernel work from proposed source features. The [finite-variant kernel](../finite-variants.md)
 now supports real nullary/payload alternatives and dependent exhaustive
-elimination. Source data syntax is still not implemented. Next settle named
-data identity before public non-recursive data declarations. Recursive Nat/List
+elimination. [Closed nominal identity](../nominal-data.md) now preserves keys,
+phantom parameters and independently checked shapes. Source data syntax is still
+not implemented. Next add canonical allocation and checked non-recursive declarations. Recursive Nat/List
 then require positivity and quantitative recursors; recursive source functions
 require termination checking. These gates must not be collapsed into an
 unchecked declaration generator or a claim of metatheoretic soundness.

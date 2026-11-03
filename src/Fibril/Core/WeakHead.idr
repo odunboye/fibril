@@ -21,6 +21,8 @@ stepHead (BoolCase BoolTrue yes no) = Just yes
 stepHead (BoolCase BoolFalse yes no) = Just no
 stepHead (BoolCase condition yes no) =
   map (\next => BoolCase next yes no) (stepHead condition)
+stepHead (NominalCase motive (NominalValue ty value) branch) = Just (Apply branch value)
+stepHead (NominalCase motive value branch) = map (\next => NominalCase motive next branch) (stepHead value)
 stepHead (VariantCase motive (VariantValue ty tag payload) branches) = variantContract tag payload branches
 stepHead (VariantCase motive value branches) = map (\next => VariantCase motive next branches) (stepHead value)
 stepHead (BoxCase motive (BoxValue ty value) branch) = Just (Apply branch value)

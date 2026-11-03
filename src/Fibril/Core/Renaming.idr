@@ -30,6 +30,9 @@ mutual
   renameCongruent left right agree StringType = Refl
   renameCongruent left right agree (StringValue _) = Refl
   renameCongruent left right agree (IOType value) = cong IOType (renameCongruent left right agree value)
+  renameCongruent left right agree (NominalType key indices shape) = rewrite renameCongruentTerms left right agree indices in rewrite renameCongruent left right agree shape in Refl
+  renameCongruent left right agree (NominalValue ty value) = rewrite renameCongruent left right agree ty in rewrite renameCongruent left right agree value in Refl
+  renameCongruent left right agree (NominalCase motive value branch) = rewrite renameCongruent left right agree motive in rewrite renameCongruent left right agree value in rewrite renameCongruent left right agree branch in Refl
   renameCongruent left right agree (VariantType arms) = rewrite renameCongruentArms left right agree arms in Refl
   renameCongruent left right agree (VariantValue ty tag Nothing) = rewrite renameCongruent left right agree ty in Refl
   renameCongruent left right agree (VariantValue ty tag (Just value)) = rewrite renameCongruent left right agree ty in rewrite renameCongruent left right agree value in Refl
@@ -103,6 +106,9 @@ mutual
   renameIdentity StringType = Refl
   renameIdentity (StringValue _) = Refl
   renameIdentity (IOType value) = cong IOType (renameIdentity value)
+  renameIdentity (NominalType key indices shape) = rewrite renameIdentityTerms indices in rewrite renameIdentity shape in Refl
+  renameIdentity (NominalValue ty value) = rewrite renameIdentity ty in rewrite renameIdentity value in Refl
+  renameIdentity (NominalCase motive value branch) = rewrite renameIdentity motive in rewrite renameIdentity value in rewrite renameIdentity branch in Refl
   renameIdentity (VariantType arms) = rewrite renameIdentityArms arms in Refl
   renameIdentity (VariantValue ty tag Nothing) = rewrite renameIdentity ty in Refl
   renameIdentity (VariantValue ty tag (Just value)) = rewrite renameIdentity ty in rewrite renameIdentity value in Refl
@@ -182,6 +188,9 @@ mutual
   renameComposition first second StringType = Refl
   renameComposition first second (StringValue _) = Refl
   renameComposition first second (IOType value) = cong IOType (renameComposition first second value)
+  renameComposition first second (NominalType key indices shape) = rewrite renameCompositionTerms first second indices in rewrite renameComposition first second shape in Refl
+  renameComposition first second (NominalValue ty value) = rewrite renameComposition first second ty in rewrite renameComposition first second value in Refl
+  renameComposition first second (NominalCase motive value branch) = rewrite renameComposition first second motive in rewrite renameComposition first second value in rewrite renameComposition first second branch in Refl
   renameComposition first second (VariantType arms) = rewrite renameCompositionArms first second arms in Refl
   renameComposition first second (VariantValue ty tag Nothing) = rewrite renameComposition first second ty in Refl
   renameComposition first second (VariantValue ty tag (Just value)) = rewrite renameComposition first second ty in rewrite renameComposition first second value in Refl

@@ -64,6 +64,16 @@ typedGen Z = seed
 typedGen (S depth) =
   choice
     [ seed
+    , (\sample => let body = VariantType [Just (Linear, sample.expected)]
+                      ty = NominalType "Generated.Packet" [sample.expected] body
+                    in Sample (NominalValue ty (VariantValue body 0 (Just sample.term))) ty) <$> typedGen depth
+    , (\sample => let body = VariantType [Just (Linear, sample.expected)]
+                      ty = NominalType "Generated.Packet" [sample.expected] body
+                      branch = Lambda Linear body (VariantCase
+                        (Lambda Erased (weaken body) (weaken (weaken sample.expected))) (Variable FZ)
+                        [Lambda Linear (weaken sample.expected) (Variable FZ)])
+                    in Sample (NominalCase (Lambda Erased ty (weaken sample.expected))
+                         (NominalValue ty (VariantValue body 0 (Just sample.term))) branch) sample.expected) <$> typedGen depth
     , (\sample => let ty = VariantType [Nothing, Just (Linear, sample.expected)]
                     in Sample (VariantValue ty 1 (Just sample.term)) ty) <$> typedGen depth
     , (\sample => let ty = VariantType [Nothing, Just (Linear, sample.expected)]

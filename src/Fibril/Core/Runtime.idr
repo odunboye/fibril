@@ -28,7 +28,7 @@ Show RuntimeError where
     "Binder usage: expected " ++ show expected ++ ", observed " ++ show observed
   show (ContextUsage i expected observed) =
     "Variable " ++ show i ++ ": expected " ++ show expected ++ ", observed " ++ show observed
-  show RuntimeTypeExpression = "Runtime type expressions (universe/Pi/Sigma/Box/Variant/Unit/Bool/String/IO) are not supported"
+  show RuntimeTypeExpression = "Runtime type expressions (universe/Pi/Sigma/Box/Variant/Nominal/Unit/Bool/String/IO) are not supported"
 
 liftTyping : Either CheckError a -> Either RuntimeError a
 liftTyping (Left err) = Left (TypingError err)
@@ -69,6 +69,12 @@ mutual
     yesUsage <- analyze depth reduction context yes
     noUsage <- analyze depth reduction context no
     Right (combineUsage conditionUsage (joinUsage yesUsage noUsage))
+  analyze (S depth) reduction context (NominalType _ _ _) = Left RuntimeTypeExpression
+  analyze (S depth) reduction context (NominalValue annotation value) = analyze depth reduction context value
+  analyze (S depth) reduction context (NominalCase motive value branch) = do
+    valueUsage <- analyze depth reduction context value
+    branchUsage <- analyze depth reduction context branch
+    Right (combineUsage valueUsage branchUsage)
   analyze (S depth) reduction context (VariantType _) = Left RuntimeTypeExpression
   analyze (S depth) reduction context (VariantValue annotation tag payload) = do
     exposed <- case weakHead reduction annotation of

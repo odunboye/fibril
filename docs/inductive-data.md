@@ -1,10 +1,13 @@
 # Inductive data: staged design and landing contract
 
-**Status: staged design; D1 is implemented, D2–D4 remain proposals.**
+**Status: D1 and the D2a closed-identity prerequisite are implemented;
+source declarations and D3/D4 remain proposals.**
 The [finite-variant kernel](finite-variants.md) now implements the D1 primitive.
 This does not add accepted data syntax, a positivity/source coverage/termination
 checker or a soundness theorem. The remaining sections retain the landing
-contract; D2 identity must still be settled.
+contract. [Closed nominal identity](nominal-data.md) now settles the non-recursive
+kernel representation, but source key allocation and declaration checking remain
+D2 gates; no recursive declaration environment has been introduced.
 
 ## Use cases
 
@@ -196,7 +199,7 @@ missing and foreign constructors. Avoid wildcard, nested-pattern and impossible-
 case claims until their coverage/refinement rules exist. Authored branch names
 must navigate to real constructor declarations; field binders remain lexical.
 
-### Blocking decision: named data identity
+### Named data identity: closed D2a representation selected
 
 Current records and D1's proposed finite variants are structural. Consequently,
 two declarations with identical ordered shapes would be compatible if D2 merely
@@ -209,12 +212,15 @@ Before D2 lands, choose and document either:
 2. Nominal data references backed by independently checked declaration entries,
    with scoped parameters, stable module identity and rechecking semantics.
 
-The recommendation is to design the checked nominal declaration environment
-before public general data syntax, because recursive data will require a
-representation that does not infinitely unfold itself. A string/name token or
-imported schema alone must not grant constructor typing authority. D1 can land
-without pretending to settle this question. Do not retrofit nominal record
-identity incidentally as part of this work.
+D2a now takes a closed nominal route: NominalType retains the exact key, all
+parameter/index terms and full checked variant shape. This is not an opaque
+name reference; keys alone confer no typing authority, mismatched shapes are
+incompatible, and phantom parameters are not lost. See [the implemented contract](nominal-data.md).
+
+Source D2 still needs canonical allocation, independent declaration/constructor
+validation and checked metadata publication. Recursive data additionally needs a
+representation/environment that does not infinitely unfold itself; D2a does not
+provide it. Do not retrofit nominal record identity incidentally.
 
 ## D3/D4 boundaries
 

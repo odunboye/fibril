@@ -28,6 +28,12 @@ data Term : Nat -> Type where
   StringValue : String -> Term n
   StringAppend : Term n -> Term n -> Term n
   StringEqual : Term n -> Term n -> Term n
+  ||| Closed nominal identity retains parameters (including phantom ones) and a checked variant shape.
+  NominalType : String -> List (Term n) -> Term n -> Term n
+  ||| Annotated wrapper value; underlying variant is independently checked.
+  NominalValue : Term n -> Term n -> Term n
+  ||| Erased dependent motive and a branch consuming the underlying variant once.
+  NominalCase : Term n -> Term n -> Term n -> Term n
   ||| Internal finite variants; empty shapes and malformed tags are rejected by checking.
   VariantType : List (Maybe (Quantity, Term n)) -> Term n
   ||| Annotated positional constructor: nullary has Nothing, payload has Just value.
@@ -83,6 +89,9 @@ mutual
   rename env (BoxValue left right) = BoxValue (rename env left) (rename env right)
   rename env (StringEqual left right) = StringEqual (rename env left) (rename env right)
   rename env (IOType ty) = IOType (rename env ty)
+  rename env (NominalType key indices shape) = NominalType key (renameTerms env indices) (rename env shape)
+  rename env (NominalValue ty value) = NominalValue (rename env ty) (rename env value)
+  rename env (NominalCase motive value branch) = NominalCase (rename env motive) (rename env value) (rename env branch)
   rename env (VariantType arms) = VariantType (renameArms env arms)
   rename env (VariantValue ty tag Nothing) = VariantValue (rename env ty) tag Nothing
   rename env (VariantValue ty tag (Just value)) = VariantValue (rename env ty) tag (Just (rename env value))
@@ -139,6 +148,9 @@ mutual
   substituteTerm env (StringEqual left right) =
     StringEqual (substituteTerm env left) (substituteTerm env right)
   substituteTerm env (IOType ty) = IOType (substituteTerm env ty)
+  substituteTerm env (NominalType key indices shape) = NominalType key (substituteTerms env indices) (substituteTerm env shape)
+  substituteTerm env (NominalValue ty value) = NominalValue (substituteTerm env ty) (substituteTerm env value)
+  substituteTerm env (NominalCase motive value branch) = NominalCase (substituteTerm env motive) (substituteTerm env value) (substituteTerm env branch)
   substituteTerm env (VariantType arms) = VariantType (substituteArms env arms)
   substituteTerm env (VariantValue ty tag Nothing) = VariantValue (substituteTerm env ty) tag Nothing
   substituteTerm env (VariantValue ty tag (Just value)) = VariantValue (substituteTerm env ty) tag (Just (substituteTerm env value))
@@ -195,6 +207,9 @@ mutual
   sameSyntax (StringAppend a b) (StringAppend c d) = sameSyntax a c && sameSyntax b d
   sameSyntax (BoxValue a b) (BoxValue c d) = sameSyntax a c && sameSyntax b d
   sameSyntax (StringEqual a b) (StringEqual c d) = sameSyntax a c && sameSyntax b d
+  sameSyntax (NominalType k xs a) (NominalType l ys b) = k == l && sameTerms xs ys && sameSyntax a b
+  sameSyntax (NominalValue a x) (NominalValue b y) = sameSyntax a b && sameSyntax x y
+  sameSyntax (NominalCase p x f) (NominalCase q y g) = sameSyntax p q && sameSyntax x y && sameSyntax f g
   sameSyntax (VariantType xs) (VariantType ys) = sameArms xs ys
   sameSyntax (VariantValue a i Nothing) (VariantValue b j Nothing) = i == j && sameSyntax a b
   sameSyntax (VariantValue a i (Just x)) (VariantValue b j (Just y)) = i == j && sameSyntax a b && sameSyntax x y

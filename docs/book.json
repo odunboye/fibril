@@ -176,7 +176,11 @@
         "path": "docs/finite-variants.md"
       },
       {
-        "title": "Inductive data landing plan (D2 onward proposed)",
+        "title": "Closed nominal data identity",
+        "path": "docs/nominal-data.md"
+      },
+      {
+        "title": "Inductive data landing plan (source stages proposed)",
         "path": "docs/inductive-data.md"
       },
       {

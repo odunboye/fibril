@@ -45,6 +45,16 @@ runtimeGen Z = pure base
 runtimeGen (S depth) =
   choice
     [ pure base
+    , (\sample => let body = VariantType [Just (Linear, sample.expected)]
+                      ty = NominalType "Generated.Packet" [sample.expected] body
+                    in MkSample (NominalValue ty (VariantValue body 0 (Just sample.term))) ty) <$> runtimeGen depth
+    , (\sample => let body = VariantType [Just (Linear, sample.expected)]
+                      ty = NominalType "Generated.Packet" [sample.expected] body
+                      branch = Lambda Linear body (VariantCase
+                        (Lambda Erased (weaken body) (weaken (weaken sample.expected))) (Variable FZ)
+                        [Lambda Linear (weaken sample.expected) (Variable FZ)])
+                    in MkSample (NominalCase (Lambda Erased ty (weaken sample.expected))
+                         (NominalValue ty (VariantValue body 0 (Just sample.term))) branch) sample.expected) <$> runtimeGen depth
     , (\sample => let ty = VariantType [Nothing, Just (Linear, sample.expected)]
                     in MkSample (VariantValue ty 1 (Just sample.term)) ty) <$> runtimeGen depth
     , (\sample => let ty = VariantType [Just (Linear, sample.expected), Just (Linear, sample.expected)]
