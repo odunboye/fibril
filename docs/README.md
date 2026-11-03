@@ -48,6 +48,7 @@ The generated homepage separates teaching chapters, references, and project reco
 - [Expression lexer](lexer.md): token subset, aliases, positions, and next parser boundary.
 
 - [Project/dependency format](packages.md): local manifest contract; pack remains the bootstrap.
+- [Local packages](local-packages.md): canonical explicit dependency closure and real multi-root check/run.
 - [Strict manifest inspection](manifests.md): maintained YAML parsing and strict local schema, without dependency/source loading.
 
 - [Unicode source text](unicode-source.md): validation, positions, and proposed identifier/notation rules.

@@ -86,6 +86,7 @@ def main():
         (ROOT / "examples/src").rglob("*.idr")) + sorted(
         (ROOT / "bench/src").rglob("*.idr")) + sorted(
         (ROOT / "examples").rglob("*.fib")) + sorted(
+        (ROOT / "examples").rglob("*.yaml")) + sorted(
         (ROOT / "stdlib").rglob("*.fib")) + sorted(
         (ROOT / "experiments").rglob("*.c")) + sorted(
         (ROOT / "experiments").rglob("*.h")) + sorted(

@@ -69,9 +69,10 @@ require target/application-specific timing evidence.
 
 ## Lightweight project management
 
-The [package plan](../packages.md) uses fibril.yaml and fibril.lock for future
-user projects, inspired by Dart pub. Local packages come first; pack still builds
-the Idris implementation. Manifest parsing/resolution does not exist yet.
+The [package plan](../packages.md) uses strict fibril.yaml metadata, inspired by
+Dart pub. [Explicit local packages](../local-packages.md) now check/run through a
+canonical multi-root source graph; pack still builds the Idris implementation.
+Workspace-member discovery and the fibril.lock snapshot/hash contract remain future work.
 
 ## Extensibility and self-hosting
 

@@ -1,0 +1,5 @@
+module Main
+import Email.Core.Status
+
+main : IO Unit
+main = putStrLn (Email.Core.Status.relayAcceptance "demo-1")

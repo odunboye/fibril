@@ -61,8 +61,9 @@ validation. Tilde/environment variables have no expansion semantics here.
 
 [The two inspection fixtures](../examples/manifests/README.md) deliberately have
 no src directories. Both inspect successfully. A unit test passes their decoded
-shape into the pure planner with synthetic roots; there is still no two-package
-source loader/check/run path.
+shape into the pure planner with synthetic roots. The separate
+[local package workflow](local-packages.md) supplies a real two-package check/run
+example; inspection itself remains read-only schema decoding.
 
 ## Maintained parser and strict composition
 
@@ -123,8 +124,7 @@ two packages without claiming filesystem loading or source checking. Existing
 source loader defaults remain 65536 bytes; manifest loading selects the smaller
 cap through loadSourceWithin.
 
-Next: canonical local dependency/root loading, target-name/identity validation,
-and a real workspace-aware source check/run example. Workspace-member manifest
+[Canonical local dependency/root loading and multi-root check/run](local-packages.md)
+are now implemented with explicit --package selection. Workspace-member manifest
 syntax, locks/content hashes, remote dependencies and scripts are not implemented.
-Scaffolding continues to emit no manifest until its namespace/loader integration
-can support the generated workflow honestly.
+Scaffolding still emits no manifest pending explicit namespace integration.

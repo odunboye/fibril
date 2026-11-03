@@ -5,8 +5,10 @@ digraph Workspaces {
   validate [label="Admission + identity + ownership checks\nall members, including disconnected"];
   order [label="Deterministic dependency-first order\nsmallest ready name"];
   route [label="Unique namespace owner\nself or explicit direct dependency only"];
-  future [label="Future: canonical multi-root loader\nmodule privacy/checking + snapshots/locks", style=dashed];
+  loader [label="Implemented: explicit local dependency closure\none canonical multi-root source traversal + checking"];
+  future [label="Future: workspace-member discovery\npackage editor services + locks", style=dashed];
   inventory -> validate -> order;
   validate -> route;
-  route -> future [style=dashed];
+  route -> loader;
+  loader -> future [style=dashed];
 }

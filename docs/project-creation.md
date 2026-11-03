@@ -37,7 +37,7 @@ Main is an ordinary named module with main : IO Unit and a Prelude putStrLn call
 The README includes the explicit check/run commands. No package manifest, lockfile,
 dependencies, Git repository, build script, install hook or external template is
 created/fetched/executed. [Manifest inspection](manifests.md) exists, but implicit
-project discovery and workspace loading remain future work. This is source scaffolding, not a new acceptance rule.
+project/workspace-member discovery and generated manifests remain future work. This is source scaffolding, not a new acceptance rule.
 
 ## Names and arguments
 
@@ -108,7 +108,7 @@ output reporting at orchestration boundaries. They do not simulate every real
 native write/close failure or hostile filesystem race. Read-only parallel review
 verified the primitive choices and caught/fixed the Chez Unix host-guard issue.
 
-Next: integrate the [manifest/workspace contract](packages.md) with a real local loader,
-then generated package metadata
+[Explicit local package loading](local-packages.md) now works. Next: integrate
+explicit namespace selection and generated package metadata
 and safe init behavior. A pure REPL can reuse checking/evaluation later; it is
 not introduced by scaffolding.

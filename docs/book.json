@@ -68,6 +68,10 @@
         "path": "docs/project-creation.md"
       },
       {
+        "title": "Check and run local packages",
+        "path": "docs/local-packages.md"
+      },
+      {
         "title": "Strict local manifest inspection",
         "path": "docs/manifests.md"
       },

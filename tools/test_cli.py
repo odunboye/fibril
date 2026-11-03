@@ -25,6 +25,214 @@ class CLITests(unittest.TestCase):
         self.assertIn("fibril demo", result.stdout)
         self.assertIn("not implemented yet", result.stdout)
 
+    def test_local_packages_check_run_and_permission_boundaries(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            def package(name, prefix, deps=(), entry=False):
+                folder = root / name
+                (folder / 'src').mkdir(parents=True, exist_ok=True)
+                text = (f'schema: 1\nname: {name}\nmodule-prefix: {prefix}\nsource-dir: src\nfoundation: de-morgan\n' +
+                        ('entry: Main\n' if entry else '') + 'dependencies:\n' +
+                        (''.join(f'  {key}:\n    path: {path}\n' for key, path in deps) if deps else '  {}\n'))
+                (folder / 'fibril.yaml').write_text(text)
+                return folder
+            def source(folder, module, body):
+                path = folder / 'src' / (module.replace('.', '/') + '.fib')
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text('module ' + module + '\n' + body)
+                return path
+            core = package('core', 'Core')
+            mail = package('mail', 'Mail', [('core', '../core')], entry=True)
+            app = package('app', 'App', [('mail', '../mail')], entry=True)
+            core_source = source(core, 'Core.Text', '\nexport\nvalue : String\nvalue = "core"\n')
+            mail_source = source(mail, 'Mail.Queue', 'import Core.Text\n\nexport\nmessage : String\nmessage = Core.Text.value\n')
+            # A dependency entry must never become the application's entry.
+            source(mail, 'Main', '\nnot valid source\n')
+            app_source = source(app, 'Main', 'import Mail.Queue\n\nmain : IO Unit\nmain = putStrLn Mail.Queue.message\n')
+            manifest = app / 'fibril.yaml'
+            original = manifest.read_text()
+            result = run('run', '--package', str(manifest), cwd=root)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'core\n')
+            checked = run('check', '--package', str(manifest), cwd=app)
+            self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
+            self.assertIn('Modules: 3', checked.stdout)
+            graph = run('module-graph', '--package', str(manifest))
+            self.assertEqual(graph.returncode, 0, graph.stdout + graph.stderr)
+            scope = json.loads(graph.stdout)['package_scope']
+            self.assertEqual(scope['entry_package'], 'app')
+            self.assertEqual([spec['name'] for spec in scope['inventory']], ['app', 'core', 'mail'])
+            self.assertEqual({item['owner'] for item in scope['module_owners']}, {'app', 'core', 'mail'})
+            # Core has already entered the graph cache through Mail: app still has no permission.
+            app_source.write_text(app_source.read_text().replace('import Mail.Queue', 'import Mail.Queue\nimport Core.Text'))
+            result = run('run', '--package', str(manifest))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, '')
+            # Explicit direct permission creates a shared diamond, not duplicated graphs.
+            manifest.write_text(original + '  core:\n    path: ../core\n')
+            checked = run('check', '--package', str(manifest))
+            self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
+            self.assertIn('Modules: 3', checked.stdout)
+            # Package permission alone does not expose unimported source module bindings.
+            app_source.write_text('module Main\nimport Mail.Queue\n\nmain : IO Unit\nmain = putStrLn Core.Text.value\n')
+            result = run('run', '--package', str(manifest))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, '')
+            app_source.write_text('module Main\nimport Mail.Queue\n\nmain : IO Unit\nmain = putStrLn Mail.Queue.message\n')
+            original_mail_source = mail_source.read_text()
+            mail_source.write_text(original_mail_source + '\nbroken : String\nbroken = true\n')
+            result = run('run', '--package', str(manifest))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, '')
+            mail_source.write_text(original_mail_source)
+            # A cached manifest must validate every incoming dependency key.
+            manifest.write_text(original + '  alias:\n    path: ../core\n')
+            result = run('check', '--package', str(manifest))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('Dependency key', result.stderr)
+            manifest.write_text(original)
+            # Invalid manifest in an unimported declared dependency still rejects before effects.
+            app_source.write_text('module Main\n\nmain : IO Unit\nmain = putStrLn "before"\n')
+            core_manifest = core / 'fibril.yaml'
+            core_text = core_manifest.read_text()
+            core_manifest.write_text(core_text + 'scripts: {}\n')
+            result = run('run', '--package', str(manifest))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, '')
+            core_manifest.write_text(core_text)
+            # A package cycle is rejected even without a source-module cycle.
+            core_manifest.write_text(core_text.replace('  {}\n', '  app:\n    path: ../app\n'))
+            result = run('run', '--package', str(manifest))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('cycle', result.stderr.lower())
+            core_manifest.write_text(core_text)
+            # Prefix selection is component-wise and never falls back to another source root.
+            app_source.write_text('module Main\nimport CoreMissing.Text\n\nmain : IO Unit\nmain = putStrLn "before"\n')
+            result = run('run', '--package', str(manifest))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, '')
+
+    def test_local_packages_canonical_roots_and_exact_case(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            app = root / 'mail app 日本'
+            (app / 'src').mkdir(parents=True)
+            (app / 'src/Main.fib').write_text('module Main\n\nmain : IO Unit\nmain = putStrLn "ok"\n')
+            manifest = app / 'fibril.yaml'
+            baseline = 'schema: 1\nname: app\nmodule-prefix: App\nsource-dir: src\nfoundation: de-morgan\nentry: Main\n'
+            manifest.write_text(baseline)
+            self.assertEqual(run('run', '--package', 'fibril.yaml', cwd=app).stdout, 'ok\n')
+            self.assertNotEqual(run('check', '--package', str(app / 'Fibril.yaml')).returncode, 0)
+            self.assertNotEqual(run('check', '--package', str(root / 'MAIL APP 日本/fibril.yaml')).returncode, 0)
+            self.assertNotEqual(run('check', '--package', str(app / 'fibril.yaml').replace('mail app', 'Mail app')).returncode, 0)
+            for text in [baseline.replace('source-dir: src', 'source-dir: Src'),
+                         baseline.replace('entry: Main\n', ''), baseline + 'dependencies:\n  absent:\n    path: ../absent\n']:
+                manifest.write_text(text)
+                result = run('run', '--package', str(manifest))
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(result.stdout, '')
+            # A contained lexical path can still escape through a symlink.
+            (root / 'outside').mkdir()
+            (app / 'escape').symlink_to(root / 'outside', target_is_directory=True)
+            manifest.write_text(baseline.replace('source-dir: src', 'source-dir: escape'))
+            result = run('run', '--package', str(manifest))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('escapes', result.stderr)
+            # Canonical roots cannot alias/nest, even if namespace ownership is disjoint.
+            dep = app / 'src/nested-package'
+            (dep / 'src').mkdir(parents=True)
+            (dep / 'fibril.yaml').write_text(baseline.replace('name: app', 'name: dep').replace('module-prefix: App', 'module-prefix: Dep'))
+            manifest.write_text(baseline + 'dependencies:\n  dep:\n    path: src/nested-package\n')
+            result = run('run', '--package', str(manifest))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('alias or nest', result.stderr)
+            manifest.write_text(baseline)
+            # Same-directory filename aliases must fail too (not merely relocation aliases).
+            same_dir_alias = app / 'alias.yaml'
+            same_dir_alias.symlink_to(manifest)
+            result = run('check', '--package', str(same_dir_alias))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('filename must be exactly', result.stderr)
+            # Manifest-file symlinks must not relocate relative dependencies silently.
+            link = root / 'alias'
+            link.mkdir()
+            (link / 'fibril.yaml').symlink_to(manifest)
+            result = run('run', '--package', str(link / 'fibril.yaml'))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('manifest-file symlink', result.stderr)
+
+    def test_local_package_discovery_and_global_source_admission(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            def manifest(index, targets):
+                folder = root / f'pkg-{index}'
+                (folder / 'src').mkdir(parents=True, exist_ok=True)
+                text = (f'schema: 1\nname: pkg-{index}\nmodule-prefix: P{index}\nsource-dir: src\nfoundation: de-morgan\n' +
+                        ('entry: Main\n' if index == 0 else '') + 'dependencies: ' +
+                        ('\n' + ''.join(f'  pkg-{target}:\n    path: ../pkg-{target}\n' for target in targets) if targets else '{}\n'))
+                (folder / 'fibril.yaml').write_text(text)
+            for index in range(65):
+                manifest(index, [])
+            main = root / 'pkg-0/src/Main.fib'
+            main.write_text('module Main\n\nmain : IO Unit\nmain = putStrLn "bounded"\n')
+            path = root / 'pkg-0/fibril.yaml'
+            manifest(0, range(1, 64))
+            result = run('check', '--package', str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            manifest(0, range(1, 65))
+            result = run('run', '--package', str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, '')
+            self.assertIn('package admission', result.stderr)
+            manifest(0, range(1, 64))
+            for index in (1, 2, 3):
+                manifest(index, range(index + 1, 64))
+            manifest(4, range(5, 15))  # 63 + 62 + 61 + 60 + 10 = 256 retained edges.
+            result = run('check', '--package', str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            manifest(4, range(5, 16))
+            result = run('check', '--package', str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('edge admission', result.stderr)
+            for index in (1, 2, 3, 4):
+                manifest(index, [])
+            too_large = root / 'pkg-1/fibril.yaml'
+            saved = too_large.read_bytes()
+            too_large.write_bytes(saved + b'#' + b'.' * (8193 - len(saved) - 1))
+            result = run('run', '--package', str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, '')
+            self.assertIn('8192-byte', result.stderr)
+            too_large.write_bytes(saved)
+            for index in range(1, 33):
+                folder = root / f'pkg-{index}/src/P{index}'
+                folder.mkdir()
+                (folder / 'Value.fib').write_text(f'module P{index}.Value\n\nexport\nvalue : String\nvalue = "value"\n')
+            for count, accepted in ((31, True), (32, False)):
+                main.write_text('module Main\n' + ''.join(f'import P{index}.Value\n' for index in range(1, count + 1)) +
+                                '\nmain : IO Unit\nmain = putStrLn "bounded"\n')
+                result = run('run', '--package', str(path))
+                self.assertEqual(result.returncode == 0, accepted, result.stdout + result.stderr)
+                if not accepted:
+                    self.assertEqual(result.stdout, '')
+                    self.assertIn('Module count', result.stderr)
+            # Aggregate bytes remain a single budget across distinct owning roots.
+            main.write_text('module Main\n' + ''.join(f'import P{index}.Value\n' for index in range(1, 9)) +
+                            '\nmain : IO Unit\nmain = putStrLn "bounded"\n')
+            for index in range(1, 9):
+                file = root / f'pkg-{index}/src/P{index}/Value.fib'
+                content = file.read_bytes()
+                limit = 65536 if index < 8 else 65536 - len(main.read_bytes())
+                file.write_bytes(content + b'--' + b'.' * (limit - len(content) - 2))
+            result = run('check', '--package', str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            last = root / 'pkg-8/src/P8/Value.fib'
+            last.write_bytes(last.read_bytes() + b'.')
+            result = run('run', '--package', str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, '')
+            self.assertIn('Aggregate module source byte', result.stderr)
+
     def test_strict_local_manifest_inspection(self):
         baseline = ('schema: 1\nname: mailer-app\nmodule-prefix: Mailer\nsource-dir: src\n'
                     'foundation: de-morgan\nentry: Main\ndependencies:\n  email-core:\n    path: ../email-core\n')

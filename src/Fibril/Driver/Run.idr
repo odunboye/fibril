@@ -13,11 +13,8 @@ import Fibril.Driver.ModuleGraph
 
 %default total
 
-||| Validate all module definitions before preparing any stdout plan.
-public export
-runProject : String -> String -> IO (Either String ())
-runProject root entry = do
-  checked <- checkProject root entry
+executeProject : Either GraphError CheckedProject -> IO (Either String ())
+executeProject checked =
   case checked of
     Left err => pure (Left (renderGraphError err))
     Right project => case prepareIO 128 128 project.term of
@@ -27,6 +24,15 @@ runProject root entry = do
         pure $ case result of
           Left err => Left (renderFileError project.graph.entry err)
           Right () => Right ()
+
+||| Validate all module definitions before preparing any stdout plan.
+public export
+runProject : String -> String -> IO (Either String ())
+runProject root entry = checkProject root entry >>= executeProject
+
+public export
+runPackage : String -> IO (Either String ())
+runPackage manifest = checkPackage manifest >>= executeProject
 
 public export
 runFile : String -> IO (Either String ())

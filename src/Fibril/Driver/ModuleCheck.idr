@@ -329,6 +329,13 @@ checkProject root entry = do
     ProjectRejected _ err => Left err
     ProjectAccepted project => Right project
 
+||| Local package closure loading still passes the ordinary independent checker.
+public export
+checkPackage : String -> IO (Either GraphError CheckedProject)
+checkPackage manifest = do
+  loaded <- loadPackageModuleGraph manifest
+  pure (loaded >>= checkModuleGraph)
+
 public export
 projectReport : CheckedProject -> List String
 projectReport project =

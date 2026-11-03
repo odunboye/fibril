@@ -3,13 +3,14 @@
 Status: [offline console scaffolding](project-creation.md) is implemented.
 [Pure workspace planning and direct-dependency routing](workspaces.md) are implemented
 as internal APIs. [Strict local manifest inspection](manifests.md) is implemented;
-filesystem workspace loading, locks and fetching remain unimplemented.
+[explicit local dependency-closure check/run](local-packages.md) now works too.
+Workspace-member discovery, locks and fetching remain unimplemented.
 
 ## Bootstrap versus user projects
 
 - pack.toml and Idris .ipkg files continue to manage the compiler implementation.
-- Future Fibril projects use a small pubspec-style **fibril.yaml** manifest and
-  **fibril.lock** lockfile.
+- Local Fibril projects use a small pubspec-style **fibril.yaml** manifest;
+  a **fibril.lock** snapshot/hash lockfile remains future work.
 - Borrow Dart pub's readable project description and integrated workflow, not its
   complete registry/version-solving machinery.
 - This does not replace the existing pack setup. The bootstrap now uses the
@@ -34,7 +35,7 @@ dependencies:
     path: ../email-core
 ~~~
 
-This is not runnable configuration yet. The initial schema deliberately excludes
+This now runs with explicit --package selection, not implicit project discovery. The initial schema deliberately excludes
 Git/registry sources, target conditions, native hooks and version solving. Those
 must get explicit later contracts rather than silently accepted fields. Package
 names do not infer namespaces or grant source-level visibility.
@@ -42,7 +43,7 @@ names do not infer namespaces or grant source-level visibility.
 The first [local module/import contract](modules.md) precedes package resolution:
 one explicit source root, checked qualified exports, an acyclic graph, and no
 network or implicit manifest discovery. Syntax/discovery and imported checking are implemented; package resolution
-remains future work.
+now supports explicit local paths through --package; remote resolution remains future work.
 
 ## Tooling boundary and first scaffold
 
@@ -55,14 +56,14 @@ plugins or template hooks.
 
 fibril new NAME [--template console] [--dry-run] now creates only a source tree,
 README and gitignore. It intentionally emits no pretend-operational manifest or
-lockfile before workspace loading and namespace integration exist. init into existing directories,
-local workspaces, fetching and remote templates remain future slices.
+lockfile before explicit namespace-aware scaffold integration exists. init into existing directories,
+workspace-member inventories, fetching and remote templates remain future slices.
 
 ## Minimal implementation sequence
 
-1. Local-path packages and a deterministic module/dependency graph.
-2. Explicitly pinned Git dependencies with a shared content cache.
-3. Lockfile verification, offline builds from cached inputs, and update commands.
+1. Local-path packages and a deterministic module/dependency graph (explicit closure implemented).
+2. Namespace-aware scaffolds, workspace-member inventories and versioned snapshot locks.
+3. Explicit pinned Git dependencies/cache only with separate fetch/offline verification policy.
 4. Registry and version resolution only when justified by actual use.
 
 Initially select one revision per package identity and report conflicts clearly.
@@ -96,7 +97,7 @@ ambiguity exists. Pin the parser/profile and bound input size and expansion work
 
 The [strict reader](manifests.md) selects collection-pinned idris2-yaml, validates
 events before composition and rejects unsupported YAML/schema features. Filesystem
-loading and lock format/versioning remain pending; the
+workspace-member discovery and lock format/versioning remain pending; the
 [local workspace ownership/order contract](workspaces.md) is specified and tested. Target conditions and compatibility/version-selection
 policies need separate later schema work.
 

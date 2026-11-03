@@ -34,6 +34,7 @@ Usage:
   fibril new NAME [--template console] [--dry-run]  Create a fresh offline console project (POSIX)
   fibril manifest PATH          Inspect a strict local YAML manifest (no dependency/source loading)
   fibril module-graph ROOT ENTRY  Inspect local dependency graph (syntax only, POSIX)
+  fibril module-graph --package PATH  Inspect package-scoped source graph (syntax only)
   fibril demo       Run built-in ordinary checking and cubical algebra examples
   fibril validate-source PATH   Validate UTF-8 and source controls (not typing)
   fibril rename-preview LINE COLUMN NEWNAME PATH  Capture-checked same-file edits (no writes)
@@ -49,6 +50,8 @@ Usage:
   fibril lex-source PATH        Print source tokens/spans (not parsing/checking)
   fibril check PATH             Check a closed source program and runtime usage
   fibril check --source-dir ROOT ENTRY  Check qualified local module interfaces (POSIX)
+  fibril check --package PATH   Check explicit local fibril.yaml dependency closure (POSIX)
+  fibril run --package PATH     Check local packages, then execute the complete IO plan
   fibril check --json --source-dir ROOT ENTRY  Version-2 project report with source snapshots
   fibril check --json PATH      JSON runtime-check report (no effect execution)
   fibril check --erased PATH    Check only the erased ordinary fragment
@@ -60,8 +63,8 @@ Usage:
   fibril eval --fuel N PATH     Reference normalization with fuel 0..4096
 
 Annotated expressions and source-ordered nonrecursive declarations are supported.
-Qualified local imports require --source-dir. Manifest inspection does not load
-workspaces or dependencies. Recursive declarations, cubical checking, and C/JS
+Qualified imports use --source-dir or explicit --package. Manifest inspection
+alone does not load dependencies. Workspace-member discovery and locks are absent. Recursive declarations, cubical checking, and C/JS
 compilation are not implemented yet.
 """
 
@@ -126,6 +129,9 @@ main = do
     ["--version"] => putStrLn "Fibril 0.1.0-dev (Idris 2 bootstrap)"
     "new" :: options => newProject options >>= printServiceReport
     ["manifest", path] => manifestFile path >>= printServiceReport
+    ["module-graph", "--package", manifest] => do
+      loaded <- loadPackageModuleGraph manifest
+      printServiceReport (case loaded of Left err => Left (renderGraphError err); Right graph => Right [renderModuleGraph graph])
     ["module-graph", root, entry] => do
       graph <- loadModuleGraph root entry
       case graph of
@@ -133,6 +139,10 @@ main = do
         Left err => do
           _ <- fPutStrLn stderr (renderGraphError err)
           exitFailure
+    ["run", "--package", manifest] => runPackage manifest >>= printExecution
+    ["check", "--package", manifest] => do
+      checked <- checkPackage manifest
+      printServiceReport (case checked of Left err => Left (renderGraphError err); Right project => Right (projectReport project))
     ["run", "--source-dir", root, entry] => runProject root entry >>= printExecution
     ["run", path] => runFile path >>= printExecution
     ["eval", "--source-dir", root, entry] => evaluateProjectFile 128 root entry >>= printServiceReport

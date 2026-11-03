@@ -1,0 +1,5 @@
+schema: 1
+name: email-core
+module-prefix: Email.Core
+source-dir: src
+foundation: de-morgan

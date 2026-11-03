@@ -11,7 +11,8 @@ ordinary module tree for a small program with no reusable package boundary.
 [Project.Workspace](../src/Fibril/Project/Workspace.idr), with ordering, namespace
 ownership and direct-dependency checks. It has no filesystem effects or compiler
 imports. A separate [strict manifest inspector](manifests.md) now decodes the schema.
-Neither supplies workspace-aware check/run, fetching or locks. The explicit single-root CLI remains
+[Explicit local dependency-closure loading/check/run](local-packages.md) now exists.
+Workspace-member discovery, fetching and locks remain absent. The explicit single-root CLI remains
 unchanged; fibril new still emits no manifest.
 
 ![Workspace planning boundary](diagrams/workspaces.svg)
@@ -94,14 +95,14 @@ Do not concatenate separately loaded ModuleGraph values or fabricate checked
 module snapshots from this package DAG. A real multi-root loader needs explicit
 per-module ownership and must preserve module-level admission and checking.
 
-## Filesystem adapter contract (not implemented)
+## Filesystem adapter contract (local closure implemented)
 
 Source roots in the pure API are ordinary untrusted strings. Equality checks do
 not prove that paths exist, are canonical, identify directories, remain stable or
 are disjoint. Spaces/Unicode are preserved, not trimmed or case-folded. Different
 spellings such as /a/../b and /b are not resolved by the planner.
 
-The future adapter must canonicalize package/source roots before loading,
+The [local closure adapter](local-packages.md) canonicalizes package/source roots before loading, and must
 validate exact case and containment, reject source-root aliasing/nesting in the
 initial profile, and reject canonical-file aliases across owners. Canonicalization
 is not an atomic snapshot or hostile-filesystem sandbox.
@@ -153,7 +154,8 @@ selection is included.
 The package schema has a [maintained-parser decoder](manifests.md), rejecting
 duplicate/unknown keys, aliases/tags/directives, scalar surprises and unsupported
 sources under explicit admission. This is **not executable workspace configuration**:
-canonical path and target-manifest identity checks still need the filesystem loader.
+canonical path and target-manifest identity checks are implemented by the separate
+[local dependency-closure loader](local-packages.md). Workspace-member syntax remains future work.
 
 ## Reproducibility, foundation and foreign trust
 
@@ -183,7 +185,8 @@ transitive routing, unknown requesters, forged ambiguity and Main separation.
 Root tests deliberately use nonexistent paths: no filesystem validation is claimed.
 Read-only parallel review supplied the module-loader integration constraints.
 
-Manifest decoding is now implemented. Next: canonical local-root resolution -> real
-workspace-aware module loading/reporting/navigation -> source snapshot locking.
+Manifest decoding and explicit local-root resolution/check/run are implemented.
+Next: workspace-member inventory files -> package-aware reporting/navigation ->
+source snapshot locking.
 Keep all present single-root commands compatible until that path is tested end to
-end. Scaffolding still emits no manifest until namespace and loader integration work.
+end. Scaffolding still emits no manifest until explicit namespace integration works.

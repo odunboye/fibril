@@ -1,0 +1,5 @@
+module Email.Core.Status
+
+export
+relayAcceptance : (1 receipt : String) -> String
+relayAcceptance = \(1 receipt : String) => appendString "accepted by relay: " (appendString receipt " (not delivery)")

@@ -1,0 +1,13 @@
+digraph LocalPackages {
+  rankdir=LR;
+  node [shape=box];
+  manifest [label="Explicit fibril.yaml\nno parent/member discovery"];
+  closure [label="Bounded local dependency closure\ncanonical roots + every-edge target names"];
+  plan [label="Pure inventory plan\nunique prefixes + direct edges + acyclic"];
+  traversal [label="One source traversal\nowner/direct permission before cache\nfull module paths + shared quotas"];
+  check [label="Ordinary elaboration + independent core checks\nall reachable private/unused bodies"];
+  io [label="Complete bounded IO plan\nthen host execution"];
+  future [label="Future: workspace-member files\neditor services + locks/hashes", style=dashed];
+  manifest -> closure -> plan -> traversal -> check -> io;
+  plan -> future [style=dashed];
+}

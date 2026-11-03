@@ -2,6 +2,9 @@
 module Fibril.Driver.ModuleGraph
 
 import Data.List
+import Fibril.Project.Workspace
+import Fibril.Project.Local
+import Fibril.Project.Manifest
 import System.Directory
 import Fibril.Runtime.Path
 import Fibril.Source.Text
@@ -75,23 +78,38 @@ record ModuleSnapshot where
   document : ParsedDocument
 
 public export
+data GraphScope = SingleRoot | PackageRoots WorkspacePlan String
+
+public export
 record ModuleGraph where
-  constructor LoadedGraph
+  constructor ScopedGraph
   root : String
   entry : String
   modules : List ModuleSnapshot
+  scope : GraphScope
+
+||| Compatibility constructor for explicit single-root graphs.
+public export
+LoadedGraph : String -> String -> List ModuleSnapshot -> ModuleGraph
+LoadedGraph root entry modules = ScopedGraph root entry modules SingleRoot
+
+record Selection where
+  constructor SelectedRoot
+  root : String
+  owner : Maybe String
+
+selectImport : GraphScope -> Selection -> List String -> Either String Selection
+selectImport SingleRoot current components = Right current
+selectImport (PackageRoots plan _) current components = do
+  owner <- case current.owner of Nothing => Left "Missing package owner"; Just owner => Right owner
+  spec <- case moduleOwner plan owner components of Left err => Left (show err); Right spec => Right spec
+  Right (SelectedRoot spec.sourceRoot (Just spec.name))
 
 record State where
   constructor Progress
   count : Nat
   bytes : Nat
   done : List ModuleSnapshot
-
-joinPath : String -> String -> String
-joinPath root name = root ++ (if root == "/" then "" else "/") ++ name
-
-inside : String -> String -> Bool
-inside root path = root == path || isPrefixOf (unpack (joinPath root "")) (unpack path)
 
 moduleText : List String -> String
 moduleText names = concat (intersperse "." names)
@@ -100,29 +118,6 @@ byteCount : String -> Nat
 byteCount source = foldl (\count, char => count +
   (if ord char <= 0x7f then 1 else if ord char <= 0x7ff then 2
    else if ord char <= 0xffff then 3 else 4)) 0 (unpack source)
-
--- Bound entries examined per lookup; stop once exact spelling is established.
--- Oversized directories can exhaust this search budget depending on OS ordering.
-scanDirectory : Nat -> Directory -> String -> IO (Either String Bool)
-scanDirectory budget directory wanted = do
-  result <- nextDirEntry directory
-  case result of
-    Left err => pure (Left (show err))
-    Right Nothing => pure (Right False)
-    Right (Just name) => case budget of
-      Z => pure (Left "Directory lookup entry budget exceeded (4096)")
-      S rest => if name == wanted then pure (Right True) else scanDirectory rest directory wanted
-
-exactEntry : String -> String -> IO (Either String ())
-exactEntry directory wanted = do
-  Right handle <- openDir directory
-    | Left err => pure (Left (show err))
-  result <- scanDirectory 4096 handle wanted
-  closeDir handle
-  pure $ case result of
-    Left err => Left ("Cannot perform exact-case lookup: " ++ err)
-    Right False => Left ("Missing exact-case path component " ++ show wanted)
-    Right True => Right ()
 
 modulePath : String -> String -> List String -> IO (Either String String)
 modulePath root directory [] = pure (Left "Empty module name")
@@ -167,11 +162,11 @@ checkIdentity root expected snapshot = case headerMatches expected snapshot of
           Left (failure site "Module/header path mismatch")
 
 mutual
-  visit : Nat -> String -> List String -> Maybe (List String) -> Site -> String -> State ->
+  visit : Nat -> GraphScope -> Selection -> List String -> Maybe (List String) -> Site -> String -> State ->
           IO (Either GraphError State)
-  visit Z root active expected site path state =
+  visit Z scope selected active expected site path state =
     pure (Left (failure site "Module graph depth budget exhausted"))
-  visit (S depth) root active expected site path state =
+  visit (S depth) scope selected active expected site path state =
     case elem path active of
       True => pure (Left (failure site
         ("Import cycle: " ++ concat (intersperse " -> " (reverse (path :: active))))))
@@ -189,27 +184,29 @@ mutual
                  Right document <- pure (parseSnapshot path source)
                    | Left err => pure (Left err)
                  let snapshot = Snapshot path source bytes document
-                 Right () <- checkIdentity root expected snapshot
+                 Right () <- checkIdentity selected.root expected snapshot
                    | Left err => pure (Left err)
-                 result <- imports depth root (path :: active) snapshot document.imports
+                 result <- imports depth scope selected (path :: active) snapshot document.imports
                             (Progress (S state.count) (state.bytes + bytes) state.done)
                  pure $ case result of
                    Left err => Left err
                    Right complete => Right ({ done := complete.done ++ [snapshot] } complete)
 
-  imports : Nat -> String -> List String -> ModuleSnapshot -> List ImportDeclaration -> State ->
+  imports : Nat -> GraphScope -> Selection -> List String -> ModuleSnapshot -> List ImportDeclaration -> State ->
             IO (Either GraphError State)
-  imports depth root active snapshot [] state = pure (Right state)
-  imports depth root active snapshot (dependency :: rest) state = do
+  imports depth scope selected active snapshot [] state = pure (Right state)
+  imports depth scope selected active snapshot (dependency :: rest) state = do
     let site = AtSource snapshot.path snapshot.source (Just dependency.span.start)
-    resolved <- modulePath root root dependency.components
+    Right target <- pure (selectImport scope selected dependency.components)
+      | Left err => pure (Left (failure site err))
+    resolved <- modulePath target.root target.root dependency.components
     case resolved of
       Left err => pure (Left (failure site (moduleText dependency.components ++ ": " ++ err)))
       Right path => do
-        result <- visit depth root active (Just dependency.components) site path state
+        result <- visit depth scope target active (Just dependency.components) site path state
         case result of
           Left err => pure (Left err)
-          Right next => imports depth root active snapshot rest next
+          Right next => imports depth scope selected active snapshot rest next
 
 ||| Existing paths, canonical root containment, header matching, acyclic graph.
 ||| Sources are immutable in-memory snapshots, not an atomic filesystem transaction.
@@ -226,14 +223,47 @@ loadModuleGraph root entry = do
   if not (inside rootPath entryPath)
      then pure (Left (GraphFailure entryPath "" Nothing "Entry escapes canonical source root"))
      else do
-       result <- visit 32 rootPath [] Nothing (AtSource entryPath "" Nothing) entryPath (Progress 0 0 [])
+       result <- visit 32 SingleRoot (SelectedRoot rootPath Nothing) [] Nothing (AtSource entryPath "" Nothing) entryPath (Progress 0 0 [])
        pure $ map (\state => LoadedGraph rootPath entryPath state.done) result
+
+||| One traversal across canonical roots, retaining the validated package plan
+||| and root owner. Each source import has both package and module permission.
+||| No separately loaded graphs are concatenated; graph/source quotas are global.
+public export
+loadPackageModuleGraph : String -> IO (Either GraphError ModuleGraph)
+loadPackageModuleGraph manifest = do
+  Right inventory <- loadLocalInventory manifest
+    | Left err => pure (Left (GraphFailure manifest "" Nothing err))
+  let package = inventory.entryPackage
+  if package.manifest.entry /= Just "Main"
+     then pure (Left (GraphFailure package.manifestPath "" Nothing "Root package requires explicit entry: Main")) else do
+    Right entry <- modulePath package.sourceRoot package.sourceRoot ["Main"]
+      | Left err => pure (Left (GraphFailure package.manifestPath "" Nothing err))
+    let scope = PackageRoots inventory.plan package.manifest.name
+    result <- visit 32 scope (SelectedRoot package.sourceRoot (Just package.manifest.name)) [] (Just ["Main"])
+                    (AtSource entry "" Nothing) entry (Progress 0 0 [])
+    pure (map (\state => ScopedGraph package.sourceRoot entry state.done scope) result)
+
+scopeFields : ModuleGraph -> List (String, String)
+scopeFields graph = case graph.scope of
+  SingleRoot => []
+  PackageRoots plan entryOwner =>
+    [("package_scope", jsonObject
+      [("entry_package", jsonString entryOwner),
+       ("inventory", jsonArray (map (\spec => jsonObject
+         [("name", jsonString spec.name), ("source_root", jsonString spec.sourceRoot),
+          ("module_prefix", jsonString (moduleText spec.modulePrefix)),
+          ("dependencies", jsonArray (map jsonString spec.dependencies))]) plan.inventory)),
+       ("module_owners", jsonArray (map (\snapshot => jsonObject
+         [("path", jsonString snapshot.path), ("owner", case filter (\spec => inside spec.sourceRoot snapshot.path) plan.inventory of
+           [spec] => jsonString spec.name
+           _ => "null")]) graph.modules))])]
 
 public export
 renderModuleGraph : ModuleGraph -> String
 renderModuleGraph graph = protocolJSON
-  [("checked", "false"), ("root", jsonString graph.root), ("entry", jsonString graph.entry),
+  (scopeFields graph ++ [("checked", "false"), ("root", jsonString graph.root), ("entry", jsonString graph.entry),
    ("modules", jsonArray (map (\snapshot => jsonObject
       [("path", jsonString snapshot.path), ("bytes", show snapshot.bytes),
        ("module", maybe "null" (\header => jsonString (moduleText header.components)) snapshot.document.moduleHeader),
-       ("imports", jsonArray (map (\dependency => jsonString (moduleText dependency.components)) snapshot.document.imports))]) graph.modules))]
+       ("imports", jsonArray (map (\dependency => jsonString (moduleText dependency.components)) snapshot.document.imports))]) graph.modules))])

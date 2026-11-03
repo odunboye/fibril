@@ -49,7 +49,9 @@ uses explicit check/run commands, not an unimplemented manifest resolver.
 The [local workspace contract](docs/workspaces.md) now has a tested pure planner
 for package order and direct-dependency namespace ownership. [Strict manifest
 inspection](docs/manifests.md) now works as `fibril manifest PATH`, using a pinned
-maintained YAML parser. Workspace-aware loading/checking and locks remain future work.
+maintained YAML parser. [Explicit local packages](docs/local-packages.md) now
+check/run through one ownership-aware multi-root graph using `--package fibril.yaml`.
+Workspace-member discovery and locks remain future work.
 
 Start with the [feature use-case guide](docs/use-cases.md) for what each feature
 is for, when to use it, and when a simpler alternative is better.

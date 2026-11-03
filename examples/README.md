@@ -3,6 +3,11 @@
 Strict YAML inspection fixtures live in [manifests/](manifests/README.md). They are
 not executable workspace projects or source-checking examples.
 
+A real two-package check/run example is in packages/{mailer,email-core}:
+`fibril run --package examples/packages/mailer/fibril.yaml` (from the compiler root).
+It calls a checked Fibril email-label function from the separate local library;
+see [local package boundaries](../docs/local-packages.md).
+
 ## Runnable bootstrap project (Idris 2)
 
 These programs use Idris 2 and the current Fibril implementation library.
