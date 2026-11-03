@@ -80,6 +80,7 @@ Runnable progression: [explicit dictionaries](../examples/modules/interfaces/Mai
 
 | Feature | Use it to… | Boundary / alternative |
 | --- | --- | --- |
+| [Project creation](project-creation.md) | Start a runnable console source tree with `fibril new NAME`, or preview it with --dry-run. | Existing-directory init and manifests are not implemented; use explicit check/run commands. No hooks or dependency fetching occur. |
 | [Modules, imports and exports](modules.md) | Split reusable definitions across files and publish a deliberate API. | Use one file for a small experiment. Only checked direct imports grant visibility. |
 | [Erased globals](modules.md) | Publish type abbreviations or other checking-only definitions without granting runtime access. | Use an unrestricted value if runtime computation needs it. |
 | [IO descriptions and do notation](console-runner.md) | Describe console actions and sequence results through typed bindings. | Keep pure computation outside IO; describing/evaluating a plan is not executing it. |

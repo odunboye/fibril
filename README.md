@@ -42,6 +42,10 @@ The first [application target is a transactional-email service](docs/application
 with a checked relay-submission model. Network/TLS/storage, C deployment and the
 web/mobile UI are not implemented; application blockers remain explicit.
 
+Create a runnable console project with `fibril new mailer` (or preview using
+`--dry-run`); see [project creation](docs/project-creation.md). This offline scaffold
+uses explicit check/run commands, not an unimplemented manifest resolver.
+
 Start with the [feature use-case guide](docs/use-cases.md) for what each feature
 is for, when to use it, and when a simpler alternative is better.
 

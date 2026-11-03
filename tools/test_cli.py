@@ -6,13 +6,15 @@ import tempfile
 import random
 import unittest
 import json
+import os
+from concurrent.futures import ThreadPoolExecutor
 
 ROOT = Path(__file__).resolve().parents[1]
 EXE = ROOT / "build/exec/fibril"
 
 
-def run(*args):
-    return subprocess.run([str(EXE), *args], cwd=ROOT, text=True,
+def run(*args, cwd=ROOT):
+    return subprocess.run([str(EXE), *args], cwd=cwd, text=True,
                           capture_output=True, timeout=20)
 
 
@@ -22,6 +24,90 @@ class CLITests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("fibril demo", result.stdout)
         self.assertIn("not implemented yet", result.stdout)
+
+    def test_new_console_project_is_offline_and_runnable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            dry = run("new", "mailer", "--template", "console", "--dry-run", cwd=root)
+            self.assertEqual(dry.returncode, 0, dry.stdout + dry.stderr)
+            self.assertIn("No filesystem checks or changes", dry.stdout)
+            self.assertEqual(list(root.iterdir()), [])
+            result = run("new", "--template", "console", "mailer", cwd=root)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            project = root / "mailer"
+            self.assertEqual(sorted(str(p.relative_to(project)) for p in project.rglob("*") if p.is_file()),
+                             [".gitignore", "README.md", "src/Main.fib"])
+            self.assertEqual((project / "src/Main.fib").read_text(),
+                             'module Main\n\nmain : IO Unit\nmain = putStrLn "Hello from mailer!"\n')
+            self.assertEqual(project.stat().st_mode & 0o777, 0o700)
+            self.assertEqual((project / "src").stat().st_mode & 0o777, 0o700)
+            self.assertFalse((project / "fibril.yaml").exists())
+            self.assertFalse((project / ".git").exists())
+            checked = run("check", "--source-dir", "src", "src/Main.fib", cwd=project)
+            self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
+            executed = run("run", "--source-dir", "src", "src/Main.fib", cwd=project)
+            self.assertEqual(executed.returncode, 0, executed.stdout + executed.stderr)
+            self.assertEqual(executed.stdout, "Hello from mailer!\n")
+            again = run("new", "mailer", cwd=root)
+            self.assertNotEqual(again.returncode, 0)
+            self.assertEqual((project / "src/Main.fib").read_text(),
+                             'module Main\n\nmain : IO Unit\nmain = putStrLn "Hello from mailer!"\n')
+
+    def test_new_rejects_invalid_arguments_without_mutation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for args in ([], ["../escape"], ["a/b"], ["a\\b"], ["Upper"], ["a b"],
+                         ["a\n"], ["-x"], ["_x"], ["a" * 65], ["mailer", "extra"],
+                         ["mailer", "--template"], ["mailer", "--template", "web"],
+                         ["mailer", "--force"], ["mailer", "--dry-run", "--dry-run"],
+                         ["mailer", "--template", "console", "--template", "console"]):
+                with self.subTest(args=args):
+                    result = run("new", *args, cwd=root)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertEqual(result.stdout, "")
+                    self.assertEqual(list(root.iterdir()), [])
+            help_result = run("new", "--help", cwd=root)
+            self.assertEqual(help_result.returncode, 0)
+            self.assertEqual(list(root.iterdir()), [])
+
+    def test_new_preserves_existing_entries_and_concurrent_admission(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            target = root / "target"
+            target.mkdir()
+            (target / "sentinel").write_bytes(b"keep")
+            (root / "existing").write_bytes(b"original")
+            (root / "folder").mkdir()
+            (root / "link").symlink_to(target, target_is_directory=True)
+            (root / "dangling").symlink_to(root / "missing")
+            for name in ("existing", "folder", "link", "dangling"):
+                result = run("new", name, cwd=root)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(result.stdout, "")
+            self.assertEqual((root / "existing").read_bytes(), b"original")
+            self.assertEqual(list((root / "folder").iterdir()), [])
+            self.assertTrue((root / "link").is_symlink())
+            self.assertTrue((root / "dangling").is_symlink())
+            self.assertEqual((target / "sentinel").read_bytes(), b"keep")
+            self.assertEqual(sorted(p.name for p in target.iterdir()), ["sentinel"])
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                futures = [pool.submit(run, "new", "racer", cwd=root) for _ in range(2)]
+                results = [future.result() for future in futures]
+            self.assertEqual(sorted(result.returncode for result in results), [0, 1])
+            self.assertTrue((root / "racer/src/Main.fib").is_file())
+
+    @unittest.skipIf(os.geteuid() == 0, "root bypasses directory permission checks")
+    def test_new_permission_denial_has_no_partial_output(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            root.chmod(0o500)
+            try:
+                result = run("new", "denied", cwd=root)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(result.stdout, "")
+                self.assertFalse((root / "denied").exists())
+            finally:
+                root.chmod(0o700)
 
     def test_version(self):
         result = run("--version")

@@ -1,0 +1,15 @@
+digraph ProjectCreation {
+  rankdir=LR;
+  node [shape=box];
+  cli [label="fibril new NAME\nparse all options / validate one-component name"];
+  plan [label="Pure bundled console plan\nMain + README + gitignore"];
+  preview [label="--dry-run\nno filesystem probes or writes"];
+  admit [label="Trusted POSIX cwd\nfresh private mkdir"];
+  files [label="Exclusive fopen wx\nchecked write + close"];
+  error [label="Failure: stop and report\nretain partial output; no rollback"];
+  cli -> plan;
+  plan -> preview;
+  plan -> admit -> files;
+  admit -> error [style=dashed];
+  files -> error [style=dashed];
+}

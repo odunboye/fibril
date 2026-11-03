@@ -64,6 +64,10 @@
         "path": "docs/editor-highlighting.md"
       },
       {
+        "title": "Create a project",
+        "path": "docs/project-creation.md"
+      },
+      {
         "title": "Project and dependency format",
         "path": "docs/packages.md"
       },

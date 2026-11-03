@@ -2,6 +2,8 @@
 
 Implemented:
 
+- `src/Fibril/Project/{Template,New}.idr`: pure bundled console plan/name policy and CLI scaffolding orchestration, with no compiler/checker dependency. `Runtime.Project` provides private fresh directories and exclusive checked file writes in a trusted POSIX cwd; no recursive rollback, manifest reader or language FFI.
+
 - [Non-recursive source data](data.md): authored data/constructor/field syntax, shared qualified key allocation, named nominal/variant IR, resource-admitted telescope packing, checked constructors and optional consuming eliminators. Ordinary module exports carry checked definitions; direct data cases/layout-schema publication remain future work.
 
 - `src/Fibril/Elaboration/Data.idr`: internal closed non-recursive declaration builder; qualified key/name validation, explicit self-occurrence rejection, exact preflight, ordinary checked family/constructor definitions and all-or-error layout output. No source grammar, module installation or typing certificate.

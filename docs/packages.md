@@ -1,6 +1,7 @@
 # Lightweight Fibril project and dependency management
 
-Status: agreed direction; not an implemented manifest reader or package resolver.
+Status: [offline console scaffolding](project-creation.md) is implemented.
+Manifest reading, workspaces and dependency resolution remain planned, not implemented.
 
 ## Bootstrap versus user projects
 
@@ -39,8 +40,22 @@ an unrelated embedded build.
 
 The first [local module/import contract](modules.md) precedes package resolution:
 one explicit source root, checked qualified exports, an acyclic graph, and no
-network or manifest reader. Syntax/discovery are implemented; imported checking
-and package resolution remain future work.
+network or manifest reader. Syntax/discovery and imported checking are implemented; package resolution
+remains future work.
+
+## Tooling boundary and first scaffold
+
+Use one user-facing fibril CLI, but keep project/dependency tooling separate from
+the trusted compiler and reusable through stable services. The first project
+module has no checker/parser imports; runtime filesystem operations are explicit.
+A separate executable/package may host these tools later without making users
+learn unrelated command names. Do not automatically execute PATH-discovered
+plugins or template hooks.
+
+fibril new NAME [--template console] [--dry-run] now creates only a source tree,
+README and gitignore. It intentionally emits no pretend-operational manifest or
+lockfile before a supported schema/reader exists. init into existing directories,
+local workspaces, fetching and remote templates remain future slices.
 
 ## Minimal implementation sequence
 

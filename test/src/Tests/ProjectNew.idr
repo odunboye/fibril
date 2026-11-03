@@ -1,0 +1,65 @@
+module Tests.ProjectNew
+
+import Data.IORef
+import Data.List
+import Data.String
+import Fibril.Project.Template
+import Fibril.Project.New
+
+%default total
+
+record Attempt where
+  constructor Attempted
+  result : Either String ()
+  calls : List String
+
+simulate : Nat -> String -> IO Attempt
+simulate failAt name = do
+  seen <- newIORef (the (List String) [])
+  let operation : String -> IO (Either String ()) = \label => do
+        before <- readIORef seen
+        modifyIORef seen (label ::)
+        pure (if length before == failAt then Left "Injected creation/write/close failure" else Right ())
+  result <- createWith (CreatingWith (\path => operation ("directory " ++ path))
+                       (\path, contents => operation ("file " ++ path))) name
+  calls <- readIORef seen
+  pure (Attempted result (reverse calls))
+
+failed : Either String () -> Bool
+failed (Left _) = True
+failed _ = False
+
+partialReported : Either String () -> Bool
+partialReported (Left message) = isInfixOf "Partial project may remain" message && isInfixOf "no rollback" message
+partialReported _ = False
+
+public export
+runProjectChecks : IO (List (String, Bool))
+runProjectChecks = do
+  invalid <- simulate 99 "../escape"
+  admission <- simulate 0 "mailer"
+  directory <- simulate 1 "mailer"
+  firstFile <- simulate 2 "mailer"
+  laterFile <- simulate 4 "mailer"
+  success <- simulate 99 "mailer"
+  pure
+    [ ("project names reject paths/options/controls and code injection",
+        all (not . validProjectName) ["", "..", "../x", "a/b", "a\\b", "-x", "_x", "A", "a b", "a\n", "a\"", pack (replicate 65 'a')])
+    , ("valid project directory slugs do not dictate module identity",
+        all validProjectName ["mailer", "hello_world", "hello-world", "app2", pack (replicate 64 'a')])
+    , ("POSIX runtime identifiers include Chez Unix and RefC names",
+        all supportedHost ["unix", "darwin", "Linux", "macOS"] &&
+        all (not . supportedHost) ["windows", "mingw32", "cygwin32", "unknown"])
+    , ("invalid names produce no creation effects", failed invalid.result && null invalid.calls)
+    , ("failed root admission stops before any file writes",
+        failed admission.result && admission.calls == ["directory mailer"])
+    , ("directory failure reports partial output and stops",
+        partialReported directory.result && directory.calls == ["directory mailer", "directory mailer/src"])
+    , ("first file failure stops without rollback",
+        partialReported firstFile.result && length firstFile.calls == 3)
+    , ("later file failure stops and keeps earlier progress",
+        partialReported laterFile.result && length laterFile.calls == 5)
+    , ("successful creation uses exactly fixed directories/files",
+        (case success.result of Right () => True; _ => False) &&
+        success.calls == ["directory mailer", "directory mailer/src", "file mailer/src/Main.fib", "file mailer/.gitignore", "file mailer/README.md"])
+    ]

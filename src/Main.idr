@@ -1,6 +1,7 @@
 module Main
 
 import System
+import Fibril.Project.New
 import System.File
 import Data.List
 import Fibril.Driver.Demo
@@ -29,6 +30,7 @@ Fibril — experimental language bootstrap
 Usage:
   fibril --help
   fibril --version
+  fibril new NAME [--template console] [--dry-run]  Create a fresh offline console project (POSIX)
   fibril module-graph ROOT ENTRY  Inspect local dependency graph (syntax only, POSIX)
   fibril demo       Run built-in ordinary checking and cubical algebra examples
   fibril validate-source PATH   Validate UTF-8 and source controls (not typing)
@@ -56,8 +58,8 @@ Usage:
   fibril eval --fuel N PATH     Reference normalization with fuel 0..4096
 
 Annotated expressions and source-ordered nonrecursive declarations are supported.
-Qualified local imports require --source-dir. Recursive declarations, cubical checking,
-project JSON/editor reports, and C/JS compilation are not implemented yet.
+Qualified local imports require --source-dir. Package manifest reading, recursive
+declarations, cubical checking, and C/JS compilation are not implemented yet.
 """
 
 printReport : Either String (List String) -> IO ()
@@ -119,6 +121,7 @@ main = do
     [] => putStrLn help
     ["--help"] => putStrLn help
     ["--version"] => putStrLn "Fibril 0.1.0-dev (Idris 2 bootstrap)"
+    "new" :: options => newProject options >>= printServiceReport
     ["module-graph", root, entry] => do
       graph <- loadModuleGraph root entry
       case graph of
