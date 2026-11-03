@@ -89,6 +89,32 @@ checks =
           case normalize 64 candidate of
             Normal result => sameSyntax result (StringValue "dependent") && accepts (checkRuntime 512 128 Empty result StringType)
             _ => False)
+  , ("assembled two-field payload consumes both linear fields and computes",
+      let payload = Sigma Linear Linear StringType (weaken StringType)
+          choices = VariantType [Nothing, Just (Linear, payload)]
+          nominal = NominalType "Example.PairChoice" [] choices
+          value = NominalValue nominal (VariantValue choices 1 (Just (PairValue payload (StringValue "hello") (StringValue " world"))))
+          motive = constant nominal StringType
+          fields = Lambda Linear StringType (Lambda Linear StringType
+            (StringAppend (Variable (FS FZ)) (Variable FZ)))
+          branch = assemblePairPayloadBranch nominal choices 1 payload motive fields
+          candidate = assembleDataCase nominal choices motive value [StringValue "none", branch]
+       in accepts (checkRuntime 512 128 Empty candidate StringType) &&
+          case normalize 64 candidate of
+            Normal result => sameSyntax result (StringValue "hello world") && accepts (checkRuntime 512 128 Empty result StringType)
+            _ => False)
+  , ("assembled pair payload rejects dropping a linear field or a wrong tag",
+      let payload = Sigma Linear Linear StringType (weaken StringType)
+          choices = VariantType [Nothing, Just (Linear, payload)]
+          nominal = NominalType "Example.PairChoice" [] choices
+          value = NominalValue nominal (VariantValue choices 1 (Just (PairValue payload (StringValue "x") (StringValue "y"))))
+          motive = constant nominal StringType
+          dropped = Lambda Linear StringType (Lambda Linear StringType (Variable FZ))
+          both = Lambda Linear StringType (Lambda Linear StringType (StringAppend (Variable (FS FZ)) (Variable FZ)))
+       in not (accepts (checkRuntime 512 128 Empty
+            (assembleDataCase nominal choices motive value [StringValue "none", assemblePairPayloadBranch nominal choices 1 payload motive dropped]) StringType)) &&
+          not (accepts (checkRuntime 512 128 Empty
+            (assembleDataCase nominal choices motive value [StringValue "none", assemblePairPayloadBranch nominal choices 0 payload motive both]) StringType)))
   , ("assembled case joins ambient linear demand across alternatives",
       let choices = VariantType [Nothing, Nothing]
           nominal = NominalType "Example.Two" [] choices

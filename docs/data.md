@@ -101,8 +101,13 @@ nor type-check branch bodies. These helpers are not wired into the expression
 driver yet. An internal `assembleDataCase` helper builds the raw direct
 `NominalCase`/`VariantCase` candidate from an explicit motive, shape and already
 positional branches. The ordinary checker must still validate the entire term;
-the helper itself neither binds payload fields nor supplies source syntax. Tests
-cover dependent motives, branch omission and joined ambient linear demand.
+the helper itself neither binds payload fields nor supplies source syntax.
+`assemblePairPayloadBranch` constructs a candidate PairCase around an explicit
+curried two-field branch; its dependent pair type, motive and tag are untrusted.
+The core checker still checks quantities, domains and branch type. Tests cover
+two linear String fields, wrong tags, dropped fields, dependent motives, branch
+omission and joined ambient linear demand. Dependent *field telescope* handling
+is not yet demonstrated by this builder's tests.
 Same-module incremental visibility, source-case parsing, telescope substitution
 and integration of independently checked lowering remain future work. This
 internal staging adds no language power or user-facing syntax.
