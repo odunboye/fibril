@@ -11,6 +11,7 @@ import Fibril.Core.Runtime
 import Fibril.Core.Reduction
 import Fibril.Core.WeakHead
 import Fibril.Elaboration.Expression.Scope
+import Fibril.Elaboration.DataCase
 
 %default total
 
@@ -71,7 +72,41 @@ dependentIdentity = NominalCase identityMotive
 public export
 checks : List (String, Bool)
 checks =
-  [ ("closed nominal type preserves its checked shape universe",
+  [ ("assembled direct data case independently checks and reduces",
+      let candidate = assembleDataCase (tagged "Example.Optional" []) shape
+            (constant (tagged "Example.Optional" []) StringType) value
+            [StringValue "missing", Lambda Linear StringType (Variable FZ)]
+       in accepts (checkRuntime 512 128 Empty candidate StringType) &&
+          case normalize 16 candidate of
+            Normal result => sameSyntax result (StringValue "present") && accepts (checkRuntime 512 128 Empty result StringType)
+            _ => False)
+  , ("assembled dependent motive checks and computes with carried erased type",
+      let input = NominalValue typeTag (VariantValue typeShape 1 (Just StringType))
+          branch0 = Lambda Linear StringType (Variable FZ)
+          branch1 = Lambda Erased (Universe 0) (Lambda Linear (Variable FZ) (Variable FZ))
+          candidate = Apply (assembleDataCase typeTag typeShape identityMotive input [branch0, branch1]) (StringValue "dependent")
+       in accepts (checkRuntime 512 128 Empty candidate StringType) &&
+          case normalize 64 candidate of
+            Normal result => sameSyntax result (StringValue "dependent") && accepts (checkRuntime 512 128 Empty result StringType)
+            _ => False)
+  , ("assembled case joins ambient linear demand across alternatives",
+      let choices = VariantType [Nothing, Nothing]
+          nominal = NominalType "Example.Two" [] choices
+          scrutinee = NominalValue nominal (VariantValue choices 0 Nothing)
+          motive = constant nominal StringType
+          candidate = assembleDataCase nominal choices motive scrutinee [Variable FZ, Variable FZ]
+       in accepts (checkRuntime 512 128 (Extend Empty Linear StringType) candidate StringType))
+  , ("assembled case rejects branch omission and inconsistent linear capture",
+      let choices = VariantType [Nothing, Nothing]
+          nominal = NominalType "Example.Two" [] choices
+          scrutinee = NominalValue nominal (VariantValue choices 0 Nothing)
+          motive = constant nominal StringType
+          context = Extend Empty Linear StringType
+       in not (accepts (checkRuntime 512 128 context
+            (assembleDataCase nominal choices motive scrutinee [Variable FZ]) StringType)) &&
+          not (accepts (checkRuntime 512 128 context
+            (assembleDataCase nominal choices motive scrutinee [Variable FZ, StringValue "unused"]) StringType)))
+  , ("closed nominal type preserves its checked shape universe",
       case inferErased 512 128 Empty typeTag of Right (Universe 1) => True; _ => False)
   , ("nominal constructor and consuming elimination check",
       accepts (checkRuntime 512 128 Empty recover StringType))
