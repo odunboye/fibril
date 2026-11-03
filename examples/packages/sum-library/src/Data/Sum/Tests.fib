@@ -1,0 +1,5 @@
+module Data.Sum.Tests
+import Data.Sum
+
+main : Bool
+main = if equalString (Data.Sum.fold String Bool String (\(1 text : String) => text) (\(1 flag : Bool) => if flag then "right-true" else "right-false") (Data.Sum.Left String Bool "left")) "left" then equalString (Data.Sum.fold String Bool String (\(1 text : String) => text) (\(1 flag : Bool) => if flag then "right-true" else "right-false") (Data.Sum.Right String Bool True)) "right-true" else False

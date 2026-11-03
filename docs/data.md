@@ -85,6 +85,25 @@ does not express the additive sharing between alternatives that direct kernel
 cases support. The helper does not weaken linearity to approximate that feature.
 Direct multi-branch surface cases are a later slice.
 
+### A reusable, non-Church Sum
+
+The separately packaged [Data.Sum](../examples/packages/sum-library/src/Data/Sum.fib)
+declares `Sum A B`, `Left` and `Right` using the checked data prototype, then
+provides an ordinary `fold` over its generated `useSum` eliminator. Its
+[authored test suite](../examples/packages/sum-library/src/Data/Sum/Tests.fib)
+checks both constructors and can run offline:
+
+~~~sh
+fibril check --package examples/packages/sum-library/fibril.yaml
+fibril test --package examples/packages/sum-library/fibril.yaml
+~~~
+
+This avoids encoding the choice as a function and is reusable through an explicit
+local package dependency. `fold` is a convenience wrapper, not new language power:
+it retains the helper's unrestricted-branch/linear-capture limitation. Prefer Bool
+for a choice with no payload, Optional for a single optional payload, or a record
+when both fields are present. The suite samples cases; it is not a soundness proof.
+
 The helper's motive returns the declaration's literal universe. For a Type 1
 data declaration and a String result, the example explicitly ascribes the motive
 body as (String : Type 1). Literal universe compatibility is not propagated

@@ -1,0 +1,22 @@
+module Data.Sum
+
+export
+data Sum (0 A : Type 0) (0 B : Type 0) : Type 0 where
+  eliminator useSum
+  Left : (1 value : A) -> Sum A B
+  Right : (1 value : B) -> Sum A B
+
+export
+fold : (0 A : Type 0) ->
+  (0 B : Type 0) ->
+  (0 C : Type 0) ->
+  (onLeft : (1 value : A) -> C) ->
+  (onRight : (1 value : B) -> C) ->
+  (1 item : Sum A B) ->
+  C
+fold = \(0 A : Type 0) =>
+  \(0 B : Type 0) =>
+    \(0 C : Type 0) =>
+      \(onLeft : (1 value : A) -> C) =>
+        \(onRight : (1 value : B) -> C) =>
+          \(1 item : Sum A B) => useSum A B (\(0 self : Sum A B) => C) item onLeft onRight

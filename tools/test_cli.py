@@ -3584,6 +3584,24 @@ class CLITests(unittest.TestCase):
             self.assertIsNone(diagnostic["position"])
             self.assertEqual(result.stderr, "")
 
+    def test_non_church_sum_library_checks_and_runs_suite(self):
+        package = ROOT / "examples/packages/sum-library/fibril.yaml"
+        checked = run("check", "--package", str(package))
+        self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
+        tested = run("test", "--package", str(package))
+        self.assertEqual(tested.returncode, 0, tested.stdout + tested.stderr)
+        self.assertIn("Tests: passed", tested.stdout)
+        # Run the same authored suite against a deliberately inverted assertion.
+        with tempfile.TemporaryDirectory() as directory:
+            import shutil
+            fixture = Path(directory) / "sum-library"
+            shutil.copytree(package.parent, fixture)
+            suite = fixture / "src/Data/Sum/Tests.fib"
+            suite.write_text(suite.read_text().replace('"left" then equalString', '"wrong" then equalString'))
+            failed = run("test", "--package", str(fixture / "fibril.yaml"))
+            self.assertNotEqual(failed.returncode, 0)
+            self.assertIn("Tests: failed", failed.stderr)
+
     def test_boolean_library(self):
         result = run("run", "examples/core/boolean-library.fib")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

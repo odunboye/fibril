@@ -3,6 +3,10 @@
 Strict YAML inspection fixtures live in [manifests/](manifests/README.md). They are
 not executable workspace projects or source-checking examples.
 
+The standalone [sum-library](packages/sum-library/src/Data/Sum.fib) fixture
+provides non-Church finite choices with a checked, ordinary fold and an authored
+suite; direct data case syntax remains unimplemented.
+
 The standalone packages/boolean-library fixture has no application entry; use
 `fibril check --package examples/packages/boolean-library/fibril.yaml` and
 `fibril test --package examples/packages/boolean-library/fibril.yaml`.
