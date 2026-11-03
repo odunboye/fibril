@@ -33,21 +33,25 @@ module-prefix: Email.Core
 source-dir: src
 foundation: de-morgan
 modules: [Email.Core]
-tests: Email.Core.Tests
+test-package: test
 dependencies: {}
 ~~~
 
-entry: Main remains optional. App scaffolds now also register PREFIX.Tests and
-include its Fibril source. That app starter returns True until replaced with real
-application assertions; it does not test application IO. An app may also list modules.
+entry: Main remains optional. New app and library scaffolds use a separate test/
+package with its own manifest, namespace, source root and direct dependency on
+the parent. The app starter returns True until replaced with real assertions; it
+does not test application IO. An app may also list modules.
 There is no separate app/lib kernel or rigid package-kind field.
 
 - modules is an explicit sequence of unique module-name strings owned by this
   package's component prefix. At most 32 are admitted in each manifest, and the
   combined inventory/graph is still bounded globally. Mapping/scalar/nested
   sequence values, non-string names, Main, foreign prefixes and duplicates reject.
-- tests is one owned module name selecting a pure Bool suite. It is not a list,
-  command, source path, install hook or test-framework plugin.
+- test-package is a relative child-directory path without dot/parent components;
+  its canonical package directory must remain inside the parent. Its own manifest
+  uses tests to select an owned pure Bool suite and must declare a direct local
+  dependency on the same canonical parent package. The two fields are exclusive.
+  Legacy inline tests remains supported for existing manifests.
 - A root without entry needs a **nonempty** modules inventory for check/test.
   Legacy dependency manifests without inventories remain decodable/loadable.
 - Every listed module throughout the declared local dependency closure is seeded
@@ -62,18 +66,21 @@ has entry null. run still requires an actual entry: Main.
 
 ## Independent checking and visibility
 
-All seeds, application Main (when present), and the selected suite use one source
+Within each checking pass, seeds and the selected entry share one source
 traversal/cache: 32 modules, depth 32, 524288 aggregate source bytes and existing
 per-file/parser limits. All definitions share the ordinary 200000 expanded-core
 budget. Private/unused declarations in inventoried/reachable modules are checked.
-Source and core budgets do not restart per module, package or suite.
+Source and core budgets do not restart per module or dependency in that pass.
+For a separate test package, test first checks the parent, then separately loads
+and checks the test package and its dependency closure; budgets restart between
+those two passes. The filesystem reads are not one atomic snapshot.
 
 The [local package rules](local-packages.md) still apply: exact canonical paths,
 unique prefix ownership, direct-only package permission before cache reuse, and
 explicit source imports for exported bindings/schemas/providers. Inventory
 membership grants no extra visibility or implementation lookup privilege.
 
-The suite must be terminal: another source module cannot import the selected test
+The selected suite must be terminal within its own package graph: another source module cannot import the selected test
 entry. Listing the suite itself in modules is allowed; it is deduplicated and
 placed last only after that import-conflict check. This first implementation does
 not retain an executable entry while checking arbitrary later dependent modules.
@@ -83,7 +90,7 @@ not retain an executable entry while checking arbitrary later dependent modules.
 A suite has an ordinary checked declaration:
 
 ~~~fibril
-module Email.Core.Tests
+module TestSuite.Suite
 import Email.Core
 
 main : Bool
@@ -128,11 +135,9 @@ inventory-without-import visibility, transitive dependency inventories, shared
 32/33-module budgets, malformed schema, suite-in-inventory and terminal-suite
 conflicts. Creation tests exercise every represented directory/file failure.
 
-App and library scaffolds reserve one component and six scalar characters for .Tests:
-prefixes may use at most 15 components and 1018 ASCII characters, so the derived
-module stays within the existing 16-component/1024-character profile. Pure tests
-cover exact/one-over derived limits before effects; actual filesystem component/
-path limits can still make creation fail and leave reported partial output.
+The parent retains the existing 16-component/1024-character namespace admission;
+the fixed child namespace does not append a suffix to it. Actual filesystem
+component/path limits can still make creation fail and leave reported partial output.
 
 YAML still uses the pinned maintained parser, with no aliases/anchors/tags/directives,
 bounded events/collection depth and strict scalar fields. Sequences are now

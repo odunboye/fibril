@@ -29,6 +29,7 @@ record PackageManifest where
   dependencies : List PathDependency
   listedModules : List (List String)
   testModule : Maybe (List String)
+  testPackagePath : Maybe String
 
 public export
 record ManifestError where
@@ -141,7 +142,7 @@ moduleList _ _ = failure "modules must be a sequence of owned module-name string
 fromNode : Node -> Either ManifestError PackageManifest
 fromNode node = do
   fields <- mapping "manifest" node
-  unknown ["schema", "name", "module-prefix", "source-dir", "foundation", "entry", "dependencies", "modules", "tests"] fields
+  unknown ["schema", "name", "module-prefix", "source-dir", "foundation", "entry", "dependencies", "modules", "tests", "test-package"] fields
   schema <- required "schema" fields
   case schema of
     NScalar TInt Plain "1" => Right ()
@@ -164,7 +165,14 @@ fromNode node = do
   deps <- dependencies name fields
   modules <- case lookup "modules" fields of Nothing => Right []; Just node => moduleList parts node
   tests <- case lookup "tests" fields of Nothing => Right Nothing; Just node => Just <$> ownedModule parts node
-  Right (Manifest name parts source foundation entry deps modules tests)
+  testPath <- case lookup "test-package" fields of
+    Nothing => Right Nothing
+    Just node => do
+      path <- string "test-package" node
+      if relativeManifestPath False path then Right (Just path)
+        else failure "test-package must be a relative path without empty/dot/parent components"
+  if tests /= Nothing && testPath /= Nothing then failure "Choose tests or test-package, not both" else Right ()
+  Right (Manifest name parts source foundation entry deps modules tests testPath)
 
 ||| Input admission precedes maintained parsing. Raw flow-delimiter/line limits
 ||| are conservative and count inside strings/comments too; they are not a YAML

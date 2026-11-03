@@ -33,14 +33,15 @@ mailer/
   README.md
   src/
     Main.fib
-    App/
-      Tests.fib
+  test/
+    fibril.yaml
+    src/TestSuite/Suite.fib
 ~~~
 
 Main is an ordinary named module with main : IO Unit and a Prelude putStrLn call.
 By default, fibril.yaml and a package README are emitted using the explicit
 default namespace App. --module-prefix overrides App; it is not inferred from
-the project slug. A registered App.Tests Bool smoke suite is included too.
+the project slug. A separate local test package with a registered Bool smoke suite is included too.
 --source-only omits both manifest and suite and uses source-root commands. Neither mode creates a lockfile, Git
 repository, build script or dependency installation; no hooks/templates are
 fetched/executed. Bare commands select only ./fibril.yaml; parent search and workspace-member
@@ -57,16 +58,15 @@ fibril test
 ~~~
 
 The default scaffold includes fibril.yaml with schema 1, quoted name/module-prefix, source-dir
-src, foundation de-morgan, entry Main, tests PREFIX.Tests and empty dependencies. The generated README
+src, foundation de-morgan, entry Main, test-package: test and empty dependencies. The generated README
 uses these package commands. App is a convenience default shared by new projects;
 packages used together need distinct owned prefixes, so override it when composing
 multiple packages. The planner rejects overlapping namespaces rather than guessing.
-Main remains the separate application entry. Parent-first namespace directories
-contain the registered Tests module; no reusable application library is invented.
-The prefix is App or an explicit override, never derived from the slug. App and
-library scaffolds both reserve room for .Tests: at most 15 capitalized ASCII
-components and 1018 characters (derived module: 16 components/1024 characters),
-excluding Main and its descendants (MainView is allowed).
+Main remains the separate application entry. The child test package owns
+TestSuite (or SpecSuite if the parent owns TestSuite) and directly depends on
+the parent. No reusable application library is invented. The parent prefix is
+App or an explicit override, never derived from the slug; it uses the existing
+16-component/1024-character profile and excludes Main and its descendants.
 
 The app suite starts with main : Bool returning True. It is a starter smoke test,
 not evidence that the application's behavior or IO is correct. Replace True with
@@ -87,9 +87,8 @@ no filesystem probes or acceptance promises.
 
 Use fibril new email-core --lib --module-prefix Email.Core, then fibril check
 and fibril test. This generates an owned module, an actual pure Bool test module,
-a manifest with modules/tests but no entry, and parent-first namespace directories.
-No dummy Main is generated. --lib conflicts with --source-only; library prefixes
-reserve room for .Tests (at most 15 components/1018 ASCII characters). The same
+a parent manifest with modules/test-package but no entry, plus a child manifest
+and suite under test/. No dummy Main is generated. --lib conflicts with --source-only. The same
 exclusive-write and partial-output policy applies. See the complete
 [library/test workflow](libraries-and-tests.md), its realistic example and limitations.
 

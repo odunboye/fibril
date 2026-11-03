@@ -2,7 +2,7 @@ digraph ProjectCreation {
   rankdir=LR;
   node [shape=box];
   cli [label="fibril new NAME\nvalidate name + optional explicit namespace"];
-  plan [label="Pure bundled console plan\nMain + README + gitignore\nfibril.yaml with App or explicit namespace\nregistered PREFIX.Tests + private namespace dirs\n--source-only omits manifest and tests"];
+  plan [label="Pure bundled console plan\nMain + README + gitignore\nfibril.yaml with App or explicit namespace\nseparate test package + private directories\n--source-only omits manifest and tests"];
   preview [label="--dry-run\nno filesystem probes or writes"];
   admit [label="Trusted POSIX cwd\nfresh private mkdir"];
   files [label="Exclusive fopen wx\nchecked write + close"];

@@ -25,7 +25,7 @@ parse : Maybe String -> Maybe String -> Maybe String -> Bool -> Bool -> Bool -> 
 parse name template owned sourceOnly library dry [] = case name of
   Nothing => Left "Missing project name. Run fibril new --help."
   Just name => if not (validProjectName name) then Left "Invalid project name: use 1..64 lowercase ASCII letters/digits/_/-, starting with a letter (no paths)."
-    else if not sourceOnly && not (validTestedPrefix (maybe "App" id owned)) then Left "Package prefix must leave room for .Tests (15 components, 1018 characters maximum)."
+    else if not sourceOnly && not (validTestedPrefix (maybe "App" id owned)) then Left "Invalid package prefix."
     else Right (NewOptions name dry (if sourceOnly then Nothing else Just (maybe "App" id owned)) library)
 parse name template owned sourceOnly True dry ("--lib" :: _) = Left "Duplicate --lib option."
 parse name template owned True False dry ("--lib" :: _) = Left "--lib conflicts with --source-only."
@@ -92,11 +92,11 @@ createPackageWith operations name namespacePrefix =
     case admitted of
       Left error => pure (Left error)
       Right () => do
-        source <- writeDirectories operations name (maybe ["src"] libraryDirectories namespacePrefix)
+        source <- writeDirectories operations name (case namespacePrefix of Nothing => ["src"]; Just owned => ["src", "test", "test/src", "test/src/" ++ testNamespace owned])
         case source of
           Left error => pure (Left (partialReport name error))
           Right () => do
-            result <- writeFiles operations name (files name namespacePrefix)
+            result <- writeFiles operations name (files name namespacePrefix ++ maybe [] (\owned => testFiles name owned False) namespacePrefix)
             pure $ case result of
               Left error => Left (partialReport name error)
               Right () => Right ()
@@ -107,9 +107,9 @@ createLibraryWith : CreationOps -> String -> String -> IO (Either String ())
 createLibraryWith operations name owned =
   if not (validProjectName name) || not (validLibraryPrefix owned) then pure (Left "Invalid library name/prefix.") else do
     Right () <- operations.directory name | Left err => pure (Left err)
-    Right () <- writeDirectories operations name (libraryDirectories owned)
+    Right () <- writeDirectories operations name (libraryDirectories owned ++ ["test", "test/src", "test/src/" ++ testNamespace owned])
       | Left err => pure (Left (partialReport name err))
-    result <- writeFiles operations name (libraryFiles name owned)
+    result <- writeFiles operations name (libraryFiles name owned ++ testFiles name owned True)
     pure $ case result of Left err => Left (partialReport name err); Right () => Right ()
 
 public export
@@ -146,8 +146,8 @@ newProject args = case parse Nothing Nothing Nothing False False False args of
   Right options =>
     if options.dryRun then pure (Right
       (["Dry run: would attempt fresh project " ++ options.name ++ "/"] ++
-       map (\directory => "  " ++ options.name ++ "/" ++ directory ++ "/") (maybe ["src"] libraryDirectories options.namespacePrefix) ++
-       map (\entry => "  " ++ options.name ++ "/" ++ entry.path) (if options.library then libraryFiles options.name (maybe "App" id options.namespacePrefix) else files options.name options.namespacePrefix) ++
+       map (\directory => "  " ++ options.name ++ "/" ++ directory ++ "/") (case options.namespacePrefix of Nothing => ["src"]; Just owned => (if options.library then libraryDirectories owned else ["src"]) ++ ["test", "test/src", "test/src/" ++ testNamespace owned]) ++
+       map (\entry => "  " ++ options.name ++ "/" ++ entry.path) ((if options.library then libraryFiles options.name (maybe "App" id options.namespacePrefix) else files options.name options.namespacePrefix) ++ maybe [] (\owned => testFiles options.name owned options.library) options.namespacePrefix) ++
        ["No filesystem checks or changes performed; creation may still fail."]))
     else if not (supportedHost os)
       then pure (Left ("Project creation requires a supported POSIX bootstrap host; reported host: " ++ os))

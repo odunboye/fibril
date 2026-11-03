@@ -274,14 +274,14 @@ class CLITests(unittest.TestCase):
             root = Path(directory)
             for args in [ ['bad', '--lib', '--lib'], ['bad', '--lib', '--source-only'],
                           ['bad', '--source-only', '--lib'],
-                          ['bad', '--lib', '--module-prefix', '.'.join(['A'] * 16)],
-                          ['bad', '--lib', '--module-prefix', 'A' * 1019] ]:
+                          ['bad', '--lib', '--module-prefix', '.'.join(['A'] * 17)],
+                          ['bad', '--lib', '--module-prefix', 'A' * 1025] ]:
                 result = run('new', *args, cwd=root)
                 self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
                 self.assertEqual(list(root.iterdir()), [])
             preview = run('new', 'email-core', '--lib', '--module-prefix', 'Email.Core', '--dry-run', cwd=root)
             self.assertEqual(preview.returncode, 0, preview.stdout + preview.stderr)
-            self.assertIn('src/Email/Core/Tests.fib', preview.stdout)
+            self.assertIn('test/src/TestSuite/Suite.fib', preview.stdout)
             self.assertEqual(list(root.iterdir()), [])
             result = run('new', 'email-core', '--lib', '--module-prefix', 'Email.Core', cwd=root)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -289,7 +289,7 @@ class CLITests(unittest.TestCase):
             metadata = json.loads(run('manifest', 'fibril.yaml', cwd=project).stdout)
             self.assertIsNone(metadata['entry'])
             self.assertEqual(metadata['modules'], ['Email.Core'])
-            self.assertEqual(metadata['tests'], 'Email.Core.Tests')
+            self.assertEqual(metadata['test_package'], 'test')
             self.assertFalse((project / 'src/Main.fib').exists())
             checked = run('check', cwd=project)
             self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
@@ -301,15 +301,15 @@ class CLITests(unittest.TestCase):
             tested = run('test', '--package', str(project / 'fibril.yaml'), cwd=root)
             self.assertEqual(tested.returncode, 0, tested.stdout + tested.stderr)
             self.assertIn('Tests: passed', tested.stdout)
-            suite = project / 'src/Email/Core/Tests.fib'
+            suite = project / 'test/src/TestSuite/Suite.fib'
             baseline = suite.read_text()
-            suite.write_text('module Email.Core.Tests\n\nmain : Bool\nmain = False\n')
+            suite.write_text('module TestSuite.Suite\n\nmain : Bool\nmain = False\n')
             self.assertEqual(run('check', cwd=project).returncode, 0)  # check never evaluates suites
             failed = run('test', cwd=project)
             self.assertNotEqual(failed.returncode, 0)
             self.assertEqual(failed.stdout, '')
             self.assertIn('Tests: failed', failed.stderr)
-            suite.write_text('module Email.Core.Tests\n\nmain : IO Unit\nmain = putStrLn "MUST NOT EXECUTE"\n')
+            suite.write_text('module TestSuite.Suite\n\nmain : IO Unit\nmain = putStrLn "MUST NOT EXECUTE"\n')
             failed = run('test', cwd=project)
             self.assertNotEqual(failed.returncode, 0)
             self.assertEqual(failed.stdout, '')
@@ -337,15 +337,15 @@ class CLITests(unittest.TestCase):
                 self.assertNotEqual(rejected.returncode, 0)
                 self.assertEqual(rejected.stdout, '')
             extra.write_text('module Lib.Extra\n\nexport\nvalue : Bool\nvalue = True\n')
-            suite = project / 'src/Lib/Tests.fib'
-            suite.write_text('module Lib.Tests\n\nmain : Bool\nmain = Lib.Extra.value\n')
+            suite = project / 'test/src/TestSuite/Suite.fib'
+            suite.write_text('module TestSuite.Suite\n\nmain : Bool\nmain = Lib.Extra.value\n')
             self.assertNotEqual(run('test', cwd=project).returncode, 0)  # inventory is not an import
-            suite.write_text('module Lib.Tests\nimport Lib.Extra\n\nmain : Bool\nmain = Lib.Extra.value\n')
+            suite.write_text('module TestSuite.Suite\nimport Lib.Extra\n\nmain : Bool\nmain = Lib.Extra.value\n')
             self.assertEqual(run('test', cwd=project).returncode, 0)
-            manifest.write_text(baseline.replace('modules: ["Lib"]', 'modules: ["Lib.Tests", "Lib.Extra", "Lib"]'))
+            manifest.write_text(baseline.replace('modules: ["Lib"]', 'modules: ["Lib.Extra", "Lib"]'))
             tested = run('test', cwd=project)
             self.assertEqual(tested.returncode, 0, tested.stdout + tested.stderr)
-            extra.write_text('module Lib.Extra\nimport Lib.Tests\n\nvalue : Bool\nvalue = True\n')
+            extra.write_text('module Lib.Extra\nimport TestSuite.Suite\n\nvalue : Bool\nvalue = True\n')
             self.assertNotEqual(run('test', cwd=project).returncode, 0)  # terminal suite policy
             for value in ['{}', 'true', '[["Lib"]]', '[true]', '["Main"]', '["LibExtra"]', '["Lib", "Lib"]']:
                 manifest.write_text(baseline.replace('modules: ["Lib"]', 'modules: ' + value))
@@ -353,7 +353,7 @@ class CLITests(unittest.TestCase):
             manifest.write_text(baseline.replace('modules: ["Lib"]\n', ''))
             self.assertNotEqual(run('check', cwd=project).returncode, 0)
             self.assertNotEqual(run('test', cwd=project).returncode, 0)
-            manifest.write_text(baseline.replace('tests: "Lib.Tests"', 'tests: ["Lib.Tests"]'))
+            manifest.write_text(baseline.replace('test-package: test', 'tests: ["Lib.Tests"]'))
             self.assertNotEqual(run('manifest', 'fibril.yaml', cwd=project).returncode, 0)
 
     def test_library_bool_suite_fuel_exhaustion_is_an_error(self):
@@ -369,7 +369,7 @@ class CLITests(unittest.TestCase):
                 body = 'value' if index == 0 else f'f{index-1} (f{index-1} value)'
                 text += f'f{index} = \\(1 value : Bool) => {body}\n'
             module.write_text(text)
-            (project / 'src/App/Tests.fib').write_text('module App.Tests\nimport App\n\nmain : Bool\nmain = App.f6 True\n')
+            (project / 'test/src/TestSuite/Suite.fib').write_text('module TestSuite.Suite\nimport App\n\nmain : Bool\nmain = App.f6 True\n')
             result = run('test', cwd=project)
             self.assertNotEqual(result.returncode, 0)
             self.assertEqual(result.stdout, '')
@@ -397,7 +397,7 @@ class CLITests(unittest.TestCase):
             for command in ('check', 'test'):
                 accepted = run(command, cwd=app)
                 self.assertEqual(accepted.returncode, 0, accepted.stdout + accepted.stderr)
-            suite = app / 'src/App/Tests.fib'
+            suite = app / 'test/src/TestSuite/Suite.fib'
             original_suite = suite.read_text()
             suite.write_text(original_suite.replace('import App', 'import App\nimport Core'))
             self.assertNotEqual(run('test', cwd=app).returncode, 0)  # seeded does not grant transitive permission
@@ -415,23 +415,23 @@ class CLITests(unittest.TestCase):
             tested = run('test', cwd=app)  # selected suite is the 33rd distinct module, not a fresh budget
             self.assertNotEqual(tested.returncode, 0)
             self.assertEqual(tested.stdout, '')
-            self.assertIn('Module count', tested.stderr)
+            self.assertIn('admission exhausted', tested.stderr)
 
     def test_new_app_has_registered_starter_bool_suite(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             preview = run('new', 'hello', '--dry-run', cwd=root)
             self.assertEqual(preview.returncode, 0, preview.stderr)
-            self.assertIn('hello/src/App/Tests.fib', preview.stdout)
+            self.assertIn('hello/test/src/TestSuite/Suite.fib', preview.stdout)
             self.assertEqual(list(root.iterdir()), [])
             created = run('new', 'hello', cwd=root)
             self.assertEqual(created.returncode, 0, created.stdout + created.stderr)
             self.assertIn('fibril test', created.stdout)
             project = root / 'hello'
-            self.assertEqual((project / 'src/App').stat().st_mode & 0o777, 0o700)
+            self.assertEqual((project / 'test/src/TestSuite').stat().st_mode & 0o777, 0o700)
             metadata = json.loads(run('manifest', 'fibril.yaml', cwd=project).stdout)
             self.assertEqual(metadata['entry'], 'Main')
-            self.assertEqual(metadata['tests'], 'App.Tests')
+            self.assertEqual(metadata['test_package'], 'test')
             self.assertEqual(run('run', cwd=project).stdout, 'Hello from hello!\n')
             checked = run('check', cwd=project)
             self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
@@ -439,14 +439,65 @@ class CLITests(unittest.TestCase):
             self.assertEqual(tested.returncode, 0, tested.stdout + tested.stderr)
             self.assertIn('Tests: passed', tested.stdout)
             self.assertNotIn('Hello from', tested.stdout)
-            suite = project / 'src/App/Tests.fib'
+            suite = project / 'test/src/TestSuite/Suite.fib'
             suite.write_text(suite.read_text().replace('main = True', 'main = False'))
             failed = run('test', cwd=project)
             self.assertNotEqual(failed.returncode, 0)
             self.assertEqual(failed.stdout, '')
             self.assertIn('Tests: failed', failed.stderr)
             self.assertEqual(run('check', cwd=project).returncode, 0)
-            self.assertIn('does not execute or verify application IO', (project / 'README.md').read_text())
+            self.assertIn('does not verify application IO', (project / 'README.md').read_text())
+
+    def test_separate_test_package_boundaries_and_legacy_suites(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.assertEqual(run('new', 'lib', '--lib', '--module-prefix', 'TestSuite', cwd=root).returncode, 0)
+            project = root / 'lib'
+            manifest = project / 'fibril.yaml'
+            child = project / 'test/fibril.yaml'
+            metadata = json.loads(run('manifest', str(child)).stdout)
+            self.assertEqual(metadata['module_prefix'], 'SpecSuite')
+            self.assertEqual(metadata['dependencies'], [{'name': 'lib', 'path': '..'}])
+            self.assertEqual(run('test', cwd=project).returncode, 0)
+            suite = project / 'test/src/SpecSuite/Suite.fib'
+            suite.write_text('module SpecSuite.Suite\nimport TestSuite\n\nmain : Bool\nmain = TestSuite.privateValue\n')
+            source = project / 'src/TestSuite.fib'
+            source.write_text(source.read_text() + '\nprivateValue : Bool\nprivateValue = True\n')
+            self.assertNotEqual(run('test', cwd=project).returncode, 0)
+            child_text = child.read_text()
+            child.write_text(child_text.replace('dependencies:\n  "lib":\n    path: ..', 'dependencies: {}'))
+            missing = run('test', cwd=project)
+            self.assertNotEqual(missing.returncode, 0)
+            self.assertIn('directly depend', missing.stderr)
+            child.write_text(child_text)
+            other = root / 'other'
+            (other / 'src').mkdir(parents=True)
+            (other / 'fibril.yaml').write_text(manifest.read_text().replace('test-package: test\n', ''))
+            child.write_text(child_text.replace('path: ..', 'path: ../../other'))
+            wrong_parent = run('test', cwd=project)
+            self.assertNotEqual(wrong_parent.returncode, 0)
+            self.assertIn('same canonical parent', wrong_parent.stderr)
+            child.write_text(child_text)
+            outside = root / 'outside'
+            outside.mkdir()
+            (project / 'escape').symlink_to(outside, target_is_directory=True)
+            (outside / 'src').mkdir()
+            (outside / 'fibril.yaml').write_text(child_text.replace('path: ..', 'path: ../lib'))
+            manifest.write_text(manifest.read_text().replace('test-package: test', 'test-package: escape'))
+            escaped = run('test', cwd=project)
+            self.assertNotEqual(escaped.returncode, 0)
+            self.assertIn('inside the parent package', escaped.stderr)
+            manifest.write_text(manifest.read_text().replace('test-package: escape', 'test-package: test'))
+            parent_text = manifest.read_text()
+            for value in ('../outside', '/outside', '.', 'test/../outside'):
+                manifest.write_text(parent_text.replace('test-package: test', 'test-package: ' + value))
+                self.assertNotEqual(run('test', cwd=project).returncode, 0)
+            manifest.write_text(parent_text + 'tests: TestSuite.Check\n')
+            self.assertNotEqual(run('manifest', str(manifest)).returncode, 0)
+            manifest.write_text(parent_text.replace('test-package: test', 'tests: TestSuite.Check'))
+            (project / 'src/TestSuite/Check.fib').parent.mkdir(exist_ok=True)
+            (project / 'src/TestSuite/Check.fib').write_text('module TestSuite.Check\n\nmain : Bool\nmain = True\n')
+            self.assertEqual(run('test', cwd=project).returncode, 0)
 
     def test_new_source_only_scaffold(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -479,8 +530,6 @@ class CLITests(unittest.TestCase):
                 ['mailer', '--template', '--module-prefix', 'Mail', 'console'],
                 ['mailer', '--module-prefix', '--dry-run'],
                 ['mailer', '--module-prefix', '.'.join(['A'] * 17)],
-                ['mailer', '--module-prefix', 'A' * 1019],
-                ['mailer', '--module-prefix', '.'.join(['A'] * 16)],
                 ['mailer', '--module-prefix', 'A' * 1025],
             ]:
                 result = run('new', *arguments, cwd=root)
@@ -490,14 +539,14 @@ class CLITests(unittest.TestCase):
                 result = run('new', '--module-prefix', owned, name, '--template', 'console', cwd=root)
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                 folder = root / name
-                self.assertEqual(sorted(p.name for p in folder.iterdir()), ['.gitignore', 'README.md', 'fibril.yaml', 'src'])
+                self.assertEqual(sorted(p.name for p in folder.iterdir()), ['.gitignore', 'README.md', 'fibril.yaml', 'src', 'test'])
                 inspected = run('manifest', 'fibril.yaml', cwd=folder)
                 self.assertEqual(inspected.returncode, 0, inspected.stdout + inspected.stderr)
                 metadata = json.loads(inspected.stdout)
                 self.assertEqual(metadata['name'], name)
                 self.assertEqual(metadata['module_prefix'], owned)
                 self.assertEqual(metadata['dependencies'], [])
-                self.assertEqual(metadata['tests'], owned + '.Tests')
+                self.assertEqual(metadata['test_package'], 'test')
                 tested = run('test', cwd=folder)
                 self.assertEqual(tested.returncode, 0, tested.stdout + tested.stderr)
                 self.assertIn('Tests: passed', tested.stdout)
@@ -647,7 +696,7 @@ class CLITests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             project = root / "mailer"
             self.assertEqual(sorted(str(p.relative_to(project)) for p in project.rglob("*") if p.is_file()),
-                             [".gitignore", "README.md", "fibril.yaml", "src/App/Tests.fib", "src/Main.fib"])
+                             [".gitignore", "README.md", "fibril.yaml", "src/Main.fib", "test/fibril.yaml", "test/src/TestSuite/Suite.fib"])
             self.assertEqual((project / "src/Main.fib").read_text(),
                              'module Main\n\nmain : IO Unit\nmain = putStrLn "Hello from mailer!"\n')
             self.assertEqual(project.stat().st_mode & 0o777, 0o700)

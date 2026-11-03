@@ -38,7 +38,8 @@ dependencies:
 Required: schema, name, module-prefix, source-dir and foundation. Optional entry
 accepts Main only, separate from the library namespace. Optional modules is a
 sequence of unique owned module names; optional tests selects one owned Bool
-suite module. Root libraries need a nonempty inventory for check/test; see
+suite module, while mutually exclusive test-package selects a separate contained
+local test package directory. Root libraries need a nonempty inventory for check/test; see
 [libraries and tests](libraries-and-tests.md). Absent dependencies or
 an empty mapping means none. Every dependency has a valid non-self package-name
 key and exactly one path field. Registry/Git/version/native/build-script fields

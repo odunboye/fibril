@@ -57,7 +57,7 @@ maintained YAML parser. [Explicit local packages](docs/local-packages.md) now
 check/run through one ownership-aware multi-root graph using `--package fibril.yaml`.
 [Standalone libraries and pure Bool test suites](docs/libraries-and-tests.md) now
 work through `fibril new NAME --lib`, `fibril check` and `fibril test`, without a
-dummy application entry. App scaffolds include a registered starter Bool suite
+dummy application entry. App scaffolds include a separate test package with a starter Bool suite
 too; replace its True result with real application assertions. `--source-only`
 remains minimal. Workspace-member discovery and locks remain future work.
 

@@ -28,4 +28,5 @@ manifestFile path = do
        ("entry", maybe "null" jsonString manifest.entry),
        ("modules", jsonArray (map (jsonString . concat . intersperse ".") manifest.listedModules)),
        ("tests", maybe "null" (jsonString . concat . intersperse ".") manifest.testModule),
+       ("test_package", maybe "null" jsonString manifest.testPackagePath),
        ("dependencies", jsonArray (map (\dep => jsonObject [("name", jsonString dep.name), ("path", jsonString dep.path)]) manifest.dependencies))]]
