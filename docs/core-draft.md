@@ -8,7 +8,9 @@ Not a completed calculus or soundness proof.
 The [inductive-data landing plan](inductive-data.md) specifies a finite-variant
 kernel before named data, recursive inductives and structural recursion.
 [Finite variants](finite-variants.md) are now implemented in the internal kernel;
-source data, nominal identity and recursion remain future work. Nullary arms have
+[closed nominal identity](nominal-data.md) and [non-recursive source data](data.md)
+now expose checked constructors and named elimination. Direct source data cases
+and recursion remain future work. Nullary arms have
 an explicit representation; hidden Unit padding does not support the required
 dependent motives under current Unit conversion.
 

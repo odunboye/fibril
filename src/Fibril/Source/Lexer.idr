@@ -9,7 +9,7 @@ import Fibril.Source.StringLiteral
 
 ||| Token categories for the initial explicitly annotated expression grammar.
 public export
-data TokenKind = Name | Number | StringToken | StringKeyword | TypeKeyword | UnitKeyword | BoolKeyword | TrueKeyword | FalseKeyword | IfKeyword | ThenKeyword | ElseKeyword | DoKeyword | CaseKeyword | OfKeyword | LetKeyword | InKeyword | ProjectionKeyword | ReturnKeyword | RecordKeyword | InterfaceKeyword | ImplementationKeyword | ConstructorKeyword | EliminatorKeyword | WhereKeyword | ModuleKeyword | ImportKeyword | ExportKeyword | Dot | Equals | OpenParen | CloseParen | DictionaryOpen | CloseBrace | Backtick | Colon | Arrow | BindArrow | BodyArrow | Lambda
+data TokenKind = Name | Number | StringToken | StringKeyword | TypeKeyword | UnitKeyword | BoolKeyword | TrueKeyword | FalseKeyword | IfKeyword | ThenKeyword | ElseKeyword | DoKeyword | CaseKeyword | OfKeyword | LetKeyword | InKeyword | ProjectionKeyword | ReturnKeyword | DataKeyword | RecordKeyword | InterfaceKeyword | ImplementationKeyword | ConstructorKeyword | EliminatorKeyword | WhereKeyword | ModuleKeyword | ImportKeyword | ExportKeyword | Dot | Equals | OpenParen | CloseParen | DictionaryOpen | CloseBrace | Backtick | Colon | Arrow | BindArrow | BodyArrow | Lambda
 
 public export
 Show TokenKind where
@@ -32,6 +32,7 @@ Show TokenKind where
   show InKeyword = "in"
   show ProjectionKeyword = "projection"
   show ReturnKeyword = "return"
+  show DataKeyword = "data"
   show RecordKeyword = "record"
   show InterfaceKeyword = "interface"
   show ImplementationKeyword = "implementation"
@@ -75,6 +76,7 @@ Eq TokenKind where
   InKeyword == InKeyword = True
   ProjectionKeyword == ProjectionKeyword = True
   ReturnKeyword == ReturnKeyword = True
+  DataKeyword == DataKeyword = True
   RecordKeyword == RecordKeyword = True
   InterfaceKeyword == InterfaceKeyword = True
   ImplementationKeyword == ImplementationKeyword = True
@@ -214,6 +216,7 @@ scan (S fuel) at (c :: rest) =
              "in" => InKeyword
              "projection" => ProjectionKeyword
              "return" => ReturnKeyword
+             "data" => DataKeyword
              "record" => RecordKeyword
              "interface" => InterfaceKeyword
              "implementation" => ImplementationKeyword

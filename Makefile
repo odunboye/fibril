@@ -62,6 +62,7 @@ examples: build
 	./build/exec/fibril run --source-dir examples/modules/visible-implementations examples/modules/visible-implementations/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/infix examples/modules/infix/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/implementation-factories examples/modules/implementation-factories/Main.fib
+	./build/exec/fibril run --source-dir examples/modules/data examples/modules/data/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/pattern-inference examples/modules/pattern-inference/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/pattern-inference examples/modules/pattern-inference/Dependent.fib
 	./build/exec/fibril run --source-dir examples/modules/pattern-inference examples/modules/pattern-inference/Minimal.fib

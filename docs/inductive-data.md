@@ -1,15 +1,16 @@
 # Inductive data: staged design and landing contract
 
 **Status: D1, D2a closed identity and D2b checked declaration construction are
-implemented internally; source syntax/matching and D3/D4 remain proposals.**
+implemented. Non-recursive source declarations/constructors and optional named
+elimination now work; direct source matching and D3/D4 remain proposals.**
 The [finite-variant kernel](finite-variants.md) now implements the D1 primitive.
-This does not add accepted data syntax, a positivity/source coverage/termination
-checker or a soundness theorem. The remaining sections retain the landing
+[Non-recursive source data](data.md) now supplies accepted declarations and named
+elimination, not a positivity/source coverage/termination checker or soundness theorem. The remaining sections retain the landing
 contract. [Closed nominal identity](nominal-data.md) now settles the non-recursive
 kernel representation. [Checked declaration construction](data-declarations.md)
 now allocates qualified keys and checks closed families/constructors, with exact
-admission and all-or-error layout output. Source integration, field-telescope
-packing, module publication and exhaustive matching remain D2 gates; no recursive
+admission and all-or-error layout output. Source integration, field-telescope packing and ordinary module exports now work.
+Exhaustive direct source matching remains a D2 gate; no recursive
 declaration environment has been introduced.
 
 ## Use cases
@@ -177,7 +178,8 @@ principle, dropping a linear padding variable or weakening the motive.
 
 ## D2: authored declarations and matching
 
-The following is illustrative **future syntax**, not a runnable example:
+The following declaration syntax is now implemented (the fragment omits an
+optional eliminator and main); see the runnable [data example](../examples/modules/data/Main.fib):
 
 ~~~fibril
 data Optional (0 A : Type 0) : Type 0 where
@@ -221,8 +223,9 @@ name reference; keys alone confer no typing authority, mismatched shapes are
 incompatible, and phantom parameters are not lost. See [the implemented contract](nominal-data.md).
 
 D2b now supplies canonical key allocation and independent closed declaration/
-constructor construction/checking. Source D2 still needs authored grammar,
-field-telescope packing and checked module metadata publication. Recursive data additionally needs a
+constructor construction/checking. Source D2 now has authored grammar, field-telescope packing and ordinary checked
+module exports. No constructor-layout schema is trusted/published for direct data
+patterns yet; direct matching remains separate. Recursive data additionally needs a
 representation/environment that does not infinitely unfold itself; D2a does not
 provide it. Do not retrofit nominal record identity incidentally.
 

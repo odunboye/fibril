@@ -2,17 +2,18 @@
 
 ## Use cases
 
-**Implemented kernel slice D1; no source data syntax yet.** This gives compiler
+**Implemented kernel slice D1, now used by [non-recursive source data](data.md).** This gives compiler
 work on Optional/Result and finite messages a checked representation of actual
 constructor alternatives, rather than unrelated Bool/payload values. Nullary
 arms represent absence/tags; payload arms represent a selected value with an
 explicit permission. A genuinely dependent case can compute its result type
 from the tag or an erased carried type.
 
-This API is currently exercised through Idris kernel tests, not by writing data
-in a .fib file. Prefer existing records for packaging fields all present, Bool
+This raw API is exercised through Idris kernel tests; source users now reach it
+through checked data declarations and optional named eliminators. Prefer existing records for packaging fields all present, Bool
 for a plain decision, and direct values when no alternative is needed. Recursive
-Nat/List, named nominal data and general source coverage are not implemented.
+Nat/List and direct source data coverage are not implemented. Named non-recursive
+data and optional elimination now use this kernel through checked lowering.
 
 ![Finite-variant checking and reduction](diagrams/finite-variants.svg)
 
@@ -115,6 +116,7 @@ generators now include variants; sampled reduction/rechecking tests remain tests
 not canonicity, soundness, normalization or verified erasure proofs.
 
 [Closed nominal wrappers](nominal-data.md) now add non-recursive identity without
-changing the structural variant primitive. Next: [D2 source declaration checking](inductive-data.md). No source
-parser keywords, instance registration, recursive data, positivity checker,
-termination checker or cubical computation are added by D1.
+changing the structural variant primitive. [Source declarations and named
+elimination](data.md) now lower into these checked forms. Direct data cases remain
+next; recursive data, positivity, termination and cubical computation are not
+added by this primitive.

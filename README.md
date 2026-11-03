@@ -34,8 +34,9 @@ nullary/payload arms and quantity checks. [Closed nominal identity](docs/nominal
 now preserves declaration keys and phantom arguments in the internal kernel.
 [Checked declaration construction](docs/data-declarations.md) now allocates keys
 and generates independently checked closed families/constructors with exact admission.
-Source grammar/matching, module integration, recursive inductives and structural
-recursion remain future work; there is no source data syntax yet.
+[Non-recursive source data](docs/data.md) now declares nominal constructors and
+optional consuming eliminators, including dependent multi-field payloads and imports.
+Direct data case syntax, recursive inductives and structural recursion remain future work.
 
 Start with the [feature use-case guide](docs/use-cases.md) for what each feature
 is for, when to use it, and when a simpler alternative is better.

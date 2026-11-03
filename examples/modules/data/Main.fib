@@ -1,0 +1,20 @@
+module Main
+import Package
+
+export
+data Optional (0 A : Type 0) : Type 0 where
+  eliminator useOptional
+  Nothing : Optional A
+  Just : (1 value : A) -> Optional A
+
+fromOptional : (0 A : Type 0) -> (fallback : A) -> (1 item : Optional A) -> A
+fromOptional = \(0 A : Type 0) =>
+  \(fallback : A) =>
+    \(1 item : Optional A) =>
+      useOptional A (\(0 self : Optional A) => A) item fallback (\(1 value : A) => value)
+
+main : IO Unit
+main = do
+  putStrLn (fromOptional String "missing" (Just String "present"))
+  putStrLn (fromOptional String "missing" (Nothing String))
+  putStrLn (Package.renderPackage (Package.Pack String (\(1 text : String) => text) "dependent package"))

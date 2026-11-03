@@ -2,10 +2,12 @@
 
 Implemented:
 
+- [Non-recursive source data](data.md): authored data/constructor/field syntax, shared qualified key allocation, named nominal/variant IR, resource-admitted telescope packing, checked constructors and optional consuming eliminators. Ordinary module exports carry checked definitions; direct data cases/layout-schema publication remain future work.
+
 - `src/Fibril/Elaboration/Data.idr`: internal closed non-recursive declaration builder; qualified key/name validation, explicit self-occurrence rejection, exact preflight, ordinary checked family/constructor definitions and all-or-error layout output. No source grammar, module installation or typing certificate.
 - `src/Fibril/Core/Size.idr`: shared structural core size and explicit nominal-key occurrence traversal; module admission uses the same counter, without treating it as a typing/positivity proof.
-- [Closed nominal data](nominal-data.md): key + complete index vector + independently checked variant shape, consuming dependent wrapper elimination, no opaque name-authorized typing. Internal only; source allocation/declaration checking and recursive environments remain future work.
-- [Internal finite variants](finite-variants.md): nonempty ordered nullary/payload descriptors, positional constructors, erased dependent motives and exhaustive case branches; quantity checking joins branch demands. Structural scope proofs, counters and full/head reduction include the primitive. This is not source data syntax or recursive inductive checking.
+- [Closed nominal data](nominal-data.md): key + complete index vector + independently checked variant shape, consuming dependent wrapper elimination, no opaque name-authorized typing. Used by checked non-recursive source data; recursive environments remain future work.
+- [Internal finite variants](finite-variants.md): nonempty ordered nullary/payload descriptors, positional constructors, erased dependent motives and exhaustive case branches; quantity checking joins branch demands. Structural scope proofs, counters and full/head reduction include the primitive. Source data lowers to this primitive; it is not recursive inductive checking.
 
 - `src/Fibril/Source/Diagnostic.idr`: bounded, escaped scalar-point excerpts; no invented core spans or LSP coordinates.
 - `src/Fibril/Source/Syntax.idr`: named expression AST with spans.

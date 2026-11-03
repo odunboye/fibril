@@ -54,46 +54,63 @@ providerCost (entry :: rest) = case entry.global.provider of
 
 -- Conservative elaboration size before any global is renamed/cloned. Counts
 -- annotations and identity ascriptions; saturation avoids huge intermediate costs.
-cost : Nat -> List Weighted -> List String -> Expr -> Nat
-cost limit globals env expression = min (S limit) $ case expression of
-  NRef _ name => if elem name env then 1 else referenceCost globals name
-  NQualifiedRef _ name => referenceCost globals name
-  NSort _ _ => 1
-  NUnitType _ => 1
-  NUnitValue _ => 1
-  NBoolType _ => 1
-  NBoolValue _ _ => 1
-  NStringType _ => 1
-  NStringValue _ _ => 1
-  NIf _ c t e => 1 + cost limit globals env c + cost limit globals env t + cost limit globals env e
-  NUnitCase _ a b => 1 + cost limit globals env a + cost limit globals env b
-  NSigma _ _ _ name a b => 1 + cost limit globals env a + cost limit globals (name :: env) b
-  NPairValue _ ty a b => 1 + cost limit globals env ty + cost limit globals env a + cost limit globals env b
-  NBoxType _ _ a => 1 + cost limit globals env a
-  NBoxValue _ a b => 1 + cost limit globals env a + cost limit globals env b
-  NBoxCase _ a b c => 1 + cost limit globals env a + cost limit globals env b + cost limit globals env c
-  NPatternLambda _ names body => 4 + 2 * inferredFieldNodes + cost limit globals (reverse (map spelling names) ++ env) body
-  NConstructorCase _ _ constructor value branch motive =>
-    8 + 3 * inferredParameterNodes + 3 * cost limit globals env constructor + cost limit globals env value + 2 * cost limit globals env branch +
-      (case motive of Nothing => inferredResultNodes; Just explicit => cost limit globals env explicit)
-  NInferCase _ _ value branch => 8 + cost limit globals env value + 2 * cost limit globals env branch + inferredResultNodes
-  NPairCase _ motive value branch => 1 + cost limit globals env motive + cost limit globals env value + cost limit globals env branch
-  NConstraintPi _ _ name a b => 1 + cost limit globals env a + cost limit globals (name :: env) b
-  NImplementationApply _ _ function => 1 + cost limit globals env function + providerCost globals
-  NDictionaryApply _ _ function argument => 2 + cost limit globals env function + (case argument of Nothing => 1; Just value => cost limit globals env value)
-  NPi _ _ name a b => 1 + cost limit globals env a + cost limit globals (name :: env) b
-  NLambda _ _ name a b => 1 + cost limit globals env a + cost limit globals (name :: env) b
-  NInfix _ function left right => 2 + cost limit globals env function + cost limit globals env left + cost limit globals env right
-  NApply _ a b => 1 + cost limit globals env a + cost limit globals env b
-  NAscribe _ a b => 3 + cost limit globals env a + cost limit globals env b
-  NLet _ _ name a value body => 2 + cost limit globals env a + cost limit globals env value +
-                               cost limit globals (name :: env) body
-  NSequence _ a b => 7 + cost limit globals env a + cost limit globals env b
-  NDoBind _ name a action body => 3 + 2 * cost limit globals env a + cost limit globals env action +
-                                  cost limit globals (name :: env) body
-  NDoResult _ result body =>
-    let resultSize = cost limit globals env result
-     in 4 + resultSize + resultSize * cost limit globals env body
+mutual
+  cost : Nat -> List Weighted -> List String -> Expr -> Nat
+  cost limit globals env expression = min (S limit) $ case expression of
+    NRef _ name => if elem name env then 1 else referenceCost globals name
+    NQualifiedRef _ name => referenceCost globals name
+    NSort _ _ => 1
+    NUnitType _ => 1
+    NUnitValue _ => 1
+    NBoolType _ => 1
+    NBoolValue _ _ => 1
+    NStringType _ => 1
+    NStringValue _ _ => 1
+    NIf _ c t e => 1 + cost limit globals env c + cost limit globals env t + cost limit globals env e
+    NUnitCase _ a b => 1 + cost limit globals env a + cost limit globals env b
+    NSigma _ _ _ name a b => 1 + cost limit globals env a + cost limit globals (name :: env) b
+    NPairValue _ ty a b => 1 + cost limit globals env ty + cost limit globals env a + cost limit globals env b
+    NNominalType _ _ indices shape => 1 + listCost limit globals env indices + cost limit globals env shape
+    NNominalValue _ ty value => 1 + cost limit globals env ty + cost limit globals env value
+    NNominalCase _ p value branch => 1 + cost limit globals env p + cost limit globals env value + cost limit globals env branch
+    NVariantType _ arms => 1 + armsCost limit globals env arms
+    NVariantValue _ ty _ payload => 1 + cost limit globals env ty + (case payload of Nothing => 0; Just value => cost limit globals env value)
+    NVariantCase _ p value branches => 1 + cost limit globals env p + cost limit globals env value + listCost limit globals env branches
+    NBoxType _ _ a => 1 + cost limit globals env a
+    NBoxValue _ a b => 1 + cost limit globals env a + cost limit globals env b
+    NBoxCase _ a b c => 1 + cost limit globals env a + cost limit globals env b + cost limit globals env c
+    NPatternLambda _ names body => 4 + 2 * inferredFieldNodes + cost limit globals (reverse (map spelling names) ++ env) body
+    NConstructorCase _ _ constructor value branch motive =>
+      8 + 3 * inferredParameterNodes + 3 * cost limit globals env constructor + cost limit globals env value + 2 * cost limit globals env branch +
+        (case motive of Nothing => inferredResultNodes; Just explicit => cost limit globals env explicit)
+    NInferCase _ _ value branch => 8 + cost limit globals env value + 2 * cost limit globals env branch + inferredResultNodes
+    NPairCase _ motive value branch => 1 + cost limit globals env motive + cost limit globals env value + cost limit globals env branch
+    NConstraintPi _ _ name a b => 1 + cost limit globals env a + cost limit globals (name :: env) b
+    NImplementationApply _ _ function => 1 + cost limit globals env function + providerCost globals
+    NDictionaryApply _ _ function argument => 2 + cost limit globals env function + (case argument of Nothing => 1; Just value => cost limit globals env value)
+    NPi _ _ name a b => 1 + cost limit globals env a + cost limit globals (name :: env) b
+    NLambda _ _ name a b => 1 + cost limit globals env a + cost limit globals (name :: env) b
+    NInfix _ function left right => 2 + cost limit globals env function + cost limit globals env left + cost limit globals env right
+    NApply _ a b => 1 + cost limit globals env a + cost limit globals env b
+    NAscribe _ a b => 3 + cost limit globals env a + cost limit globals env b
+    NLet _ _ name a value body => 2 + cost limit globals env a + cost limit globals env value +
+                                 cost limit globals (name :: env) body
+    NSequence _ a b => 7 + cost limit globals env a + cost limit globals env b
+    NDoBind _ name a action body => 3 + 2 * cost limit globals env a + cost limit globals env action +
+                                    cost limit globals (name :: env) body
+    NDoResult _ result body =>
+      let resultSize = cost limit globals env result
+       in 4 + resultSize + resultSize * cost limit globals env body
+
+  listCost : Nat -> List Weighted -> List String -> List Expr -> Nat
+  listCost limit globals env [] = 0
+  listCost limit globals env (x :: xs) = min (S limit) (1 + cost limit globals env x + listCost limit globals env xs)
+
+  armsCost : Nat -> List Weighted -> List String -> List (Maybe (Quantity, Expr)) -> Nat
+  armsCost limit globals env [] = 0
+  armsCost limit globals env (Nothing :: xs) = min (S limit) (1 + armsCost limit globals env xs)
+  armsCost limit globals env (Just (_, ty) :: xs) = min (S limit) (1 + cost limit globals env ty + armsCost limit globals env xs)
+
 
 record Interface where
   constructor Exports

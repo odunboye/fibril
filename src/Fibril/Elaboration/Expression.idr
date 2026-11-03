@@ -3,6 +3,7 @@ module Fibril.Elaboration.Expression
 
 import Data.Fin
 import Data.Vect
+import Fibril.Core.Size
 import Fibril.Core.Term
 import Fibril.Core.Quantity
 import Fibril.Source.Text
@@ -58,6 +59,18 @@ namedConstructor (NApply _ function _) = namedConstructor function
 namedConstructor _ = False
 
 mutual
+  elaborateTerms : List GlobalDefinition -> Maybe (Context n) -> Vect n String -> List Expr -> Either ResolveError (List (Term n))
+  elaborateTerms globals context env [] = Right []
+  elaborateTerms globals context env (x :: xs) = [| elaborateInWith globals context env x :: elaborateTerms globals context env xs |]
+
+  elaborateArms : List GlobalDefinition -> Maybe (Context n) -> Vect n String -> List (Maybe (Quantity, Expr)) -> Either ResolveError (List (Maybe (Quantity, Term n)))
+  elaborateArms globals context env [] = Right []
+  elaborateArms globals context env (Nothing :: xs) = (Nothing ::) <$> elaborateArms globals context env xs
+  elaborateArms globals context env (Just (q, ty) :: xs) = do
+    ty <- elaborateInWith globals context env ty
+    rest <- elaborateArms globals context env xs
+    Right (Just (q, ty) :: rest)
+
   ||| Resolve with newest-first names. Binder domains see the old environment;
   ||| bodies see the new binder. Shadowing resolves to the nearest binder.
   ||| Underscore is a wildcard and cannot be referenced.
@@ -92,6 +105,17 @@ mutual
     Right (Sigma q r domain body)
   elaborateInWith globals context env (NPairValue span ty first second) =
     [| PairValue (elaborateInWith globals context env ty) (elaborateInWith globals context env first) (elaborateInWith globals context env second) |]
+  elaborateInWith globals context env (NNominalType span key indices shape) = do
+    indices <- elaborateTerms globals context env indices
+    shape <- elaborateInWith globals context env shape
+    if mentionsNominal key shape then Left (CannotElaborate span.start "Recursive data is not supported") else Right ()
+    Right (NominalType key indices shape)
+  elaborateInWith globals context env (NNominalValue _ ty value) = [| NominalValue (elaborateInWith globals context env ty) (elaborateInWith globals context env value) |]
+  elaborateInWith globals context env (NNominalCase _ motive value branch) = [| NominalCase (elaborateInWith globals context env motive) (elaborateInWith globals context env value) (elaborateInWith globals context env branch) |]
+  elaborateInWith globals context env (NVariantType _ arms) = VariantType <$> elaborateArms globals context env arms
+  elaborateInWith globals context env (NVariantValue _ ty tag Nothing) = (\t => VariantValue t tag Nothing) <$> elaborateInWith globals context env ty
+  elaborateInWith globals context env (NVariantValue _ ty tag (Just value)) = [| VariantValue (elaborateInWith globals context env ty) (pure tag) (Just <$> elaborateInWith globals context env value) |]
+  elaborateInWith globals context env (NVariantCase _ motive value branches) = [| VariantCase (elaborateInWith globals context env motive) (elaborateInWith globals context env value) (elaborateTerms globals context env branches) |]
   elaborateInWith globals context env (NBoxType span q ty) = [| BoxType (pure q) (elaborateInWith globals context env ty) |]
   elaborateInWith globals context env (NBoxValue span ty value) = [| BoxValue (elaborateInWith globals context env ty) (elaborateInWith globals context env value) |]
   elaborateInWith globals context env (NBoxCase span motive value branch) =

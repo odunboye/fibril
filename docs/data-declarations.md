@@ -2,8 +2,8 @@
 
 ## Use cases
 
-**Implemented internal API D2b; no source data syntax yet.** This is the target
-for a future source declaration elaborator: provide scoped erased parameters,
+**Implemented internal API D2b, alongside [non-recursive source data](data.md).**
+This closed-core API complements the named-IR source elaborator: provide scoped erased parameters,
 variant alternatives and constructor names, and obtain ordinary independently
 checked definitions plus layout metadata. A parser must not manufacture trusted
 constructors just because a name/schema says they exist.
@@ -13,7 +13,9 @@ type family and ordinary Nothing/Just functions. A Result-like specification can
 choose among multiple payloads; a dependent record/Sigma can serve as one payload
 package with many fields. This API does not yet parse or pack source constructor
 field telescopes. Prefer existing source records/functions for current .fib
-programs; this API is not usable as source data syntax.
+programs; DataSpec itself is not source syntax. Source data now supports curried
+constructor field telescopes through named IR; both routes share nominal/variant
+kernel checks and qualified key allocation.
 
 ![Checked declaration bundle](diagrams/data-declarations.svg)
 
@@ -119,6 +121,7 @@ multiple alternatives, dependent packages, exact preflight and cumulative budget
 exhaustion. Kernel tests and core structural proofs remain distinct from whole-
 language preservation, positivity, normalization or verified erasure evidence.
 
-Next: authored declaration grammar, source field-telescope packing, source-order/
-visibility integration and exhaustive flat constructor matching. Recursive
+[Authored data grammar](data.md), source field-telescope packing and ordinary
+checked module exports now work through named IR. Next: exhaustive flat constructor
+matching with direct branch resource joins. Recursive
 inductives, strict positivity, termination and cubical data remain separate work.

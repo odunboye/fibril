@@ -25,6 +25,7 @@ for supported syntax, checking boundaries and resource limits.
 | --- | --- | --- |
 | [Named records](records.md) | Package related fields behind an authored constructor and declared telescope. | Keep separate arguments if no reusable data shape is needed. Records are structural, not nominal class tags. |
 | [Dependent fields](records.md) | Package a type/index and a payload whose type depends on it, or a request type and response family. | Use independent fields when there is no dependency. |
+| [Non-recursive data](data.md) | Express Optional/Result-style choices with checked named constructors and an optional consuming eliminator; constructors may carry dependent fields. | Use records when every field is present. Direct data case syntax, recursive Nat/List and termination checking remain future work. |
 | [Singleton records](unary-records.md) | Give a one-field package the same construction/pattern workflow as other records, without dummy Unit padding. | Use the field directly when the wrapper adds no useful abstraction. |
 | [Erased record parameters](records.md) | Reuse one record definition across element types or indices without treating those parameters as runtime data. | A fixed concrete record is enough. |
 | [Requested getters](records.md) | Access one field when the checker permits discarding the others. | Destructure and consume the package when other fields are linear. Not every field admits a safe getter. |
@@ -101,22 +102,23 @@ help compare measured workloads, not establish universal performance bounds.
 
 The [internal finite-variant kernel](finite-variants.md) now provides checked
 nullary/payload alternatives and dependent cases for compiler development and
-host tests. It is not yet a source-language feature.
+host tests. Source data now reaches it through checked declarations and helpers.
 
 [Closed nominal wrappers](nominal-data.md) now distinguish equal-shaped internal
-data and preserve phantom arguments. They do not change record identity or add
-source declarations; source key allocation/checking remains future work.
+data and preserve phantom arguments. They now back checked source data while
+leaving structural record identity unchanged.
 
 [Checked declaration construction](data-declarations.md) now gives a future
 frontend an all-or-error bundle of checked closed type/constructor definitions,
 qualified keys and ordinary layout metadata, with cumulative admission. It is
-still an internal API: authored data grammar and source matching are pending.
+still an internal API alongside the named-IR source elaborator. Direct source
+matching, rather than authored declarations, remains pending.
 
-The [inductive-data plan](inductive-data.md) proposes Optional/Result for
-missing/failure/success values, then Nat/List for recursive data. These are not
-currently usable language features; finite alternatives, named identity,
-positivity and termination have separate landing gates.
+[Non-recursive source data](data.md) now exposes finite choices and named
+elimination, with an [Optional/dependent-package example](../examples/modules/data/Main.fib).
+The [inductive-data plan](inductive-data.md) still separates direct source cases,
+recursive Nat/List, positivity and termination from those implemented features.
 
-General inductive data, recursive instance construction, symbolic fixities,
+Recursive inductive data, recursive instance construction, symbolic fixities,
 checked equality/path terms and native/web/embedded backends remain future work.
 Do not choose an implemented feature on the assumption that those already exist.

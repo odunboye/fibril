@@ -16,10 +16,10 @@ The [inductive-data landing contract](../inductive-data.md) separates completed
 kernel work from proposed source features. The [finite-variant kernel](../finite-variants.md)
 now supports real nullary/payload alternatives and dependent exhaustive
 elimination. [Closed nominal identity](../nominal-data.md) now preserves keys,
-phantom parameters and independently checked shapes. Source data syntax is still
-not implemented. [The internal declaration builder](../data-declarations.md) now
-allocates qualified keys and checks closed family/constructor bundles. Next add
-authored grammar, field packing and module publication before flat source cases. Recursive Nat/List
+phantom parameters and independently checked shapes. [Non-recursive source data](../data.md)
+now has authored declarations, dependent field packing, checked constructors,
+optional consuming eliminators and ordinary module exports. Direct exhaustive
+source cases remain the next slice. Recursive Nat/List
 then require positivity and quantitative recursors; recursive source functions
 require termination checking. These gates must not be collapsed into an
 unchecked declaration generator or a claim of metatheoretic soundness.

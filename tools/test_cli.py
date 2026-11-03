@@ -519,6 +519,99 @@ class CLITests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertEqual(result.stdout, "Do context!\n")
 
+    def test_source_nonrecursive_data_and_named_elimination(self):
+        example = ROOT / "examples/modules/data"
+        expected = "present\nmissing\ndependent package\n"
+        result = run("run", "--source-dir", str(example), str(example / "Main.fib"))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout, expected)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for file in example.glob("*.fib"):
+                destination = root / file.name
+                destination.write_bytes(file.read_bytes())
+                formatted = run("format", str(destination))
+                self.assertEqual(formatted.returncode, 0, formatted.stderr)
+                destination.write_text(formatted.stdout)
+                self.assertEqual(run("format", str(destination)).stdout, formatted.stdout)
+            path = root / "Main.fib"
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, expected)
+            source = path.read_text()
+            inspected = run("elaborate", str(path))
+            self.assertEqual(inspected.returncode, 0, inspected.stdout + inspected.stderr)
+            ir = json.loads(inspected.stdout)
+            self.assertFalse(ir["checked"])
+            self.assertIn("nominal-type", str(ir))
+            self.assertIn("variant-case", str(ir))
+            lines = source.splitlines()
+            line = next(i + 1 for i, text in enumerate(lines) if '(Just String "present")' in text)
+            column = lines[line - 1].index("Just String") + 1
+            target = run("definition", "--source-dir", str(root), "--entry", str(path), str(line), str(column), str(path))
+            self.assertEqual(target.returncode, 0, target.stdout + target.stderr)
+            point = json.loads(target.stdout)["definition"]["range"]
+            self.assertEqual(source[point["start"]["offset"]:point["end"]["offset"]], "Just")
+            # Header parameters and dependent constructor fields use actual authored binders.
+            package = root / "Package.fib"
+            text = package.read_text()
+            line = next(i + 1 for i, value in enumerate(text.splitlines()) if 'Pack :' in value)
+            column = text.splitlines()[line - 1].rindex("Item") + 1
+            target = run("definition", "--source-dir", str(root), "--entry", str(path), str(line), str(column), str(package))
+            self.assertEqual(target.returncode, 0, target.stdout + target.stderr)
+            point = json.loads(target.stdout)["definition"]["range"]
+            self.assertEqual(text[point["start"]["offset"]:point["end"]["offset"]], "Item")
+            self.assertLess(point["start"]["offset"], text.index("(1 value : Item) -> Package"))
+            # Private/unused generated data bodies still check before any output.
+            package.write_text(text.replace("(1 value : Item) -> Package", "(1 value : Item) -> String"))
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, "")
+            package.write_text(text)
+            # No helper is generated unless requested; nominal/phantom identity remains checked.
+            base = ('module Main\ndata Flag (0 A : Type 0) : Type 0 where\n'
+                    '  MkFlag : Flag A\nmain : IO Unit\nmain = putStrLn "flags"\n')
+            path.write_text(base)
+            result = run("elaborate", str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertNotIn("nominal-case", result.stdout)
+            for bad in (
+                base.replace('main : IO Unit', 'bad : Flag Bool\nbad = MkFlag String\nmain : IO Unit'),
+                base.replace('main : IO Unit', 'data Other (0 A : Type 0) : Type 0 where\n  MkOther : Other A\nbad : Flag String\nbad = MkOther String\nmain : IO Unit'),
+                base.replace('MkFlag : Flag A', 'MkFlag : Flag String'),
+                base.replace('MkFlag : Flag A', 'MkFlag : (1 child : Flag A) -> Flag A'),
+                base.replace('MkFlag : Flag A', 'MkFlag : (1 child : Main.Flag A) -> Flag A'),
+                base.replace('MkFlag : Flag A', 'MkFlag : (1 child : Later) -> Flag A'),
+                base.replace('(0 A : Type 0)', '(A : Type 0)'),
+                base.replace('MkFlag : Flag A', 'MkFlag : (1 A : Bool) -> Flag A'),
+                base.replace('MkFlag : Flag A', 'MkFlag : Flag A\n  MkFlag : Flag A'),
+                base.replace('module Main\n', ''),
+            ):
+                path.write_text(bad)
+                result = run("run", "--source-dir", str(root), str(path))
+                self.assertNotEqual(result.returncode, 0, bad + result.stdout + result.stderr)
+                self.assertEqual(result.stdout, "")
+            # Ordinary helper arguments cannot pretend to share a linear capture.
+            path.write_text('module Main\ndata Choice : Type 0 where\n  eliminator useChoice\n  Left : Choice\n  Right : Choice\nbad : (1 text : String) -> (1 choice : Choice) -> String\nbad = \\(1 text : String) => \\(1 choice : Choice) => useChoice (\\(0 self : Choice) => String) choice text text\nmain : IO Unit\nmain = putStrLn (bad "x" Left)\n')
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, "")
+            # Nine parameters and sixteen alternatives are admitted by work budgets, not fixed caps.
+            params = " ".join(f"(0 T{i} : Type 0)" for i in range(9))
+            args = " ".join(f"T{i}" for i in range(9))
+            wide = f"module Main\ndata Wide {params} : Type 0 where\n"
+            wide += "".join(f"  Tag{i} : Wide {args}\n" for i in range(16))
+            wide += 'main : IO Unit\nmain = putStrLn "wide"\n'
+            path.write_text(wide)
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, "wide\n")
+            # A wider constructor telescope uses existing dependent record packing.
+            fields = " -> ".join(f"(1 value{i} : Bool)" for i in range(16))
+            path.write_text(f'module Main\ndata Wide : Type 0 where\n  Pack : {fields} -> Wide\nmain : IO Unit\nmain = putStrLn "fields"\n')
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_explicit_implementation_factories(self):
         example = ROOT / "examples/modules/implementation-factories"
         expected = "Hello, factories!\nReused Bool operations!\n"

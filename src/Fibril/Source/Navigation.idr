@@ -84,6 +84,12 @@ walk context env (NUnitCase _ value body) = walk context env value ++ walk conte
 walk context env (NSigma span q r name domain body) =
   let target = binderToken name span domain context.tokens
    in walk context env domain ++ self context target ++ walk context ((name, map context.localTarget target) :: env) body
+walk context env (NNominalType _ _ _ _) = []
+walk context env (NNominalValue _ _ _) = []
+walk context env (NNominalCase _ _ _ _) = []
+walk context env (NVariantType _ _) = []
+walk context env (NVariantValue _ _ _ _) = []
+walk context env (NVariantCase _ _ _ _) = []
 walk context env (NBoxType _ _ ty) = walk context env ty
 walk context env (NBoxValue _ ty value) = walk context env ty ++ walk context env value
 walk context env (NBoxCase _ motive value branch) = walk context env motive ++ walk context env value ++ walk context env branch
@@ -122,6 +128,23 @@ walk context env (NLet span q name domain value body) =
    in walk context env domain ++ walk context env value ++ self context target ++
       walk context ((name, map context.localTarget target) :: env) body
 
+dataParameters : Walker destination -> Environment destination -> List RecordParameter ->
+                 (List (ReferenceTo destination), Environment destination)
+dataParameters context env [] = ([], env)
+dataParameters context env (parameter :: rest) =
+  let target = binderToken parameter.name parameter.span parameter.domain context.tokens
+      following = (parameter.name, map context.localTarget target) :: env
+      (refs, scope) = dataParameters context following rest
+   in (walk context env parameter.domain ++ self context target ++ refs, scope)
+
+dataFields : Walker destination -> Environment destination -> List RecordField ->
+             (List (ReferenceTo destination), Environment destination)
+dataFields context env [] = ([], env)
+dataFields context env (field :: rest) =
+  let following = (field.token.spelling, Just (context.localTarget field.token.span)) :: env
+      (refs, scope) = dataFields context following rest
+   in (walk context env field.ty ++ self context (Just field.token.span) ++ refs, scope)
+
 declarations : Walker destination -> Environment destination -> List AuthoredDeclaration -> List (ReferenceTo destination)
 declarations context env [] = []
 declarations context env (Ordinary decl :: rest) =
@@ -148,6 +171,15 @@ declarations context env (ImplementationItem decl :: rest) =
      RefersTo decl.definitionNameSpan (context.localTarget decl.definitionNameSpan)]) ++
   (if decl.generated then [] else walk context env decl.expected ++ walk context env decl.value) ++
   declarations context ((decl.name, Just (context.localTarget decl.definitionNameSpan)) :: env) rest
+
+declarations context env (item@(DataItem sourceData) :: rest) =
+  let sites = bindingSites item
+      refs = map (\site => RefersTo site.nameSpan (context.localTarget site.definitionNameSpan)) sites
+      following = foldl (\scope, site => (site.name, Just (context.localTarget site.definitionNameSpan)) :: scope) env sites
+      (paramRefs, paramScope) = dataParameters context following sourceData.params
+      ctorRefs = concatMap (\ctor => let (fieldRefs, scope) = dataFields context paramScope ctor.fields
+                                     in fieldRefs ++ walk context scope ctor.result) sourceData.constructors
+   in refs ++ paramRefs ++ ctorRefs ++ declarations context following rest
 
 declarations context env (item@(RecordItem _) :: rest) =
   let sites = bindingSites item

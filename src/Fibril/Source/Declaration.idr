@@ -133,6 +133,63 @@ optionalEliminator indent end tokens@(next :: _) =
   else Right (Nothing, tokens)
 optionalEliminator indent end [] = Right (Nothing, [])
 
+dataParameters : Nat -> Nat -> Position -> List Token -> Either ParseError (List RecordParameter, List Token)
+dataParameters Z expressions end (token :: _) = Left (ParseFailure token.span.start "Data parameter parsing budget exhausted")
+dataParameters fuel expressions end [] = Right ([], [])
+dataParameters (S fuel) expressions end tokens@(token :: _) =
+  if token.kind /= OpenParen then Right ([], tokens) else do
+    parameter <- binder expressions end tokens
+    (following, rest) <- dataParameters fuel expressions end parameter.remaining
+    Right (Parameter parameter.span parameter.quantity parameter.name parameter.domain :: following, rest)
+
+dataFields : Nat -> Nat -> Position -> List Token -> Either ParseError (List RecordField, Expr)
+dataFields Z expressions end tokens = Left (ParseFailure (nextPosition end tokens) "Constructor telescope parsing budget exhausted")
+dataFields (S fuel) expressions end tokens@(opening :: afterOpen) =
+  if opening.kind /= OpenParen then do
+    result <- parseExpression expressions end tokens
+    Right ([], result)
+  else do
+    (_, names) <- binderQuantity afterOpen
+    (name, _) <- expect Name end names
+    parameter <- binder expressions end tokens
+    (_, following) <- expect Arrow end parameter.remaining
+    (fields, result) <- dataFields fuel expressions end following
+    Right (Field name parameter.quantity parameter.domain :: fields, result)
+dataFields (S fuel) expressions end [] = Left (ParseFailure end "Expected constructor result type")
+
+dataConstructors : Nat -> Nat -> Nat -> Position -> List Token -> Either ParseError (List DataConstructor, List Token)
+dataConstructors fuel expressions indent end [] = Right ([], [])
+dataConstructors fuel expressions indent end tokens@(first :: _) =
+  if first.span.start.column <= 1 then Right ([], tokens) else case fuel of
+    Z => Left (ParseFailure first.span.start "Data constructor token budget exhausted")
+    S fuel => do
+      if first.span.start.column /= indent then Left (ParseFailure first.span.start "Data constructors must align") else Right ()
+      let (line, remaining) = span (\token => token.span.start.line == first.span.start.line) tokens
+      (name, rest) <- expect Name end line
+      (_, rest) <- expect Colon end rest
+      (fields, result) <- dataFields (S (length rest)) expressions (nextPosition end remaining) rest
+      (following, rest) <- dataConstructors fuel expressions indent end remaining
+      Right (DataConstructorSyntax (Between name.span.start (extent result).finish) name fields result :: following, rest)
+
+parseData : Nat -> Position -> List Token -> Either ParseError (AuthoredDeclaration, List Token)
+parseData budget end tokens = do
+  (keyword, rest) <- expect DataKeyword end tokens
+  (name, rest) <- expect Name end rest
+  (params, rest) <- dataParameters (S (length rest)) budget end rest
+  (_, rest) <- expect Colon end rest
+  (_, rest) <- expect TypeKeyword end rest
+  (universe, rest) <- expect Number end rest
+  level <- levelValue universe
+  (whereToken, rest) <- expect WhereKeyword end rest
+  if keyword.span.start.column /= 1 || name.spelling == "_" || whereToken.span.start.line /= keyword.span.start.line
+     then Left (ParseFailure keyword.span.start "Expected column-one data header ending : Type n where on one line") else Right ()
+  let indent = case rest of first :: _ => first.span.start.column; [] => 0
+  (eliminator, rest) <- optionalEliminator indent end rest
+  (constructors, rest) <- dataConstructors (length rest) budget indent end rest
+  if null constructors then Left (ParseFailure name.span.start "Data requires at least one constructor") else Right ()
+  let finish = case reverse constructors of ctor :: _ => ctor.span.finish; [] => name.span.finish
+  Right (DataItem (DataSyntax (Between keyword.span.start finish) name level params eliminator constructors False), rest)
+
 parseRecordLike : TokenKind -> Nat -> Position -> List Token -> Either ParseError (AuthoredDeclaration, List Token)
 parseRecordLike kind budget end tokens = do
   (keyword, rest) <- expect kind end tokens
@@ -234,6 +291,7 @@ parseOne budget end tokens@(token :: rest) =
       [] => Right ()
     (item, remaining) <- parseOne budget end rest
     let start = case item of
+          DataItem sourceData => sourceData.span.start
           Ordinary decl => decl.span.start
           RecordItem sourceRecord => sourceRecord.span.start
           InterfaceItem sourceRecord => sourceRecord.span.start
@@ -242,12 +300,14 @@ parseOne budget end tokens@(token :: rest) =
     if start.line <= token.span.start.line
        then Left (ParseFailure start "export must precede the declaration on its own line") else Right ()
     let marked = case item of
+          DataItem sourceData => DataItem ({ exported := True, span := Between token.span.start sourceData.span.finish } sourceData)
           Ordinary decl => Ordinary ({ exported := True, span := Between token.span.start decl.span.finish } decl)
           RecordItem sourceRecord => RecordItem ({ exported := True, span := Between token.span.start sourceRecord.span.finish } sourceRecord)
           InterfaceItem sourceRecord => InterfaceItem ({ exported := True, span := Between token.span.start sourceRecord.span.finish } sourceRecord)
           ImplementationItem decl => ImplementationItem ({ exported := True, span := Between token.span.start decl.span.finish } decl)
           ImplementationBlock block => ImplementationBlock ({ exported := True, span := Between token.span.start block.span.finish } block)
     Right (marked, remaining)
+  else if token.kind == DataKeyword then parseData budget end tokens
   else if token.kind == RecordKeyword || token.kind == InterfaceKeyword then parseRecordLike token.kind budget end tokens
   else if token.kind == ImplementationKeyword then parseImplementation budget end tokens
   else do
@@ -302,6 +362,7 @@ declarationAhead : List Token -> Bool
 declarationAhead (Located Name _ _ :: Located Colon _ _ :: _) = True
 declarationAhead (Located Name _ _ :: Located Equals _ _ :: _) = True
 declarationAhead (Located Number _ _ :: _) = True
+declarationAhead (Located DataKeyword _ _ :: _) = True
 declarationAhead (Located RecordKeyword _ _ :: _) = True
 declarationAhead (Located InterfaceKeyword _ _ :: _) = True
 declarationAhead (Located ImplementationKeyword _ _ :: _) = True

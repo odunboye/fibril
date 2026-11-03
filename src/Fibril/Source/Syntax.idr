@@ -20,6 +20,12 @@ data Expr
   | NBoolValue SourceSpan Bool
   | NIf SourceSpan Expr Expr Expr
   | NUnitCase SourceSpan Expr Expr
+  | NNominalType SourceSpan String (List Expr) Expr
+  | NNominalValue SourceSpan Expr Expr
+  | NNominalCase SourceSpan Expr Expr Expr
+  | NVariantType SourceSpan (List (Maybe (Quantity, Expr)))
+  | NVariantValue SourceSpan Expr Nat (Maybe Expr)
+  | NVariantCase SourceSpan Expr Expr (List Expr)
   | NBoxType SourceSpan Quantity Expr
   | NBoxValue SourceSpan Expr Expr
   | NBoxCase SourceSpan Expr Expr Expr
@@ -56,6 +62,12 @@ extent (NBoolType span) = span
 extent (NBoolValue span _) = span
 extent (NIf span _ _ _) = span
 extent (NUnitCase span _ _) = span
+extent (NNominalType span _ _ _) = span
+extent (NNominalValue span _ _) = span
+extent (NNominalCase span _ _ _) = span
+extent (NVariantType span _) = span
+extent (NVariantValue span _ _ _) = span
+extent (NVariantCase span _ _ _) = span
 extent (NBoxType span _ _) = span
 extent (NBoxValue span _ _) = span
 extent (NBoxCase span _ _ _) = span
@@ -92,6 +104,12 @@ withExtent span (NBoolType _) = NBoolType span
 withExtent span (NBoolValue _ value) = NBoolValue span value
 withExtent span (NIf _ condition yes no) = NIf span condition yes no
 withExtent span (NUnitCase _ scrutinee body) = NUnitCase span scrutinee body
+withExtent span (NNominalType _ key indices shape) = NNominalType span key indices shape
+withExtent span (NNominalValue _ ty value) = NNominalValue span ty value
+withExtent span (NNominalCase _ motive value branch) = NNominalCase span motive value branch
+withExtent span (NVariantType _ arms) = NVariantType span arms
+withExtent span (NVariantValue _ ty tag payload) = NVariantValue span ty tag payload
+withExtent span (NVariantCase _ motive value branches) = NVariantCase span motive value branches
 withExtent span (NBoxType _ q ty) = NBoxType span q ty
 withExtent span (NBoxValue _ ty value) = NBoxValue span ty value
 withExtent span (NBoxCase _ motive value branch) = NBoxCase span motive value branch

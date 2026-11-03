@@ -2,7 +2,7 @@
 
 ## Use cases
 
-**Implemented internal kernel prerequisite D2a; no source data syntax yet.**
+**Implemented kernel prerequisite D2a, now used by [non-recursive source data](data.md).**
 Use distinct identities when two data declarations have equal representations
 but should not be interchangeable. OptionalEmail and OptionalUsername could both
 contain either nothing or a String, yet mixing them should require an explicit
@@ -13,8 +13,9 @@ Flag Bool should not become compatible just because neither stores an element.
 Prefer a transparent alias or existing structural record when interchangeability
 is intentional. This slice does not change existing record identity.
 
-The primitive is exercised in host Idris kernel tests. It is not an available
-.fib declaration, a security boundary or a recursive datatype registry.
+The raw primitive is exercised in host Idris kernel tests. Source data lowering
+now allocates keys from module/declaration names; it is not a security boundary
+or a recursive datatype registry.
 
 ![Closed nominal identity](diagrams/nominal-data.svg)
 
@@ -101,18 +102,18 @@ and weak-head reduction agree on the root. There is no nominal eta, hidden Unit
 or brand-field padding, quantity coercion or implicit cast. Reference wrappers
 are not a guarantee about eventual backend layout.
 
-## Declaration allocation is still a gate
+## Source allocation and remaining metadata gate
 
-Future source data lowering must allocate the same canonical qualified module/
-declaration key for a declaration and carry all explicit parameters, including
-phantom ones. It must reject duplicate/forward/recursive declarations as specified
-for the first non-recursive source slice. The existing module graph establishes
-checked direct-import/snapshot boundaries; it does not yet allocate these keys.
+Source data lowering now allocates a canonical qualified module/declaration key
+and carries all explicit parameters, including phantom ones. It rejects duplicate,
+forward and recursive declarations for the non-recursive source slice. Existing
+module checking supplies direct-import/snapshot boundaries and checks all generated
+bodies before exports.
 
 Only fully checked declarations may publish constructor layout metadata, and
 constructor references must be validated against checked signatures and actual
 packing. No arbitrary imported key or schema may authorize a constructor type.
-A future family can enforce its parameter domains with ordinary typed erased
+Generated families enforce parameter domains with ordinary typed erased
 lambdas; raw-core construction of a different indexed type is not evidence of
 membership in that source family.
 

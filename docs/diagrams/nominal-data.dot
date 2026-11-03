@@ -6,6 +6,6 @@ digraph NominalData {
   value [label="NominalValue\nchecked underlying variant"];
   elimination [label="Dependent NominalCase\nconsume variant once"];
   identity -> shape -> value -> elimination;
-  next [label="Future: source key allocation + checked declarations\nrecursive environment remains separate", style=dashed];
+  next [label="Source key allocation + declarations now checked\nnext: direct cases; recursive environment separate", style=dashed];
   elimination -> next [style=dashed];
 }

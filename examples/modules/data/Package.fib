@@ -1,0 +1,15 @@
+module Package
+
+export
+data Package : Type 1 where
+  eliminator usePackage
+  Pack : (0 Item : Type 0) -> (render : (1 value : Item) -> String) -> (1 value : Item) -> Package
+
+export
+renderPackage : (1 package : Package) -> String
+renderPackage = \(1 package : Package) =>
+  usePackage
+    (\(0 self : Package) =>
+      (String : Type 1)) package
+    (\(0 Item : Type 0) =>
+      \(render : (1 value : Item) -> String) => \(1 value : Item) => render value)
