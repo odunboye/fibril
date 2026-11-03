@@ -54,15 +54,16 @@ A separate executable/package may host these tools later without making users
 learn unrelated command names. Do not automatically execute PATH-discovered
 plugins or template hooks.
 
-fibril new NAME [--template console] [--dry-run] now creates only a source tree,
-README and gitignore. It intentionally emits no pretend-operational manifest or
-lockfile before explicit namespace-aware scaffold integration exists. init into existing directories,
+fibril new NAME [--template console] [--module-prefix PREFIX] [--dry-run] creates
+a source tree, README and gitignore; explicit --module-prefix also emits a working
+local fibril.yaml. Without that flag the source-only scaffold is unchanged.
+No lockfile is emitted. init into existing directories,
 workspace-member inventories, fetching and remote templates remain future slices.
 
 ## Minimal implementation sequence
 
 1. Local-path packages and a deterministic module/dependency graph (explicit closure implemented).
-2. Namespace-aware scaffolds, workspace-member inventories and versioned snapshot locks.
+2. Namespace-aware scaffolds (implemented), then workspace-member inventories and versioned snapshot locks.
 3. Explicit pinned Git dependencies/cache only with separate fetch/offline verification policy.
 4. Registry and version resolution only when justified by actual use.
 

@@ -34,10 +34,37 @@ mailer/
 ~~~
 
 Main is an ordinary named module with main : IO Unit and a Prelude putStrLn call.
-The README includes the explicit check/run commands. No package manifest, lockfile,
-dependencies, Git repository, build script, install hook or external template is
-created/fetched/executed. [Manifest inspection](manifests.md) exists, but implicit
-project/workspace-member discovery and generated manifests remain future work. This is source scaffolding, not a new acceptance rule.
+Without --module-prefix, the README uses explicit source-root check/run commands
+and no manifest is emitted. With the flag, a fourth file fibril.yaml and package
+README are generated as described below. Neither mode creates a lockfile, Git
+repository, build script or dependency installation; no hooks/templates are
+fetched/executed. Implicit project/workspace-member discovery remains future work.
+
+## Explicit local package scaffold
+
+~~~sh
+fibril new mailer --module-prefix Mailer
+cd mailer
+fibril check --package fibril.yaml
+fibril run --package fibril.yaml
+~~~
+
+This opt-in adds fibril.yaml with schema 1, quoted name/module-prefix, source-dir
+src, foundation de-morgan, entry Main and empty dependencies. The generated README
+uses these package commands. Main remains the separate application entry; no
+namespace directories or reusable library definitions are invented. The prefix
+is explicit, never derived from the slug. It accepts up to sixteen capitalized
+ASCII components within the manifest decoder's 1024-character scalar admission,
+excluding Main and its descendants (MainView is allowed).
+
+Use this for a project that will add local package dependencies. Prefer the
+unchanged source-only scaffold for a small single-root experiment. This adds
+workflow convenience, not language expressiveness or a new checking rule.
+Both modes use the same fresh-root/exclusive-file writer and partial-error policy;
+no locks, fetching, hooks, automatic discovery or existing-directory merging.
+Package metadata is generated only after validation; normal --package checking
+still independently checks source. Dry-run includes the manifest path but makes
+no filesystem probes or acceptance promises.
 
 ## Names and arguments
 
@@ -48,7 +75,7 @@ identifier or finalized package-identity rule. Main stays Main regardless of the
 directory slug. Paths, dots, separators, whitespace, controls and quotes are
 rejected before mutation.
 
---template console and --dry-run may appear before/after the name. Duplicate or
+--template console, --module-prefix PREFIX and --dry-run may appear before/after the name. Duplicate or
 unknown flags, extra operands and unsupported templates fail without writes.
 fibril new --help describes this command. No force/overwrite option is provided.
 
@@ -92,7 +119,8 @@ Windows and unknown host identifiers are refused; this is not Windows support.
 
 [Project.Template](../src/Fibril/Project/Template.idr) is a pure fixed template and
 name validator. [Project.New](../src/Fibril/Project/New.idr) parses arguments and
-orchestrates effects. Neither imports the checker, parser or elaborator.
+orchestrates effects. Neither imports the checker, language parser or elaborator. The template reuses
+the pure workspace namespace profile, not a source acceptance result.
 Main only dispatches this tool; the kernel does not acquire project-management
 logic. The small libc adapter is bootstrap host IO, not a source-language FFI.
 
@@ -108,7 +136,6 @@ output reporting at orchestration boundaries. They do not simulate every real
 native write/close failure or hostile filesystem race. Read-only parallel review
 verified the primitive choices and caught/fixed the Chez Unix host-guard issue.
 
-[Explicit local package loading](local-packages.md) now works. Next: integrate
-explicit namespace selection and generated package metadata
-and safe init behavior. A pure REPL can reuse checking/evaluation later; it is
+[Explicit local package loading](local-packages.md) and namespace-selected
+manifest scaffolding now work. Existing-directory init needs a separate safety contract. A pure REPL can reuse checking/evaluation later; it is
 not introduced by scaffolding.

@@ -13,17 +13,20 @@ record Attempt where
   result : Either String ()
   calls : List String
 
-simulate : Nat -> String -> IO Attempt
-simulate failAt name = do
+simulateOwned : Nat -> String -> Maybe String -> IO Attempt
+simulateOwned failAt name owned = do
   seen <- newIORef (the (List String) [])
   let operation : String -> IO (Either String ()) = \label => do
         before <- readIORef seen
         modifyIORef seen (label ::)
         pure (if length before == failAt then Left "Injected creation/write/close failure" else Right ())
-  result <- createWith (CreatingWith (\path => operation ("directory " ++ path))
-                       (\path, contents => operation ("file " ++ path))) name
+  result <- createPackageWith (CreatingWith (\path => operation ("directory " ++ path))
+                       (\path, contents => operation ("file " ++ path))) name owned
   calls <- readIORef seen
   pure (Attempted result (reverse calls))
+
+simulate : Nat -> String -> IO Attempt
+simulate failAt name = simulateOwned failAt name Nothing
 
 failed : Either String () -> Bool
 failed (Left _) = True
@@ -36,6 +39,10 @@ partialReported _ = False
 public export
 runProjectChecks : IO (List (String, Bool))
 runProjectChecks = do
+  tooLong <- simulateOwned 99 "mailer" (Just (pack (replicate 1025 'A')))
+  invalidPrefix <- simulateOwned 99 "mailer" (Just "Main.Core")
+  packageSuccess <- simulateOwned 99 "mailer" (Just "Mailer.Core")
+  manifestFailure <- simulateOwned 4 "mailer" (Just "Mailer.Core")
   invalid <- simulate 99 "../escape"
   admission <- simulate 0 "mailer"
   directory <- simulate 1 "mailer"
@@ -43,7 +50,16 @@ runProjectChecks = do
   laterFile <- simulate 4 "mailer"
   success <- simulate 99 "mailer"
   pure
-    [ ("project names reject paths/options/controls and code injection",
+    [ ("explicit namespace profile rejects reserved/malformed owners before effects",
+        failed invalidPrefix.result && null invalidPrefix.calls && failed tooLong.result && null tooLong.calls &&
+        all (not . validProjectPrefix) ["", "Main", "Main.Core", "lower", "A..B", "A/B", "A\n"] &&
+        all validProjectPrefix ["Mailer", "Email.Core", "MainView", pack (replicate 1024 'A')] &&
+        not (validProjectPrefix (pack (replicate 1025 'A'))))
+    , ("package creation uses fixed exclusive manifest path and stops on manifest failure",
+        (case packageSuccess.result of Right () => True; _ => False) &&
+        packageSuccess.calls == ["directory mailer", "directory mailer/src", "file mailer/src/Main.fib", "file mailer/.gitignore", "file mailer/fibril.yaml", "file mailer/README.md"] &&
+        partialReported manifestFailure.result && length manifestFailure.calls == 5)
+    , ("project names reject paths/options/controls and code injection",
         all (not . validProjectName) ["", "..", "../x", "a/b", "a\\b", "-x", "_x", "A", "a b", "a\n", "a\"", pack (replicate 65 'a')])
     , ("valid project directory slugs do not dictate module identity",
         all validProjectName ["mailer", "hello_world", "hello-world", "app2", pack (replicate 64 'a')])

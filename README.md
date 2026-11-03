@@ -44,7 +44,8 @@ web/mobile UI are not implemented; application blockers remain explicit.
 
 Create a runnable console project with `fibril new mailer` (or preview using
 `--dry-run`); see [project creation](docs/project-creation.md). This offline scaffold
-uses explicit check/run commands, not an unimplemented manifest resolver.
+uses explicit source-root check/run commands by default. Add `--module-prefix Mailer`
+to generate fibril.yaml and package check/run instructions; no namespace is inferred.
 
 The [local workspace contract](docs/workspaces.md) now has a tested pure planner
 for package order and direct-dependency namespace ownership. [Strict manifest

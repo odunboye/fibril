@@ -6,7 +6,7 @@ Build with `pack build fibril`, then invoke `./build/exec/fibril`.
 | --- | --- |
 | --help (or no arguments) | Show available commands and implementation limits |
 | --version | Show bootstrap version |
-| new NAME [--template console] [--dry-run] | Fresh offline console scaffold; POSIX trusted cwd, no overwrite; see [project creation](project-creation.md) |
+| new NAME [--template console] [--module-prefix PREFIX] [--dry-run] | Fresh offline console scaffold; POSIX trusted cwd, no overwrite; see [project creation](project-creation.md) |
 | new --help | Scaffolding usage and input policy |
 | check --package PATH | Check an explicit [local package closure](local-packages.md), with direct package and module permissions |
 | run --package PATH | Check the full local package source graph before preparing/executing host stdout |

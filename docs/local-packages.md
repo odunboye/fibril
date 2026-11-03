@@ -124,7 +124,8 @@ Admission tests exercise 64/65 packages, 256/257 edges, oversized manifests,
 32/33 modules and exact/one-over aggregate source-byte budgets across roots.
 The ordinary single-root suite is retained.
 
-Next: explicit namespace-aware scaffold integration, workspace-member inventory
+[Explicit namespace-aware scaffolding](project-creation.md) now emits a manifest
+with fibril new NAME --module-prefix PREFIX. Next: workspace-member inventory
 files, package-aware editor/report services and a separately specified source
 snapshot/hash lock contract. No network fetching, registry/version solving,
 hooks, build scripts, native bindings or implicit plugin discovery are added.

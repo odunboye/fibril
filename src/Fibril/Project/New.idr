@@ -10,29 +10,39 @@ import Fibril.Runtime.Project
 
 public export
 usage : List String
-usage = ["Usage: fibril new NAME [--template console] [--dry-run]",
+usage = ["Usage: fibril new NAME [--template console] [--module-prefix PREFIX] [--dry-run]",
          "Creates a fresh relative directory; NAME is 1..64 lowercase ASCII letters/digits/_/-, starting with a letter.",
-         "Offline console template only. No overwrite, hooks, dependencies, manifest or Git initialization."]
+         "Optional --module-prefix explicitly owns a capitalized dotted namespace (not Main), and emits fibril.yaml. No overwrite, hooks, fetching, lockfile or Git initialization."]
 
 record Options where
   constructor NewOptions
   name : String
   dryRun : Bool
+  namespacePrefix : Maybe String
 
-parse : Maybe String -> Maybe String -> Bool -> List String -> Either String Options
-parse name template dry [] = case name of
+parse : Maybe String -> Maybe String -> Maybe String -> Bool -> List String -> Either String Options
+parse name template owned dry [] = case name of
   Nothing => Left "Missing project name. Run fibril new --help."
-  Just name => if validProjectName name then Right (NewOptions name dry) else
+  Just name => if validProjectName name then Right (NewOptions name dry owned) else
     Left "Invalid project name: use 1..64 lowercase ASCII letters/digits/_/-, starting with a letter (no paths)."
-parse name template True ("--dry-run" :: _) = Left "Duplicate --dry-run option."
-parse name template False ("--dry-run" :: rest) = parse name template True rest
-parse name (Just _) dry ("--template" :: _) = Left "Duplicate --template option."
-parse name Nothing dry ("--template" :: "console" :: rest) = parse name (Just "console") dry rest
-parse name Nothing dry ("--template" :: _) = Left "Only --template console is supported. Web/server/mobile templates are not deployable yet."
-parse Nothing template dry (arg :: rest) =
+parse name template owned True ("--dry-run" :: _) = Left "Duplicate --dry-run option."
+parse name template owned False ("--dry-run" :: rest) = parse name template owned True rest
+parse name (Just _) owned dry ("--template" :: _) = Left "Duplicate --template option."
+parse name Nothing owned dry ("--template" :: "console" :: rest) = parse name (Just "console") owned dry rest
+parse name Nothing owned dry ("--template" :: _) = Left "Only --template console is supported. Web/server/mobile templates are not deployable yet."
+parse name template (Just _) dry ("--module-prefix" :: _) = Left "Duplicate --module-prefix option."
+parse name template Nothing dry ("--module-prefix" :: value :: rest) =
+  if validProjectPrefix value then parse name template (Just value) dry rest
+  else Left "Invalid module prefix: use up to 16 capitalized ASCII components within 1024 characters; Main and its descendants are reserved."
+parse name template Nothing dry ["--module-prefix"] = Left "Missing --module-prefix value."
+parse Nothing template owned dry (arg :: rest) =
   if isPrefixOf ['-', '-'] (unpack arg) then Left ("Unknown project option: " ++ arg)
-  else parse (Just arg) template dry rest
-parse (Just _) template dry (_ :: _) = Left "Unexpected project argument or option. Run fibril new --help."
+  else parse (Just arg) template owned dry rest
+parse (Just _) template owned dry (_ :: _) = Left "Unexpected project argument or option. Run fibril new --help."
+
+files : String -> Maybe String -> List ProjectFile
+files name Nothing = consoleFiles name
+files name (Just namespacePrefix) = packageFiles name namespacePrefix
 
 ||| Injectable effect seam for deterministic orchestration failure tests. These
 ||| callbacks are host operations, not proof/capability certificates.
@@ -56,10 +66,12 @@ partialReport name error = error ++ "\nPartial project may remain at " ++ name +
 ||| Fresh-directory creation followed by fixed exclusive files. Stop on first
 ||| represented failure and retain partial output: never recursively delete it.
 ||| This API validates names even when called without the command parser.
+||| Validate optional namespace even when invoked outside the argument parser.
 public export
-createWith : CreationOps -> String -> IO (Either String ())
-createWith operations name =
-  if not (validProjectName name) then pure (Left "Invalid project name.") else do
+createPackageWith : CreationOps -> String -> Maybe String -> IO (Either String ())
+createPackageWith operations name namespacePrefix =
+  if not (validProjectName name) then pure (Left "Invalid project name.")
+  else if not (maybe True validProjectPrefix namespacePrefix) then pure (Left "Invalid module prefix.") else do
     admitted <- operations.directory name
     case admitted of
       Left error => pure (Left error)
@@ -68,17 +80,26 @@ createWith operations name =
         case source of
           Left error => pure (Left (partialReport name error))
           Right () => do
-            result <- writeFiles operations name (consoleFiles name)
+            result <- writeFiles operations name (files name namespacePrefix)
             pure $ case result of
               Left error => Left (partialReport name error)
               Right () => Right ()
 
-nextSteps : String -> List String
-nextSteps name = ["Created " ++ name ++ " (console template).", "Next:",
+public export
+createWith : CreationOps -> String -> IO (Either String ())
+createWith operations name = createPackageWith operations name Nothing
+
+nextSteps : String -> Maybe String -> List String
+nextSteps name (Just namespacePrefix) = ["Created " ++ name ++ " (console package; namespace " ++ namespacePrefix ++ ").", "Next:",
+  "  cd " ++ name,
+  "  fibril check --package fibril.yaml",
+  "  fibril run --package fibril.yaml",
+  "No lockfile or implicit project discovery is provided."]
+nextSteps name Nothing = ["Created " ++ name ++ " (console template).", "Next:",
   "  cd " ++ name,
   "  fibril check --source-dir src src/Main.fib",
   "  fibril run --source-dir src src/Main.fib",
-  "Automatic discovery and generated manifests are not implemented; explicit --package uses existing fibril.yaml files."]
+  "Use --module-prefix PREFIX to generate an explicit local package manifest; automatic discovery is not implemented."]
 
 ||| Runtime identifiers differ by bootstrap backend: Chez calls GNU/Linux and
 ||| BSD unix; RefC reports Linux/macOS. This is a POSIX selection policy, not
@@ -92,17 +113,17 @@ supportedHost host = elem host ["darwin", "unix", "linux", "Linux", "macOS"]
 public export
 newProject : List String -> IO (Either String (List String))
 newProject ["--help"] = pure (Right usage)
-newProject args = case parse Nothing Nothing False args of
+newProject args = case parse Nothing Nothing Nothing False args of
   Left error => pure (Left error)
   Right options =>
     if options.dryRun then pure (Right
       (["Dry run: would attempt fresh console project " ++ options.name ++ "/", "  " ++ options.name ++ "/src/"] ++
-       map (\entry => "  " ++ options.name ++ "/" ++ entry.path) (consoleFiles options.name) ++
+       map (\entry => "  " ++ options.name ++ "/" ++ entry.path) (files options.name options.namespacePrefix) ++
        ["No filesystem checks or changes performed; creation may still fail."]))
     else if not (supportedHost os)
       then pure (Left ("Project creation requires a supported POSIX bootstrap host; reported host: " ++ os))
       else do
-        result <- createWith (CreatingWith freshDirectory freshFile) options.name
+        result <- createPackageWith (CreatingWith freshDirectory freshFile) options.name options.namespacePrefix
         pure $ case result of
           Left error => Left error
-          Right () => Right (nextSteps options.name)
+          Right () => Right (nextSteps options.name options.namespacePrefix)

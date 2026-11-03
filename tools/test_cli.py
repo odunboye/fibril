@@ -233,6 +233,47 @@ class CLITests(unittest.TestCase):
             self.assertEqual(result.stdout, '')
             self.assertIn('Aggregate module source byte', result.stderr)
 
+    def test_new_explicit_package_scaffold(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            preview = run('new', 'mailer', '--module-prefix', 'Mailer.Core', '--dry-run', cwd=root)
+            self.assertEqual(preview.returncode, 0, preview.stdout + preview.stderr)
+            self.assertIn('mailer/fibril.yaml', preview.stdout)
+            self.assertEqual(list(root.iterdir()), [])
+            for arguments in [
+                ['mailer', '--module-prefix'], ['mailer', '--module-prefix', 'Main'],
+                ['mailer', '--module-prefix', 'Main.Core'], ['mailer', '--module-prefix', 'lower'],
+                ['mailer', '--module-prefix', 'Mail..Core'], ['mailer', '--module-prefix', 'Mail/A'],
+                ['mailer', '--module-prefix', 'A', '--module-prefix', 'B'],
+                ['mailer', '--template', '--module-prefix', 'Mail', 'console'],
+                ['mailer', '--module-prefix', '--dry-run'],
+                ['mailer', '--module-prefix', '.'.join(['A'] * 17)],
+                ['mailer', '--module-prefix', 'A' * 1025],
+            ]:
+                result = run('new', *arguments, cwd=root)
+                self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(list(root.iterdir()), [])
+            for name, owned in [('mailer', 'Mailer.Core'), ('true', 'Null'), ('null', 'MainView'), ('long-owner', 'A' * 1024)]:
+                result = run('new', '--module-prefix', owned, name, '--template', 'console', cwd=root)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                folder = root / name
+                self.assertEqual(sorted(p.name for p in folder.iterdir()), ['.gitignore', 'README.md', 'fibril.yaml', 'src'])
+                inspected = run('manifest', 'fibril.yaml', cwd=folder)
+                self.assertEqual(inspected.returncode, 0, inspected.stdout + inspected.stderr)
+                metadata = json.loads(inspected.stdout)
+                self.assertEqual(metadata['name'], name)
+                self.assertEqual(metadata['module_prefix'], owned)
+                self.assertEqual(metadata['dependencies'], [])
+                checked = run('check', '--package', 'fibril.yaml', cwd=folder)
+                self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
+                executed = run('run', '--package', 'fibril.yaml', cwd=folder)
+                self.assertEqual(executed.returncode, 0, executed.stdout + executed.stderr)
+                self.assertEqual(executed.stdout, f'Hello from {name}!\n')
+                self.assertIn('fibril run --package fibril.yaml', (folder / 'README.md').read_text())
+                before = (folder / 'fibril.yaml').read_bytes()
+                self.assertNotEqual(run('new', name, '--module-prefix', owned, cwd=root).returncode, 0)
+                self.assertEqual((folder / 'fibril.yaml').read_bytes(), before)
+
     def test_strict_local_manifest_inspection(self):
         baseline = ('schema: 1\nname: mailer-app\nmodule-prefix: Mailer\nsource-dir: src\n'
                     'foundation: de-morgan\nentry: Main\ndependencies:\n  email-core:\n    path: ../email-core\n')
