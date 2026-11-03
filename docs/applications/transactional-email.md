@@ -34,6 +34,22 @@ responsibilities that a type system cannot discharge alone.
 Dashed components are not implemented; the solid model is a checked pure
 prototype, not a deployed worker.
 
+## Confirmed product decisions
+
+- The remote relay is Postfix; use SMTP submission, not an added HTTPS relay API.
+- Deployment is container-based. Organization tenancy and single-/multi-node
+  topology still need to be specified; a container is not a tenancy decision.
+- The UI must be authored in Fibril and built by Fibril. A separately handwritten
+  TypeScript application is not an acceptable substitute.
+- JavaScript is the proposed browser execution output; TypeScript declarations
+  can be optional interop artifacts, not the UI's source language or a proof step.
+
+Recommended Postfix connection: authenticated port 587 with STARTTLS mandatory,
+certificate/hostname verification and no downgrade. If the relay already offers
+implicit TLS on port 465, that is also suitable. Confirm its actual listener and
+authentication configuration before integration; do not assume port 25 is an
+appropriate authenticated application relay.
+
 ## Two deployables and a trusted runtime boundary
 
 ~~~text
@@ -49,7 +65,7 @@ Browser / mobile UI ---- authenticated HTTPS --> admin API
                                   authenticated events / reconciliation
 ~~~
 
-Proposed server deployment: Fibril domain code compiled to C, linked with a small
+Container server target: Fibril domain code compiled to C, linked with a small
 explicit runtime/adapter boundary. C emission does not exist yet. Until it does,
 we must not describe a different handwritten service as Fibril-generated C.
 
@@ -61,12 +77,20 @@ implementation decisions, not selected guarantees. A multi-node deployment would
 need a suitable shared queue/database and lease model instead of assuming SQLite
 is a distributed queue.
 
-Proposed UI: responsive web assets, initially a PWA, with Capacitor when mobile
-SDK access is required. A TypeScript UI would let this lane advance before the
-Fibril JavaScript/browser backend exists, but requires operator approval and must
-be labelled as such. Capacitor is a practical starting point for shared web/mobile
-UI; Tauri/native approaches can be reconsidered against specific SDK/plugin needs.
-Do not choose a framework merely on a promise that it grants every native API.
+Required UI path: Fibril application and event-handler source -> independently
+checked core -> browser JavaScript plus HTML/CSS assets. Start as a responsive
+web/PWA build; use Capacitor when identified mobile SDK access is required.
+Capacitor is a practical initial bridge for shared web/mobile assets; specific
+SDK/plugin support must be confirmed, not assumed. Build configuration, the DOM
+runtime and native SDK bindings are explicit platform adapters, not places to
+hide a separately authored TypeScript application.
+
+The first browser milestone must run an interactive Fibril-authored component:
+compile actual functions/state/event handling, update a real DOM view on an event,
+and validate foreign input before typed use. Printing precomputed markup or
+embedding a handwritten JavaScript application is not a Fibril UI backend.
+General recursive UI trees, scheduling, listener cleanup and mobile bindings
+need explicit follow-up contracts; this pipeline is not implemented yet.
 
 ## First real vertical slice
 
@@ -155,7 +179,8 @@ execution.
 - Explicit native ABI, ownership/lifetimes, buffers/strings, allocation/failure and
   cancellation policies; narrow fallible network/storage adapters.
 - Foreign input validation before bytes/JSON become typed application values.
-- Browser interoperability or an approved independently authored UI stack.
+- JavaScript emission plus typed browser/DOM/event interoperability for the
+  required Fibril-authored UI; native SDK bridge ownership/input validation.
 
 Generated C is not automatically memory safe. Quantities alone do not establish
 correct allocation, freeing, lifetimes or FFI implementations. Separate compiler
@@ -174,14 +199,16 @@ backend/runtime and relay/storage adapters in isolated worktrees. Shared kernel,
 ABI and protocol changes require integration gates; no lane may bypass checking
 or silently change delivery semantics to demonstrate progress.
 
-Before real integration, confirm:
+Before real integration, still confirm the Postfix submission listener/TLS/auth
+policy, container host/architecture, tenancy and required mobile SDKs. Postfix
+SMTP does not imply a signed HTTP delivery-event API. Start with relay acceptance
+and explicit uncertain-submission handling; authenticated bounce/log/event
+correlation is a separate adapter. Neither a relay acknowledgement nor a remote
+MTA's acceptance proves inbox placement or reading.
 
-1. Relay interface: SMTP/SMTPS/required STARTTLS, or an HTTPS API? Which server/
-   provider and supported acknowledgement/event/idempotency contract?
-2. Initial deployment: a single Linux server/container and one organization, or
-   multi-tenant/multi-node from the start?
-3. May the initial web/Capacitor UI use TypeScript while the Fibril browser backend
-   is being built, or must both deployables be authored/generated by Fibril first?
+Next application-enabling compiler milestone: a real Fibril-generated interactive
+browser slice. Native C/runtime work and protocol/storage contracts can develop
+alongside it, without silently replacing either deployable with another language.
 
 No credentials are needed in chat or committed files. The existing separate
 application workspace has not been modified by this prototype.
