@@ -140,5 +140,7 @@ consuming and genuinely dependent elimination, reduction/rechecking, scope
 transport and admission/depth counts. Raw and constructed erased/runtime
 property generators include nominal wrappers without checker-based filtering.
 
-Next: authored non-recursive declarations, checked key allocation and constructor
-metadata, then exhaustive flat source matching. See the [staged plan](inductive-data.md).
+[Checked declaration construction](data-declarations.md) now allocates keys,
+checks generated closed families/constructors and returns ordinary layout metadata.
+Next: authored non-recursive declarations and module integration, then exhaustive
+flat source matching. See the [staged plan](inductive-data.md).

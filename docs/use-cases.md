@@ -107,6 +107,11 @@ host tests. It is not yet a source-language feature.
 data and preserve phantom arguments. They do not change record identity or add
 source declarations; source key allocation/checking remains future work.
 
+[Checked declaration construction](data-declarations.md) now gives a future
+frontend an all-or-error bundle of checked closed type/constructor definitions,
+qualified keys and ordinary layout metadata, with cumulative admission. It is
+still an internal API: authored data grammar and source matching are pending.
+
 The [inductive-data plan](inductive-data.md) proposes Optional/Result for
 missing/failure/success values, then Nat/List for recursive data. These are not
 currently usable language features; finite alternatives, named identity,

@@ -180,6 +180,10 @@
         "path": "docs/nominal-data.md"
       },
       {
+        "title": "Checked declaration construction",
+        "path": "docs/data-declarations.md"
+      },
+      {
         "title": "Inductive data landing plan (source stages proposed)",
         "path": "docs/inductive-data.md"
       },

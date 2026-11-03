@@ -17,7 +17,9 @@ kernel work from proposed source features. The [finite-variant kernel](../finite
 now supports real nullary/payload alternatives and dependent exhaustive
 elimination. [Closed nominal identity](../nominal-data.md) now preserves keys,
 phantom parameters and independently checked shapes. Source data syntax is still
-not implemented. Next add canonical allocation and checked non-recursive declarations. Recursive Nat/List
+not implemented. [The internal declaration builder](../data-declarations.md) now
+allocates qualified keys and checks closed family/constructor bundles. Next add
+authored grammar, field packing and module publication before flat source cases. Recursive Nat/List
 then require positivity and quantitative recursors; recursive source functions
 require termination checking. These gates must not be collapsed into an
 unchecked declaration generator or a claim of metatheoretic soundness.

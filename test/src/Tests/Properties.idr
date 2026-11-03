@@ -8,6 +8,8 @@ import Tests.Reference.Interval
 import Tests.Reference.Face
 import Fibril.Foundation.DeMorgan.Sorted
 import Fibril.Core.Quantity
+import Fibril.Core.Size
+import Fibril.Elaboration.Expression.Scope
 import Fibril.Core.Term
 import Fibril.Core.Pretty
 import Fibril.Core.Reduction
@@ -180,12 +182,20 @@ fuelSplitting = property $ do
   assert (sameReduction (normalize (first + extra) term)
                         (continueNormalization extra initial))
 
+sizeAccounting : Property
+sizeAccounting = property $ do
+  term <- forAll (termGen 4 2)
+  typeNodes term === min 513 (coreNodes term)
+  assert (mentionsNominal "Property.Key" (NominalType "Property.Key" [term] (VariantType [Nothing])))
+  assert (not (mentionsNominal "Property.Key" (the (Term 0) (StringValue "Property.Key"))))
+
 ||| Run randomized, shrinking properties in addition to deterministic regressions.
 ||| A successful run is evidence from samples, not a proof of these laws.
 public export
 runProperties : IO Bool
 runProperties = checkGroup (MkGroup "Fibril structural properties"
-  [ ("normalization fuel splits and resumes", fuelSplitting)
+  [ ("core and saturated inference size counters agree", sizeAccounting)
+  , ("normalization fuel splits and resumes", fuelSplitting)
   , ("sorted helpers match simple algorithms", sortedOracle)
   , ("interval solver matches frozen oracle", intervalOracle)
   , ("face solver matches frozen oracle", faceOracle)

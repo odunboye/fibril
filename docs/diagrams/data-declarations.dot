@@ -1,0 +1,12 @@
+digraph DataDeclarations {
+  rankdir=LR;
+  node [shape=box];
+  input [label="Untrusted scoped specification\nerased parameters + alternatives + names"];
+  admission [label="Exact size-only preflight\nqualified keys / names / no explicit self key"];
+  generate [label="Ordinary Pi/Lambda families + constructors\ndeclared-universe and global ascriptions"];
+  check [label="Independent erased family check\nruntime check of every constructor"];
+  output [label="All-or-error bundle + ordinary layout\npost-count / cumulative remainder"];
+  input -> admission -> generate -> check -> output;
+  future [label="Future source grammar + packing + matching\nchecked module publication", style=dashed];
+  output -> future [style=dashed];
+}

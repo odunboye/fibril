@@ -32,8 +32,10 @@ The [inductive-data milestone](docs/inductive-data.md) now has an implemented
 [internal finite-variant kernel](docs/finite-variants.md), with dependent cases,
 nullary/payload arms and quantity checks. [Closed nominal identity](docs/nominal-data.md)
 now preserves declaration keys and phantom arguments in the internal kernel.
-Source declarations/key allocation, recursive inductives and structural recursion
-remain future work; there is no source data syntax yet.
+[Checked declaration construction](docs/data-declarations.md) now allocates keys
+and generates independently checked closed families/constructors with exact admission.
+Source grammar/matching, module integration, recursive inductives and structural
+recursion remain future work; there is no source data syntax yet.
 
 Start with the [feature use-case guide](docs/use-cases.md) for what each feature
 is for, when to use it, and when a simpler alternative is better.

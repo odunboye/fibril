@@ -1,13 +1,16 @@
 # Inductive data: staged design and landing contract
 
-**Status: D1 and the D2a closed-identity prerequisite are implemented;
-source declarations and D3/D4 remain proposals.**
+**Status: D1, D2a closed identity and D2b checked declaration construction are
+implemented internally; source syntax/matching and D3/D4 remain proposals.**
 The [finite-variant kernel](finite-variants.md) now implements the D1 primitive.
 This does not add accepted data syntax, a positivity/source coverage/termination
 checker or a soundness theorem. The remaining sections retain the landing
 contract. [Closed nominal identity](nominal-data.md) now settles the non-recursive
-kernel representation, but source key allocation and declaration checking remain
-D2 gates; no recursive declaration environment has been introduced.
+kernel representation. [Checked declaration construction](data-declarations.md)
+now allocates qualified keys and checks closed families/constructors, with exact
+admission and all-or-error layout output. Source integration, field-telescope
+packing, module publication and exhaustive matching remain D2 gates; no recursive
+declaration environment has been introduced.
 
 ## Use cases
 
@@ -217,8 +220,9 @@ parameter/index terms and full checked variant shape. This is not an opaque
 name reference; keys alone confer no typing authority, mismatched shapes are
 incompatible, and phantom parameters are not lost. See [the implemented contract](nominal-data.md).
 
-Source D2 still needs canonical allocation, independent declaration/constructor
-validation and checked metadata publication. Recursive data additionally needs a
+D2b now supplies canonical key allocation and independent closed declaration/
+constructor construction/checking. Source D2 still needs authored grammar,
+field-telescope packing and checked module metadata publication. Recursive data additionally needs a
 representation/environment that does not infinitely unfold itself; D2a does not
 provide it. Do not retrofit nominal record identity incidentally.
 
