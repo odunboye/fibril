@@ -1,0 +1,5 @@
+module Algebra.Boolean.Tests
+import Algebra.Boolean
+
+main : Bool
+main = if Algebra.Boolean.negate False then if Algebra.Boolean.negate True then False else True else False

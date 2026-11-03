@@ -269,6 +269,154 @@ class CLITests(unittest.TestCase):
             self.assertEqual(run('new', 'child', cwd=nested).returncode, 0)
             self.assertEqual(run('run', cwd=nested / 'child').stdout, 'Hello from child!\n')
 
+    def test_standalone_library_scaffold_check_and_bool_tests(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for args in [ ['bad', '--lib', '--lib'], ['bad', '--lib', '--source-only'],
+                          ['bad', '--source-only', '--lib'],
+                          ['bad', '--lib', '--module-prefix', '.'.join(['A'] * 16)],
+                          ['bad', '--lib', '--module-prefix', 'A' * 1019] ]:
+                result = run('new', *args, cwd=root)
+                self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(list(root.iterdir()), [])
+            preview = run('new', 'email-core', '--lib', '--module-prefix', 'Email.Core', '--dry-run', cwd=root)
+            self.assertEqual(preview.returncode, 0, preview.stdout + preview.stderr)
+            self.assertIn('src/Email/Core/Tests.fib', preview.stdout)
+            self.assertEqual(list(root.iterdir()), [])
+            result = run('new', 'email-core', '--lib', '--module-prefix', 'Email.Core', cwd=root)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            project = root / 'email-core'
+            metadata = json.loads(run('manifest', 'fibril.yaml', cwd=project).stdout)
+            self.assertIsNone(metadata['entry'])
+            self.assertEqual(metadata['modules'], ['Email.Core'])
+            self.assertEqual(metadata['tests'], 'Email.Core.Tests')
+            self.assertFalse((project / 'src/Main.fib').exists())
+            checked = run('check', cwd=project)
+            self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
+            self.assertIn('no runtime entry', checked.stdout)
+            graph = run('module-graph', cwd=project)
+            self.assertEqual(graph.returncode, 0, graph.stdout + graph.stderr)
+            self.assertIsNone(json.loads(graph.stdout)['entry'])
+            self.assertNotEqual(run('run', cwd=project).returncode, 0)
+            tested = run('test', '--package', str(project / 'fibril.yaml'), cwd=root)
+            self.assertEqual(tested.returncode, 0, tested.stdout + tested.stderr)
+            self.assertIn('Tests: passed', tested.stdout)
+            suite = project / 'src/Email/Core/Tests.fib'
+            baseline = suite.read_text()
+            suite.write_text('module Email.Core.Tests\n\nmain : Bool\nmain = False\n')
+            self.assertEqual(run('check', cwd=project).returncode, 0)  # check never evaluates suites
+            failed = run('test', cwd=project)
+            self.assertNotEqual(failed.returncode, 0)
+            self.assertEqual(failed.stdout, '')
+            self.assertIn('Tests: failed', failed.stderr)
+            suite.write_text('module Email.Core.Tests\n\nmain : IO Unit\nmain = putStrLn "MUST NOT EXECUTE"\n')
+            failed = run('test', cwd=project)
+            self.assertNotEqual(failed.returncode, 0)
+            self.assertEqual(failed.stdout, '')
+            self.assertIn('main : Bool', failed.stderr)
+            suite.write_text(baseline)
+            manifest = project / 'fibril.yaml'
+            manifest.write_text(manifest.read_text() + 'entry: Main\n')
+            (project / 'src/Main.fib').write_text('module Main\n\nmain : IO Unit\nmain = putStrLn "MUST NOT EXECUTE"\n')
+            tested = run('test', cwd=project)
+            self.assertEqual(tested.returncode, 0, tested.stdout + tested.stderr)
+            self.assertNotIn('MUST NOT EXECUTE', tested.stdout)
+
+    def test_library_inventory_coverage_visibility_and_schema(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.assertEqual(run('new', 'lib', '--lib', '--module-prefix', 'Lib', cwd=root).returncode, 0)
+            project = root / 'lib'
+            manifest = project / 'fibril.yaml'
+            baseline = manifest.read_text()
+            extra = project / 'src/Lib/Extra.fib'
+            extra.write_text('module Lib.Extra\n\nbroken : String\nbroken = True\n')
+            manifest.write_text(baseline.replace('modules: ["Lib"]', 'modules: ["Lib", "Lib.Extra"]'))
+            for command in ('check', 'test'):
+                rejected = run(command, cwd=project)
+                self.assertNotEqual(rejected.returncode, 0)
+                self.assertEqual(rejected.stdout, '')
+            extra.write_text('module Lib.Extra\n\nexport\nvalue : Bool\nvalue = True\n')
+            suite = project / 'src/Lib/Tests.fib'
+            suite.write_text('module Lib.Tests\n\nmain : Bool\nmain = Lib.Extra.value\n')
+            self.assertNotEqual(run('test', cwd=project).returncode, 0)  # inventory is not an import
+            suite.write_text('module Lib.Tests\nimport Lib.Extra\n\nmain : Bool\nmain = Lib.Extra.value\n')
+            self.assertEqual(run('test', cwd=project).returncode, 0)
+            manifest.write_text(baseline.replace('modules: ["Lib"]', 'modules: ["Lib.Tests", "Lib.Extra", "Lib"]'))
+            tested = run('test', cwd=project)
+            self.assertEqual(tested.returncode, 0, tested.stdout + tested.stderr)
+            extra.write_text('module Lib.Extra\nimport Lib.Tests\n\nvalue : Bool\nvalue = True\n')
+            self.assertNotEqual(run('test', cwd=project).returncode, 0)  # terminal suite policy
+            for value in ['{}', 'true', '[["Lib"]]', '[true]', '["Main"]', '["LibExtra"]', '["Lib", "Lib"]']:
+                manifest.write_text(baseline.replace('modules: ["Lib"]', 'modules: ' + value))
+                self.assertNotEqual(run('manifest', 'fibril.yaml', cwd=project).returncode, 0)
+            manifest.write_text(baseline.replace('modules: ["Lib"]\n', ''))
+            self.assertNotEqual(run('check', cwd=project).returncode, 0)
+            self.assertNotEqual(run('test', cwd=project).returncode, 0)
+            manifest.write_text(baseline.replace('tests: "Lib.Tests"', 'tests: ["Lib.Tests"]'))
+            self.assertNotEqual(run('manifest', 'fibril.yaml', cwd=project).returncode, 0)
+
+    def test_library_bool_suite_fuel_exhaustion_is_an_error(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.assertEqual(run('new', 'slow', '--lib', cwd=root).returncode, 0)
+            project = root / 'slow'
+            module = project / 'src/App.fib'
+            text = module.read_text()
+            for index in range(7):
+                text += ('\nexport\n' if index == 6 else '\n')
+                text += f'f{index} : (1 value : Bool) -> Bool\n'
+                body = 'value' if index == 0 else f'f{index-1} (f{index-1} value)'
+                text += f'f{index} = \\(1 value : Bool) => {body}\n'
+            module.write_text(text)
+            (project / 'src/App/Tests.fib').write_text('module App.Tests\nimport App\n\nmain : Bool\nmain = App.f6 True\n')
+            result = run('test', cwd=project)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, '')
+            self.assertIn('fuel exhausted', result.stderr)
+
+    def test_transitive_package_inventories_share_checking_and_source_budgets(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name, owned in [('core', 'Core'), ('middle', 'Middle'), ('app', 'App')]:
+                result = run('new', name, '--lib', '--module-prefix', owned, cwd=root)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            for name, dependency in [('app', 'middle'), ('middle', 'core')]:
+                file = root / name / 'fibril.yaml'
+                file.write_text(file.read_text().replace('dependencies: {}', f'dependencies:\n  {dependency}:\n    path: ../{dependency}'))
+            app = root / 'app'
+            core_source = root / 'core/src/Core.fib'
+            original = core_source.read_text()
+            core_source.write_text(original + '\nbroken : String\nbroken = True\n')
+            for command in ('check', 'test'):
+                failed = run(command, cwd=app)
+                self.assertNotEqual(failed.returncode, 0)
+                self.assertEqual(failed.stdout, '')
+                self.assertIn('Core.fib', failed.stderr)
+            core_source.write_text(original)
+            for command in ('check', 'test'):
+                accepted = run(command, cwd=app)
+                self.assertEqual(accepted.returncode, 0, accepted.stdout + accepted.stderr)
+            suite = app / 'src/App/Tests.fib'
+            original_suite = suite.read_text()
+            suite.write_text(original_suite.replace('import App', 'import App\nimport Core'))
+            self.assertNotEqual(run('test', cwd=app).returncode, 0)  # seeded does not grant transitive permission
+            suite.write_text(original_suite)
+            for name, owned, count in [('core', 'Core', 10), ('middle', 'Middle', 10), ('app', 'App', 12)]:
+                file = root / name / 'fibril.yaml'
+                names = [owned] + [f'{owned}.M{i}' for i in range(count - 1)]
+                for module in names[1:]:
+                    path = root / name / 'src' / (module.replace('.', '/') + '.fib')
+                    path.write_text(f'module {module}\n\nvalue : Bool\nvalue = True\n')
+                file.write_text(file.read_text().replace(f'modules: ["{owned}"]', 'modules: ' + json.dumps(names)))
+            checked = run('check', cwd=app)
+            self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
+            self.assertIn('Modules: 32', checked.stdout)
+            tested = run('test', cwd=app)  # selected suite is the 33rd distinct module, not a fresh budget
+            self.assertNotEqual(tested.returncode, 0)
+            self.assertEqual(tested.stdout, '')
+            self.assertIn('Module count', tested.stderr)
+
     def test_new_source_only_scaffold(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

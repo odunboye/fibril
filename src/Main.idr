@@ -9,6 +9,7 @@ import Fibril.Driver.Check
 import Fibril.Driver.CheckReport
 import Fibril.Driver.Evaluate
 import Fibril.Driver.Run
+import Fibril.Driver.Test
 import Fibril.Driver.ModuleGraph
 import Fibril.Driver.ModuleCheck
 import Fibril.Driver.ProjectReport
@@ -31,7 +32,7 @@ Fibril — experimental language bootstrap
 Usage:
   fibril --help
   fibril --version
-  fibril new NAME [--template console] [--module-prefix PREFIX | --source-only] [--dry-run]  Create a fresh offline console project (POSIX)
+  fibril new NAME [--lib] [--template console] [--module-prefix PREFIX | --source-only] [--dry-run]  Create a fresh offline console project (POSIX)
   fibril manifest PATH          Inspect a strict local YAML manifest (no dependency/source loading)
   fibril module-graph ROOT ENTRY  Inspect local dependency graph (syntax only, POSIX)
   fibril module-graph --package PATH  Inspect package-scoped source graph (syntax only)
@@ -50,7 +51,9 @@ Usage:
   fibril lex-source PATH        Print source tokens/spans (not parsing/checking)
   fibril check PATH             Check a closed source program and runtime usage
   fibril check --source-dir ROOT ENTRY  Check qualified local module interfaces (POSIX)
-  fibril check                 Check ./fibril.yaml (current directory only)
+  fibril check                 Check app entry or library inventory in ./fibril.yaml
+  fibril test                  Check all listed modules, evaluate tests main : Bool
+  fibril test --package PATH   Same pure test workflow for an explicit package
   fibril run                   Check ./fibril.yaml, then execute its IO plan
   fibril module-graph          Inspect ./fibril.yaml source graph (syntax only)
   fibril check --package PATH   Check explicit local fibril.yaml dependency closure (POSIX)
@@ -125,12 +128,12 @@ runLocationQuery query line column path = do
 
 packageCheck : String -> IO ()
 packageCheck manifest = do
-  checked <- checkPackage manifest
-  printServiceReport (case checked of Left err => Left (renderGraphError err); Right project => Right (projectReport project))
+  checked <- checkLocalPackage manifest
+  printServiceReport (case checked of Left err => Left (renderGraphError err); Right report => Right report)
 
 packageGraph : String -> IO ()
 packageGraph manifest = do
-  loaded <- loadPackageModuleGraph manifest
+  loaded <- loadLocalPackageGraph CheckInventory manifest
   printServiceReport (case loaded of Left err => Left (renderGraphError err); Right graph => Right [renderModuleGraph graph])
 
 main : IO ()
@@ -143,6 +146,8 @@ main = do
     "new" :: options => newProject options >>= printServiceReport
     ["manifest", path] => manifestFile path >>= printServiceReport
     ["check"] => packageCheck "fibril.yaml"
+    ["test"] => testPackage "fibril.yaml" >>= printServiceReport
+    ["test", "--package", manifest] => testPackage manifest >>= printServiceReport
     ["run"] => runPackage "fibril.yaml" >>= printExecution
     ["module-graph"] => packageGraph "fibril.yaml"
     ["module-graph", "--package", manifest] => packageGraph manifest

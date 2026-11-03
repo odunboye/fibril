@@ -2,6 +2,8 @@
 
 Implemented:
 
+- [Standalone library/test workflow](libraries-and-tests.md): manifest modules/tests roots share one package traversal and independent declaration checker; inventory-only acceptance fabricates no entry term. Driver.Test checks Bool, normalizes with bounded fuel and rechecks, without console execution. --lib uses fixed validated paths and parent-first private directories.
+
 - `src/Fibril/Project/Local.idr`: bounded explicit local manifest closure and canonical roots; `Runtime.Path` shares exact-entry/canonical path helpers. `ModuleGraph.PackageRoots` retains package identity/namespace metadata and uses one globally budgeted source traversal; `--package` check/run passes the ordinary checker and complete IO planner. [Local packages](local-packages.md) describes the non-sandbox/non-lock boundary.
 
 - `src/Fibril/Project/Manifest.idr`: strict local schema decoder using pinned maintained YAML events/composition. No dependency/source loading or checking; `Driver.Manifest` selects an 8192-byte bounded read and reports checked/resolved/locked false. [Manifest inspection](manifests.md) documents profile limits and unlocated schema diagnostics.

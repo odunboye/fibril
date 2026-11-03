@@ -6,12 +6,13 @@ Build with `pack build fibril`, then invoke `./build/exec/fibril`.
 | --- | --- |
 | --help (or no arguments) | Show available commands and implementation limits |
 | --version | Show bootstrap version |
-| new NAME [--template console] [--module-prefix PREFIX or --source-only] [--dry-run] | Fresh offline console scaffold; POSIX trusted cwd, no overwrite; see [project creation](project-creation.md) |
+| new NAME [--lib] [--template console] [--module-prefix PREFIX or --source-only] [--dry-run] | Fresh offline console scaffold; POSIX trusted cwd, no overwrite; see [project creation](project-creation.md) |
 | new --help | Scaffolding usage and input policy |
 | check --package PATH | Check an explicit [local package closure](local-packages.md), with direct package and module permissions |
 | run --package PATH | Check the full local package source graph before preparing/executing host stdout |
 | module-graph --package PATH | Syntax-only graph JSON including package inventory and source owners; no typing/execution |
 | manifest PATH | [Strict local YAML schema inspection](manifests.md) as JSON; checked/resolved/locked false, no dependency traversal or source checking |
+| test [--package PATH] | Check inventories/imports before bounded pure Bool suite evaluation; True passes, False fails, exhaustion errors; no source IO |
 | check / run / module-graph | Use ./fibril.yaml only; no parent search or malformed-manifest fallback. --package PATH remains an explicit override. |
 | run PATH | Runtime-check main : IO Unit, prepare all output requests, then execute through the host adapter |
 | eval PATH | Check then reference-normalize an expression or declaration program (default fuel 128) |

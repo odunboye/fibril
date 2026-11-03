@@ -1,0 +1,5 @@
+module Algebra.Boolean
+
+export
+negate : (1 value : Bool) -> Bool
+negate = \(1 value : Bool) => if value then False else True

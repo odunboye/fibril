@@ -1,0 +1,14 @@
+digraph LibrariesAndTests {
+  rankdir=LR;
+  node [shape=box];
+  roots [label="Manifest modules + ordinary imports\nall declared package inventories"];
+  graphload [label="One canonical source traversal\nshared budgets + direct visibility"];
+  check [label="Independent declaration checking\nprivate/unused bodies too"];
+  library [label="Library acceptance\nno runtime term or dummy Main"];
+  suite [label="Selected terminal suite\nown unrestricted main : Bool"];
+  eval [label="Normalize with fuel 128\nindependently recheck result"];
+  result [label="True: pass / False: failure\nexhaustion or other result: error\nno console IO execution"];
+  roots -> graphload -> check;
+  check -> library;
+  check -> suite -> eval -> result;
+}

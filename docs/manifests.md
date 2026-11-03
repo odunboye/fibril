@@ -36,10 +36,13 @@ dependencies:
 ~~~
 
 Required: schema, name, module-prefix, source-dir and foundation. Optional entry
-accepts Main only, separate from the library namespace. Absent dependencies or
+accepts Main only, separate from the library namespace. Optional modules is a
+sequence of unique owned module names; optional tests selects one owned Bool
+suite module. Root libraries need a nonempty inventory for check/test; see
+[libraries and tests](libraries-and-tests.md). Absent dependencies or
 an empty mapping means none. Every dependency has a valid non-self package-name
 key and exactly one path field. Registry/Git/version/native/build-script fields
-are rejected, not ignored. Target-manifest name equality needs the later loader.
+are rejected, not ignored. Target-manifest name equality is enforced by the separate local loader.
 
 The [workspace contract](workspaces.md) defines name/prefix ownership semantics.
 Package names use the explicit lowercase ASCII slug profile. Prefixes use up to
@@ -50,7 +53,8 @@ String-valued fields must be YAML strings. Unquoted true, null, numbers and empt
 values do not become strings accidentally. schema must be exactly the plain
 integer spelling 1, not quoted "1", +1, 0x1, a float or a boolean. Normal comments,
 plain/single/double quoting, single-document markers and flow mappings are accepted
-where they fit the schema. Block/multiline scalars and sequences are not.
+where they fit the schema. Block/multiline scalars remain forbidden. Sequences
+are accepted only as the flat modules inventory; other sequence fields reject.
 
 source-dir is a nonempty relative path with no empty, dot or parent components.
 Dependency paths may explicitly use parent/dot components such as ../email-core
@@ -80,11 +84,11 @@ The boundary in [Project.Manifest](../src/Fibril/Project/Manifest.idr) is:
 1. Apply input admission and conservative directive rejection.
 2. Call the maintained parseEvents API.
 3. Reject every anchor, alias and explicit tag, including standard tags and !.
-   Reject sequences, block/multiline scalars, excessive event depth/count and
+   Reject block/multiline scalars, excessive collection depth/event count and
    multiple documents **before composing**, so aliases are never expanded.
 4. Call composeWith Core, which supplies duplicate-key detection, including
    quoted/escaped-equivalent string keys.
-5. Decode only known scalar/mapping shapes and the strict field types above.
+5. Decode only known scalar/mapping shapes, the flat modules sequence and the strict field types above.
 
 YAML directives do not survive in the library's event stream. The profile therefore
 rejects physical normalized lines beginning with % after optional spaces/tabs
@@ -101,7 +105,7 @@ at every applicable level.
 - Before parsing: at most 256 normalized lines and 128 raw flow-delimiter
   characters. The latter conservatively counts brackets/braces inside comments
   and strings too, so it may reject otherwise valid YAML.
-- Before composition: at most 512 events, mapping depth 3, and single-source-line
+- Before composition: at most 512 events, collection depth 3, and single-source-line
   decoded scalars of at most 1024 characters. Dependency admission is 64 entries.
 
 parseEvents parses the admitted input before returning events. Event/depth checks

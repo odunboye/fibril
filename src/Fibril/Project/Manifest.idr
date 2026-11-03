@@ -27,6 +27,8 @@ record PackageManifest where
   foundation : String
   entry : Maybe String
   dependencies : List PathDependency
+  listedModules : List (List String)
+  testModule : Maybe (List String)
 
 public export
 record ManifestError where
@@ -71,7 +73,9 @@ profile depth docs (B event bounds :: rest) = case event of
     else if length (unpack text) > 1024 || not (safeScalar text) then failure "Manifest scalar exceeds its limit or contains decoded control characters"
     else profile depth docs rest
   Alias _ => failure "YAML aliases are not supported"
-  _ => failure "YAML sequences are not supported in package manifests"
+  SeqStart _ anchor tag => if depth < 3 && bare anchor tag then profile (S depth) docs rest
+                          else failure "Manifest collections exceed depth 3, or use anchors/tags"
+  SeqEnd => case depth of Z => failure "Unexpected YAML sequence end"; S remaining => profile remaining docs rest
 
 mapping : String -> Node -> Either ManifestError (List (String, Node))
 mapping field (NMap TMap pairs) = traverse key pairs
@@ -120,10 +124,24 @@ dependencies owner fields = case lookup "dependencies" fields of
       path <- required "path" fields >>= string "dependency path"
       if relativeManifestPath True path then Right (LocalPath name path) else failure "Dependency path must be an explicit safe relative path"
 
+ownedModule : List String -> Node -> Either ManifestError (List String)
+ownedModule owned node = do
+  text <- string "module name" node
+  let parts = forget (Data.String.split (== '.') text)
+  if validModuleComponents parts && isPrefixOf owned parts
+     then Right parts else failure "Inventory/test module must be within the package's owned prefix"
+
+moduleList : List String -> Node -> Either ManifestError (List (List String))
+moduleList owned (NSeq TSeq nodes) = do
+  if length nodes > 32 then failure "Module inventory admission exhausted (32)" else Right ()
+  names <- traverse (ownedModule owned) nodes
+  if length (nub names) == length names then Right names else failure "Duplicate module in inventory"
+moduleList _ _ = failure "modules must be a sequence of owned module-name strings"
+
 fromNode : Node -> Either ManifestError PackageManifest
 fromNode node = do
   fields <- mapping "manifest" node
-  unknown ["schema", "name", "module-prefix", "source-dir", "foundation", "entry", "dependencies"] fields
+  unknown ["schema", "name", "module-prefix", "source-dir", "foundation", "entry", "dependencies", "modules", "tests"] fields
   schema <- required "schema" fields
   case schema of
     NScalar TInt Plain "1" => Right ()
@@ -144,7 +162,9 @@ fromNode node = do
       name <- string "entry" value
       if name == "Main" then Right (Just name) else failure "Only entry Main is currently supported"
   deps <- dependencies name fields
-  Right (Manifest name parts source foundation entry deps)
+  modules <- case lookup "modules" fields of Nothing => Right []; Just node => moduleList parts node
+  tests <- case lookup "tests" fields of Nothing => Right Nothing; Just node => Just <$> ownedModule parts node
+  Right (Manifest name parts source foundation entry deps modules tests)
 
 ||| Input admission precedes maintained parsing. Raw flow-delimiter/line limits
 ||| are conservative and count inside strings/comments too; they are not a YAML

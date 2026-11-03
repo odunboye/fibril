@@ -68,6 +68,10 @@
         "path": "docs/project-creation.md"
       },
       {
+        "title": "Standalone libraries and pure test suites",
+        "path": "docs/libraries-and-tests.md"
+      },
+      {
         "title": "Check and run local packages",
         "path": "docs/local-packages.md"
       },

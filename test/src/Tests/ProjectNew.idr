@@ -5,6 +5,7 @@ import Data.List
 import Data.String
 import Fibril.Project.Template
 import Fibril.Project.New
+import Fibril.Project.Manifest
 
 %default total
 
@@ -28,6 +29,18 @@ simulateOwned failAt name owned = do
 simulate : Nat -> String -> IO Attempt
 simulate failAt name = simulateOwned failAt name Nothing
 
+simulateLibrary : Nat -> String -> IO Attempt
+simulateLibrary failAt owned = do
+  seen <- newIORef (the (List String) [])
+  let operation : String -> IO (Either String ()) = \label => do
+        before <- readIORef seen
+        modifyIORef seen (label ::)
+        pure (if length before == failAt then Left "Injected library failure" else Right ())
+  result <- createLibraryWith (CreatingWith (\path => operation ("directory " ++ path))
+                        (\path, contents => operation ("file " ++ path))) "mailer" owned
+  calls <- readIORef seen
+  pure (Attempted result (reverse calls))
+
 failed : Either String () -> Bool
 failed (Left _) = True
 failed _ = False
@@ -39,6 +52,9 @@ partialReported _ = False
 public export
 runProjectChecks : IO (List (String, Bool))
 runProjectChecks = do
+  libraryTooLong <- simulateLibrary 99 (pack (replicate 1019 'A'))
+  librarySuccess <- simulateLibrary 99 "Email.Core"
+  libraryFailures <- traverse (\index => simulateLibrary index "Email.Core") [0,1,2,3,4,5,6,7,8]
   tooLong <- simulateOwned 99 "mailer" (Just (pack (replicate 1025 'A')))
   invalidPrefix <- simulateOwned 99 "mailer" (Just "Main.Core")
   packageSuccess <- simulateOwned 99 "mailer" (Just "Mailer.Core")
@@ -50,7 +66,18 @@ runProjectChecks = do
   laterFile <- simulate 4 "mailer"
   success <- simulate 99 "mailer"
   pure
-    [ ("explicit namespace profile rejects reserved/malformed owners before effects",
+    [ ("library derived namespace admission and pure manifest roundtrip",
+        validLibraryPrefix (pack (replicate 1018 'A')) && not (validLibraryPrefix (pack (replicate 1019 'A'))) &&
+        failed libraryTooLong.result && null libraryTooLong.calls &&
+        (case find (\file => file.path == "fibril.yaml") (libraryFiles "mailer" (pack (replicate 1018 'A'))) of
+          Just file => case decodeManifest "fibril.yaml" file.contents of Right manifest => manifest.entry == Nothing && length manifest.listedModules == 1; _ => False
+          _ => False))
+    , ("library creation is parent-first and stops on every represented failure",
+        (case librarySuccess.result of Right () => True; _ => False) &&
+        librarySuccess.calls == ["directory mailer", "directory mailer/src", "directory mailer/src/Email", "directory mailer/src/Email/Core", "file mailer/src/Email/Core.fib", "file mailer/src/Email/Core/Tests.fib", "file mailer/.gitignore", "file mailer/fibril.yaml", "file mailer/README.md"] &&
+        all (\(index, attempt) => failed attempt.result && length attempt.calls == S index &&
+          (index == 0 || partialReported attempt.result)) (zip [0,1,2,3,4,5,6,7,8] libraryFailures))
+    , ("explicit namespace profile rejects reserved/malformed owners before effects",
         failed invalidPrefix.result && null invalidPrefix.calls && failed tooLong.result && null tooLong.calls &&
         all (not . validProjectPrefix) ["", "Main", "Main.Core", "lower", "A..B", "A/B", "A\n"] &&
         all validProjectPrefix ["Mailer", "Email.Core", "MainView", pack (replicate 1024 'A')] &&

@@ -226,23 +226,73 @@ loadModuleGraph root entry = do
        result <- visit 32 SingleRoot (SelectedRoot rootPath Nothing) [] Nothing (AtSource entryPath "" Nothing) entryPath (Progress 0 0 [])
        pure $ map (\state => LoadedGraph rootPath entryPath state.done) result
 
-||| One traversal across canonical roots, retaining the validated package plan
-||| and root owner. Each source import has both package and module permission.
-||| No separately loaded graphs are concatenated; graph/source quotas are global.
 public export
-loadPackageModuleGraph : String -> IO (Either GraphError ModuleGraph)
-loadPackageModuleGraph manifest = do
+data PackagePurpose = CheckInventory | RunApplication | TestPackage
+
+seedModules : GraphScope -> String -> List (Selection, List String) -> State -> IO (Either GraphError State)
+seedModules scope manifest [] state = pure (Right state)
+seedModules scope manifest ((selected, names) :: rest) state = do
+  Right target <- pure (selectImport scope selected names)
+    | Left err => pure (Left (GraphFailure manifest "" Nothing err))
+  if target.owner /= selected.owner then pure (Left (GraphFailure manifest "" Nothing "Inventory module is not owned by its declaring package")) else do
+    Right path <- modulePath target.root target.root names
+      | Left err => pure (Left (GraphFailure manifest "" Nothing err))
+    Right next <- visit 32 scope target [] (Just names) (AtSource manifest "" Nothing) path state
+      | Left err => pure (Left err)
+    seedModules scope manifest rest next
+
+||| All listed roots share one traversal, count/byte budget and snapshot cache.
+||| An absent graph entry denotes inventory-only checking, never a fabricated term.
+public export
+loadLocalPackageGraph : PackagePurpose -> String -> IO (Either GraphError ModuleGraph)
+loadLocalPackageGraph purpose manifest = do
   Right inventory <- loadLocalInventory manifest
     | Left err => pure (Left (GraphFailure manifest "" Nothing err))
   let package = inventory.entryPackage
-  if package.manifest.entry /= Just "Main"
-     then pure (Left (GraphFailure package.manifestPath "" Nothing "Root package requires explicit entry: Main")) else do
-    Right entry <- modulePath package.sourceRoot package.sourceRoot ["Main"]
-      | Left err => pure (Left (GraphFailure package.manifestPath "" Nothing err))
-    let scope = PackageRoots inventory.plan package.manifest.name
-    result <- visit 32 scope (SelectedRoot package.sourceRoot (Just package.manifest.name)) [] (Just ["Main"])
-                    (AtSource entry "" Nothing) entry (Progress 0 0 [])
-    pure (map (\state => ScopedGraph package.sourceRoot entry state.done scope) result)
+  let selected = SelectedRoot package.sourceRoot (Just package.manifest.name)
+  let scope = PackageRoots inventory.plan package.manifest.name
+  selectedEntry <- pure (the (Either GraphError (Maybe (List String))) (case purpose of
+    TestPackage => if package.manifest.entry == Nothing && null package.manifest.listedModules
+      then Left (GraphFailure manifest "" Nothing "Library testing requires a nonempty modules inventory") else case package.manifest.testModule of
+      Nothing => Left (GraphFailure manifest "" Nothing "Package requires a tests module for fibril test")
+      Just names => Right (Just names)
+    RunApplication => case package.manifest.entry of
+      Nothing => Left (GraphFailure manifest "" Nothing "Root package requires explicit entry: Main")
+      Just _ => Right (Just ["Main"])
+    CheckInventory => if package.manifest.entry == Nothing && null package.manifest.listedModules
+      then Left (GraphFailure manifest "" Nothing "Library checking requires a nonempty modules inventory")
+      else Right (map (const ["Main"]) package.manifest.entry)))
+  case selectedEntry of
+    Left err => pure (Left err)
+    Right entryNames => do
+      let roots = concatMap (\root => map (\names => (SelectedRoot root.sourceRoot (Just root.manifest.name), names)) root.manifest.listedModules) inventory.packages
+      if length roots > 32 then pure (Left (GraphFailure manifest "" Nothing "Module inventory admission exhausted across packages (32)")) else do
+        Right seeded <- seedModules scope manifest roots (Progress 0 0 [])
+          | Left err => pure (Left err)
+        -- The application entry is checked too when a distinct test entry is selected.
+        seededApp <- case (purpose, package.manifest.entry) of
+          (TestPackage, Just _) => do
+            Right app <- modulePath selected.root selected.root ["Main"]
+              | Left err => pure (Left (GraphFailure manifest "" Nothing err))
+            visit 32 scope selected [] (Just ["Main"]) (AtSource manifest "" Nothing) app seeded
+          _ => pure (Right seeded)
+        case seededApp of
+          Left err => pure (Left err)
+          Right state => case entryNames of
+            Nothing => pure (Right (ScopedGraph package.sourceRoot "" state.done scope))
+            Just names => do
+              Right entry <- modulePath selected.root selected.root names
+                | Left err => pure (Left (GraphFailure manifest "" Nothing err))
+              Right complete <- visit 32 scope selected [] (Just names) (AtSource manifest "" Nothing) entry state
+                | Left err => pure (Left err)
+              if any (\snapshot => any (\dependency => dependency.components == names) snapshot.document.imports) complete.done
+                 then pure (Left (GraphFailure entry "" Nothing "Selected entry module cannot be imported by another module")) else do
+                let ordered = filter (\snapshot => snapshot.path /= entry) complete.done ++ filter (\snapshot => snapshot.path == entry) complete.done
+                pure (Right (ScopedGraph package.sourceRoot entry ordered scope))
+
+public export
+loadPackageModuleGraph : String -> IO (Either GraphError ModuleGraph)
+loadPackageModuleGraph = loadLocalPackageGraph RunApplication
 
 scopeFields : ModuleGraph -> List (String, String)
 scopeFields graph = case graph.scope of
@@ -262,7 +312,7 @@ scopeFields graph = case graph.scope of
 public export
 renderModuleGraph : ModuleGraph -> String
 renderModuleGraph graph = protocolJSON
-  (scopeFields graph ++ [("checked", "false"), ("root", jsonString graph.root), ("entry", jsonString graph.entry),
+  (scopeFields graph ++ [("checked", "false"), ("root", jsonString graph.root), ("entry", if graph.entry == "" then "null" else jsonString graph.entry),
    ("modules", jsonArray (map (\snapshot => jsonObject
       [("path", jsonString snapshot.path), ("bytes", show snapshot.bytes),
        ("module", maybe "null" (\header => jsonString (moduleText header.components)) snapshot.document.moduleHeader),

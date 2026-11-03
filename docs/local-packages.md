@@ -22,7 +22,9 @@ Bare check, run and module-graph select only ./fibril.yaml. No parent-directory
 search or fallback occurs, including when the local manifest is malformed.
 Use --package PATH to select another project's exactly named fibril.yaml;
 explicit source operands and --source-dir retain their existing meaning.
-check prints the ordinary checking summary; run
+check checks the application entry or, without entry, the explicit library
+inventory. [fibril test](libraries-and-tests.md) evaluates a checked pure Bool
+suite without executing application IO. check prints its summary; run
 reserves stdout for the checked program. Graph inspection is syntax-only JSON,
 with checked false and a package_scope containing entry package, sorted package
 inventory, canonical source roots, direct dependencies and per-module owners.
@@ -102,9 +104,10 @@ across roots and retains PackageRoots scope metadata. At each source import:
 4. Still require the importing source file's explicit module import before
    exported values, interface schemas or implementations become visible.
 
-Main is selected only by the root's explicit entry: Main. Dependency entries
+Application Main is selected only by the root's explicit entry: Main. Dependency entries
 are not substituted, and no library may own/import the reserved Main namespace.
-The application's entry file must declare module Main. Other source files must
+Libraries omit entry and list explicit modules; inventory checking creates no
+runtime term. The application's entry file must declare module Main. Other source files must
 match their requested owned module name.
 
 The existing graph-wide 32-module, depth-32, 524288-byte aggregate and 65536-byte
@@ -112,9 +115,9 @@ per-source-file limits remain shared across every root. Header/import/parser and
 200000-node expansion/checking limits are unchanged. Resource admission is not
 bounded memory, memory safety or a hard deadline.
 
-Every declaration in every **reachable module**, including private/unused bodies,
+Every declaration in every **reachable or inventoried module**, including private/unused bodies,
 is checked through the ordinary elaborator and independent core checks before
-its exports are exposed. Unimported source files are not crawled or checked.
+its exports are exposed. Unlisted, unimported source files are not crawled or checked.
 Only after the whole graph checks and a complete bounded IO plan is prepared
 may run perform host stdout effects. Host output failures may still be partial.
 Package plans, graphs and acceptance reports remain public data, not certificates.

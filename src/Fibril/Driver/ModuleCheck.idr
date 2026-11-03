@@ -244,23 +244,23 @@ anonymous snapshot schemas globals remaining = do
           then Left (problem snapshot Nothing "Internal entry expansion estimate was insufficient")
           else Right term
 
-compileGraph : ModuleGraph -> List Weighted -> List Interface -> Nat -> List ModuleSnapshot ->
-               Either GraphError CheckedProject
-compileGraph graph prelude interfaces remaining [] =
-  Left (GraphFailure graph.entry "" Nothing "No entry snapshot in graph")
-compileGraph graph prelude interfaces remaining (snapshot :: rest) = do
-  if snapshot.path == graph.entry && not (null rest)
+compileGraph : Bool -> ModuleGraph -> List Weighted -> List Interface -> Nat -> List ModuleSnapshot ->
+               Either GraphError (Maybe CheckedProject)
+compileGraph requireEntry graph prelude interfaces remaining [] =
+  if requireEntry then Left (GraphFailure graph.entry "" Nothing "No entry snapshot in graph") else Right Nothing
+compileGraph requireEntry graph prelude interfaces remaining (snapshot :: rest) = do
+  if requireEntry && snapshot.path == graph.entry && not (null rest)
      then Left (problem snapshot Nothing "Entry snapshot must be last in dependency order")
      else Right ()
   imported <- directImports snapshot interfaces
   let schemas = directSchemas snapshot interfaces
   let globals = imported ++ prelude
   case snapshot.document.moduleHeader of
-    Nothing => if snapshot.path /= graph.entry then Left (problem snapshot Nothing "Anonymous dependency") else do
+    Nothing => if not requireEntry || snapshot.path /= graph.entry then Left (problem snapshot Nothing "Anonymous dependency") else do
       term <- anonymous snapshot schemas globals remaining
       case inferRuntime checkingDepth typeReductionFuel Empty term of
         Left err => Left ({ stage := "runtime-checking" } (problem snapshot Nothing ("Entry checking: " ++ show err)))
-        Right checked => Right (Project graph term checked.inferredType)
+        Right checked => Right (Just (Project graph term checked.inferredType))
     Just header => do
       if any (\entry => entry.name == header.components) interfaces
          then Left (problem snapshot (Just header.nameSpan.start) "Duplicate checked module identity")
@@ -270,7 +270,15 @@ compileGraph graph prelude interfaces remaining (snapshot :: rest) = do
         EmptyDocument => Right []
         _ => Left (problem snapshot Nothing "Named modules require declarations")
       compiled <- compileDeclarations snapshot header.components globals declarations remaining
-      if snapshot.path == graph.entry
+      case graph.scope of
+        PackageRoots _ _ => if header.components == ["Main"] then do
+          main <- case find (\entry => entry.global.name == "main") compiled.locals of
+            Nothing => Left (problem snapshot Nothing "Application entry requires its own main definition")
+            Just main => Right main
+          if main.global.quantity == Unrestricted then Right () else Left (problem snapshot Nothing "Application main must be unrestricted")
+          else Right ()
+        SingleRoot => Right ()
+      if requireEntry && snapshot.path == graph.entry
          then do
             main <- case find (\entry => entry.global.name == "main") compiled.locals of
               Nothing => Left (problem snapshot Nothing "Entry module requires its own main definition")
@@ -286,11 +294,11 @@ compileGraph graph prelude interfaces remaining (snapshot :: rest) = do
               Just term => Right term
             case inferRuntime checkingDepth typeReductionFuel Empty term of
               Left err => Left ({ stage := "runtime-checking" } (problem snapshot Nothing ("Entry checking: " ++ show err)))
-              Right checked => Right (Project graph term checked.inferredType)
+              Right checked => Right (Just (Project graph term checked.inferredType))
          else let visible = case snapshot.document.body of
                     DeclarationDocument authored => exportedSchemas (moduleText header.components) authored
                     _ => []
-               in compileGraph graph prelude (Exports header.components compiled.exports visible :: interfaces)
+               in compileGraph requireEntry graph prelude (Exports header.components compiled.exports visible :: interfaces)
                            compiled.remaining rest
 
 ||| Check every dependency declaration before exposing its qualified exports.
@@ -301,7 +309,19 @@ checkModuleGraph graph = do
   prelude <- case preludeGlobals of
     Left err => Left ({ stage := "prelude" } (GraphFailure graph.entry "" Nothing ("Bundled prelude: " ++ err)))
     Right globals => Right (map weighted globals)
-  compileGraph graph prelude [] 200000 graph.modules
+  checked <- compileGraph True graph prelude [] 200000 graph.modules
+  case checked of
+    Just project => Right project
+    Nothing => Left (GraphFailure graph.entry "" Nothing "Missing checked entry")
+
+public export
+checkInventoryGraph : ModuleGraph -> Either GraphError ()
+checkInventoryGraph graph = do
+  prelude <- case preludeGlobals of
+    Left err => Left (GraphFailure graph.root "" Nothing (show err))
+    Right globals => Right (map weighted globals)
+  _ <- compileGraph False graph prelude [] 200000 graph.modules
+  Right ()
 
 public export
 data ProjectOutcome
@@ -342,3 +362,14 @@ projectReport project =
   ["Module checking: accepted (closed transparent globals)",
    "Modules: " ++ show (length project.graph.modules),
    "Type: " ++ renderType project.inferredType]
+
+public export
+checkLocalPackage : String -> IO (Either GraphError (List String))
+checkLocalPackage manifest = do
+  loaded <- loadLocalPackageGraph CheckInventory manifest
+  pure $ do
+    graph <- loaded
+    if graph.entry == "" then do
+      checkInventoryGraph graph
+      Right ["Library checking: accepted (no runtime entry)", "Modules: " ++ show (length graph.modules)]
+       else projectReport <$> checkModuleGraph graph

@@ -1,0 +1,8 @@
+schema: 1
+name: boolean-library
+module-prefix: Algebra.Boolean
+source-dir: src
+foundation: de-morgan
+modules: [Algebra.Boolean]
+tests: Algebra.Boolean.Tests
+dependencies: {}

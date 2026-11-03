@@ -16,6 +16,20 @@ validProjectPrefix namespacePrefix =
   let parts = forget (split (== '.') namespacePrefix)
    in length (unpack namespacePrefix) <= 1024 && validModuleComponents parts && (case parts of "Main" :: _ => False; _ => True)
 
+||| Leave room for .Tests in the existing module/scalar admission profile.
+public export
+validLibraryPrefix : String -> Bool
+validLibraryPrefix owned = validProjectPrefix owned && length (unpack owned) <= 1018 &&
+  length (forget (split (== '.') owned)) < 16
+
+public export
+libraryDirectories : String -> List String
+libraryDirectories owned = directories "src" (forget (split (== '.') owned))
+  where
+    directories : String -> List String -> List String
+    directories path [] = [path]
+    directories path (component :: rest) = path :: directories (path ++ "/" ++ component) rest
+
 public export
 record ProjectFile where
   constructor PlannedFile
@@ -41,3 +55,18 @@ packageFiles name namespacePrefix =
   [ PlannedFile "fibril.yaml" ("schema: 1\nname: \"" ++ name ++ "\"\nmodule-prefix: \"" ++ namespacePrefix ++ "\"\nsource-dir: src\nfoundation: de-morgan\nentry: Main\ndependencies: {}\n")
   , PlannedFile "README.md" ("# " ++ name ++ "\n\nA local Fibril console package owning " ++ namespacePrefix ++ ".\n\n```sh\nfibril check\nfibril run\n```\n\nMain is the separate application entry; the library namespace is explicit.\nNo lockfile, dependencies, hooks or Git repository were created/fetched.\nBare commands use only ./fibril.yaml; no parent search. Workspace-member files\nand locked builds are not implemented.\n")
   ]
+
+||| Fixed library plus a real pure Bool test entry, with no application Main.
+public export
+libraryFiles : String -> String -> List ProjectFile
+libraryFiles name owned =
+  let stem = concat (intersperse "/" (forget (split (== '.') owned)))
+   in [ PlannedFile ("src/" ++ stem ++ ".fib")
+          ("module " ++ owned ++ "\n\nexport\nidentity : (1 value : Bool) -> Bool\nidentity = \\(1 value : Bool) => value\n")
+      , PlannedFile ("src/" ++ stem ++ "/Tests.fib")
+          ("module " ++ owned ++ ".Tests\nimport " ++ owned ++ "\n\nmain : Bool\nmain = " ++ owned ++ ".identity True\n")
+      , PlannedFile ".gitignore" "build/\n"
+      , PlannedFile "fibril.yaml"
+          ("schema: 1\nname: \"" ++ name ++ "\"\nmodule-prefix: \"" ++ owned ++ "\"\nsource-dir: src\nfoundation: de-morgan\nmodules: [\"" ++ owned ++ "\"]\ntests: \"" ++ owned ++ ".Tests\"\ndependencies: {}\n")
+      , PlannedFile "README.md"
+          ("# " ++ name ++ "\n\nA Fibril library owning " ++ owned ++ ".\n\n```sh\nfibril check\nfibril test\n```\n\nThe test entry returns Bool: True passes, False fails. Evaluation is bounded.\nNo application Main, network, hooks, dependencies, locks or Git initialization.\n") ]

@@ -55,7 +55,9 @@ for package order and direct-dependency namespace ownership. [Strict manifest
 inspection](docs/manifests.md) now works as `fibril manifest PATH`, using a pinned
 maintained YAML parser. [Explicit local packages](docs/local-packages.md) now
 check/run through one ownership-aware multi-root graph using `--package fibril.yaml`.
-Workspace-member discovery and locks remain future work.
+[Standalone libraries and pure Bool test suites](docs/libraries-and-tests.md) now
+work through `fibril new NAME --lib`, `fibril check` and `fibril test`, without a
+dummy application entry. Workspace-member discovery and locks remain future work.
 
 Start with the [feature use-case guide](docs/use-cases.md) for what each feature
 is for, when to use it, and when a simpler alternative is better.

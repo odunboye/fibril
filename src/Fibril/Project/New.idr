@@ -10,7 +10,7 @@ import Fibril.Runtime.Project
 
 public export
 usage : List String
-usage = ["Usage: fibril new NAME [--template console] [--module-prefix PREFIX | --source-only] [--dry-run]",
+usage = ["Usage: fibril new NAME [--lib] [--template console] [--module-prefix PREFIX | --source-only] [--dry-run]",
          "Creates a fresh relative directory; NAME is 1..64 lowercase ASCII letters/digits/_/-, starting with a letter.",
          "Creates fibril.yaml with explicit default namespace App. --module-prefix overrides it; --source-only omits the manifest. No overwrite, hooks, fetching, lockfile or Git initialization."]
 
@@ -19,30 +19,36 @@ record Options where
   name : String
   dryRun : Bool
   namespacePrefix : Maybe String
+  library : Bool
 
-parse : Maybe String -> Maybe String -> Maybe String -> Bool -> Bool -> List String -> Either String Options
-parse name template owned sourceOnly dry [] = case name of
+parse : Maybe String -> Maybe String -> Maybe String -> Bool -> Bool -> Bool -> List String -> Either String Options
+parse name template owned sourceOnly library dry [] = case name of
   Nothing => Left "Missing project name. Run fibril new --help."
-  Just name => if validProjectName name then Right (NewOptions name dry (if sourceOnly then Nothing else Just (maybe "App" id owned))) else
-    Left "Invalid project name: use 1..64 lowercase ASCII letters/digits/_/-, starting with a letter (no paths)."
-parse name template owned True dry ("--source-only" :: _) = Left "Duplicate --source-only option."
-parse name template (Just _) False dry ("--source-only" :: _) = Left "--source-only conflicts with --module-prefix."
-parse name template Nothing False dry ("--source-only" :: rest) = parse name template Nothing True dry rest
-parse name template owned True dry ("--module-prefix" :: _) = Left "--module-prefix conflicts with --source-only."
-parse name template owned sourceOnly True ("--dry-run" :: _) = Left "Duplicate --dry-run option."
-parse name template owned sourceOnly False ("--dry-run" :: rest) = parse name template owned sourceOnly True rest
-parse name (Just _) owned sourceOnly dry ("--template" :: _) = Left "Duplicate --template option."
-parse name Nothing owned sourceOnly dry ("--template" :: "console" :: rest) = parse name (Just "console") owned sourceOnly dry rest
-parse name Nothing owned sourceOnly dry ("--template" :: _) = Left "Only --template console is supported. Web/server/mobile templates are not deployable yet."
-parse name template (Just _) sourceOnly dry ("--module-prefix" :: _) = Left "Duplicate --module-prefix option."
-parse name template Nothing sourceOnly dry ("--module-prefix" :: value :: rest) =
-  if validProjectPrefix value then parse name template (Just value) sourceOnly dry rest
+  Just name => if not (validProjectName name) then Left "Invalid project name: use 1..64 lowercase ASCII letters/digits/_/-, starting with a letter (no paths)."
+    else if library && not (validLibraryPrefix (maybe "App" id owned)) then Left "Library prefix must leave room for .Tests (15 components, 1018 characters maximum)."
+    else Right (NewOptions name dry (if sourceOnly then Nothing else Just (maybe "App" id owned)) library)
+parse name template owned sourceOnly True dry ("--lib" :: _) = Left "Duplicate --lib option."
+parse name template owned True False dry ("--lib" :: _) = Left "--lib conflicts with --source-only."
+parse name template owned False False dry ("--lib" :: rest) = parse name template owned False True dry rest
+parse name template owned sourceOnly True dry ("--source-only" :: _) = Left "--source-only conflicts with --lib."
+parse name template owned True library dry ("--source-only" :: _) = Left "Duplicate --source-only option."
+parse name template (Just _) False library dry ("--source-only" :: _) = Left "--source-only conflicts with --module-prefix."
+parse name template Nothing False library dry ("--source-only" :: rest) = parse name template Nothing True library dry rest
+parse name template owned True library dry ("--module-prefix" :: _) = Left "--module-prefix conflicts with --source-only."
+parse name template owned sourceOnly library True ("--dry-run" :: _) = Left "Duplicate --dry-run option."
+parse name template owned sourceOnly library False ("--dry-run" :: rest) = parse name template owned sourceOnly library True rest
+parse name (Just _) owned sourceOnly library dry ("--template" :: _) = Left "Duplicate --template option."
+parse name Nothing owned sourceOnly library dry ("--template" :: "console" :: rest) = parse name (Just "console") owned sourceOnly library dry rest
+parse name Nothing owned sourceOnly library dry ("--template" :: _) = Left "Only --template console is supported. Web/server/mobile templates are not deployable yet."
+parse name template (Just _) sourceOnly library dry ("--module-prefix" :: _) = Left "Duplicate --module-prefix option."
+parse name template Nothing sourceOnly library dry ("--module-prefix" :: value :: rest) =
+  if validProjectPrefix value then parse name template (Just value) sourceOnly library dry rest
   else Left "Invalid module prefix: use up to 16 capitalized ASCII components within 1024 characters; Main and its descendants are reserved."
-parse name template Nothing sourceOnly dry ["--module-prefix"] = Left "Missing --module-prefix value."
-parse Nothing template owned sourceOnly dry (arg :: rest) =
+parse name template Nothing sourceOnly library dry ["--module-prefix"] = Left "Missing --module-prefix value."
+parse Nothing template owned sourceOnly library dry (arg :: rest) =
   if isPrefixOf ['-', '-'] (unpack arg) then Left ("Unknown project option: " ++ arg)
-  else parse (Just arg) template owned sourceOnly dry rest
-parse (Just _) template owned sourceOnly dry (_ :: _) = Left "Unexpected project argument or option. Run fibril new --help."
+  else parse (Just arg) template owned sourceOnly library dry rest
+parse (Just _) template owned sourceOnly library dry (_ :: _) = Left "Unexpected project argument or option. Run fibril new --help."
 
 files : String -> Maybe String -> List ProjectFile
 files name Nothing = consoleFiles name
@@ -89,6 +95,23 @@ createPackageWith operations name namespacePrefix =
               Left error => Left (partialReport name error)
               Right () => Right ()
 
+writeDirectories : CreationOps -> String -> List String -> IO (Either String ())
+writeDirectories operations name [] = pure (Right ())
+writeDirectories operations name (directory :: rest) = do
+  Right () <- operations.directory (name ++ "/" ++ directory) | Left err => pure (Left err)
+  writeDirectories operations name rest
+
+||| Independently validate the complete derived library/test namespace before IO.
+public export
+createLibraryWith : CreationOps -> String -> String -> IO (Either String ())
+createLibraryWith operations name owned =
+  if not (validProjectName name) || not (validLibraryPrefix owned) then pure (Left "Invalid library name/prefix.") else do
+    Right () <- operations.directory name | Left err => pure (Left err)
+    Right () <- writeDirectories operations name (libraryDirectories owned)
+      | Left err => pure (Left (partialReport name err))
+    result <- writeFiles operations name (libraryFiles name owned)
+    pure $ case result of Left err => Left (partialReport name err); Right () => Right ()
+
 public export
 createWith : CreationOps -> String -> IO (Either String ())
 createWith operations name = createPackageWith operations name Nothing
@@ -117,17 +140,19 @@ supportedHost host = elem host ["darwin", "unix", "linux", "Linux", "macOS"]
 public export
 newProject : List String -> IO (Either String (List String))
 newProject ["--help"] = pure (Right usage)
-newProject args = case parse Nothing Nothing Nothing False False args of
+newProject args = case parse Nothing Nothing Nothing False False False args of
   Left error => pure (Left error)
   Right options =>
     if options.dryRun then pure (Right
-      (["Dry run: would attempt fresh console project " ++ options.name ++ "/", "  " ++ options.name ++ "/src/"] ++
-       map (\entry => "  " ++ options.name ++ "/" ++ entry.path) (files options.name options.namespacePrefix) ++
+      (["Dry run: would attempt fresh project " ++ options.name ++ "/"] ++
+       map (\directory => "  " ++ options.name ++ "/" ++ directory ++ "/") (if options.library then libraryDirectories (maybe "App" id options.namespacePrefix) else ["src"]) ++
+       map (\entry => "  " ++ options.name ++ "/" ++ entry.path) (if options.library then libraryFiles options.name (maybe "App" id options.namespacePrefix) else files options.name options.namespacePrefix) ++
        ["No filesystem checks or changes performed; creation may still fail."]))
     else if not (supportedHost os)
       then pure (Left ("Project creation requires a supported POSIX bootstrap host; reported host: " ++ os))
       else do
-        result <- createPackageWith (CreatingWith freshDirectory freshFile) options.name options.namespacePrefix
+        result <- if options.library then createLibraryWith (CreatingWith freshDirectory freshFile) options.name (maybe "App" id options.namespacePrefix)
+                  else createPackageWith (CreatingWith freshDirectory freshFile) options.name options.namespacePrefix
         pure $ case result of
           Left error => Left error
-          Right () => Right (nextSteps options.name options.namespacePrefix)
+          Right () => Right (if options.library then ["Created " ++ options.name ++ " (library).", "Next:", "  cd " ++ options.name, "  fibril check", "  fibril test"] else nextSteps options.name options.namespacePrefix)

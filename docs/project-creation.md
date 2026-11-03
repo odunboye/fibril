@@ -70,6 +70,16 @@ Package metadata is generated only after validation; normal --package checking
 still independently checks source. Dry-run includes the manifest path but makes
 no filesystem probes or acceptance promises.
 
+## Standalone libraries
+
+Use fibril new email-core --lib --module-prefix Email.Core, then fibril check
+and fibril test. This generates an owned module, an actual pure Bool test module,
+a manifest with modules/tests but no entry, and parent-first namespace directories.
+No dummy Main is generated. --lib conflicts with --source-only; library prefixes
+reserve room for .Tests (at most 15 components/1018 ASCII characters). The same
+exclusive-write and partial-output policy applies. See the complete
+[library/test workflow](libraries-and-tests.md), its realistic example and limitations.
+
 ## Names and arguments
 
 NAME is one relative directory component, 1..64 ASCII characters, starting with
@@ -79,7 +89,7 @@ identifier or finalized package-identity rule. Main stays Main regardless of the
 directory slug. Paths, dots, separators, whitespace, controls and quotes are
 rejected before mutation.
 
---template console, --module-prefix PREFIX, --source-only and --dry-run may appear before/after the name. Duplicate or
+--lib, --template console, --module-prefix PREFIX, --source-only and --dry-run may appear before/after the name. Duplicate or
 unknown flags, extra operands and unsupported templates fail without writes.
 --source-only and --module-prefix are mutually exclusive in either order.
 fibril new --help describes this command. No force/overwrite option is provided.
