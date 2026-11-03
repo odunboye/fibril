@@ -18,6 +18,7 @@ import Fibril.Source.Document
 import Fibril.Source.Declaration
 import Fibril.Elaboration.Declaration
 import Fibril.Elaboration.Interface
+import Fibril.Elaboration.DataSchema
 import Fibril.Source.Global
 import Fibril.Elaboration.Expression
 import Fibril.Elaboration.Expression.Scope
@@ -117,6 +118,7 @@ record Interface where
   name : List String
   bindings : List Weighted
   schemas : List InterfaceSchema
+  dataSchemas : List DataSchema
 
 record Compiled where
   constructor Definitions
@@ -298,7 +300,10 @@ compileGraph requireEntry graph prelude interfaces remaining (snapshot :: rest) 
          else let visible = case snapshot.document.body of
                     DeclarationDocument authored => exportedSchemas (moduleText header.components) authored
                     _ => []
-               in compileGraph requireEntry graph prelude (Exports header.components compiled.exports visible :: interfaces)
+               in let dataHints = case snapshot.document.body of
+                        DeclarationDocument authored => exportedDataSchemas (moduleText header.components) authored
+                        _ => []
+                   in compileGraph requireEntry graph prelude (Exports header.components compiled.exports visible dataHints :: interfaces)
                            compiled.remaining rest
 
 ||| Check every dependency declaration before exposing its qualified exports.

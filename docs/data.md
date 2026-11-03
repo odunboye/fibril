@@ -85,6 +85,18 @@ does not express the additive sharing between alternatives that direct kernel
 cases support. The helper does not weaken linearity to approximate that feature.
 Direct multi-branch surface cases are a later slice.
 
+### Staged case-metadata boundary
+
+The module checker now retains exported authored data-layout hints after all
+module declarations have checked. The hints preserve the defining module,
+constructor order, field quantities/types and authored spans; private data is not
+published. They are ordinary untrusted metadata, not certificates: no current
+expression consumes them and they do not implement case syntax or change type
+checking. Same-module incremental visibility, direct-import selection, ambiguity,
+substitution, resource admission and independently checked case lowering remain
+future work. This internal staging adds no language power or user-facing syntax.
+Until then, use the explicit eliminator or the Sum wrapper below.
+
 ### A reusable, non-Church Sum
 
 The separately packaged [Data.Sum](../examples/packages/sum-library/src/Data/Sum.fib)
