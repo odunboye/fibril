@@ -1,5 +1,11 @@
 # Named method-body implementation blocks
 
+## Use cases
+
+Use a method block when constructing an implementation with several operations: named assignments make omissions and misspellings visible and avoid remembering constructor field order. A text Monoid can assign `merge = appendString` and `identity = ""`.
+
+Prefer the explicit dictionary constructor expression when targeting an alias/plain record, when the interface schema is unavailable, or when the constructor application is already clearer. This is construction convenience, not a new checking rule.
+
 **Implemented prototype:** an explicitly typed implementation can supply named
 method values instead of writing its dictionary constructor application:
 

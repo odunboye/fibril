@@ -1,5 +1,11 @@
 # First local module/import implementation contract
 
+## Use cases
+
+Use modules to split a program into reusable components and make its public API deliberate. Direct imports give access to checked exported declarations; erased globals are useful for published type abbreviations without granting runtime access.
+
+A single source file is simpler for a small experiment. Do not rely on transitive imports for visibility, or treat filesystem containment checks as a security sandbox.
+
 Status: shared **syntax/metadata parsing** and **read-only POSIX dependency
 discovery** are implemented, alongside qualified syntax/explicit-global lookup.
 **Checked imports are now available through check --source-dir ROOT ENTRY.**

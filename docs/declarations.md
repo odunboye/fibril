@@ -1,5 +1,11 @@
 # Source-ordered declaration files
 
+## Use cases
+
+Use a named typed declaration when an operation is reused or its signature is an important contract. Explicit type parameters support generic functions; dependent signatures describe results whose types depend on inputs.
+
+Use a typed local let for a one-off intermediate value, and direct application when a new name adds no clarity. An annotation expresses an intended type; it does not bypass checking.
+
 Status: implemented small nonrecursive program files. This is **not** a module
 system, transparent global-definition environment, or full Idris layout grammar.
 

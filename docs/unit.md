@@ -1,5 +1,11 @@
 # Primitive Unit values
 
+## Use cases
+
+Use Unit when a computation has completed but has no informative value to return, such as a console output action. A linear Unit input can still need explicit consumption.
+
+Return a meaningful value when one exists. Do not add dummy Unit fields to model singleton records; those have their own representation.
+
 Status: implemented as a small ordinary-core primitive, not general inductive
 definitions or a completed quantitative unit calculus.
 

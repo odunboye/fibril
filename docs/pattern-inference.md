@@ -1,5 +1,11 @@
 # Bounded motive inference for typed record patterns
 
+## Use cases
+
+Use consuming patterns to work with packaged values while respecting field quantities. Motive inference avoids repeating a result type when it is constant or has a supported canonical dependency on the unpacked fields.
+
+Prefer a getter if it is safe and sufficient. Write an explicit return motive when the dependency is not recoverable or exceeds inference limits; inference failure is not evidence that the intended program is ill-typed.
+
 **Implemented prototype:** unary and binary typed record patterns may omit the
 return motive. Independent results get a constant motive; dependent results use
 a canonical motive built from erased field extractions. Emitted terms still

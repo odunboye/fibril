@@ -1,5 +1,11 @@
 # Checked reference evaluation
 
+## Use cases
+
+Use bounded evaluation to inspect what a pure term or inert IO description reduces to while debugging a program. Adjust fuel when the current reduction bound is insufficient.
+
+Use checking for a type/usage judgement and `run` for console effects. A fuel-limited result is not a proof of normalization or program equivalence.
+
 Status: implemented for the ordinary expression subset. This is **not compiled
 execution**, an IO interpreter, or a C/JavaScript backend.
 

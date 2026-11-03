@@ -2,6 +2,24 @@
 
 Documentation is part of each meaningful task and commit.
 
+## Feature use cases (required)
+
+Every new or changed user-facing feature must document:
+
+- The concrete problem it solves and who should use it.
+- A small realistic example, with inputs and observable result where applicable.
+- When to choose the feature over existing alternatives, and when a simpler
+  alternative is better. State whether it adds expressiveness or only convenience.
+- Prerequisites, supported scope, common failure modes and what it does not imply.
+- A runnable example or regression test demonstrating the advertised use case.
+
+Add a **Use cases** section to the feature page and update the
+[feature use-case guide](use-cases.md). Syntax, implementation details and a list
+of tests alone are not a motivation. Do not invent a use case requiring an
+unimplemented backend, library, effect or proof rule. For internal/research
+features, identify the compiler/research task they support rather than claiming
+an available source-language capability.
+
 ## Declarations and modules
 
 - Document public API declarations with Idris `|||` comments: purpose, important
@@ -18,7 +36,7 @@ Documentation is part of each meaningful task and commit.
 
 ## Per-task checklist
 
-1. Implement and document the change together.
+1. Implement and document the change together, including use cases and simpler alternatives.
 2. Add regression/negative tests; include an example when it helps users.
 3. Update architecture, specification, and examples if their claims changed.
 4. Run `make test`, `make examples`, and `make docs`.

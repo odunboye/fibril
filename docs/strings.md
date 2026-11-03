@@ -1,5 +1,11 @@
 # Pure String values
 
+## Use cases
+
+Use String for text values, appending output fragments and equality-based decisions through ordinary functions.
+
+For a concrete text operation, `appendString` or `equalString` is clearer than introducing an interface dictionary. Use generic operations only when the algorithm genuinely needs to abstract over the operation/type.
+
 Status: implemented primitive String typing, literal data, pure concatenation, and exact Boolean comparison
 in the ordinary core, with checked Fibril appendString/equalString wrappers. This is not a
 complete string library, backend ABI, or general IO/effect system.

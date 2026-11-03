@@ -1,5 +1,11 @@
 # Named infix calls
 
+## Use cases
+
+Use backticks when placing a two-input operation between its operands improves readability: `appendString left right` and ``left `appendString` right`` compute the same thing.
+
+Generic methods also work: ``left `combine String @{implementation}` right`` combines through a selected dictionary. Prefer prefix calls when long type/dictionary arguments make infix harder to read. This adds no computational power and does not prove the operation associative; chains group left.
+
 **Implemented prototype:** backticks put an ordinary function application between
 two operands:
 

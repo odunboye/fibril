@@ -1,5 +1,11 @@
 # Opt-in visible implementation lookup
 
+## Use cases
+
+Use `@{implementation}` at a concrete call site when you want the unique visible named implementation without spelling its qualified name repeatedly. For example, a String call and a Bool call can use the same generic algorithm with different checked dictionaries.
+
+Prefer `@{Instances.Text.textSemigroup}` when behaviour should stay pinned as imports change, or when multiple implementations match. Use `@{}` for a generic function's local dictionary instead: global lookup is a different, explicit policy.
+
 **Implemented prototype:** @{implementation} requests a unique already-checked
 named implementation from the current module's earlier declarations and checked
 direct imports:

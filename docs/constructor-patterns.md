@@ -1,5 +1,11 @@
 # Constructor-named patterns and field inference
 
+## Use cases
+
+Use constructor-named patterns to communicate which checked packing you intend to unpack. Inferred field binders avoid restating types and quantities already determined by that constructor.
+
+Keep typed structural patterns when they explain the dependency better, or when bounded field inference needs an explicit fallback. These patterns validate structural packing; they do not distinguish alternatives of a general multi-constructor datatype.
+
 **Implemented prototype:** unary/binary record cases may name a transparent
 constructor before their field binders. Field names can infer types and
 quantities from that constructor; typed binders remain available. Motives may

@@ -1,5 +1,11 @@
 # Source formatting
 
+## Use cases
+
+Use the formatter to make layout consistent without manually adjusting every declaration or expression. Editor formatting is useful while a buffer is unsaved and should remain one undoable edit.
+
+Do not use formatting to refactor names, change evaluation or save a file automatically. Shape/reparse checks and safe fallback take priority over forcing every line below a width target.
+
 **Implemented:** deterministic horizontal spacing and guarded wrapping of long
 applications, lambdas, signatures and case/conditional expressions. Manual :FibrilFormat buffer application is available
 in Vim/Neovim. General indentation/reflow, format-on-save, --write, and whole-project

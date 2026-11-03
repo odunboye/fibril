@@ -28,6 +28,9 @@ A [conservative formatter](docs/formatting.md) is available as fibril format PAT
 or fibril format --check PATH. It normalizes token spacing and safely lays out long applications, lambdas, signatures and cases,
 without writing files or changing comments/literal spelling.
 
+Start with the [feature use-case guide](docs/use-cases.md) for what each feature
+is for, when to use it, and when a simpler alternative is better.
+
 The abstraction contract is documented in [the interface contract](docs/interfaces.md),
 with a runnable multi-file generic String/Bool operation example. Erased named
 globals now support exported type abbreviations without granting runtime access;

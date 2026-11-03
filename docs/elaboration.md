@@ -1,5 +1,11 @@
 # Declaration elaboration and inspection
 
+## Use cases
+
+Use `elaborate PATH` to understand how records, interfaces, implementation blocks and pending inference requests become named IR. It is useful when debugging generated declarations or learning the compiler pipeline.
+
+Use `check` to ask whether a program is accepted. Elaboration output is explicitly unchecked; it is not an acceptance certificate or a project import loader.
+
 **Implemented:** parsing and record elaboration are separate compiler stages.
 This is an explicit, bounded declaration elaborator, not yet a full Idris-style
 implicit/unification elaborator. Record field counts are resource-admitted, not

@@ -1,5 +1,11 @@
 # Fibril IO functions and hosted execution
 
+## Use cases
+
+Use IO descriptions and do notation to describe console actions, sequence intermediate results and keep pure computation separate from external execution.
+
+Use `check` for acceptance and `eval` for bounded inspection; only `run` executes an admitted plan. This is not yet general filesystem/network IO, and a host output failure can leave partial output.
+
 Status: ordinary checked Fibril library functions over experimental core IO
 descriptions. The old name-special-casing console parser has been removed.
 Execution is still hosted; there is no C/JS backend or complete effect calculus.

@@ -1,5 +1,11 @@
 # Named constraints and local dictionary selection
 
+## Use cases
+
+Use named constraints when one algorithm should work with caller-supplied operations rather than hardcoding a concrete implementation. For example, concatThree can combine three values of any supported type using its Semigroup dictionary.
+
+Use `@{}` inside that function to avoid repeating its unique local dictionary name. Use `@{ops}` when several dictionaries are in scope or behaviour should be explicit. For a concrete string-only helper, `appendString` is usually simpler; constraints do not improve concatenation itself.
+
 **Implemented prototype:** a named constraint is a dictionary-shaped parameter,
 and dictionary applications can request explicit or unique local selection.
 There is no automatic or recursive global instance search, anonymous constraint insertion, subclass

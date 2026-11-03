@@ -1,5 +1,11 @@
 # Explicit interfaces and named dictionary implementations
 
+## Use cases
+
+Use an interface to describe operations shared by a generic algorithm. A Semigroup dictionary supplies a combine operation; a Monoid shape additionally supplies an identity value. Implementations let String and Bool reuse the algorithm, or let callers explicitly choose different behaviours for one type.
+
+For a one-off string append, call `appendString` directly. Use a plain record when the data needs different field permissions. An interface name is not a proof of associativity, identity laws or nominal membership.
+
 **Implemented prototype:** interface declarations, generated checked method
 functions, and explicitly typed named dictionary implementations. Dictionaries
 are passed explicitly or selected by a [unique-local request](constraints.md).

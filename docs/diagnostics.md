@@ -1,5 +1,11 @@
 # Source and type diagnostics
 
+## Use cases
+
+Use human diagnostics to find a failure and its checking stage; use JSON diagnostics for editor/script integration that can validate source snapshots.
+
+Treat a labelled declaration-level location as a starting point for investigation, not as the exact offending subexpression. Missing provenance must remain visible rather than being replaced by a guessed caret.
+
 Status: implemented plain-text point diagnostics, not an LSP protocol or a
 source map for core typing.
 

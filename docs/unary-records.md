@@ -1,5 +1,11 @@
 # Singleton records and the unary kernel
 
+## Use cases
+
+Use a singleton record when a one-field package benefits from a named constructor and consuming pattern, including dependent use of that field. It avoids inventing a dummy Unit field just to fit a pair representation.
+
+Use the field value directly when the wrapper adds no useful structure. A constructor name does not create nominal type identity or an ownership API by itself.
+
 **Implemented prototype:** one-field records lower to a quantity-aware unary
 wrapper, not to the naked field type or a pair with hidden Unit padding.
 This extends the checked term language; it does not establish preservation,

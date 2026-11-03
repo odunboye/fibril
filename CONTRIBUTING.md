@@ -14,6 +14,8 @@ Use the collection pinned in `pack.toml`; avoid unrelated toolchain upgrades.
   where useful; see the [testing guide](docs/testing.md).
 - Preserve Hedgehog failure seeds and promote counterexamples to regressions.
 - Updated design/reference/example material for changed behavior.
+- A user-facing feature's use cases, realistic example, limitations and simpler
+  alternatives documented on its page and in the [use-case guide](docs/use-cases.md).
 - Passing `make test`, `make examples`, and `make docs`.
 - A meaningful commit containing code, tests, and related documentation.
 

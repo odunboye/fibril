@@ -40,6 +40,10 @@
     "title": "Part II · Reference",
     "pages": [
       {
+        "title": "Feature use cases",
+        "path": "docs/use-cases.md"
+      },
+      {
         "title": "Implementation tour",
         "path": "docs/implementation-tour.md"
       },

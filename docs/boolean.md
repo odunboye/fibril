@@ -1,5 +1,11 @@
 # Primitive Booleans and conservative branching
 
+## Use cases
+
+Use Bool and conditionals for two-way decisions, such as selecting a message after a comparison. Branch checking matters when inputs have exactly-once permissions.
+
+Use a direct expression when no decision is needed. Bool is not a substitute for general tagged data with multiple payload-bearing alternatives.
+
 Status: implemented ordinary prototype. These values are **not interval
 dimensions**, face formulas, or a combined quantitative/cubical calculus.
 

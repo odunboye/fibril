@@ -1,5 +1,11 @@
 # Erased constructor-parameter inference in patterns
 
+## Use cases
+
+Use erased-prefix inference to avoid repeating a constructor's type/index arguments when the scrutinee type already determines them. This makes a pattern such as `case box of MkBox value => value` practical.
+
+Supply arguments explicitly for phantom or otherwise noninvertible parameters. This feature recovers information in patterns; it does not infer arbitrary omitted arguments in ordinary constructor calls.
+
 **Implemented prototype:** constructor-named unary/binary record patterns may
 omit a leading erased constructor prefix when its arguments can be recovered by
 bounded structural matching against the scrutinee's checked type.

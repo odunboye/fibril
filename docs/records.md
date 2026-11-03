@@ -1,5 +1,11 @@
 # Dependent records: kernel foundations
 
+## Use cases
+
+Use records to package related information under a reusable constructor. Dependent fields can package a type with its payload, or a request type with a response family. Erased parameters let the same record shape serve multiple element types without making those type arguments runtime data.
+
+Use a safe requested getter when only one field is needed and discarding the others is permitted. Use consuming patterns or a requested eliminator when other fields must be consumed. Separate function arguments are simpler if there is no useful shared package; record identity remains structural.
+
 **Status:** core dependent pairs and a bounded named-record source prototype are
 implemented, including explicitly requested safe projection functions. Source records have no fixed field-count cap (at least one field), an explicit
 constructor and an optional named eliminator. Explicit erased parameter telescopes are supported; recursive/nominal records,

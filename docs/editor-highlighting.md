@@ -1,5 +1,11 @@
 # Neovim and Vim highlighting, checking, and navigation
 
+## Use cases
+
+Use editor commands to check a project, follow definitions, inspect references and preview supported lexical renames without guessing where an authored name came from.
+
+Use explicit navigation/manual edits when project-wide references or rename are needed; those capabilities and a full LSP are not implemented. Formatting and checking should not silently save buffers.
+
 Status: implemented optional Vim-runtime package for the current Fibril subsets.
 Includes optional compiler-backed runtime checking and same-file navigation. No Tree-sitter grammar,
 LSP server, semantic tokens, or cross-file navigation is added.
