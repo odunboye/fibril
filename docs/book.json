@@ -68,6 +68,10 @@
         "path": "docs/project-creation.md"
       },
       {
+        "title": "Local workspace contract and planner",
+        "path": "docs/workspaces.md"
+      },
+      {
         "title": "Project and dependency format",
         "path": "docs/packages.md"
       },

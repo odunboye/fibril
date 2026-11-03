@@ -46,6 +46,10 @@ Create a runnable console project with `fibril new mailer` (or preview using
 `--dry-run`); see [project creation](docs/project-creation.md). This offline scaffold
 uses explicit check/run commands, not an unimplemented manifest resolver.
 
+The [local workspace contract](docs/workspaces.md) now has a tested pure planner
+for package order and direct-dependency namespace ownership. Manifest parsing and
+workspace-aware loading/checking are not implemented yet.
+
 Start with the [feature use-case guide](docs/use-cases.md) for what each feature
 is for, when to use it, and when a simpler alternative is better.
 

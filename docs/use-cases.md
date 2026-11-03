@@ -80,6 +80,7 @@ Runnable progression: [explicit dictionaries](../examples/modules/interfaces/Mai
 
 | Feature | Use it to… | Boundary / alternative |
 | --- | --- | --- |
+| [Local workspace planning](workspaces.md) | Plan separately owned email/UI/platform libraries with deterministic package order and explicit direct dependencies. | Internal API only; manifest reading and workspace check/run are not implemented. Use current single-root modules for runnable projects. |
 | [Project creation](project-creation.md) | Start a runnable console source tree with `fibril new NAME`, or preview it with --dry-run. | Existing-directory init and manifests are not implemented; use explicit check/run commands. No hooks or dependency fetching occur. |
 | [Modules, imports and exports](modules.md) | Split reusable definitions across files and publish a deliberate API. | Use one file for a small experiment. Only checked direct imports grant visibility. |
 | [Erased globals](modules.md) | Publish type abbreviations or other checking-only definitions without granting runtime access. | Use an unrestricted value if runtime computation needs it. |

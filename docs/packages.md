@@ -1,7 +1,9 @@
 # Lightweight Fibril project and dependency management
 
 Status: [offline console scaffolding](project-creation.md) is implemented.
-Manifest reading, workspaces and dependency resolution remain planned, not implemented.
+[Pure workspace planning and direct-dependency routing](workspaces.md) are implemented
+as internal APIs. Manifest reading, filesystem workspace loading, locks and fetching
+remain unimplemented.
 
 ## Bootstrap versus user projects
 
@@ -12,31 +14,29 @@ Manifest reading, workspaces and dependency resolution remain planned, not imple
   complete registry/version-solving machinery.
 - This does not replace the existing pack setup or add a dependency today.
 
-## Proposed manifest
+## Local-only version-one contract
 
-Illustrative only; the exact schema/version rules are still to be specified:
+The [workspace contract](workspaces.md) now defines explicit package names,
+owned module prefixes, source roots, direct dependencies and separate entry
+selection. The logical manifest schema is local-only; its reader is pending:
 
-```yaml
-name: hello_fibril
-version: 0.1.0
-
-environment:
-  fibril: ">=0.1.0 <0.2.0"
-
+~~~yaml
+schema: 1
+name: mailer-app
+module-prefix: Mailer
+source-dir: src
 foundation: de-morgan
+entry: Main
 
 dependencies:
-  collections:
-    path: ../collections
-  browser:
-    git:
-      url: https://example.org/browser.git
-      rev: "<full-commit-hash>"
-```
+  email-core:
+    path: ../email-core
+~~~
 
-This example is not a runnable dependency configuration. Target-specific
-dependencies also need an explicit schema, so browser packages do not contaminate
-an unrelated embedded build.
+This is not runnable configuration yet. The initial schema deliberately excludes
+Git/registry sources, target conditions, native hooks and version solving. Those
+must get explicit later contracts rather than silently accepted fields. Package
+names do not infer namespaces or grant source-level visibility.
 
 The first [local module/import contract](modules.md) precedes package resolution:
 one explicit source root, checked qualified exports, an acyclic graph, and no
@@ -93,8 +93,10 @@ small schema/profile; reject duplicate keys, unknown fields, custom tags, aliase
 and implicit scalar surprises. Require quoted compiler constraints/revisions where
 ambiguity exists. Pin the parser/profile and bound input size and expansion work.
 
-No YAML library has been selected. Manifest parsing, lock format/versioning,
-workspace behavior, target conditions, and compatibility policy remain open.
+No YAML library has been selected. Manifest parsing and lock format/versioning
+remain pending; the [local workspace ownership/order contract](workspaces.md) is
+now specified and tested. Target conditions and compatibility/version-selection
+policies need separate later schema work.
 
 ## References
 

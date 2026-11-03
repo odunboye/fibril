@@ -1,0 +1,12 @@
+digraph Workspaces {
+  rankdir=LR;
+  node [shape=box];
+  inventory [label="Untrusted local inventory\nname / source-root string / namespace / direct edges"];
+  validate [label="Admission + identity + ownership checks\nall members, including disconnected"];
+  order [label="Deterministic dependency-first order\nsmallest ready name"];
+  route [label="Unique namespace owner\nself or explicit direct dependency only"];
+  future [label="Future: YAML + canonical multi-root loader\nmodule privacy/checking + snapshots/locks", style=dashed];
+  inventory -> validate -> order;
+  validate -> route;
+  route -> future [style=dashed];
+}

@@ -2,6 +2,8 @@
 
 Implemented:
 
+- `src/Fibril/Project/Workspace.idr`: pure local inventory admission, dependency-first ordering and direct package namespace routing. No filesystem discovery, manifest parsing, checked module graph or authority certificate. `Project.Name` deliberately separates package/slug validation APIs from module syntax.
+
 - `src/Fibril/Project/{Template,New}.idr`: pure bundled console plan/name policy and CLI scaffolding orchestration, with no compiler/checker dependency. `Runtime.Project` provides private fresh directories and exclusive checked file writes in a trusted POSIX cwd; no recursive rollback, manifest reader or language FFI.
 
 - [Non-recursive source data](data.md): authored data/constructor/field syntax, shared qualified key allocation, named nominal/variant IR, resource-admitted telescope packing, checked constructors and optional consuming eliminators. Ordinary module exports carry checked definitions; direct data cases/layout-schema publication remain future work.
