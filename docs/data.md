@@ -9,9 +9,9 @@ dependent fields. Prefer a record when all fields are present together, Bool for
 an uninformative decision, and direct values when no alternative is needed.
 
 This is non-recursive data, not yet general inductive data. Nat/List recursion,
-strict positivity, indexed constructor refinement, recursive functions and source
-multi-branch case syntax remain future work. Existing record cases do not become
-data cases by spelling a data constructor name.
+strict positivity, indexed constructor refinement and recursive functions remain
+future work. [Direct multi-branch cases](direct-data-cases.md) now support zero- and
+one-field alternatives; wider patterns and qualified imported patterns remain future work.
 
 ![Source data lowering](diagrams/source-data.svg)
 
@@ -83,16 +83,17 @@ their own payload binders still have the declared quantities. Passing a branch
 that captures an ambient linear value is rejected. A curried ordinary Pi type
 does not express the additive sharing between alternatives that direct kernel
 cases support. The helper does not weaken linearity to approximate that feature.
-Direct multi-branch surface cases are a later slice.
+[Direct source cases](direct-data-cases.md) now permit this additive sharing for
+nullary/unary nonrecursive constructors with an explicit motive.
 
 ### Staged case-metadata boundary
 
 The module checker now retains exported authored data-layout hints after all
 module declarations have checked. The hints preserve the defining module,
 constructor order, field quantities/types and authored spans; private data is not
-published. They are ordinary untrusted metadata, not certificates: no current
-expression consumes them and they do not implement case syntax or change type
-checking. A bounded `planDataArms` helper now rejects missing, duplicate or unknown
+published. They are ordinary untrusted metadata, not certificates. The new
+source cases compare checked global values with the actual inferred nominal shape;
+they do not consume these hints as typing authority. A bounded `planDataArms` helper now rejects missing, duplicate or unknown
 constructor names and wrong field arities, returning indices in declaration
 order. `selectDataImports` filters a supplied module inventory by explicit direct
 imports and rejects missing/ambiguous inventories or mismatched origins. Both
@@ -101,17 +102,17 @@ nor type-check branch bodies. These helpers are not wired into the expression
 driver yet. An internal `assembleDataCase` helper builds the raw direct
 `NominalCase`/`VariantCase` candidate from an explicit motive, shape and already
 positional branches. The ordinary checker must still validate the entire term;
-the helper itself neither binds payload fields nor supplies source syntax.
+source elaboration now supplies zero/unary payload binders and explicit motives.
 `assemblePairPayloadBranch` constructs a candidate PairCase around an explicit
 curried two-field branch; its dependent pair type, motive and tag are untrusted.
 The core checker still checks quantities, domains and branch type. Tests cover
 two linear String fields, wrong tags, dropped fields, dependent motives, branch
 omission and joined ambient linear demand. Dependent *field telescope* handling
 is not yet demonstrated by this builder's tests.
-Same-module incremental visibility, source-case parsing, telescope substitution
-and integration of independently checked lowering remain future work. This
-internal staging adds no language power or user-facing syntax.
-Until then, use the explicit eliminator or the Sum wrapper below.
+The [direct case frontend](direct-data-cases.md) now uses this candidate builder
+and ordinary independent checking. Imported/qualified patterns, wider dependent
+field telescopes and motive inference remain future work. The older pure metadata
+planning helpers remain unused by the direct-case driver.
 
 ### A reusable, non-Church Sum
 
@@ -181,5 +182,5 @@ admit nine parameters, sixteen alternatives and sixteen constructor fields under
 existing budgets. The kernel tests/proofs remain distinct from typed preservation,
 canonicity, positivity, termination and verified erasure.
 
-Next: exhaustive flat data cases with direct branch resource joins, then the
-separate recursive-inductive and termination milestones in the [landing plan](inductive-data.md).
+Next: extend direct cases to qualified imports and dependent multi-field patterns,
+then the separate recursive-inductive and termination milestones in the [landing plan](inductive-data.md).

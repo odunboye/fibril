@@ -41,6 +41,7 @@ mutual
   renderExpr (NBoxValue _ ty value) = node "box-value" [renderExpr ty, renderExpr value]
   renderExpr (NBoxCase _ motive value branch) = node "box-case" [renderExpr motive, renderExpr value, renderExpr branch]
   renderExpr (NPatternLambda _ names body) = node "infer-field-binders" [node "names" (map spelling names), renderExpr body]
+  renderExpr (NDataCase _ value motive arms) = node "data-case" [renderExpr value, renderExpr motive, node "branches" (renderDataArms arms)]
   renderExpr (NConstructorCase _ arity constructor value branch motive) = node "constructor-record-case" [show arity, renderExpr constructor, renderExpr value, renderExpr branch, (case motive of Nothing => "infer"; Just result => renderExpr result)]
   renderExpr (NInferCase _ arity value branch) = node "infer-record-case" [show arity, renderExpr value, renderExpr branch]
   renderExpr (NPairCase _ motive value branch) = node "pair-case" [renderExpr motive, renderExpr value, renderExpr branch]
@@ -51,6 +52,11 @@ mutual
   renderExpr (NDoResult _ result body) = node "do-result" [renderExpr result, renderExpr body]
   renderExpr (NAscribe _ value ty) = node "ascribe" [renderExpr value, renderExpr ty]
   renderExpr (NLet _ q name ty value body) = node "let" [show q, name, renderExpr ty, renderExpr value, renderExpr body]
+
+  renderDataArms : List (Token, Maybe Token, Expr) -> List String
+  renderDataArms [] = []
+  renderDataArms ((name, binder, body) :: rest) =
+    node "arm" [name.spelling, maybe "nullary" spelling binder, renderExpr body] :: renderDataArms rest
 
   renderTerms : List Expr -> List String
   renderTerms [] = []

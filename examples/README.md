@@ -3,9 +3,12 @@
 Strict YAML inspection fixtures live in [manifests/](manifests/README.md). They are
 not executable workspace projects or source-checking examples.
 
+[Direct data cases](../docs/direct-data-cases.md) include executable generic Sum
+and dependent-motive examples in modules/direct-data-case*.
+
 The standalone [sum-library](packages/sum-library/src/Data/Sum.fib) fixture
 provides non-Church finite choices with a checked, ordinary fold and an authored
-suite; direct data case syntax remains unimplemented.
+suite; direct source matching is separately available for local zero/unary patterns.
 
 The standalone packages/boolean-library fixture has no application entry; use
 `fibril check --package examples/packages/boolean-library/fibril.yaml` and

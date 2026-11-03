@@ -117,6 +117,6 @@ not canonicity, soundness, normalization or verified erasure proofs.
 
 [Closed nominal wrappers](nominal-data.md) now add non-recursive identity without
 changing the structural variant primitive. [Source declarations and named
-elimination](data.md) now lower into these checked forms. Direct data cases remain
-next; recursive data, positivity, termination and cubical computation are not
-added by this primitive.
+elimination](data.md) and [direct zero/unary source cases](direct-data-cases.md)
+now lower into these checked forms. Recursive data, positivity, termination and
+cubical computation are not added by this primitive.

@@ -6,6 +6,6 @@ digraph SourceData {
   core [label="Nominal + variant ordinary core\nindependent checking of every definition"];
   helper [label="Optional consuming eliminator\nunrestricted branch arguments"];
   authored -> lowering -> core -> helper;
-  next [label="Future: direct flat source cases\nrecursive data and termination separate", style=dashed];
+  next [label="Direct zero/unary source cases\nrecursive data and termination separate", style=dashed];
   helper -> next [style=dashed];
 }

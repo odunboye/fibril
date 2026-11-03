@@ -2,6 +2,7 @@
 module Fibril.Elaboration.Expression
 
 import Data.Fin
+import Data.List
 import Data.Vect
 import Fibril.Core.Size
 import Fibril.Core.Term
@@ -15,6 +16,8 @@ import Fibril.Core.Context
 import Fibril.Core.Erased
 import Fibril.Core.Reduction
 import Fibril.Core.Limits
+import Fibril.Core.WeakHead
+import Fibril.Elaboration.DataCase
 import Fibril.Elaboration.Expression.Scope
 import Fibril.Elaboration.Expression.Motive
 import Fibril.Elaboration.Expression.Constructor
@@ -62,6 +65,58 @@ mutual
   elaborateTerms : List GlobalDefinition -> Maybe (Context n) -> Vect n String -> List Expr -> Either ResolveError (List (Term n))
   elaborateTerms globals context env [] = Right []
   elaborateTerms globals context env (x :: xs) = [| elaborateInWith globals context env x :: elaborateTerms globals context env xs |]
+
+  dataCaseTag : Position -> Term n -> Either ResolveError Nat
+  dataCaseTag position value = case normalize typeReductionFuel value of
+    OutOfFuel _ => Left (CannotElaborate position "Data-case constructor reduction budget exhausted")
+    Normal (NominalValue _ (VariantValue _ tag Nothing)) => Right tag
+    Normal (Lambda _ _ (NominalValue _ (VariantValue _ tag (Just (Variable FZ))))) => Right tag
+    Normal _ => Left (CannotElaborate position "Data-case pattern must name a transparent nullary or unary constructor value")
+
+  orderDataArms : Position -> Nat -> List (Maybe (Quantity, Term n)) -> List (Nat, Term n) -> Either ResolveError (List (Term n))
+  orderDataArms position tag [] [] = Right []
+  orderDataArms position tag [] _ = Left (CannotElaborate position "Unexpected data-case branch")
+  orderDataArms position tag (_ :: rest) branches = do
+    branch <- case lookup tag branches of Nothing => Left (CannotElaborate position "Missing data-case constructor"); Just body => Right body
+    later <- orderDataArms position (S tag) rest (filter (\entry => fst entry /= tag) branches)
+    Right (branch :: later)
+
+  elaborateDataArms : List GlobalDefinition -> Context n -> Vect n String -> Term n -> Term n -> List (Term n) ->
+                      List (Maybe (Quantity, Term n)) -> List (Token, Maybe Token, Expr) -> Either ResolveError (List (Nat, Term n))
+  elaborateDataArms globals ctx env nominal shape indices descriptors [] = Right []
+  elaborateDataArms globals ctx env nominal shape indices descriptors ((name, binder, body) :: rest) = do
+    case lookupName name.spelling env of
+      Just _ => Left (CannotElaborate name.span.start "Data-case constructor is shadowed by a local binder")
+      Nothing => Right ()
+    definition <- case find (\entry => entry.name == name.spelling) globals of
+      Nothing => Left (Unbound name.span.start name.spelling)
+      Just entry => Right entry
+    if definition.quantity /= Unrestricted then Left (CannotElaborate name.span.start "Data-case constructor must be an unrestricted checked global") else Right ()
+    if coreNodes definition.value > 512 then Left (CannotElaborate name.span.start "Data-case constructor exceeds 512 nodes") else Right ()
+    let candidate = foldl Apply (rename absurd definition.value) indices
+    tag <- dataCaseTag name.span.start candidate
+    descriptor <- case variantAt tag descriptors of
+      Nothing => Left (CannotElaborate name.span.start "Data-case constructor tag is outside the scrutinee shape")
+      Just descriptor => Right descriptor
+    expected <- case (descriptor, binder) of
+      (Nothing, Nothing) => Right (NominalValue nominal (VariantValue shape tag Nothing))
+      (Just (q, ty), Just _) =>
+        Right (Lambda q ty (NominalValue (weaken nominal) (VariantValue (weaken shape) tag (Just (Variable FZ)))))
+      _ => Left (CannotElaborate name.span.start "Data-case constructor payload arity does not match its branch")
+    case betaCompare typeReductionFuel candidate expected of
+      EqualNormalForms => Right ()
+      DifferentNormalForms => Left (CannotElaborate name.span.start "Data-case constructor does not match the scrutinee type and shape")
+      Inconclusive => Left (CannotElaborate name.span.start "Data-case constructor comparison budget exhausted")
+    branch <- case (descriptor, binder) of
+      (Nothing, Nothing) => elaborateInWith globals (Just ctx) env body
+      (Just (q, ty), Just bound) => do
+        result <- elaborateInWith globals (Just (Extend ctx q ty)) (bound.spelling :: env) body
+        Right (Lambda q ty result)
+      _ => Left (CannotElaborate name.span.start "Invalid data-case payload branch")
+    following <- elaborateDataArms globals ctx env nominal shape indices descriptors rest
+    if any (\entry => fst entry == tag) following
+       then Left (CannotElaborate name.span.start "Duplicate data-case constructor") else Right ()
+    Right ((tag, branch) :: following)
 
   elaborateArms : List GlobalDefinition -> Maybe (Context n) -> Vect n String -> List (Maybe (Quantity, Expr)) -> Either ResolveError (List (Maybe (Quantity, Term n)))
   elaborateArms globals context env [] = Right []
@@ -120,6 +175,32 @@ mutual
   elaborateInWith globals context env (NBoxValue span ty value) = [| BoxValue (elaborateInWith globals context env ty) (elaborateInWith globals context env value) |]
   elaborateInWith globals context env (NBoxCase span motive value branch) =
     [| BoxCase (elaborateInWith globals context env motive) (elaborateInWith globals context env value) (elaborateInWith globals context env branch) |]
+  elaborateInWith globals context env (NDataCase span value motive arms) = do
+    ctx <- case context of Nothing => Left (CannotElaborate span.start "Data case requires a typed context"); Just ctx => Right ctx
+    scrutinee <- elaborateInWith globals context env value
+    inferred <- case inferErased checkingDepth typeReductionFuel ctx scrutinee of
+      Left err => Left (CannotElaborate span.start ("Cannot infer data-case scrutinee: " ++ show err))
+      Right ty => Right ty
+    nominal <- the (Either ResolveError (Term n)) $ case weakHead typeReductionFuel inferred of
+      HeadForm term@(NominalType _ _ _) => Right term
+      HeadLimit _ => Left (CannotElaborate span.start "Data-case scrutinee reduction budget exhausted")
+      _ => Left (CannotElaborate span.start "Data case requires a nonrecursive nominal data scrutinee")
+    if coreNodes nominal > 512 then Left (CannotElaborate span.start "Data-case nominal type exceeds 512 nodes") else Right ()
+    shape <- the (Either ResolveError (Term n)) $ case nominal of
+      NominalType _ _ shape => case weakHead typeReductionFuel shape of
+        HeadForm shape@(VariantType _) => Right shape
+        HeadLimit _ => Left (CannotElaborate span.start "Data-case shape reduction budget exhausted")
+        _ => Left (CannotElaborate span.start "Data-case nominal shape is not a variant")
+      _ => Left (CannotElaborate span.start "Invalid data-case nominal type")
+    motive <- elaborateInWith globals context env motive
+    case shape of
+      VariantType descriptors => do
+        if length descriptors > 64 then Left (CannotElaborate span.start "Data-case branch admission exhausted (64)") else Right ()
+        let indices = case nominal of NominalType _ args _ => args; _ => []
+        checked <- elaborateDataArms globals ctx env nominal shape indices descriptors arms
+        ordered <- orderDataArms span.start 0 descriptors checked
+        Right (assembleDataCase nominal shape motive scrutinee ordered)
+      _ => Left (CannotElaborate span.start "Invalid data-case shape")
   elaborateInWith globals context env (NPatternLambda span _ _) =
     Left (CannotElaborate span.start "Inferred field binders require a constructor-named pattern")
   elaborateInWith globals context env (NConstructorCase span arity constructor scrutinee branch motive) = do

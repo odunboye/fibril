@@ -1,0 +1,21 @@
+module Main
+
+data Sum (0 A : Type 0) (0 B : Type 0) : Type 0 where
+  Left : (1 value : A) -> Sum A B
+  Right : (1 value : B) -> Sum A B
+
+render : (1 prefix : String) -> (1 message : Sum String Bool) -> String
+render = \(1 prefix : String) => \(1 message : Sum String Bool) => case message return (\(0 self : Sum String Bool) => String) of
+  Right flag => if flag then appendString prefix "yes" else appendString prefix "no"
+  Left value => appendString prefix value
+
+fold : (0 A : Type 0) -> (0 B : Type 0) -> (0 C : Type 0) -> (left : (1 value : A) -> C) -> (right : (1 value : B) -> C) -> (1 item : Sum A B) -> C
+fold = \(0 A : Type 0) => \(0 B : Type 0) => \(0 C : Type 0) => \(left : (1 value : A) -> C) => \(right : (1 value : B) -> C) => \(1 item : Sum A B) => case item return (\(0 self : Sum A B) => C) of
+  Left value => left value
+  Right value => right value
+
+main : IO Unit
+main = do
+  putStrLn (render "L: " (Left String Bool "hello"))
+  putStrLn (render "R: " (Right String Bool True))
+  putStrLn (fold String Bool String (\(1 text : String) => text) (\(1 flag : Bool) => if flag then "yes" else "no") (Right String Bool False))

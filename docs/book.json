@@ -196,6 +196,10 @@
         "path": "docs/diagnostics.md"
       },
       {
+        "title": "Direct non-recursive data cases",
+        "path": "docs/direct-data-cases.md"
+      },
+      {
         "title": "Non-recursive source data",
         "path": "docs/data.md"
       },

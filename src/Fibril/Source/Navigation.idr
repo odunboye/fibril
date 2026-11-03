@@ -55,78 +55,93 @@ self : Walker destination -> Maybe SourceSpan -> List (ReferenceTo destination)
 self context Nothing = []
 self context (Just span) = [RefersTo span (context.localTarget span)]
 
-walk : Walker destination -> Environment destination -> Expr -> List (ReferenceTo destination)
-walk context env (NRef span name) =
-  let target = case lexicalTarget name env of
-        Just target => Just target
-        Nothing => if any (\entry => fst entry == name) env then Nothing else context.globalTarget name
-   in case (nameToken name span context.tokens, target) of
-    (Just origin, Just target) => [RefersTo origin target]
-    _ => []
--- Only the final identifier is selectable, not module qualifiers or dots.
-walk context env (NQualifiedRef region name) =
-  case (find (\token => token.kind == Name &&
-                      token.span.start.offset >= region.start.offset &&
-                      token.span.finish.offset <= region.finish.offset) (reverse context.tokens),
-        context.qualifiedTarget name) of
-    (Just token, Just target) => [RefersTo token.span target]
-    _ => []
-walk context env (NSort _ _) = []
-walk context env (NUnitType _) = []
-walk context env (NUnitValue _) = []
-walk context env (NStringType _) = []
-walk context env (NStringValue _ _) = []
-walk context env (NBoolType _) = []
-walk context env (NBoolValue _ _) = []
-walk context env (NIf _ condition yes no) =
-  walk context env condition ++ walk context env yes ++ walk context env no
-walk context env (NUnitCase _ value body) = walk context env value ++ walk context env body
-walk context env (NSigma span q r name domain body) =
-  let target = binderToken name span domain context.tokens
-   in walk context env domain ++ self context target ++ walk context ((name, map context.localTarget target) :: env) body
-walk context env (NNominalType _ _ _ _) = []
-walk context env (NNominalValue _ _ _) = []
-walk context env (NNominalCase _ _ _ _) = []
-walk context env (NVariantType _ _) = []
-walk context env (NVariantValue _ _ _ _) = []
-walk context env (NVariantCase _ _ _ _) = []
-walk context env (NBoxType _ _ ty) = walk context env ty
-walk context env (NBoxValue _ ty value) = walk context env ty ++ walk context env value
-walk context env (NBoxCase _ motive value branch) = walk context env motive ++ walk context env value ++ walk context env branch
-walk context env (NPairValue _ ty first second) = walk context env ty ++ walk context env first ++ walk context env second
-walk context env (NPatternLambda _ names body) =
-  let sites = filter (\token => token.spelling /= "_") names
-      refs = concatMap (\token => self context (Just token.span)) sites
-      following = foldl (\scope, token => (token.spelling, if token.spelling == "_" then Nothing else Just (context.localTarget token.span)) :: scope) env names
-   in refs ++ walk context following body
-walk context env (NConstructorCase _ _ constructor value branch motive) =
-  walk context env constructor ++ walk context env value ++ (case motive of Nothing => []; Just result => walk context env result) ++ walk context env branch
-walk context env (NInferCase _ _ value branch) = walk context env value ++ walk context env branch
-walk context env (NPairCase _ motive value branch) = walk context env motive ++ walk context env value ++ walk context env branch
-walk context env (NConstraintPi span q name domain body) =
-  let target = binderToken name span domain context.tokens
-   in walk context env domain ++ self context target ++ walk context ((name, map context.localTarget target) :: env) body
-walk context env (NPi span q name domain body) =
-  let target = binderToken name span domain context.tokens
-   in walk context env domain ++ self context target ++ walk context ((name, map context.localTarget target) :: env) body
-walk context env (NLambda span q name domain body) =
-  let target = binderToken name span domain context.tokens
-   in walk context env domain ++ self context target ++ walk context ((name, map context.localTarget target) :: env) body
-walk context env (NImplementationApply _ _ function) = walk context env function
-walk context env (NDictionaryApply _ _ function argument) = walk context env function ++ (case argument of Nothing => []; Just value => walk context env value)
-walk context env (NInfix _ function left right) = walk context env left ++ walk context env function ++ walk context env right
-walk context env (NApply _ function argument) = walk context env function ++ walk context env argument
-walk context env (NSequence _ first rest) = walk context env first ++ walk context env rest
-walk context env (NDoBind span name domain action body) =
-  let target = binderToken name span domain context.tokens
-   in walk context env domain ++ walk context env action ++ self context target ++
-      walk context ((name, map context.localTarget target) :: env) body
-walk context env (NDoResult _ result body) = walk context env result ++ walk context env body
-walk context env (NAscribe _ term expected) = walk context env term ++ walk context env expected
-walk context env (NLet span q name domain value body) =
-  let target = binderToken name span domain context.tokens
-   in walk context env domain ++ walk context env value ++ self context target ++
-      walk context ((name, map context.localTarget target) :: env) body
+mutual
+  walk : Walker destination -> Environment destination -> Expr -> List (ReferenceTo destination)
+  walk context env (NRef span name) =
+    let target = case lexicalTarget name env of
+          Just target => Just target
+          Nothing => if any (\entry => fst entry == name) env then Nothing else context.globalTarget name
+     in case (nameToken name span context.tokens, target) of
+      (Just origin, Just target) => [RefersTo origin target]
+      _ => []
+  -- Only the final identifier is selectable, not module qualifiers or dots.
+  walk context env (NQualifiedRef region name) =
+    case (find (\token => token.kind == Name &&
+                        token.span.start.offset >= region.start.offset &&
+                        token.span.finish.offset <= region.finish.offset) (reverse context.tokens),
+          context.qualifiedTarget name) of
+      (Just token, Just target) => [RefersTo token.span target]
+      _ => []
+  walk context env (NSort _ _) = []
+  walk context env (NUnitType _) = []
+  walk context env (NUnitValue _) = []
+  walk context env (NStringType _) = []
+  walk context env (NStringValue _ _) = []
+  walk context env (NBoolType _) = []
+  walk context env (NBoolValue _ _) = []
+  walk context env (NIf _ condition yes no) =
+    walk context env condition ++ walk context env yes ++ walk context env no
+  walk context env (NUnitCase _ value body) = walk context env value ++ walk context env body
+  walk context env (NSigma span q r name domain body) =
+    let target = binderToken name span domain context.tokens
+     in walk context env domain ++ self context target ++ walk context ((name, map context.localTarget target) :: env) body
+  walk context env (NNominalType _ _ _ _) = []
+  walk context env (NNominalValue _ _ _) = []
+  walk context env (NNominalCase _ _ _ _) = []
+  walk context env (NVariantType _ _) = []
+  walk context env (NVariantValue _ _ _ _) = []
+  walk context env (NVariantCase _ _ _ _) = []
+  walk context env (NBoxType _ _ ty) = walk context env ty
+  walk context env (NBoxValue _ ty value) = walk context env ty ++ walk context env value
+  walk context env (NBoxCase _ motive value branch) = walk context env motive ++ walk context env value ++ walk context env branch
+  walk context env (NPairValue _ ty first second) = walk context env ty ++ walk context env first ++ walk context env second
+  walk context env (NPatternLambda _ names body) =
+    let sites = filter (\token => token.spelling /= "_") names
+        refs = concatMap (\token => self context (Just token.span)) sites
+        following = foldl (\scope, token => (token.spelling, if token.spelling == "_" then Nothing else Just (context.localTarget token.span)) :: scope) env names
+     in refs ++ walk context following body
+  walk context env (NDataCase _ value motive arms) = walk context env value ++ walk context env motive ++ walkDataArms context env arms
+  walk context env (NConstructorCase _ _ constructor value branch motive) =
+    walk context env constructor ++ walk context env value ++ (case motive of Nothing => []; Just result => walk context env result) ++ walk context env branch
+  walk context env (NInferCase _ _ value branch) = walk context env value ++ walk context env branch
+  walk context env (NPairCase _ motive value branch) = walk context env motive ++ walk context env value ++ walk context env branch
+  walk context env (NConstraintPi span q name domain body) =
+    let target = binderToken name span domain context.tokens
+     in walk context env domain ++ self context target ++ walk context ((name, map context.localTarget target) :: env) body
+  walk context env (NPi span q name domain body) =
+    let target = binderToken name span domain context.tokens
+     in walk context env domain ++ self context target ++ walk context ((name, map context.localTarget target) :: env) body
+  walk context env (NLambda span q name domain body) =
+    let target = binderToken name span domain context.tokens
+     in walk context env domain ++ self context target ++ walk context ((name, map context.localTarget target) :: env) body
+  walk context env (NImplementationApply _ _ function) = walk context env function
+  walk context env (NDictionaryApply _ _ function argument) = walk context env function ++ (case argument of Nothing => []; Just value => walk context env value)
+  walk context env (NInfix _ function left right) = walk context env left ++ walk context env function ++ walk context env right
+  walk context env (NApply _ function argument) = walk context env function ++ walk context env argument
+  walk context env (NSequence _ first rest) = walk context env first ++ walk context env rest
+  walk context env (NDoBind span name domain action body) =
+    let target = binderToken name span domain context.tokens
+     in walk context env domain ++ walk context env action ++ self context target ++
+        walk context ((name, map context.localTarget target) :: env) body
+  walk context env (NDoResult _ result body) = walk context env result ++ walk context env body
+  walk context env (NAscribe _ term expected) = walk context env term ++ walk context env expected
+  walk context env (NLet span q name domain value body) =
+    let target = binderToken name span domain context.tokens
+     in walk context env domain ++ walk context env value ++ self context target ++
+        walk context ((name, map context.localTarget target) :: env) body
+
+  walkDataArms : Walker destination -> Environment destination -> List (Token, Maybe Token, Expr) -> List (ReferenceTo destination)
+  walkDataArms context env [] = []
+  walkDataArms context env ((constructor, binder, body) :: rest) =
+    let selected = case lexicalTarget constructor.spelling env of
+          Just local => Just local
+          Nothing => if any (\entry => fst entry == constructor.spelling) env then Nothing else context.globalTarget constructor.spelling
+        target = case selected of Nothing => []; Just destination => [RefersTo constructor.span destination]
+        binderRefs = case binder of Nothing => []; Just bound => if bound.spelling == "_" then [] else self context (Just bound.span)
+        following = case binder of
+          Nothing => env
+          Just bound => (bound.spelling, if bound.spelling == "_" then Nothing else Just (context.localTarget bound.span)) :: env
+     in target ++ binderRefs ++ walk context following body ++ walkDataArms context env rest
 
 dataParameters : Walker destination -> Environment destination -> List RecordParameter ->
                  (List (ReferenceTo destination), Environment destination)

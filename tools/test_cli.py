@@ -3584,6 +3584,88 @@ class CLITests(unittest.TestCase):
             self.assertIsNone(diagnostic["position"])
             self.assertEqual(result.stderr, "")
 
+    def test_direct_nonrecursive_data_cases(self):
+        fixture = ROOT / 'examples/modules/direct-data-case/Main.fib'
+        source = fixture.read_text()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Main.fib'
+            path.write_text(source)
+            def project(command):
+                return run(command, '--source-dir', directory, str(path))
+            result = project('run')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'L: hello\nR: yes\nno\n')
+            # The actual authored constructor and field-binder targets, not invented spans.
+            constructor = json.loads(run('definition', '10', '3', str(path)).stdout)['definition']
+            binder = json.loads(run('definition', '10', '37', str(path)).stdout)['definition']
+            self.assertEqual((constructor['start']['line'], constructor['start']['column']), (4, 3))
+            self.assertEqual((binder['start']['line'], binder['start']['column']), (10, 8))
+            formatted = run('format', str(path))
+            self.assertEqual(formatted.returncode, 0, formatted.stderr)
+            path.write_text(formatted.stdout)
+            self.assertEqual(run('format', '--check', str(path)).returncode, 0)
+            self.assertEqual(project('run').stdout, 'L: hello\nR: yes\nno\n')
+            # Exhaustiveness, identity, arity and linear usage remain checker boundaries.
+            invalid = [
+                source.replace('  Left value => appendString prefix value\n', ''),
+                source.replace('  Left value => appendString prefix value', '  Right value => appendString prefix value'),
+                source.replace('  Left value => appendString prefix value', '  Unknown value => appendString prefix value'),
+                source.replace('  Left value => appendString prefix value', '  Left => prefix'),
+                source.replace('  Left value => appendString prefix value', '  Left value => value'),
+                source.replace('  Left value => appendString prefix value', '  Left value => appendString prefix (appendString prefix value)'),
+                source.replace('  Left value => appendString prefix value', '   Left value => appendString prefix value'),
+                source.replace('=> String) of\n  Right flag', '=> Bool) of\n  Right flag', 1),
+            ]
+            for program in invalid:
+                with self.subTest(program=program[:180]):
+                    path.write_text(program)
+                    rejected = project('run')
+                    self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
+                    self.assertEqual(rejected.stdout, '')
+            grouped = ('module Main\n\ndata Message : Type 0 where\n  Missing : Message\n  Text : (1 value : String) -> Message\n\n'
+                       'main : IO Unit\nmain = putStrLn (case Text "inside" return (\\(0 self : Message) => String) of\n'
+                       '  Missing => "missing"\n  Text value => value)\n')
+            path.write_text(grouped)
+            nested = project('run')
+            self.assertEqual(nested.returncode, 0, nested.stdout + nested.stderr)
+            self.assertEqual(nested.stdout, 'inside\n')
+            path.write_text(grouped.replace('Text value => value)', 'Text value => value : String)'))
+            ascribed = project('run')
+            self.assertEqual(ascribed.returncode, 0, ascribed.stdout + ascribed.stderr)
+            self.assertEqual(ascribed.stdout, 'inside\n')
+            nestedSource = ('module Main\n\ndata Message : Type 0 where\n  Missing : Message\n  Text : (1 value : String) -> Message\n\n'
+              'combine : (1 first : Message) -> (1 second : Message) -> String\n'
+              'combine = \\(1 first : Message) => \\(1 second : Message) => case first return (\\(0 self : Message) => String) of\n'
+              '  Missing => case second return (\\(0 self : Message) => String) of\n'
+              '    Missing => "none"\n    Text value => value\n'
+              '  Text left => case second return (\\(0 self : Message) => String) of\n'
+              '    Missing => left\n    Text right => appendString left right\n\n'
+              'main : IO Unit\nmain = putStrLn (combine (Text "a") (Text "b"))\n')
+            path.write_text(nestedSource)
+            nested = project('run')
+            self.assertEqual(nested.returncode, 0, nested.stdout + nested.stderr)
+            self.assertEqual(nested.stdout, 'ab\n')
+            dependent = ROOT / 'examples/modules/direct-data-case-dependent/Main.fib'
+            dependentResult = run('run', '--source-dir', str(dependent.parent), str(dependent))
+            self.assertEqual(dependentResult.returncode, 0, dependentResult.stdout + dependentResult.stderr)
+            self.assertEqual(dependentResult.stdout, 'first\n')
+            alias = source.replace('\nrender :', '\nAlias : (0 A : Type 0) -> (0 B : Type 0) -> (1 value : A) -> Sum A B\nAlias = Left\n\nrender :', 1)
+            path.write_text(alias.replace('  Left value => appendString prefix value', '  Alias value => appendString prefix value', 1))
+            aliased = project('run')
+            self.assertEqual(aliased.returncode, 0, aliased.stdout + aliased.stderr)
+            self.assertEqual(aliased.stdout, 'L: hello\nR: yes\nno\n')
+            # A checked but wrong nominal constructor cannot act as an arm label.
+            foreign = source.replace('render :', 'data Other : Type 0 where\n  OtherValue : (1 item : String) -> Other\n\nrender :', 1)
+            path.write_text(foreign.replace('  Left value => appendString prefix value', '  OtherValue value => appendString prefix value'))
+            self.assertNotEqual(project('check').returncode, 0)
+            # Parameterized wildcard fields and erased use are checked, not silently ignored.
+            erased = ('module Main\n\ndata Secret : Type 0 where\n  Empty : Secret\n  SecretValue : (0 flag : Bool) -> Secret\n\n'
+                      'reveal : (1 secret : Secret) -> Bool\nreveal = \\(1 secret : Secret) => case secret return (\\(0 self : Secret) => Bool) of\n'
+                      '  Empty => False\n  SecretValue flag => flag\n\nmain : IO Unit\nmain = putStrLn "never"\n')
+            path.write_text(erased)
+            self.assertNotEqual(project('run').returncode, 0)
+            self.assertEqual(project('run').stdout, '')
+
     def test_non_church_sum_library_checks_and_runs_suite(self):
         package = ROOT / "examples/packages/sum-library/fibril.yaml"
         checked = run("check", "--package", str(package))

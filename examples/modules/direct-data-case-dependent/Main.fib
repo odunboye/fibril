@@ -1,0 +1,18 @@
+module Main
+
+data Select : Type 0 where
+  First : Select
+  Second : Select
+
+0 Family : (0 choice : Select) -> Type 1
+Family = \(0 choice : Select) => case choice return (\(0 self : Select) => Type 1) of
+  First => (String : Type 1)
+  Second => (Bool : Type 1)
+
+choose : (1 choice : Select) -> Family choice
+choose = \(1 choice : Select) => case choice return (\(0 self : Select) => Family self) of
+  First => "first"
+  Second => True
+
+main : IO Unit
+main = putStrLn (choose First)

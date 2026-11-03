@@ -11,6 +11,8 @@ The generated homepage separates teaching chapters, references, and project reco
 
 ## Reference index
 
+- [Direct non-recursive data cases](direct-data-cases.md): exhaustive local zero/unary matches with explicit motives and linear branch joins.
+
 - [Pure String values](strings.md): ordinary typing/data and the separate console effect boundary.
 
 - [Neovim/Vim highlighting](editor-highlighting.md): local runtime setup, lexical scope, and optional tests.

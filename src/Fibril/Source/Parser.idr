@@ -317,11 +317,66 @@ mutual
           Just named => NConstructorCase region arity named scrutinee branch motive
     Right (result, remaining)
 
+  dataHeader : List Token -> Bool
+  dataHeader (name :: binder :: arrow :: _) = name.kind == Name &&
+    ((binder.kind == BodyArrow && name.span.start.line == binder.span.start.line) ||
+     (binder.kind == Name && arrow.kind == BodyArrow && name.span.start.line == arrow.span.start.line))
+  dataHeader [name, arrow] = name.kind == Name && arrow.kind == BodyArrow && name.span.start.line == arrow.span.start.line
+  dataHeader _ = False
+
+  -- A multiline nullary first branch or a second aligned data branch makes
+  -- this distinct from the existing single-constructor record pattern.
+  dataBlockAhead : Token -> List Token -> Bool
+  dataBlockAhead marker (first :: rest) =
+    first.span.start.line > marker.span.start.line && first.span.start.column > 1 &&
+    dataHeader (first :: rest) &&
+      (case rest of
+        second :: _ => second.kind == BodyArrow ||
+          let later = dropWhile (\item => item.span.start.line == first.span.start.line || item.span.start.column > first.span.start.column) rest
+           in case later of
+                next :: _ => next.span.start.column == first.span.start.column && dataHeader later
+                _ => False
+        _ => False)
+  dataBlockAhead _ [] = False
+  dataBranches : Nat -> Nat -> Position -> Nat -> List Token -> Either ParseError (List (Token, Maybe Token, Expr), List Token)
+  dataBranches depth budget end column [] = Right ([], [])
+  dataBranches depth Z end column tokens@(first :: _) =
+    if first.span.start.column < column then Right ([], tokens)
+      else Left (ParseFailure first.span.start "Data case branch budget exhausted")
+  dataBranches depth (S remainingBudget) end column tokens@(first :: _) =
+    if first.span.start.column < column then Right ([], tokens) else do
+      if first.span.start.column /= column || not (dataHeader tokens)
+        then Left (ParseFailure first.span.start "Expected aligned nullary data-case branch") else Right ()
+      (name, following) <- expect Name end tokens
+      let parsed : (Maybe Token, List Token) = case following of
+            item :: tail => if item.kind == Name then (Just item, tail) else (Nothing, following)
+            [] => (Nothing, following)
+      let (bound, beforeArrow) = parsed
+      (_, afterArrow) <- expect BodyArrow end beforeArrow
+      let (bodyTokens, rest) = Data.List.span
+            (\item => item.span.start.line == name.span.start.line || item.span.start.column > column) afterArrow
+      (body, extra) <- expression depth (atInput end rest) bodyTokens
+      (later, trailing) <- dataBranches depth remainingBudget end column rest
+      case (extra, later) of
+        ([], _) => Right ((name, bound, body) :: later, trailing)
+        (item :: _, []) =>
+          if elem item.kind [CloseParen, CloseBrace, Colon, ThenKeyword, ElseKeyword, InKeyword, OfKeyword, ReturnKeyword, BodyArrow]
+             then Right ([(name, bound, body)], extra ++ trailing)
+             else Left (ParseFailure item.span.start "Unexpected token after data-case branch")
+        (item :: _, _ :: _) => Left (ParseFailure item.span.start "Unexpected token before next data-case branch")
+
   pairCase : Nat -> Position -> Token -> Expr -> List Token -> Either ParseError (Expr, List Token)
   pairCase depth end token scrutinee afterReturn = do
     (motive, afterMotive) <- expression depth end afterReturn
-    (_, afterOf) <- expect OfKeyword end afterMotive
-    typedCase depth end token scrutinee (Just motive) afterOf
+    (ofToken, afterOf) <- expect OfKeyword end afterMotive
+    case afterOf of
+      first :: _ => if dataBlockAhead ofToken afterOf then do
+        (arms, remaining) <- dataBranches depth 64 end first.span.start.column afterOf
+        case reverse arms of
+          [] => Left (ParseFailure first.span.start "Data case requires branches")
+          (_, _, lastBody) :: _ => Right (NDataCase (Between token.span.start (extent lastBody).finish) scrutinee motive arms, remaining)
+        else typedCase depth end token scrutinee (Just motive) afterOf
+      [] => typedCase depth end token scrutinee (Just motive) afterOf
 
   unitCase : Nat -> Position -> Token -> Expr -> List Token -> Either ParseError (Expr, List Token)
   unitCase depth end token scrutinee tokens = do

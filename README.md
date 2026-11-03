@@ -36,7 +36,9 @@ now preserves declaration keys and phantom arguments in the internal kernel.
 and generates independently checked closed families/constructors with exact admission.
 [Non-recursive source data](docs/data.md) now declares nominal constructors and
 optional consuming eliminators, including dependent multi-field payloads and imports.
-Direct data case syntax, recursive inductives and structural recursion remain future work.
+[Direct data cases](docs/direct-data-cases.md) now match nullary/unary
+alternatives with explicit motives and linear branch joins. Wider/qualified
+patterns, recursive inductives and structural recursion remain future work.
 
 The first [application target is a transactional-email service](docs/applications/transactional-email.md),
 with a checked relay-submission model. Network/TLS/storage, C deployment and the
