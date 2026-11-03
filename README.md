@@ -38,6 +38,10 @@ and generates independently checked closed families/constructors with exact admi
 optional consuming eliminators, including dependent multi-field payloads and imports.
 Direct data case syntax, recursive inductives and structural recursion remain future work.
 
+The first [application target is a transactional-email service](docs/applications/transactional-email.md),
+with a checked relay-submission model. Network/TLS/storage, C deployment and the
+web/mobile UI are not implemented; application blockers remain explicit.
+
 Start with the [feature use-case guide](docs/use-cases.md) for what each feature
 is for, when to use it, and when a simpler alternative is better.
 

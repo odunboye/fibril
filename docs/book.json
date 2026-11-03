@@ -40,6 +40,10 @@
     "title": "Part II · Reference",
     "pages": [
       {
+        "title": "Transactional email application target",
+        "path": "docs/applications/transactional-email.md"
+      },
+      {
         "title": "Feature use cases",
         "path": "docs/use-cases.md"
       },

@@ -92,6 +92,15 @@ Runnable progression: [explicit dictionaries](../examples/modules/interfaces/Mai
 | [Source formatting](formatting.md) | Make layout consistent, including unsaved editor buffers, while retaining guarded syntax/trivia. | It is not a rewrite/refactoring tool, automatic save or universal line-width guarantee. |
 | [Offline handbook](handbook.md) | Read language contracts, examples and source links without a network connection. | API reference alone is better for looking up an exact host declaration. |
 
+## Application target: transactional email
+
+The [transactional-email plan](applications/transactional-email.md) drives an
+application-readiness milestone: durable authenticated submission, a remote TLS
+relay and a responsive web/mobile console. Its [first runnable Fibril model](../examples/modules/email-service/Main.fib)
+checks submission transitions and rejects blind dispatch after acknowledgement
+loss. It is not a network service, C deployment, delivered-email guarantee or
+completed UI; the plan identifies the backend/runtime blockers explicitly.
+
 ## Implementation/research features are not language promises
 
 [De Morgan interval/face machinery](foundation-baseline.md) supports experiments

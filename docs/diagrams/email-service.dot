@@ -1,0 +1,13 @@
+digraph EmailService {
+  rankdir=LR;
+  node [shape=box];
+  ui [label="Web / mobile console\nproposed; no relay credentials", style=dashed];
+  api [label="Authenticated HTTPS API\nauthorization + durable enqueue", style=dashed];
+  queue [label="Transactional outbox\nidempotency / leases / recovery", style=dashed];
+  worker [label="Relay worker\nverified mandatory TLS", style=dashed];
+  relay [label="Remote relay\nacceptance != delivery", style=dashed];
+  model [label="Implemented: pure Fibril submission model\nlost acknowledgement => unknown; no blind dispatch"];
+  ui -> api -> queue -> worker -> relay;
+  relay -> api [label=" authenticated events", style=dashed];
+  model -> worker [label=" domain foundation", style=dotted];
+}

@@ -1,0 +1,59 @@
+module Delivery
+
+export
+data Status : Type 0 where
+  eliminator useStatus
+  Queued : Status
+  Sending : Status
+  AcceptedByRelay : Status
+  SubmissionUnknown : Status
+
+export
+data Event : Type 0 where
+  eliminator useEvent
+  Dispatch : Event
+  RelayAccepted : Event
+  AcknowledgementLost : Event
+
+export
+data Transition : Type 0 where
+  eliminator useTransition
+  Updated : (1 status : Status) -> Transition
+  Rejected : (1 reason : String) -> Transition
+
+rejected : Transition
+rejected = Rejected "transition rejected"
+
+queued : (1 event : Event) -> Transition
+queued = \(1 event : Event) => useEvent (\(0 self : Event) => Transition) event
+  (Updated Sending)
+  rejected
+  rejected
+
+sending : (1 event : Event) -> Transition
+sending = \(1 event : Event) => useEvent (\(0 self : Event) => Transition) event
+  rejected
+  (Updated AcceptedByRelay)
+  (Updated SubmissionUnknown)
+
+terminal : (1 event : Event) -> Transition
+terminal = \(1 event : Event) => useEvent (\(0 self : Event) => Transition) event
+  rejected
+  rejected
+  rejected
+
+export
+advance : (1 status : Status) -> (1 event : Event) -> Transition
+advance = \(1 status : Status) => \(1 event : Event) =>
+  useStatus (\(0 self : Status) => ((1 next : Event) -> Transition)) status
+    queued sending terminal terminal event
+
+export
+statusText : (1 status : Status) -> String
+statusText = \(1 status : Status) => useStatus (\(0 self : Status) => String) status
+  "queued" "sending" "accepted by relay" "submission unknown"
+
+export
+transitionText : (1 result : Transition) -> String
+transitionText = \(1 result : Transition) => useTransition (\(0 self : Transition) => String) result
+  statusText (\(1 reason : String) => reason)

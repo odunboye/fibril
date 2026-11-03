@@ -519,6 +519,25 @@ class CLITests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertEqual(result.stdout, "Do context!\n")
 
+    def test_email_submission_state_model(self):
+        example = ROOT / "examples/modules/email-service"
+        result = run("run", "--source-dir", str(example), str(example / "Main.fib"))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout, "sending\naccepted by relay\nsubmission unknown\ntransition rejected\n")
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "Delivery.fib").write_bytes((example / "Delivery.fib").read_bytes())
+            outcomes = {("Queued", "Dispatch"): "sending",
+                        ("Sending", "RelayAccepted"): "accepted by relay",
+                        ("Sending", "AcknowledgementLost"): "submission unknown"}
+            for state in ("Queued", "Sending", "AcceptedByRelay", "SubmissionUnknown"):
+                for event in ("Dispatch", "RelayAccepted", "AcknowledgementLost"):
+                    entry = root / "Main.fib"
+                    entry.write_text(f'module Main\nimport Delivery\nmain : IO Unit\nmain = putStrLn (Delivery.transitionText (Delivery.advance Delivery.{state} Delivery.{event}))\n')
+                    result = run("run", "--source-dir", str(root), str(entry))
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertEqual(result.stdout, outcomes.get((state, event), "transition rejected") + "\n")
+
     def test_source_nonrecursive_data_and_named_elimination(self):
         example = ROOT / "examples/modules/data"
         expected = "present\nmissing\ndependent package\n"
