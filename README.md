@@ -46,7 +46,9 @@ Create a runnable console project with `fibril new mailer` (or preview using
 `--dry-run`); see [project creation](docs/project-creation.md). This offline scaffold
 generates fibril.yaml with the documented default namespace `App`. Use
 `--module-prefix Mailer` to override it or `--source-only` for a minimal source tree.
-Namespaces are never inferred from directory names.
+Namespaces are never inferred from directory names. Inside a generated project,
+use `fibril check`, `fibril run` or `fibril module-graph`: these select only
+./fibril.yaml, without searching parent directories.
 
 The [local workspace contract](docs/workspaces.md) now has a tested pure planner
 for package order and direct-dependency namespace ownership. [Strict manifest

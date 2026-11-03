@@ -96,14 +96,14 @@ createWith operations name = createPackageWith operations name Nothing
 nextSteps : String -> Maybe String -> List String
 nextSteps name (Just namespacePrefix) = ["Created " ++ name ++ " (console package; namespace " ++ namespacePrefix ++ ").", "Next:",
   "  cd " ++ name,
-  "  fibril check --package fibril.yaml",
-  "  fibril run --package fibril.yaml",
-  "No lockfile or implicit project discovery is provided."]
+  "  fibril check",
+  "  fibril run",
+  "Uses fibril.yaml in the current directory only; no parent search or lockfile."]
 nextSteps name Nothing = ["Created " ++ name ++ " (console template).", "Next:",
   "  cd " ++ name,
   "  fibril check --source-dir src src/Main.fib",
   "  fibril run --source-dir src src/Main.fib",
-  "Use --module-prefix PREFIX to generate an explicit local package manifest; automatic discovery is not implemented."]
+  "Use --module-prefix PREFIX to generate an explicit local package manifest; bare commands require fibril.yaml in the current directory."]
 
 ||| Runtime identifiers differ by bootstrap backend: Chez calls GNU/Linux and
 ||| BSD unix; RefC reports Linux/macOS. This is a POSIX selection policy, not

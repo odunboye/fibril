@@ -10,13 +10,19 @@ fully supported. This adds project organization and validation, not a new core
 language feature, backend or language-level package authority.
 
 ~~~sh
+fibril check                    # current directory's fibril.yaml
+fibril run
+fibril module-graph
 fibril check --package path/to/fibril.yaml
 fibril run --package path/to/fibril.yaml
 fibril module-graph --package path/to/fibril.yaml
 ~~~
 
-The root operand is an explicit, exactly named fibril.yaml, not a directory or
-implicit cwd/parent search. check prints the ordinary checking summary; run
+Bare check, run and module-graph select only ./fibril.yaml. No parent-directory
+search or fallback occurs, including when the local manifest is malformed.
+Use --package PATH to select another project's exactly named fibril.yaml;
+explicit source operands and --source-dir retain their existing meaning.
+check prints the ordinary checking summary; run
 reserves stdout for the checked program. Graph inspection is syntax-only JSON,
 with checked false and a package_scope containing entry package, sorted package
 inventory, canonical source roots, direct dependencies and per-module owners.

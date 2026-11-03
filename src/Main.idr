@@ -50,6 +50,9 @@ Usage:
   fibril lex-source PATH        Print source tokens/spans (not parsing/checking)
   fibril check PATH             Check a closed source program and runtime usage
   fibril check --source-dir ROOT ENTRY  Check qualified local module interfaces (POSIX)
+  fibril check                 Check ./fibril.yaml (current directory only)
+  fibril run                   Check ./fibril.yaml, then execute its IO plan
+  fibril module-graph          Inspect ./fibril.yaml source graph (syntax only)
   fibril check --package PATH   Check explicit local fibril.yaml dependency closure (POSIX)
   fibril run --package PATH     Check local packages, then execute the complete IO plan
   fibril check --json --source-dir ROOT ENTRY  Version-2 project report with source snapshots
@@ -120,6 +123,16 @@ runLocationQuery query line column path = do
       _ <- fPutStrLn stderr err
       exitFailure
 
+packageCheck : String -> IO ()
+packageCheck manifest = do
+  checked <- checkPackage manifest
+  printServiceReport (case checked of Left err => Left (renderGraphError err); Right project => Right (projectReport project))
+
+packageGraph : String -> IO ()
+packageGraph manifest = do
+  loaded <- loadPackageModuleGraph manifest
+  printServiceReport (case loaded of Left err => Left (renderGraphError err); Right graph => Right [renderModuleGraph graph])
+
 main : IO ()
 main = do
   args <- getArgs
@@ -129,9 +142,10 @@ main = do
     ["--version"] => putStrLn "Fibril 0.1.0-dev (Idris 2 bootstrap)"
     "new" :: options => newProject options >>= printServiceReport
     ["manifest", path] => manifestFile path >>= printServiceReport
-    ["module-graph", "--package", manifest] => do
-      loaded <- loadPackageModuleGraph manifest
-      printServiceReport (case loaded of Left err => Left (renderGraphError err); Right graph => Right [renderModuleGraph graph])
+    ["check"] => packageCheck "fibril.yaml"
+    ["run"] => runPackage "fibril.yaml" >>= printExecution
+    ["module-graph"] => packageGraph "fibril.yaml"
+    ["module-graph", "--package", manifest] => packageGraph manifest
     ["module-graph", root, entry] => do
       graph <- loadModuleGraph root entry
       case graph of
@@ -140,9 +154,7 @@ main = do
           _ <- fPutStrLn stderr (renderGraphError err)
           exitFailure
     ["run", "--package", manifest] => runPackage manifest >>= printExecution
-    ["check", "--package", manifest] => do
-      checked <- checkPackage manifest
-      printServiceReport (case checked of Left err => Left (renderGraphError err); Right project => Right (projectReport project))
+    ["check", "--package", manifest] => packageCheck manifest
     ["run", "--source-dir", root, entry] => runProject root entry >>= printExecution
     ["run", path] => runFile path >>= printExecution
     ["eval", "--source-dir", root, entry] => evaluateProjectFile 128 root entry >>= printServiceReport

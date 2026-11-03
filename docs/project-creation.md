@@ -13,8 +13,8 @@ fibril new mailer
 fibril new mailer --template console --dry-run
 
 cd mailer
-fibril check --package fibril.yaml
-fibril run --package fibril.yaml
+fibril check
+fibril run
 ~~~
 
 The program prints Hello from mailer!. The tool does not run it automatically.
@@ -39,15 +39,16 @@ By default, fibril.yaml and a package README are emitted using the explicit
 default namespace App. --module-prefix overrides App; it is not inferred from
 the project slug. --source-only omits the manifest and uses source-root commands. Neither mode creates a lockfile, Git
 repository, build script or dependency installation; no hooks/templates are
-fetched/executed. Implicit project/workspace-member discovery remains future work.
+fetched/executed. Bare commands select only ./fibril.yaml; parent search and workspace-member
+discovery are not implemented.
 
 ## Explicit local package scaffold
 
 ~~~sh
 fibril new mailer --module-prefix Mailer
 cd mailer
-fibril check --package fibril.yaml
-fibril run --package fibril.yaml
+fibril check
+fibril run
 ~~~
 
 The default scaffold includes fibril.yaml with schema 1, quoted name/module-prefix, source-dir
@@ -64,7 +65,7 @@ Use this for a project that will add local package dependencies. Use
 fibril new mailer --source-only for a small single-root experiment. This adds
 workflow convenience, not language expressiveness or a new checking rule.
 Both modes use the same fresh-root/exclusive-file writer and partial-error policy;
-no locks, fetching, hooks, automatic discovery or existing-directory merging.
+no locks, fetching, hooks, parent-directory search or existing-directory merging.
 Package metadata is generated only after validation; normal --package checking
 still independently checks source. Dry-run includes the manifest path but makes
 no filesystem probes or acceptance promises.

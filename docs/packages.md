@@ -35,14 +35,15 @@ dependencies:
     path: ../email-core
 ~~~
 
-This now runs with explicit --package selection, not implicit project discovery. The initial schema deliberately excludes
+Bare check/run/module-graph select ./fibril.yaml only; --package PATH selects
+another project explicitly. There is no parent-directory search. The initial schema deliberately excludes
 Git/registry sources, target conditions, native hooks and version solving. Those
 must get explicit later contracts rather than silently accepted fields. Package
 names do not infer namespaces or grant source-level visibility.
 
 The first [local module/import contract](modules.md) precedes package resolution:
 one explicit source root, checked qualified exports, an acyclic graph, and no
-network or implicit manifest discovery. Syntax/discovery and imported checking are implemented; package resolution
+network or parent-directory manifest search. Syntax/discovery and imported checking are implemented; package resolution
 now supports explicit local paths through --package; remote resolution remains future work.
 
 ## Tooling boundary and first scaffold

@@ -233,6 +233,42 @@ class CLITests(unittest.TestCase):
             self.assertEqual(result.stdout, '')
             self.assertIn('Aggregate module source byte', result.stderr)
 
+    def test_current_directory_package_commands_do_not_search_parents(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            created = run('new', 'parent', cwd=root)
+            self.assertEqual(created.returncode, 0, created.stdout + created.stderr)
+            project = root / 'parent'
+            for command in ('check', 'run', 'module-graph'):
+                bare = run(command, cwd=project)
+                explicit = run(command, '--package', 'fibril.yaml', cwd=project)
+                self.assertEqual(bare.returncode, 0, bare.stdout + bare.stderr)
+                self.assertEqual(bare.stdout, explicit.stdout)
+            nested = project / 'nested'
+            nested.mkdir()
+            for command in ('check', 'run', 'module-graph'):
+                missing = run(command, cwd=nested)
+                self.assertNotEqual(missing.returncode, 0)
+                self.assertEqual(missing.stdout, '')
+                self.assertIn('fibril.yaml', missing.stderr)
+            self.assertEqual(run('run', '--package', '../fibril.yaml', cwd=nested).stdout, 'Hello from parent!\n')
+            # An invalid local manifest must not fall back to the valid parent.
+            (nested / 'fibril.yaml').write_text('schema: 999\n')
+            for command in ('check', 'run', 'module-graph'):
+                invalid = run(command, cwd=nested)
+                self.assertNotEqual(invalid.returncode, 0)
+                self.assertEqual(invalid.stdout, '')
+            # Explicit source operands retain their meaning despite a malformed manifest.
+            standalone = nested / 'standalone.fib'
+            (nested / "Main.fib").write_text('module Main\n\nmain : IO Unit\nmain = putStrLn "explicit root"\n')
+            self.assertEqual(run('run', '--source-dir', '.', 'Main.fib', cwd=nested).stdout, 'explicit root\n')
+            standalone.write_text('main : IO Unit\nmain = putStrLn "standalone"\n')
+            self.assertEqual(run('run', 'standalone.fib', cwd=nested).stdout, 'standalone\n')
+            # A valid nested project is selected instead of its parent.
+            (nested / 'fibril.yaml').unlink()
+            self.assertEqual(run('new', 'child', cwd=nested).returncode, 0)
+            self.assertEqual(run('run', cwd=nested / 'child').stdout, 'Hello from child!\n')
+
     def test_new_source_only_scaffold(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -285,7 +321,7 @@ class CLITests(unittest.TestCase):
                 executed = run('run', '--package', 'fibril.yaml', cwd=folder)
                 self.assertEqual(executed.returncode, 0, executed.stdout + executed.stderr)
                 self.assertEqual(executed.stdout, f'Hello from {name}!\n')
-                self.assertIn('fibril run --package fibril.yaml', (folder / 'README.md').read_text())
+                self.assertIn('fibril check\nfibril run', (folder / 'README.md').read_text())
                 before = (folder / 'fibril.yaml').read_bytes()
                 self.assertNotEqual(run('new', name, '--module-prefix', owned, cwd=root).returncode, 0)
                 self.assertEqual((folder / 'fibril.yaml').read_bytes(), before)
