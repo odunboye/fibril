@@ -1,0 +1,12 @@
+module Instances.Text
+import Algebra
+
+export
+implementation textSemigroup : Algebra.Semigroup String where
+  combine = appendString
+
+-- Source order need not match the interface's field order.
+export
+implementation textMonoid : Algebra.Monoid String where
+  identity = ""
+  merge = appendString

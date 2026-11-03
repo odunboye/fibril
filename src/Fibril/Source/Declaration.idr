@@ -212,9 +212,14 @@ parseImplementation budget end (keyword :: rest) = do
   let position = nextPosition end rest
   if keyword.span.start.column /= 1 || position.line /= keyword.span.start.line
      then Left (ParseFailure keyword.span.start "Expected implementation name : DictionaryType on a column-one header") else Right ()
-  let (header, following) = span (\token => token.span.start.line == keyword.span.start.line) rest
-  if any (\token => token.kind == WhereKeyword) header
-     then parseImplementationBlock budget end keyword header following else do
+  let (frame, following) = span (\token => token.span.start.line == keyword.span.start.line || token.span.start.column > 1) rest
+  let (header, ending) = break (\token => token.kind == WhereKeyword) frame
+  case ending of
+    marker :: methods => do
+      if any (\token => token.span.start.line == marker.span.start.line) methods
+         then Left (ParseFailure marker.span.start "where must end the implementation header") else Right ()
+      parseImplementationBlock budget end keyword (header ++ [marker]) (methods ++ following)
+    [] => do
        (decl, remaining) <- parsePairAt position.column budget end rest
        Right (ImplementationItem ({ dictionary := True, span := Between keyword.span.start decl.span.finish } decl), remaining)
 

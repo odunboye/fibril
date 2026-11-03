@@ -1,0 +1,19 @@
+module BoxOps
+import Algebra
+
+export
+record Box (0 A : Type 0) : Type 0 where
+  constructor MkBox
+  1 value : A
+
+export
+implementation boxedSemigroup : (0 A : Type 0) ->
+  (ops : Algebra.Semigroup A) => Algebra.Semigroup (Box A) where
+  combine = \(1 left : Box A) => \(1 right : Box A) =>
+    case left of MkBox first =>
+      case right of MkBox second => MkBox A (first `Algebra.combine A @{}` second)
+
+export
+implementation forwarded : (0 A : Type 0) ->
+  (ops : Algebra.Semigroup A) => Algebra.Semigroup A
+forwarded = \(0 A : Type 0) => \(ops : Algebra.Semigroup A) => ops

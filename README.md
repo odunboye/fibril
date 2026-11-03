@@ -45,6 +45,9 @@ support explicit @{dictionary} and unique-local @{} applications.
 checked visible named implementation without recursive search.
 [Named infix calls](docs/infix.md) now support backtick function/method applications
 with fixed left associativity, ordinary quantities and no parser-special library operations.
+[Explicit implementation factories](docs/implementation-factories.md) now reuse
+wrapper operations across types through header-scoped named method blocks;
+factory application remains explicit, without recursive lookup.
 [Typed record patterns](docs/pattern-inference.md) infer constant or canonical
 dependent motives within resource bounds; explicit return clauses retain control.
 Named record/interface eliminators are optional; omitted helpers are not generated.

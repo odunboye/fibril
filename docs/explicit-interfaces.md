@@ -77,8 +77,9 @@ not automatic implicit application or recursive instance construction. The ordin
 rejects missing fields, wrong method types and quantity mismatches.
 
 The compiler independently requires implementation globals to be unrestricted
-and their checked signature to expose a unary wrapper or dependent pair.
-A primitive/function alias is not enough. Structural record dictionary aliases
+and their checked signature to expose a unary wrapper or dependent pair, or
+an [explicit factory](implementation-factories.md) returning one after erased
+and dictionary parameters. A primitive alias or arbitrary function is not enough. Structural record dictionary aliases
 are allowed: this is not a nominal membership check tying an implementation
 exclusively to an interface declaration. That limitation is intentional while
 record identity remains structural.

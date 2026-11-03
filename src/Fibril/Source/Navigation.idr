@@ -134,7 +134,11 @@ declarations context env (Ordinary decl :: rest) =
 
 declarations context env (ImplementationBlock block :: rest) =
   [RefersTo block.name.span (context.localTarget block.name.span)] ++
-  walk context env block.target ++ concatMap (\method => walk context env method.value) block.methods ++
+  walk context env block.target ++
+  (let (params, _) = implementationTelescope block.target
+       scope = foldl (\scope, parameter =>
+         (parameter.name, map context.localTarget (binderToken parameter.name parameter.span parameter.domain context.tokens)) :: scope) env params
+    in concatMap (\method => walk context scope method.value) block.methods) ++
   declarations context ((block.name.spelling, Just (context.localTarget block.name.span)) :: env) rest
 
 declarations context env (ImplementationItem decl :: rest) =

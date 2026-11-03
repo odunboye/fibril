@@ -22,8 +22,11 @@ The earlier explicit dictionary expression form remains supported.
 
 ## Visible schemas and ordering
 
-A block target must directly name an available interface, with all interface
-parameters explicit. Earlier local interfaces, including private ones, are
+A block's final result must directly name an available interface, with all
+interface parameters explicit. [Parameterized factories](implementation-factories.md)
+may precede that result with erased parameters and dictionary parameters; those
+header binders scope over the method bodies. Indented header continuations are
+accepted, with where ending its line. Earlier local interfaces, including private ones, are
 available. In project checking, exported interfaces from **checked direct
 dependencies** supply qualified schemas. Transitive reachability alone does not
 grant access, and private interface metadata is not published.

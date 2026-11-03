@@ -45,6 +45,18 @@ record RecordParameter where
   name : String
   domain : Expr
 
+||| Separate authored factory binders from its final dictionary target.
+||| This only decomposes syntax; domains, quantities and result are checked later.
+public export
+implementationTelescope : Expr -> (List RecordParameter, Expr)
+implementationTelescope (NPi span q name domain body) =
+  let (params, target) = implementationTelescope body
+   in (Parameter span q name domain :: params, target)
+implementationTelescope (NConstraintPi span q name domain body) =
+  let (params, target) = implementationTelescope body
+   in (Parameter span q name domain :: params, target)
+implementationTelescope target = ([], target)
+
 public export
 record RecordProjection where
   constructor Projected

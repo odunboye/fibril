@@ -1,0 +1,12 @@
+module Main
+import Algebra
+import BoxOps
+import Instances.Text
+import Instances.Boolean
+
+main : IO Unit
+main = do
+  let (message : BoxOps.Box String) = Algebra.combine (BoxOps.Box String) @{BoxOps.boxedSemigroup String @{implementation}} (BoxOps.MkBox String "Hello, ") (BoxOps.MkBox String "factories!")
+  putStrLn (case message of BoxOps.MkBox value => value)
+  let (decision : BoxOps.Box Bool) = Algebra.combine (BoxOps.Box Bool) @{BoxOps.boxedSemigroup Bool @{implementation}} (BoxOps.MkBox Bool True) (BoxOps.MkBox Bool False)
+  putStrLn (if (case decision of BoxOps.MkBox value => value) then "Reused Bool operations!" else "Unexpected")

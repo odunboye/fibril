@@ -405,27 +405,32 @@ validateMethods allowed seen (method :: rest) = do
 
 lowerImplementation : List InterfaceSchema -> Nat -> ImplementationDefinition -> Either ElaborationError (Nat, List Declaration)
 lowerImplementation schemas budget block = do
-  (target, args) <- case dictionaryTarget block.target [] of
-    Nothing => Left (ElaborationFailure (extent block.target).start "Implementation block target must name a visible interface")
+  let (params, result) = implementationTelescope block.target
+  (target, args) <- case dictionaryTarget result [] of
+    Nothing => Left (ElaborationFailure (extent result).start "Implementation block result must name a visible interface")
     Just result => Right result
   schema <- case find (\schema => schema.name == target) schemas of
-    Nothing => Left (ElaborationFailure (extent block.target).start
+    Nothing => Left (ElaborationFailure (extent result).start
       "Interface schema unavailable for method block; use a visible interface or an explicit dictionary expression")
     Just schema => Right schema
   if length args /= schema.parameterCount
-     then Left (ElaborationFailure (extent block.target).start "Implementation block interface parameters must be explicit") else Right ()
+     then Left (ElaborationFailure (extent result).start "Implementation block interface parameters must be explicit") else Right ()
   validateMethods schema.methods [] block.methods
   values <- traverse (\method => case find (\body => body.name.spelling == method) block.methods of
     Nothing => Left (ElaborationFailure block.name.span.start ("Missing implementation method " ++ method))
     Just body => Right body.value) schema.methods
   let arguments = args ++ values
   let cost = foldl (\accum, value => capped (accum + 1 + syntaxNodes value))
-               (capped (1 + syntaxNodes block.target)) arguments
+               (foldl (\accum, parameter => capped (accum + 1 + syntaxNodes parameter.domain))
+                 (capped (1 + syntaxNodes block.target)) params) arguments
   if cost > budget
      then Left (ElaborationFailure block.name.span.start "Generated declaration construction budget exhausted") else Right ()
-  let value = foldl (NApply block.span) (NQualifiedRef block.name.span schema.constructorName) arguments
+  let packed = foldl (NApply block.span) (NQualifiedRef block.name.span schema.constructorName) arguments
+  let value = foldr (\parameter, body => NLambda parameter.span parameter.quantity parameter.name parameter.domain body) packed params
   let generated = { dictionary := True } (Declared True block.span block.name.span block.name.span
                     block.exported Unrestricted block.name.spelling block.target value)
+  if capped (syntaxNodes generated.expected + syntaxNodes generated.value) > cost
+     then Left (ElaborationFailure block.name.span.start "Internal implementation construction estimate was insufficient") else Right ()
   Right (cost, [generated])
 
 lowerItem : List InterfaceSchema -> Nat -> AuthoredDeclaration -> Either ElaborationError (Nat, List Declaration)

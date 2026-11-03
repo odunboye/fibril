@@ -116,6 +116,10 @@
         "path": "docs/infix.md"
       },
       {
+        "title": "Explicit implementation factories",
+        "path": "docs/implementation-factories.md"
+      },
+      {
         "title": "Python interoperability",
         "path": "docs/python-interop.md"
       },

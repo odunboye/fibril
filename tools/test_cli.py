@@ -519,6 +519,85 @@ class CLITests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertEqual(result.stdout, "Do context!\n")
 
+    def test_explicit_implementation_factories(self):
+        example = ROOT / "examples/modules/implementation-factories"
+        expected = "Hello, factories!\nReused Bool operations!\n"
+        result = run("run", "--source-dir", str(example), str(example / "Main.fib"))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout, expected)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for file in example.rglob("*.fib"):
+                destination = root / file.relative_to(example)
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                destination.write_bytes(file.read_bytes())
+                formatted = run("format", str(destination))
+                self.assertEqual(formatted.returncode, 0, formatted.stderr)
+                destination.write_text(formatted.stdout)
+                self.assertEqual(run("format", str(destination)).stdout, formatted.stdout)
+            path = root / "Main.fib"
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, expected)
+            main = path.read_text()
+            box = root / "BoxOps.fib"
+            factory = box.read_text()
+            # Explicit expression factories remain ordinary checked functions too.
+            path.write_text(main.replace("BoxOps.boxedSemigroup String", "BoxOps.forwarded (BoxOps.Box String)").replace(
+                "@{BoxOps.forwarded (BoxOps.Box String) @{implementation}}",
+                "@{BoxOps.forwarded (BoxOps.Box String) @{BoxOps.boxedSemigroup String @{implementation}}}"))
+            self.assertEqual(run("run", "--source-dir", str(root), str(path)).stdout, expected)
+            # Factories are never registered as closed global providers or recursively searched.
+            path.write_text(main.replace("@{BoxOps.boxedSemigroup String @{implementation}}", "@{implementation}"))
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("No matching visible named implementation", result.stderr)
+            self.assertEqual(result.stdout, "")
+            path.write_text(main)
+            # Header parameters scope over method bodies, with genuine definition targets.
+            lines = factory.splitlines()
+            line = next(i + 1 for i, text in enumerate(lines) if "MkBox A (" in text)
+            column = lines[line - 1].index("MkBox A") + len("MkBox ") + 1
+            result = run("definition", "--source-dir", str(root), "--entry", str(path),
+                         str(line), str(column), str(box))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            point = json.loads(result.stdout)["definition"]["range"]
+            self.assertEqual(factory[point["start"]["offset"]:point["end"]["offset"]], "A")
+            self.assertLess(point["start"]["line"], line)
+            # Capturing a linear dictionary in an unrestricted method remains invalid.
+            box.write_text(factory.replace("(ops : Algebra.Semigroup A)", "(1 ops : Algebra.Semigroup A)"))
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, "")
+            # Runtime non-dictionary inputs are not implementation factory parameters.
+            box.write_text(factory.replace("(0 A : Type 0)", "(A : Type 0)"))
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, "")
+            box.write_text(factory)
+            # Local-schema elaboration exposes generated lambdas but does not certify them.
+            local = ('module Local\ninterface C (0 A : Type 0) : Type 0 where\n'
+                     '  constructor MkC\n  method : (1 value : A) -> A\n'
+                     'implementation reuse : (0 A : Type 0) -> (ops : C A) => C A where\n'
+                     '  method = \\(1 value : A) => method A @{ops} value\n'
+                     'main : IO Unit\nmain = putStrLn "Local"\n')
+            local_path = root / "Local.fib"
+            local_path.write_text(local)
+            result = run("check", "--source-dir", str(root), str(local_path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            result = run("elaborate", str(local_path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertFalse(json.loads(result.stdout)["checked"])
+            for bad in (
+                local.replace("(ops : C A) => C A", "(ops : String) -> C A").replace("method A @{ops} value", "value"),
+                local.replace("(ops : C A) => C A", "(0 ops : C A) -> C A"),
+                local.replace("method A @{ops} value", "True"),
+                local.replace("method =", "missing ="),
+                local.replace("where\n  method =", "where method ="),
+            ):
+                local_path.write_text(bad)
+                self.assertNotEqual(run("check", "--source-dir", str(root), str(local_path)).returncode, 0)
+
     def test_named_infix_calls_preserve_application_semantics(self):
         example = ROOT / "examples/modules/infix"
         result = run("run", "--source-dir", str(example), str(example / "Main.fib"))

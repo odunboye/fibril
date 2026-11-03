@@ -1,0 +1,10 @@
+digraph ImplementationFactories {
+  rankdir=LR;
+  node [shape=box];
+  header [label="Erased parameters + dictionary parameters\nfinal visible interface target"];
+  methods [label="Named methods in header scope\nchecked schema ordering"];
+  generated [label="Ordinary lambdas around\ndictionary constructor application"];
+  checked [label="Independent core checking\noriginal quantities / bounded shape gate"];
+  use [label="Explicit factory application\nnot a closed lookup provider"];
+  header -> methods -> generated -> checked -> use;
+}

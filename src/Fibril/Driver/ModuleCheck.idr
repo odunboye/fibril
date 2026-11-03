@@ -157,6 +157,23 @@ declarationFailure snapshot decl stage label detail =
     (label ++ " While checking " ++ (if decl.generated then "generated declaration " else "declaration ") ++
       show decl.name ++ " (declaration-level location): " ++ detail))
 
+-- True identifies a closed dictionary value; factories are explicit-only.
+dictionarySignature : Nat -> Term n -> Either String Bool
+dictionarySignature Z ty = Left "Implementation signature checking depth exhausted"
+dictionarySignature (S depth) ty = case weakHead typeReductionFuel ty of
+  HeadLimit _ => Left "Implementation dictionary type reduction budget exhausted"
+  HeadForm (BoxType _ _) => Right True
+  HeadForm (Sigma _ _ _ _) => Right True
+  HeadForm (Pi q domain result) => do
+    if q == Erased then Right () else case weakHead typeReductionFuel domain of
+      HeadForm (BoxType _ _) => Right ()
+      HeadForm (Sigma _ _ _ _) => Right ()
+      HeadLimit _ => Left "Implementation factory parameter type reduction budget exhausted"
+      _ => Left "Runtime implementation factory parameters must be dictionary-shaped"
+    _ <- dictionarySignature depth result
+    Right False
+  HeadForm _ => Left "Implementation signature must be a dictionary-shaped unary or dependent-pair type, or a factory returning one"
+
 compileDeclarations : ModuleSnapshot -> List String -> List Weighted -> List Declaration -> Nat ->
                       Either GraphError Compiled
 compileDeclarations snapshot name globals [] remaining = Right (Definitions [] [] remaining)
@@ -183,16 +200,12 @@ compileDeclarations snapshot name globals (decl :: rest) remaining = do
     _ => case checkRuntime checkingDepth typeReductionFuel Empty value ty of
       Left err => Left (declarationFailure snapshot decl "runtime-checking" "Module checking:" (show err))
       Right _ => Right ()
-  if decl.dictionary then case weakHead typeReductionFuel ty of
-    HeadForm (BoxType _ _) => Right ()
-    HeadForm (Sigma _ _ _ _) => Right ()
-    HeadForm _ => Left ({ stage := "runtime-checking" } (problem snapshot (Just decl.nameSpan.start)
-      "Implementation signature must be a dictionary-shaped unary or dependent-pair type"))
-    HeadLimit _ => Left ({ stage := "runtime-checking" } (problem snapshot (Just decl.nameSpan.start)
-      "Implementation dictionary type reduction budget exhausted"))
-    else Right ()
+  provider <- if decl.dictionary then case dictionarySignature checkingDepth ty of
+    Right closed => Right closed
+    Left message => Left ({ stage := "runtime-checking" } (problem snapshot (Just decl.nameSpan.start) message))
+    else Right False
   let identity = moduleText name ++ "." ++ decl.name
-  let definition = GlobalEntry (if decl.dictionary then Just identity else Nothing) decl.quantity decl.name ty value
+  let definition = GlobalEntry (if provider then Just identity else Nothing) decl.quantity decl.name ty value
   let local = weighted definition
   let qualified = Weight ({ name := identity } definition) local.size
   following <- compileDeclarations snapshot name (local :: qualified :: globals) rest (minus remaining estimate)
