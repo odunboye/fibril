@@ -127,5 +127,5 @@ cap through loadSourceWithin.
 [Canonical local dependency/root loading and multi-root check/run](local-packages.md)
 are now implemented with explicit --package selection. Workspace-member manifest
 syntax, locks/content hashes, remote dependencies and scripts are not implemented.
-[Scaffolding](project-creation.md) emits a manifest when --module-prefix PREFIX is explicit;
-its default source-only mode remains unchanged.
+[Scaffolding](project-creation.md) emits a manifest by default with namespace App;
+--module-prefix PREFIX overrides it and --source-only omits the manifest.

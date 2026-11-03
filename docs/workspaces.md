@@ -13,7 +13,8 @@ ownership and direct-dependency checks. It has no filesystem effects or compiler
 imports. A separate [strict manifest inspector](manifests.md) now decodes the schema.
 [Explicit local dependency-closure loading/check/run](local-packages.md) now exists.
 Workspace-member discovery, fetching and locks remain absent. The explicit single-root CLI remains
-unchanged; fibril new emits a manifest only with explicit --module-prefix PREFIX.
+unchanged; fibril new emits a manifest with default namespace App, overridden by
+--module-prefix PREFIX. --source-only opts out.
 
 ![Workspace planning boundary](diagrams/workspaces.svg)
 
@@ -189,4 +190,4 @@ Manifest decoding and explicit local-root resolution/check/run are implemented.
 Next: workspace-member inventory files -> package-aware reporting/navigation ->
 source snapshot locking.
 Keep all present single-root commands compatible until that path is tested end to
-end. Scaffolding now emits a manifest with explicit --module-prefix PREFIX.
+end. Scaffolding emits a manifest by default, with --module-prefix overrides and --source-only opt-out.

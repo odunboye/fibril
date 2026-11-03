@@ -10,9 +10,9 @@ import Fibril.Runtime.Project
 
 public export
 usage : List String
-usage = ["Usage: fibril new NAME [--template console] [--module-prefix PREFIX] [--dry-run]",
+usage = ["Usage: fibril new NAME [--template console] [--module-prefix PREFIX | --source-only] [--dry-run]",
          "Creates a fresh relative directory; NAME is 1..64 lowercase ASCII letters/digits/_/-, starting with a letter.",
-         "Optional --module-prefix explicitly owns a capitalized dotted namespace (not Main), and emits fibril.yaml. No overwrite, hooks, fetching, lockfile or Git initialization."]
+         "Creates fibril.yaml with explicit default namespace App. --module-prefix overrides it; --source-only omits the manifest. No overwrite, hooks, fetching, lockfile or Git initialization."]
 
 record Options where
   constructor NewOptions
@@ -20,25 +20,29 @@ record Options where
   dryRun : Bool
   namespacePrefix : Maybe String
 
-parse : Maybe String -> Maybe String -> Maybe String -> Bool -> List String -> Either String Options
-parse name template owned dry [] = case name of
+parse : Maybe String -> Maybe String -> Maybe String -> Bool -> Bool -> List String -> Either String Options
+parse name template owned sourceOnly dry [] = case name of
   Nothing => Left "Missing project name. Run fibril new --help."
-  Just name => if validProjectName name then Right (NewOptions name dry owned) else
+  Just name => if validProjectName name then Right (NewOptions name dry (if sourceOnly then Nothing else Just (maybe "App" id owned))) else
     Left "Invalid project name: use 1..64 lowercase ASCII letters/digits/_/-, starting with a letter (no paths)."
-parse name template owned True ("--dry-run" :: _) = Left "Duplicate --dry-run option."
-parse name template owned False ("--dry-run" :: rest) = parse name template owned True rest
-parse name (Just _) owned dry ("--template" :: _) = Left "Duplicate --template option."
-parse name Nothing owned dry ("--template" :: "console" :: rest) = parse name (Just "console") owned dry rest
-parse name Nothing owned dry ("--template" :: _) = Left "Only --template console is supported. Web/server/mobile templates are not deployable yet."
-parse name template (Just _) dry ("--module-prefix" :: _) = Left "Duplicate --module-prefix option."
-parse name template Nothing dry ("--module-prefix" :: value :: rest) =
-  if validProjectPrefix value then parse name template (Just value) dry rest
+parse name template owned True dry ("--source-only" :: _) = Left "Duplicate --source-only option."
+parse name template (Just _) False dry ("--source-only" :: _) = Left "--source-only conflicts with --module-prefix."
+parse name template Nothing False dry ("--source-only" :: rest) = parse name template Nothing True dry rest
+parse name template owned True dry ("--module-prefix" :: _) = Left "--module-prefix conflicts with --source-only."
+parse name template owned sourceOnly True ("--dry-run" :: _) = Left "Duplicate --dry-run option."
+parse name template owned sourceOnly False ("--dry-run" :: rest) = parse name template owned sourceOnly True rest
+parse name (Just _) owned sourceOnly dry ("--template" :: _) = Left "Duplicate --template option."
+parse name Nothing owned sourceOnly dry ("--template" :: "console" :: rest) = parse name (Just "console") owned sourceOnly dry rest
+parse name Nothing owned sourceOnly dry ("--template" :: _) = Left "Only --template console is supported. Web/server/mobile templates are not deployable yet."
+parse name template (Just _) sourceOnly dry ("--module-prefix" :: _) = Left "Duplicate --module-prefix option."
+parse name template Nothing sourceOnly dry ("--module-prefix" :: value :: rest) =
+  if validProjectPrefix value then parse name template (Just value) sourceOnly dry rest
   else Left "Invalid module prefix: use up to 16 capitalized ASCII components within 1024 characters; Main and its descendants are reserved."
-parse name template Nothing dry ["--module-prefix"] = Left "Missing --module-prefix value."
-parse Nothing template owned dry (arg :: rest) =
+parse name template Nothing sourceOnly dry ["--module-prefix"] = Left "Missing --module-prefix value."
+parse Nothing template owned sourceOnly dry (arg :: rest) =
   if isPrefixOf ['-', '-'] (unpack arg) then Left ("Unknown project option: " ++ arg)
-  else parse (Just arg) template owned dry rest
-parse (Just _) template owned dry (_ :: _) = Left "Unexpected project argument or option. Run fibril new --help."
+  else parse (Just arg) template owned sourceOnly dry rest
+parse (Just _) template owned sourceOnly dry (_ :: _) = Left "Unexpected project argument or option. Run fibril new --help."
 
 files : String -> Maybe String -> List ProjectFile
 files name Nothing = consoleFiles name
@@ -113,7 +117,7 @@ supportedHost host = elem host ["darwin", "unix", "linux", "Linux", "macOS"]
 public export
 newProject : List String -> IO (Either String (List String))
 newProject ["--help"] = pure (Right usage)
-newProject args = case parse Nothing Nothing Nothing False args of
+newProject args = case parse Nothing Nothing Nothing False False args of
   Left error => pure (Left error)
   Right options =>
     if options.dryRun then pure (Right

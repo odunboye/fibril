@@ -13,8 +13,8 @@ fibril new mailer
 fibril new mailer --template console --dry-run
 
 cd mailer
-fibril check --source-dir src src/Main.fib
-fibril run --source-dir src src/Main.fib
+fibril check --package fibril.yaml
+fibril run --package fibril.yaml
 ~~~
 
 The program prints Hello from mailer!. The tool does not run it automatically.
@@ -28,15 +28,16 @@ supported deployment paths, not produce misleading placeholder applications.
 ~~~text
 mailer/
   .gitignore
+  fibril.yaml
   README.md
   src/
     Main.fib
 ~~~
 
 Main is an ordinary named module with main : IO Unit and a Prelude putStrLn call.
-Without --module-prefix, the README uses explicit source-root check/run commands
-and no manifest is emitted. With the flag, a fourth file fibril.yaml and package
-README are generated as described below. Neither mode creates a lockfile, Git
+By default, fibril.yaml and a package README are emitted using the explicit
+default namespace App. --module-prefix overrides App; it is not inferred from
+the project slug. --source-only omits the manifest and uses source-root commands. Neither mode creates a lockfile, Git
 repository, build script or dependency installation; no hooks/templates are
 fetched/executed. Implicit project/workspace-member discovery remains future work.
 
@@ -49,16 +50,18 @@ fibril check --package fibril.yaml
 fibril run --package fibril.yaml
 ~~~
 
-This opt-in adds fibril.yaml with schema 1, quoted name/module-prefix, source-dir
+The default scaffold includes fibril.yaml with schema 1, quoted name/module-prefix, source-dir
 src, foundation de-morgan, entry Main and empty dependencies. The generated README
-uses these package commands. Main remains the separate application entry; no
+uses these package commands. App is a convenience default shared by new projects;
+packages used together need distinct owned prefixes, so override it when composing
+multiple packages. The planner rejects overlapping namespaces rather than guessing. Main remains the separate application entry; no
 namespace directories or reusable library definitions are invented. The prefix
-is explicit, never derived from the slug. It accepts up to sixteen capitalized
+is either the documented default App or an explicit override, never derived from the slug. It accepts up to sixteen capitalized
 ASCII components within the manifest decoder's 1024-character scalar admission,
 excluding Main and its descendants (MainView is allowed).
 
-Use this for a project that will add local package dependencies. Prefer the
-unchanged source-only scaffold for a small single-root experiment. This adds
+Use this for a project that will add local package dependencies. Use
+fibril new mailer --source-only for a small single-root experiment. This adds
 workflow convenience, not language expressiveness or a new checking rule.
 Both modes use the same fresh-root/exclusive-file writer and partial-error policy;
 no locks, fetching, hooks, automatic discovery or existing-directory merging.
@@ -75,8 +78,9 @@ identifier or finalized package-identity rule. Main stays Main regardless of the
 directory slug. Paths, dots, separators, whitespace, controls and quotes are
 rejected before mutation.
 
---template console, --module-prefix PREFIX and --dry-run may appear before/after the name. Duplicate or
+--template console, --module-prefix PREFIX, --source-only and --dry-run may appear before/after the name. Duplicate or
 unknown flags, extra operands and unsupported templates fail without writes.
+--source-only and --module-prefix are mutually exclusive in either order.
 fibril new --help describes this command. No force/overwrite option is provided.
 
 Dry-run is a pure plan preview: it does not create temporary files or probe the

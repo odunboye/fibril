@@ -233,6 +233,19 @@ class CLITests(unittest.TestCase):
             self.assertEqual(result.stdout, '')
             self.assertIn('Aggregate module source byte', result.stderr)
 
+    def test_new_source_only_scaffold(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            preview = run('new', 'plain', '--source-only', '--dry-run', cwd=root)
+            self.assertEqual(preview.returncode, 0, preview.stderr)
+            self.assertNotIn('fibril.yaml', preview.stdout)
+            self.assertEqual(list(root.iterdir()), [])
+            result = run('new', '--source-only', 'plain', cwd=root)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            project = root / 'plain'
+            self.assertFalse((project / 'fibril.yaml').exists())
+            self.assertEqual(run('run', '--source-dir', 'src', 'src/Main.fib', cwd=project).stdout, 'Hello from plain!\n')
+
     def test_new_explicit_package_scaffold(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -241,6 +254,9 @@ class CLITests(unittest.TestCase):
             self.assertIn('mailer/fibril.yaml', preview.stdout)
             self.assertEqual(list(root.iterdir()), [])
             for arguments in [
+                ['mailer', '--source-only', '--source-only'],
+                ['mailer', '--source-only', '--module-prefix', 'Mail'],
+                ['mailer', '--module-prefix', 'Mail', '--source-only'],
                 ['mailer', '--module-prefix'], ['mailer', '--module-prefix', 'Main'],
                 ['mailer', '--module-prefix', 'Main.Core'], ['mailer', '--module-prefix', 'lower'],
                 ['mailer', '--module-prefix', 'Mail..Core'], ['mailer', '--module-prefix', 'Mail/A'],
@@ -404,17 +420,21 @@ class CLITests(unittest.TestCase):
             dry = run("new", "mailer", "--template", "console", "--dry-run", cwd=root)
             self.assertEqual(dry.returncode, 0, dry.stdout + dry.stderr)
             self.assertIn("No filesystem checks or changes", dry.stdout)
+            self.assertIn("mailer/fibril.yaml", dry.stdout)
             self.assertEqual(list(root.iterdir()), [])
             result = run("new", "--template", "console", "mailer", cwd=root)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             project = root / "mailer"
             self.assertEqual(sorted(str(p.relative_to(project)) for p in project.rglob("*") if p.is_file()),
-                             [".gitignore", "README.md", "src/Main.fib"])
+                             [".gitignore", "README.md", "fibril.yaml", "src/Main.fib"])
             self.assertEqual((project / "src/Main.fib").read_text(),
                              'module Main\n\nmain : IO Unit\nmain = putStrLn "Hello from mailer!"\n')
             self.assertEqual(project.stat().st_mode & 0o777, 0o700)
             self.assertEqual((project / "src").stat().st_mode & 0o777, 0o700)
-            self.assertFalse((project / "fibril.yaml").exists())
+            metadata = json.loads(run("manifest", "fibril.yaml", cwd=project).stdout)
+            self.assertEqual(metadata["module_prefix"], "App")
+            self.assertEqual(run("check", "--package", "fibril.yaml", cwd=project).returncode, 0)
+            self.assertEqual(run("run", "--package", "fibril.yaml", cwd=project).stdout, "Hello from mailer!\n")
             self.assertFalse((project / ".git").exists())
             checked = run("check", "--source-dir", "src", "src/Main.fib", cwd=project)
             self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)

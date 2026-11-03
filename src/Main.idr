@@ -31,7 +31,7 @@ Fibril — experimental language bootstrap
 Usage:
   fibril --help
   fibril --version
-  fibril new NAME [--template console] [--module-prefix PREFIX] [--dry-run]  Create a fresh offline console project (POSIX)
+  fibril new NAME [--template console] [--module-prefix PREFIX | --source-only] [--dry-run]  Create a fresh offline console project (POSIX)
   fibril manifest PATH          Inspect a strict local YAML manifest (no dependency/source loading)
   fibril module-graph ROOT ENTRY  Inspect local dependency graph (syntax only, POSIX)
   fibril module-graph --package PATH  Inspect package-scoped source graph (syntax only)

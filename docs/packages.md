@@ -54,9 +54,9 @@ A separate executable/package may host these tools later without making users
 learn unrelated command names. Do not automatically execute PATH-discovered
 plugins or template hooks.
 
-fibril new NAME [--template console] [--module-prefix PREFIX] [--dry-run] creates
-a source tree, README and gitignore; explicit --module-prefix also emits a working
-local fibril.yaml. Without that flag the source-only scaffold is unchanged.
+fibril new NAME [--template console] [--module-prefix PREFIX | --source-only] [--dry-run] creates
+a source tree, README, gitignore and working local fibril.yaml with namespace App.
+--module-prefix overrides the default; --source-only omits the manifest.
 No lockfile is emitted. init into existing directories,
 workspace-member inventories, fetching and remote templates remain future slices.
 
