@@ -21,6 +21,9 @@ including [LazyVim installation](docs/editor-highlighting.md#install-in-lazyvim)
 is available for .fib files. Navigation uses a saved-buffer CLI command; cross-file
 navigation and an LSP server remain future work.
 
+[Bare `Type`](docs/bare-type.md) is notation for `Type 0`; explicit higher
+universe levels retain their existing meaning.
+
 Record parsing and generation now use a [separate elaboration layer](docs/elaboration.md).
 Use fibril elaborate PATH to inspect expanded named IR (explicitly unchecked).
 

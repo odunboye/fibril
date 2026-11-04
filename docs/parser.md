@@ -39,7 +39,7 @@ This checks source; it does not compile or run a Fibril executable.
     binder      ::= "(" [quantity] name ":" expr ")"
     quantity    ::= "0" | "1"
     application ::= atom { atom }
-    atom        ::= name | qualifiedName | "Type" digits | "Unit" | "(" ")"
+    atom        ::= name | qualifiedName | "Type" [ digits ] | "Unit" | "(" ")"
                   | "Bool" | "True" | "False" | "String" | quotedString
                   | "(" expr ")" | "(" expr ":" expr ")"
 
@@ -48,7 +48,8 @@ ordinary value identifier, for example Text.String.identity. It is not member
 projection; it requires one source line and at most 16 module components. Explicit
 global environments can resolve it, but imported checking is not wired yet.
 
-Omitted quantity means unrestricted. Universe levels require 1..6 decimal digits.
+Omitted quantity means unrestricted. Bare [Type](bare-type.md) means Type 0;
+explicit universe levels require 1..6 decimal digits.
 Lambda and both arrows have the [lexer's Unicode aliases](lexer.md).
 Names currently use the ASCII identifier profile.
 

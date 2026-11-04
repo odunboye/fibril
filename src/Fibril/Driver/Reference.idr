@@ -28,7 +28,7 @@ builtin "String" = Just ["String : Type 0", "Built-in UTF-8 text values; literal
   "Concatenation/comparison use appendString/equalString. Equality is exact text, not Unicode normalization or a dependent equality proof."]
 builtin "Unit" = Just ["Unit : Type 0", "One constructor: ().", "Use case value of () => body to consume a linear Unit."]
 builtin "Bool" = Just ["Bool : Type 0", "Constructors: True and False.", "Use if condition then yes else no. Branch resources obey the compiler's quantitative join rule."]
-builtin "Type" = Just ["Type n : Type (n + 1)", "Universe levels are explicit natural literals.", "Literal-universe upward compatibility is supported; this is not general subtyping or a universe-polymorphism implementation."]
+builtin "Type" = Just ["Type n : Type (n + 1)", "Bare Type means Type 0; explicit levels are natural literals.", "Literal-universe upward compatibility is supported; this is not general subtyping or a universe-polymorphism implementation."]
 builtin name = map (\global => [name ++ " : " ++ renderType global.declaredType,
   "Compiler primitive, not a declaration in Prelude.fib.",
   if name == "IO" then "IO describes inert actions. Only the external run driver executes a validated IO Unit stdout plan."

@@ -177,9 +177,8 @@ parseData budget end tokens = do
   (name, rest) <- expect Name end rest
   (params, rest) <- dataParameters (S (length rest)) budget end rest
   (_, rest) <- expect Colon end rest
-  (_, rest) <- expect TypeKeyword end rest
-  (universe, rest) <- expect Number end rest
-  level <- levelValue universe
+  (universe, rest) <- expect TypeKeyword end rest
+  (level, _, rest) <- universeAfterType universe rest
   (whereToken, rest) <- expect WhereKeyword end rest
   if keyword.span.start.column /= 1 || name.spelling == "_" || whereToken.span.start.line /= keyword.span.start.line
      then Left (ParseFailure keyword.span.start "Expected column-one data header ending : Type n where on one line") else Right ()
@@ -196,9 +195,8 @@ parseRecordLike kind budget end tokens = do
   (name, rest) <- expect Name end rest
   (params, rest) <- recordParameters 8 budget end rest
   (_, rest) <- expect Colon end rest
-  (_, rest) <- expect TypeKeyword end rest
-  (universe, rest) <- expect Number end rest
-  level <- levelValue universe
+  (universe, rest) <- expect TypeKeyword end rest
+  (level, _, rest) <- universeAfterType universe rest
   (whereToken, rest) <- expect WhereKeyword end rest
   if keyword.span.start.column /= 1 || name.spelling == "_" ||
      whereToken.span.start.line /= keyword.span.start.line

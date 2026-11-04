@@ -148,6 +148,10 @@
         "path": "docs/python-interop.md"
       },
       {
+        "title": "Bare Type as Type 0",
+        "path": "docs/bare-type.md"
+      },
+      {
         "title": "Unicode source text",
         "path": "docs/unicode-source.md"
       },

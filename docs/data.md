@@ -26,7 +26,8 @@ data Optional (0 A : Type 0) : Type 0 where
   Just : (1 value : A) -> Optional A
 ~~~
 
-Headers are column-one, single-line data Name parameters : Type n where.
+Headers are column-one, single-line data Name parameters : Type [n] where;
+[bare Type](bare-type.md) denotes Type 0.
 Parameters must be explicitly erased, uniquely named and referenceable.
 Constructor signatures are aligned indented single lines, with named typed
 field binders followed by the data type applied to all parameters in order.

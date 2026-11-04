@@ -1,0 +1,24 @@
+module Main
+
+data Optional (0 A : Type) : Type where
+  Nothing : Optional A
+  Just : (1 value : A) -> Optional A
+
+record Wrap (0 A : Type) : Type where
+  constructor MkWrap
+  1 value : A
+
+interface Identity (0 A : Type) : Type where
+  constructor MkIdentity
+  identity : (1 value : A) -> A
+
+data Higher : Type 1 where
+  HigherType : (0 value : Type) -> Higher
+
+render : (1 item : Optional String) -> String
+render = \(1 item : Optional String) => case item return (\(0 self : Optional String) => String) of
+  Nothing => "missing"
+  Just value => value
+
+main : IO Unit
+main = putStrLn (render (Just String "bare Type"))

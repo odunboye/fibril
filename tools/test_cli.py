@@ -903,7 +903,7 @@ class CLITests(unittest.TestCase):
             self.assertIn(f"{path}:1:1: Resolution:", result.stdout)
             self.assertIn("  1 | missing", result.stdout)
             self.assertIn("^", result.stdout)
-            path.write_text("Type", encoding="utf-8")
+            path.write_text("Type 1234567", encoding="utf-8")
             result = run("check", str(path))
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("Parsing:", result.stdout)
@@ -3620,6 +3620,47 @@ class CLITests(unittest.TestCase):
             self.assertEqual(diagnostic["stage"], "loading")
             self.assertIsNone(diagnostic["position"])
             self.assertEqual(result.stderr, "")
+
+    def test_bare_type_alias_in_expressions_and_declaration_headers(self):
+        example = ROOT / 'examples/modules/bare-type/Main.fib'
+        result = run('run', '--source-dir', str(example.parent), str(example))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout, 'bare Type\n')
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Main.fib'
+            source = example.read_text()
+            path.write_text(source)
+            formatted = run('format', str(path))
+            self.assertEqual(formatted.returncode, 0, formatted.stderr)
+            self.assertIn('data Optional (0 A : Type) : Type where', formatted.stdout)
+            self.assertIn('data Higher : Type 1 where', formatted.stdout)
+            lines = source.splitlines()
+            row = next(index + 1 for index, line in enumerate(lines) if 'data Optional' in line)
+            column = lines[row - 1].index('Type') + 1
+            reference = run('reference', str(row), str(column), str(path))
+            self.assertEqual(reference.returncode, 0, reference.stderr)
+            info = json.loads(reference.stdout)['reference']
+            self.assertEqual(info['name'], 'Type')
+            self.assertTrue(any('Bare Type means Type 0' in line for line in info['lines']))
+            path.write_text(formatted.stdout)
+            self.assertEqual(run('format', '--check', str(path)).returncode, 0)
+            self.assertEqual(run('run', '--source-dir', directory, str(path)).stdout, 'bare Type\n')
+            for bad in [source.replace('data Higher : Type 1 where', 'data Higher : Type 1234567 where'),
+                        source.replace('record Wrap (0 A : Type) : Type where', 'record Wrap (0 A : Type) : Type 1234567 where'),
+                        source.replace('interface Identity (0 A : Type) : Type where', 'interface Identity (0 A : Type) : Type 1234567 where')]:
+                path.write_text(bad)
+                result = run('check', '--source-dir', directory, str(path))
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn('Universe level requires', result.stderr)
+            path.write_text('0 main : Type\nmain = Type\n')
+            self.assertNotEqual(run('check', '--erased', str(path)).returncode, 0)
+            path.write_text('0 main : Type 1\nmain = Type\n')
+            self.assertEqual(run('check', '--erased', str(path)).returncode, 0)
+            path.write_text('Type unknown')
+            error = run('check', '--erased', str(path))
+            self.assertNotEqual(error.returncode, 0)
+            self.assertIn('Unbound', error.stdout + error.stderr)
+            self.assertNotIn('Parsing:', error.stdout + error.stderr)
 
     def test_direct_nonrecursive_data_cases(self):
         fixture = ROOT / 'examples/modules/direct-data-case/Main.fib'

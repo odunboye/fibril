@@ -1,0 +1,15 @@
+digraph BareType {
+  rankdir=LR;
+  node [shape=box];
+  bare [label="authored Type\nspan = keyword"];
+  explicit [label="authored Type 0\nspan = keyword + number"];
+  higher [label="authored Type n\nexplicit numeric level"];
+  zero [label="named NSort 0\ncore Universe 0"];
+  core [label="existing universe checking\nType : Type 1; not type-in-type"];
+  other [label="existing explicit higher levels"];
+  bare -> zero;
+  explicit -> zero;
+  higher -> other;
+  zero -> core;
+  other -> core;
+}

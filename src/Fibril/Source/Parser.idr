@@ -84,6 +84,17 @@ levelValue token =
          then Right (foldl (\n, c => n * 10 + digitValue c) 0 chars)
          else Left (ParseFailure token.span.start "Universe level requires 1..6 decimal digits")
 
+||| A bare authored Type denotes level zero; a following numeric token is
+||| always an explicit level and keeps the existing validation and span.
+public export
+universeAfterType : Token -> List Token -> Either ParseError (Nat, SourceSpan, List Token)
+universeAfterType keyword (level :: rest) =
+  if level.kind == Number then do
+    value <- levelValue level
+    Right (value, Between keyword.span.start level.span.finish, rest)
+  else Right (0, keyword.span, level :: rest)
+universeAfterType keyword [] = Right (0, keyword.span, [])
+
 limit : Position -> List Token -> Either ParseError a
 limit end tokens = Left (ParseFailure (atInput end tokens) "Parser recursion budget exhausted")
 
@@ -532,11 +543,10 @@ mutual
       TrueKeyword => Right (NBoolValue token.span True, rest)
       FalseKeyword => Right (NBoolValue token.span False, rest)
       TypeKeyword => do
-        (level, remaining) <- expect Number end rest
-        value <- levelValue level
-        Right (NSort (Between token.span.start level.span.finish) value, remaining)
+        (value, region, remaining) <- universeAfterType token rest
+        Right (NSort region value, remaining)
       OpenParen => grouped depth end token rest
-      _ => Left (ParseFailure token.span.start "Expected name, Type LEVEL, String/literal, Unit, (), Bool, True, False, or grouped expression")
+      _ => Left (ParseFailure token.span.start "Expected name, Type [LEVEL], String/literal, Unit, (), Bool, True, False, or grouped expression")
 
   grouped : Nat -> Position -> Token -> List Token -> Either ParseError (Expr, List Token)
   grouped depth end opening (closing :: remaining) =

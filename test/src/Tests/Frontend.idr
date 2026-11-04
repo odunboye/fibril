@@ -84,7 +84,17 @@ checks =
   , ("frontend missing lambda body", fails "\\(1 x : Type 0) =>")
   , ("frontend invalid quantity", fails "\\(2 x : Type 0) => x")
   , ("frontend unsupported quantity spelling", fails "\\(01 x : Type 0) => x")
-  , ("frontend missing universe level", fails "Type")
+  , ("bare Type resolves to the same level as Type 0", resolves "Type" "Type0" && resolves "Type 0" "Type0")
+  , ("bare Type keeps level-zero typing", accepted True "Type" && not (accepted False "Type") && not (accepted True "(Type : Type)"))
+  , ("explicit universe levels retain validation", resolves "Type 1" "Type1" && fails "Type 1234567")
+  , ("bare Type span ends at the authored keyword",
+      case lexSource "Type" of
+        Right tokens => case parseExpression 40 (At 4 1 5) tokens of
+          Right expression => (extent expression).start.offset == 0 && (extent expression).finish.offset == 4
+          _ => False
+        _ => False)
+  , ("bare Type can precede an ordinary application argument",
+      case resolveSource "\\(f : Type) => Type f" of Right _ => True; _ => False)
   , ("frontend numeric level bound", fails "Type 1234567")
   , ("frontend trailing token", fails "Type 0 )")
   , ("frontend valid runtime expression",
@@ -104,7 +114,7 @@ checks =
             Left err => err.message == "Parser recursion budget exhausted"
             Right _ => False)
   , ("frontend EOF includes trailing newline",
-      case resolveSource "Type\n" of
+      case resolveSource "(\n" of
         Left (Parsing err) => err.position.line == 2 && err.position.column == 1
         _ => False)
   , ("frontend group extent",
