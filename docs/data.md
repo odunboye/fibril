@@ -85,7 +85,7 @@ that captures an ambient linear value is rejected. A curried ordinary Pi type
 does not express the additive sharing between alternatives that direct kernel
 cases support. The helper does not weaken linearity to approximate that feature.
 [Direct source cases](direct-data-cases.md) now permit this additive sharing for
-nullary/unary nonrecursive constructors with an explicit or inferred constant motive.
+nullary/unary nonrecursive constructors with an explicit or inferred motive.
 
 ### Staged case-metadata boundary
 
@@ -103,7 +103,7 @@ nor type-check branch bodies. These helpers are not wired into the expression
 driver yet. An internal `assembleDataCase` helper builds the raw direct
 `NominalCase`/`VariantCase` candidate from an explicit motive, shape and already
 positional branches. The ordinary checker must still validate the entire term;
-source elaboration now supplies zero/unary payload binders and explicit or inferred constant motives.
+source elaboration now supplies zero/unary payload binders and explicit or inferred motives.
 `assemblePairPayloadBranch` constructs a candidate PairCase around an explicit
 curried two-field branch; its dependent pair type, motive and tag are untrusted.
 The core checker still checks quantities, domains and branch type. Tests cover
@@ -112,7 +112,7 @@ omission and joined ambient linear demand. Dependent *field telescope* handling
 is not yet demonstrated by this builder's tests.
 The [direct case frontend](direct-data-cases.md) now uses this candidate builder
 and ordinary independent checking. Qualified direct-imported patterns now use
-checked visible globals too; wider dependent field telescopes and general dependent data-motive inference remain future work. The older pure metadata
+checked visible globals too; wider dependent field telescopes and general-purpose expected-type propagation remain future work. The older pure metadata
 planning helpers remain unused by the direct-case driver.
 
 ### A reusable, non-Church Sum
@@ -137,7 +137,7 @@ when both fields are present. The suite samples cases; it is not a soundness pro
 The helper's motive returns the declaration's literal universe. For a Type 1
 data declaration and a String result, the example explicitly ascribes the motive
 body as (String : Type 1). Literal universe compatibility is not propagated
-through Pi conversion. The named helper still needs an explicit motive; direct cases also support [bounded constant motive inference](data-motive-inference.md).
+through Pi conversion. The named helper still needs an explicit motive; direct cases also support [bounded motive inference](data-motive-inference.md).
 
 ## Nominal identity and lowering
 

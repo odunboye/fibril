@@ -10,7 +10,7 @@ Family = \(0 choice : Select) => case choice return (\(0 self : Select) => Type 
   Second => (Bool : Type 1)
 
 choose : (1 choice : Select) -> Family choice
-choose = \(1 choice : Select) => case choice return (\(0 self : Select) => Family self) of
+choose choice = case choice of
   First => "first"
   Second => True
 

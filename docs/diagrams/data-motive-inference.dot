@@ -3,12 +3,12 @@ digraph DataMotiveInference {
   node [shape=box];
   source [label="case value of\nauthored aligned branches"];
   types [label="Checked constructor identity\n+ erased branch-type inference"];
-  thin [label="Remove payload binder\nwhen unused in result"];
-  compare [label="Raw result <= 512 nodes\nidentical syntax; no normalization"];
-  motive [label="Propose constant erased motive"];
+  constant [label="Constant result\nraw syntax or guarded conversion"];
+  expected [label="Equation expected result\nabstract variable scrutinee"];
   checker [label="Independent core check\ntyping + usage + branch joins"];
-  fallback [label="Dependent / different / too large?\nwrite explicit return", style=dashed];
-  source -> types -> thin -> compare -> motive -> checker;
-  thin -> fallback [style=dashed];
-  compare -> fallback [style=dashed];
+  fallback [label="Inconclusive / ambiguous?\nwrite explicit return", style=dashed];
+  source -> types -> constant -> checker;
+  types -> expected -> checker;
+  constant -> fallback [style=dashed];
+  expected -> fallback [style=dashed];
 }

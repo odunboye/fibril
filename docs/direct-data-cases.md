@@ -50,7 +50,8 @@ family indexed by a finite choice and returns a different value type per branch.
 ## Source form and scope
 
 - Write `case value of` and an aligned, indented multiline branch block when
-  [constant motive inference](data-motive-inference.md) applies. Otherwise write
+  [motive inference](data-motive-inference.md) applies, including supported
+  expected-dependent results in named equations. Otherwise write
   an explicit erased motive after `return` before `of`. Constructor patterns use a visible local or
   qualified direct-import name and zero or one field binder: `Missing => ...`,
   `Text x => ...`, or `Data.Sum.Left x => ...`.
@@ -65,7 +66,7 @@ family indexed by a finite choice and returns a different value type per branch.
 - This slice supports only nullary and **single-field** constructors. Wider
   dependent-field constructors remain usable through named eliminators, but are
   not silently treated as direct one-field patterns. No nested patterns,
-  constructor wildcard/implicit coverage or general dependent motive inference is provided.
+  constructor wildcard/implicit coverage or general-purpose dependent motive inference is provided.
 - This slice runs through named-module project checking (`--source-dir` or
   `--package`); standalone declaration-file checking does not publish the
   checked globals required by these patterns. Local patterns use unqualified
@@ -102,7 +103,7 @@ retains branch alignment.
    order. A payload branch elaborates its body under a binder with that actual
    quantity and domain. Nullary branches receive no fabricated Unit payload.
 4. `assembleDataCase` builds an ordinary `NominalCase`/`VariantCase` term with
-   the explicit or inferred constant motive. The independent existing core checkers validate the
+   the explicit or inferred motive. The independent existing core checkers validate the
    entire enclosing declaration, including erased-stage restrictions, dependent
    motive, payload use and runtime branch permission joins. No helper application
    or unrestricted branch argument approximates those rules.
@@ -130,5 +131,5 @@ They are sampled implementation evidence, not preservation, normalization,
 erasure or quantitative/cubical soundness proofs.
 
 Next: multiple and dependent field patterns, single-unary disambiguation and
-more general dependent motive inference. Recursive data,
+more general dependent motive inference through more contexts. Recursive data,
 positivity and structural termination remain separate milestones.

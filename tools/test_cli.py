@@ -3750,7 +3750,7 @@ class CLITests(unittest.TestCase):
             path.write_text(different)
             rejected = project('run')
             self.assertNotEqual(rejected.returncode, 0)
-            self.assertIn('same syntactic result', rejected.stderr)
+            self.assertIn('guarded conversion was inconclusive', rejected.stderr)
             self.assertEqual(rejected.stdout, '')
             for changed in [
                 source.replace('  Left value => appendString prefix value\n', '', 1),
@@ -3770,14 +3770,16 @@ class CLITests(unittest.TestCase):
             rejected = project('run')
             self.assertNotEqual(rejected.returncode, 0)
             self.assertEqual(rejected.stdout, '')
-            # Beta-equivalent but syntactically different results deliberately
-            # require an explicit motive rather than unchecked normalization.
+            # Beta-equivalent results normalize through the guarded converter,
+            # even when no equation-expected type is available.
             convertible = ('module Main\ndata Choice : Type where\n  First : Choice\n  Second : Choice\n'
                            'select : (left : (\\(0 A : Type) => A) String) -> (right : String) -> (1 choice : Choice) -> String\n'
-                           'select left right choice = case choice of\n  First => left\n  Second => right\n'
+                           'select = \\(left : (\\(0 A : Type) => A) String) => \\(right : String) => \\(1 choice : Choice) => case choice of\n  First => left\n  Second => right\n'
                            'main : IO Unit\nmain = putStrLn (select "ok" "ok" First)\n')
             path.write_text(convertible)
-            self.assertIn('same syntactic result', project('run').stderr)
+            converted = project('run')
+            self.assertEqual(converted.returncode, 0, converted.stdout + converted.stderr)
+            self.assertEqual(converted.stdout, 'ok\n')
             path.write_text(convertible.replace('case choice of', 'case choice return (\\(0 self : Choice) => String) of'))
             explicit = project('run')
             self.assertEqual(explicit.returncode, 0, explicit.stdout + explicit.stderr)
@@ -3785,22 +3787,77 @@ class CLITests(unittest.TestCase):
             # Payload-dependent branch types cannot be turned into a constant motive.
             dependent_payload = ('module Main\ndata Packed : Type 1 where\n  Value : (0 A : Type) -> Packed\n  Empty : Packed\n'
                                  'bad : (f : (0 A : Type) -> A) -> (1 item : Packed) -> String\n'
-                                 'bad f item = case item of\n  Value A => f A\n  Empty => "nothing"\n'
+                                 'bad = \\(f : (0 A : Type) -> A) => \\(1 item : Packed) => case item of\n  Value A => f A\n  Empty => "nothing"\n'
                                  'main : IO Unit\nmain = putStrLn "never"\n')
             path.write_text(dependent_payload)
             rejected = project('run')
             self.assertNotEqual(rejected.returncode, 0)
             self.assertIn('depends on a payload', rejected.stderr)
             self.assertEqual(rejected.stdout, '')
-            # Dependent scrutinee motives continue to require the explicit spelling.
+            # The direct equation result supplies an expected dependent motive;
+            # without that seam the same case still needs an explicit return.
             dependent = (ROOT / 'examples/modules/direct-data-case-dependent/Main.fib').read_text()
-            path.write_text(dependent.replace(' return (\\(0 self : Select) => Family self)', ''))
+            path.write_text(dependent)
+            self.assertEqual(project('run').stdout, 'first\n')
+            no_expected = dependent.replace('choose choice = case choice of', 'choose = \\(1 choice : Select) => case choice of')
+            path.write_text(no_expected)
             rejected = project('run')
             self.assertNotEqual(rejected.returncode, 0)
             self.assertIn('return motive', rejected.stderr)
-            self.assertEqual(rejected.stdout, '')
-            path.write_text(dependent)
+            path.write_text(no_expected.replace('case choice of', 'case choice return (\\(0 self : Select) => Family self) of'))
             self.assertEqual(project('run').stdout, 'first\n')
+            arbitrary = dependent.replace('choose choice = case choice of', 'choose choice = case ((\\(1 x : Select) => x) choice) of')
+            path.write_text(arbitrary)
+            self.assertNotEqual(project('run').returncode, 0)
+            # Large expected results do not impose the abstraction limit on a
+            # valid constant candidate; truly dependent abstraction is bounded.
+            chain = ' -> '.join(['String'] * 131)
+            huge = f'({chain}) -> ({chain})'
+            large_constant = ('module Main\ndata Choice : Type where\n  First : Choice\n  Second : Choice\n'
+                              f'result : (1 choice : Choice) -> ((\\(0 A : Type) => Bool) ({huge}))\n'
+                              'result choice = case choice of\n  First => True\n  Second => False\n'
+                              'main : IO Unit\nmain = if result First then putStrLn "ok" else putStrLn "no"\n')
+            path.write_text(large_constant)
+            large_result = project('run')
+            self.assertEqual(large_result.returncode, 0, large_result.stdout + large_result.stderr)
+            self.assertEqual(large_result.stdout, 'ok\n')
+            large_dependent = dependent.replace('-> Family choice\nchoose choice', f'-> ((\\(0 A : Type) => Family choice) ({huge}))\nchoose choice')
+            path.write_text(large_dependent)
+            rejected = project('run')
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertIn('Expected data-case result exceeds 512 nodes', rejected.stderr)
+            path.write_text(large_dependent.replace('choose choice = case choice of', 'choose choice = case choice return (\\(0 self : Select) => Family self) of'))
+            self.assertEqual(project('run').stdout, 'first\n')
+            # A neutral family may reduce to the same result in both branches;
+            # constant inference must not preclude the expected dependent motive.
+            additional = ('\n0 Uniform : (0 choice : Select) -> Type 1\n'
+                          'Uniform = \\(0 choice : Select) => case choice return (\\(0 self : Select) => Type 1) of\n'
+                          '  First => (Bool : Type 1)\n  Second => (Bool : Type 1)\n'
+                          'uniform : (1 choice : Select) -> Uniform choice\nuniform choice = case choice of\n  First => True\n  Second => False\n'
+                          # Constant motive retains the ambient choice when the
+                          # dependent abstraction would incorrectly refine arg.
+                          'keep : (1 choice : Select) -> (arg : Family choice) -> Family choice\n'
+                          'keep choice arg = case choice of\n  First => arg\n  Second => arg\n'
+                          # Choice is older than unused, and occurs below a Pi binder.
+                          'fun : (1 choice : Select) -> (unused : String) -> (1 x : Family choice) -> Family choice\n'
+                          'fun choice unused = case choice of\n  First => \\(1 x : String) => x\n  Second => \\(1 x : Bool) => x\n')
+            guided = dependent.replace('\nmain : IO Unit', additional + '\nmain : IO Unit').replace('main = putStrLn (choose First)', 'main = putStrLn (fun First "unused" "works")')
+            path.write_text(guided)
+            guided_result = project('run')
+            self.assertEqual(guided_result.returncode, 0, guided_result.stdout + guided_result.stderr)
+            self.assertEqual(guided_result.stdout, 'works\n')
+            path.write_text(guided.replace('First => \\(1 x : String) => x', 'First => \\(1 x : Bool) => x'))
+            rejected = project('run')
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertEqual(rejected.stdout, '')
+            path.write_text(guided.replace('Second => \\(1 x : Bool) => x', 'Second => \\(1 x : Bool) => True'))
+            dropped = project('run')
+            self.assertNotEqual(dropped.returncode, 0)
+            self.assertEqual(dropped.stdout, '')
+            path.write_text(guided.replace('uniform : (1 choice : Select)', 'uniform : (0 choice : Select)'))
+            erased_use = project('run')
+            self.assertNotEqual(erased_use.returncode, 0)
+            self.assertEqual(erased_use.stdout, '')
             # Nested inferred cases preserve outer variables and shadowed binders.
             nested = ('module Main\ndata Message : Type where\n  Missing : Message\n  Text : (1 value : String) -> Message\n'
                       'combine : (1 first : Message) -> (1 second : Message) -> String\n'

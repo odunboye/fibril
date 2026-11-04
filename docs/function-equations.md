@@ -52,7 +52,7 @@ is a binder—not a constructor pattern.** `_` does not grant permission to disc
 a linear input. Nested constructor patterns, multiple clauses, guards, inferred signatures,
 recursive definitions and termination checking are not added. Keep using
 [direct data cases](direct-data-cases.md) in the body for existing nonrecursive
-data matching; constant motives can now be [inferred](data-motive-inference.md). Imported qualified function calls retain ordinary visibility rules.
+data matching; constant and supported expected-dependent motives can be [inferred](data-motive-inference.md). Imported qualified function calls retain ordinary visibility rules.
 
 Fewer named parameters than explicit Pis are allowed: the body must itself supply
 the remaining function value and still check. More names than Pis fail at the

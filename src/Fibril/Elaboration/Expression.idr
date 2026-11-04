@@ -19,6 +19,7 @@ import Fibril.Core.Limits
 import Fibril.Core.WeakHead
 import Fibril.Elaboration.DataCase
 import Fibril.Elaboration.Expression.Scope
+import Fibril.Elaboration.Expression.Conversion
 import Fibril.Elaboration.Expression.Motive
 import Fibril.Elaboration.Expression.Constructor
 import Fibril.Elaboration.Expression.Parameters
@@ -55,8 +56,8 @@ inferCase position arity context scrutinee branch = do
       Right (PairCase motive scrutinee branch)
     _ => Left (CannotElaborate position "Record motive inference requires one or two typed pattern binders")
 
-||| Infer only a syntactically constant result. We do not normalize or
-||| synthesize a dependent motive here; explicit return remains the fallback.
+||| Infer a payload-independent result, comparing by bounded guarded conversion.
+||| Dependent motives are handled separately from equation expected types.
 ||| The independent core checker still checks the resulting complete case.
 dataBranchResult : Position -> Context n -> Maybe (Quantity, Term n) -> Term n -> Either ResolveError (Term n)
 dataBranchResult position context descriptor branch = do
@@ -86,10 +87,21 @@ constantDataResult position context (descriptor :: descriptors) (branch :: branc
     agree first [] [] = Right ()
     agree first (descriptor :: descriptors) (branch :: branches) = do
       result <- dataBranchResult position context descriptor branch
-      if sameSyntax first result then agree first descriptors branches
-        else Left (CannotElaborate position "Data-case branch types do not have the same syntactic result; use an explicit return motive")
+      if guardedEqual typeReductionFuel first result then agree first descriptors branches
+        else Left (CannotElaborate position "Data-case branch results differ or guarded conversion was inconclusive; use an explicit return motive")
     agree first _ _ = Left (CannotElaborate position "Data-case branch count does not match shape")
 constantDataResult position context _ _ = Left (CannotElaborate position "Data-case branch count does not match shape")
+
+expectedDataMotive : Position -> Term n -> Term n -> Fin n -> Either ResolveError (Term n)
+expectedDataMotive position nominal result index = do
+  if typeNodes result > inferredResultNodes
+    then Left (CannotElaborate position "Expected data-case result exceeds 512 nodes; use an explicit return motive") else Right ()
+  let abstract : Fin n -> Fin (S n)
+      abstract i = if i == index then FZ else FS i
+  let body = rename abstract result
+  if typeNodes body > inferredResultNodes
+    then Left (CannotElaborate position "Abstracted data-case result exceeds 512 nodes; use an explicit return motive") else Right ()
+  Right (Lambda Erased nominal body)
 
 namedConstructor : Expr -> Bool
 namedConstructor (NRef _ _) = True
@@ -155,8 +167,61 @@ mutual
        then Left (CannotElaborate name.span.start "Duplicate data-case constructor") else Right ()
     Right ((tag, branch) :: following)
 
+  -- A result type is available here only for a direct equation body. The
+  -- variable abstraction is a renaming, so it cannot duplicate subtrees.
+  elaborateExpected : List GlobalDefinition -> Context n -> Vect n String -> Term n -> Expr -> Either ResolveError (Term n)
+  elaborateExpected globals context env expected (NDataCase span value Nothing arms) =
+    elaborateDataCase globals context env span value Nothing arms (Just expected)
+  elaborateExpected globals context env expected body = elaborateInWith globals (Just context) env body
+
+  elaborateDataCase : List GlobalDefinition -> Context n -> Vect n String -> SourceSpan -> Expr -> Maybe Expr -> List (Token, Maybe Token, Expr) -> Maybe (Term n) -> Either ResolveError (Term n)
+  elaborateDataCase globals ctx env span value motive arms expected = do
+    let context = Just ctx
+    scrutinee <- elaborateInWith globals context env value
+    inferred <- case inferErased checkingDepth typeReductionFuel ctx scrutinee of
+      Left err => Left (CannotElaborate span.start ("Cannot infer data-case scrutinee: " ++ show err))
+      Right ty => Right ty
+    nominal <- the (Either ResolveError (Term n)) $ case weakHead typeReductionFuel inferred of
+      HeadForm term@(NominalType _ _ _) => Right term
+      HeadLimit _ => Left (CannotElaborate span.start "Data-case scrutinee reduction budget exhausted")
+      _ => Left (CannotElaborate span.start "Data case requires a nonrecursive nominal data scrutinee")
+    if coreNodes nominal > 512 then Left (CannotElaborate span.start "Data-case nominal type exceeds 512 nodes") else Right ()
+    shape <- the (Either ResolveError (Term n)) $ case nominal of
+      NominalType _ _ shape => case weakHead typeReductionFuel shape of
+        HeadForm shape@(VariantType _) => Right shape
+        HeadLimit _ => Left (CannotElaborate span.start "Data-case shape reduction budget exhausted")
+        _ => Left (CannotElaborate span.start "Data-case nominal shape is not a variant")
+      _ => Left (CannotElaborate span.start "Invalid data-case nominal type")
+    case shape of
+      VariantType descriptors => do
+        if length descriptors > 64 then Left (CannotElaborate span.start "Data-case branch admission exhausted (64)") else Right ()
+        let indices = case nominal of NominalType _ args _ => args; _ => []
+        checked <- elaborateDataArms globals ctx env nominal shape indices descriptors arms
+        ordered <- orderDataArms span.start 0 descriptors checked
+        selected <- case motive of
+          Just explicit => elaborateInWith globals context env explicit
+          Nothing => case (expected, scrutinee) of
+            (Just result, Variable index) =>
+              -- Retain a previously accepted constant motive only if it also
+              -- checks against this expected type. This probe is erased-only;
+              -- the completed declaration is independently checked again. Do
+              -- not impose the abstraction size limit on the constant path.
+              case constantDataResult span.start ctx descriptors ordered of
+                Right common =>
+                  let constant = Lambda Erased nominal (weaken common)
+                      candidate = assembleDataCase nominal shape constant scrutinee ordered in
+                    case checkErased checkingDepth typeReductionFuel ctx candidate result of
+                      Right () => Right constant
+                      Left _ => expectedDataMotive span.start nominal result index
+                Left _ => expectedDataMotive span.start nominal result index
+            _ => do
+              result <- constantDataResult span.start ctx descriptors ordered
+              Right (Lambda Erased nominal (weaken result))
+        Right (assembleDataCase nominal shape selected scrutinee ordered)
+      _ => Left (CannotElaborate span.start "Invalid data-case shape")
+
   equationBody : List GlobalDefinition -> Context n -> Vect n String -> Term n -> List Token -> Expr -> Either ResolveError (Term n)
-  equationBody globals context env expected [] body = elaborateInWith globals (Just context) env body
+  equationBody globals context env expected [] body = elaborateExpected globals context env expected body
   equationBody globals context env expected (name :: rest) body = do
     -- Do not reduce an unchecked signature to expose Pi: head beta reduction
     -- can expand before any post-reduction node bound. Explicit Pi syntax is
@@ -227,34 +292,7 @@ mutual
     [| BoxCase (elaborateInWith globals context env motive) (elaborateInWith globals context env value) (elaborateInWith globals context env branch) |]
   elaborateInWith globals context env (NDataCase span value motive arms) = do
     ctx <- case context of Nothing => Left (CannotElaborate span.start "Data case requires a typed context"); Just ctx => Right ctx
-    scrutinee <- elaborateInWith globals context env value
-    inferred <- case inferErased checkingDepth typeReductionFuel ctx scrutinee of
-      Left err => Left (CannotElaborate span.start ("Cannot infer data-case scrutinee: " ++ show err))
-      Right ty => Right ty
-    nominal <- the (Either ResolveError (Term n)) $ case weakHead typeReductionFuel inferred of
-      HeadForm term@(NominalType _ _ _) => Right term
-      HeadLimit _ => Left (CannotElaborate span.start "Data-case scrutinee reduction budget exhausted")
-      _ => Left (CannotElaborate span.start "Data case requires a nonrecursive nominal data scrutinee")
-    if coreNodes nominal > 512 then Left (CannotElaborate span.start "Data-case nominal type exceeds 512 nodes") else Right ()
-    shape <- the (Either ResolveError (Term n)) $ case nominal of
-      NominalType _ _ shape => case weakHead typeReductionFuel shape of
-        HeadForm shape@(VariantType _) => Right shape
-        HeadLimit _ => Left (CannotElaborate span.start "Data-case shape reduction budget exhausted")
-        _ => Left (CannotElaborate span.start "Data-case nominal shape is not a variant")
-      _ => Left (CannotElaborate span.start "Invalid data-case nominal type")
-    case shape of
-      VariantType descriptors => do
-        if length descriptors > 64 then Left (CannotElaborate span.start "Data-case branch admission exhausted (64)") else Right ()
-        let indices = case nominal of NominalType _ args _ => args; _ => []
-        checked <- elaborateDataArms globals ctx env nominal shape indices descriptors arms
-        ordered <- orderDataArms span.start 0 descriptors checked
-        selected <- case motive of
-          Just explicit => elaborateInWith globals context env explicit
-          Nothing => do
-            result <- constantDataResult span.start ctx descriptors ordered
-            Right (Lambda Erased nominal (weaken result))
-        Right (assembleDataCase nominal shape selected scrutinee ordered)
-      _ => Left (CannotElaborate span.start "Invalid data-case shape")
+    elaborateDataCase globals ctx env span value motive arms Nothing
   elaborateInWith globals context env (NEquationLambda span names signature body) = do
     ctx <- case context of Nothing => Left (CannotElaborate span.start "Function equations require a typed context"); Just ctx => Right ctx
     expected <- elaborateInWith globals context env signature
