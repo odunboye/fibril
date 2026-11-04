@@ -38,12 +38,14 @@ data Expr
   | NConstructorCase SourceSpan Nat Expr Expr Expr (Maybe Expr)
   | NDataCase SourceSpan Expr (Maybe Expr) (List (Token, Maybe Token, Expr))
   | NConstraintPi SourceSpan Quantity String Expr Expr
+  | NImplicitPi SourceSpan Quantity String Expr Expr
   | NDictionaryApply SourceSpan SourceSpan Expr (Maybe Expr)
   | NImplementationApply SourceSpan SourceSpan Expr
   | NPi SourceSpan Quantity String Expr Expr
   | NLambda SourceSpan Quantity String Expr Expr
   | NInfix SourceSpan Expr Expr Expr
   | NApply SourceSpan Expr Expr
+  | NImplicitApply SourceSpan Expr Expr
   | NSequence SourceSpan Expr Expr
   | NDoBind SourceSpan String Expr Expr Expr
   | NDoResult SourceSpan Expr Expr
@@ -82,12 +84,14 @@ extent (NEquationLambda span _ _ _) = span
 extent (NConstructorCase span _ _ _ _ _) = span
 extent (NDataCase span _ _ _) = span
 extent (NConstraintPi span _ _ _ _) = span
+extent (NImplicitPi span _ _ _ _) = span
 extent (NDictionaryApply span _ _ _) = span
 extent (NImplementationApply span _ _) = span
 extent (NPi span _ _ _ _) = span
 extent (NLambda span _ _ _ _) = span
 extent (NInfix span _ _ _) = span
 extent (NApply span _ _) = span
+extent (NImplicitApply span _ _) = span
 extent (NSequence span _ _) = span
 extent (NDoBind span _ _ _ _) = span
 extent (NDoResult span _ _) = span
@@ -126,12 +130,14 @@ withExtent span (NEquationLambda _ names signature body) = NEquationLambda span 
 withExtent span (NConstructorCase _ arity constructor value branch motive) = NConstructorCase span arity constructor value branch motive
 withExtent span (NDataCase _ value motive arms) = NDataCase span value motive arms
 withExtent span (NConstraintPi _ q name domain body) = NConstraintPi span q name domain body
+withExtent span (NImplicitPi _ q name domain body) = NImplicitPi span q name domain body
 withExtent span (NDictionaryApply _ origin function argument) = NDictionaryApply span origin function argument
 withExtent span (NImplementationApply _ origin function) = NImplementationApply span origin function
 withExtent span (NPi _ q name domain body) = NPi span q name domain body
 withExtent span (NLambda _ q name domain body) = NLambda span q name domain body
 withExtent span (NInfix _ function left right) = NInfix span function left right
 withExtent span (NApply _ function argument) = NApply span function argument
+withExtent span (NImplicitApply _ function argument) = NImplicitApply span function argument
 withExtent span (NSequence _ first rest) = NSequence span first rest
 withExtent span (NDoBind _ name domain action body) = NDoBind span name domain action body
 withExtent span (NDoResult _ result body) = NDoResult span result body

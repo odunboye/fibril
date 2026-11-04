@@ -25,14 +25,14 @@ separator : Token -> Token -> List Char
 separator previous next =
   if previous.kind == Dot || next.kind == Dot ||
      previous.kind == OpenParen || next.kind == CloseParen ||
-     previous.kind == DictionaryOpen || next.kind == CloseBrace ||
+     previous.kind == DictionaryOpen || previous.kind == OpenBrace || next.kind == CloseBrace ||
      (previous.kind == Lambda && next.kind == OpenParen)
      then [] else [' ']
 
 quoteState : TokenKind -> (Bool, List Bool) -> (Bool, List Bool)
 quoteState kind (quoted, frames) =
   if kind == Backtick then (not quoted, frames)
-  else if kind == OpenParen || kind == DictionaryOpen then (False, quoted :: frames)
+  else if kind == OpenParen || kind == OpenBrace || kind == DictionaryOpen then (False, quoted :: frames)
   else if kind == CloseParen || kind == CloseBrace then case frames of
     [] => (False, [])
     outer :: rest => (outer, rest)
@@ -101,6 +101,8 @@ layout tokens indentation forced value@(NInfix _ function left right) =
   (if forced || wide tokens indentation value
       then keyword tokens Backtick (extent left).finish.offset (extent function).start.offset (indentation + 2)
       else [])
+layout tokens indentation forced (NImplicitApply _ function argument) =
+  layout tokens indentation forced function ++ layout tokens (indentation + 2) False argument
 layout tokens indentation forced value@(NApply _ function argument) =
   let split = forced || wide tokens indentation value
       groupedArgument = grouped tokens argument
@@ -114,6 +116,10 @@ layout tokens indentation forced value@(NLambda _ _ _ domain body) =
    in (if split then atStart childIndent body else []) ++
       layout tokens (indentation + 2) False domain ++
       layout tokens childIndent (forced && not (hasArrow tokens BodyArrow domain body)) body
+layout tokens indentation forced value@(NImplicitPi _ _ _ domain body) =
+  let split = forced || wide tokens indentation value
+   in (if split && hasArrow tokens Arrow domain body then atStart (indentation + 2) body else []) ++
+      layout tokens (indentation + 2) False domain ++ layout tokens indentation split body
 layout tokens indentation forced value@(NConstraintPi _ _ _ domain body) =
   let split = forced || wide tokens indentation value
    in (if split && hasArrow tokens BodyArrow domain body then atStart (indentation + 2) body else []) ++

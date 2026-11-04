@@ -43,6 +43,11 @@ record Weighted where
 weighted : GlobalDefinition -> Weighted
 weighted global = Weight global (3 + nodes global.declaredType + nodes global.value)
 
+referenceImplicit : List Weighted -> String -> Bool
+referenceImplicit [] name = False
+referenceImplicit (entry :: rest) name =
+  if entry.global.name == name then entry.global.implicitFirst else referenceImplicit rest name
+
 referenceCost : List Weighted -> String -> Nat
 referenceCost [] name = 1
 referenceCost (entry :: rest) name =
@@ -96,13 +101,19 @@ mutual
         (case motive of Nothing => inferredResultNodes; Just explicit => cost limit globals env explicit)
     NInferCase _ _ value branch => 8 + cost limit globals env value + 2 * cost limit globals env branch + inferredResultNodes
     NPairCase _ motive value branch => 1 + cost limit globals env motive + cost limit globals env value + cost limit globals env branch
+    NImplicitPi _ _ name a b => 1 + cost limit globals env a + cost limit globals (name :: env) b
     NConstraintPi _ _ name a b => 1 + cost limit globals env a + cost limit globals (name :: env) b
     NImplementationApply _ _ function => 1 + cost limit globals env function + providerCost globals
     NDictionaryApply _ _ function argument => 2 + cost limit globals env function + (case argument of Nothing => 1; Just value => cost limit globals env value)
     NPi _ _ name a b => 1 + cost limit globals env a + cost limit globals (name :: env) b
     NLambda _ _ name a b => 1 + cost limit globals env a + cost limit globals (name :: env) b
     NInfix _ function left right => 2 + cost limit globals env function + cost limit globals env left + cost limit globals env right
-    NApply _ a b => 1 + cost limit globals env a + cost limit globals env b
+    NApply _ a b => 1 + cost limit globals env a + cost limit globals env b +
+      (case a of
+        NRef _ name => if not (elem name env) && referenceImplicit globals name then 1025 else 0
+        NQualifiedRef _ name => if referenceImplicit globals name then 1025 else 0
+        _ => 0)
+    NImplicitApply _ a b => 1 + cost limit globals env a + cost limit globals env b
     NAscribe _ a b => 3 + cost limit globals env a + cost limit globals env b
     NLet _ _ name a value body => (if wantsExpected body then 514 else 2) + cost limit globals env a + cost limit globals env value +
                                  cost limit globals (name :: env) body
@@ -201,7 +212,14 @@ compileDeclarations snapshot name globals (decl :: rest) remaining = do
   if estimate > remaining then Left (problem snapshot (Just decl.nameSpan.start)
                                      "Expanded core construction budget exhausted (200000)")
      else Right ()
-  ty <- resolve snapshot globals decl.expected
+  ty <- case elaborateSignature (map global globals) (Just Empty) [] decl.expected of
+    Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
+    Right ty => Right ty
+  let implicitFirst = case decl.expected of NImplicitPi _ _ _ _ _ => True; _ => False
+  if implicitFirst then case ty of
+    Pi Erased _ (Pi _ _ _) => Right ()
+    _ => Left (problem snapshot (Just decl.nameSpan.start) "Implicit metadata does not match an erased leading Pi followed by an explicit Pi")
+    else Right ()
   value <- case elaborateExpected (map global globals) Empty [] ty decl.value of
     Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
     Right value => Right value
@@ -220,7 +238,7 @@ compileDeclarations snapshot name globals (decl :: rest) remaining = do
     Left message => Left ({ stage := "runtime-checking" } (problem snapshot (Just decl.nameSpan.start) message))
     else Right False
   let identity = moduleText name ++ "." ++ decl.name
-  let definition = GlobalEntry (if provider then Just identity else Nothing) decl.quantity decl.name ty value
+  let definition = GlobalEntry (if provider then Just identity else Nothing) implicitFirst decl.quantity decl.name ty value
   let local = weighted definition
   let qualified = Weight ({ name := identity } definition) local.size
   following <- compileDeclarations snapshot name (local :: qualified :: globals) rest (minus remaining estimate)

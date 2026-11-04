@@ -148,6 +148,10 @@
         "path": "docs/python-interop.md"
       },
       {
+        "title": "Implicit arguments",
+        "path": "docs/implicit-arguments.md"
+      },
+      {
         "title": "Named function equations",
         "path": "docs/function-equations.md"
       },

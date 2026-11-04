@@ -126,6 +126,17 @@ wantsExpected (NIf _ _ _ _) = True
 wantsExpected (NUnitCase _ _ _) = True
 wantsExpected _ = False
 
+implicitHead : List GlobalDefinition -> Vect n String -> Expr -> Maybe GlobalDefinition
+implicitHead globals env (NRef _ name) = case lookupName name env of
+  Just _ => Nothing
+  Nothing => case find (\entry => entry.name == name) globals of
+    Just entry => if entry.implicitFirst then Just entry else Nothing
+    Nothing => Nothing
+implicitHead globals env (NQualifiedRef _ name) = case find (\entry => entry.name == name) globals of
+  Just entry => if entry.implicitFirst then Just entry else Nothing
+  Nothing => Nothing
+implicitHead globals env _ = Nothing
+
 namedConstructor : Expr -> Bool
 namedConstructor (NRef _ _) = True
 namedConstructor (NQualifiedRef _ _) = True
@@ -133,6 +144,18 @@ namedConstructor (NApply _ function _) = namedConstructor function
 namedConstructor _ = False
 
 mutual
+  ||| Visibility is accepted only on a checked module declaration's leading
+  ||| erased binder, followed by a source-authored ordinary Pi.
+  public export
+  elaborateSignature : List GlobalDefinition -> Maybe (Context n) -> Vect n String -> Expr -> Either ResolveError (Term n)
+  elaborateSignature globals context env (NImplicitPi span Erased name domain body@(NPi _ _ _ _ _)) = do
+    domain <- elaborateInWith globals context env domain
+    result <- elaborateInWith globals (map (\ctx => Extend ctx Erased domain) context) (name :: env) body
+    Right (Pi Erased domain result)
+  elaborateSignature globals context env (NImplicitPi span _ _ _ _) =
+    Left (CannotElaborate span.start "One leading erased implicit binder must be followed by an explicit Pi")
+  elaborateSignature globals context env signature = elaborateInWith globals context env signature
+
   elaborateTerms : List GlobalDefinition -> Maybe (Context n) -> Vect n String -> List Expr -> Either ResolveError (List (Term n))
   elaborateTerms globals context env [] = Right []
   elaborateTerms globals context env (x :: xs) = [| elaborateInWith globals context env x :: elaborateTerms globals context env xs |]
@@ -384,7 +407,7 @@ mutual
     elaborateDataCase globals ctx env span value motive arms Nothing
   elaborateInWith globals context env (NEquationLambda span names signature body) = do
     ctx <- case context of Nothing => Left (CannotElaborate span.start "Function equations require a typed context"); Just ctx => Right ctx
-    expected <- elaborateInWith globals context env signature
+    expected <- elaborateSignature globals context env signature
     equationBody globals ctx env expected names body
   elaborateInWith globals context env (NPatternLambda span _ _) =
     Left (CannotElaborate span.start "Inferred field binders require a constructor-named pattern")
@@ -412,6 +435,8 @@ mutual
     inferCase span.start arity typedContext value branch
   elaborateInWith globals context env (NPairCase span motive value branch) =
     [| PairCase (elaborateInWith globals context env motive) (elaborateInWith globals context env value) (elaborateInWith globals context env branch) |]
+  elaborateInWith globals context env (NImplicitPi span _ _ _ _) =
+    Left (CannotElaborate span.start "Implicit binders are supported only as the leading binder of a module declaration signature")
   elaborateInWith globals context env (NConstraintPi span q name domain body) = do
     domain <- elaborateInWith globals context env domain
     constraintType span.start q domain
@@ -444,9 +469,26 @@ mutual
     operator <- elaborateInWith globals context env function
     first <- elaborateApplication globals context env operator left
     elaborateApplication globals context env first right
-  elaborateInWith globals context env (NApply span function argument) = do
-    function <- elaborateInWith globals context env function
-    elaborateApplication globals context env function argument
+  elaborateInWith globals context env (NApply span sourceFunction argument) = do
+    function <- elaborateInWith globals context env sourceFunction
+    case implicitHead globals env sourceFunction of
+      Nothing => elaborateApplication globals context env function argument
+      Just entry => do
+        ctx <- case context of
+          Nothing => Left (CannotElaborate span.start "Implicit insertion requires a typed context; use an explicit {argument}")
+          Just ctx => Right ctx
+        if typeNodes entry.declaredType > inferredParameterNodes
+          then Left (CannotElaborate span.start "Implicit function type exceeds 512 nodes; use an explicit {argument}") else Right ()
+        value <- elaborateInWith globals context env argument
+        inferredArg <- inferLeadingArgument span.start ctx (rename absurd entry.declaredType) value
+        Right (Apply (Apply function inferredArg) value)
+  elaborateInWith globals context env (NImplicitApply span sourceFunction argument) = do
+    _ <- case implicitHead globals env sourceFunction of
+      Nothing => Left (CannotElaborate span.start "Explicit {argument} requires a direct global with a leading implicit binder")
+      Just entry => Right entry
+    function <- elaborateInWith globals context env sourceFunction
+    argument <- elaborateInWith globals context env argument
+    Right (Apply function argument)
 
   elaborateInWith globals context env (NSequence span first rest) = do
     action <- elaborateInWith globals context env first

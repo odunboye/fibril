@@ -1,0 +1,9 @@
+module Utility.Identity
+
+export
+keep : {0 A : Type} -> (1 value : A) -> A
+keep T item = item
+
+export
+label : {0 A : Type} -> (1 text : String) -> String
+label T text = text

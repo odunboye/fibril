@@ -24,6 +24,7 @@ mutual
   renderExpr (NBoolValue _ value) = if value then "True" else "False"
   renderExpr (NIf _ condition yes no) = node "if" [renderExpr condition, renderExpr yes, renderExpr no]
   renderExpr (NUnitCase _ value body) = node "unit-case" [renderExpr value, renderExpr body]
+  renderExpr (NImplicitPi _ q name domain body) = node "implicit-pi" [show q, name, renderExpr domain, renderExpr body]
   renderExpr (NConstraintPi _ q name domain body) = node "constraint-pi" [show q, name, renderExpr domain, renderExpr body]
   renderExpr (NImplementationApply _ _ function) = node "implementation-apply" [renderExpr function]
   renderExpr (NDictionaryApply _ _ function argument) = node "dictionary-apply" [renderExpr function, (case argument of Nothing => "local-unique"; Just value => renderExpr value)]
@@ -49,6 +50,7 @@ mutual
   renderExpr (NPairCase _ motive value branch) = node "pair-case" [renderExpr motive, renderExpr value, renderExpr branch]
   renderExpr (NInfix _ function left right) = node "infix-apply" [renderExpr function, renderExpr left, renderExpr right]
   renderExpr (NApply _ function argument) = node "apply" [renderExpr function, renderExpr argument]
+  renderExpr (NImplicitApply _ function argument) = node "implicit-apply" [renderExpr function, renderExpr argument]
   renderExpr (NSequence _ first rest) = node "sequence" [renderExpr first, renderExpr rest]
   renderExpr (NDoBind _ name ty action body) = node "do-bind" [name, renderExpr ty, renderExpr action, renderExpr body]
   renderExpr (NDoResult _ result body) = node "do-result" [renderExpr result, renderExpr body]

@@ -102,6 +102,7 @@ mutual
   mentions name (NVariantValue _ ty _ payload) = mentions name ty || (case payload of Nothing => False; Just value => mentions name value)
   mentions name (NVariantCase _ a b branches) = mentions name a || mentions name b || mentionsList name branches
   mentions name (NRef _ reference) = name == reference
+  mentions name (NImplicitPi _ _ binder domain body) = mentions name domain || (binder /= name && mentions name body)
   mentions name (NConstraintPi _ _ binder domain body) = mentions name domain || (binder /= name && mentions name body)
   mentions name (NPi _ _ binder domain body) = mentions name domain || (binder /= name && mentions name body)
   mentions name (NLambda _ _ binder domain body) = mentions name domain || (binder /= name && mentions name body)
@@ -113,6 +114,7 @@ mutual
   mentions name (NDictionaryApply _ _ function argument) = mentions name function || (case argument of Nothing => False; Just value => mentions name value)
   mentions name (NInfix _ f a b) = mentions name f || mentions name a || mentions name b
   mentions name (NApply _ a b) = mentions name a || mentions name b
+  mentions name (NImplicitApply _ a b) = mentions name a || mentions name b
   mentions name (NAscribe _ a b) = mentions name a || mentions name b
   mentions name (NUnitCase _ a b) = mentions name a || mentions name b
   mentions name (NSequence _ a b) = mentions name a || mentions name b
@@ -278,6 +280,7 @@ mutual
   syntaxNodes (NBoxType _ _ ty) = capped (1 + syntaxNodes ty)
   syntaxNodes (NBoxValue _ a b) = capped (1 + syntaxNodes a + syntaxNodes b)
   syntaxNodes (NBoxCase _ a b c) = capped (1 + syntaxNodes a + syntaxNodes b + syntaxNodes c)
+  syntaxNodes (NImplicitPi _ _ _ a b) = capped (1 + syntaxNodes a + syntaxNodes b)
   syntaxNodes (NConstraintPi _ _ _ a b) = capped (1 + syntaxNodes a + syntaxNodes b)
   syntaxNodes (NImplementationApply _ _ function) = capped (1 + syntaxNodes function)
   syntaxNodes (NDictionaryApply _ _ function argument) = capped (1 + syntaxNodes function + (case argument of Nothing => 0; Just value => syntaxNodes value))
@@ -286,6 +289,7 @@ mutual
   syntaxNodes (NSigma _ _ _ _ a b) = capped (1 + syntaxNodes a + syntaxNodes b)
   syntaxNodes (NInfix _ f a b) = capped (1 + syntaxNodes f + syntaxNodes a + syntaxNodes b)
   syntaxNodes (NApply _ a b) = capped (1 + syntaxNodes a + syntaxNodes b)
+  syntaxNodes (NImplicitApply _ a b) = capped (1 + syntaxNodes a + syntaxNodes b)
   syntaxNodes (NAscribe _ a b) = capped (1 + syntaxNodes a + syntaxNodes b)
   syntaxNodes (NUnitCase _ a b) = capped (1 + syntaxNodes a + syntaxNodes b)
   syntaxNodes (NSequence _ a b) = capped (1 + syntaxNodes a + syntaxNodes b)

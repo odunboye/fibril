@@ -11,6 +11,8 @@ The generated homepage separates teaching chapters, references, and project reco
 
 ## Reference index
 
+- [Implicit arguments](implicit-arguments.md): one leading erased implicit on direct checked global calls.
+
 - [Experimental checked C emission](native-c.md): compile a supported console subset without precomputing output.
 
 - [Direct non-recursive data cases](direct-data-cases.md): exhaustive local or qualified zero/unary matches with linear branch joins.

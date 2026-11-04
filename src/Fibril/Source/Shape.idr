@@ -28,6 +28,7 @@ mutual
   sameExpr (NBoolValue _ a) (NBoolValue _ b) = a == b
   sameExpr (NIf _ a b c) (NIf _ x y z) = sameExpr a x && sameExpr b y && sameExpr c z
   sameExpr (NUnitCase _ a b) (NUnitCase _ x y) = sameExpr a x && sameExpr b y
+  sameExpr (NImplicitPi _ q name a b) (NImplicitPi _ r other x y) = q == r && name == other && sameExpr a x && sameExpr b y
   sameExpr (NConstraintPi _ q name a b) (NConstraintPi _ r other x y) = q == r && name == other && sameExpr a x && sameExpr b y
   sameExpr (NPi _ q name a b) (NPi _ r other x y) = q == r && name == other && sameExpr a x && sameExpr b y
   sameExpr (NLambda _ q name a b) (NLambda _ r other x y) = q == r && name == other && sameExpr a x && sameExpr b y
@@ -54,6 +55,7 @@ mutual
   sameExpr (NDictionaryApply _ _ f (Just a)) (NDictionaryApply _ _ g (Just b)) = sameExpr f g && sameExpr a b
   sameExpr (NInfix _ f a b) (NInfix _ g x y) = sameExpr f g && sameExpr a x && sameExpr b y
   sameExpr (NApply _ a b) (NApply _ x y) = sameExpr a x && sameExpr b y
+  sameExpr (NImplicitApply _ a b) (NImplicitApply _ x y) = sameExpr a x && sameExpr b y
   sameExpr (NSequence _ a b) (NSequence _ x y) = sameExpr a x && sameExpr b y
   sameExpr (NDoBind _ name a b c) (NDoBind _ other x y z) = name == other && sameExpr a x && sameExpr b y && sameExpr c z
   sameExpr (NDoResult _ a b) (NDoResult _ x y) = sameExpr a x && sameExpr b y

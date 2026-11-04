@@ -1,0 +1,11 @@
+module Main
+import Utility.Identity
+
+message : String
+message = Utility.Identity.keep "receipt"
+
+main : IO Unit
+main = do
+  putStrLn (appendString "queued: " message)
+  putStrLn (Utility.Identity.keep {String} "explicit type")
+  putStrLn (Utility.Identity.label {Bool} "phantom type")

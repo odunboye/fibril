@@ -20,7 +20,7 @@ runs a polymorphic unboxer whose outer A is recovered from Box A and prints
 Inferred parameters!. Tests also infer two different type parameters for one
 binary constructor.
 
-This is selective pattern elaboration, not general implicit arguments,
+This is selective pattern elaboration, distinct from the [bounded direct-global implicit argument slice](implicit-arguments.md); neither is general implicit argument inference,
 instance search, higher-order unification, expected-type-driven refinement,
 or nominal constructor identity. Ordinary constructor applications still take
 their explicit arguments, for example MkBox String "value".

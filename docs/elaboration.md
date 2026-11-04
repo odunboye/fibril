@@ -8,7 +8,7 @@ Use `check` to ask whether a program is accepted. Elaboration output is explicit
 
 **Implemented:** parsing and record elaboration are separate compiler stages.
 This is an explicit, bounded declaration elaborator, not yet a full Idris-style
-implicit/unification elaborator. Record field counts are resource-admitted, not
+general implicit/unification elaborator. A bounded direct-global implicit argument slice is described in [implicit arguments](implicit-arguments.md). Record field counts are resource-admitted, not
 fixed at eight; [singletons](unary-records.md) use a checked unary core wrapper.
 
 ![Stages and trust boundaries](diagrams/elaboration.svg)

@@ -34,6 +34,8 @@ FIXTURE = [
     "module Text.Greeting",
     "import Data.String",
     "export",
+    "keep : {0 A : Type} -> (1 value : A) -> A",
+    'main = keep {String} "hello"',
 ]
 
 
@@ -97,6 +99,9 @@ QUERIES = [
     (point(20, "module"), "fibrilKeyword"),
     (point(20, "."), "fibrilOperator"),
     (point(21, "import"), "fibrilKeyword"),
+    (point(23, "{"), "fibrilDelimiter"),
+    (point(23, "0 A"), "fibrilQuantity"),
+    (point(24, "{"), "fibrilDelimiter"),
     (point(22, "export"), "fibrilKeyword"),
 ]
 

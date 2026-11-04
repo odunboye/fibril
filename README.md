@@ -23,6 +23,8 @@ including [LazyVim installation](docs/editor-highlighting.md#install-in-lazyvim)
 is available for .fib files. Navigation uses a saved-buffer CLI command; cross-file
 navigation and an LSP server remain future work.
 
+[Implicit arguments](docs/implicit-arguments.md) can infer one explicitly declared leading erased parameter at direct global calls.
+
 [Named function equations](docs/function-equations.md) allow `greet name = ...`
 after an explicit signature; generated lambdas retain its quantities.
 

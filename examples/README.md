@@ -14,6 +14,9 @@ a typed do-let without an explicit return motive.
 The [motive-contexts example](modules/motive-contexts/Main.fib) exercises nested
 and arbitrary-scrutinee motive inference.
 
+The [implicit-arguments example](modules/implicit-arguments/Main.fib) exercises
+inferred and explicitly supplied erased parameters through a checked import.
+
 The [function-equations example](modules/function-equations/Main.fib) combines
 signature-derived named parameters with direct data cases.
 

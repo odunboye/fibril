@@ -14,6 +14,7 @@ import Fibril.Core.Limits
 import Fibril.Source.Text
 import Fibril.Source.Resolve.Error
 import Fibril.Elaboration.Expression.Scope
+import Fibril.Elaboration.Expression.Conversion
 
 %default total
 
@@ -45,10 +46,9 @@ liftPrune prune (FS i) = prune i
 bindMeta : Position -> Nat -> Term base -> Solutions base -> Either ResolveError (Solutions base)
 bindMeta position meta value solutions = case lookup meta solutions of
   Nothing => Right ((meta, value) :: solutions)
-  Just previous => case betaCompare typeReductionFuel previous value of
-    EqualNormalForms => Right solutions
-    DifferentNormalForms => failure position
-    Inconclusive => Left (CannotElaborate position "Constructor parameter consistency comparison exhausted its reduction budget")
+  Just previous => if guardedEqual typeReductionFuel previous value
+    then Right solutions
+    else Left (CannotElaborate position "Parameter consistency comparison failed or was inconclusive; supply parameters explicitly")
 
 mutual
   match : Position -> ScopeMap m a -> (Fin a -> Maybe (Fin base)) ->
@@ -73,6 +73,12 @@ mutual
     if x == y then Right solutions else failure position
   match position mapping prune (BoxType q x) (BoxType r y) solutions =
     if q == r then match position mapping prune x y solutions else failure position
+  match position mapping prune (NominalType key xs shape) (NominalType other ys actualShape) solutions =
+    if key == other then do
+      solutions <- matchTerms position mapping prune xs ys solutions
+      match position mapping prune shape actualShape solutions
+    else failure position
+  match position mapping prune (VariantType xs) (VariantType ys) solutions = matchArms position mapping prune xs ys solutions
   match position mapping prune (IOType x) (IOType y) solutions = match position mapping prune x y solutions
   match position mapping prune (IOPure x) (IOPure y) solutions = match position mapping prune x y solutions
   match position mapping prune (WriteLine x) (WriteLine y) solutions = match position mapping prune x y solutions
@@ -95,6 +101,23 @@ mutual
   match position mapping prune (Sigma q r x y) (Sigma s t u v) solutions =
     if q == s && r == t then binder position mapping prune x y u v solutions else failure position
   match position mapping prune _ _ solutions = failure position
+
+  matchTerms : Position -> ScopeMap m a -> (Fin a -> Maybe (Fin base)) -> List (Term m) -> List (Term a) -> Solutions base -> Either ResolveError (Solutions base)
+  matchTerms position mapping prune [] [] solutions = Right solutions
+  matchTerms position mapping prune (x :: xs) (y :: ys) solutions = do
+    solutions <- match position mapping prune x y solutions
+    matchTerms position mapping prune xs ys solutions
+  matchTerms position mapping prune _ _ solutions = failure position
+
+  matchArms : Position -> ScopeMap m a -> (Fin a -> Maybe (Fin base)) -> List (Maybe (Quantity, Term m)) -> List (Maybe (Quantity, Term a)) -> Solutions base -> Either ResolveError (Solutions base)
+  matchArms position mapping prune [] [] solutions = Right solutions
+  matchArms position mapping prune (Nothing :: xs) (Nothing :: ys) solutions = matchArms position mapping prune xs ys solutions
+  matchArms position mapping prune (Just (q, x) :: xs) (Just (r, y) :: ys) solutions =
+    if q == r then do
+      solutions <- match position mapping prune x y solutions
+      matchArms position mapping prune xs ys solutions
+    else failure position
+  matchArms position mapping prune _ _ solutions = failure position
 
   pair : Position -> ScopeMap m a -> (Fin a -> Maybe (Fin base)) ->
          Term m -> Term m -> Term a -> Term a -> Solutions base -> Either ResolveError (Solutions base)
@@ -174,6 +197,36 @@ arguments position (S count) index solutions = do
   value <- case lookup index solutions of Nothing => failure position; Just value => Right value
   rest <- arguments position count (S index) solutions
   Right (value :: rest)
+
+||| Infer one checked erased leading argument from the next explicit argument's
+||| synthesized type. This produces an ordinary term, not a core metavariable.
+public export
+inferLeadingArgument : Position -> Context n -> Term n -> Term n -> Either ResolveError (Term n)
+inferLeadingArgument position context ty argument = do
+  if typeNodes ty > inferredParameterNodes
+    then Left (CannotElaborate position "Implicit function type exceeds 512 nodes; use an explicit {argument}") else Right ()
+  actual <- case inferErased checkingDepth typeReductionFuel context argument of
+    Left err => Left (CannotElaborate position ("Cannot infer explicit argument type: " ++ show err ++ "; use an explicit {argument}"))
+    Right actual => Right actual
+  if typeNodes actual > inferredParameterNodes
+    then Left (CannotElaborate position "Implicit argument type exceeds 512 nodes; use an explicit {argument}") else Right ()
+  case ty of
+    Pi Erased domain (Pi _ template _) => do
+      let mapping : ScopeMap (S n) n
+          mapping FZ = Just (Left 0)
+          mapping (FS i) = Just (Right i)
+      solutions <- case match position mapping Just template actual [] of
+        Left _ => Left (CannotElaborate position "Cannot infer implicit argument from this argument type; use an explicit {argument}")
+        Right solutions => Right solutions
+      solution <- case lookup (the Nat 0) solutions of
+        Nothing => Left (CannotElaborate position "Implicit argument is ambiguous; use an explicit {argument}")
+        Just solution => Right solution
+      if typeNodes solution > inferredParameterNodes
+        then Left (CannotElaborate position "Implicit solution exceeds 512 nodes; use an explicit {argument}") else Right ()
+      case checkErased checkingDepth typeReductionFuel context solution domain of
+        Left err => Left (CannotElaborate position ("Inferred implicit argument fails its domain: " ++ show err))
+        Right () => Right solution
+    _ => Left (CannotElaborate position "Implicit function needs an erased Pi followed by an explicit Pi")
 
 ||| Infer only a leading erased prefix, from structural type constraints.
 ||| Phantom, conflicting, local-dependent and higher-order inversions fail closed.

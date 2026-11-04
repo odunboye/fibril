@@ -1,0 +1,13 @@
+digraph ImplicitArguments {
+  rankdir=LR;
+  node [shape=box];
+  source [label="Authored {0 A : Type}\n+ direct global call"];
+  metadata [label="Checked global visibility\nnot a certificate"];
+  solve [label="Bounded structural match\nfirst argument type -> A"];
+  explicit [label="Explicit {argument}\nfor unsolved cases", style=dashed];
+  core [label="Ordinary Pi + Apply\nno core metavariable"];
+  check [label="Independent core + runtime check"];
+  source -> metadata -> solve -> core -> check;
+  solve -> explicit [style=dashed];
+  explicit -> core [style=dashed];
+}

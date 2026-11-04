@@ -3621,6 +3621,150 @@ class CLITests(unittest.TestCase):
             self.assertIsNone(diagnostic["position"])
             self.assertEqual(result.stderr, "")
 
+    def test_explicitly_declared_implicit_arguments(self):
+        import shutil
+        fixture = ROOT / 'examples/modules/implicit-arguments'
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(fixture, root, dirs_exist_ok=True)
+            path = root / 'Main.fib'
+            library = root / 'Utility/Identity.fib'
+            original = path.read_text()
+            def project(command):
+                return run(command, '--source-dir', directory, str(path))
+            result = project('run')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'queued: receipt\nexplicit type\nphantom type\n')
+            # Visibility metadata also crosses an explicit package edge.
+            dependency = root / 'dependency'
+            client = root / 'client'
+            (dependency / 'src/Utility').mkdir(parents=True)
+            (dependency / 'src/Utility/Identity.fib').write_text(library.read_text())
+            (dependency / 'fibril.yaml').write_text('schema: 1\nname: implicit-lib\nmodule-prefix: Utility.Identity\nsource-dir: src\nfoundation: de-morgan\nmodules: [Utility.Identity]\ndependencies: {}\n')
+            (client / 'src').mkdir(parents=True)
+            (client / 'src/Main.fib').write_text(original)
+            (client / 'fibril.yaml').write_text('schema: 1\nname: implicit-client\nmodule-prefix: Demo\nsource-dir: src\nfoundation: de-morgan\nentry: Main\ndependencies:\n  implicit-lib:\n    path: ../dependency\n')
+            package_result = run('run', '--package', str(client / 'fibril.yaml'))
+            self.assertEqual(package_result.returncode, 0, package_result.stdout + package_result.stderr)
+            self.assertEqual(package_result.stdout, result.stdout)
+            library_source = library.read_text()
+            library.write_text(library_source.replace('export\nkeep', 'keep', 1))
+            private = project('run')
+            self.assertNotEqual(private.returncode, 0)
+            self.assertEqual(private.stdout, '')
+            library.write_text(library_source)
+            definition = json.loads(run('definition', '4', '35', str(library)).stdout)['definition']
+            self.assertEqual((definition['start']['line'], definition['start']['column']), (4, 11))
+            # Rename remains same-file only; a module header cannot be renamed
+            # until project-aware rename exists. Test authored binder sites on
+            # an equivalent unsaved-style standalone source snapshot.
+            rename_file = root / 'rename.fib'
+            rename_file.write_text('identity : {0 A : Type} -> (1 value : A) -> A\nidentity T item = item\nmain : IO Unit\nmain = putStrLn "ok"\n')
+            rename = run('rename-preview', '1', '15', 'Element', str(rename_file))
+            self.assertEqual(rename.returncode, 0, rename.stderr)
+            self.assertEqual(len(json.loads(rename.stdout)['edits']), 3)
+            for file in [path, library]:
+                formatted = run('format', str(file))
+                self.assertEqual(formatted.returncode, 0, formatted.stderr)
+                file.write_text(formatted.stdout)
+                self.assertEqual(run('format', '--check', str(file)).returncode, 0)
+            self.assertEqual(project('run').stdout, result.stdout)
+            invalid = [
+                original.replace('Utility.Identity.label {Bool}', 'Utility.Identity.label'),
+                original.replace('Utility.Identity.keep {String}', 'Utility.Identity.keep {Bool}'),
+                original.replace('Utility.Identity.keep {String}', 'Utility.Identity.keep String'),
+                original.replace('Utility.Identity.keep {String}', 'Utility.Identity.keep {}'),
+                original.replace('Utility.Identity.keep {String}', 'Utility.Identity.keep {String'),
+            ]
+            for program in invalid:
+                with self.subTest(program=program[-100:]):
+                    path.write_text(program)
+                    rejected = project('run')
+                    self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
+                    self.assertEqual(rejected.stdout, '')
+            path.write_text(original.replace('Utility.Identity.label {Bool}', 'Utility.Identity.label'))
+            self.assertIn('ambiguous', project('run').stderr)
+            # Local shadowing and ordinary erased positional parameters are unchanged.
+            shadow = ('module Main\nkeep : {0 A : Type} -> (1 value : A) -> A\nkeep T item = item\n'
+                      'local : (1 keep : (1 text : String) -> String) -> String\nlocal keep = keep "shadow"\n'
+                      'old : (0 A : Type) -> (1 value : A) -> A\nold T value = value\n'
+                      'main : IO Unit\nmain = putStrLn (old String (local (\\(1 text : String) => text)))\n')
+            path.write_text(shadow)
+            shadowed = project('run')
+            self.assertEqual(shadowed.returncode, 0, shadowed.stdout + shadowed.stderr)
+            self.assertEqual(shadowed.stdout, 'shadow\n')
+            path.write_text(shadow.replace('old String (local', 'old {String} (local'))
+            self.assertNotEqual(project('run').returncode, 0)
+            # Implicit solutions can refer to an outer erased type variable.
+            generic = ('module Main\nidentity : {0 A : Type} -> (1 value : A) -> A\nidentity T value = value\n'
+                       'outer : (0 A : Type) -> (1 value : A) -> A\nouter T value = identity value\n'
+                       'main : IO Unit\nmain = putStrLn (outer String "scoped")\n')
+            path.write_text(generic)
+            self.assertEqual(project('run').stdout, 'scoped\n')
+            nominal = ('module Main\ndata Option (0 A : Type) : Type where\n  None : Option A\n  Some : (1 value : A) -> Option A\n'
+                       'same : {0 A : Type} -> (1 value : Option A) -> Option A\nsame T value = value\n'
+                       'show : (1 value : Option String) -> String\nshow value = case value of\n  None => "none"\n  Some text => text\n'
+                       'main : IO Unit\nmain = putStrLn (show (same (Some String "nominal")))\n')
+            path.write_text(nominal)
+            nominal_result = project('run')
+            self.assertEqual(nominal_result.returncode, 0, nominal_result.stdout + nominal_result.stderr)
+            self.assertEqual(nominal_result.stdout, 'nominal\n')
+            for signature in ['{A : Type} -> (1 x : A) -> A',
+                              '{1 A : Type} -> (1 x : A) -> A',
+                              '{0 A : Type} -> {0 B : Type} -> (1 x : A) -> A',
+                              '(1 x : String) -> {0 A : Type} -> String']:
+                path.write_text('module Main\nbad : ' + signature + '\nbad = "no"\nmain : IO Unit\nmain = putStrLn "never"\n')
+                rejected = project('run')
+                self.assertNotEqual(rejected.returncode, 0)
+                self.assertEqual(rejected.stdout, '')
+            # Conflicting and escaping solutions are never silently guessed.
+            cases = [
+                ('same : {0 A : Type} -> (1 f : (1 x : A) -> A) -> (1 x : A) -> A\nsame T f = f\n',
+                 'same (\\(1 x : String) => True) "x"'),
+                ('wrap : {0 A : Type} -> (1 f : (0 T : Type) -> (1 x : A) -> A) -> (0 T : Type) -> (1 x : A) -> A\nwrap A f = f\n',
+                 'wrap (\\(0 T : Type) => \\(1 x : T) => x) String "x"'),
+            ]
+            for declaration, call in cases:
+                path.write_text('module Main\n' + declaration + 'main : IO Unit\nmain = putStrLn (' + call + ')\n')
+                rejected = project('run')
+                self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
+                self.assertEqual(rejected.stdout, '')
+                self.assertIn('explicit {argument}', rejected.stderr)
+            # Existing quantitative checks remain authoritative after insertion.
+            bad_usage = [
+                'leak : {0 A : Type} -> (0 value : A) -> A\nleak T value = value\n',
+                'duplicate : {0 A : Type} -> (1 text : String) -> String\nduplicate T text = appendString text text\n',
+                '0 secret : String\nsecret = "hidden"\nidentity : {0 A : Type} -> (1 value : A) -> A\nidentity T value = value\nmain : IO Unit\nmain = putStrLn (identity secret)\n',
+            ]
+            for program in bad_usage:
+                if 'main : IO Unit' not in program:
+                    program += 'main : IO Unit\nmain = putStrLn "never"\n'
+                path.write_text('module Main\n' + program)
+                rejected = project('run')
+                self.assertNotEqual(rejected.returncode, 0)
+                self.assertEqual(rejected.stdout, '')
+            # Function types over the inference admission still have the
+            # explicit-brace fallback; no result is guessed after exhaustion.
+            chain = ' -> '.join(['String'] * 131)
+            huge = f'({chain}) -> ({chain})'
+            oversized = ('module Main\n' +
+                         f'id : {{0 A : Type}} -> (1 x : ({huge})) -> ({huge})\n' +
+                         f'id = \\(0 T : Type) => \\(1 x : ({huge})) => x\n' +
+                         f'use : (1 x : ({huge})) -> ({huge})\n' +
+                         f'use = \\(1 x : ({huge})) => id {{Bool}} x\n' +
+                         'main : IO Unit\nmain = putStrLn "ok"\n')
+            path.write_text(oversized)
+            self.assertEqual(project('run').stdout, 'ok\n')
+            path.write_text(oversized.replace('id {Bool} x', 'id x'))
+            rejected = project('run')
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertIn('Implicit function type exceeds 512 nodes', rejected.stderr)
+            self.assertEqual(rejected.stdout, '')
+            # A new signature cannot silently become implicit in standalone files.
+            plain = root / 'plain.fib'
+            plain.write_text('identity : {0 A : Type} -> (1 value : A) -> A\nidentity T x = x\nmain : IO Unit\nmain = putStrLn (identity "x")\n')
+            self.assertNotEqual(run('run', str(plain)).returncode, 0)
+
     def test_named_function_equations_preserve_types_quantities_and_binders(self):
         example = ROOT / 'examples/modules/function-equations/Main.fib'
         original = example.read_text()

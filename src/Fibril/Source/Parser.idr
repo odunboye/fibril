@@ -249,6 +249,17 @@ mutual
           (body, remaining) <- expression depth end afterArrow
           Right (NLambda (Between token.span.start (extent body).finish)
                          header.quantity header.name header.domain body, remaining)
+        else if token.kind == OpenBrace then do
+          (quantity, afterQuantity) <- binderQuantity rest
+          if quantity /= Erased
+            then Left (ParseFailure token.span.start "Implicit binders require explicit quantity 0") else Right ()
+          (bound, afterName) <- expect Name end afterQuantity
+          (_, afterColon) <- expect Colon end afterName
+          (domain, afterDomain) <- expression depth end afterColon
+          (_, afterClose) <- expect CloseBrace end afterDomain
+          (_, afterArrow) <- expect Arrow end afterClose
+          (body, remaining) <- expression depth end afterArrow
+          Right (NImplicitPi (Between token.span.start (extent body).finish) quantity bound.spelling domain body, remaining)
         else if binderAhead tokens then do
           header <- binder depth end tokens
           (arrow, afterArrow) <- case header.remaining of
@@ -520,7 +531,11 @@ mutual
   arguments depth end function [] = Right (function, [])
   arguments Z end function tokens = limit end tokens
   arguments (S depth) end function tokens@(token :: rest) =
-    if token.kind == DictionaryOpen then case rest of
+    if token.kind == OpenBrace then do
+      (argument, afterArgument) <- expression depth end rest
+      (closing, remaining) <- expect CloseBrace end afterArgument
+      arguments depth end (NImplicitApply (Between (extent function).start closing.span.finish) function argument) remaining
+    else if token.kind == DictionaryOpen then case rest of
       marker :: closing :: remaining => if marker.kind == ImplementationKeyword && closing.kind == CloseBrace then
         arguments depth end (NImplementationApply (Between (extent function).start closing.span.finish)
           (Between token.span.start closing.span.finish) function) remaining

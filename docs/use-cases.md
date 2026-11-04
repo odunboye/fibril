@@ -25,6 +25,7 @@ for supported syntax, checking boundaries and resource limits.
 | --- | --- | --- |
 | [Named records](records.md) | Package related fields behind an authored constructor and declared telescope. | Keep separate arguments if no reusable data shape is needed. Records are structural, not nominal class tags. |
 | [Dependent fields](records.md) | Package a type/index and a payload whose type depends on it, or a request type and response family. | Use independent fields when there is no dependency. |
+| [Implicit arguments](implicit-arguments.md) | Infer one declared erased type parameter from a direct global call's first argument. | Use explicit braces for phantom/ambiguous arguments; no general unification or implicit data headers. |
 | [Named function equations](function-equations.md) | Define `greet name = ...` without repeating a lambda; quantities still come from the explicit signature. | One equation, explicit Pi telescope; no recursive or constructor-pattern clauses. |
 | [Bare Type](bare-type.md) | Reduce universe-zero annotation noise in data, records and polymorphic signatures. | Exactly Type 0; use explicit levels when clarity matters. No universe polymorphism or new core power. |
 | [Experimental C emission](native-c.md) | Compile a checked console subset into a real native executable. | Not an application backend, verified runtime, sandbox or production deployment. |
