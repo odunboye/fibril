@@ -176,6 +176,10 @@
         "path": "docs/modules.md"
       },
       {
+        "title": "Experimental checked C emission",
+        "path": "docs/native-c.md"
+      },
+      {
         "title": "Hello world and hosted console execution",
         "path": "docs/console-runner.md"
       },

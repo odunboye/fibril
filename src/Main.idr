@@ -9,6 +9,7 @@ import Fibril.Driver.Check
 import Fibril.Driver.CheckReport
 import Fibril.Driver.Evaluate
 import Fibril.Driver.Run
+import Fibril.Driver.Native
 import Fibril.Driver.Test
 import Fibril.Driver.ModuleGraph
 import Fibril.Driver.ModuleCheck
@@ -54,6 +55,9 @@ Usage:
   fibril check                 Check app entry or library inventory in ./fibril.yaml
   fibril test                  Check all listed modules, evaluate tests main : Bool
   fibril test --package PATH   Same pure test workflow for an explicit package
+  fibril emit-c PATH           Check and emit experimental C source to stdout
+  fibril emit-c --source-dir ROOT ENTRY  Check modules and emit C
+  fibril emit-c --package PATH  Check a local package and emit C
   fibril run                   Check ./fibril.yaml, then execute its IO plan
   fibril module-graph          Inspect ./fibril.yaml source graph (syntax only)
   fibril check --package PATH   Check explicit local fibril.yaml dependency closure (POSIX)
@@ -71,7 +75,7 @@ Usage:
 Annotated expressions and source-ordered nonrecursive declarations are supported.
 Qualified imports use --source-dir or explicit --package. Manifest inspection
 alone does not load dependencies. Workspace-member discovery and locks are absent. Recursive declarations, cubical checking, and C/JS
-compilation are not implemented yet.
+compilation beyond the experimental C subset are not implemented yet.
 """
 
 printReport : Either String (List String) -> IO ()
@@ -89,6 +93,12 @@ printServiceReport (Left err) = do
 printExecution : Either String () -> IO ()
 printExecution (Right ()) = pure ()
 printExecution (Left err) = do
+  _ <- fPutStrLn stderr err
+  exitFailure
+
+printC : Either String String -> IO ()
+printC (Right source) = putStr source
+printC (Left err) = do
   _ <- fPutStrLn stderr err
   exitFailure
 
@@ -149,6 +159,10 @@ main = do
     ["test"] => testPackage "fibril.yaml" >>= printServiceReport
     ["test", "--package", manifest] => testPackage manifest >>= printServiceReport
     ["run"] => runPackage "fibril.yaml" >>= printExecution
+    ["emit-c"] => emitCPackage "fibril.yaml" >>= printC
+    ["emit-c", "--package", manifest] => emitCPackage manifest >>= printC
+    ["emit-c", "--source-dir", root, entry] => emitCProject root entry >>= printC
+    ["emit-c", path] => emitCFile path >>= printC
     ["module-graph"] => packageGraph "fibril.yaml"
     ["module-graph", "--package", manifest] => packageGraph manifest
     ["module-graph", root, entry] => do

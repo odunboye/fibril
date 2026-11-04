@@ -11,7 +11,7 @@ when actual device APIs are needed.
 [Delivery](../../examples/modules/email-service/Delivery.fib), with a
 [runnable demonstration](../../examples/modules/email-service/Main.fib).
 It prints sending, accepted by relay, submission unknown, and transition rejected.
-It has no network, database, authentication, deployed UI or C backend.
+It has no network, database, authentication or deployed UI. An [experimental C emitter](../native-c.md) supports a small console subset, not this complete application.
 A separate [pure request API](../../examples/packages/request-api/src/Mail/Request.fib)
 now exercises direct local matching over Enqueue, Preview and Health; its
 [separate test package](../../examples/packages/request-api/test/src/RequestTests/Main.fib)
@@ -73,8 +73,9 @@ Browser / mobile UI ---- authenticated HTTPS --> admin API
 ~~~
 
 Container server target: Fibril domain code compiled to C, linked with a small
-explicit runtime/adapter boundary. C emission does not exist yet. Until it does,
-we must not describe a different handwritten service as Fibril-generated C.
+explicit runtime/adapter boundary. Experimental C emission exists only for a
+console subset; the application and its service adapters cannot yet be emitted.
+Do not describe a different handwritten service as Fibril-generated C.
 
 Recommended initial native dependencies to evaluate: libcurl for outbound SMTP/
 HTTPS and SQLite for a single-node durable queue. Use a maintained HTTP server
@@ -182,7 +183,7 @@ execution.
 
 - Direct data cases, practical implicit elaboration and recursion/collections.
 - Shared checked globals so ordinary application models do not expand repeatedly.
-- C backend and reproducible build/deployment/runtime contracts.
+- Extend the experimental C backend to the application and establish reproducible build/deployment/runtime contracts.
 - Explicit native ABI, ownership/lifetimes, buffers/strings, allocation/failure and
   cancellation policies; narrow fallible network/storage adapters.
 - Foreign input validation before bytes/JSON become typed application values.

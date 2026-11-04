@@ -1,7 +1,7 @@
 PACK ?= pack
 IDRIS2 ?= idris2
 
-.PHONY: prelude prelude-check build test editor-test examples bench bench-smoke python-embed-test docs handbook serve-docs clean
+.PHONY: prelude prelude-check build test native-test editor-test examples bench bench-smoke python-embed-test docs handbook serve-docs clean
 prelude:
 	python3 tools/embed_prelude.py
 
@@ -14,6 +14,10 @@ build: prelude-check
 test: build
 	$(PACK) test fibril
 	python3 tools/test_cli.py
+	CC="$(CC)" python3 tools/test_native.py
+
+native-test: build
+	CC="$(CC)" python3 tools/test_native.py
 
 examples: build
 	$(PACK) run fibril-examples

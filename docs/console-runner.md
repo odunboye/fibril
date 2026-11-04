@@ -8,7 +8,7 @@ Use `check` for acceptance and `eval` for bounded inspection; only `run` execute
 
 Status: ordinary checked Fibril library functions over experimental core IO
 descriptions. The old name-special-casing console parser has been removed.
-Execution is still hosted; there is no C/JS backend or complete effect calculus.
+The reference runner is hosted. An [experimental C emitter](native-c.md) now supports a checked console subset; there is no JS backend or complete effect calculus.
 
 ## putStrLn is now a Fibril definition
 

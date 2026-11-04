@@ -7,6 +7,8 @@ quantitative De Morgan cubical core, C/JavaScript backends, and embedded profile
 files, with erased typing and an ordinary runtime-usage prototype. Full modules,
 transparent global definitions, cubical term checking,
 compiler backends, and real-time guarantees are not implemented.
+[Experimental C emission](docs/native-c.md) produces a real native executable for a checked console subset; it is not yet an application backend.
+
 [Checked Fibril prelude functions](docs/console-runner.md) provide putStrLn,
 pure, and bind over experimental IO descriptions. A hosted runner executes stdout
 plans; a complete effect calculus and compiler backends remain future work.

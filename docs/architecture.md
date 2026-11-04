@@ -32,7 +32,8 @@ Implemented:
 - `src/Fibril/Driver/Console.idr`: pure typed IO-description planning before any host action executes.
 - `src/Fibril/Effect/Console.idr`: pure action data, separate from ordinary terms.
 - `src/Fibril/Runtime/Console.idr`: host stdout adapter and first-error action sequencer; no core normalization hooks.
-- `src/Fibril/Driver/Run.idr`: validate whole source, then execute console actions; failures do not execute prefixes.
+- `src/Fibril/Driver/Run.idr`: validate whole source, then execute console actions; preparation failures do not execute prefixes.
+- `src/Fibril/Driver/Native.idr` and `runtime/native/`: independently check the original closed entry, emit supported core as C functions, and provide an experimental lazy native console runtime; not a verified backend or application runtime.
 - `src/Fibril/Source/Rename.idr`: pure same-file edit previews with candidate reparsing, shifted-reference comparison, and conservative capture/entry/size checks; no mutation.
 - `src/Fibril/Source/Navigation.idr`: AST-scoped same-document definitions and grouped reference queries over original name-token spans, without type checking.
 - `src/Fibril/Source/Symbol.idr`: reusable syntax-only document symbols over source Strings, preserving real name-token spans.
