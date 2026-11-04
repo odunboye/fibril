@@ -123,6 +123,7 @@ wantsExpected (NDataCase _ _ Nothing _) = True
 wantsExpected (NLambda _ _ _ _ _) = True
 wantsExpected (NLet _ _ _ _ _ _) = True
 wantsExpected (NIf _ _ _ _) = True
+wantsExpected (NUnitCase _ _ _) = True
 wantsExpected _ = False
 
 namedConstructor : Expr -> Bool
@@ -210,6 +211,10 @@ mutual
     domain <- elaborateInWith globals (Just context) env domain
     body <- elaborateExpected globals (Extend context q domain) (name :: env) expected body
     Right (Lambda q domain body)
+  elaborateExpected globals context env expected (NUnitCase span scrutinee body) = do
+    scrutinee <- elaborateInWith globals (Just context) env scrutinee
+    body <- elaborateExpected globals context env expected body
+    Right (UnitCase scrutinee body)
   elaborateExpected globals context env expected (NIf span condition yes no) = do
     condition <- elaborateInWith globals (Just context) env condition
     yes <- elaborateExpected globals context env expected yes
@@ -223,6 +228,26 @@ mutual
       body <- elaborateExpected globals (Extend context q ty) (name :: env) (weaken expected) body
       Right (Apply (Lambda q ty body) value)
   elaborateExpected globals context env expected body = elaborateInWith globals (Just context) env body
+
+  -- Try the authored scrutinee first to preserve exact-abstraction behavior.
+  -- Only a fully admitted guarded normalization may supply a second proposal;
+  -- both candidates are checked against the original, unnormalized result.
+  chooseExpectedMotive : Position -> Context n -> Term n -> Term n -> Term n -> Term n -> List (Term n) -> Either ResolveError (Term n)
+  chooseExpectedMotive position ctx nominal shape scrutinee result branches = do
+    exact <- expectedDataMotive position nominal result scrutinee
+    let candidate = assembleDataCase nominal shape exact scrutinee branches
+    case checkErased checkingDepth typeReductionFuel ctx candidate result of
+      Right () => Right exact
+      Left _ => case guardedNormal typeReductionFuel scrutinee of
+        Nothing => Right exact
+        Just normal => if sameSyntax normal scrutinee then Right exact else
+          case expectedDataMotive position nominal result normal of
+            Left _ => Right exact
+            Right converted =>
+              let alternative = assembleDataCase nominal shape converted scrutinee branches in
+                case checkErased checkingDepth typeReductionFuel ctx alternative result of
+                  Right () => Right converted
+                  Left _ => Right exact
 
   elaborateDataCase : List GlobalDefinition -> Context n -> Vect n String -> SourceSpan -> Expr -> Maybe Expr -> List (Token, Maybe Token, Expr) -> Maybe (Term n) -> Either ResolveError (Term n)
   elaborateDataCase globals ctx env span value motive arms expected = do
@@ -276,8 +301,8 @@ mutual
                       candidate = assembleDataCase nominal shape constant scrutinee ordered in
                     case checkErased checkingDepth typeReductionFuel ctx candidate result of
                       Right () => Right constant
-                      Left _ => expectedDataMotive span.start nominal result scrutinee
-                Left _ => expectedDataMotive span.start nominal result scrutinee
+                      Left _ => chooseExpectedMotive span.start ctx nominal shape scrutinee result ordered
+                Left _ => chooseExpectedMotive span.start ctx nominal shape scrutinee result ordered
             _ => do
               result <- constantDataResult span.start ctx descriptors ordered
               Right (Lambda Erased nominal (weaken result))
@@ -417,22 +442,12 @@ mutual
     Right (Lambda q domain body)
   elaborateInWith globals context env (NInfix span function left right) = do
     operator <- elaborateInWith globals context env function
-    left <- elaborateInWith globals context env left
-    right <- elaborateInWith globals context env right
-    Right (Apply (Apply operator left) right)
+    first <- elaborateApplication globals context env operator left
+    elaborateApplication globals context env first right
   elaborateInWith globals context env (NApply span function argument) = do
     function <- elaborateInWith globals context env function
-    argument <- case context of
-      Just ctx => if wantsExpected argument then
-        case inferErased checkingDepth typeReductionFuel ctx function of
-          Right (Pi _ domain _) =>
-            if typeNodes domain <= inferredResultNodes
-              then elaborateExpected globals ctx env domain argument
-              else elaborateInWith globals context env argument
-          _ => elaborateInWith globals context env argument
-        else elaborateInWith globals context env argument
-      Nothing => elaborateInWith globals context env argument
-    Right (Apply function argument)
+    elaborateApplication globals context env function argument
+
   elaborateInWith globals context env (NSequence span first rest) = do
     action <- elaborateInWith globals context env first
     following <- elaborateInWith globals context env rest
@@ -466,6 +481,20 @@ mutual
     ty <- elaborateInWith globals context env result
     value <- elaborateDo globals context env ty body
     Right (Apply (Lambda Linear (IOType ty) (Variable FZ)) value)
+
+  elaborateApplication : List GlobalDefinition -> Maybe (Context n) -> Vect n String -> Term n -> Expr -> Either ResolveError (Term n)
+  elaborateApplication globals context env function argument = do
+    argument <- case context of
+      Just ctx => if wantsExpected argument then
+        case inferErased checkingDepth typeReductionFuel ctx function of
+          Right (Pi _ domain _) =>
+            if typeNodes domain <= inferredResultNodes
+              then elaborateExpected globals ctx env domain argument
+              else elaborateInWith globals context env argument
+          _ => elaborateInWith globals context env argument
+        else elaborateInWith globals context env argument
+      Nothing => elaborateInWith globals context env argument
+    Right (Apply function argument)
 
   elaboratePatternBranch : List GlobalDefinition -> Context n -> Vect n String -> Position ->
                            Nat -> Term n -> Expr -> Either ResolveError (Term n)
@@ -501,10 +530,14 @@ mutual
     Right (IOBind ty result action (Lambda Linear ty body))
   elaborateDo globals context env result (NLet span q name expected value body) = do
     ty <- elaborateInWith globals context env expected
-    value <- elaborateInWith globals context env value
+    value <- case context of
+      Just ctx => elaborateExpected globals ctx env ty value
+      Nothing => elaborateInWith globals context env value
     body <- elaborateDo globals (map (\ctx => Extend ctx q ty) context) (name :: env) (weaken result) body
     Right (Apply (Lambda q ty body) value)
-  elaborateDo globals context env result term = elaborateInWith globals context env term
+  elaborateDo globals context env result term = case context of
+    Just ctx => elaborateExpected globals ctx env (IOType result) term
+    Nothing => elaborateInWith globals context env term
 
 ||| Contextual elaboration of a closed source expression.
 public export

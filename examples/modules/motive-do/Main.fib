@@ -1,0 +1,17 @@
+module Main
+
+data Select : Type where
+  First : Select
+  Second : Select
+
+choose : (0 F : (0 choice : Select) -> Type) -> (first : F First) -> (second : F Second) -> (1 choice : Select) -> IO (F choice)
+choose F first second choice = do (F choice)
+  let (1 answer : F choice) = case choice of
+    First => first
+    Second => second
+  pure (F choice) answer
+
+main : IO Unit
+main = do
+  (1 answer : String) <- choose (\(0 choice : Select) => String) "first" "second" First
+  putStrLn answer

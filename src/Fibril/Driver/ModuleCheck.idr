@@ -85,9 +85,12 @@ mutual
       min (S limit) (1 + length names * 513 + cost limit globals env signature + cost limit globals (reverse (map spelling names) ++ env) body)
     NPatternLambda _ names body => 4 + 2 * inferredFieldNodes + cost limit globals (reverse (map spelling names) ++ env) body
     NDataCase _ value motive branches =>
-      min (S limit) (4096 + cost limit globals env value +
-        (case motive of Nothing => 2 * (1 + 512 + inferredResultNodes); Just explicit => 2 * cost limit globals env explicit) +
-        dataArmsCost limit globals env branches)
+      let copies : Nat = case motive of Nothing => 4; Just _ => 1 in
+        min (S limit) (4096 + cost limit globals env value +
+          (case motive of
+            Nothing => 2048 + 2 * (1 + 512 + inferredResultNodes)
+            Just explicit => 2 * cost limit globals env explicit) +
+          dataArmsCost limit globals env copies branches)
     NConstructorCase _ _ constructor value branch motive =>
       8 + 3 * inferredParameterNodes + 3 * cost limit globals env constructor + cost limit globals env value + 2 * cost limit globals env branch +
         (case motive of Nothing => inferredResultNodes; Just explicit => cost limit globals env explicit)
@@ -110,10 +113,13 @@ mutual
       let resultSize = cost limit globals env result
        in 4 + resultSize + resultSize * cost limit globals env body
 
-  dataArmsCost : Nat -> List Weighted -> List String -> List (Token, Maybe Token, Expr) -> Nat
-  dataArmsCost limit globals env [] = 0
-  dataArmsCost limit globals env ((_, binder, body) :: rest) =
-    min (S limit) (1538 + cost limit globals (maybe env (\token => token.spelling :: env) binder) body + dataArmsCost limit globals env rest)
+  -- Count each source arm once, then reserve its potential weakened copies.
+  -- Re-traversing nested case bodies per copy would make admission exponential.
+  dataArmsCost : Nat -> List Weighted -> List String -> Nat -> List (Token, Maybe Token, Expr) -> Nat
+  dataArmsCost limit globals env copies [] = 0
+  dataArmsCost limit globals env copies ((_, binder, body) :: rest) =
+    let branch = cost limit globals (maybe env (\token => token.spelling :: env) binder) body in
+      min (S limit) (1025 + copies * (513 + branch) + dataArmsCost limit globals env copies rest)
 
   listCost : Nat -> List Weighted -> List String -> List Expr -> Nat
   listCost limit globals env [] = 0

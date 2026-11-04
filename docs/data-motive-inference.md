@@ -23,6 +23,7 @@ choose choice = case choice of
 
 See the runnable [dependent example](../examples/modules/direct-data-case-dependent/Main.fib),
 the [nested and arbitrary-scrutinee example](../examples/modules/motive-contexts/Main.fib),
+the [typed-do example](../examples/modules/motive-do/Main.fib),
 the pure [request API package](../examples/packages/request-api/src/Mail/Request.fib),
 and the qualified, generic [Sum client](../examples/packages/sum-client/src/Main.fib).
 
@@ -48,22 +49,26 @@ constant result; scope-aware thinning removes that binder. Results may match
 syntactically or by the guarded reduction described below.
 
 Expected types are propagated from checked module signatures through typed
-lambdas, annotations, supported lets and conditionals, application arguments
-when a literal Pi domain is available, and data-case branches when a bounded
-motive hint is available. Named equations carry their declared results too.
+lambdas, annotations, supported lets, conditionals and unit cases, prefix and
+infix application arguments when a literal Pi domain is available, typed-do
+terminals and do-let values, and data-case branches when a bounded motive hint
+is available. Named equations carry their declared results too.
 
 The elaborator can propose an erased motive by abstracting the scrutinee from
 that result. A variable uses scoped renaming; an arbitrary scrutinee uses exact
 core-subterm matching, including beneath binders. It preserves a constant
 candidate when an erased check confirms that candidate checks against the
-expected result; otherwise it proposes the expected-derived motive. This
-preliminary check is not authorization for runtime use. The enclosing
+expected result; otherwise it checks an exact expected-derived motive. If that
+fails, it may normalize the scrutinee once with the guarded reducer and try
+abstracting its normal form, again checking the entire case against the original
+expected result. This preliminary check is not authorization for runtime use. The enclosing
 declaration is independently checked again, including branch quantities and
 runtime permissions.
 
 This is not complete bidirectional inference: expected types are not propagated
-through every construct, function types are not reduced merely to expose a Pi,
-and arbitrary subterms are matched syntactically, not modulo conversion. A
+through every construct, and function types are not reduced merely to expose a
+Pi. Matching a normalized scrutinee is not general conversion-aware subterm
+matching, and nested branches are not retried with the alternative hint. A
 candidate that over-generalizes, a dependent payload, an unavailable or oversized
 hint, and some nested cases can still require explicit `return`. Failure to
 infer a motive is not proof that the program is ill-typed. [Explicit dependent

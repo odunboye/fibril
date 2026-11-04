@@ -4,8 +4,8 @@ digraph DataMotiveInference {
   source [label="case value of\nauthored aligned branches"];
   types [label="Checked constructor identity\n+ erased branch-type inference"];
   constant [label="Constant result\nraw syntax or guarded conversion"];
-  expected [label="Propagated expected result\nabstract exact scrutinee occurrence"];
-  checker [label="Independent core check\ntyping + usage + branch joins"];
+  expected [label="Propagated expected result\nexact or normalized-target abstraction"];
+  checker [label="Probe candidates, then independent core check\ntyping + usage + branch joins"];
   fallback [label="Inconclusive / ambiguous?\nwrite explicit return", style=dashed];
   source -> types -> constant -> checker;
   types -> expected -> checker;

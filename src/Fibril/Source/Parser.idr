@@ -461,8 +461,12 @@ mutual
     else if token.span.start.column /= column || token.span.start.line <= previous
        then Left (ParseFailure token.span.start "do actions must occupy separate equally indented lines")
        else do
+         -- Continuation lines belong to this statement only while they are
+         -- indented beyond its header; aligned lines start the next statement.
          let (chunk, remaining) = Data.List.span
-               (\item => item.span.start.line == token.span.start.line) tokens
+               (\item => item.span.start.line == token.span.start.line || item.span.start.column > column) tokens
+         if any (\item => item.kind == DoKeyword) chunk
+           then Left (ParseFailure token.span.start "Nested do blocks are not supported") else Right ()
          (action, trailing) <- doStatement depth (atInput end remaining) chunk
          case trailing of
            extra :: _ => Left (ParseFailure extra.span.start "Unexpected tokens after do action")

@@ -3804,9 +3804,16 @@ class CLITests(unittest.TestCase):
             self.assertEqual(project('run').stdout, 'first\n')
             path.write_text(no_expected.replace('case choice of', 'case choice return (\\(0 self : Select) => Family self) of'))
             self.assertEqual(project('run').stdout, 'first\n')
+            # Normalizing the scrutinee once reveals the index in the expected
+            # family; the selected candidate is checked against the original type.
             arbitrary = dependent.replace('choose choice = case choice of', 'choose choice = case ((\\(1 x : Select) => x) choice) of')
             path.write_text(arbitrary)
-            self.assertNotEqual(project('run').returncode, 0)
+            self.assertEqual(project('run').stdout, 'first\n')
+            neutral = dependent.replace('choose : (1 choice : Select)', 'choose : (f : (1 x : Select) -> Select) -> (1 choice : Select)').replace('choose choice = case choice of', 'choose f choice = case (f choice) of').replace('choose First)', 'choose (\\(1 x : Select) => x) First)')
+            path.write_text(neutral)
+            rejected = project('run')
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertEqual(rejected.stdout, '')
             # Large expected results do not impose the abstraction limit on a
             # valid constant candidate; truly dependent abstraction is bounded.
             chain = ' -> '.join(['String'] * 131)
@@ -3848,6 +3855,11 @@ class CLITests(unittest.TestCase):
             guided_result = project('run')
             self.assertEqual(guided_result.returncode, 0, guided_result.stdout + guided_result.stderr)
             self.assertEqual(guided_result.stdout, 'works\n')
+            under_binder = guided.replace('fun choice unused = case choice of', 'fun choice unused = case ((\\(1 x : Select) => x) choice) of')
+            path.write_text(under_binder)
+            inferred = project('run')
+            self.assertEqual(inferred.returncode, 0, inferred.stdout + inferred.stderr)
+            self.assertEqual(inferred.stdout, 'works\n')
             path.write_text(guided.replace('First => \\(1 x : String) => x', 'First => \\(1 x : Bool) => x'))
             rejected = project('run')
             self.assertNotEqual(rejected.returncode, 0)
@@ -3911,6 +3923,78 @@ class CLITests(unittest.TestCase):
             bad = run('run', '--source-dir', directory, str(path))
             self.assertNotEqual(bad.returncode, 0)
             self.assertEqual(bad.stdout, '')
+
+    def test_expected_motives_in_typed_do_unit_and_infix(self):
+        source = (ROOT / 'examples/modules/direct-data-case-dependent/Main.fib').read_text()
+        unit_case = source.replace('choose choice = case choice of', 'choose choice = case () of () => case choice of')
+        operators = ('pick : (0 T : Type 1) -> (1 first : T) -> (second : String) -> T\n'
+                     'pick T first second = first\n'
+                     'pickRight : (0 T : Type 1) -> (first : String) -> (1 second : T) -> T\n'
+                     'pickRight T first second = second\n\n')
+        infix_base = source.replace('choose :', operators + 'choose :')
+        infix_left = infix_base.replace('choose choice = case choice of\n  First => "first"\n  Second => True', 'choose choice = (case choice of\n  First => "first"\n  Second => True) `pick (Family choice)` "unused"')
+        infix_right = infix_base.replace('choose choice = case choice of\n  First => "first"\n  Second => True', 'choose choice = "unused" `pickRight (Family choice)` (case choice of\n  First => "first"\n  Second => True)')
+        header = ('module Main\ndata Select : Type where\n  First : Select\n  Second : Select\n'
+                  'choose : (0 F : (0 x : Select) -> Type) -> (first : F First) -> (second : F Second) -> (1 choice : Select) -> IO (F choice)\n')
+        terminal = ('choose F first second choice = do (F choice)\n'
+                    '  (1 text : String) <- pure String "log"\n  putStrLn text\n'
+                    '  case choice of\n    First => pure (F First) first\n    Second => pure (F Second) second\n')
+        do_let = ('choose F first second choice = do (F choice)\n'
+                  '  let (1 answer : F choice) = case choice of\n    First => first\n    Second => second\n'
+                  '  pure (F choice) answer\n')
+        main = ('main : IO Unit\nmain = do\n'
+                '  (1 text : String) <- choose (\\(0 x : Select) => String) "first" "second" First\n'
+                '  putStrLn text\n')
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Main.fib'
+            for label, program, output in [('unit case', unit_case, 'first\n'), ('infix left', infix_left, 'first\n'), ('infix right', infix_right, 'first\n'), ('typed do terminal', header + terminal + main, 'log\nfirst\n'), ('typed do let', header + do_let + main, 'first\n')]:
+                with self.subTest(label=label):
+                    path.write_text(program)
+                    result = run('run', '--source-dir', directory, str(path))
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertEqual(result.stdout, output)
+                    formatted = run('format', str(path))
+                    self.assertEqual(formatted.returncode, 0, formatted.stderr)
+            path.write_text(header + terminal.replace('  putStrLn text', '  putStrLn (appendString text text)') + main)
+            rejected = run('run', '--source-dir', directory, str(path))
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertEqual(rejected.stdout, '')
+            path.write_text(header + terminal.replace('    Second => pure (F Second) second', '  Second => pure (F Second) second') + main)
+            malformed = run('run', '--source-dir', directory, str(path))
+            self.assertNotEqual(malformed.returncode, 0)
+            self.assertEqual(malformed.stdout, '')
+            nested = ('module Main\nmain : IO Unit\nmain = do\n  do\n    putStrLn "nested"\n')
+            path.write_text(nested)
+            rejected = run('run', '--source-dir', directory, str(path))
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertIn('Nested do blocks are not supported', rejected.stderr)
+            self.assertEqual(rejected.stdout, '')
+
+    def test_motive_probe_branch_budget_is_admitted_without_exponential_planning(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Main.fib'
+            data = 'module Main\ndata Choice : Type where\n  A : Choice\n  B : Choice\n'
+            values = 'v0 : String\nv0 = "x"\n' + ''.join(f'v{i} : String\nv{i} = appendString v{i-1} v{i-1}\n' for i in range(1, 10))
+            body = ('choose : (1 x : Choice) -> String\nchoose x = case ((\\(1 y : Choice) => y) x) of\n'
+                    '  A => v9\n  B => v9\nmain : IO Unit\nmain = putStrLn "never"\n')
+            path.write_text(data + values + body)
+            rejected = run('run', '--source-dir', directory, str(path))
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertIn('Expanded core construction budget exhausted', rejected.stderr)
+            self.assertEqual(rejected.stdout, '')
+            depth = 15
+            nested = data + 'choose : (1 x : Choice) -> String\nchoose x = case x of\n'
+            for level in range(depth):
+                nested += ' ' * (2 * (level + 1)) + 'A => case x of\n'
+            nested += ' ' * (2 * (depth + 1)) + 'A => "ok"\n'
+            nested += ' ' * (2 * (depth + 1)) + 'B => "ok"\n'
+            for level in reversed(range(depth)):
+                nested += ' ' * (2 * (level + 1)) + 'B => "ok"\n'
+            path.write_text(nested + 'main : IO Unit\nmain = putStrLn "never"\n')
+            rejected = run('run', '--source-dir', directory, str(path))
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertIn('Expanded core construction budget exhausted', rejected.stderr)
+            self.assertEqual(rejected.stdout, '')
 
     def test_ordinary_lets_do_not_consume_expected_clone_budget(self):
         with tempfile.TemporaryDirectory() as directory:

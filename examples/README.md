@@ -8,6 +8,9 @@ three pure email-service request alternatives, with a [separate test
 package](packages/request-api/test/src/RequestTests/Main.fib). It does not send
 mail or validate addresses. Run `fibril test --package examples/packages/request-api/fibril.yaml`.
 
+The [motive-do example](modules/motive-do/Main.fib) uses a dependent match in
+a typed do-let without an explicit return motive.
+
 The [motive-contexts example](modules/motive-contexts/Main.fib) exercises nested
 and arbitrary-scrutinee motive inference.
 

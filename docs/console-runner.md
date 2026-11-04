@@ -122,8 +122,9 @@ main = do
 ~~~
 
 do is now ordinary expression syntax, not part of a separate console entry
-parser. Flat action lines are aligned, indented beyond column one, and each
-action expression fits on one source line. Comments and blank lines are allowed.
+parser. Statement headers are aligned and indented beyond column one. Expression
+continuations may span later lines indented further than the statement header,
+including aligned branches of a multiline data case. Comments and blank lines are allowed.
 At most 64 statements are accepted per block, counting result bindings, let bindings, and bare
 actions; empty/nested blocks are not implemented.
 
@@ -151,8 +152,8 @@ same core rules as explicit bind; it adds no primitive or trusted inference.
 Without a block result annotation, blocks containing a result binding return
 IO Unit. Bare sequencing likewise requires Unit intermediate results. For other
 final result types, annotate the block as below or use explicit bind. General
-result inference, dependent bind, unannotated bindings, and nested/multiline
-statements remain future work.
+result inference, dependent bind, unannotated bindings, and nested do blocks
+remain future work.
 
 [do-bindings.fib](../examples/core/do-bindings.fib) demonstrates String and Bool
 bindings, mixing named results with bare actions and consuming a mapped result.
@@ -187,7 +188,8 @@ produce exactly the declared IO result under existing conversion rules.
 
 The annotation's opening parenthesis must be on the do header line; action
 statements start on following indented lines. Empty blocks, final bindings, and
-nested/multiline statements remain unsupported. Plain do keeps its existing
+nested do blocks remain unsupported. Multiline expressions must keep their
+continuations deeper than the enclosing statement. Plain do keeps its existing
 Unit-result sequencing rules; no implicit result inference was added. A plain
 single-action block still has that action's type.
 
