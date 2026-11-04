@@ -7,3 +7,7 @@ keep T item = item
 export
 label : {0 A : Type} -> (1 text : String) -> String
 label T text = text
+
+export
+selectFirst : {0 A : Type} -> {0 B : Type} -> (1 left : A) -> (right : B) -> A
+selectFirst T U left right = left

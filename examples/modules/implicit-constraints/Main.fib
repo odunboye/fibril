@@ -1,0 +1,19 @@
+module Main
+
+data Sum (0 A : Type) (0 B : Type) : Type where
+  Left : (1 value : A) -> Sum A B
+  Right : (1 value : B) -> Sum A B
+
+inject : {0 A : Type} -> {0 B : Type} -> (1 value : A) -> Sum A B
+inject T U value = Left T U value
+
+sample : Sum String Bool
+sample = inject "receipt"
+
+render : (1 item : Sum String Bool) -> String
+render item = case item of
+  Left text => text
+  Right flag => if flag then "yes" else "no"
+
+main : IO Unit
+main = putStrLn (render sample)

@@ -3634,7 +3634,7 @@ class CLITests(unittest.TestCase):
                 return run(command, '--source-dir', directory, str(path))
             result = project('run')
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            self.assertEqual(result.stdout, 'queued: receipt\nexplicit type\nphantom type\n')
+            self.assertEqual(result.stdout, 'queued: receipt\nexplicit type\nphantom type\nboth inferred\npartly explicit\n')
             # Visibility metadata also crosses an explicit package edge.
             dependency = root / 'dependency'
             client = root / 'client'
@@ -3711,7 +3711,6 @@ class CLITests(unittest.TestCase):
             self.assertEqual(nominal_result.stdout, 'nominal\n')
             for signature in ['{A : Type} -> (1 x : A) -> A',
                               '{1 A : Type} -> (1 x : A) -> A',
-                              '{0 A : Type} -> {0 B : Type} -> (1 x : A) -> A',
                               '(1 x : String) -> {0 A : Type} -> String']:
                 path.write_text('module Main\nbad : ' + signature + '\nbad = "no"\nmain : IO Unit\nmain = putStrLn "never"\n')
                 rejected = project('run')
@@ -3729,7 +3728,7 @@ class CLITests(unittest.TestCase):
                 rejected = project('run')
                 self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
                 self.assertEqual(rejected.stdout, '')
-                self.assertIn('explicit {argument}', rejected.stderr)
+                self.assertIn('explicit {argument', rejected.stderr)
             # Existing quantitative checks remain authoritative after insertion.
             bad_usage = [
                 'leak : {0 A : Type} -> (0 value : A) -> A\nleak T value = value\n',
@@ -3764,6 +3763,141 @@ class CLITests(unittest.TestCase):
             plain = root / 'plain.fib'
             plain.write_text('identity : {0 A : Type} -> (1 value : A) -> A\nidentity T x = x\nmain : IO Unit\nmain = putStrLn (identity "x")\n')
             self.assertNotEqual(run('run', str(plain)).returncode, 0)
+
+    def test_multiple_implicit_constraints_and_expected_results(self):
+        fixture = ROOT / 'examples/modules/implicit-constraints/Main.fib'
+        source = fixture.read_text()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Main.fib'
+            def project(command):
+                return run(command, '--source-dir', directory, str(path))
+            path.write_text(source)
+            result = project('run')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'receipt\n')
+            formatted = run('format', str(path))
+            self.assertEqual(formatted.returncode, 0, formatted.stderr)
+            path.write_text(formatted.stdout)
+            self.assertEqual(run('format', '--check', str(path)).returncode, 0)
+            self.assertEqual(project('run').stdout, 'receipt\n')
+            # Expected result from a later function argument solves phantom B.
+            nested = source.replace('render sample)', 'render (inject "nested"))')
+            path.write_text(nested)
+            self.assertEqual(project('run').stdout, 'nested\n')
+            partial = source.replace('sample : Sum String Bool\nsample = inject "receipt"',
+                'partial : (0 B : Type) -> (1 value : String) -> Sum String B\npartial = inject {String}\n'
+                'sample : Sum String Bool\nsample = partial Bool "receipt"')
+            path.write_text(partial)
+            partial_result = project('run')
+            self.assertEqual(partial_result.returncode, 0, partial_result.stdout + partial_result.stderr)
+            self.assertEqual(partial_result.stdout, 'receipt\n')
+            # An actually unconstrained implicit stays ambiguous, despite an
+            # expected String result and a solved neighboring parameter.
+            phantom = ('module Main\nphantom : {0 A : Type} -> {0 B : Type} -> (1 x : A) -> A\n'
+                       'phantom T U x = x\nmain : IO Unit\nmain = putStrLn (phantom "x")\n')
+            path.write_text(phantom)
+            rejected = project('run')
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertIn('ambiguous', rejected.stderr)
+            self.assertEqual(rejected.stdout, '')
+            path.write_text(phantom.replace('phantom "x"', 'phantom {String} {Bool} "x"'))
+            self.assertEqual(project('run').stdout, 'x\n')
+            # Once the first two explicit arguments solve the prefix, the third
+            # argument receives its expected type for its own implicit call.
+            staged = ('module Main\ndata Choice (0 A : Type) (0 B : Type) : Type where\n'
+                      '  L : (0 value : A) -> Choice A B\n  R : (0 value : B) -> Choice A B\n'
+                      'inject : {0 A : Type} -> {0 B : Type} -> (0 value : A) -> Choice A B\n'
+                      'inject T U value = L T U value\n'
+                      'outer : {0 A : Type} -> {0 B : Type} -> (1 first : A) -> (second : B) -> (1 item : Choice String Bool) -> A\n'
+                      'outer T U first second item = case item of\n  L x => first\n  R y => first\n'
+                      'main : IO Unit\nmain = putStrLn (outer "kept" True (inject "receipt"))\n')
+            path.write_text(staged)
+            staged_result = project('run')
+            self.assertEqual(staged_result.returncode, 0, staged_result.stdout + staged_result.stderr)
+            self.assertEqual(staged_result.stdout, 'kept\n')
+            fourth = staged.replace('(1 first : A) -> (second : B) -> (1 item', '(fixed : String) -> (1 first : A) -> (second : B) -> (1 item').replace('outer T U first second item =', 'outer T U fixed first second item =').replace('outer "kept" True (inject', 'outer "fixed" "kept" True (inject')
+            path.write_text(fourth)
+            fourth_result = project('run')
+            self.assertEqual(fourth_result.returncode, 0, fourth_result.stdout + fourth_result.stderr)
+            self.assertEqual(fourth_result.stdout, 'kept\n')
+            # A supported Pi-type proposal retains prior single-prefix behavior.
+            pi_type = ('module Main\nlabel : {0 A : Type 1} -> (0 x : A) -> String\n'
+                       'label T x = "pi ok"\nmain : IO Unit\nmain = putStrLn (label ((1 x : String) -> String))\n')
+            path.write_text(pi_type)
+            self.assertEqual(project('run').stdout, 'pi ok\n')
+            # An unavailable proposal is skipped; later constraints can solve.
+            skipped = ('module Main\ndata Switch : Type where\n  Yes : Switch\n  No : Switch\n'
+                       'f : {0 A : Type} -> {0 B : Type} -> (flag : Bool) -> (1 x : A) -> (z : B) -> A\n'
+                       'f A B flag x z = x\nmain : IO Unit\nmain = putStrLn (f (case Yes of\n'
+                       '  Yes => True\n  No => False) "ok" True)\n')
+            path.write_text(skipped)
+            skipped_result = project('run')
+            self.assertEqual(skipped_result.returncode, 0, skipped_result.stdout + skipped_result.stderr)
+            self.assertEqual(skipped_result.stdout, 'ok\n')
+            # Implicit domains may depend on earlier inferred parameters;
+            # the solver admits substitution before constructing the next type.
+            dependent = ('module Main\ndata Tag (0 A : Type) (0 x : A) : Type where\n  Mk : Tag A x\n'
+                         'use : {0 A : Type} -> {0 x : A} -> (1 token : Tag A x) -> String\n'
+                         'use T value token = case token of\n  Mk => "ok"\n'
+                         'consume : (1 token : Tag Bool True) -> String\nconsume token = use token\n'
+                         'main : IO Unit\nmain = putStrLn (consume (Mk Bool True))\n')
+            path.write_text(dependent)
+            dependent_result = project('run')
+            self.assertEqual(dependent_result.returncode, 0, dependent_result.stdout + dependent_result.stderr)
+            self.assertEqual(dependent_result.stdout, 'ok\n')
+            # Constraints on a later argument that require substituting an
+            # earlier ordinary value are intentionally not guessed yet.
+            rigid = ('module Main\nf : {0 A : Type} -> {0 B : Type} -> (0 T : Type) -> (x : T) -> (1 y : A) -> (z : B) -> A\n'
+                     'f A B T x y z = y\nmain : IO Unit\nmain = putStrLn (f String "unused" "ok" True)\n')
+            path.write_text(rigid)
+            rejected = project('run')
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertEqual(rejected.stdout, '')
+            path.write_text(rigid.replace('f String "unused"', 'f {String} {Bool} String "unused"'))
+            explicit = project('run')
+            self.assertEqual(explicit.returncode, 0, explicit.stdout + explicit.stderr)
+            self.assertEqual(explicit.stdout, 'ok\n')
+            # Substitution is admitted before constructing an expanded
+            # dependent telescope; explicit source arguments remain available.
+            huge = ' -> '.join(['String'] * 131)
+            expansion = ('module Main\nf : {0 A : Type} -> {0 B : Type} -> (1 x : A) -> (y : B) -> A\n'
+                         'f A B x y = x\n' + f'use : (1 v : ({huge})) -> ({huge})\n' +
+                         'use v = f v True\nmain : IO Unit\nmain = putStrLn "ok"\n')
+            path.write_text(expansion)
+            rejected = project('run')
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertIn('Implicit telescope substitution exceeds', rejected.stderr)
+            self.assertEqual(rejected.stdout, '')
+            path.write_text(expansion.replace('f v True', f'f {{{huge}}} {{Bool}} v True'))
+            explicit = project('run')
+            self.assertEqual(explicit.returncode, 0, explicit.stdout + explicit.stderr)
+            self.assertEqual(explicit.stdout, 'ok\n')
+            # Constraint-work admission fails closed; explicit braces still work.
+            big = 'x' * 600
+            expensive = ('module Main\ndata Tag (0 x : String) (0 y : String) : Type where\n  Mk : Tag x y\n' +
+                         f'use : {{0 y : String}} -> (1 t : Tag "{big}" y) -> String\n' +
+                         'use y t = case t of\n  Mk => "ok"\n' +
+                         f'caller : (1 t : Tag "{big}" "y") -> String\ncaller t = use t\n' +
+                         f'main : IO Unit\nmain = putStrLn (caller (Mk "{big}" "y"))\n')
+            path.write_text(expensive)
+            rejected = project('run')
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertIn('constraint work admission exhausted', rejected.stderr)
+            self.assertEqual(rejected.stdout, '')
+            path.write_text(expensive.replace('caller t = use t', 'caller t = use {"y"} t'))
+            self.assertEqual(project('run').stdout, 'ok\n')
+            # Late and excess explicit braces fail rather than shifting slots.
+            for bad in ['f String {Bool} "unused" "ok" True', 'f {String} {Bool} {String} String "unused" "ok" True']:
+                path.write_text(rigid.replace('f String "unused" "ok" True', bad))
+                rejected = project('run')
+                self.assertNotEqual(rejected.returncode, 0)
+                self.assertEqual(rejected.stdout, '')
+            too_many = ''.join(f'{{0 A{i} : Type}} -> ' for i in range(65))
+            path.write_text('module Main\nf : ' + too_many + '(1 x : String) -> String\nf = "bad"\nmain : IO Unit\nmain = putStrLn "never"\n')
+            rejected = project('run')
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertIn('Implicit telescope admission exhausted', rejected.stderr)
+            self.assertEqual(rejected.stdout, '')
 
     def test_named_function_equations_preserve_types_quantities_and_binders(self):
         example = ROOT / 'examples/modules/function-equations/Main.fib'

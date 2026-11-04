@@ -1,95 +1,108 @@
-# Explicitly declared implicit arguments
+# Erased implicit arguments
 
 ## Use cases
 
-**Implemented first slice:** a named-module global may declare one leading erased
-implicit parameter. Its first ordinary argument can determine that parameter:
+**Implemented:** a named-module global may declare a leading prefix of erased
+implicit parameters. Fibril can gather constraints from ordinary argument types
+and, when available, from the expected result of the complete call:
 
 ~~~fibril
-keep : {0 A : Type} -> (1 value : A) -> A
-keep T item = item
+selectFirst : {0 A : Type} -> {0 B : Type} -> (1 left : A) -> (right : B) -> A
+selectFirst T U left right = left
 
 message : String
-message = keep "receipt"       -- proposes A = String
-other : String
-other = keep {String} "explicit"
+message = selectFirst "receipt" True       -- A = String, B = Bool
+explicit : String
+explicit = selectFirst {String} {Bool} "receipt" True
+partial : String
+partial = selectFirst {String} "receipt" True
 ~~~
 
-The equation still names **both** parameters, in signature order. `{0 A : Type}`
-means the parameter is both implicit *and* erased; `(0 A : Type)` remains erased
-but **explicit**, and existing calls of the form `keep String value` retain
-their meaning for such signatures. Braces at a call site provide the omitted
-argument explicitly; they are distinct from dictionary requests like `@{}`.
+The equation still names **all** parameters in signature order. `{0 A : Type}`
+means implicit *and* erased; `(0 A : Type)` is erased but remains **explicit**.
+Braces at a call site supply arguments positionally and precede ordinary
+arguments. They are distinct from dictionary requests such as `@{}`.
 
-The [runnable qualified-import example](../examples/modules/implicit-arguments/Main.fib)
-uses inferred and explicit arguments, including a phantom parameter that must be
-supplied explicitly. From the compiler project:
+The [qualified-import example](../examples/modules/implicit-arguments/Main.fib)
+uses inference, explicit braces, partial braces and a phantom-parameter fallback.
+The [expected-result example](../examples/modules/implicit-constraints/Main.fib)
+solves an otherwise unknown `B` for `inject "receipt"` from the declared
+`Sum String Bool` result. Run from the compiler project:
 
 ~~~sh
 fibril run --source-dir examples/modules/implicit-arguments examples/modules/implicit-arguments/Main.fib
+fibril run --source-dir examples/modules/implicit-constraints examples/modules/implicit-constraints/Main.fib
 ~~~
 
-It prints `queued: receipt`, `explicit type`, and `phantom type`. These are
-strings, not an email queue. The same example can be emitted by the experimental
-[native console backend](native-c.md). This feature is source convenience over
-explicit core `Pi`/`Apply`, not a new core type rule or a general unifier.
+The first example can also be emitted by the experimental [native console
+backend](native-c.md). Its output labels a request; it is not an email queue.
+Implicit insertion is source convenience over explicit core `Pi`/`Apply`, not a
+new core type rule or a complete unifier.
 
 ![Implicit argument elaboration](diagrams/implicit-arguments.svg)
 
 ## Supported boundary
 
-- Only **one leading `{0 name : type}`** in a named-module global's authored
-  signature is supported; it must be followed by a literal ordinary explicit Pi.
-  Non-erased implicit binders, multiple implicit binders, implicit binders later
-  in a telescope, and implicit data/record header parameters are rejected.
-- Insertion applies only to a **direct visible global head** at its first
-  ordinary argument: `keep value` or `Utility.Identity.keep value`. Qualified
-  checked direct imports preserve the declaration's visibility metadata.
-  Local shadowing takes precedence. Standalone declaration files, local or
-  higher-order function values, infix operators and aliases without their own
-  implicit signature do not get automatic insertion. A bare `keep` is a
-  reference to the whole function, not an automatically instantiated value.
-- The elaborator synthesizes the first ordinary argument's type and structurally
-  matches it against the next Pi domain with a scoped unknown for the implicit
-  parameter. It handles direct variables, supported structural type constructors
-  and nominal indices/shapes when their syntax matches. Solutions may refer to
-  variables in the caller's context, but may not escape a locally opened binder.
-  A repeated constraint must agree under guarded comparison.
-- All omitted information must be determined **from that one argument**. A
-  phantom parameter, conflicting constraints, a type computation that requires
-  unavailable normalization, an argument whose type cannot be synthesized,
-  or an exhausted budget fails rather than inventing a solution. Use, for
-  example, `label {Bool} "text"`. This slice does not postpone unknowns across
-  later arguments or solve from the surrounding result type. It cannot yet make
-  `Left "hello"` infer a phantom second parameter.
+- An authored module-global signature may have a consecutive leading prefix of
+  `{0 name : type}` binders followed by a literal ordinary Pi. The inference
+  telescope admits at most 64 implicit binders and 64 pending ordinary arguments
+  before the prefix is solved. Non-erased implicit binders and implicit binders
+  later in a telescope are rejected.
+- Insertion applies to a **direct visible global head**: `f x y` or
+  `Module.f x y`. Checked direct imports and explicit local package edges carry
+  the visibility metadata. Local shadowing takes precedence. Standalone
+  declaration files, local/higher-order function values, infix operators and
+  aliases without their own implicit signature do not get automatic insertion.
+  A bare global remains uninstantiated. Brace-only partial applications retain
+  only their explicitly supplied core arguments; a new alias does not inherit
+  implicit visibility automatically.
+- The solver opens the erased prefix as elaborator-only scoped unknowns. It
+  gathers structural constraints from a bounded type proposal for each ordinary
+  argument; if its form has no supported type proposal, that particular
+  constraint is skipped and later arguments or the final expected result can
+  still solve the prefix. Exhausted depth, size or work admissions instead fail
+  and request explicit arguments. Scope pruning rejects solutions that escape binders;
+  repeated solutions must agree under guarded comparison. Once all slots are
+  solved, remaining arguments receive the ordinary expected-domain treatment.
+- The expected type, when available, constrains **the complete authored call**,
+  never an intermediate partial call. The matcher handles supported structural
+  types and nominal identities/indices/shapes. It does not normalize arbitrary
+  type computations to discover solutions or perform higher-order unification.
+  Earlier ordinary argument *values* are not substituted into later constraints;
+  if a needed constraint depends on such a value, use explicit braces.
+- A truly phantom, conflicting or ambiguous slot is not guessed. For example,
+  `selectFirst {String} {Bool} "receipt" True` supplies both parameters. A
+  bare `Left "receipt"` still cannot infer data-constructor parameters: data and
+  record headers remain explicit in this slice. Explicit braces remain the
+  fallback for unsupported argument forms or exhausted admissions.
 
-The metadata records authored visibility; it is not a type certificate. The
-module driver checks that it corresponds to an erased leading core Pi followed
-by an explicit Pi, and installs it only after checking the declaration. The
-proposed solution is checked against the implicit domain, and ordinary core
-checking and runtime usage analysis independently validate the **complete**
-application and enclosing declaration. No metavariable or implicit Pi enters
-core syntax. An erased argument must still obey erased-stage restrictions; an
-inferred argument cannot authorize extracting erased data or duplicating a
-linear value.
+The checked global's visibility metadata guides elaboration; it is not a type
+certificate. The module driver validates the prefix against erased core Pis and
+installs it only after checking the declaration. Solutions and authored values
+become ordinary `Apply` terms; no metavariable or implicit Pi enters core syntax.
+The ordinary core and runtime checkers independently validate the complete term,
+including implicit-domain types, erased-stage restrictions and linear use.
 
 ## Bounds, tooling and evidence
 
-For automatic insertion, the checked function type, synthesized argument type
-and proposed solution are admitted at 512 raw core nodes each; module preflight
-reserves space for the type clone and inserted argument before global expansion.
-Matching is structural and uses guarded equality for repeated solutions. The
-existing erased checker synthesizes the authored argument's type **before** its
-result-size check and may perform fuel-limited reduction and intermediate
-substitution. Consequently these policies are not an end-to-end bound on
-allocation, stack, time, or intermediate term size. Failure or inconclusive
-comparison is not a proof of type inequality.
+The checked function type and each proposed argument/result type are admitted at
+512 raw core nodes and 8192 aggregate characters. A type proposal has depth 16,
+and local type lookup admits at most 64 context entries. The solver has a
+262144-unit structural-input metric shared across constraints.
+These estimates are admissions, not a proof of total work: repeated guarded
+conversion, host String-length measurement and other existing checker operations
+have their own behavior. Sequential dependent implicit-domain substitutions are
+estimated for node and character expansion **before** constructing each type;
+the combined implicit solutions are limited to 512 nodes and 8192 characters.
+Module preflight reserves the checked-type clone, implicit substitutions and
+argument-type proposals before global expansion. Complete declarations are
+independently rechecked. None of these policies proves bounded allocation,
+stack, wall-clock time, erasure or whole-language soundness.
 
-The formatter retains braces and verifies the re-parsed shape. Definitions and
-references use authored binder and argument tokens; no source location is invented
-for an inferred term. Project-aware rename is still unavailable. Tests cover
-qualified imports, outer type variables, nominal types, explicit phantom fallback,
-shadowing, malformed syntax, ambiguity, conflicting and escaping constraints,
-erased/linear misuse, resource rejection and the native backend. These tests
-are sampled implementation evidence, not proofs of solver completeness,
-erasure or whole-language soundness.
+The formatter retains braces and verifies the re-parsed shape. Navigation uses
+actual authored binder and argument tokens; inferred terms do not acquire fake
+source locations. Project-aware rename remains unavailable. Tests exercise
+qualified imports, partial/explicit braces, multiple arguments, expected-result
+constraints, dependent implicit domains, scoped variables, unresolved and
+conflicting slots, staging and usage rejection, admission/fallback, and native
+emission. They are sampled implementation evidence, not proofs of completeness.

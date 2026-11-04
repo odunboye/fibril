@@ -15,6 +15,7 @@ import Fibril.Source.Text
 import Fibril.Source.Resolve.Error
 import Fibril.Elaboration.Expression.Scope
 import Fibril.Elaboration.Expression.Conversion
+import Fibril.Elaboration.Expression.Payload
 
 %default total
 
@@ -198,35 +199,215 @@ arguments position (S count) index solutions = do
   rest <- arguments position count (S index) solutions
   Right (value :: rest)
 
-||| Infer one checked erased leading argument from the next explicit argument's
-||| synthesized type. This produces an ordinary term, not a core metavariable.
+||| Solver-specific limits are admissions, not hard time or memory guarantees.
 public export
-inferLeadingArgument : Position -> Context n -> Term n -> Term n -> Either ResolveError (Term n)
-inferLeadingArgument position context ty argument = do
-  if typeNodes ty > inferredParameterNodes
-    then Left (CannotElaborate position "Implicit function type exceeds 512 nodes; use an explicit {argument}") else Right ()
-  actual <- case inferErased checkingDepth typeReductionFuel context argument of
-    Left err => Left (CannotElaborate position ("Cannot infer explicit argument type: " ++ show err ++ "; use an explicit {argument}"))
-    Right actual => Right actual
-  if typeNodes actual > inferredParameterNodes
-    then Left (CannotElaborate position "Implicit argument type exceeds 512 nodes; use an explicit {argument}") else Right ()
-  case ty of
-    Pi Erased domain (Pi _ template _) => do
-      let mapping : ScopeMap (S n) n
-          mapping FZ = Just (Left 0)
-          mapping (FS i) = Just (Right i)
-      solutions <- case match position mapping Just template actual [] of
-        Left _ => Left (CannotElaborate position "Cannot infer implicit argument from this argument type; use an explicit {argument}")
-        Right solutions => Right solutions
-      solution <- case lookup (the Nat 0) solutions of
-        Nothing => Left (CannotElaborate position "Implicit argument is ambiguous; use an explicit {argument}")
-        Just solution => Right solution
-      if typeNodes solution > inferredParameterNodes
-        then Left (CannotElaborate position "Implicit solution exceeds 512 nodes; use an explicit {argument}") else Right ()
-      case checkErased checkingDepth typeReductionFuel context solution domain of
-        Left err => Left (CannotElaborate position ("Inferred implicit argument fails its domain: " ++ show err))
-        Right () => Right solution
-    _ => Left (CannotElaborate position "Implicit function needs an erased Pi followed by an explicit Pi")
+implicitTelescopeLimit : Nat
+implicitTelescopeLimit = 64
+
+public export
+implicitProposalDepth : Nat
+implicitProposalDepth = 16
+
+implicitConstraintBudget : Nat
+implicitConstraintBudget = 262144
+
+constraintCost : Term m -> Term n -> Nat
+constraintCost pattern actual =
+  (1 + typeNodes pattern + payloadSize pattern) * (1 + typeNodes actual + payloadSize actual)
+
+implicitFailure : Position -> Either ResolveError a
+implicitFailure position = Left (CannotElaborate position "Cannot infer implicit arguments; use explicit {arguments}")
+
+openImplicitRaw : Position -> Nat -> Nat -> Term m -> ScopeMap m base -> Either ResolveError (Problem base)
+openImplicitRaw position Z index ty mapping = Right (Prepared ty mapping)
+openImplicitRaw position (S remaining) index (Pi Erased _ rest) mapping =
+  let next : ScopeMap (S m) base
+      next FZ = Just (Left index)
+      next (FS i) = mapping i in
+    openImplicitRaw position remaining (S index) rest next
+openImplicitRaw position _ _ _ _ = implicitFailure position
+
+skipExplicit : ScopeMap m base -> ScopeMap (S m) base
+skipExplicit mapping FZ = Nothing
+skipExplicit mapping (FS i) = mapping i
+
+seedImplicit : Nat -> List (Term n) -> Solutions n
+seedImplicit index [] = []
+seedImplicit index (value :: rest) = (index, value) :: seedImplicit (S index) rest
+
+-- Propose argument types without normalizing caller-authored terms. The final
+-- independent checker validates both the argument and the proposed type.
+lookupImplicitType : Position -> Nat -> (Fin m -> Fin n) -> Context m -> Fin m -> Either ResolveError (Term n)
+lookupImplicitType position Z env context index =
+  Left (CannotElaborate position "Implicit local context admission exhausted (64); use explicit {arguments}")
+lookupImplicitType position (S fuel) env (Extend rest quantity domain) FZ = do
+  if typeNodes domain > inferredParameterNodes || payloadSize domain > payloadLimit
+    then Left (CannotElaborate position "Implicit local type exceeds node or payload admission") else Right ()
+  Right (rename (\i => env (FS i)) domain)
+lookupImplicitType position (S fuel) env (Extend rest quantity domain) (FS i) =
+  lookupImplicitType position fuel (\j => env (FS j)) rest i
+
+public export
+implicitArgumentType : Position -> Nat -> Context n -> Term n -> Either ResolveError (Maybe (Term n))
+implicitArgumentType position Z context _ = Left (CannotElaborate position "Implicit argument type proposal depth exhausted; use explicit {arguments}")
+implicitArgumentType position (S fuel) context (Variable index) = Just <$> lookupImplicitType position implicitTelescopeLimit id context index
+implicitArgumentType position (S fuel) context (StringValue _) = Right (Just StringType)
+implicitArgumentType position (S fuel) context BoolTrue = Right (Just BoolType)
+implicitArgumentType position (S fuel) context BoolFalse = Right (Just BoolType)
+implicitArgumentType position (S fuel) context UnitValue = Right (Just UnitType)
+implicitArgumentType position (S fuel) context StringType = Right (Just (Universe 0))
+implicitArgumentType position (S fuel) context BoolType = Right (Just (Universe 0))
+implicitArgumentType position (S fuel) context UnitType = Right (Just (Universe 0))
+implicitArgumentType position (S fuel) context (Universe level) = Right (Just (Universe (S level)))
+implicitArgumentType position (S fuel) context (StringAppend _ _) = Right (Just StringType)
+implicitArgumentType position (S fuel) context (StringEqual _ _) = Right (Just BoolType)
+implicitArgumentType position (S fuel) context (NominalValue ty _) = Right (Just ty)
+implicitArgumentType position (S fuel) context (VariantValue ty _ _) = Right (Just ty)
+implicitArgumentType position (S fuel) context (BoxValue ty _) = Right (Just ty)
+implicitArgumentType position (S fuel) context (PairValue ty _ _) = Right (Just ty)
+implicitArgumentType position (S fuel) context (UnitCase _ body) = implicitArgumentType position fuel context body
+implicitArgumentType position (S fuel) context (BoolCase _ yes _) = implicitArgumentType position fuel context yes
+-- This proposes an annotation only; the original application remains checked.
+implicitArgumentType position (S fuel) context (Apply (Lambda _ domain (Variable FZ)) _) = Right (Just domain)
+implicitArgumentType position (S fuel) context (Pi q domain body) = do
+  if typeNodes domain > inferredParameterNodes || payloadSize domain > payloadLimit
+    then Left (CannotElaborate position "Implicit Pi domain exceeds admission") else Right ()
+  domainType <- implicitArgumentType position fuel context domain
+  bodyType <- implicitArgumentType position fuel (Extend context q domain) body
+  case (domainType, bodyType) of
+    (Just (Universe left), Just (Universe right)) => Right (Just (Universe (max left right)))
+    _ => Right Nothing
+implicitArgumentType position (S fuel) context (Lambda q domain body) = do
+  if typeNodes domain > inferredParameterNodes || payloadSize domain > payloadLimit
+    then Left (CannotElaborate position "Implicit lambda domain exceeds admission") else Right ()
+  result <- implicitArgumentType position fuel (Extend context q domain) body
+  case result of
+    Nothing => Right Nothing
+    Just ty => do
+      if 1 + typeNodes domain + typeNodes ty > inferredParameterNodes ||
+         payloadSize domain + payloadSize ty > payloadLimit
+        then Left (CannotElaborate position "Implicit lambda type exceeds admission") else Right ()
+      Right (Just (Pi q domain ty))
+implicitArgumentType position (S fuel) context (Apply function argument) = do
+  proposed <- implicitArgumentType position fuel context function
+  case proposed of
+    Nothing => Right Nothing
+    Just ty => do
+      if typeNodes ty > inferredParameterNodes || payloadSize ty > payloadLimit ||
+         typeNodes argument > inferredParameterNodes || payloadSize argument > payloadLimit
+        then Left (CannotElaborate position "Implicit application type proposal exceeds admission") else Right ()
+      case ty of
+        Pi _ _ result => do
+          let nodes : Fin (S n) -> Nat
+              nodes FZ = typeNodes argument
+              nodes (FS _) = 1
+          let payloads : Fin (S n) -> Nat
+              payloads FZ = payloadSize argument
+              payloads (FS _) = 0
+          if substitutionNodes nodes result > inferredParameterNodes || payloadWeight payloads result > payloadLimit
+            then Left (CannotElaborate position "Implicit application substitution exceeds admission") else Right ()
+          Right (Just (instantiateTerm argument result))
+        _ => Right Nothing
+implicitArgumentType position (S fuel) context _ = Right Nothing
+
+
+checkImplicitDomains : Position -> Context n -> Term n -> List (Term n) -> Either ResolveError ()
+checkImplicitDomains position context ty [] = Right ()
+checkImplicitDomains position context (Pi Erased domain rest) (solution :: remaining) = do
+  -- Domains and solutions are validated by the independent whole-term checker.
+  -- This step only checks substitution admission before constructing a type.
+  case remaining of
+    [] => Right ()
+    _ => do
+      let weights : Fin (S n) -> Nat
+          weights FZ = typeNodes solution
+          weights (FS _) = 1
+      let payloadWeights : Fin (S n) -> Nat
+          payloadWeights FZ = payloadSize solution
+          payloadWeights (FS _) = 0
+      if substitutionNodes weights rest > inferredParameterNodes || payloadWeight payloadWeights rest > payloadLimit
+        then Left (CannotElaborate position "Implicit telescope substitution exceeds node or payload admission; use explicit {arguments}") else Right ()
+      checkImplicitDomains position context (instantiateTerm solution rest) remaining
+checkImplicitDomains position context _ _ = implicitFailure position
+
+||| Scoped, untrusted application constraints; never a checked certificate.
+public export
+record ImplicitState (n : Nat) where
+  constructor ImplicitConstraints
+  count : Nat
+  signature : Term n
+  problem : Problem n
+  solutions : Solutions n
+  remainingWork : Nat
+  steps : Nat
+
+public export
+beginImplicit : Position -> Nat -> Term n -> List (Term n) -> Either ResolveError (ImplicitState n)
+beginImplicit position count ty given = do
+  if count > implicitTelescopeLimit
+    then Left (CannotElaborate position "Implicit inference telescope admission exhausted (64)") else Right ()
+  if length given > count then Left (CannotElaborate position "Too many explicit {arguments}") else Right ()
+  if typeNodes ty > inferredParameterNodes || payloadSize ty > payloadLimit
+    then Left (CannotElaborate position "Implicit function type exceeds node or payload admission; use explicit {arguments}") else Right ()
+  if any (\term => typeNodes term > inferredParameterNodes || payloadSize term > payloadLimit) given
+    then Left (CannotElaborate position "Explicit implicit argument exceeds node or payload admission during inference") else Right ()
+  opened <- openImplicitRaw position count 0 ty (\i => Just (Right i))
+  Right (ImplicitConstraints count ty opened (seedImplicit 0 given) implicitConstraintBudget 0)
+
+public export
+implicitSolved : ImplicitState n -> Bool
+implicitSolved state = length state.solutions == state.count
+
+||| A missing proposal skips only this constraint, never creates a core hole.
+public export
+advanceImplicit : Position -> ImplicitState n -> Maybe (Term n) -> Either ResolveError (ImplicitState n)
+advanceImplicit position state proposed = do
+  if state.steps >= implicitTelescopeLimit
+    then Left (CannotElaborate position "Implicit inference telescope admission exhausted (64)") else Right ()
+  case state.problem of
+    Prepared (Pi _ domain rest) mapping => do
+      (solutions, budget) <- the (Either ResolveError (Solutions n, Nat)) $ case proposed of
+        Nothing => Right (state.solutions, state.remainingWork)
+        Just actual => do
+          if typeNodes actual > inferredParameterNodes || payloadSize actual > payloadLimit
+            then Left (CannotElaborate position "Implicit argument type exceeds node or payload admission; use explicit {arguments}") else Right ()
+          let work = constraintCost domain actual
+          if work > state.remainingWork
+            then Left (CannotElaborate position "Implicit constraint work admission exhausted; use explicit {arguments}") else Right ()
+          found <- case match position mapping Just domain actual state.solutions of
+            Left _ => implicitFailure position
+            Right found => Right found
+          Right (found, minus state.remainingWork work)
+      Right (ImplicitConstraints state.count state.signature (Prepared rest (skipExplicit mapping)) solutions budget (S state.steps))
+    _ => implicitFailure position
+
+||| Finish only at the complete authored spine; expected is never an
+||| intermediate application's expected type.
+public export
+finishImplicit : Position -> Context n -> ImplicitState n -> Maybe (Term n) -> Either ResolveError (List (Term n))
+finishImplicit position context state expected = do
+  let solved = arguments position state.count 0 state.solutions
+  solutions <- case solved of
+    Right _ => Right state.solutions
+    Left _ => case (expected, state.problem) of
+      (Nothing, _) => Left (CannotElaborate position "Implicit arguments are ambiguous; use explicit {arguments}")
+      (Just result, Prepared remaining mapping) => do
+        if typeNodes result > inferredParameterNodes || payloadSize result > payloadLimit
+          then Left (CannotElaborate position "Expected implicit result exceeds node or payload admission; use explicit {arguments}") else Right ()
+        if constraintCost remaining result > state.remainingWork
+          then Left (CannotElaborate position "Implicit constraint work admission exhausted; use explicit {arguments}") else Right ()
+        case match position mapping Just remaining result state.solutions of
+          Left _ => implicitFailure position
+          Right found => Right found
+  values <- case arguments position state.count 0 solutions of
+    Left _ => Left (CannotElaborate position "Implicit arguments are ambiguous; use explicit {arguments}")
+    Right values => Right values
+  let size = foldl (\accum, value => min 513 (accum + 1 + typeNodes value)) 0 values
+  let payload = foldl (\accum, value => min (S payloadLimit) (accum + payloadSize value)) 0 values
+  if size > inferredParameterNodes || payload > payloadLimit
+    then Left (CannotElaborate position "Implicit solutions exceed node or payload admission; use explicit {arguments}") else Right ()
+  checkImplicitDomains position context state.signature values
+  Right values
 
 ||| Infer only a leading erased prefix, from structural type constraints.
 ||| Phantom, conflicting, local-dependent and higher-order inversions fail closed.

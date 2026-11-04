@@ -65,8 +65,8 @@ by this first slice. This avoids reducing an unchecked signature merely to guess
 binders; use an explicit lambda/annotation or write the Pi in the signature.
 Explicit constraints are represented by ordinary Pis after their existing checks;
 this feature does not add dictionary search. A module signature can also declare
-[one leading erased implicit parameter](implicit-arguments.md); its equation still
-names that parameter explicitly.
+[a leading erased implicit prefix](implicit-arguments.md); its equation still
+names those parameters explicitly.
 
 ## Bounds, tooling and evidence
 

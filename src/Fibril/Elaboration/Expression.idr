@@ -130,12 +130,41 @@ implicitHead : List GlobalDefinition -> Vect n String -> Expr -> Maybe GlobalDef
 implicitHead globals env (NRef _ name) = case lookupName name env of
   Just _ => Nothing
   Nothing => case find (\entry => entry.name == name) globals of
-    Just entry => if entry.implicitFirst then Just entry else Nothing
+    Just entry => if entry.implicitPrefix > 0 then Just entry else Nothing
     Nothing => Nothing
 implicitHead globals env (NQualifiedRef _ name) = case find (\entry => entry.name == name) globals of
-  Just entry => if entry.implicitFirst then Just entry else Nothing
+  Just entry => if entry.implicitPrefix > 0 then Just entry else Nothing
   Nothing => Nothing
 implicitHead globals env _ = Nothing
+
+hasImplicitCall : List GlobalDefinition -> Vect n String -> Expr -> Bool
+hasImplicitCall globals env source =
+  let (head, arguments) = applicationSpine source in
+    case arguments of
+      [] => False
+      _ => case implicitHead globals env head of Just _ => True; Nothing => False
+
+spineAdmission : Position -> Nat -> List CallArgument -> Either ResolveError Bool
+spineAdmission position capacity = go 0 False
+  where
+    go : Nat -> Bool -> List CallArgument -> Either ResolveError Bool
+    go count seen [] =
+      if count > capacity then Left (CannotElaborate position "Too many explicit {arguments}")
+        else Right (seen && count < capacity)
+    go count seen (item :: rest) = case item of
+      BracedArgument span _ =>
+        if seen then Left (CannotElaborate span.start "Explicit {arguments} must precede ordinary arguments")
+          else go (S count) False rest
+      OrdinaryArgument _ _ => go count True rest
+
+record PendingImplicit (n : Nat) where
+  constructor PendingCall
+  entry : GlobalDefinition
+  function : Term n
+  given : List (Term n)
+  ordinary : List (Term n)
+  solver : Maybe (ImplicitState n)
+  applied : Maybe (Term n)
 
 namedConstructor : Expr -> Bool
 namedConstructor (NRef _ _) = True
@@ -145,15 +174,19 @@ namedConstructor _ = False
 
 mutual
   ||| Visibility is accepted only on a checked module declaration's leading
-  ||| erased binder, followed by a source-authored ordinary Pi.
+  ||| erased prefix, followed by a source-authored ordinary Pi.
   public export
   elaborateSignature : List GlobalDefinition -> Maybe (Context n) -> Vect n String -> Expr -> Either ResolveError (Term n)
-  elaborateSignature globals context env (NImplicitPi span Erased name domain body@(NPi _ _ _ _ _)) = do
+  elaborateSignature globals context env (NImplicitPi span Erased name domain body) = do
+    case body of
+      NImplicitPi _ _ _ _ _ => Right ()
+      NPi _ _ _ _ _ => Right ()
+      _ => Left (CannotElaborate span.start "Implicit prefix must be followed by an explicit Pi")
     domain <- elaborateInWith globals context env domain
-    result <- elaborateInWith globals (map (\ctx => Extend ctx Erased domain) context) (name :: env) body
+    result <- elaborateSignature globals (map (\ctx => Extend ctx Erased domain) context) (name :: env) body
     Right (Pi Erased domain result)
   elaborateSignature globals context env (NImplicitPi span _ _ _ _) =
-    Left (CannotElaborate span.start "One leading erased implicit binder must be followed by an explicit Pi")
+    Left (CannotElaborate span.start "Implicit binders must have quantity 0")
   elaborateSignature globals context env signature = elaborateInWith globals context env signature
 
   elaborateTerms : List GlobalDefinition -> Maybe (Context n) -> Vect n String -> List Expr -> Either ResolveError (List (Term n))
@@ -228,6 +261,14 @@ mutual
   -- variable abstraction is a renaming, so it cannot duplicate subtrees.
   public export
   elaborateExpected : List GlobalDefinition -> Context n -> Vect n String -> Term n -> Expr -> Either ResolveError (Term n)
+  elaborateExpected globals context env expected expression@(NApply span function argument) =
+    if hasImplicitCall globals env expression
+      then elaborateImplicitCall globals context env (Just expected) expression
+      else do
+        resolved <- elaborateInWith globals (Just context) env function
+        elaborateApplication globals (Just context) env resolved argument
+  elaborateExpected globals context env expected expression@(NImplicitApply span _ _) =
+    elaborateImplicitCall globals context env (Just expected) expression
   elaborateExpected globals context env expected (NDataCase span value Nothing arms) =
     elaborateDataCase globals context env span value Nothing arms (Just expected)
   elaborateExpected globals context env (Pi _ _ expected) (NLambda span q name domain body) = do
@@ -244,7 +285,7 @@ mutual
     no <- elaborateExpected globals context env expected no
     Right (BoolCase condition yes no)
   elaborateExpected globals context env expected expression@(NLet span q name annotation value body) =
-    if not (wantsExpected body) || typeNodes expected > inferredResultNodes
+    if not (wantsExpected body || hasImplicitCall globals (name :: env) body) || typeNodes expected > inferredResultNodes
       then elaborateInWith globals (Just context) env expression else do
       ty <- elaborateInWith globals (Just context) env annotation
       value <- elaborateExpected globals context env ty value
@@ -469,26 +510,20 @@ mutual
     operator <- elaborateInWith globals context env function
     first <- elaborateApplication globals context env operator left
     elaborateApplication globals context env first right
-  elaborateInWith globals context env (NApply span sourceFunction argument) = do
-    function <- elaborateInWith globals context env sourceFunction
-    case implicitHead globals env sourceFunction of
-      Nothing => elaborateApplication globals context env function argument
-      Just entry => do
-        ctx <- case context of
-          Nothing => Left (CannotElaborate span.start "Implicit insertion requires a typed context; use an explicit {argument}")
-          Just ctx => Right ctx
-        if typeNodes entry.declaredType > inferredParameterNodes
-          then Left (CannotElaborate span.start "Implicit function type exceeds 512 nodes; use an explicit {argument}") else Right ()
-        value <- elaborateInWith globals context env argument
-        inferredArg <- inferLeadingArgument span.start ctx (rename absurd entry.declaredType) value
-        Right (Apply (Apply function inferredArg) value)
-  elaborateInWith globals context env (NImplicitApply span sourceFunction argument) = do
-    _ <- case implicitHead globals env sourceFunction of
-      Nothing => Left (CannotElaborate span.start "Explicit {argument} requires a direct global with a leading implicit binder")
-      Just entry => Right entry
-    function <- elaborateInWith globals context env sourceFunction
-    argument <- elaborateInWith globals context env argument
-    Right (Apply function argument)
+  elaborateInWith globals context env expression@(NApply span sourceFunction argument) =
+    if hasImplicitCall globals env expression then do
+      ctx <- case context of
+        Nothing => Left (CannotElaborate span.start "Implicit insertion requires a typed context; use explicit {arguments}")
+        Just ctx => Right ctx
+      elaborateImplicitCall globals ctx env Nothing expression
+    else do
+      function <- elaborateInWith globals context env sourceFunction
+      elaborateApplication globals context env function argument
+  elaborateInWith globals context env expression@(NImplicitApply span sourceFunction argument) = do
+    ctx <- case context of
+      Nothing => Left (CannotElaborate span.start "Explicit {arguments} require a typed context")
+      Just ctx => Right ctx
+    elaborateImplicitCall globals ctx env Nothing expression
 
   elaborateInWith globals context env (NSequence span first rest) = do
     action <- elaborateInWith globals context env first
@@ -524,10 +559,83 @@ mutual
     value <- elaborateDo globals context env ty body
     Right (Apply (Lambda Linear (IOType ty) (Variable FZ)) value)
 
+  -- Traverse the authored spine structurally. Arguments are elaborated only
+  -- as direct source subexpressions, preserving totality and source order.
+  collectImplicitCall : List GlobalDefinition -> Context n -> Vect n String -> Expr -> Either ResolveError (PendingImplicit n)
+  collectImplicitCall globals context env (NImplicitApply span function argument) = do
+    pending <- collectImplicitCall globals context env function
+    if not (null pending.ordinary) || isJust pending.applied
+      then Left (CannotElaborate span.start "Explicit {arguments} must precede ordinary arguments") else Right ()
+    if length pending.given >= pending.entry.implicitPrefix
+      then Left (CannotElaborate span.start "Too many explicit {arguments}") else Right ()
+    value <- elaborateInWith globals (Just context) env argument
+    Right ({ given := pending.given ++ [value] } pending)
+  collectImplicitCall globals context env (NApply span function argument) = do
+    pending <- collectImplicitCall globals context env function
+    case pending.applied of
+      Just function => do
+        result <- elaborateApplication globals (Just context) env function argument
+        Right ({ applied := Just result } pending)
+      Nothing => if length pending.given == pending.entry.implicitPrefix then do
+          result <- elaborateApplication globals (Just context) env (foldl Apply pending.function pending.given) argument
+          Right ({ applied := Just result } pending)
+        else do
+          if length pending.ordinary >= implicitTelescopeLimit
+            then Left (CannotElaborate span.start "Implicit inference telescope admission exhausted (64)") else Right ()
+          value <- elaborateInWith globals (Just context) env argument
+          proposed <- implicitArgumentType span.start implicitProposalDepth context value
+          state <- case pending.solver of
+            Just state => Right state
+            Nothing => beginImplicit span.start pending.entry.implicitPrefix
+                         (rename absurd pending.entry.declaredType) pending.given
+          state <- advanceImplicit span.start state proposed
+          let values = pending.ordinary ++ [value]
+          if implicitSolved state then do
+            inferred <- finishImplicit span.start context state Nothing
+            Right ({ applied := Just (foldl Apply (foldl Apply pending.function inferred) values), ordinary := [], solver := Nothing } pending)
+            else Right ({ ordinary := values, solver := Just state } pending)
+  collectImplicitCall globals context env head = do
+    entry <- case implicitHead globals env head of
+      Nothing => Left (CannotElaborate (extent head).start "Explicit {arguments} require a direct global with an implicit prefix")
+      Just entry => Right entry
+    value <- case lookupGlobal entry.name globals of
+      Nothing => Left (CannotElaborate (extent head).start "Implicit global is unavailable")
+      Just value => Right (rename absurd value)
+    Right (PendingCall entry value [] [] Nothing Nothing)
+
+  elaborateImplicitCall : List GlobalDefinition -> Context n -> Vect n String -> Maybe (Term n) -> Expr -> Either ResolveError (Term n)
+  elaborateImplicitCall globals context env expected source = do
+    let (head, args) = applicationSpine source
+    entry <- case implicitHead globals env head of
+      Nothing => Left (CannotElaborate (extent source).start "Explicit {arguments} require a direct global with an implicit prefix")
+      Just entry => Right entry
+    if entry.implicitPrefix > implicitTelescopeLimit
+      then Left (CannotElaborate (extent source).start "Implicit telescope admission exhausted (64)") else Right ()
+    needsInference <- spineAdmission (extent source).start entry.implicitPrefix args
+    if needsInference && typeNodes entry.declaredType > inferredParameterNodes
+      then Left (CannotElaborate (extent source).start "Implicit function type exceeds 512 nodes; use explicit {arguments}") else Right ()
+    if needsInference && payloadSize entry.declaredType > payloadLimit
+      then Left (CannotElaborate (extent source).start "Implicit function type exceeds payload admission; use explicit {arguments}") else Right ()
+    pending <- collectImplicitCall globals context env source
+    case pending.applied of
+      Just result => Right result
+      Nothing => if null pending.ordinary
+        then Right (foldl Apply pending.function pending.given)
+        else do
+          if typeNodes pending.entry.declaredType > inferredParameterNodes
+            then Left (CannotElaborate (extent source).start "Implicit function type exceeds 512 nodes; use explicit {arguments}") else Right ()
+          if payloadSize pending.entry.declaredType > payloadLimit
+            then Left (CannotElaborate (extent source).start "Implicit function type exceeds payload admission; use explicit {arguments}") else Right ()
+          state <- case pending.solver of
+            Just state => Right state
+            Nothing => Left (CannotElaborate (extent source).start "Implicit inference state is unavailable")
+          inferred <- finishImplicit (extent source).start context state expected
+          Right (foldl Apply (foldl Apply pending.function inferred) pending.ordinary)
+
   elaborateApplication : List GlobalDefinition -> Maybe (Context n) -> Vect n String -> Term n -> Expr -> Either ResolveError (Term n)
   elaborateApplication globals context env function argument = do
     argument <- case context of
-      Just ctx => if wantsExpected argument then
+      Just ctx => if wantsExpected argument || hasImplicitCall globals env argument then
         case inferErased checkingDepth typeReductionFuel ctx function of
           Right (Pi _ domain _) =>
             if typeNodes domain <= inferredResultNodes

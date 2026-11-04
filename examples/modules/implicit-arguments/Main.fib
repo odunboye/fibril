@@ -9,3 +9,5 @@ main = do
   putStrLn (appendString "queued: " message)
   putStrLn (Utility.Identity.keep {String} "explicit type")
   putStrLn (Utility.Identity.label {Bool} "phantom type")
+  putStrLn (Utility.Identity.selectFirst "both inferred" "unused")
+  putStrLn (Utility.Identity.selectFirst {String} "partly explicit" "unused")

@@ -52,6 +52,26 @@ data Expr
   | NAscribe SourceSpan Expr Expr
   | NLet SourceSpan Quantity String Expr Expr Expr
 
+||| Count only the consecutive source-authored leading implicit binders.
+public export
+implicitPrefixCount : Expr -> Nat
+implicitPrefixCount (NImplicitPi _ _ _ _ body) = S (implicitPrefixCount body)
+implicitPrefixCount _ = 0
+
+||| Source application steps retain authored argument spans and visibility.
+public export
+data CallArgument = OrdinaryArgument SourceSpan Expr | BracedArgument SourceSpan Expr
+
+||| Collect one left-associated spine without crossing other expression forms.
+public export
+applicationSpine : Expr -> (Expr, List CallArgument)
+applicationSpine expression = gather expression []
+  where
+    gather : Expr -> List CallArgument -> (Expr, List CallArgument)
+    gather (NApply span function argument) rest = gather function (OrdinaryArgument span argument :: rest)
+    gather (NImplicitApply span function argument) rest = gather function (BracedArgument span argument :: rest)
+    gather head rest = (head, rest)
+
 ||| Recover the complete syntactic extent of an expression.
 public export
 extent : Expr -> SourceSpan

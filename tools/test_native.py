@@ -39,7 +39,7 @@ class NativeTests(unittest.TestCase):
 
     def test_imported_module_and_package_entry(self):
         cases = [(['--source-dir', str(ROOT / 'examples/modules/checked'), str(ROOT / 'examples/modules/checked/Main.fib')], b'Hello, Fibril!\n'),
-                 (['--source-dir', str(ROOT / 'examples/modules/implicit-arguments'), str(ROOT / 'examples/modules/implicit-arguments/Main.fib')], b'queued: receipt\nexplicit type\nphantom type\n'),
+                 (['--source-dir', str(ROOT / 'examples/modules/implicit-arguments'), str(ROOT / 'examples/modules/implicit-arguments/Main.fib')], b'queued: receipt\nexplicit type\nphantom type\nboth inferred\npartly explicit\n'),
                  (['--package', str(ROOT / 'examples/packages/mailer/fibril.yaml')], b'accepted by relay: demo-1 (not delivery)\n')]
         for args, output in cases:
             with self.subTest(args=args), tempfile.TemporaryDirectory() as directory:

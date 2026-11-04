@@ -11,7 +11,7 @@ The generated homepage separates teaching chapters, references, and project reco
 
 ## Reference index
 
-- [Implicit arguments](implicit-arguments.md): one leading erased implicit on direct checked global calls.
+- [Implicit arguments](implicit-arguments.md): infer erased prefixes on direct checked global calls.
 
 - [Experimental checked C emission](native-c.md): compile a supported console subset without precomputing output.
 

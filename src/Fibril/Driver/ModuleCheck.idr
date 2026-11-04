@@ -43,10 +43,41 @@ record Weighted where
 weighted : GlobalDefinition -> Weighted
 weighted global = Weight global (3 + nodes global.declaredType + nodes global.value)
 
-referenceImplicit : List Weighted -> String -> Bool
-referenceImplicit [] name = False
+referenceImplicit : List Weighted -> String -> Nat
+referenceImplicit [] name = 0
 referenceImplicit (entry :: rest) name =
-  if entry.global.name == name then entry.global.implicitFirst else referenceImplicit rest name
+  if entry.global.name == name then entry.global.implicitPrefix else referenceImplicit rest name
+
+implicitHeadCost : List Weighted -> List String -> Expr -> Nat
+implicitHeadCost globals env (NRef _ name) =
+  if elem name env then 0 else referenceImplicit globals name
+implicitHeadCost globals env (NQualifiedRef _ name) = referenceImplicit globals name
+implicitHeadCost globals env _ = 0
+
+implicitSpineCount : List Weighted -> List String -> Expr -> Nat
+implicitSpineCount globals env (NApply _ function _) = implicitSpineCount globals env function
+implicitSpineCount globals env (NImplicitApply _ function _) = implicitSpineCount globals env function
+implicitSpineCount globals env head = implicitHeadCost globals env head
+
+spineBraceCount : Expr -> Nat
+spineBraceCount (NApply _ function _) = spineBraceCount function
+spineBraceCount (NImplicitApply _ function _) = S (spineBraceCount function)
+spineBraceCount _ = 0
+
+spineOrdinaryCount : Expr -> Nat
+spineOrdinaryCount (NApply _ function _) = S (spineOrdinaryCount function)
+spineOrdinaryCount (NImplicitApply _ function _) = spineOrdinaryCount function
+spineOrdinaryCount _ = 0
+
+implicitBodyCount : List Weighted -> List String -> Expr -> Nat
+implicitBodyCount globals env expression@(NApply _ _ _) = implicitSpineCount globals env expression
+implicitBodyCount globals env expression@(NImplicitApply _ _ _) = implicitSpineCount globals env expression
+implicitBodyCount _ _ _ = 0
+
+validImplicitPrefix : Nat -> Term n -> Bool
+validImplicitPrefix Z (Pi _ _ _) = True
+validImplicitPrefix (S count) (Pi Erased _ rest) = validImplicitPrefix count rest
+validImplicitPrefix _ _ = False
 
 referenceCost : List Weighted -> String -> Nat
 referenceCost [] name = 1
@@ -108,15 +139,19 @@ mutual
     NPi _ _ name a b => 1 + cost limit globals env a + cost limit globals (name :: env) b
     NLambda _ _ name a b => 1 + cost limit globals env a + cost limit globals (name :: env) b
     NInfix _ function left right => 2 + cost limit globals env function + cost limit globals env left + cost limit globals env right
-    NApply _ a b => 1 + cost limit globals env a + cost limit globals env b +
-      (case a of
-        NRef _ name => if not (elem name env) && referenceImplicit globals name then 1025 else 0
-        NQualifiedRef _ name => if referenceImplicit globals name then 1025 else 0
-        _ => 0)
+    NApply _ a b =>
+      let capacity = implicitSpineCount globals env a
+          needsInference = capacity > 0 && spineBraceCount a < capacity
+          firstOrdinary = spineOrdinaryCount a == 0 in
+        1 + cost limit globals env a + cost limit globals env b +
+        (if needsInference then implicitProposalDepth * 513 else 0) +
+        (if needsInference && firstOrdinary then 1025 + capacity * 513 else 0)
     NImplicitApply _ a b => 1 + cost limit globals env a + cost limit globals env b
     NAscribe _ a b => 3 + cost limit globals env a + cost limit globals env b
-    NLet _ _ name a value body => (if wantsExpected body then 514 else 2) + cost limit globals env a + cost limit globals env value +
-                                 cost limit globals (name :: env) body
+    NLet _ _ name a value body =>
+      let implicitBody = implicitBodyCount globals (name :: env) body > 0 in
+        (if wantsExpected body || implicitBody then 514 else 2) + cost limit globals env a + cost limit globals env value +
+        cost limit globals (name :: env) body
     NSequence _ a b => 7 + cost limit globals env a + cost limit globals env b
     NDoBind _ name a action body => 3 + 2 * cost limit globals env a + cost limit globals env action +
                                     cost limit globals (name :: env) body
@@ -212,13 +247,13 @@ compileDeclarations snapshot name globals (decl :: rest) remaining = do
   if estimate > remaining then Left (problem snapshot (Just decl.nameSpan.start)
                                      "Expanded core construction budget exhausted (200000)")
      else Right ()
+  let implicitPrefix = implicitPrefixCount decl.expected
+  if implicitPrefix > 64 then Left (problem snapshot (Just decl.nameSpan.start) "Implicit telescope admission exhausted (64)") else Right ()
   ty <- case elaborateSignature (map global globals) (Just Empty) [] decl.expected of
     Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
     Right ty => Right ty
-  let implicitFirst = case decl.expected of NImplicitPi _ _ _ _ _ => True; _ => False
-  if implicitFirst then case ty of
-    Pi Erased _ (Pi _ _ _) => Right ()
-    _ => Left (problem snapshot (Just decl.nameSpan.start) "Implicit metadata does not match an erased leading Pi followed by an explicit Pi")
+  if implicitPrefix > 0 && not (validImplicitPrefix implicitPrefix ty)
+    then Left (problem snapshot (Just decl.nameSpan.start) "Implicit metadata does not match an erased leading Pi prefix followed by an explicit Pi")
     else Right ()
   value <- case elaborateExpected (map global globals) Empty [] ty decl.value of
     Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
@@ -238,7 +273,7 @@ compileDeclarations snapshot name globals (decl :: rest) remaining = do
     Left message => Left ({ stage := "runtime-checking" } (problem snapshot (Just decl.nameSpan.start) message))
     else Right False
   let identity = moduleText name ++ "." ++ decl.name
-  let definition = GlobalEntry (if provider then Just identity else Nothing) implicitFirst decl.quantity decl.name ty value
+  let definition = GlobalEntry (if provider then Just identity else Nothing) implicitPrefix decl.quantity decl.name ty value
   let local = weighted definition
   let qualified = Weight ({ name := identity } definition) local.size
   following <- compileDeclarations snapshot name (local :: qualified :: globals) rest (minus remaining estimate)

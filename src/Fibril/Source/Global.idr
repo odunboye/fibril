@@ -14,7 +14,7 @@ public export
 record GlobalDefinition where
   constructor GlobalEntry
   provider : Maybe String
-  implicitFirst : Bool
+  implicitPrefix : Nat
   quantity : Quantity
   name : String
   declaredType : Term 0
@@ -23,7 +23,7 @@ record GlobalDefinition where
 ||| Compatibility constructors do not opt ordinary globals into provider lookup.
 public export
 GlobalWithQuantity : Quantity -> String -> Term 0 -> Term 0 -> GlobalDefinition
-GlobalWithQuantity = GlobalEntry Nothing False
+GlobalWithQuantity = GlobalEntry Nothing 0
 
 ||| Existing primitive/prelude definitions remain unrestricted.
 public export
