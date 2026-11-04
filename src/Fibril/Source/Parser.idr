@@ -396,21 +396,28 @@ mutual
         (arms, remaining) <- dataBranches depth 64 end first.span.start.column afterOf
         case reverse arms of
           [] => Left (ParseFailure first.span.start "Data case requires branches")
-          (_, _, lastBody) :: _ => Right (NDataCase (Between token.span.start (extent lastBody).finish) scrutinee motive arms, remaining)
+          (_, _, lastBody) :: _ => Right (NDataCase (Between token.span.start (extent lastBody).finish) scrutinee (Just motive) arms, remaining)
         else typedCase depth end token scrutinee (Just motive) afterOf
       [] => typedCase depth end token scrutinee (Just motive) afterOf
 
   unitCase : Nat -> Position -> Token -> Expr -> List Token -> Either ParseError (Expr, List Token)
   unitCase depth end token scrutinee tokens = do
-    (_, afterOf) <- expect OfKeyword end tokens
+    (ofToken, afterOf) <- expect OfKeyword end tokens
     case afterOf of
-      opening :: closing :: rest =>
-        if opening.kind == OpenParen && closing.kind == CloseParen then do
-          (_, afterArrow) <- expect BodyArrow end rest
-          (body, remaining) <- expression depth end afterArrow
-          Right (NUnitCase (Between token.span.start (extent body).finish) scrutinee body, remaining)
-        else typedCase depth end token scrutinee Nothing afterOf
-      _ => typedCase depth end token scrutinee Nothing afterOf
+      first :: _ => if dataBlockAhead ofToken afterOf then do
+        (arms, remaining) <- dataBranches depth 64 end first.span.start.column afterOf
+        case reverse arms of
+          [] => Left (ParseFailure first.span.start "Data case requires branches")
+          (_, _, lastBody) :: _ => Right (NDataCase (Between token.span.start (extent lastBody).finish) scrutinee Nothing arms, remaining)
+        else case afterOf of
+          opening :: closing :: rest =>
+            if opening.kind == OpenParen && closing.kind == CloseParen then do
+              (_, afterArrow) <- expect BodyArrow end rest
+              (body, remaining) <- expression depth end afterArrow
+              Right (NUnitCase (Between token.span.start (extent body).finish) scrutinee body, remaining)
+            else typedCase depth end token scrutinee Nothing afterOf
+          _ => typedCase depth end token scrutinee Nothing afterOf
+      [] => typedCase depth end token scrutinee Nothing afterOf
 
   doStatement : Nat -> Position -> List Token -> Either ParseError (DoStatement, List Token)
   doStatement depth end tokens@(opening :: _) =

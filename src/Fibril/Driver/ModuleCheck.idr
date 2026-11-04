@@ -84,7 +84,9 @@ mutual
       min (S limit) (1 + length names * 513 + cost limit globals env signature + cost limit globals (reverse (map spelling names) ++ env) body)
     NPatternLambda _ names body => 4 + 2 * inferredFieldNodes + cost limit globals (reverse (map spelling names) ++ env) body
     NDataCase _ value motive branches =>
-      min (S limit) (4096 + cost limit globals env value + 2 * cost limit globals env motive + dataArmsCost limit globals env branches)
+      min (S limit) (4096 + cost limit globals env value +
+        (case motive of Nothing => 2 * (1 + 512 + inferredResultNodes); Just explicit => 2 * cost limit globals env explicit) +
+        dataArmsCost limit globals env branches)
     NConstructorCase _ _ constructor value branch motive =>
       8 + 3 * inferredParameterNodes + 3 * cost limit globals env constructor + cost limit globals env value + 2 * cost limit globals env branch +
         (case motive of Nothing => inferredResultNodes; Just explicit => cost limit globals env explicit)

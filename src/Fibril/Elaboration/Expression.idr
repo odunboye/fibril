@@ -55,6 +55,42 @@ inferCase position arity context scrutinee branch = do
       Right (PairCase motive scrutinee branch)
     _ => Left (CannotElaborate position "Record motive inference requires one or two typed pattern binders")
 
+||| Infer only a syntactically constant result. We do not normalize or
+||| synthesize a dependent motive here; explicit return remains the fallback.
+||| The independent core checker still checks the resulting complete case.
+dataBranchResult : Position -> Context n -> Maybe (Quantity, Term n) -> Term n -> Either ResolveError (Term n)
+dataBranchResult position context descriptor branch = do
+  ty <- case inferErased checkingDepth typeReductionFuel context branch of
+    Left err => Left (CannotElaborate position ("Cannot infer data-case branch type: " ++ show err ++ "; use an explicit return motive"))
+    Right ty => Right ty
+  case (descriptor, ty) of
+    (Nothing, result) => if typeNodes result > inferredResultNodes
+      then Left (CannotElaborate position "Inferred data-case result exceeds 512 nodes; use an explicit return motive")
+      else Right result
+    (Just _, Pi _ _ result) => do
+      if typeNodes result > inferredResultNodes
+        then Left (CannotElaborate position "Inferred data-case result exceeds 512 nodes; use an explicit return motive") else Right ()
+      case dropNewest result of
+        Nothing => Left (CannotElaborate position "Data-case result depends on a payload; use an explicit return motive")
+        Just outer => Right outer
+    _ => Left (CannotElaborate position "Cannot infer data-case payload result; use an explicit return motive")
+
+constantDataResult : Position -> Context n -> List (Maybe (Quantity, Term n)) -> List (Term n) -> Either ResolveError (Term n)
+constantDataResult position context [] [] = Left (CannotElaborate position "Cannot infer an empty data-case result")
+constantDataResult position context (descriptor :: descriptors) (branch :: branches) = do
+  first <- dataBranchResult position context descriptor branch
+  agree first descriptors branches
+  Right first
+  where
+    agree : Term n -> List (Maybe (Quantity, Term n)) -> List (Term n) -> Either ResolveError ()
+    agree first [] [] = Right ()
+    agree first (descriptor :: descriptors) (branch :: branches) = do
+      result <- dataBranchResult position context descriptor branch
+      if sameSyntax first result then agree first descriptors branches
+        else Left (CannotElaborate position "Data-case branch types do not have the same syntactic result; use an explicit return motive")
+    agree first _ _ = Left (CannotElaborate position "Data-case branch count does not match shape")
+constantDataResult position context _ _ = Left (CannotElaborate position "Data-case branch count does not match shape")
+
 namedConstructor : Expr -> Bool
 namedConstructor (NRef _ _) = True
 namedConstructor (NQualifiedRef _ _) = True
@@ -206,14 +242,18 @@ mutual
         HeadLimit _ => Left (CannotElaborate span.start "Data-case shape reduction budget exhausted")
         _ => Left (CannotElaborate span.start "Data-case nominal shape is not a variant")
       _ => Left (CannotElaborate span.start "Invalid data-case nominal type")
-    motive <- elaborateInWith globals context env motive
     case shape of
       VariantType descriptors => do
         if length descriptors > 64 then Left (CannotElaborate span.start "Data-case branch admission exhausted (64)") else Right ()
         let indices = case nominal of NominalType _ args _ => args; _ => []
         checked <- elaborateDataArms globals ctx env nominal shape indices descriptors arms
         ordered <- orderDataArms span.start 0 descriptors checked
-        Right (assembleDataCase nominal shape motive scrutinee ordered)
+        selected <- case motive of
+          Just explicit => elaborateInWith globals context env explicit
+          Nothing => do
+            result <- constantDataResult span.start ctx descriptors ordered
+            Right (Lambda Erased nominal (weaken result))
+        Right (assembleDataCase nominal shape selected scrutinee ordered)
       _ => Left (CannotElaborate span.start "Invalid data-case shape")
   elaborateInWith globals context env (NEquationLambda span names signature body) = do
     ctx <- case context of Nothing => Left (CannotElaborate span.start "Function equations require a typed context"); Just ctx => Right ctx

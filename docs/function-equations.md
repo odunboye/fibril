@@ -9,7 +9,7 @@ quantities in the signature:
 
 ~~~fibril
 render : (1 prefix : String) -> (1 request : Request) -> String
-render prefix request = case request return (\(0 self : Request) => String) of
+render prefix request = case request of
   Health => prefix
   Preview subject => appendString prefix subject
 ~~~
@@ -52,7 +52,7 @@ is a binder—not a constructor pattern.** `_` does not grant permission to disc
 a linear input. Nested constructor patterns, multiple clauses, guards, inferred signatures,
 recursive definitions and termination checking are not added. Keep using
 [direct data cases](direct-data-cases.md) in the body for existing nonrecursive
-data matching. Imported qualified function calls retain ordinary visibility rules.
+data matching; constant motives can now be [inferred](data-motive-inference.md). Imported qualified function calls retain ordinary visibility rules.
 
 Fewer named parameters than explicit Pis are allowed: the body must itself supply
 the remaining function value and still check. More names than Pis fail at the

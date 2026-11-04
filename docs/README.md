@@ -11,7 +11,9 @@ The generated homepage separates teaching chapters, references, and project reco
 
 ## Reference index
 
-- [Direct non-recursive data cases](direct-data-cases.md): exhaustive local zero/unary matches with explicit motives and linear branch joins.
+- [Direct non-recursive data cases](direct-data-cases.md): exhaustive local or qualified zero/unary matches with linear branch joins.
+
+- [Constant data-case motives](data-motive-inference.md): omit `return` for a supported syntactically constant result.
 
 - [Named function equations](function-equations.md): inherit parameter domains and quantities from explicit signatures.
 

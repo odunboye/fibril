@@ -3728,6 +3728,91 @@ class CLITests(unittest.TestCase):
             self.assertIn('Unbound', error.stdout + error.stderr)
             self.assertNotIn('Parsing:', error.stdout + error.stderr)
 
+    def test_inferred_data_case_motives(self):
+        fixture = ROOT / 'examples/modules/direct-data-case/Main.fib'
+        source = fixture.read_text().replace(' return (\\(0 self : Sum String Bool) => String)', '').replace(' return (\\(0 self : Sum A B) => C)', '')
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Main.fib'
+            def project(command):
+                return run(command, '--source-dir', directory, str(path))
+            path.write_text(source)
+            result = project('run')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'L: hello\nR: yes\nno\n')
+            target = json.loads(run('definition', '10', '37', str(path)).stdout)['definition']
+            self.assertEqual((target['start']['line'], target['start']['column']), (10, 8))
+            formatted = run('format', str(path))
+            self.assertEqual(formatted.returncode, 0, formatted.stderr)
+            path.write_text(formatted.stdout)
+            self.assertEqual(run('format', '--check', str(path)).returncode, 0)
+            self.assertEqual(project('run').stdout, result.stdout)
+            different = source.replace('  Left value => appendString prefix value', '  Left value => True', 1)
+            path.write_text(different)
+            rejected = project('run')
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertIn('same syntactic result', rejected.stderr)
+            self.assertEqual(rejected.stdout, '')
+            for changed in [
+                source.replace('  Left value => appendString prefix value\n', '', 1),
+                source.replace('  Left value => appendString prefix value', '  Right value => appendString prefix value', 1),
+                source.replace('  Left value => appendString prefix value', '  Left value => value', 1),
+                source.replace('  Left value => appendString prefix value', '  Left value => appendString prefix (appendString prefix value)', 1),
+                source.replace('  Left value => appendString prefix value', '   Left value => appendString prefix value', 1),
+            ]:
+                path.write_text(changed)
+                rejected = project('run')
+                self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
+                self.assertEqual(rejected.stdout, '')
+            erased = ('module Main\ndata Secret : Type where\n  Empty : Secret\n  SecretValue : (0 flag : Bool) -> Secret\n'
+                      'reveal : (1 secret : Secret) -> Bool\nreveal secret = case secret of\n'
+                      '  Empty => False\n  SecretValue flag => flag\nmain : IO Unit\nmain = putStrLn "never"\n')
+            path.write_text(erased)
+            rejected = project('run')
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertEqual(rejected.stdout, '')
+            # Beta-equivalent but syntactically different results deliberately
+            # require an explicit motive rather than unchecked normalization.
+            convertible = ('module Main\ndata Choice : Type where\n  First : Choice\n  Second : Choice\n'
+                           'select : (left : (\\(0 A : Type) => A) String) -> (right : String) -> (1 choice : Choice) -> String\n'
+                           'select left right choice = case choice of\n  First => left\n  Second => right\n'
+                           'main : IO Unit\nmain = putStrLn (select "ok" "ok" First)\n')
+            path.write_text(convertible)
+            self.assertIn('same syntactic result', project('run').stderr)
+            path.write_text(convertible.replace('case choice of', 'case choice return (\\(0 self : Choice) => String) of'))
+            explicit = project('run')
+            self.assertEqual(explicit.returncode, 0, explicit.stdout + explicit.stderr)
+            self.assertEqual(explicit.stdout, 'ok\n')
+            # Payload-dependent branch types cannot be turned into a constant motive.
+            dependent_payload = ('module Main\ndata Packed : Type 1 where\n  Value : (0 A : Type) -> Packed\n  Empty : Packed\n'
+                                 'bad : (f : (0 A : Type) -> A) -> (1 item : Packed) -> String\n'
+                                 'bad f item = case item of\n  Value A => f A\n  Empty => "nothing"\n'
+                                 'main : IO Unit\nmain = putStrLn "never"\n')
+            path.write_text(dependent_payload)
+            rejected = project('run')
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertIn('depends on a payload', rejected.stderr)
+            self.assertEqual(rejected.stdout, '')
+            # Dependent scrutinee motives continue to require the explicit spelling.
+            dependent = (ROOT / 'examples/modules/direct-data-case-dependent/Main.fib').read_text()
+            path.write_text(dependent.replace(' return (\\(0 self : Select) => Family self)', ''))
+            rejected = project('run')
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertIn('return motive', rejected.stderr)
+            self.assertEqual(rejected.stdout, '')
+            path.write_text(dependent)
+            self.assertEqual(project('run').stdout, 'first\n')
+            # Nested inferred cases preserve outer variables and shadowed binders.
+            nested = ('module Main\ndata Message : Type where\n  Missing : Message\n  Text : (1 value : String) -> Message\n'
+                      'combine : (1 first : Message) -> (1 second : Message) -> String\n'
+                      'combine first second = case first of\n'
+                      '  Missing => case second of\n    Missing => "none"\n    Text value => value\n'
+                      '  Text value => case second of\n    Missing => value\n    Text other => appendString value other\n'
+                      'main : IO Unit\nmain = putStrLn (combine (Text "a") (Text "b"))\n')
+            path.write_text(nested)
+            nested_result = project('run')
+            self.assertEqual(nested_result.returncode, 0, nested_result.stdout + nested_result.stderr)
+            self.assertEqual(nested_result.stdout, 'ab\n')
+
     def test_direct_nonrecursive_data_cases(self):
         fixture = ROOT / 'examples/modules/direct-data-case/Main.fib'
         source = fixture.read_text()

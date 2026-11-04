@@ -39,7 +39,9 @@ mutual
   sameExpr (NEquationLambda _ names signature body) (NEquationLambda _ other ty value) =
     map spelling names == map spelling other && sameExpr signature ty && sameExpr body value
   sameExpr (NPatternLambda _ names body) (NPatternLambda _ other value) = map spelling names == map spelling other && sameExpr body value
-  sameExpr (NDataCase _ value motive arms) (NDataCase _ other result branches) =
+  sameExpr (NDataCase _ value Nothing arms) (NDataCase _ other Nothing branches) =
+    sameExpr value other && sameDataArms arms branches
+  sameExpr (NDataCase _ value (Just motive) arms) (NDataCase _ other (Just result) branches) =
     sameExpr value other && sameExpr motive result && sameDataArms arms branches
   sameExpr (NConstructorCase _ n c a b Nothing) (NConstructorCase _ m d x y Nothing) =
     n == m && sameExpr c d && sameExpr a x && sameExpr b y

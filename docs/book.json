@@ -204,6 +204,10 @@
         "path": "docs/diagnostics.md"
       },
       {
+        "title": "Constant data-case motive inference",
+        "path": "docs/data-motive-inference.md"
+      },
+      {
         "title": "Direct non-recursive data cases",
         "path": "docs/direct-data-cases.md"
       },

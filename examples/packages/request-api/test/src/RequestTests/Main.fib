@@ -2,7 +2,7 @@ module RequestTests.Main
 import Mail.Request
 
 inspect : (1 request : Mail.Request.Request) -> String
-inspect = \(1 request : Mail.Request.Request) => case request return (\(0 self : Mail.Request.Request) => String) of
+inspect request = case request of
   Mail.Request.Health => "health"
   Mail.Request.Enqueue recipient => appendString "enqueue:" recipient
   Mail.Request.Preview subject => appendString "preview:" subject

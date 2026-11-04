@@ -36,7 +36,7 @@ data Expr
   | NPatternLambda SourceSpan (List Token) Expr
   | NEquationLambda SourceSpan (List Token) Expr Expr
   | NConstructorCase SourceSpan Nat Expr Expr Expr (Maybe Expr)
-  | NDataCase SourceSpan Expr Expr (List (Token, Maybe Token, Expr))
+  | NDataCase SourceSpan Expr (Maybe Expr) (List (Token, Maybe Token, Expr))
   | NConstraintPi SourceSpan Quantity String Expr Expr
   | NDictionaryApply SourceSpan SourceSpan Expr (Maybe Expr)
   | NImplementationApply SourceSpan SourceSpan Expr

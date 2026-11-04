@@ -122,7 +122,8 @@ mutual
   mentions name (NEquationLambda _ names signature body) = mentions name signature ||
     (if any (\token => token.spelling == name) names then False else mentions name body)
   mentions name (NPatternLambda _ names body) = not (any (\token => token.spelling == name) names) && mentions name body
-  mentions name (NDataCase _ value motive arms) = mentions name value || mentions name motive || mentionsDataArms name arms
+  mentions name (NDataCase _ value Nothing arms) = mentions name value || mentionsDataArms name arms
+  mentions name (NDataCase _ value (Just motive) arms) = mentions name value || mentions name motive || mentionsDataArms name arms
   mentions name (NConstructorCase _ _ c a b motive) = mentions name c || mentions name a || mentions name b || (case motive of Nothing => False; Just result => mentions name result)
   mentions name (NInferCase _ _ a b) = mentions name a || mentions name b
   mentions name (NPairCase _ a b c) = mentions name a || mentions name b || mentions name c
@@ -293,7 +294,8 @@ mutual
   syntaxNodes (NPairValue _ a b c) = capped (1 + syntaxNodes a + syntaxNodes b + syntaxNodes c)
   syntaxNodes (NEquationLambda _ names signature body) = capped (1 + length names + syntaxNodes signature + syntaxNodes body)
   syntaxNodes (NPatternLambda _ _ body) = capped (1 + syntaxNodes body)
-  syntaxNodes (NDataCase _ value motive arms) = capped (1 + syntaxNodes value + syntaxNodes motive + syntaxDataArms arms)
+  syntaxNodes (NDataCase _ value Nothing arms) = capped (1 + syntaxNodes value + syntaxDataArms arms)
+  syntaxNodes (NDataCase _ value (Just motive) arms) = capped (1 + syntaxNodes value + syntaxNodes motive + syntaxDataArms arms)
   syntaxNodes (NConstructorCase _ _ c a b motive) = capped (1 + syntaxNodes c + syntaxNodes a + syntaxNodes b + (case motive of Nothing => 0; Just result => syntaxNodes result))
   syntaxNodes (NInferCase _ _ a b) = capped (1 + syntaxNodes a + syntaxNodes b)
   syntaxNodes (NPairCase _ a b c) = capped (1 + syntaxNodes a + syntaxNodes b + syntaxNodes c)

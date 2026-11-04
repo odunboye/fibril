@@ -8,7 +8,7 @@ identity : (0 A : Type) -> (1 value : A) -> A
 identity T item = item
 
 describe : (1 prefix : String) -> (1 request : Request) -> String
-describe prefix request = case request return (\(0 self : Request) => String) of
+describe prefix request = case request of
   Health => prefix
   Preview subject => appendString prefix subject
 

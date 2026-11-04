@@ -18,8 +18,8 @@ data Sum (0 A : Type 0) (0 B : Type 0) : Type 0 where
   Right : (1 value : B) -> Sum A B
 
 render : (1 prefix : String) -> (1 message : Sum String Bool) -> String
-render = \(1 prefix : String) => \(1 message : Sum String Bool) =>
-  case message return (\(0 self : Sum String Bool) => String) of
+render prefix message =
+  case message of
     Right flag => if flag then appendString prefix "yes" else appendString prefix "no"
     Left value => appendString prefix value
 ~~~
@@ -49,8 +49,9 @@ family indexed by a finite choice and returns a different value type per branch.
 
 ## Source form and scope
 
-- Write an explicit erased motive after `return`, then `of` and an aligned,
-  indented multiline branch block. Constructor patterns use a visible local or
+- Write `case value of` and an aligned, indented multiline branch block when
+  [constant motive inference](data-motive-inference.md) applies. Otherwise write
+  an explicit erased motive after `return` before `of`. Constructor patterns use a visible local or
   qualified direct-import name and zero or one field binder: `Missing => ...`,
   `Text x => ...`, or `Data.Sum.Left x => ...`.
   Bodies may continue on more-indented lines; grouped and nested cases work.
@@ -64,7 +65,7 @@ family indexed by a finite choice and returns a different value type per branch.
 - This slice supports only nullary and **single-field** constructors. Wider
   dependent-field constructors remain usable through named eliminators, but are
   not silently treated as direct one-field patterns. No nested patterns,
-  constructor wildcard/implicit coverage or motive inference is provided.
+  constructor wildcard/implicit coverage or general dependent motive inference is provided.
 - This slice runs through named-module project checking (`--source-dir` or
   `--package`); standalone declaration-file checking does not publish the
   checked globals required by these patterns. Local patterns use unqualified
@@ -101,7 +102,7 @@ retains branch alignment.
    order. A payload branch elaborates its body under a binder with that actual
    quantity and domain. Nullary branches receive no fabricated Unit payload.
 4. `assembleDataCase` builds an ordinary `NominalCase`/`VariantCase` term with
-   the explicit motive. The independent existing core checkers validate the
+   the explicit or inferred constant motive. The independent existing core checkers validate the
    entire enclosing declaration, including erased-stage restrictions, dependent
    motive, payload use and runtime branch permission joins. No helper application
    or unrestricted branch argument approximates those rules.
@@ -129,5 +130,5 @@ They are sampled implementation evidence, not preservation, normalization,
 erasure or quantitative/cubical soundness proofs.
 
 Next: multiple and dependent field patterns, single-unary disambiguation and
-motive inference. Recursive data,
+more general dependent motive inference. Recursive data,
 positivity and structural termination remain separate milestones.

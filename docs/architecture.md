@@ -48,7 +48,7 @@ Implemented:
 - `src/Fibril/Elaboration/Declaration.idr`: schema-guided named method-block lowering, declaration admission, record expansion, source origins and ordinary typed-let lowering for the compiler pipeline.
 - `src/Fibril/Source/Parser.idr`: bounded expression grammar with flat Unit-result do sequencing.
 - `src/Fibril/Source/Resolve.idr`: compatibility facade for contextual expression elaboration; arbitrary untyped name-vector entrypoints retain lexical behavior.
-- `src/Fibril/Elaboration/Expression.idr`: contextual names-to-core elaboration, typed lets/do lowering and bounded constant/dependent motive inference for typed unary/binary patterns; original core values still need independent checking.
+- `src/Fibril/Elaboration/Expression.idr`: contextual names-to-core elaboration, typed lets/do lowering, constant motive inference for direct data cases, and bounded constant/dependent motive inference for typed unary/binary record patterns; original core values still need independent checking.
 - `src/Fibril/Elaboration/Expression/Scope.idr`: partial scope transport and saturated substitution/type counting for untrusted inference.
 - `src/Fibril/Elaboration/Expression/Dictionary.idr`: structural constraint validation and explicit/unique visible-local dictionary requests; opt-in unique visible implementation lookup with canonical alias identities; no recursive instance construction or core rule.
 - `src/Fibril/Elaboration/Expression/Parameters.idr`: bounded structural recovery of erased constructor-prefix arguments from checked scrutinee types; no core metavariables, phantom guesses or general implicit search.

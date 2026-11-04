@@ -43,7 +43,7 @@ and generates independently checked closed families/constructors with exact admi
 [Non-recursive source data](docs/data.md) now declares nominal constructors and
 optional consuming eliminators, including dependent multi-field payloads and imports.
 [Direct data cases](docs/direct-data-cases.md) now match nullary/unary
-alternatives with explicit motives and linear branch joins, including qualified
+alternatives with explicit or inferred constant motives and linear branch joins, including qualified
 direct imports. Wider patterns, recursive inductives and structural recursion remain future work.
 
 The first [application target is a transactional-email service](docs/applications/transactional-email.md),

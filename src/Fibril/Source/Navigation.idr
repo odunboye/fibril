@@ -105,7 +105,8 @@ mutual
         refs = concatMap (\token => self context (Just token.span)) sites
         following = foldl (\scope, token => (token.spelling, if token.spelling == "_" then Nothing else Just (context.localTarget token.span)) :: scope) env names
      in refs ++ walk context following body
-  walk context env (NDataCase _ value motive arms) = walk context env value ++ walk context env motive ++ walkDataArms context env arms
+  walk context env (NDataCase _ value Nothing arms) = walk context env value ++ walkDataArms context env arms
+  walk context env (NDataCase _ value (Just motive) arms) = walk context env value ++ walk context env motive ++ walkDataArms context env arms
   walk context env (NConstructorCase _ _ constructor value branch motive) =
     walk context env constructor ++ walk context env value ++ (case motive of Nothing => []; Just result => walk context env result) ++ walk context env branch
   walk context env (NInferCase _ _ value branch) = walk context env value ++ walk context env branch

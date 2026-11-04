@@ -2,7 +2,7 @@ module Main
 import Data.Sum
 
 render : (1 prefix : String) -> (1 item : Data.Sum.Sum String Bool) -> String
-render = \(1 prefix : String) => \(1 item : Data.Sum.Sum String Bool) => case item return (\(0 self : Data.Sum.Sum String Bool) => String) of
+render prefix item = case item of
   Data.Sum.Right flag => if flag then appendString prefix "yes" else appendString prefix "no"
   Data.Sum.Left text => appendString prefix text
 

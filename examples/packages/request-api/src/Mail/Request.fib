@@ -8,7 +8,7 @@ data Request : Type 0 where
 
 export
 describe : (1 request : Request) -> String
-describe = \(1 request : Request) => case request return (\(0 self : Request) => String) of
+describe request = case request of
   Health => "health request"
   Enqueue recipient => appendString "enqueue for " recipient
   Preview subject => appendString "preview " subject
