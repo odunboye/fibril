@@ -1,0 +1,14 @@
+module Mail.Request
+
+export
+data Request : Type 0 where
+  Enqueue : (1 recipient : String) -> Request
+  Preview : (1 subject : String) -> Request
+  Health : Request
+
+export
+describe : (1 request : Request) -> String
+describe = \(1 request : Request) => case request return (\(0 self : Request) => String) of
+  Health => "health request"
+  Enqueue recipient => appendString "enqueue for " recipient
+  Preview subject => appendString "preview " subject

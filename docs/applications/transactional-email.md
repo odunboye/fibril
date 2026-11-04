@@ -12,6 +12,13 @@ when actual device APIs are needed.
 [runnable demonstration](../../examples/modules/email-service/Main.fib).
 It prints sending, accepted by relay, submission unknown, and transition rejected.
 It has no network, database, authentication, deployed UI or C backend.
+A separate [pure request API](../../examples/packages/request-api/src/Mail/Request.fib)
+now exercises direct local matching over Enqueue, Preview and Health; its
+[separate test package](../../examples/packages/request-api/test/src/RequestTests/Main.fib)
+also matches those constructors through a checked qualified import. Run
+`fibril test --package examples/packages/request-api/fibril.yaml`. This is a
+request-label model only: it does not validate addresses, accept HTTP, enqueue,
+preview messages, submit SMTP or authorize users.
 
 The model's first slice has four states (Queued, Sending, AcceptedByRelay,
 SubmissionUnknown) and three events (Dispatch, RelayAccepted,

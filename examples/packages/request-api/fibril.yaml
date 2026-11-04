@@ -1,0 +1,8 @@
+schema: 1
+name: request-api
+module-prefix: Mail.Request
+source-dir: src
+foundation: de-morgan
+modules: [Mail.Request]
+test-package: test
+dependencies: {}

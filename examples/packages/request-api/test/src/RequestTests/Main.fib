@@ -1,0 +1,11 @@
+module RequestTests.Main
+import Mail.Request
+
+inspect : (1 request : Mail.Request.Request) -> String
+inspect = \(1 request : Mail.Request.Request) => case request return (\(0 self : Mail.Request.Request) => String) of
+  Mail.Request.Health => "health"
+  Mail.Request.Enqueue recipient => appendString "enqueue:" recipient
+  Mail.Request.Preview subject => appendString "preview:" subject
+
+main : Bool
+main = if equalString (inspect (Mail.Request.Enqueue "ada@example.test")) "enqueue:ada@example.test" then if equalString (Mail.Request.describe (Mail.Request.Preview "receipt")) "preview receipt" then equalString (inspect Mail.Request.Health) "health" else False else False

@@ -3,6 +3,11 @@
 Strict YAML inspection fixtures live in [manifests/](manifests/README.md). They are
 not executable workspace projects or source-checking examples.
 
+The [request-api package](packages/request-api/src/Mail/Request.fib) models
+three pure email-service request alternatives, with a [separate test
+package](packages/request-api/test/src/RequestTests/Main.fib). It does not send
+mail or validate addresses. Run `fibril test --package examples/packages/request-api/fibril.yaml`.
+
 [Direct data cases](../docs/direct-data-cases.md) include executable generic Sum
 and dependent-motive examples in modules/direct-data-case*. The separate
 packages/sum-client imports packages/sum-library and directly matches its

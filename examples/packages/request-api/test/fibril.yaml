@@ -1,0 +1,10 @@
+schema: 1
+name: request-api-tests
+module-prefix: RequestTests
+source-dir: src
+foundation: de-morgan
+modules: [RequestTests.Main]
+tests: RequestTests.Main
+dependencies:
+  request-api:
+    path: ..

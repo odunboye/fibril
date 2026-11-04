@@ -26,6 +26,8 @@ examples: build
 	./build/exec/fibril check --package examples/packages/sum-library/fibril.yaml
 	./build/exec/fibril test --package examples/packages/sum-library/fibril.yaml
 	./build/exec/fibril run --package examples/packages/sum-client/fibril.yaml
+	./build/exec/fibril check --package examples/packages/request-api/fibril.yaml
+	./build/exec/fibril test --package examples/packages/request-api/fibril.yaml
 	./build/exec/fibril check examples/core/identity.fib
 	./build/exec/fibril check examples/core/identity-unicode.fib
 	./build/exec/fibril check --erased examples/core/identity-type.fib

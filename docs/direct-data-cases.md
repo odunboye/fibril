@@ -32,7 +32,11 @@ type parameters. Run from the compiler project:
 fibril run --source-dir examples/modules/direct-data-case examples/modules/direct-data-case/Main.fib
 ~~~
 
-It prints `L: hello`, `R: yes`, then `no`. The separate
+It prints `L: hello`, `R: yes`, then `no`. A separate
+[request API](../examples/packages/request-api/src/Mail/Request.fib) exercises
+three email-service alternatives locally and from a qualified-import test package;
+it is a pure model, not an email server. A real submission needing a recipient,
+subject and body exposes the current wider-payload matching gap. The separate
 [sum-client package](../examples/packages/sum-client/src/Main.fib) directly
 imports the external [sum-library](../examples/packages/sum-library/src/Data/Sum.fib)
 and matches `Data.Sum.Left`/`Data.Sum.Right` without requesting its eliminator.

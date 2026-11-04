@@ -1298,6 +1298,43 @@ class CLITests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertEqual(result.stdout, "Do context!\n")
 
+    def test_email_request_api_direct_cases_and_separate_tests(self):
+        import shutil
+        fixture = ROOT / 'examples/packages/request-api'
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory) / 'request-api'
+            shutil.copytree(fixture, project)
+            manifest = project / 'fibril.yaml'
+            checked = run('check', '--package', str(manifest))
+            self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
+            result = run('test', '--package', str(manifest))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            suite = project / 'test/src/RequestTests/Main.fib'
+            baseline = suite.read_text()
+            cases = [
+                ('Mail.Request.describe (Mail.Request.Enqueue "ada@example.test")', 'enqueue for ada@example.test'),
+                ('Mail.Request.describe (Mail.Request.Preview "receipt")', 'preview receipt'),
+                ('Mail.Request.describe Mail.Request.Health', 'health request'),
+                ('inspect (Mail.Request.Enqueue "ada@example.test")', 'enqueue:ada@example.test'),
+                ('inspect (Mail.Request.Preview "receipt")', 'preview:receipt'),
+                ('inspect Mail.Request.Health', 'health'),
+            ]
+            before_main = baseline[:baseline.index('main = ')]
+            for expression, expected in cases:
+                with self.subTest(expression=expression):
+                    suite.write_text(before_main + f'main = equalString ({expression}) "{expected}"\n')
+                    tested = run('test', '--package', str(manifest))
+                    self.assertEqual(tested.returncode, 0, tested.stdout + tested.stderr)
+            suite.write_text(before_main + 'main = equalString (inspect Mail.Request.Health) "wrong"\n')
+            failed = run('test', '--package', str(manifest))
+            self.assertNotEqual(failed.returncode, 0)
+            self.assertIn('Tests: failed', failed.stderr)
+            suite.write_text(baseline)
+            source = project / 'src/Mail/Request.fib'
+            source.write_text(source.read_text().replace('  Health => "health request"\n', ''))
+            self.assertNotEqual(run('check', '--package', str(manifest)).returncode, 0)
+            self.assertNotEqual(run('test', '--package', str(manifest)).returncode, 0)
+
     def test_email_submission_state_model(self):
         example = ROOT / "examples/modules/email-service"
         result = run("run", "--source-dir", str(example), str(example / "Main.fib"))
