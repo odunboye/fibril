@@ -15,7 +15,7 @@ The [motive-contexts example](modules/motive-contexts/Main.fib) exercises nested
 and arbitrary-scrutinee motive inference.
 
 The [implicit-arguments example](modules/implicit-arguments/Main.fib) exercises
-inferred, partially explicit and explicitly supplied erased parameters through a checked import. The [implicit-constraints example](modules/implicit-constraints/Main.fib) also uses an expected result.
+inferred, partially explicit and explicitly supplied erased parameters through a checked import. The [implicit-constraints example](modules/implicit-constraints/Main.fib) also uses an expected result; [implicit constructors](modules/implicit-constructors/Main.fib) opt a data header into the same convenience.
 
 The [function-equations example](modules/function-equations/Main.fib) combines
 signature-derived named parameters with direct data cases.

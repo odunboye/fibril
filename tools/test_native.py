@@ -47,6 +47,13 @@ class NativeTests(unittest.TestCase):
                 self.assertEqual(native.returncode, 0, native.stderr)
                 self.assertEqual(native.stdout, output)
 
+    def test_implicit_data_constructors_fail_closed_in_native_subset(self):
+        root = ROOT / 'examples/modules/implicit-constructors'
+        emitted = run_cli('emit-c', '--source-dir', str(root), str(root / 'Main.fib'), timeout=120)
+        self.assertNotEqual(emitted.returncode, 0)
+        self.assertEqual(emitted.stdout, '')
+        self.assertIn('does not support this computational core construct', emitted.stderr)
+
     def test_real_runtime_computation_erasure_and_utf8(self):
         source = ('identity : (0 A : Type) -> (1 x : A) -> A\nidentity T x = x\n'
                   'render : (1 x : String) -> String\nrender x = appendString x " \\\"quote\\\" \\\\ λ 水 🌍"\n'

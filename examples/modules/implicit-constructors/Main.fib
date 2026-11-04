@@ -1,0 +1,17 @@
+module Main
+
+import Data.Choice
+
+sample : Data.Choice.Choice String Bool
+sample = Data.Choice.Left "receipt"
+
+explicit : Data.Choice.Option String
+explicit = Data.Choice.None {String}
+
+showChoice : (1 choice : Data.Choice.Choice String Bool) -> String
+showChoice choice = case choice of
+  Data.Choice.Left text => text
+  Data.Choice.Right flag => if flag then "accepted" else "rejected"
+
+main : IO Unit
+main = putStrLn (showChoice sample)

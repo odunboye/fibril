@@ -3764,6 +3764,133 @@ class CLITests(unittest.TestCase):
             plain.write_text('identity : {0 A : Type} -> (1 value : A) -> A\nidentity T x = x\nmain : IO Unit\nmain = putStrLn (identity "x")\n')
             self.assertNotEqual(run('run', str(plain)).returncode, 0)
 
+    def test_implicit_data_constructors(self):
+        import shutil
+        fixture = ROOT / 'examples/modules/implicit-constructors'
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(fixture, root, dirs_exist_ok=True)
+            path = root / 'Main.fib'
+            library = root / 'Data/Choice.fib'
+            source = path.read_text()
+            authored = library.read_text()
+            def project(command):
+                return run(command, '--source-dir', directory, str(path))
+            result = project('run')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'receipt\n')
+            # Brace-only nullary application and partial braces are explicit;
+            # expected results solve phantom constructor parameters.
+            path.write_text(source.replace('Data.Choice.Left "receipt"', 'Data.Choice.Left {String} "receipt"'))
+            self.assertEqual(project('run').stdout, 'receipt\n')
+            path.write_text(source.replace('Data.Choice.Left "receipt"', 'Data.Choice.Left {String} {Bool} "receipt"'))
+            self.assertEqual(project('run').stdout, 'receipt\n')
+            path.write_text(source.replace('Data.Choice.Left "receipt"', 'Data.Choice.Right True'))
+            self.assertEqual(project('run').stdout, 'accepted\n')
+            path.write_text(source.replace('Data.Choice.None {String}', 'Data.Choice.Some "item"'))
+            self.assertEqual(project('run').stdout, 'receipt\n')
+            # Both nullary and unary direct cases inspect checked constructors.
+            option_case = ('render : (1 choice : Data.Choice.Option String) -> String\n'
+                           'render choice = case choice of\n'
+                           '  Data.Choice.None => "none"\n'
+                           '  Data.Choice.Some text => text\n'
+                           'main : IO Unit\nmain = putStrLn (render explicit)\n')
+            path.write_text(source[:source.index('main : IO Unit')] + option_case)
+            self.assertEqual(project('run').stdout, 'none\n')
+            path.write_text((source[:source.index('main : IO Unit')] + option_case).replace('Data.Choice.None {String}', 'Data.Choice.Some "item"'))
+            self.assertEqual(project('run').stdout, 'item\n')
+            # Generated eliminator applications use explicit constructor braces
+            # internally while the public eliminator parameters remain ordinary.
+            folded = ('folded : (1 choice : Data.Choice.Choice String Bool) -> String\n'
+                      'folded choice = Data.Choice.useChoice String Bool '
+                      '(\\(0 self : Data.Choice.Choice String Bool) => String) choice '
+                      '(\\(1 text : String) => text) '
+                      '(\\(1 flag : Bool) => if flag then "yes" else "no")\n'
+                      'main : IO Unit\nmain = putStrLn (folded sample)\n')
+            path.write_text(source[:source.index('main : IO Unit')] + folded)
+            self.assertEqual(project('run').stdout, 'receipt\n')
+            # Dependent implicit domains may refer to earlier parameters;
+            # the nominal expected result supplies the erased index.
+            dependent = ('module Main\ndata Tagged {0 A : Type} {0 label : A} : Type where\n'
+                         '  TaggedValue : (1 value : A) -> Tagged A label\n'
+                         'item : Tagged String "subject"\nitem = TaggedValue "receipt"\n'
+                         'main : IO Unit\nmain = putStrLn "ok"\n')
+            path.write_text(dependent)
+            dep = project('run')
+            self.assertEqual(dep.returncode, 0, dep.stdout + dep.stderr)
+            self.assertEqual(dep.stdout, 'ok\n')
+            # An erased value may not be smuggled into a runtime field.
+            path.write_text(source.replace('sample : Data.Choice.Choice String Bool',
+                                           '0 secret : String\nsecret = "hidden"\nsample : Data.Choice.Choice String Bool').replace('Data.Choice.Left "receipt"', 'Data.Choice.Left secret'))
+            stage = project('run')
+            self.assertNotEqual(stage.returncode, 0)
+            self.assertEqual(stage.stdout, '')
+            # Bare nullary constructors are not silently instantiated.
+            path.write_text(source.replace('Data.Choice.None {String}', 'Data.Choice.None'))
+            bare = project('run')
+            self.assertNotEqual(bare.returncode, 0)
+            self.assertEqual(bare.stdout, '')
+            # Wrong explicit solutions and old positional spelling fail for
+            # the opt-in declaration, before any console effect.
+            for bad in ['Data.Choice.Left {Bool} {Bool} "receipt"',
+                        'Data.Choice.Left String Bool "receipt"',
+                        'Data.Choice.Left {String} {Bool} {Bool} "receipt"']:
+                path.write_text(source.replace('Data.Choice.Left "receipt"', bad))
+                rejected = project('run')
+                self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
+                self.assertEqual(rejected.stdout, '')
+            # Missing phantom information remains ambiguous without an
+            # expected constructor result; no guessed solution reaches core.
+            ambiguous = ('identity : {0 T : Type} -> (1 x : T) -> T\nidentity T x = x\n' +
+                         'main : IO Unit\nmain = putStrLn (showChoice (identity (Data.Choice.Left "x")))\n')
+            path.write_text(source[:source.index('main : IO Unit')] + ambiguous)
+            rejected = project('run')
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertIn('ambiguous', rejected.stderr)
+            self.assertEqual(rejected.stdout, '')
+            # Header syntax is opt-in, uniform, quantity-zero and preserved by
+            # formatter shape checking; generated eliminators also check.
+            path.write_text(source)
+            for file in [path, library]:
+                formatted = run('format', str(file))
+                self.assertEqual(formatted.returncode, 0, formatted.stderr)
+                file.write_text(formatted.stdout)
+                self.assertEqual(run('format', '--check', str(file)).returncode, 0)
+            self.assertEqual(project('run').stdout, 'receipt\n')
+            for invalid in [authored.replace('{0 A : Type}', '{A : Type}', 1),
+                            authored.replace('{0 A : Type}', '{1 A : Type}', 1),
+                            authored.replace('{0 B : Type}', '(0 B : Type)', 1),
+                            authored.replace('{0 A : Type}', '(0 A : Type)', 1)]:
+                library.write_text(invalid)
+                rejected = project('run')
+                self.assertNotEqual(rejected.returncode, 0)
+                self.assertEqual(rejected.stdout, '')
+            library.write_text(authored.replace('export\ndata Choice', 'data Choice', 1))
+            private = project('run')
+            self.assertNotEqual(private.returncode, 0)
+            self.assertEqual(private.stdout, '')
+            library.write_text(authored + '\nexport\nshadow : (1 Left : (1 text : String) -> String) -> String\nshadow Left = Left "local"\n')
+            path.write_text(source.replace('showChoice sample', 'Data.Choice.shadow (\\(1 text : String) => text)'))
+            shadowed = project('run')
+            self.assertEqual(shadowed.returncode, 0, shadowed.stdout + shadowed.stderr)
+            self.assertEqual(shadowed.stdout, 'local\n')
+            path.write_text(source)
+            library.write_text(authored)
+            # Header names and type uses navigate to actual authored tokens.
+            definition = json.loads(run('definition', '6', '21', str(library)).stdout)['definition']
+            self.assertEqual((definition['start']['line'], definition['start']['column']), (4, 16))
+            # Checked metadata survives an explicit package edge.
+            dependency, client = root / 'dependency', root / 'client'
+            (dependency / 'src/Data').mkdir(parents=True)
+            (dependency / 'src/Data/Choice.fib').write_text(authored)
+            (dependency / 'fibril.yaml').write_text('schema: 1\nname: choice-lib\nmodule-prefix: Data.Choice\nsource-dir: src\nfoundation: de-morgan\nmodules: [Data.Choice]\ndependencies: {}\n')
+            (client / 'src').mkdir(parents=True)
+            (client / 'src/Main.fib').write_text(source)
+            (client / 'fibril.yaml').write_text('schema: 1\nname: choice-client\nmodule-prefix: Demo\nsource-dir: src\nfoundation: de-morgan\nentry: Main\ndependencies:\n  choice-lib:\n    path: ../dependency\n')
+            packaged = run('run', '--package', str(client / 'fibril.yaml'))
+            self.assertEqual(packaged.returncode, 0, packaged.stdout + packaged.stderr)
+            self.assertEqual(packaged.stdout, 'receipt\n')
+
     def test_multiple_implicit_constraints_and_expected_results(self):
         fixture = ROOT / 'examples/modules/implicit-constraints/Main.fib'
         source = fixture.read_text()

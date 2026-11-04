@@ -36,17 +36,46 @@ existing unrestricted default. Anonymous constructor arrows, recursive payloads,
 forward dependencies, alternative result targets and index refinement are not
 accepted in this slice.
 
-There is no fixed constructor, field or parameter count cap for data. Source,
-declaration-slot, generated-IR, expanded-core, depth and reduction budgets still
-apply. Wide declarations can be admitted while a larger requested eliminator
+There is no fixed constructor or field count cap for data. Explicit-parameter
+data has no separate parameter count cap; an implicit constructor prefix admits
+at most 64 parameters. Source, declaration-slot, generated-IR, expanded-core,
+depth and reduction budgets still apply. Wide declarations can be admitted while a larger requested eliminator
 exhausts conversion fuel; omitting that helper does not remove the other checks.
 
-Constructors are ordinary functions with explicit erased parameters:
+With parenthesized headers, constructors are ordinary functions with explicit
+zero-quantity parameters, preserving existing source:
 
 ~~~fibril
 Nothing String
 Just String "present"
 ~~~
+
+A data header can instead opt its generated constructors into implicit erased
+parameters. The braces describe **constructor visibility**, not a change to the
+data family's own explicit parameters:
+
+~~~fibril
+data Choice {0 A : Type} {0 B : Type} : Type where
+  Left : (1 value : A) -> Choice A B
+  Right : (1 value : B) -> Choice A B
+
+sample : Choice String Bool
+sample = Left "receipt"                 -- B comes from the expected result
+explicit : Choice String Bool
+explicit = Left {String} {Bool} "receipt"
+~~~
+
+Use either all braces or all parentheses in one data header; mixed modes are not
+supported. The family remains `Choice String Bool`, and an optional eliminator
+still takes explicit parameters. Constructor fields retain their declared
+quantities. Existing direct cases name the constructors without braces and compare
+against checked constructor values, not authored layout hints. Some dependent
+index patterns remain unsupported by the existing direct-case matcher. A nullary
+constructor has no ordinary argument to trigger insertion: write e.g.
+`None {String}`; a bare `None` remains an uninstantiated value. See the
+[implicit-constructor example](../examples/modules/implicit-constructors/Main.fib)
+and [inference contract](implicit-arguments.md). Scoped structural inference is
+not complete, and ambiguous or exhausted cases require explicit braces.
 
 An export marker on the data declaration exports its type, constructors and
 requested helper; otherwise the bundle is private. Other modules must directly

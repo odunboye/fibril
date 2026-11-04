@@ -498,6 +498,20 @@ mutual
     (closing, remaining) <- expect CloseParen end afterDomain
     Right (Binder (Between opening.span.start closing.span.finish) q name.spelling domain remaining)
 
+  ||| A data-header binder opting generated constructors into erased implicit parameters.
+  public export
+  implicitDataBinder : Nat -> Position -> List Token -> Either ParseError ParsedBinder
+  implicitDataBinder Z end tokens = limit end tokens
+  implicitDataBinder (S depth) end tokens = do
+    (opening, rest) <- expect OpenBrace end tokens
+    (q, afterQuantity) <- binderQuantity rest
+    if q /= Erased then Left (ParseFailure opening.span.start "Implicit data parameters require explicit quantity 0") else Right ()
+    (name, afterName) <- expect Name end afterQuantity
+    (_, afterColon) <- expect Colon end afterName
+    (domain, afterDomain) <- expression depth end afterColon
+    (closing, remaining) <- expect CloseBrace end afterDomain
+    Right (Binder (Between opening.span.start closing.span.finish) q name.spelling domain remaining)
+
   infixExpression : Nat -> Position -> List Token -> Either ParseError (Expr, List Token)
   infixExpression depth end tokens = do
     (left, remaining) <- application depth end tokens

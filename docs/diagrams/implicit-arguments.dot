@@ -1,7 +1,7 @@
 digraph ImplicitArguments {
   rankdir=LR;
   node [shape=box];
-  source [label="Authored erased prefix\n+ direct global call"];
+  source [label="Erased function prefix or\nopt-in data constructor prefix"];
   metadata [label="Checked global visibility\nnot a certificate"];
   solve [label="Scoped incremental constraints\nargument types + expected result"];
   explicit [label="Explicit {argument}\nfor unsolved cases", style=dashed];

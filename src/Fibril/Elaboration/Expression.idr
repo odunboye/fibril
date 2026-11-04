@@ -177,17 +177,23 @@ mutual
   ||| erased prefix, followed by a source-authored ordinary Pi.
   public export
   elaborateSignature : List GlobalDefinition -> Maybe (Context n) -> Vect n String -> Expr -> Either ResolveError (Term n)
-  elaborateSignature globals context env (NImplicitPi span Erased name domain body) = do
+  elaborateSignature globals context env signature = elaborateSignatureWith False globals context env signature
+
+  ||| Only generated declarations may have an implicit-only telescope, needed
+  ||| for explicitly instantiated nullary data constructors.
+  public export
+  elaborateSignatureWith : Bool -> List GlobalDefinition -> Maybe (Context n) -> Vect n String -> Expr -> Either ResolveError (Term n)
+  elaborateSignatureWith allowImplicitOnly globals context env (NImplicitPi span Erased name domain body) = do
     case body of
       NImplicitPi _ _ _ _ _ => Right ()
       NPi _ _ _ _ _ => Right ()
-      _ => Left (CannotElaborate span.start "Implicit prefix must be followed by an explicit Pi")
+      _ => if allowImplicitOnly then Right () else Left (CannotElaborate span.start "Implicit prefix must be followed by an explicit Pi")
     domain <- elaborateInWith globals context env domain
-    result <- elaborateSignature globals (map (\ctx => Extend ctx Erased domain) context) (name :: env) body
+    result <- elaborateSignatureWith allowImplicitOnly globals (map (\ctx => Extend ctx Erased domain) context) (name :: env) body
     Right (Pi Erased domain result)
-  elaborateSignature globals context env (NImplicitPi span _ _ _ _) =
+  elaborateSignatureWith allowImplicitOnly globals context env (NImplicitPi span _ _ _ _) =
     Left (CannotElaborate span.start "Implicit binders must have quantity 0")
-  elaborateSignature globals context env signature = elaborateInWith globals context env signature
+  elaborateSignatureWith allowImplicitOnly globals context env signature = elaborateInWith globals context env signature
 
   elaborateTerms : List GlobalDefinition -> Maybe (Context n) -> Vect n String -> List Expr -> Either ResolveError (List (Term n))
   elaborateTerms globals context env [] = Right []

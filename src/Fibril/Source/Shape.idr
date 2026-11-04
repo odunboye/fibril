@@ -88,7 +88,7 @@ sameAuthored (Ordinary a) (Ordinary b) = a.name == b.name && a.quantity == b.qua
 sameAuthored (ImplementationItem a) (ImplementationItem b) = a.name == b.name && a.quantity == b.quantity &&
   a.exported == b.exported && a.generated == b.generated && a.dictionary == b.dictionary && sameExpr a.expected b.expected && sameExpr a.value b.value
 sameAuthored (DataItem a) (DataItem b) = a.name.spelling == b.name.spelling && a.level == b.level &&
-  a.exported == b.exported && sameList sameParameter a.params b.params &&
+  a.exported == b.exported && a.implicitConstructors == b.implicitConstructors && sameList sameParameter a.params b.params &&
   map (\(_, name) => name.spelling) a.eliminator == map (\(_, name) => name.spelling) b.eliminator &&
   sameList (\x, y => x.name.spelling == y.name.spelling && sameList sameField x.fields y.fields && sameExpr x.result y.result) a.constructors b.constructors
 sameAuthored (RecordItem a) (RecordItem b) = a.name.spelling == b.name.spelling && a.level == b.level &&

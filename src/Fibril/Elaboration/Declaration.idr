@@ -40,6 +40,12 @@ mutual
   parameterPis region (parameter :: rest) body =
     NPi region Erased parameter.name parameter.domain (parameterPis region rest body)
 
+  constructorParameterPis : Bool -> SourceSpan -> List RecordParameter -> Expr -> Expr
+  constructorParameterPis False region params body = parameterPis region params body
+  constructorParameterPis True region [] body = body
+  constructorParameterPis True region (parameter :: rest) body =
+    NImplicitPi region Erased parameter.name parameter.domain (constructorParameterPis True region rest body)
+
   parameterLambdas : SourceSpan -> List RecordParameter -> Expr -> Expr
   parameterLambdas region [] body = body
   parameterLambdas region (parameter :: rest) body =
@@ -49,6 +55,12 @@ mutual
   applyParameters region function [] = function
   applyParameters region function (parameter :: rest) =
     applyParameters region (NApply region function (NRef parameter.span parameter.name)) rest
+
+  applyConstructorParameters : Bool -> SourceSpan -> Expr -> List RecordParameter -> Expr
+  applyConstructorParameters False region function params = applyParameters region function params
+  applyConstructorParameters True region function [] = function
+  applyConstructorParameters True region function (parameter :: rest) =
+    applyConstructorParameters True region (NImplicitApply region function (NRef parameter.span parameter.name)) rest
 
   fieldRef : RecordField -> Expr
   fieldRef field = NRef field.token.span field.token.spelling
@@ -576,7 +588,7 @@ mutual
           fields => Just (recordValue region fields)
         value = NNominalValue region typeRef (NVariantValue region (dataShape sourceData) tag payload)
      in Declared True region ctor.name.span ctor.name.span sourceData.exported Unrestricted ctor.name.spelling
-          (parameterPis region sourceData.params (fieldPis region ctor.fields typeRef))
+          (constructorParameterPis sourceData.implicitConstructors region sourceData.params (fieldPis region ctor.fields typeRef))
           (parameterLambdas region sourceData.params (fieldLambdas region ctor.fields value))
 
   dataPayloadBranch : SourceSpan -> Expr -> Expr -> Expr -> (Nat, DataConstructor) -> Expr
@@ -608,7 +620,7 @@ mutual
         motiveType = NPi region Erased self typeRef (NSort region sourceData.level)
         entries = dataBranches 0 sourceData.constructors
         branchType = \ctor => fieldPis region ctor.fields
-          (app pRef (applyFields region (applyParameters region (NQualifiedRef ctor.name.span ctor.name.spelling) params) ctor.fields))
+          (app pRef (applyFields region (applyConstructorParameters sourceData.implicitConstructors region (NQualifiedRef ctor.name.span ctor.name.spelling) params) ctor.fields))
         branchField = \entry => Field (Located Name (dataBranchName (fst entry)) region) Unrestricted (branchType (snd entry))
         branches = map branchField entries
         fullMotive = NLambda region Erased self shape (app pRef (NNominalValue region typeRef (NRef region self)))

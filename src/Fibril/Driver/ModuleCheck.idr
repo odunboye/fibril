@@ -74,10 +74,11 @@ implicitBodyCount globals env expression@(NApply _ _ _) = implicitSpineCount glo
 implicitBodyCount globals env expression@(NImplicitApply _ _ _) = implicitSpineCount globals env expression
 implicitBodyCount _ _ _ = 0
 
-validImplicitPrefix : Nat -> Term n -> Bool
-validImplicitPrefix Z (Pi _ _ _) = True
-validImplicitPrefix (S count) (Pi Erased _ rest) = validImplicitPrefix count rest
-validImplicitPrefix _ _ = False
+validImplicitPrefix : Bool -> Nat -> Term n -> Bool
+validImplicitPrefix allowImplicitOnly Z (Pi _ _ _) = True
+validImplicitPrefix allowImplicitOnly Z _ = allowImplicitOnly
+validImplicitPrefix allowImplicitOnly (S count) (Pi Erased _ rest) = validImplicitPrefix allowImplicitOnly count rest
+validImplicitPrefix _ _ _ = False
 
 referenceCost : List Weighted -> String -> Nat
 referenceCost [] name = 1
@@ -249,10 +250,10 @@ compileDeclarations snapshot name globals (decl :: rest) remaining = do
      else Right ()
   let implicitPrefix = implicitPrefixCount decl.expected
   if implicitPrefix > 64 then Left (problem snapshot (Just decl.nameSpan.start) "Implicit telescope admission exhausted (64)") else Right ()
-  ty <- case elaborateSignature (map global globals) (Just Empty) [] decl.expected of
+  ty <- case elaborateSignatureWith decl.generated (map global globals) (Just Empty) [] decl.expected of
     Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
     Right ty => Right ty
-  if implicitPrefix > 0 && not (validImplicitPrefix implicitPrefix ty)
+  if implicitPrefix > 0 && not (validImplicitPrefix decl.generated implicitPrefix ty)
     then Left (problem snapshot (Just decl.nameSpan.start) "Implicit metadata does not match an erased leading Pi prefix followed by an explicit Pi")
     else Right ()
   value <- case elaborateExpected (map global globals) Empty [] ty decl.value of

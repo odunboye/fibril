@@ -2,6 +2,7 @@
 module Fibril.Source.Declaration
 
 import Data.List
+import Data.Maybe
 import Fibril.Core.Quantity
 import Fibril.Source.Text
 import Fibril.Source.Lexer
@@ -152,14 +153,18 @@ optionalEliminator indent end tokens@(next :: _) =
   else Right (Nothing, tokens)
 optionalEliminator indent end [] = Right (Nothing, [])
 
-dataParameters : Nat -> Nat -> Position -> List Token -> Either ParseError (List RecordParameter, List Token)
-dataParameters Z expressions end (token :: _) = Left (ParseFailure token.span.start "Data parameter parsing budget exhausted")
-dataParameters fuel expressions end [] = Right ([], [])
-dataParameters (S fuel) expressions end tokens@(token :: _) =
-  if token.kind /= OpenParen then Right ([], tokens) else do
-    parameter <- binder expressions end tokens
-    (following, rest) <- dataParameters fuel expressions end parameter.remaining
-    Right (Parameter parameter.span parameter.quantity parameter.name parameter.domain :: following, rest)
+dataParameters : Nat -> Nat -> Position -> Maybe Bool -> List Token -> Either ParseError (Bool, List RecordParameter, List Token)
+dataParameters Z expressions end mode (token :: _) = Left (ParseFailure token.span.start "Data parameter parsing budget exhausted")
+dataParameters fuel expressions end mode [] = Right (fromMaybe False mode, [], [])
+dataParameters (S fuel) expressions end mode tokens@(token :: _) =
+  if token.kind /= OpenParen && token.kind /= OpenBrace then Right (fromMaybe False mode, [], tokens) else do
+    let isImplicit = token.kind == OpenBrace
+    case mode of
+      Just previous => if previous /= isImplicit then Left (ParseFailure token.span.start "Data parameters must be all explicit or all implicit-constructor binders") else Right ()
+      Nothing => Right ()
+    parameter <- if isImplicit then implicitDataBinder expressions end tokens else binder expressions end tokens
+    (visibility, following, rest) <- dataParameters fuel expressions end (Just isImplicit) parameter.remaining
+    Right (visibility, Parameter parameter.span parameter.quantity parameter.name parameter.domain :: following, rest)
 
 dataFields : Nat -> Nat -> Position -> List Token -> Either ParseError (List RecordField, Expr)
 dataFields Z expressions end tokens = Left (ParseFailure (nextPosition end tokens) "Constructor telescope parsing budget exhausted")
@@ -194,7 +199,7 @@ parseData : Nat -> Position -> List Token -> Either ParseError (AuthoredDeclarat
 parseData budget end tokens = do
   (keyword, rest) <- expect DataKeyword end tokens
   (name, rest) <- expect Name end rest
-  (params, rest) <- dataParameters (S (length rest)) budget end rest
+  (implicitConstructors, params, rest) <- dataParameters (S (length rest)) budget end Nothing rest
   (_, rest) <- expect Colon end rest
   (universe, rest) <- expect TypeKeyword end rest
   (level, _, rest) <- universeAfterType universe rest
@@ -206,7 +211,7 @@ parseData budget end tokens = do
   (constructors, rest) <- dataConstructors (length rest) budget indent end rest
   if null constructors then Left (ParseFailure name.span.start "Data requires at least one constructor") else Right ()
   let finish = case reverse constructors of ctor :: _ => ctor.span.finish; [] => name.span.finish
-  Right (DataItem (DataSyntax (Between keyword.span.start finish) name level params eliminator constructors False), rest)
+  Right (DataItem (DataSyntax (Between keyword.span.start finish) name level params implicitConstructors eliminator constructors False), rest)
 
 parseRecordLike : TokenKind -> Nat -> Position -> List Token -> Either ParseError (AuthoredDeclaration, List Token)
 parseRecordLike kind budget end tokens = do

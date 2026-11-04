@@ -1,0 +1,13 @@
+module Data.Choice
+
+export
+data Choice {0 A : Type} {0 B : Type} : Type where
+  eliminator useChoice
+  Left : (1 value : A) -> Choice A B
+  Right : (1 value : B) -> Choice A B
+
+export
+data Option {0 A : Type} : Type where
+  eliminator useOption
+  None : Option A
+  Some : (1 value : A) -> Option A

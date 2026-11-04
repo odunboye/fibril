@@ -44,7 +44,9 @@ new core type rule or a complete unifier.
 ## Supported boundary
 
 - An authored module-global signature may have a consecutive leading prefix of
-  `{0 name : type}` binders followed by a literal ordinary Pi. The inference
+  `{0 name : type}` binders followed by a literal ordinary Pi. Generated
+  constructors can also have an implicit-only prefix when they have no fields;
+  their nullary application requires explicit braces. The inference
   telescope admits at most 64 implicit binders and 64 pending ordinary arguments
   before the prefix is solved. Non-erased implicit binders and implicit binders
   later in a telescope are rejected.
@@ -72,9 +74,13 @@ new core type rule or a complete unifier.
   if a needed constraint depends on such a value, use explicit braces.
 - A truly phantom, conflicting or ambiguous slot is not guessed. For example,
   `selectFirst {String} {Bool} "receipt" True` supplies both parameters. A
-  bare `Left "receipt"` still cannot infer data-constructor parameters: data and
-  record headers remain explicit in this slice. Explicit braces remain the
-  fallback for unsupported argument forms or exhausted admissions.
+  data header with braces can opt constructors into the same inference, so
+  `Left "receipt"` may use its expected `Choice String Bool` result. Headers
+  with parentheses retain explicit constructor parameters, and record headers
+  remain explicit. A nullary constructor needs e.g. `None {String}`: a bare
+  `None` is not instantiated from an expected type. Explicit braces remain the
+  fallback for unsupported argument forms or exhausted admissions. See
+  [source data](data.md) for the opt-in syntax and its family/eliminator boundary.
 
 The checked global's visibility metadata guides elaboration; it is not a type
 certificate. The module driver validates the prefix against erased core Pis and
@@ -85,8 +91,9 @@ including implicit-domain types, erased-stage restrictions and linear use.
 
 ## Bounds, tooling and evidence
 
-The checked function type and each proposed argument/result type are admitted at
-512 raw core nodes and 8192 aggregate characters. A type proposal has depth 16,
+When inference is needed, the checked function type and each proposed
+argument/result type are admitted at 512 raw core nodes and 8192 aggregate
+characters. A type proposal has depth 16,
 and local type lookup admits at most 64 context entries. The solver has a
 262144-unit structural-input metric shared across constraints.
 These estimates are admissions, not a proof of total work: repeated guarded
@@ -102,7 +109,7 @@ stack, wall-clock time, erasure or whole-language soundness.
 The formatter retains braces and verifies the re-parsed shape. Navigation uses
 actual authored binder and argument tokens; inferred terms do not acquire fake
 source locations. Project-aware rename remains unavailable. Tests exercise
-qualified imports, partial/explicit braces, multiple arguments, expected-result
-constraints, dependent implicit domains, scoped variables, unresolved and
+qualified imports, opt-in data constructors, partial/explicit braces, multiple
+arguments, expected-result constraints, dependent implicit domains, scoped variables, unresolved and
 conflicting slots, staging and usage rejection, admission/fallback, and native
 emission. They are sampled implementation evidence, not proofs of completeness.
