@@ -1,11 +1,13 @@
 module Tests.MotiveScope
 
 import Data.Fin
+import Data.List
 import Fibril.Core.Quantity
 import Fibril.Core.Term
 import Fibril.Elaboration.Expression.Scope
 import Fibril.Elaboration.Expression.Motive
 import Fibril.Elaboration.Expression.Conversion
+import Fibril.Elaboration.Expression.Abstract
 import Fibril.Core.Size
 import Fibril.Source.Text
 import Fibril.Source.Resolve.Error
@@ -25,7 +27,13 @@ repeated (S n) = Apply (Variable FZ) (repeated n)
 public export
 checks : List (String, Bool)
 checks =
-  [ ("guarded conversion recognizes a beta-equivalent type",
+  [ ("exact subterm abstraction round trips under binders and preserves locals",
+      let target : Term 1
+          target = Apply (Variable FZ) BoolTrue
+          result : Term 1
+          result = Pi Erased target (Pi Linear (weaken target) (Apply (weaken (weaken target)) (Variable FZ))) in
+        sameSyntax (instantiateTerm target (abstractOver target result)) result)
+  , ("guarded conversion recognizes a beta-equivalent type",
       guardedEqual 8 (the (Term 0) (Apply (Lambda Erased (Universe 0) (Variable FZ)) StringType)) StringType)
   , ("guarded conversion sees redexes below a binder",
       guardedEqual 8 (the (Term 0) (Pi Erased StringType (Apply (Lambda Erased (Universe 0) (Variable FZ)) StringType)))
@@ -45,9 +53,26 @@ checks =
           redex = Apply (Lambda Erased (Universe 0) body) argument
        in coreNodes (instantiateTerm argument body) > 512 &&
           case guardedNormal 8 redex of Nothing => True; _ => False)
-  , ("guarded conversion excludes string operations and nominal keys",
-      (case guardedNormal 8 (the (Term 0) (StringAppend (StringValue "a") (StringValue "b"))) of Nothing => True; _ => False) &&
-      (case guardedNormal 8 (the (Term 0) (NominalType "M.T" [] (VariantType [Nothing]))) of Nothing => True; _ => False))
+  , ("guarded conversion admits small string operations and nominal keys",
+      guardedEqual 8 (the (Term 0) (StringAppend (StringValue "a") (StringValue "b"))) (StringValue "ab") &&
+      guardedEqual 8 (the (Term 0) (StringEqual (StringValue "λ") (StringValue "λ"))) BoolTrue &&
+      guardedEqual 8 (the (Term 0) (NominalType "M.T" [Apply (Lambda Erased (Universe 0) (Variable FZ)) StringType] (VariantType [Nothing])))
+                     (NominalType "M.T" [StringType] (VariantType [Nothing])) &&
+      not (guardedEqual 8 (the (Term 0) (NominalType "M.T" [] (VariantType []))) (NominalType "M.U" [] (VariantType []))))
+  , ("guarded conversion bounds character payload and duplication",
+      let short = pack (replicate 8192 'a')
+          long = pack (replicate 8193 'a')
+          duplicate : Term 0
+          duplicate = Apply (Lambda Erased StringType (StringAppend (Variable FZ) (Variable FZ))) (StringValue (pack (replicate 3000 'x')))
+          nested : Term 0
+          nested = Apply (Lambda Erased StringType (Pi Erased UnitType (StringAppend (Variable (FS FZ)) (Variable (FS FZ))))) (StringValue (pack (replicate 3000 'x'))) in
+        (case guardedNormal 1 (the (Term 0) (StringValue short)) of Just _ => True; _ => False) &&
+        (case guardedNormal 1 (the (Term 0) (StringValue long)) of Nothing => True; _ => False) &&
+        guardedStepAdmitted (the (Term 0) (NominalType short [] (VariantType []))) &&
+        not (guardedStepAdmitted (the (Term 0) (NominalType long [] (VariantType [])))) &&
+        not (guardedStepAdmitted duplicate) && not (guardedStepAdmitted nested) &&
+        guardedEqual 0 (the (Term 0) (StringValue long)) (StringValue long) &&
+        (case guardedNormal 8 duplicate of Nothing => True; _ => False))
   , ("guarded conversion handles a variant contraction",
       guardedEqual 8 (the (Term 0) (VariantCase BoolType (VariantValue (VariantType [Nothing]) 0 Nothing) [BoolType])) BoolType)
   , ("guarded conversion handles data contraction exposing a beta redex",

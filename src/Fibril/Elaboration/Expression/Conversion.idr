@@ -7,12 +7,11 @@ import Fibril.Core.Term
 import Fibril.Core.Quantity
 import Fibril.Core.Reduction
 import Fibril.Elaboration.Expression.Scope
+import Fibril.Elaboration.Expression.Payload
 
 %default total
 
--- Short-circuiting structural admission. String operations/literals and
--- nominal keys are deliberately excluded from this new reduction path: node
--- counts alone cannot guard string concatenation or key comparisons.
+-- Short-circuiting structural admission; character payload is checked separately.
 mutual
   admit : Nat -> Term n -> Maybe Nat
   admit Z _ = Nothing
@@ -24,10 +23,10 @@ mutual
   admit (S budget) BoolTrue = Just budget
   admit (S budget) BoolFalse = Just budget
   admit (S budget) StringType = Just budget
-  admit (S budget) (StringValue _) = Nothing
-  admit (S budget) (StringAppend _ _) = Nothing
-  admit (S budget) (StringEqual _ _) = Nothing
-  admit (S budget) (NominalType _ _ _) = Nothing
+  admit (S budget) (StringValue _) = Just budget
+  admit (S budget) (StringAppend a b) = do x <- admit budget a; admit x b
+  admit (S budget) (StringEqual a b) = do x <- admit budget a; admit x b
+  admit (S budget) (NominalType _ indices shape) = do x <- admitTerms budget indices; admit x shape
   admit (S budget) (NominalValue a b) = do x <- admit budget a; admit x b
   admit (S budget) (NominalCase a b c) = do x <- admit budget a; y <- admit x b; admit y c
   admit (S budget) (VariantType arms) = admitArms budget arms
@@ -65,65 +64,77 @@ mutual
 -- The whole input size plus the full substituted body is a conservative bound
 -- on the next tree, including surrounding context and weakened replacements.
 mutual
-  safeRedexes : Nat -> Term n -> Bool
-  safeRedexes size (Variable _) = True
-  safeRedexes size (Universe _) = True
-  safeRedexes size UnitType = True
-  safeRedexes size UnitValue = True
-  safeRedexes size BoolType = True
-  safeRedexes size BoolTrue = True
-  safeRedexes size BoolFalse = True
-  safeRedexes size StringType = True
-  safeRedexes size (StringValue _) = False
-  safeRedexes size (StringAppend _ _) = False
-  safeRedexes size (StringEqual _ _) = False
-  safeRedexes size (NominalType _ _ _) = False
-  safeRedexes size (NominalValue a b) = safeRedexes size a && safeRedexes size b
-  safeRedexes size (NominalCase a b c) = safeRedexes size a && safeRedexes size b && safeRedexes size c
-  safeRedexes size (VariantType arms) = safeArms size arms
-  safeRedexes size (VariantValue ty _ Nothing) = safeRedexes size ty
-  safeRedexes size (VariantValue ty _ (Just value)) = safeRedexes size ty && safeRedexes size value
-  safeRedexes size (VariantCase a b branches) = safeRedexes size a && safeRedexes size b && safeTerms size branches
-  safeRedexes size (BoxType _ a) = safeRedexes size a
-  safeRedexes size (BoxValue a b) = safeRedexes size a && safeRedexes size b
-  safeRedexes size (BoxCase a b c) = safeRedexes size a && safeRedexes size b && safeRedexes size c
-  safeRedexes size (IOType a) = safeRedexes size a
-  safeRedexes size (IOPure a) = safeRedexes size a
-  safeRedexes size (WriteLine a) = safeRedexes size a
-  safeRedexes size (IOBind a b c d) = safeRedexes size a && safeRedexes size b && safeRedexes size c && safeRedexes size d
-  safeRedexes size (BoolCase a b c) = safeRedexes size a && safeRedexes size b && safeRedexes size c
-  safeRedexes size (Sigma _ _ a b) = safeRedexes size a && safeRedexes size b
-  safeRedexes size (PairValue a b c) = safeRedexes size a && safeRedexes size b && safeRedexes size c
-  safeRedexes size (PairCase a b c) = safeRedexes size a && safeRedexes size b && safeRedexes size c
-  safeRedexes size (Pi _ a b) = safeRedexes size a && safeRedexes size b
-  safeRedexes size (Lambda _ a b) = safeRedexes size a && safeRedexes size b
-  safeRedexes size (Apply (Lambda q domain body) argument) =
+  safeRedexes : Nat -> Nat -> Term n -> Bool
+  safeRedexes size payload (Variable _) = True
+  safeRedexes size payload (Universe _) = True
+  safeRedexes size payload UnitType = True
+  safeRedexes size payload UnitValue = True
+  safeRedexes size payload BoolType = True
+  safeRedexes size payload BoolTrue = True
+  safeRedexes size payload BoolFalse = True
+  safeRedexes size payload StringType = True
+  safeRedexes size payload (StringValue _) = True
+  safeRedexes size payload (StringAppend a b) = safeRedexes size payload a && safeRedexes size payload b
+  safeRedexes size payload (StringEqual a b) = safeRedexes size payload a && safeRedexes size payload b
+  safeRedexes size payload (NominalType _ indices shape) = safeTerms size payload indices && safeRedexes size payload shape
+  safeRedexes size payload (NominalValue a b) = safeRedexes size payload a && safeRedexes size payload b
+  safeRedexes size payload (NominalCase a b c) = safeRedexes size payload a && safeRedexes size payload b && safeRedexes size payload c
+  safeRedexes size payload (VariantType arms) = safeArms size payload arms
+  safeRedexes size payload (VariantValue ty _ Nothing) = safeRedexes size payload ty
+  safeRedexes size payload (VariantValue ty _ (Just value)) = safeRedexes size payload ty && safeRedexes size payload value
+  safeRedexes size payload (VariantCase a b branches) = safeRedexes size payload a && safeRedexes size payload b && safeTerms size payload branches
+  safeRedexes size payload (BoxType _ a) = safeRedexes size payload a
+  safeRedexes size payload (BoxValue a b) = safeRedexes size payload a && safeRedexes size payload b
+  safeRedexes size payload (BoxCase a b c) = safeRedexes size payload a && safeRedexes size payload b && safeRedexes size payload c
+  safeRedexes size payload (IOType a) = safeRedexes size payload a
+  safeRedexes size payload (IOPure a) = safeRedexes size payload a
+  safeRedexes size payload (WriteLine a) = safeRedexes size payload a
+  safeRedexes size payload (IOBind a b c d) = safeRedexes size payload a && safeRedexes size payload b && safeRedexes size payload c && safeRedexes size payload d
+  safeRedexes size payload (BoolCase a b c) = safeRedexes size payload a && safeRedexes size payload b && safeRedexes size payload c
+  safeRedexes size payload (Sigma _ _ a b) = safeRedexes size payload a && safeRedexes size payload b
+  safeRedexes size payload (PairValue a b c) = safeRedexes size payload a && safeRedexes size payload b && safeRedexes size payload c
+  safeRedexes size payload (PairCase a b c) = safeRedexes size payload a && safeRedexes size payload b && safeRedexes size payload c
+  safeRedexes size payload (Pi _ a b) = safeRedexes size payload a && safeRedexes size payload b
+  safeRedexes size payload (Lambda _ a b) = safeRedexes size payload a && safeRedexes size payload b
+  safeRedexes size payload (Apply (Lambda q domain body) argument) =
     let weights : Fin (S n) -> Nat
         weights FZ = typeNodes argument
         weights (FS _) = 1
+        payloadWeights : Fin (S n) -> Nat
+        payloadWeights FZ = payloadSize argument
+        payloadWeights (FS _) = 0
      in size + substitutionNodes weights body <= inferredResultNodes &&
-        safeRedexes size domain && safeRedexes size body && safeRedexes size argument
-  safeRedexes size (Apply a b) = safeRedexes size a && safeRedexes size b
-  safeRedexes size (UnitCase a b) = safeRedexes size a && safeRedexes size b
+        payload + payloadWeight payloadWeights body <= payloadLimit &&
+        safeRedexes size payload domain && safeRedexes size payload body && safeRedexes size payload argument
+  safeRedexes size payload (Apply a b) = safeRedexes size payload a && safeRedexes size payload b
+  safeRedexes size payload (UnitCase a b) = safeRedexes size payload a && safeRedexes size payload b
 
-  safeTerms : Nat -> List (Term n) -> Bool
-  safeTerms size [] = True
-  safeTerms size (x :: xs) = safeRedexes size x && safeTerms size xs
+  safeTerms : Nat -> Nat -> List (Term n) -> Bool
+  safeTerms size payload [] = True
+  safeTerms size payload (x :: xs) = safeRedexes size payload x && safeTerms size payload xs
 
-  safeArms : Nat -> List (Maybe (Quantity, Term n)) -> Bool
-  safeArms size [] = True
-  safeArms size (Nothing :: xs) = safeArms size xs
-  safeArms size (Just (_, ty) :: xs) = safeRedexes size ty && safeArms size xs
+  safeArms : Nat -> Nat -> List (Maybe (Quantity, Term n)) -> Bool
+  safeArms size payload [] = True
+  safeArms size payload (Nothing :: xs) = safeArms size payload xs
+  safeArms size payload (Just (_, ty) :: xs) = safeRedexes size payload ty && safeArms size payload xs
+
+||| Pre-step structural and character-payload admission; not a typing judgment.
+public export
+guardedStepAdmitted : Term n -> Bool
+guardedStepAdmitted term = case admit inferredResultNodes term of
+  Nothing => False
+  Just remaining =>
+    let size = minus inferredResultNodes remaining
+        payload = payloadSize term in
+      size <= 510 && payload <= payloadLimit && safeRedexes size payload term
 
 ||| Successful results are normal according to the existing raw reducer.
 ||| Zero fuel never probes a step. Failure is inconclusive, not inequality.
 public export
 guardedNormal : Nat -> Term n -> Maybe (Term n)
 guardedNormal Z term = Nothing
-guardedNormal (S fuel) term = do
-  remaining <- admit inferredResultNodes term
-  let size = minus inferredResultNodes remaining
-  if size > 510 || not (safeRedexes size term) then Nothing else
+guardedNormal (S fuel) term =
+  if not (guardedStepAdmitted term) then Nothing else
     case step term of
       Nothing => Just term
       Just next => guardedNormal fuel next

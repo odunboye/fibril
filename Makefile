@@ -76,6 +76,7 @@ examples: build
 	./build/exec/fibril run --source-dir examples/modules/data examples/modules/data/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/bare-type examples/modules/bare-type/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/function-equations examples/modules/function-equations/Main.fib
+	./build/exec/fibril run --source-dir examples/modules/motive-contexts examples/modules/motive-contexts/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/direct-data-case examples/modules/direct-data-case/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/direct-data-case-dependent examples/modules/direct-data-case-dependent/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/email-service examples/modules/email-service/Main.fib

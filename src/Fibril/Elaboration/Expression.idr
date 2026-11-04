@@ -20,6 +20,8 @@ import Fibril.Core.WeakHead
 import Fibril.Elaboration.DataCase
 import Fibril.Elaboration.Expression.Scope
 import Fibril.Elaboration.Expression.Conversion
+import Fibril.Elaboration.Expression.Abstract
+import Fibril.Elaboration.Expression.Payload
 import Fibril.Elaboration.Expression.Motive
 import Fibril.Elaboration.Expression.Constructor
 import Fibril.Elaboration.Expression.Parameters
@@ -92,16 +94,36 @@ constantDataResult position context (descriptor :: descriptors) (branch :: branc
     agree first _ _ = Left (CannotElaborate position "Data-case branch count does not match shape")
 constantDataResult position context _ _ = Left (CannotElaborate position "Data-case branch count does not match shape")
 
-expectedDataMotive : Position -> Term n -> Term n -> Fin n -> Either ResolveError (Term n)
-expectedDataMotive position nominal result index = do
-  if typeNodes result > inferredResultNodes
+expectedDataMotive : Position -> Term n -> Term n -> Term n -> Either ResolveError (Term n)
+expectedDataMotive position nominal result scrutinee = do
+  let resultSize = typeNodes result
+  if resultSize > inferredResultNodes
     then Left (CannotElaborate position "Expected data-case result exceeds 512 nodes; use an explicit return motive") else Right ()
-  let abstract : Fin n -> Fin (S n)
-      abstract i = if i == index then FZ else FS i
-  let body = rename abstract result
+  body <- case scrutinee of
+    Variable index =>
+      let abstract : Fin n -> Fin (S n)
+          abstract i = if i == index then FZ else FS i in
+        Right (rename abstract result)
+    _ => do
+      let targetSize = typeNodes scrutinee
+      if targetSize > inferredResultNodes then Left (CannotElaborate position "Data-case scrutinee exceeds abstraction budget; use an explicit return motive") else Right ()
+      let targetPayload = payloadSize scrutinee
+      let resultPayload = payloadSize result
+      if targetPayload > payloadLimit || resultPayload > payloadLimit ||
+         (1 + targetSize + targetPayload) * (1 + resultSize + resultPayload) > 262144
+        then Left (CannotElaborate position "Data-case abstraction work budget exhausted; use an explicit return motive") else Right ()
+      Right (abstractOver scrutinee result)
   if typeNodes body > inferredResultNodes
     then Left (CannotElaborate position "Abstracted data-case result exceeds 512 nodes; use an explicit return motive") else Right ()
   Right (Lambda Erased nominal body)
+
+public export
+wantsExpected : Expr -> Bool
+wantsExpected (NDataCase _ _ Nothing _) = True
+wantsExpected (NLambda _ _ _ _ _) = True
+wantsExpected (NLet _ _ _ _ _ _) = True
+wantsExpected (NIf _ _ _ _) = True
+wantsExpected _ = False
 
 namedConstructor : Expr -> Bool
 namedConstructor (NRef _ _) = True
@@ -130,9 +152,9 @@ mutual
     Right (branch :: later)
 
   elaborateDataArms : List GlobalDefinition -> Context n -> Vect n String -> Term n -> Term n -> List (Term n) ->
-                      List (Maybe (Quantity, Term n)) -> List (Token, Maybe Token, Expr) -> Either ResolveError (List (Nat, Term n))
-  elaborateDataArms globals ctx env nominal shape indices descriptors [] = Right []
-  elaborateDataArms globals ctx env nominal shape indices descriptors ((name, binder, body) :: rest) = do
+                      List (Maybe (Quantity, Term n)) -> Maybe (Term n) -> List (Token, Maybe Token, Expr) -> Either ResolveError (List (Nat, Term n))
+  elaborateDataArms globals ctx env nominal shape indices descriptors hint [] = Right []
+  elaborateDataArms globals ctx env nominal shape indices descriptors hint ((name, binder, body) :: rest) = do
     if elem '.' (unpack name.spelling) then Right () else
       case lookupName name.spelling env of
         Just _ => Left (CannotElaborate name.span.start "Data-case constructor is shadowed by a local binder")
@@ -157,21 +179,49 @@ mutual
       DifferentNormalForms => Left (CannotElaborate name.span.start "Data-case constructor does not match the scrutinee type and shape")
       Inconclusive => Left (CannotElaborate name.span.start "Data-case constructor comparison budget exhausted")
     branch <- case (descriptor, binder) of
-      (Nothing, Nothing) => elaborateInWith globals (Just ctx) env body
+      (Nothing, Nothing) => case hint of
+        Nothing => elaborateInWith globals (Just ctx) env body
+        Just motive =>
+          let applied = Apply motive (NominalValue nominal (VariantValue shape tag Nothing))
+              result = fromMaybe applied (guardedNormal typeReductionFuel applied) in
+            elaborateExpected globals ctx env result body
       (Just (q, ty), Just bound) => do
-        result <- elaborateInWith globals (Just (Extend ctx q ty)) (bound.spelling :: env) body
+        result <- case hint of
+          Nothing => elaborateInWith globals (Just (Extend ctx q ty)) (bound.spelling :: env) body
+          Just motive =>
+            let value = NominalValue (weaken nominal) (VariantValue (weaken shape) tag (Just (Variable FZ)))
+                applied = Apply (weaken motive) value
+                expectedResult = fromMaybe applied (guardedNormal typeReductionFuel applied) in
+              elaborateExpected globals (Extend ctx q ty) (bound.spelling :: env) expectedResult body
         Right (Lambda q ty result)
       _ => Left (CannotElaborate name.span.start "Invalid data-case payload branch")
-    following <- elaborateDataArms globals ctx env nominal shape indices descriptors rest
+    following <- elaborateDataArms globals ctx env nominal shape indices descriptors hint rest
     if any (\entry => fst entry == tag) following
        then Left (CannotElaborate name.span.start "Duplicate data-case constructor") else Right ()
     Right ((tag, branch) :: following)
 
   -- A result type is available here only for a direct equation body. The
   -- variable abstraction is a renaming, so it cannot duplicate subtrees.
+  public export
   elaborateExpected : List GlobalDefinition -> Context n -> Vect n String -> Term n -> Expr -> Either ResolveError (Term n)
   elaborateExpected globals context env expected (NDataCase span value Nothing arms) =
     elaborateDataCase globals context env span value Nothing arms (Just expected)
+  elaborateExpected globals context env (Pi _ _ expected) (NLambda span q name domain body) = do
+    domain <- elaborateInWith globals (Just context) env domain
+    body <- elaborateExpected globals (Extend context q domain) (name :: env) expected body
+    Right (Lambda q domain body)
+  elaborateExpected globals context env expected (NIf span condition yes no) = do
+    condition <- elaborateInWith globals (Just context) env condition
+    yes <- elaborateExpected globals context env expected yes
+    no <- elaborateExpected globals context env expected no
+    Right (BoolCase condition yes no)
+  elaborateExpected globals context env expected expression@(NLet span q name annotation value body) =
+    if not (wantsExpected body) || typeNodes expected > inferredResultNodes
+      then elaborateInWith globals (Just context) env expression else do
+      ty <- elaborateInWith globals (Just context) env annotation
+      value <- elaborateExpected globals context env ty value
+      body <- elaborateExpected globals (Extend context q ty) (name :: env) (weaken expected) body
+      Right (Apply (Lambda q ty body) value)
   elaborateExpected globals context env expected body = elaborateInWith globals (Just context) env body
 
   elaborateDataCase : List GlobalDefinition -> Context n -> Vect n String -> SourceSpan -> Expr -> Maybe Expr -> List (Token, Maybe Token, Expr) -> Maybe (Term n) -> Either ResolveError (Term n)
@@ -196,12 +246,26 @@ mutual
       VariantType descriptors => do
         if length descriptors > 64 then Left (CannotElaborate span.start "Data-case branch admission exhausted (64)") else Right ()
         let indices = case nominal of NominalType _ args _ => args; _ => []
-        checked <- elaborateDataArms globals ctx env nominal shape indices descriptors arms
+        explicit <- the (Either ResolveError (Maybe (Term n))) $ case motive of
+          Just authored => Just <$> elaborateInWith globals context env authored
+          Nothing => Right Nothing
+        let hint : Maybe (Term n)
+            hint = case explicit of
+              Just authored => Just authored
+              Nothing => case expected of
+                Just result => case expectedDataMotive span.start nominal result scrutinee of
+                  Right candidate => Just candidate
+                  Left _ => Nothing
+                Nothing => Nothing
+        let boundedHint = case hint of
+              Just candidate => if typeNodes candidate <= inferredResultNodes then Just candidate else Nothing
+              Nothing => Nothing
+        checked <- elaborateDataArms globals ctx env nominal shape indices descriptors boundedHint arms
         ordered <- orderDataArms span.start 0 descriptors checked
-        selected <- case motive of
-          Just explicit => elaborateInWith globals context env explicit
+        selected <- case explicit of
+          Just authored => Right authored
           Nothing => case (expected, scrutinee) of
-            (Just result, Variable index) =>
+            (Just result, _) =>
               -- Retain a previously accepted constant motive only if it also
               -- checks against this expected type. This probe is erased-only;
               -- the completed declaration is independently checked again. Do
@@ -212,8 +276,8 @@ mutual
                       candidate = assembleDataCase nominal shape constant scrutinee ordered in
                     case checkErased checkingDepth typeReductionFuel ctx candidate result of
                       Right () => Right constant
-                      Left _ => expectedDataMotive span.start nominal result index
-                Left _ => expectedDataMotive span.start nominal result index
+                      Left _ => expectedDataMotive span.start nominal result scrutinee
+                Left _ => expectedDataMotive span.start nominal result scrutinee
             _ => do
               result <- constantDataResult span.start ctx descriptors ordered
               Right (Lambda Erased nominal (weaken result))
@@ -356,8 +420,19 @@ mutual
     left <- elaborateInWith globals context env left
     right <- elaborateInWith globals context env right
     Right (Apply (Apply operator left) right)
-  elaborateInWith globals context env (NApply span function argument) =
-    [| Apply (elaborateInWith globals context env function) (elaborateInWith globals context env argument) |]
+  elaborateInWith globals context env (NApply span function argument) = do
+    function <- elaborateInWith globals context env function
+    argument <- case context of
+      Just ctx => if wantsExpected argument then
+        case inferErased checkingDepth typeReductionFuel ctx function of
+          Right (Pi _ domain _) =>
+            if typeNodes domain <= inferredResultNodes
+              then elaborateExpected globals ctx env domain argument
+              else elaborateInWith globals context env argument
+          _ => elaborateInWith globals context env argument
+        else elaborateInWith globals context env argument
+      Nothing => elaborateInWith globals context env argument
+    Right (Apply function argument)
   elaborateInWith globals context env (NSequence span first rest) = do
     action <- elaborateInWith globals context env first
     following <- elaborateInWith globals context env rest
@@ -371,15 +446,19 @@ mutual
   -- Checking an identity application enforces the expected domain using existing
   -- typing/compatibility rules. Linear use preserves the term's runtime usage.
   elaborateInWith globals context env (NAscribe span term expected) = do
-    term <- elaborateInWith globals context env term
     ty <- elaborateInWith globals context env expected
+    term <- case context of
+      Just ctx => elaborateExpected globals ctx env ty term
+      Nothing => elaborateInWith globals context env term
     Right (Apply (Lambda Linear ty (Variable FZ)) term)
 
   -- The binding is nonrecursive: annotation and value use the outer environment.
   -- A lambda/application enforces the annotation and declared resource quantity.
   elaborateInWith globals context env (NLet span q name expected value body) = do
     ty <- elaborateInWith globals context env expected
-    value <- elaborateInWith globals context env value
+    value <- case context of
+      Just ctx => elaborateExpected globals ctx env ty value
+      Nothing => elaborateInWith globals context env value
     body <- elaborateInWith globals (map (\ctx => Extend ctx q ty) context) (name :: env) body
     Right (Apply (Lambda q ty body) value)
 

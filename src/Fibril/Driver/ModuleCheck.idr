@@ -2,6 +2,7 @@
 module Fibril.Driver.ModuleCheck
 
 import Data.List
+import Data.Vect
 import Fibril.Core.Quantity
 import Fibril.Core.Size
 import Fibril.Core.Term
@@ -100,7 +101,7 @@ mutual
     NInfix _ function left right => 2 + cost limit globals env function + cost limit globals env left + cost limit globals env right
     NApply _ a b => 1 + cost limit globals env a + cost limit globals env b
     NAscribe _ a b => 3 + cost limit globals env a + cost limit globals env b
-    NLet _ _ name a value body => 2 + cost limit globals env a + cost limit globals env value +
+    NLet _ _ name a value body => (if wantsExpected body then 514 else 2) + cost limit globals env a + cost limit globals env value +
                                  cost limit globals (name :: env) body
     NSequence _ a b => 7 + cost limit globals env a + cost limit globals env b
     NDoBind _ name a action body => 3 + 2 * cost limit globals env a + cost limit globals env action +
@@ -112,7 +113,7 @@ mutual
   dataArmsCost : Nat -> List Weighted -> List String -> List (Token, Maybe Token, Expr) -> Nat
   dataArmsCost limit globals env [] = 0
   dataArmsCost limit globals env ((_, binder, body) :: rest) =
-    min (S limit) (1026 + cost limit globals (maybe env (\token => token.spelling :: env) binder) body + dataArmsCost limit globals env rest)
+    min (S limit) (1538 + cost limit globals (maybe env (\token => token.spelling :: env) binder) body + dataArmsCost limit globals env rest)
 
   listCost : Nat -> List Weighted -> List String -> List Expr -> Nat
   listCost limit globals env [] = 0
@@ -195,7 +196,9 @@ compileDeclarations snapshot name globals (decl :: rest) remaining = do
                                      "Expanded core construction budget exhausted (200000)")
      else Right ()
   ty <- resolve snapshot globals decl.expected
-  value <- resolve snapshot globals decl.value
+  value <- case elaborateExpected (map global globals) Empty [] ty decl.value of
+    Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
+    Right value => Right value
   if nodes ty + nodes value > estimate
      then Left (problem snapshot Nothing "Internal module expansion estimate was insufficient")
      else Right ()

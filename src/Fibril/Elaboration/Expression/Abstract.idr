@@ -1,0 +1,63 @@
+-- Capture-avoiding exact-occurrence abstraction for untrusted motive proposals.
+module Fibril.Elaboration.Expression.Abstract
+
+import Data.Fin
+import Fibril.Core.Term
+import Fibril.Core.Quantity
+
+%default total
+
+mutual
+  abstractWith : (Fin n -> Fin m) -> Fin m -> Term n -> Term n -> Term m
+  abstractWith env hole target term =
+    if sameSyntax target term then Variable hole else descend env hole target term
+
+  descend : (Fin n -> Fin m) -> Fin m -> Term n -> Term n -> Term m
+  descend env hole target (Variable i) = Variable (env i)
+  descend env hole target (Universe l) = Universe l
+  descend env hole target UnitType = UnitType
+  descend env hole target UnitValue = UnitValue
+  descend env hole target BoolType = BoolType
+  descend env hole target BoolTrue = BoolTrue
+  descend env hole target BoolFalse = BoolFalse
+  descend env hole target StringType = StringType
+  descend env hole target (StringValue value) = StringValue value
+  descend env hole target (StringAppend a b) = StringAppend (abstractWith env hole target a) (abstractWith env hole target b)
+  descend env hole target (StringEqual a b) = StringEqual (abstractWith env hole target a) (abstractWith env hole target b)
+  descend env hole target (NominalType key indices shape) = NominalType key (abstractTerms env hole target indices) (abstractWith env hole target shape)
+  descend env hole target (NominalValue a b) = NominalValue (abstractWith env hole target a) (abstractWith env hole target b)
+  descend env hole target (NominalCase a b c) = NominalCase (abstractWith env hole target a) (abstractWith env hole target b) (abstractWith env hole target c)
+  descend env hole target (VariantType arms) = VariantType (abstractArms env hole target arms)
+  descend env hole target (VariantValue ty tag Nothing) = VariantValue (abstractWith env hole target ty) tag Nothing
+  descend env hole target (VariantValue ty tag (Just value)) = VariantValue (abstractWith env hole target ty) tag (Just (abstractWith env hole target value))
+  descend env hole target (VariantCase a b branches) = VariantCase (abstractWith env hole target a) (abstractWith env hole target b) (abstractTerms env hole target branches)
+  descend env hole target (BoxType q ty) = BoxType q (abstractWith env hole target ty)
+  descend env hole target (BoxValue a b) = BoxValue (abstractWith env hole target a) (abstractWith env hole target b)
+  descend env hole target (BoxCase a b c) = BoxCase (abstractWith env hole target a) (abstractWith env hole target b) (abstractWith env hole target c)
+  descend env hole target (IOType a) = IOType (abstractWith env hole target a)
+  descend env hole target (IOPure a) = IOPure (abstractWith env hole target a)
+  descend env hole target (WriteLine a) = WriteLine (abstractWith env hole target a)
+  descend env hole target (IOBind a b c d) = IOBind (abstractWith env hole target a) (abstractWith env hole target b) (abstractWith env hole target c) (abstractWith env hole target d)
+  descend env hole target (BoolCase a b c) = BoolCase (abstractWith env hole target a) (abstractWith env hole target b) (abstractWith env hole target c)
+  descend env hole target (Sigma q r a b) = Sigma q r (abstractWith env hole target a) (abstractWith (liftRenaming env) (FS hole) (weaken target) b)
+  descend env hole target (PairValue a b c) = PairValue (abstractWith env hole target a) (abstractWith env hole target b) (abstractWith env hole target c)
+  descend env hole target (PairCase a b c) = PairCase (abstractWith env hole target a) (abstractWith env hole target b) (abstractWith env hole target c)
+  descend env hole target (Pi q a b) = Pi q (abstractWith env hole target a) (abstractWith (liftRenaming env) (FS hole) (weaken target) b)
+  descend env hole target (Lambda q a b) = Lambda q (abstractWith env hole target a) (abstractWith (liftRenaming env) (FS hole) (weaken target) b)
+  descend env hole target (Apply a b) = Apply (abstractWith env hole target a) (abstractWith env hole target b)
+  descend env hole target (UnitCase a b) = UnitCase (abstractWith env hole target a) (abstractWith env hole target b)
+
+  abstractTerms : (Fin n -> Fin m) -> Fin m -> Term n -> List (Term n) -> List (Term m)
+  abstractTerms env hole target [] = []
+  abstractTerms env hole target (x :: xs) = abstractWith env hole target x :: abstractTerms env hole target xs
+
+  abstractArms : (Fin n -> Fin m) -> Fin m -> Term n -> List (Maybe (Quantity, Term n)) -> List (Maybe (Quantity, Term m))
+  abstractArms env hole target [] = []
+  abstractArms env hole target (Nothing :: xs) = Nothing :: abstractArms env hole target xs
+  abstractArms env hole target (Just (q, ty) :: xs) = Just (q, abstractWith env hole target ty) :: abstractArms env hole target xs
+
+||| Replace exact occurrences of a scoped term with a fresh outer binder.
+||| Candidate construction only: callers must bound inputs and check the result.
+public export
+abstractOver : Term n -> Term n -> Term (S n)
+abstractOver target result = abstractWith FS FZ target result

@@ -1,0 +1,32 @@
+module Main
+
+data Select : Type where
+  First : Select
+  Second : Select
+
+0 Family : (0 choice : Select) -> Type 1
+Family = \(0 choice : Select) => case choice return (\(0 self : Select) => Type 1) of
+  First => (String : Type 1)
+  Second => (Bool : Type 1)
+
+identity : (0 T : Type 1) -> (1 value : T) -> T
+identity T value = value
+
+choose : (1 choice : Select) -> Family ((\(1 x : Select) => x) choice)
+choose choice = identity (Family ((\(1 x : Select) => x) choice)) (case ((\(1 x : Select) => x) choice) of
+  First => "inferred"
+  Second => True)
+
+chooseNested : (1 outer : Select) -> (1 inner : Select) -> Family inner
+chooseNested outer inner = case outer of
+  First => case inner of
+    First => "nested"
+    Second => True
+  Second => case inner of
+    First => "nested"
+    Second => True
+
+main : IO Unit
+main = do
+  putStrLn (choose First)
+  putStrLn (chooseNested First First)

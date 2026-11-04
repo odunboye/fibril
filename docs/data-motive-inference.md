@@ -22,6 +22,7 @@ choose choice = case choice of
 ~~~
 
 See the runnable [dependent example](../examples/modules/direct-data-case-dependent/Main.fib),
+the [nested and arbitrary-scrutinee example](../examples/modules/motive-contexts/Main.fib),
 the pure [request API package](../examples/packages/request-api/src/Mail/Request.fib),
 and the qualified, generic [Sum client](../examples/packages/sum-client/src/Main.fib).
 
@@ -46,22 +47,27 @@ a unary arm, the inferred Pi result must not mention the payload to serve as a
 constant result; scope-aware thinning removes that binder. Results may match
 syntactically or by the guarded reduction described below.
 
-For a direct omitted-motive case **as the body of a signed named equation**, the
-remaining declared result is also available. When the scrutinee is a local
-variable, the elaborator can propose an erased motive by abstracting that
-variable from the result. Scope-aware renaming handles older variables and
-occurrences under binders. It preserves a constant candidate when an erased
-check confirms that candidate checks against the expected result; otherwise it
-proposes the expected-derived motive. This preliminary check is not authorization
-for runtime use. The enclosing declaration is independently checked again,
-including branch quantities and runtime permissions.
+Expected types are propagated from checked module signatures through typed
+lambdas, annotations, supported lets and conditionals, application arguments
+when a literal Pi domain is available, and data-case branches when a bounded
+motive hint is available. Named equations carry their declared results too.
 
-Expected types are not yet propagated through arbitrary applications, explicit
-lambdas, lets or nested case branches. Arbitrary scrutinee expressions are not
-abstracted. Dependent payload results, a family that cannot be recovered from
-this expected-type seam, or an incorrectly generalized motive can still require
-an explicit `return`. Failure to infer a motive is not proof that the program
-is ill-typed. [Explicit dependent motives](direct-data-cases.md) remain available.
+The elaborator can propose an erased motive by abstracting the scrutinee from
+that result. A variable uses scoped renaming; an arbitrary scrutinee uses exact
+core-subterm matching, including beneath binders. It preserves a constant
+candidate when an erased check confirms that candidate checks against the
+expected result; otherwise it proposes the expected-derived motive. This
+preliminary check is not authorization for runtime use. The enclosing
+declaration is independently checked again, including branch quantities and
+runtime permissions.
+
+This is not complete bidirectional inference: expected types are not propagated
+through every construct, function types are not reduced merely to expose a Pi,
+and arbitrary subterms are matched syntactically, not modulo conversion. A
+candidate that over-generalizes, a dependent payload, an unavailable or oversized
+hint, and some nested cases can still require explicit `return`. Failure to
+infer a motive is not proof that the program is ill-typed. [Explicit dependent
+motives](direct-data-cases.md) remain available.
 
 ## Guarded conversion
 
@@ -74,11 +80,15 @@ calling the existing one-step reducer, and has its own fuel limit. A conservativ
 does not take a step. Rejection or fuel exhaustion is **inconclusive**, not a
 proof of inequality, and requests an explicit motive where needed.
 
-The guarded reduction path deliberately excludes string literals, string
-operations and nominal keys, whose payload work is not bounded by a node count.
-The pre-existing syntactic-equality fast path may still compare those payloads.
-There is no claim that all definitional equalities are decided, or that these
-checks establish a hard allocation, time, or memory-safety bound. Existing
+Guarded reduction now admits string literals, string operations and nominal
+keys with a separate 8192-character aggregate payload admission. It estimates
+both the whole current payload and any beta-substituted payload before stepping,
+including repeated variables beneath binders. Length is measured using the host
+String implementation **before** the estimate is capped: measurement is not a
+portable short-circuit work bound. Character counts are not byte counts, and the
+pre-existing syntactic-equality fast path may compare payloads before admission.
+These guards limit estimated term-node and character growth after measurement;
+they do not establish hard allocation, timing or memory-safety bounds. Existing
 checker/constructor operations retain their separate fuel and admission policies.
 
 ## Syntax and evidence
@@ -89,12 +99,15 @@ constructor. The first arm must be nullary or a second aligned arm must be
 present; a single unary pattern remains record-pattern syntax, even without
 `return`. Local constructors and qualified checked direct imports retain their
 usual scope and package permissions. Wider/nested patterns remain unsupported.
-The inferred result and nominal domain each have a 512-node admission; module
-preflight reserves the two generated motive copies.
+Inferred results and motive domains have 512-node admissions. Arbitrary-subterm
+abstraction additionally admits scrutinee/result payloads and a 262144-unit
+product estimate before comparison and weakening. Module preflight reserves
+motive copies and bounded expected-type weakening in lets and data arms.
 
 Tests exercise generic and qualified Sum, constant and expected-dependent
-motives, older and shadowed binders, guarded beta conversion and pre-substitution
-rejection, explicit fallbacks, source navigation, and formatter round trips.
+motives, older and shadowed binders, exact-subterm round trips, propagation through
+multiple expression contexts, string/key conversion, pre-substitution rejection,
+explicit fallbacks, source navigation, and formatter round trips.
 Rejections cover bad branches, payload dependency without usable expectation,
 invalid coverage, erased use and linear misuse. These are sampled implementation
 evidence, not proofs of soundness, totality, termination or resource bounds.
