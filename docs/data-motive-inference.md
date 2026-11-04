@@ -74,6 +74,22 @@ hint, and some nested cases can still require explicit `return`. Failure to
 infer a motive is not proof that the program is ill-typed. [Explicit dependent
 motives](direct-data-cases.md) remain available.
 
+### Why explicit motives remain
+
+An expected result and a scrutinee do not always identify a unique intended
+motive: different generalizations can agree at the original scrutinee but impose
+different requirements on the branches. Choosing one without evidence can reject
+a valid program or express a different dependency. An explicit `return` lets
+the author state the intended relationship; the core checker still checks it.
+
+More generally, unrestricted higher-order unification is undecidable. This is
+background on a general problem, **not** a proof that a particular Fibril
+fragment is undecidable, nor a claim that Fibril implements unrestricted
+higher-order unification. Fibril deliberately uses bounded, incomplete candidate
+construction instead of promising that every valid motive will be discovered.
+A failed attempt, a resource-admission rejection, or exhausted reduction fuel
+is inconclusive; none proves that no valid explicit motive exists.
+
 ## Guarded conversion
 
 Different raw constant branch-result types can now be reduced before comparison,
@@ -93,8 +109,11 @@ String implementation **before** the estimate is capped: measurement is not a
 portable short-circuit work bound. Character counts are not byte counts, and the
 pre-existing syntactic-equality fast path may compare payloads before admission.
 These guards limit estimated term-node and character growth after measurement;
-they do not establish hard allocation, timing or memory-safety bounds. Existing
-checker/constructor operations retain their separate fuel and admission policies.
+they do not establish hard allocation, timing or memory-safety bounds. Such
+claims require appropriate runtime and backend guarantees plus evidence for the
+specific target and application; elaborator limits alone cannot establish them.
+Existing checker/constructor operations retain their separate fuel and admission
+policies. See [guarantees](guarantees.md) and [safety and performance](safety-performance.md).
 
 ## Syntax and evidence
 
