@@ -119,6 +119,19 @@ mutual
        then Left (CannotElaborate name.span.start "Duplicate data-case constructor") else Right ()
     Right ((tag, branch) :: following)
 
+  equationBody : List GlobalDefinition -> Context n -> Vect n String -> Term n -> List Token -> Expr -> Either ResolveError (Term n)
+  equationBody globals context env expected [] body = elaborateInWith globals (Just context) env body
+  equationBody globals context env expected (name :: rest) body = do
+    -- Do not reduce an unchecked signature to expose Pi: head beta reduction
+    -- can expand before any post-reduction node bound. Explicit Pi syntax is
+    -- the deliberately narrower, pre-clone-accounted first slice.
+    case expected of
+      Pi q domain result => do
+        if coreNodes domain > 512 then Left (CannotElaborate name.span.start "Function equation parameter type exceeds 512 nodes") else Right ()
+        following <- equationBody globals (Extend context q domain) (name.spelling :: env) result rest body
+        Right (Lambda q domain following)
+      _ => Left (CannotElaborate name.span.start "Function equation requires an explicit Pi for every named parameter")
+
   elaborateArms : List GlobalDefinition -> Maybe (Context n) -> Vect n String -> List (Maybe (Quantity, Expr)) -> Either ResolveError (List (Maybe (Quantity, Term n)))
   elaborateArms globals context env [] = Right []
   elaborateArms globals context env (Nothing :: xs) = (Nothing ::) <$> elaborateArms globals context env xs
@@ -202,6 +215,10 @@ mutual
         ordered <- orderDataArms span.start 0 descriptors checked
         Right (assembleDataCase nominal shape motive scrutinee ordered)
       _ => Left (CannotElaborate span.start "Invalid data-case shape")
+  elaborateInWith globals context env (NEquationLambda span names signature body) = do
+    ctx <- case context of Nothing => Left (CannotElaborate span.start "Function equations require a typed context"); Just ctx => Right ctx
+    expected <- elaborateInWith globals context env signature
+    equationBody globals ctx env expected names body
   elaborateInWith globals context env (NPatternLambda span _ _) =
     Left (CannotElaborate span.start "Inferred field binders require a constructor-named pattern")
   elaborateInWith globals context env (NConstructorCase span arity constructor scrutinee branch motive) = do

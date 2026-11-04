@@ -2,6 +2,10 @@
 
 ## Use cases
 
+[Named function equations](function-equations.md) now permit `greet name = ...`
+after an explicit Pi signature; parameter domains and quantities come from that
+signature and ordinary core checking remains independent.
+
 Use a named typed declaration when an operation is reused or its signature is an important contract. Explicit type parameters support generic functions; dependent signatures describe results whose types depend on inputs.
 
 Use a typed local let for a one-off intermediate value, and direct application when a new name adds no clarity. An annotation expresses an intended type; it does not bypass checking.
@@ -41,9 +45,10 @@ A file is still allowed to contain a single expression. A leading name followed
 by : or =, or a leading numeric quantity, selects declaration framing.
 
 - Each signature has [quantity] name : type; quantity is optional, 0, or 1.
-- The next header must have exactly the same name followed by = value.
+- The next header has the same name, optional bare parameter names, then = value.
+  Named parameters inherit their types and quantities from explicit Pi signatures.
 - Every signature/definition header starts in column one.
-- A header's name and :/= must be on the same physical line.
+- A header's name and :/=, including any equation parameters, must share a physical line.
 - Remaining header-line tokens belong to its type/value expression.
 - Every continuation token on a later line must be indented beyond column one,
   including closing parentheses and let/in delimiters.

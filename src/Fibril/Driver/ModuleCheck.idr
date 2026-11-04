@@ -80,6 +80,8 @@ mutual
     NBoxType _ _ a => 1 + cost limit globals env a
     NBoxValue _ a b => 1 + cost limit globals env a + cost limit globals env b
     NBoxCase _ a b c => 1 + cost limit globals env a + cost limit globals env b + cost limit globals env c
+    NEquationLambda _ names signature body =>
+      min (S limit) (1 + length names * 513 + cost limit globals env signature + cost limit globals (reverse (map spelling names) ++ env) body)
     NPatternLambda _ names body => 4 + 2 * inferredFieldNodes + cost limit globals (reverse (map spelling names) ++ env) body
     NDataCase _ value motive branches =>
       min (S limit) (4096 + cost limit globals env value + 2 * cost limit globals env motive + dataArmsCost limit globals env branches)

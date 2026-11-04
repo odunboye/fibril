@@ -35,7 +35,11 @@ program = "not : (1 flag : Bool) -> Bool\nnot = \\(1 flag : Bool) => if flag the
 public export
 checks : List (String, Bool)
 checks =
-  [ ("references API includes binding and uses in source order",
+  [ ("named function equation inherits a dependent signature and quantities",
+      accepted False "identity : (0 A : Type) -> (1 item : A) -> A\nidentity T value = value\nmain : Bool\nmain = identity Bool True")
+  , ("named function equation rejects linear duplication",
+      not (accepted False "duplicate : (1 text : String) -> String\nduplicate text = appendString text text\nmain : String\nmain = duplicate \"x\""))
+  , ("references API includes binding and uses in source order",
       case referencesAt "\\(1 x : Bool) => x" 1 18 of
         Right [binding, use] => binding.start.column == 5 && use.start.column == 18
         _ => False)

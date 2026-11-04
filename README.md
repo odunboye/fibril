@@ -21,6 +21,9 @@ including [LazyVim installation](docs/editor-highlighting.md#install-in-lazyvim)
 is available for .fib files. Navigation uses a saved-buffer CLI command; cross-file
 navigation and an LSP server remain future work.
 
+[Named function equations](docs/function-equations.md) allow `greet name = ...`
+after an explicit signature; generated lambdas retain its quantities.
+
 [Bare `Type`](docs/bare-type.md) is notation for `Type 0`; explicit higher
 universe levels retain their existing meaning.
 

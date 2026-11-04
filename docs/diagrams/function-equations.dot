@@ -1,0 +1,9 @@
+digraph FunctionEquations {
+  rankdir=LR;
+  node [shape=box];
+  source [label="Authored signature + equation\nactual parameter tokens"];
+  pi [label="Explicit Pi telescope\ndomain + quantity in scoped context"];
+  body [label="Ordinary generated core lambdas\nno unchecked rewriting"];
+  check [label="Independent core checker\ntyping + erased/runtime usage"];
+  source -> pi -> body -> check;
+}

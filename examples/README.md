@@ -8,6 +8,9 @@ three pure email-service request alternatives, with a [separate test
 package](packages/request-api/test/src/RequestTests/Main.fib). It does not send
 mail or validate addresses. Run `fibril test --package examples/packages/request-api/fibril.yaml`.
 
+The [function-equations example](modules/function-equations/Main.fib) combines
+signature-derived named parameters with direct data cases.
+
 The [bare Type example](modules/bare-type/Main.fib) uses Type for Type 0 in
 expressions and data/record/interface headers while retaining explicit Type 1.
 

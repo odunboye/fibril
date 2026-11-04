@@ -36,6 +36,8 @@ mutual
   sameExpr (NBoxType _ q a) (NBoxType _ r b) = q == r && sameExpr a b
   sameExpr (NBoxValue _ a b) (NBoxValue _ x y) = sameExpr a x && sameExpr b y
   sameExpr (NBoxCase _ a b c) (NBoxCase _ x y z) = sameExpr a x && sameExpr b y && sameExpr c z
+  sameExpr (NEquationLambda _ names signature body) (NEquationLambda _ other ty value) =
+    map spelling names == map spelling other && sameExpr signature ty && sameExpr body value
   sameExpr (NPatternLambda _ names body) (NPatternLambda _ other value) = map spelling names == map spelling other && sameExpr body value
   sameExpr (NDataCase _ value motive arms) (NDataCase _ other result branches) =
     sameExpr value other && sameExpr motive result && sameDataArms arms branches

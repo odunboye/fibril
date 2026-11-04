@@ -21,6 +21,21 @@ expressionChunk : Nat -> List Token -> (List Token, List Token)
 expressionChunk headerLine =
   span (\token => token.span.start.line == headerLine || token.span.start.column > 1)
 
+equationArguments : Nat -> Position -> Nat -> List String -> List Token -> Either ParseError (List Token, List Token)
+equationArguments Z end line seen tokens@(item :: _) =
+  if item.kind == Equals then Right ([], tokens)
+    else Left (ParseFailure item.span.start "Function equation binder budget exhausted")
+equationArguments Z end line seen [] = Left (ParseFailure end "Expected = after function equation")
+equationArguments (S budget) end line seen [] = Left (ParseFailure end "Expected = after function equation")
+equationArguments (S budget) end line seen tokens@(item :: rest) =
+  if item.kind == Equals then Right ([], tokens) else do
+    if item.kind /= Name || item.span.start.line /= line
+      then Left (ParseFailure item.span.start "Function equation parameters must be names on the definition line") else Right ()
+    if item.spelling /= "_" && elem item.spelling seen
+      then Left (ParseFailure item.span.start "Duplicate function equation parameter") else Right ()
+    (later, remaining) <- equationArguments budget end line (item.spelling :: seen) rest
+    Right (item :: later, remaining)
+
 parsePairAt : Nat -> Nat -> Position -> List Token ->
            Either ParseError (Declaration, List Token)
 parsePairAt column expressionBudget end [] = Left (ParseFailure end "Expected declaration signature")
@@ -46,13 +61,17 @@ parsePairAt column expressionBudget end tokens@(first :: _) = do
                 ("Expected definition of " ++ show name.spelling ++
                  ", found " ++ show definedName.spelling))
      else Right ()
-  (equals, afterEquals) <- expect Equals end afterDefinedName
+  (arguments, beforeEquals) <- equationArguments expressionBudget end definedName.span.start.line [] afterDefinedName
+  (equals, afterEquals) <- expect Equals end beforeEquals
   if equals.span.start.line /= definedName.span.start.line
      then Left (ParseFailure equals.span.start "Definition name and = must share the header line")
      else Right ()
   let (valueTokens, remaining) = expressionChunk definedName.span.start.line afterEquals
-  value <- parseExpression expressionBudget (nextPosition end remaining) valueTokens
-  Right (Defined (Between first.span.start (extent value).finish)
+  body <- parseExpression expressionBudget (nextPosition end remaining) valueTokens
+  let value = case arguments of
+        [] => body
+        first :: _ => NEquationLambda (Between first.span.start (extent body).finish) arguments expected body
+  Right (Defined (Between first.span.start (extent body).finish)
                  name.span definedName.span False q name.spelling expected value, remaining)
 
 

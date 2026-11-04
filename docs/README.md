@@ -13,6 +13,8 @@ The generated homepage separates teaching chapters, references, and project reco
 
 - [Direct non-recursive data cases](direct-data-cases.md): exhaustive local zero/unary matches with explicit motives and linear branch joins.
 
+- [Named function equations](function-equations.md): inherit parameter domains and quantities from explicit signatures.
+
 - [Bare Type](bare-type.md): notation for Type 0, with explicit higher universes unchanged.
 
 - [Pure String values](strings.md): ordinary typing/data and the separate console effect boundary.

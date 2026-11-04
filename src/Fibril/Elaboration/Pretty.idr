@@ -40,6 +40,7 @@ mutual
   renderExpr (NBoxType _ q ty) = node "box-type" [show q, renderExpr ty]
   renderExpr (NBoxValue _ ty value) = node "box-value" [renderExpr ty, renderExpr value]
   renderExpr (NBoxCase _ motive value branch) = node "box-case" [renderExpr motive, renderExpr value, renderExpr branch]
+  renderExpr (NEquationLambda _ names signature body) = node "equation" [node "parameters" (map spelling names), renderExpr signature, renderExpr body]
   renderExpr (NPatternLambda _ names body) = node "infer-field-binders" [node "names" (map spelling names), renderExpr body]
   renderExpr (NDataCase _ value motive arms) = node "data-case" [renderExpr value, renderExpr motive, node "branches" (renderDataArms arms)]
   renderExpr (NConstructorCase _ arity constructor value branch motive) = node "constructor-record-case" [show arity, renderExpr constructor, renderExpr value, renderExpr branch, (case motive of Nothing => "infer"; Just result => renderExpr result)]

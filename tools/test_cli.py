@@ -3621,6 +3621,72 @@ class CLITests(unittest.TestCase):
             self.assertIsNone(diagnostic["position"])
             self.assertEqual(result.stderr, "")
 
+    def test_named_function_equations_preserve_types_quantities_and_binders(self):
+        example = ROOT / 'examples/modules/function-equations/Main.fib'
+        original = example.read_text()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / 'Main.fib'
+            path.write_text(original)
+            def project(command):
+                return run(command, '--source-dir', str(root), str(path))
+            result = project('run')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'status: \npreview: receipt\n')
+            target = json.loads(run('definition', '8', '19', str(path)).stdout)['definition']
+            self.assertEqual((target['start']['line'], target['start']['column']), (8, 12))
+            references = json.loads(run('references', '8', '12', str(path)).stdout)['references']
+            self.assertEqual([(x['start']['line'], x['start']['column']) for x in references], [(8, 12), (8, 19)])
+            formatted = run('format', str(path))
+            self.assertEqual(formatted.returncode, 0, formatted.stderr)
+            path.write_text(formatted.stdout)
+            self.assertEqual(run('format', '--check', str(path)).returncode, 0)
+            self.assertEqual(project('run').stdout, 'status: \npreview: receipt\n')
+            invalid = [
+                original.replace('identity T item = item', 'identity T item = T'),
+                original.replace('identity T item = item', 'identity T item = "wrong"'),
+                original.replace('identity T item = item', 'identity T item item = item'),
+                original.replace('identity T item = item', 'identity T item extra = item'),
+                original.replace('identity T item = item', 'identity T (Left item) = item'),
+                original.replace('identity T item = item', 'identity T item = identity T item'),
+                original.replace('identity T item = item', 'identity T item = item\nidentity T item = item'),
+                original.replace('describe prefix request =', 'describe prefix request = appendString prefix (appendString prefix "x")\ndescribe prefix request ='),
+            ]
+            for program in invalid:
+                with self.subTest(program=program[:180]):
+                    path.write_text(program)
+                    rejected = project('run')
+                    self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
+                    self.assertEqual(rejected.stdout, '')
+            # Repeated use or discarding a linear equation parameter is rejected.
+            for body in ['appendString text text', '"discarded"']:
+                path.write_text('module Main\nbad : (1 text : String) -> String\nbad text = ' + body + '\nmain : IO Unit\nmain = putStrLn "never"\n')
+                rejected = project('run')
+                self.assertNotEqual(rejected.returncode, 0)
+                self.assertEqual(rejected.stdout, '')
+            path.write_text('module Main\nbad : (0 flag : Bool) -> Bool\nbad flag = flag\nmain : IO Unit\nmain = putStrLn "never"\n')
+            self.assertNotEqual(project('run').returncode, 0)
+            # Unchecked redex-headed signatures are not reduced during binder inference.
+            path.write_text('module Main\nbad : (\\(0 A : Type) => A) ((1 x : String) -> String)\nbad x = x\nmain : IO Unit\nmain = putStrLn "never"\n')
+            rejected = project('run')
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertIn('requires an explicit Pi', rejected.stderr)
+            self.assertEqual(rejected.stdout, '')
+            # Large explicit domains are rejected before copying into generated lambdas.
+            side = ' '.join(['String'] * 140)
+            path.write_text(f'module Main\nbad : (1 x : ({side}) ({side})) -> String\nbad x = "no"\nmain : IO Unit\nmain = putStrLn "never"\n')
+            rejected = project('run')
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertIn('parameter type exceeds 512 nodes', rejected.stderr)
+            self.assertEqual(rejected.stdout, '')
+            # Ordinary standalone declaration files and authored rename still work.
+            standalone = root / 'plain.fib'
+            standalone.write_text('identity : (0 A : Type) -> (1 item : A) -> A\nidentity T x = x\nmain : IO Unit\nmain = putStrLn (identity String "works")\n')
+            self.assertEqual(run('run', str(standalone)).stdout, 'works\n')
+            renamed = run('rename-preview', '2', '12', 'value', str(standalone))
+            self.assertEqual(renamed.returncode, 0, renamed.stderr)
+            self.assertEqual(len(json.loads(renamed.stdout)['edits']), 2)
+
     def test_bare_type_alias_in_expressions_and_declaration_headers(self):
         example = ROOT / 'examples/modules/bare-type/Main.fib'
         result = run('run', '--source-dir', str(example.parent), str(example))

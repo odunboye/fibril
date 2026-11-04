@@ -25,6 +25,7 @@ for supported syntax, checking boundaries and resource limits.
 | --- | --- | --- |
 | [Named records](records.md) | Package related fields behind an authored constructor and declared telescope. | Keep separate arguments if no reusable data shape is needed. Records are structural, not nominal class tags. |
 | [Dependent fields](records.md) | Package a type/index and a payload whose type depends on it, or a request type and response family. | Use independent fields when there is no dependency. |
+| [Named function equations](function-equations.md) | Define `greet name = ...` without repeating a lambda; quantities still come from the explicit signature. | One equation, explicit Pi telescope; no recursive or constructor-pattern clauses. |
 | [Bare Type](bare-type.md) | Reduce universe-zero annotation noise in data, records and polymorphic signatures. | Exactly Type 0; use explicit levels when clarity matters. No universe polymorphism or new core power. |
 | [Direct data cases](direct-data-cases.md) | Match local Sum/Optional alternatives without an eliminator, including linear resources shared across branches. | Explicit motive and local/direct-imported zero/unary patterns only; use a named eliminator for wider payloads. |
 | [Non-recursive data](data.md) | Express Optional/Result-style choices with checked named constructors and an optional consuming eliminator; constructors may carry dependent fields. | Use records when every field is present. Direct zero/unary cases exist; wider patterns, recursive Nat/List and termination checking remain future work. |

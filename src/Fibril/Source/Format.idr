@@ -140,6 +140,7 @@ layout tokens indentation forced value@(NBoxCase _ motive scrutinee branch) =
       layout tokens indentation split scrutinee ++
       layout tokens (indentation + 4) False motive ++
       layout tokens (indentation + 2) split branch
+layout tokens indentation forced (NEquationLambda _ _ _ body) = layout tokens indentation forced body
 layout tokens indentation forced value@(NPatternLambda _ _ body) =
   let split = forced || wide tokens indentation value
    in (if split then atStart (indentation + 2) body else []) ++

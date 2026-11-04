@@ -34,6 +34,7 @@ data Expr
   | NPairCase SourceSpan Expr Expr Expr
   | NInferCase SourceSpan Nat Expr Expr
   | NPatternLambda SourceSpan (List Token) Expr
+  | NEquationLambda SourceSpan (List Token) Expr Expr
   | NConstructorCase SourceSpan Nat Expr Expr Expr (Maybe Expr)
   | NDataCase SourceSpan Expr Expr (List (Token, Maybe Token, Expr))
   | NConstraintPi SourceSpan Quantity String Expr Expr
@@ -77,6 +78,7 @@ extent (NPairValue span _ _ _) = span
 extent (NPairCase span _ _ _) = span
 extent (NInferCase span _ _ _) = span
 extent (NPatternLambda span _ _) = span
+extent (NEquationLambda span _ _ _) = span
 extent (NConstructorCase span _ _ _ _ _) = span
 extent (NDataCase span _ _ _) = span
 extent (NConstraintPi span _ _ _ _) = span
@@ -120,6 +122,7 @@ withExtent span (NPairValue _ ty first second) = NPairValue span ty first second
 withExtent span (NPairCase _ motive value branch) = NPairCase span motive value branch
 withExtent span (NInferCase _ arity value branch) = NInferCase span arity value branch
 withExtent span (NPatternLambda _ names body) = NPatternLambda span names body
+withExtent span (NEquationLambda _ names signature body) = NEquationLambda span names signature body
 withExtent span (NConstructorCase _ arity constructor value branch motive) = NConstructorCase span arity constructor value branch motive
 withExtent span (NDataCase _ value motive arms) = NDataCase span value motive arms
 withExtent span (NConstraintPi _ q name domain body) = NConstraintPi span q name domain body
