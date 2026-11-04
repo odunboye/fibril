@@ -11,7 +11,7 @@ an uninformative decision, and direct values when no alternative is needed.
 This is non-recursive data, not yet general inductive data. Nat/List recursion,
 strict positivity, indexed constructor refinement and recursive functions remain
 future work. [Direct multi-branch cases](direct-data-cases.md) now support zero- and
-one-field alternatives; wider patterns and qualified imported patterns remain future work.
+one-field alternatives, including qualified direct imports; wider patterns remain future work.
 
 ![Source data lowering](diagrams/source-data.svg)
 
@@ -110,8 +110,8 @@ two linear String fields, wrong tags, dropped fields, dependent motives, branch
 omission and joined ambient linear demand. Dependent *field telescope* handling
 is not yet demonstrated by this builder's tests.
 The [direct case frontend](direct-data-cases.md) now uses this candidate builder
-and ordinary independent checking. Imported/qualified patterns, wider dependent
-field telescopes and motive inference remain future work. The older pure metadata
+and ordinary independent checking. Qualified direct-imported patterns now use
+checked visible globals too; wider dependent field telescopes and motive inference remain future work. The older pure metadata
 planning helpers remain unused by the direct-case driver.
 
 ### A reusable, non-Church Sum
@@ -182,5 +182,5 @@ admit nine parameters, sixteen alternatives and sixteen constructor fields under
 existing budgets. The kernel tests/proofs remain distinct from typed preservation,
 canonicity, positivity, termination and verified erasure.
 
-Next: extend direct cases to qualified imports and dependent multi-field patterns,
+Next: extend direct cases to dependent multi-field patterns,
 then the separate recursive-inductive and termination milestones in the [landing plan](inductive-data.md).

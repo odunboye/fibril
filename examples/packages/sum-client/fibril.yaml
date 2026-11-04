@@ -1,0 +1,9 @@
+schema: 1
+name: sum-client
+module-prefix: Demo
+source-dir: src
+foundation: de-morgan
+entry: Main
+dependencies:
+  sum-library:
+    path: ../sum-library

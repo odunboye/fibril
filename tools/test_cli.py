@@ -3666,6 +3666,82 @@ class CLITests(unittest.TestCase):
             self.assertNotEqual(project('run').returncode, 0)
             self.assertEqual(project('run').stdout, '')
 
+    def test_qualified_imported_data_case_across_local_packages(self):
+        import shutil
+        fixtures = ROOT / 'examples/packages'
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(fixtures / 'sum-library', root / 'sum-library')
+            shutil.copytree(fixtures / 'sum-client', root / 'sum-client')
+            app = root / 'sum-client'
+            manifest = app / 'fibril.yaml'
+            main = app / 'src/Main.fib'
+            library = root / 'sum-library/src/Data/Sum.fib'
+            original = main.read_text()
+            def project(command):
+                return run(command, '--package', str(manifest))
+            result = project('run')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'L: hello\nR: yes\n')
+            formatted = run('format', str(main))
+            self.assertEqual(formatted.returncode, 0, formatted.stderr)
+            main.write_text(formatted.stdout)
+            self.assertEqual(run('format', '--check', str(main)).returncode, 0)
+            self.assertEqual(project('run').stdout, 'L: hello\nR: yes\n')
+            main.write_text(original)
+            for broken in [original.replace('import Data.Sum\n', ''),
+                           original.replace('Data.Sum.Left text =>', 'Data.Sum.Missing text =>'),
+                           original.replace('Data.Sum.Left text =>', 'Data..Sum.Left text =>'),
+                           original.replace('Data.Sum.Left text =>', 'data.Sum.Left text =>'),
+                           original.replace('Data.Sum.Left text =>', 'Data.Sum.\n  Left text =>'),
+                           original.replace('Data.Sum.Left text =>', 'Data.Sum.Right text =>'),
+                           original.replace('  Data.Sum.Left text => appendString prefix text', '  Data.Sum.Left => prefix')]:
+                main.write_text(broken)
+                rejected = project('run')
+                self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
+                self.assertEqual(rejected.stdout, '')
+            main.write_text(original)
+            saved = library.read_text()
+            alias = ('\nalias : (0 A : Type 0) -> (0 B : Type 0) -> (1 value : A) -> Sum A B\n'
+                     'alias = Left\n')
+            library.write_text(saved + '\nexport\n' + alias)
+            main.write_text(original.replace('Data.Sum.Left text =>', 'Data.Sum.alias text =>'))
+            public_alias = project('run')
+            self.assertEqual(public_alias.returncode, 0, public_alias.stdout + public_alias.stderr)
+            library.write_text(saved + alias)
+            private_alias = project('run')
+            self.assertNotEqual(private_alias.returncode, 0)
+            self.assertEqual(private_alias.stdout, '')
+            main.write_text(original)
+            library.write_text(saved.replace('export\ndata Sum', 'data Sum'))
+            rejected = project('run')
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertEqual(rejected.stdout, '')
+            library.write_text(saved)
+            # Package permission is checked before matching, even with a transitive dependency.
+            bridge = root / 'bridge'
+            (bridge / 'src').mkdir(parents=True)
+            (bridge / 'fibril.yaml').write_text('schema: 1\nname: bridge\nmodule-prefix: Bridge\nsource-dir: src\nfoundation: de-morgan\ndependencies:\n  sum-library:\n    path: ../sum-library\n')
+            manifest.write_text(manifest.read_text().replace('  sum-library:\n    path: ../sum-library', '  bridge:\n    path: ../bridge'))
+            rejected = project('run')
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertEqual(rejected.stdout, '')
+            # Single-root editor services find the real imported constructor token.
+            single = root / 'single'
+            (single / 'Data').mkdir(parents=True)
+            entry = single / 'Main.fib'
+            entry.write_text(original)
+            target = single / 'Data/Sum.fib'
+            target.write_text(saved)
+            definition = run('definition', '--source-dir', str(single), '--entry', str(entry), '6', '12', str(entry))
+            self.assertEqual(definition.returncode, 0, definition.stdout + definition.stderr)
+            found = json.loads(definition.stdout)['definition']
+            self.assertEqual(Path(found['path']).resolve(), target.resolve())
+            self.assertEqual((found['range']['start']['line'], found['range']['start']['column']), (7, 3))
+            binder = run('definition', '7', '45', str(entry))
+            self.assertEqual(binder.returncode, 0, binder.stderr)
+            self.assertEqual(json.loads(binder.stdout)['definition']['start']['column'], 17)
+
     def test_non_church_sum_library_checks_and_runs_suite(self):
         package = ROOT / "examples/packages/sum-library/fibril.yaml"
         checked = run("check", "--package", str(package))

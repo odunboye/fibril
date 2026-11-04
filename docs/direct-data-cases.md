@@ -32,7 +32,12 @@ type parameters. Run from the compiler project:
 fibril run --source-dir examples/modules/direct-data-case examples/modules/direct-data-case/Main.fib
 ~~~
 
-It prints `L: hello`, `R: yes`, then `no`. A separate [dependent-motive
+It prints `L: hello`, `R: yes`, then `no`. The separate
+[sum-client package](../examples/packages/sum-client/src/Main.fib) directly
+imports the external [sum-library](../examples/packages/sum-library/src/Data/Sum.fib)
+and matches `Data.Sum.Left`/`Data.Sum.Right` without requesting its eliminator.
+Run `fibril run --package examples/packages/sum-client/fibril.yaml` from the
+compiler project. A separate [dependent-motive
 example](../examples/modules/direct-data-case-dependent/Main.fib) defines a
 family indexed by a finite choice and returns a different value type per branch.
 
@@ -41,8 +46,9 @@ family indexed by a finite choice and returns a different value type per branch.
 ## Source form and scope
 
 - Write an explicit erased motive after `return`, then `of` and an aligned,
-  indented multiline branch block. Constructor patterns use an unqualified
-  visible name and zero or one field binder: `Missing => ...` or `Text x => ...`.
+  indented multiline branch block. Constructor patterns use a visible local or
+  qualified direct-import name and zero or one field binder: `Missing => ...`,
+  `Text x => ...`, or `Data.Sum.Left x => ...`.
   Bodies may continue on more-indented lines; grouped and nested cases work.
 - A direct block is recognized when its first arm is nullary or it contains at
   least two aligned arms. A *single unary* pattern remains the existing record
@@ -57,10 +63,11 @@ family indexed by a finite choice and returns a different value type per branch.
   constructor wildcard/implicit coverage or motive inference is provided.
 - This slice runs through named-module project checking (`--source-dir` or
   `--package`); standalone declaration-file checking does not publish the
-  checked globals required by these patterns. Patterns must be unqualified names
-  visible as unrestricted checked globals in the current module. Imported constructors require qualified access in Fibril,
-  so direct imported data matching is not supported yet. A shadowing local
-  binder makes the pattern ambiguous and is rejected.
+  checked globals required by these patterns. Local patterns use unqualified
+  names; imported patterns use the normal qualified names from an explicit direct
+  source-module import. Package-level direct-dependency permissions and private
+  exports still apply. An unqualified local shadow is rejected; qualified names
+  are not captured by local binders.
 - A pattern name is accepted when its checked global value is definitionally
   the canonical constructor at that nominal type and tag. Consequently, a
   transparent, unrestricted alias of a constructor can serve as a pattern name;
@@ -68,10 +75,13 @@ family indexed by a finite choice and returns a different value type per branch.
   missing tags, wrong arity and inconclusive conversion fail closed.
 
 The declared data family and constructors must precede their uses and pass
-ordinary source-ordered checking. Local branch binders and actual authored
-constructor references participate in same-file navigation/rename; no fabricated
-locations are assigned. Formatting reparses and compares branch syntax before
-returning output, and retains branch alignment.
+ordinary source-ordered checking. Direct-imported declarations must be exported
+and their module must check fully first. Local branch binders and authored
+constructor references participate in same-file navigation/rename; existing
+single-root project definition can jump from an imported qualified pattern to
+its real declaration. Package-aware editor navigation is not yet implemented.
+Formatting reparses and compares branch syntax before returning output, and
+retains branch alignment.
 
 ## Checking and lowering
 
@@ -114,6 +124,6 @@ formatter idempotence, 64/65 parser admission and existing record-case behavior.
 They are sampled implementation evidence, not preservation, normalization,
 erasure or quantitative/cubical soundness proofs.
 
-Next: checked imported/qualified constructor visibility, multiple and dependent
-field patterns, single-unary disambiguation and motive inference. Recursive data,
+Next: multiple and dependent field patterns, single-unary disambiguation and
+motive inference. Recursive data,
 positivity and structural termination remain separate milestones.

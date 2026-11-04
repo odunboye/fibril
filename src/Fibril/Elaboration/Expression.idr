@@ -85,9 +85,10 @@ mutual
                       List (Maybe (Quantity, Term n)) -> List (Token, Maybe Token, Expr) -> Either ResolveError (List (Nat, Term n))
   elaborateDataArms globals ctx env nominal shape indices descriptors [] = Right []
   elaborateDataArms globals ctx env nominal shape indices descriptors ((name, binder, body) :: rest) = do
-    case lookupName name.spelling env of
-      Just _ => Left (CannotElaborate name.span.start "Data-case constructor is shadowed by a local binder")
-      Nothing => Right ()
+    if elem '.' (unpack name.spelling) then Right () else
+      case lookupName name.spelling env of
+        Just _ => Left (CannotElaborate name.span.start "Data-case constructor is shadowed by a local binder")
+        Nothing => Right ()
     definition <- case find (\entry => entry.name == name.spelling) globals of
       Nothing => Left (Unbound name.span.start name.spelling)
       Just entry => Right entry

@@ -133,15 +133,25 @@ mutual
   walkDataArms : Walker destination -> Environment destination -> List (Token, Maybe Token, Expr) -> List (ReferenceTo destination)
   walkDataArms context env [] = []
   walkDataArms context env ((constructor, binder, body) :: rest) =
-    let selected = case lexicalTarget constructor.spelling env of
+    let qualified = elem '.' (unpack constructor.spelling)
+        selected : Maybe destination
+        selected = if qualified then context.qualifiedTarget constructor.spelling else case lexicalTarget constructor.spelling env of
           Just local => Just local
           Nothing => if any (\entry => fst entry == constructor.spelling) env then Nothing else context.globalTarget constructor.spelling
-        target = case selected of Nothing => []; Just destination => [RefersTo constructor.span destination]
+        origin : Maybe SourceSpan
+        origin = if qualified then map (\token => token.span) (find (\token => token.kind == Name &&
+                    token.span.start.offset >= constructor.span.start.offset &&
+                    token.span.finish.offset <= constructor.span.finish.offset) (reverse context.tokens))
+                 else Just constructor.span
+        refs : List (ReferenceTo destination)
+        refs = case (origin, selected) of (Just region, Just dest) => [RefersTo region dest]; _ => []
+        binderRefs : List (ReferenceTo destination)
         binderRefs = case binder of Nothing => []; Just bound => if bound.spelling == "_" then [] else self context (Just bound.span)
+        following : Environment destination
         following = case binder of
           Nothing => env
           Just bound => (bound.spelling, if bound.spelling == "_" then Nothing else Just (context.localTarget bound.span)) :: env
-     in target ++ binderRefs ++ walk context following body ++ walkDataArms context env rest
+     in refs ++ binderRefs ++ walk context following body ++ walkDataArms context env rest
 
 dataParameters : Walker destination -> Environment destination -> List RecordParameter ->
                  (List (ReferenceTo destination), Environment destination)
