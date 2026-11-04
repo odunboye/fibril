@@ -60,6 +60,8 @@ mutual
   generate n (Universe _) = Right (constant n "f_erased(r)")
   generate n UnitType = Right (constant n "f_erased(r)")
   generate n BoolType = Right (constant n "f_erased(r)")
+  generate n BoolTrue = Right (constant n "f_bool(r, 1)")
+  generate n BoolFalse = Right (constant n "f_bool(r, 0)")
   generate n StringType = Right (constant n "f_erased(r)")
   generate n (IOType _) = Right (constant n "f_erased(r)")
   generate n (Pi _ _ _) = Right (constant n "f_erased(r)")
@@ -74,11 +76,43 @@ mutual
     Right (Output n generated.next (code :: generated.definitions))
   generate n (Apply function argument) = binary n "f_apply" function argument
   generate n (StringAppend left right) = binary n "f_append" left right
+  generate n (StringEqual left right) = binary n "f_string_equal" left right
+  generate n (BoolCase condition yes no) = ternary n "f_bool_case" condition yes no
+  generate n (NominalValue _ value) = unary n "f_nominal" value
+  generate n (NominalCase _ scrutinee branch) = binary n "f_nominal_case" scrutinee branch
+  generate n (VariantValue _ tag Nothing) =
+    Right (Output n (S n) [function n ("(void)e; return f_variant(r, e, " ++ show tag ++ ", NULL);")])
+  generate n (VariantValue _ tag (Just value)) = do
+    part <- generate (S n) value
+    let code = function n ("return f_variant(r, e, " ++ show tag ++ ", " ++ name part.root ++ ");")
+    Right (Output n part.next (code :: part.definitions))
+  generate n (VariantCase _ scrutinee []) = Left "C backend rejects an empty variant case"
+  generate n (VariantCase _ scrutinee branches) = do
+    scrutineeCode <- generate (S n) scrutinee
+    (next, roots, definitions) <- generateBranches scrutineeCode.next branches
+    let code = function n ("return f_variant_case(r, e, " ++ name scrutineeCode.root ++ ", " ++
+                           show (length roots) ++ ", (FEval[]){" ++ concat (intersperse "," (map name roots)) ++ "});")
+    Right (Output n next (code :: (scrutineeCode.definitions ++ definitions)))
   generate n (UnitCase scrutinee body) = binary n "f_unit_case" scrutinee body
   generate n (IOPure value) = unary n "f_pure" value
   generate n (WriteLine text) = unary n "f_write" text
   generate n (IOBind _ _ action continuation) = binary n "f_bind" action continuation
   generate n _ = Left "C backend does not support this computational core construct"
+
+  generateBranches : Nat -> List (Term n) -> Either String (Nat, List Nat, List String)
+  generateBranches n [] = Right (n, [], [])
+  generateBranches n (branch :: rest) = do
+    first <- generate n branch
+    (next, roots, definitions) <- generateBranches first.next rest
+    Right (next, first.root :: roots, first.definitions ++ definitions)
+
+  ternary : Nat -> String -> Term n -> Term n -> Term n -> Either String Generated
+  ternary n operation first second third = do
+    a <- generate (S n) first
+    b <- generate a.next second
+    c <- generate b.next third
+    let code = function n ("return " ++ operation ++ "(r, e, " ++ name a.root ++ ", " ++ name b.root ++ ", " ++ name c.root ++ ");")
+    Right (Output n c.next (code :: (a.definitions ++ b.definitions ++ c.definitions)))
 
   unary : Nat -> String -> Term n -> Either String Generated
   unary n operation term = do

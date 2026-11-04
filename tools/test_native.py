@@ -47,12 +47,83 @@ class NativeTests(unittest.TestCase):
                 self.assertEqual(native.returncode, 0, native.stderr)
                 self.assertEqual(native.stdout, output)
 
-    def test_implicit_data_constructors_fail_closed_in_native_subset(self):
-        root = ROOT / 'examples/modules/implicit-constructors'
-        emitted = run_cli('emit-c', '--source-dir', str(root), str(root / 'Main.fib'), timeout=120)
-        self.assertNotEqual(emitted.returncode, 0)
-        self.assertEqual(emitted.stdout, '')
-        self.assertIn('does not support this computational core construct', emitted.stderr)
+    def test_native_finite_data_and_branches_match_reference(self):
+        cases = [('implicit-constructors', b'receipt\n'),
+                 ('direct-data-case', b'L: hello\nR: yes\nno\n')]
+        for example, expected in cases:
+            with self.subTest(example=example), tempfile.TemporaryDirectory() as directory:
+                root = ROOT / 'examples/modules' / example
+                args = ['--source-dir', str(root), str(root / 'Main.fib')]
+                _, native = self.compile_and_run(args, directory)
+                reference = run_cli('run', *args, text=False, timeout=120)
+                self.assertEqual(reference.returncode, 0, reference.stderr)
+                self.assertEqual(native.returncode, 0, native.stderr)
+                self.assertEqual(native.stdout, expected)
+                self.assertEqual(native.stdout, reference.stdout)
+
+    def test_native_nullary_unary_and_captured_environments(self):
+        source = ('''module Main
+
+data Option {0 A : Type} : Type where
+  None : Option A
+  Some : (1 value : A) -> Option A
+
+make : (1 prefix : String) -> Option String
+make prefix = Some (appendString prefix "payload")
+render : (1 suffix : String) -> (1 value : Option String) -> String
+render suffix value = case value of
+  None => suffix
+  Some text => appendString text suffix
+main : IO Unit
+main = do
+  putStrLn (render " suffix" (make "captured "))
+  putStrLn (render "none" (None {String}))
+  putStrLn (if equalString "λ" "λ" then "equal" else "unequal")
+  putStrLn (if equalString "x" "xx" then "bad" else "different")
+''')
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Main.fib'
+            path.write_text(source)
+            args = ['--source-dir', directory, str(path)]
+            _, native = self.compile_and_run(args, directory)
+            reference = run_cli('run', *args, text=False, timeout=120)
+            self.assertEqual(reference.returncode, 0, reference.stderr)
+            self.assertEqual(native.returncode, 0, native.stderr)
+            self.assertEqual(native.stdout, b'captured payload suffix\nnone\nequal\ndifferent\n')
+            self.assertEqual(native.stdout, reference.stdout)
+
+    def test_native_data_preserves_lazy_and_erased_payloads(self):
+        doubling = ('double : (x : String) -> String\ndouble x = appendString x x\n'
+                    'v0 : String\nv0 = "0123456789abcdef"\n' +
+                    ''.join(f'v{i} : String\nv{i} = double v{i-1}\n' for i in range(1, 22)))
+        source = ('module Main\n' + doubling + '''
+data Choice : Type where
+  Empty : Choice
+  Ignored : (value : String) -> Choice
+  Erased : (0 value : String) -> Choice
+render : (1 item : Choice) -> String
+render item = case item of
+  Empty => "empty"
+  Ignored value => "ignored"
+  Erased value => "erased"
+main : IO Unit
+main = do
+  putStrLn (render (Ignored v21))
+  putStrLn (render (Erased v21))
+  if True then putStrLn "selected" else putStrLn v21
+''')
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Main.fib'
+            path.write_text(source)
+            _, native = self.compile_and_run(['--source-dir', directory, str(path)], directory)
+            self.assertEqual(native.returncode, 0, native.stderr)
+            self.assertEqual(native.stdout, b'ignored\nerased\nselected\n')
+            path.write_text(source.replace('Ignored v21', 'Ignored "small"').replace('Erased v21', 'Erased "small"').replace('else putStrLn v21', 'else putStrLn "unselected"'))
+            args = ['--source-dir', directory, str(path)]
+            _, native = self.compile_and_run(args, directory)
+            reference = run_cli('run', *args, text=False, timeout=120)
+            self.assertEqual(reference.returncode, 0, reference.stderr)
+            self.assertEqual(native.stdout, reference.stdout)
 
     def test_real_runtime_computation_erasure_and_utf8(self):
         source = ('identity : (0 A : Type) -> (1 x : A) -> A\nidentity T x = x\n'
@@ -119,6 +190,16 @@ class NativeTests(unittest.TestCase):
                     self.assertNotEqual(native.returncode, 0)
                     self.assertIn(b'action budget', native.stderr)
 
+    def test_wider_data_still_fails_closed_without_pair_lowering(self):
+        root = ROOT / 'examples/modules/data'
+        args = ['--source-dir', str(root), str(root / 'Main.fib')]
+        reference = run_cli('run', *args, timeout=120)
+        self.assertEqual(reference.returncode, 0, reference.stdout + reference.stderr)
+        emitted = run_cli('emit-c', *args, timeout=120)
+        self.assertNotEqual(emitted.returncode, 0)
+        self.assertEqual(emitted.stdout, '')
+        self.assertIn('does not support this computational core construct', emitted.stderr)
+
     def test_invalid_import_is_rejected_before_c_emission(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -134,10 +215,8 @@ class NativeTests(unittest.TestCase):
         programs = [
             '0 hidden : String\nhidden = "secret"\nmain : IO Unit\nmain = putStrLn hidden\n',
             'main : Bool\nmain = True\n',
-            'main : IO Unit\nmain = if True then putStrLn "yes" else putStrLn "no"\n',
-            'main : IO Unit\nmain = do\n  putStrLn "before"\n  if True then putStrLn "yes" else putStrLn "no"\n',
-            'main : IO Unit\nmain = let (0 flag : Bool) = True in putStrLn "erased"\n',
             'main : IO Unit\nmain = putStrLn False\n',
+            'bad : (1 x : String) -> (1 b : Bool) -> String\nbad x b = if b then x else "lost"\nmain : IO Unit\nmain = putStrLn (bad "x" True)\n',
         ]
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'main.fib'

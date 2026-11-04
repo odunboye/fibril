@@ -7,7 +7,8 @@ the program at native runtime, then explicitly compile and run it using a C11
 compiler. This is a useful path for console prototypes and testing the native
 runtime boundary. It is **not a production backend** or a networked email
 service: there is no native HTTP, SMTP, TLS, storage, UI, FFI, recursive function
-or general data support yet. For ordinary development, the existing bounded
+or general data support yet. Finite nullary/unary nominal variants and cases
+are supported; pair/box payloads remain unsupported. For ordinary development, the existing bounded
 reference `fibril run` remains an alternative.
 
 ~~~sh
@@ -29,9 +30,10 @@ redirect over source files. There is no atomic output-file or sandbox guarantee.
 
 ## What is compiled
 
-The supported computational subset is Unit, String literals and append, variables,
-lambdas and application, Unit case, and the inert IO forms `pure`, `bind`, and
-`putStrLn`. Source lets and do notation lower to those ordinary core forms.
+The supported computational subset is Unit, Bool and conditionals, String
+literals, append and equality, variables, lambdas and application, Unit case,
+finite nominal and variant values/cases, and the inert IO forms `pure`, `bind`,
+and `putStrLn`. Source lets and do notation lower to those ordinary core forms.
 The whole closed expanded entry is independently checked against `IO Unit`
 **before** code generation, including the original erased-global barriers and
 runtime quantity analysis. Checked module/package dependencies must all pass.
@@ -43,9 +45,12 @@ forcing it is a runtime error. The runtime uses the checked closure's quantity;
 this is an implementation choice backed by tests, **not a proved erasure or
 quantitative-preservation theorem**. Type annotations and the IO type fields are
 not executed; admitted type-only terms become an internal erased placeholder.
-Unsupported computational forms fail emission, including when encountered inside
-an argument that would later be erased. Bool values/cases, String equality,
-variants, records and arbitrary effects are not silently simulated.
+Finite nominal wrappers and variant payloads retain lazy thunks; a case evaluates
+only its selected branch, in the case's environment. An erased payload remains an
+application to an erased binder and is never forced by checked code. Unsupported
+computational forms fail emission, including when encountered inside an argument
+that would later be erased. Pair/box values and cases, wider record payloads and
+arbitrary effects are not silently simulated.
 
 Source strings are emitted as generated decimal UTF-8 byte arrays, not pasted
 into C literals or identifiers. Supported programs can compute strings, call
@@ -85,7 +90,8 @@ Run the native integration suite with a C11 compiler available as `CC`:
 make native-test
 ~~~
 
-The suite checks real C compilation and output, laziness, erased-global rejection,
-unsupported forms, UTF-8/escaping, imported modules and packages, action limits,
-and failure before stdout. It does not validate arbitrary compilers, architectures,
+The suite checks real C compilation and output, finite constructor/case behavior,
+laziness and captured environments, erased payloads and globals, unsupported
+forms, UTF-8/escaping, imported modules and packages, action limits, and failure
+before stdout. It does not validate arbitrary compilers, architectures,
 operating systems, native memory safety or production readiness.

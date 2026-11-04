@@ -16,11 +16,14 @@ typedef struct FThunk FThunk;
 typedef struct FAction { const unsigned char *bytes; size_t length; struct FAction *next; } FAction;
 struct FRuntime { FAllocation *allocations; size_t bytes, steps, depth, actions; const char *error; FAction *head, *tail; };
 struct FEnv { FThunk *value; FEnv *tail; };
-typedef enum { V_UNIT, V_ERASED, V_STRING, V_CLOSURE, V_PURE, V_BIND, V_WRITE } FTag;
+typedef enum { V_UNIT, V_ERASED, V_BOOL, V_STRING, V_CLOSURE, V_NOMINAL, V_VARIANT, V_PURE, V_BIND, V_WRITE } FTag;
 struct FValue {
   FTag tag;
   union {
     struct { const unsigned char *bytes; size_t length; } string;
+    int boolean;
+    FThunk *nominal;
+    struct { size_t tag; FThunk *payload; } variant;
     struct { FEval body; FEnv *env; int erased; } closure;
     struct { FThunk *first, *second; } io;
   } as;
@@ -79,6 +82,11 @@ static FEnv *extend(FRuntime *r, FEnv *env, FThunk *value) {
   return next;
 }
 FValue *f_unit(FRuntime *r) { return new_value(r, V_UNIT); }
+FValue *f_bool(FRuntime *r, int value) {
+  FValue *v = new_value(r, V_BOOL);
+  if (v) v->as.boolean = value != 0;
+  return v;
+}
 FValue *f_erased(FRuntime *r) { return new_value(r, V_ERASED); }
 FValue *f_literal(FRuntime *r, const unsigned char *bytes, size_t length) {
   FValue *v = new_value(r, V_STRING);
@@ -120,6 +128,49 @@ FValue *f_append(FRuntime *r, FEnv *env, FEval left, FEval right) {
   memcpy(bytes, a->as.string.bytes, a->as.string.length);
   memcpy(bytes + a->as.string.length, b->as.string.bytes, b->as.string.length);
   return f_literal(r, bytes, n);
+}
+FValue *f_bool_case(FRuntime *r, FEnv *env, FEval scrutinee, FEval yes, FEval no) {
+  FValue *value = evaluate(r, scrutinee, env);
+  if (!value || value->tag != V_BOOL) { fail(r, "native boolean case expects Bool"); return NULL; }
+  return evaluate(r, value->as.boolean ? yes : no, env);
+}
+FValue *f_string_equal(FRuntime *r, FEnv *env, FEval left, FEval right) {
+  FValue *a = evaluate(r, left, env);
+  FValue *b = a ? evaluate(r, right, env) : NULL;
+  if (!a || !b || a->tag != V_STRING || b->tag != V_STRING) { fail(r, "native equality expects strings"); return NULL; }
+  return f_bool(r, a->as.string.length == b->as.string.length &&
+                   memcmp(a->as.string.bytes, b->as.string.bytes, a->as.string.length) == 0);
+}
+FValue *f_nominal(FRuntime *r, FEnv *env, FEval value) {
+  FValue *v = new_value(r, V_NOMINAL);
+  if (!v) return NULL;
+  v->as.nominal = thunk(r, value, env);
+  return v->as.nominal ? v : NULL;
+}
+FValue *f_nominal_case(FRuntime *r, FEnv *env, FEval scrutinee, FEval branch) {
+  FValue *v = evaluate(r, scrutinee, env);
+  if (!v || v->tag != V_NOMINAL) { fail(r, "native nominal case expects a nominal value"); return NULL; }
+  FValue *f = evaluate(r, branch, env);
+  return f ? apply_thunk(r, f, v->as.nominal) : NULL;
+}
+FValue *f_variant(FRuntime *r, FEnv *env, size_t tag, FEval payload) {
+  FValue *v = new_value(r, V_VARIANT);
+  if (!v) return NULL;
+  v->as.variant.tag = tag;
+  if (payload) {
+    v->as.variant.payload = thunk(r, payload, env);
+    if (!v->as.variant.payload) return NULL;
+  }
+  return v;
+}
+FValue *f_variant_case(FRuntime *r, FEnv *env, FEval scrutinee, size_t count, const FEval *branches) {
+  FValue *v = evaluate(r, scrutinee, env);
+  if (!v || v->tag != V_VARIANT || v->as.variant.tag >= count) {
+    fail(r, "native variant case expects an in-range variant"); return NULL;
+  }
+  FValue *branch = evaluate(r, branches[v->as.variant.tag], env);
+  if (!branch) return NULL;
+  return v->as.variant.payload ? apply_thunk(r, branch, v->as.variant.payload) : branch;
 }
 FValue *f_unit_case(FRuntime *r, FEnv *env, FEval scrutinee, FEval body) {
   FValue *value = evaluate(r, scrutinee, env);

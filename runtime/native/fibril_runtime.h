@@ -9,6 +9,13 @@ typedef struct FValue FValue;
 typedef FValue *(*FEval)(FRuntime *, FEnv *);
 
 FValue *f_unit(FRuntime *r);
+FValue *f_bool(FRuntime *r, int value);
+FValue *f_bool_case(FRuntime *r, FEnv *env, FEval scrutinee, FEval yes, FEval no);
+FValue *f_string_equal(FRuntime *r, FEnv *env, FEval left, FEval right);
+FValue *f_nominal(FRuntime *r, FEnv *env, FEval value);
+FValue *f_nominal_case(FRuntime *r, FEnv *env, FEval scrutinee, FEval branch);
+FValue *f_variant(FRuntime *r, FEnv *env, size_t tag, FEval payload);
+FValue *f_variant_case(FRuntime *r, FEnv *env, FEval scrutinee, size_t count, const FEval *branches);
 FValue *f_erased(FRuntime *r);
 FValue *f_literal(FRuntime *r, const unsigned char *bytes, size_t length);
 FValue *f_variable(FRuntime *r, FEnv *env, size_t index);
