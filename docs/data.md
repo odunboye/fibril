@@ -69,9 +69,11 @@ Use either all braces or all parentheses in one data header; mixed modes are not
 supported. The family remains `Choice String Bool`, and an optional eliminator
 still takes explicit parameters. Constructor fields retain their declared
 quantities. Existing direct cases name the constructors without braces and compare
-against checked constructor values, not authored layout hints. Some dependent
-index patterns remain unsupported by the existing direct-case matcher. A nullary
-constructor has no ordinary argument to trigger insertion: write e.g.
+against checked constructor values, not authored layout hints. A single unary
+branch is parsed as a record pattern rather than a direct data case; use an
+eliminator for that form. General indexed constructor refinement and wider direct
+patterns remain unsupported. A nullary constructor has no ordinary argument to
+trigger insertion: write e.g.
 `None {String}`; a bare `None` remains an uninstantiated value. See the
 [implicit-constructor example](../examples/modules/implicit-constructors/Main.fib)
 and [inference contract](implicit-arguments.md). Scoped structural inference is

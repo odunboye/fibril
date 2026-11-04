@@ -60,9 +60,10 @@ family indexed by a finite choice and returns a different value type per branch.
   least two aligned arms. A *single unary* pattern remains the existing record
   pattern syntax; use the named eliminator for a one-constructor unary data type.
   This deliberate disambiguation preserves existing record programs.
-- Data parameters remain explicit at construction sites. The case derives the
-  actual nominal arguments from the scrutinee and applies them when checking
-  branch names; generic erased type parameters are supported.
+- Parenthesized data-header parameters remain explicit at construction sites;
+  braced headers can opt constructors into [implicit parameters](data.md). The
+  case derives actual nominal arguments from the scrutinee and applies them when
+  checking branch names; generic erased type parameters are supported.
 - This slice supports only nullary and **single-field** constructors. Wider
   dependent-field constructors remain usable through named eliminators, but are
   not silently treated as direct one-field patterns. No nested patterns,
