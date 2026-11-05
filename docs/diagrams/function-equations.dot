@@ -4,7 +4,7 @@ digraph FunctionEquations {
   source [label="Authored signature + equation\nactual parameter tokens"];
   pi [label="Explicit Pi telescope\ndomain + quantity in scoped context"];
   body [label="Ordinary generated core lambdas"];
-  structural [label="Restricted immediate-tail self call\nchecked constructors + guarded admission"];
+  structural [label="Restricted immediate-tail self call\nchecked constructors + guarded admission\nmap arguments remain unchanged"];
   fold [label="NatRec / RecFold / SeqFold\nerased tail + linear induction result"];
   check [label="Independent core checker\ntyping + erased/runtime usage"];
   source -> pi -> body -> check;

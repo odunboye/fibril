@@ -166,7 +166,8 @@ multiple parameters or indices, nonuniform recursion and nested/mutual recursion
 remain unsupported. Direct `case` inspects one layer with a linear head and
 linear tail. For recursion, use the named fold or the restricted
 [list-shaped equation form](function-equations.md#structural-list-shaped-equations)
-at a closed element type or with one leading erased element-type parameter. The generated
+at a closed element type, with one erased element-type parameter, or in the
+restricted two-type, reusable-transformer mapping form. The generated
 fixed templates reserve 128 nodes without the fold or 768 with it before named-IR
 construction and are post-counted; these are admissions, not hard resource
 bounds. The experimental C backend also supports these fixed recursive values,

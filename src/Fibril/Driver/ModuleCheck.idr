@@ -356,6 +356,48 @@ polyRecursiveExpression _ _ _ _ _ expr@(NBoolType _) = Just (False, expr)
 polyRecursiveExpression _ _ _ _ _ expr@(NBoolValue _ _) = Just (False, expr)
 polyRecursiveExpression _ _ _ _ _ _ = Nothing
 
+-- Exact, uniform recursive call for the two-type-parameter mapping slice.
+-- Both implicit type arguments and the reusable function must be explicit and
+-- unchanged; omission or a computed argument is never guessed to be equal.
+private
+mappingCallSite : String -> String -> String -> String -> String -> Expr -> Maybe SourceSpan
+mappingCallSite name a b fn tail
+  (NApply _ (NApply _ (NImplicitApply _ (NImplicitApply _ (NRef site function) (NRef _ first)) (NRef _ second)) (NRef _ supplied)) (NRef _ value)) =
+    if function == name && first == a && second == b && supplied == fn && value == tail then Just site else Nothing
+mappingCallSite _ _ _ _ _ _ = Nothing
+
+private
+mappingExpression : String -> String -> String -> String -> String -> String -> Expr -> Maybe (Bool, Expr)
+mappingExpression name a b fn argument tail expression = case mappingCallSite name a b fn tail expression of
+  Just site => Just (True, NRef site recursiveResultName)
+  Nothing => case expression of
+    NApply span function value => do
+      (leftUsed, left) <- mappingExpression name a b fn argument tail function
+      (rightUsed, right) <- mappingExpression name a b fn argument tail value
+      if leftUsed && rightUsed then Nothing else Just (leftUsed || rightUsed, NApply span left right)
+    NImplicitApply span function value => do
+      (leftUsed, left) <- mappingExpression name a b fn argument tail function
+      (rightUsed, right) <- mappingExpression name a b fn argument tail value
+      if leftUsed && rightUsed then Nothing else Just (leftUsed || rightUsed, NImplicitApply span left right)
+    NIf span condition yes no => do
+      (conditionUsed, condition) <- mappingExpression name a b fn argument tail condition
+      (yesUsed, yes) <- mappingExpression name a b fn argument tail yes
+      (noUsed, no) <- mappingExpression name a b fn argument tail no
+      if (conditionUsed && (yesUsed || noUsed)) || (yesUsed && noUsed)
+        then Nothing else Just (conditionUsed || yesUsed || noUsed, NIf span condition yes no)
+    NRef _ ref => if ref == name || ref == argument || ref == tail || ref == recursiveResultName then Nothing else Just (False, expression)
+    NQualifiedRef _ ref => case reverse (forget (Data.String.split (== '.') ref)) of
+      short :: _ => if short == name then Nothing else Just (False, expression)
+      [] => Nothing
+    NSort _ _ => Just (False, expression)
+    NUnitType _ => Just (False, expression)
+    NUnitValue _ => Just (False, expression)
+    NStringType _ => Just (False, expression)
+    NStringValue _ _ => Just (False, expression)
+    NBoolType _ => Just (False, expression)
+    NBoolValue _ _ => Just (False, expression)
+    _ => Nothing
+
 private
 natBuiltinsVisible : List Weighted -> Bool
 natBuiltinsVisible globals =
@@ -422,6 +464,33 @@ recursiveConstructorTag globals key name = do
       if sameSyntax value (Lambda Linear (RecType key) (RecMore (RecType key) (Variable FZ)))
         then Just 1 else Nothing
 
+-- This read-only probe allocates no rewritten expression before admission.
+private
+structuralCallPresent : String -> String -> Expr -> Bool
+structuralCallPresent name predecessor (NApply _ (NRef _ function) (NRef _ value)) =
+  function == name && value == predecessor
+structuralCallPresent name predecessor (NApply _ function value) =
+  structuralCallPresent name predecessor function || structuralCallPresent name predecessor value
+structuralCallPresent name predecessor (NIf _ condition yes no) =
+  structuralCallPresent name predecessor condition || structuralCallPresent name predecessor yes || structuralCallPresent name predecessor no
+structuralCallPresent _ _ _ = False
+
+private
+polymorphicCallPresent : String -> String -> Expr -> Bool
+polymorphicCallPresent name tail (NApply _ (NRef _ function) (NRef _ value)) = function == name && value == tail
+polymorphicCallPresent name tail (NApply _ left@(NApply _ (NRef _ function) _) right@(NRef _ value)) =
+  (function == name && value == tail) || polymorphicCallPresent name tail left || polymorphicCallPresent name tail right
+polymorphicCallPresent name tail (NApply _ left@(NImplicitApply _ (NRef _ function) _) right@(NRef _ value)) =
+  (function == name && value == tail) || polymorphicCallPresent name tail left || polymorphicCallPresent name tail right
+polymorphicCallPresent name tail (NApply _ function value) =
+  polymorphicCallPresent name tail function || polymorphicCallPresent name tail value
+polymorphicCallPresent name tail (NImplicitApply _ function value) =
+  polymorphicCallPresent name tail function || polymorphicCallPresent name tail value
+polymorphicCallPresent name tail (NIf _ condition yes no) =
+  polymorphicCallPresent name tail condition || polymorphicCallPresent name tail yes || polymorphicCallPresent name tail no
+polymorphicCallPresent _ _ _ = False
+
+
 private
 unaryRecursiveEquation : List Weighted -> String -> Term 0 -> Expr -> Either ResolveError (Maybe (Term 0))
 unaryRecursiveEquation globals name ty (NEquationLambda _ [argument] _
@@ -443,7 +512,8 @@ unaryRecursiveEquation globals name ty (NEquationLambda _ [argument] _
       if predecessor.spelling == "_" || predecessor.spelling == name || predecessor.spelling == argument.spelling ||
          predecessor.spelling == first.spelling || predecessor.spelling == second.spelling ||
          argument.spelling == first.spelling || argument.spelling == second.spelling ||
-         name == first.spelling || name == second.spelling
+         name == first.spelling || name == second.spelling ||
+         not (structuralCallPresent name predecessor.spelling body)
         then Right Nothing else do
       case (recursiveExpression name argument.spelling predecessor.spelling base,
             recursiveExpression name argument.spelling predecessor.spelling body) of
@@ -495,7 +565,8 @@ sequenceRecursiveEquation globals name ty (NEquationLambda _ [argument] _
          tail.spelling == name || tail.spelling == argument.spelling ||
          tail.spelling == first.spelling || tail.spelling == second.spelling ||
          argument.spelling == first.spelling || argument.spelling == second.spelling ||
-         name == first.spelling || name == second.spelling
+         name == first.spelling || name == second.spelling ||
+         not (structuralCallPresent name tail.spelling body)
         then Right Nothing else do
       case (recursiveExpression name argument.spelling tail.spelling base,
             recursiveExpression name argument.spelling tail.spelling body) of
@@ -543,7 +614,8 @@ polymorphicSequenceEquation globals name inferred ty (NEquationLambda _ [param, 
          tail.spelling == first.spelling || tail.spelling == second.spelling ||
          param.spelling == first.spelling || param.spelling == second.spelling ||
          argument.spelling == first.spelling || argument.spelling == second.spelling ||
-         name == first.spelling || name == second.spelling
+         name == first.spelling || name == second.spelling ||
+         not (polymorphicCallPresent name tail.spelling body)
         then Right Nothing else do
       case (polyRecursiveExpression inferred param.spelling name argument.spelling tail.spelling base,
             polyRecursiveExpression inferred param.spelling name argument.spelling tail.spelling body) of
@@ -564,31 +636,73 @@ polymorphicSequenceEquation globals name inferred ty (NEquationLambda _ [param, 
         _ => Right Nothing
 polymorphicSequenceEquation _ _ _ _ _ = Right Nothing
 
--- This read-only probe allocates no rewritten expression before admission.
 private
-structuralCallPresent : String -> String -> Expr -> Bool
-structuralCallPresent name predecessor (NApply _ (NRef _ function) (NRef _ value)) =
-  function == name && value == predecessor
-structuralCallPresent name predecessor (NApply _ function value) =
-  structuralCallPresent name predecessor function || structuralCallPresent name predecessor value
-structuralCallPresent name predecessor (NIf _ condition yes no) =
-  structuralCallPresent name predecessor condition || structuralCallPresent name predecessor yes || structuralCallPresent name predecessor no
-structuralCallPresent _ _ _ = False
+mappingCallPresent : String -> String -> String -> String -> String -> Expr -> Bool
+mappingCallPresent name a b fn tail expression = case mappingCallSite name a b fn tail expression of
+  Just _ => True
+  Nothing => case expression of
+    NApply _ left right => mappingCallPresent name a b fn tail left || mappingCallPresent name a b fn tail right
+    NImplicitApply _ left right => mappingCallPresent name a b fn tail left || mappingCallPresent name a b fn tail right
+    NIf _ condition yes no => mappingCallPresent name a b fn tail condition || mappingCallPresent name a b fn tail yes || mappingCallPresent name a b fn tail no
+    _ => False
 
+
+-- Restricted map-like recursion: two erased types, an unrestricted linear
+-- element transformer, and one linear list. The result is the same family at
+-- the second type; all arguments in the self-call must be unchanged.
 private
-polymorphicCallPresent : String -> String -> Expr -> Bool
-polymorphicCallPresent name tail (NApply _ (NRef _ function) (NRef _ value)) = function == name && value == tail
-polymorphicCallPresent name tail (NApply _ left@(NApply _ (NRef _ function) _) right@(NRef _ value)) =
-  (function == name && value == tail) || polymorphicCallPresent name tail left || polymorphicCallPresent name tail right
-polymorphicCallPresent name tail (NApply _ left@(NImplicitApply _ (NRef _ function) _) right@(NRef _ value)) =
-  (function == name && value == tail) || polymorphicCallPresent name tail left || polymorphicCallPresent name tail right
-polymorphicCallPresent name tail (NApply _ function value) =
-  polymorphicCallPresent name tail function || polymorphicCallPresent name tail value
-polymorphicCallPresent name tail (NImplicitApply _ function value) =
-  polymorphicCallPresent name tail function || polymorphicCallPresent name tail value
-polymorphicCallPresent name tail (NIf _ condition yes no) =
-  polymorphicCallPresent name tail condition || polymorphicCallPresent name tail yes || polymorphicCallPresent name tail no
-polymorphicCallPresent _ _ _ = False
+mappingSequenceEquation : List Weighted -> String -> Nat -> Term 0 -> Expr -> Either ResolveError (Maybe (Term 0))
+mappingSequenceEquation globals name implicitCount ty (NEquationLambda _ [a, b, fn, argument] _
+  (NDataCase span (NRef _ scrutinee) Nothing [(first, firstBinder, firstBody), (second, secondBinder, secondBody)])) = do
+  let names : List String = [name, a.spelling, b.spelling, fn.spelling, argument.spelling]
+  let candidate = case (firstBinder, secondBinder) of
+        ([], [_, tail]) => mappingCallPresent name a.spelling b.spelling fn.spelling tail.spelling secondBody
+        ([_, tail], []) => mappingCallPresent name a.spelling b.spelling fn.spelling tail.spelling firstBody
+        _ => False
+  if implicitCount /= 2 || not candidate || any (== "_") names || length (nub names) /= length names ||
+     scrutinee /= argument.spelling || isJust (find (\entry => entry.global.name == name) globals) ||
+     not (null (qualifiedCandidates name (map global globals))) then Right Nothing else do
+  case guardedNormal typeReductionFuel ty of
+    Just (Pi Erased (Universe 0) (Pi Erased (Universe 0)
+      (Pi Unrestricted mapper@(Pi Linear (Variable (FS FZ)) (Variable (FS FZ)))
+        (Pi Linear family@(SeqType key (Variable (FS (FS FZ))))
+          result@(SeqType resultKey (Variable (FS (FS FZ)))))))) =>
+      if key /= resultKey then Right Nothing else
+        let context = Extend (Extend (Extend Empty Erased (Universe 0)) Erased (Universe 0)) Unrestricted mapper
+            element = Variable (FS (FS FZ)) in
+        case (sequenceConstructorTag globals context family element first, firstBinder,
+              sequenceConstructorTag globals context family element second, secondBinder) of
+          (Just 0, [], Just 1, [head, tail]) => lower context mapper family element result firstBody head tail secondBody
+          (Just 1, [head, tail], Just 0, []) => lower context mapper family element result secondBody head tail firstBody
+          _ => Right Nothing
+    _ => Right Nothing
+  where
+    lower : Context 3 -> Term 2 -> Term 3 -> Term 3 -> Term 4 -> Expr -> Token -> Token -> Expr -> Either ResolveError (Maybe (Term 0))
+    lower context mapper family element result base head tail body = do
+      let names : List String = [name, a.spelling, b.spelling, fn.spelling, argument.spelling, head.spelling, tail.spelling]
+      if any (== "_") names || length (nub names) /= length names ||
+         any (\entry => entry == first.spelling || entry == second.spelling) names ||
+         not (mappingCallPresent name a.spelling b.spelling fn.spelling tail.spelling body)
+        then Right Nothing else do
+      case (mappingExpression name a.spelling b.spelling fn.spelling argument.spelling tail.spelling base,
+            mappingExpression name a.spelling b.spelling fn.spelling argument.spelling tail.spelling body) of
+        (Just (False, baseExpr), Just (True, stepExpr)) => do
+          resultType <- case dropNewest result of
+            Nothing => Left (CannotElaborate span.start "Structural mapping requires a result independent of the input")
+            Just resultType => Right resultType
+          let checkedGlobals = map global globals
+          baseTerm <- elaborateExpected checkedGlobals context [fn.spelling, b.spelling, a.spelling] resultType baseExpr
+          let stepContext = Extend (Extend (Extend context Linear element) Erased (weaken family)) Linear (weaken (weaken resultType))
+          stepTerm <- elaborateExpected checkedGlobals stepContext [recursiveResultName, "$seq.tail", head.spelling, fn.spelling, b.spelling, a.spelling]
+                        (weaken (weaken (weaken resultType))) stepExpr
+          let motive : Term 4 = Lambda Erased (weaken family) (weaken (weaken resultType))
+          let step : Term 3 = Lambda Linear element (Lambda Erased (weaken family)
+                                (Lambda Linear (weaken (weaken resultType)) stepTerm))
+          let sequenceBody : Term 3 = Lambda Linear family (SeqFold motive (weaken baseTerm) (weaken step) (Variable FZ))
+          let mapperBody : Term 2 = Lambda Unrestricted mapper sequenceBody
+          Right (Just (Lambda Erased (Universe 0) (Lambda Erased (Universe 0) mapperBody)))
+        _ => Right Nothing
+mappingSequenceEquation _ _ _ _ _ = Right Nothing
 
 private
 recursiveEquationReserve : String -> Expr -> Nat
@@ -612,6 +726,12 @@ recursiveEquationReserve name (NEquationLambda _ [_, _] _ (NDataCase _ _ Nothing
         ([_, tail], []) => polymorphicCallPresent name tail.spelling firstBody
         _ => False in
     if shape then 64 + 24 * 513 else 0
+recursiveEquationReserve name (NEquationLambda _ [a, b, fn, _] _ (NDataCase _ _ Nothing [(_, firstBinder, firstBody), (_, secondBinder, secondBody)])) =
+  let shape = case (firstBinder, secondBinder) of
+        ([], [_, tail]) => mappingCallPresent name a.spelling b.spelling fn.spelling tail.spelling secondBody
+        ([_, tail], []) => mappingCallPresent name a.spelling b.spelling fn.spelling tail.spelling firstBody
+        _ => False in
+    if shape then 128 + 40 * 513 else 0
 recursiveEquationReserve _ _ = 0
 
 -- The admitted rewriter guarantees exactly one occurrence of the function
@@ -687,6 +807,11 @@ compileDeclarations snapshot name globals (decl :: rest) remaining = do
   recursive <- the (Either GraphError (Maybe (Term 0))) $ case recursive of
     Just result => Right (Just result)
     Nothing => case polymorphicSequenceEquation globals decl.name (implicitPrefix == 1) ty decl.value of
+      Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
+      Right candidate => Right candidate
+  recursive <- the (Either GraphError (Maybe (Term 0))) $ case recursive of
+    Just result => Right (Just result)
+    Nothing => case mappingSequenceEquation globals decl.name implicitPrefix ty decl.value of
       Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
       Right candidate => Right candidate
   value <- case recursive of

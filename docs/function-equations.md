@@ -186,9 +186,29 @@ The [polymorphic example](../examples/modules/polymorphic-recursion/Main.fib)
 uses the actual erased parameter in a dependent result. For an implicit prefix,
 `copy tail` or `copy {Element} tail` keeps that parameter fixed; with an explicit
 `(0 A : Type)` prefix, use `copy Element tail`. The equation header names both
-parameters. Multiple leading parameters, a different recursive type parameter,
-dependent results over the input, arbitrary recursive calls and general
-termination checking remain unsupported. Checked project definition navigation
+parameters. A separate, fixed map-shaped form supports two leading implicit
+`Type 0` parameters and one unrestricted transformer:
+
+~~~fibril
+mapItems : {0 A : Type} -> {0 B : Type} ->
+  (transform : (1 value : A) -> B) -> (1 items : Items A) -> Items B
+mapItems A B transform items = case items of
+  Empty => Empty {B}
+  Prepend head tail => Prepend (transform head) (mapItems {A} {B} transform tail)
+~~~
+
+The [mapping example](../examples/modules/polymorphic-map/Main.fib) runs under
+both the reference and experimental C runtimes. Its recursive call must spell
+both type arguments and pass the **same** type parameters and transformer,
+followed by the immediate tail; omission, reordered or changed arguments are not
+inferred as equal. The transformer is unrestricted because the fold step can
+execute repeatedly; a linear transformer cannot be captured. The admitted
+signature is exactly the same list family at `A` to that family at `B`, with a
+linear-element transformer. This is convenience over a checked fold, not a
+general termination checker.
+
+Other multiple-parameter telescopes, dependent results over the input, arbitrary
+recursive calls and general termination checking remain unsupported. Checked project definition navigation
 resolves the authored self-call; experimental C emission supports the checked
 fixed-shape fold subject to native limits.
 

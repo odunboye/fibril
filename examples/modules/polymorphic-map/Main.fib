@@ -1,0 +1,24 @@
+module Main
+
+data Items {0 A : Type} : Type where
+  eliminator foldItems
+  Empty : Items A
+  Prepend : (1 head : A) -> (1 tail : Items A) -> Items A
+
+mapItems : {0 A : Type} -> {0 B : Type} ->
+  (transform : (1 value : A) -> B) -> (1 items : Items A) -> Items B
+mapItems A B transform items = case items of
+  Empty => Empty {B}
+  Prepend head tail => Prepend (transform head) (mapItems {A} {B} transform tail)
+
+exclaim : (1 text : String) -> String
+exclaim text = appendString text "!"
+
+join : (1 items : Items String) -> String
+join items = foldItems String (\(0 self : Items String) => String) ""
+  (\(1 head : String) => \(0 tail : Items String) =>
+    \(1 result : String) => appendString head result) items
+
+main : IO Unit
+main = putStrLn (join (mapItems {String} {String} exclaim
+  (Prepend "hello" (Prepend " world" (Empty {String})))))

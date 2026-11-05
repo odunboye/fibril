@@ -1458,6 +1458,88 @@ class CLITests(unittest.TestCase):
             path.write_text(budgeted.replace('  alias rest => rest', '  More rest => rest'))
             self.assertEqual(project('run').stdout, 'ok\n')
 
+    def test_polymorphic_structural_mapping_equations(self):
+        source = (ROOT / 'examples/modules/polymorphic-map/Main.fib').read_text()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Main.fib'
+            def project(command):
+                return run(command, '--source-dir', directory, str(path))
+            path.write_text(source)
+            result = project('run')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'hello! world!\n')
+            # Constructor identity comes from a checked direct import as well.
+            import re
+            (Path(directory) / 'Data').mkdir()
+            (Path(directory) / 'Data/Items.fib').write_text((ROOT / 'examples/modules/recursive-list/Data/Items.fib').read_text())
+            declaration = source[source.index('data Items'):source.index('mapItems :')]
+            imported = source.replace(declaration, '')
+            for short, qualified in [('Items', 'Data.Items.Items'), ('foldItems', 'Data.Items.foldItems'),
+                                     ('Empty', 'Data.Items.Empty'), ('Prepend', 'Data.Items.Prepend')]:
+                imported = re.sub(r'\b' + short + r'\b', qualified, imported)
+            imported = imported.replace('module Main\n', 'module Main\nimport Data.Items\n')
+            path.write_text(imported)
+            imported_result = project('run')
+            self.assertEqual(imported_result.returncode, 0, imported_result.stdout + imported_result.stderr)
+            self.assertEqual(imported_result.stdout, 'hello! world!\n')
+            path.write_text(source)
+            # Recursive self-call navigation is recorded from successful lowering.
+            lines = source.splitlines()
+            row = next(i for i, line in enumerate(lines, 1) if '(mapItems {A} {B} transform tail)' in line)
+            col = lines[row - 1].index('mapItems {A}') + 1
+            nav = run('definition', '--source-dir', directory, '--entry', str(path), str(row), str(col), str(path))
+            self.assertEqual(nav.returncode, 0, nav.stderr)
+            target = json.loads(nav.stdout)['definition']['range']['start']
+            self.assertEqual((target['line'], target['column']), (next(i for i, line in enumerate(lines, 1) if line.startswith('mapItems A B transform items =')), 1))
+            reversed_arms = source.replace('  Empty => Empty {B}\n  Prepend head tail => Prepend (transform head) (mapItems {A} {B} transform tail)',
+                                           '  Prepend head tail => Prepend (transform head) (mapItems {A} {B} transform tail)\n  Empty => Empty {B}')
+            path.write_text(reversed_arms)
+            self.assertEqual(project('run').stdout, 'hello! world!\n')
+            different = source.replace('exclaim : (1 text : String) -> String\nexclaim text = appendString text "!"',
+                                       'exclaim : (1 flag : Bool) -> String\nexclaim flag = if flag then "T" else "F"')
+            different = different.replace('mapItems {String} {String} exclaim', 'mapItems {Bool} {String} exclaim').replace('Prepend "hello" (Prepend " world" (Empty {String}))', 'Prepend True (Prepend False (Empty {Bool}))')
+            path.write_text(different)
+            result = project('run')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'TF\n')
+            path.write_text(source.replace('Prepend "hello" (Prepend " world" (Empty {String}))', 'Empty {String}'))
+            self.assertEqual(project('run').stdout, '\n')
+            call = 'mapItems {A} {B} transform tail'
+            bad_calls = ['mapItems {B} {B} transform tail', 'mapItems {A} {A} transform tail',
+                         'mapItems {A} {B} exclaim tail', 'mapItems {A} {B} transform items',
+                         'mapItems {A} {B} transform (Prepend head tail)',
+                         'mapItems {A} transform tail', 'mapItems transform tail',
+                         'Main.mapItems {A} {B} transform tail']
+            invalid = [source.replace(call, replacement) for replacement in bad_calls]
+            invalid += [source.replace('(transform : (1 value : A) -> B)', '(1 transform : (1 value : A) -> B)'),
+                        source.replace('Prepend (transform head) (mapItems {A} {B} transform tail)',
+                                       'Prepend (transform head) (mapItems {A} {B} transform (mapItems {A} {A} (\\(1 x : A) => x) tail))'),
+                        source.replace('Prepend head tail =>', 'Prepend tail tail =>'),
+                        source.replace('  Empty => Empty {B}', '  Empty => mapItems {A} {B} transform (Empty {A})')]
+            for program in invalid:
+                with self.subTest(program=program[180:580]):
+                    path.write_text(program)
+                    rejected = project('run')
+                    self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
+                    self.assertEqual(rejected.stdout, '')
+            # The same signature and case without a recursive self-call must
+            # fall back to ordinary direct-case elaboration, not be rewritten.
+            replacement = ('  Prepend head tail => foldItems A (\\(0 ys : Items A) => Items B) '
+                           '(Prepend (transform head) (Empty {B})) '
+                           '(\\(1 item : A) => \\(0 rest : Items A) => \\(1 result : Items B) => Prepend (transform item) result) tail')
+            nonrecursive = source.replace('  Prepend head tail => Prepend (transform head) (mapItems {A} {B} transform tail)', replacement)
+            nonrecursive = nonrecursive[:nonrecursive.index('main : IO Unit')] + 'main : IO Unit\nmain = putStrLn "checked"\n'
+            path.write_text(nonrecursive)
+            result = project('run')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'checked\n')
+            path.write_text(source)
+            formatted = run('format', str(path))
+            self.assertEqual(formatted.returncode, 0, formatted.stderr)
+            path.write_text(formatted.stdout)
+            self.assertEqual(run('format', '--check', str(path)).returncode, 0)
+            self.assertEqual(project('run').stdout, 'hello! world!\n')
+
     def test_checked_structural_self_call_navigation(self):
         import shutil
         with tempfile.TemporaryDirectory() as directory:

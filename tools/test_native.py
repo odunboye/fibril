@@ -194,7 +194,7 @@ main = do
         examples = [('nat-recursion', b'receipt!!!\n'), ('nat-predecessor', b'!!!\n'),
                     ('recursive-equations', b'!!!!\n'), ('recursive-render', b'receipt!!\n'),
                     ('recursive-data', b'!!\n'), ('recursive-list', b'hello world\n'),
-                    ('polymorphic-recursion', b'hello world\n')]
+                    ('polymorphic-recursion', b'hello world\n'), ('polymorphic-map', b'hello! world!\n')]
         for example, expected in examples:
             with self.subTest(example=example), tempfile.TemporaryDirectory() as directory:
                 root = ROOT / 'examples/modules' / example
@@ -205,6 +205,23 @@ main = do
                 self.assertEqual(native.returncode, 0, native.stderr)
                 self.assertEqual(native.stdout, expected)
                 self.assertEqual(native.stdout, reference.stdout)
+
+    def test_polymorphic_mapping_with_distinct_element_types(self):
+        source = (ROOT / 'examples/modules/polymorphic-map/Main.fib').read_text()
+        source = source.replace('exclaim : (1 text : String) -> String\nexclaim text = appendString text "!"',
+                                'exclaim : (1 flag : Bool) -> String\nexclaim flag = if flag then "T" else "F"')
+        source = source.replace('mapItems {String} {String} exclaim', 'mapItems {Bool} {String} exclaim')
+        source = source.replace('Prepend "hello" (Prepend " world" (Empty {String}))', 'Prepend True (Prepend False (Empty {Bool}))')
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Main.fib'
+            path.write_text(source)
+            args = ['--source-dir', directory, str(path)]
+            _, native = self.compile_and_run(args, directory)
+            reference = run_cli('run', *args, text=False, timeout=120)
+            self.assertEqual(reference.returncode, 0, reference.stderr)
+            self.assertEqual(native.returncode, 0, native.stderr)
+            self.assertEqual(native.stdout, b'TF\n')
+            self.assertEqual(native.stdout, reference.stdout)
 
     def test_recursive_cases_and_captured_fold_environment(self):
         source = r'''module Main
