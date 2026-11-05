@@ -13,6 +13,14 @@ Retain that behavior for existing console programs. Do not relabel it as
 world-token IO. Introduce resource-sensitive operations only after the following
 separate capability contract has been implemented and tested.
 
+## Current action-binding regressions
+
+Source tests now distinguish unrestricted descriptions from explicitly linear
+action bindings: an unrestricted `IO ReadResult` binding may be discarded or
+reused; a quantity-1 binding rejects both discard and reuse. These are checked
+usage rules on bindings, not an intrinsically linear IO type or an exactly-once
+external-execution guarantee. They provide a baseline for future handle tests.
+
 ## Resource-sensitive API requirements
 
 - A trusted host operation creates each resource capability. Pure source code

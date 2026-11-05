@@ -142,7 +142,7 @@ reusable authority or a linear resource. An effect label is not an OS sandbox.
 This document consolidates requirements; it does not implement those milestones.
 The current branch has a proposed ownership document, hosted planner budget
 changes and checked hosted stdout flushing. Run `python3 tools/test_io_hosted.py`
-from the repository root for 164 core IO, console argument, sequence, script and input checks,
+from the repository root for 168 core IO, console argument, sequence, script and input checks,
 plus real C `fflush` and checked-core stdin (Unicode CRLF/EOF/length failure)
 smoke tests on Chez. These pass, including direct-core
 64/65-write boundaries, injected write/flush failures, ordering and empty-plan
@@ -150,7 +150,9 @@ flushing. The runner uses temporary build output without pack or project/YAML
 dependencies. Checked emission now lives in `Driver.Native.Emit`, with seven
 source-to-C differential examples run by `tools/test_io_emitter.py` and
 `make io-test`. Broader project/package validation remains blocked locally by
-the YAML dependency setup and full-build timeouts. This is targeted validation, not
+the full dependency/compiler graph and build timeouts. A minimal YAML import
+checks once its transitive packages are supplied; this does not isolate the
+full-CLI stall to YAML. See [build validation](io-build-validation.md). This is targeted validation, not
 a full suite run or completed world-token IO.
 
 Concurrency, cancellation and callbacks remain deferred until their lifetime and

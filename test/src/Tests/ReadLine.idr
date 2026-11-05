@@ -35,6 +35,9 @@ consumingRead = IOBind readResultType UnitType ReadLine
        Lambda Linear StringType (WriteLine (Variable FZ)),
        Lambda Linear StringType (WriteLine (Variable FZ))]))
 
+sourceHandler : String
+sourceHandler = "handle : (1 result : ReadResult) -> IO Unit\nhandle = \\(1 result : ReadResult) => readCase (IO Unit) result (pure Unit ()) (\\(1 text : String) => putStrLn text) (\\(1 message : String) => putStrLn message)\n"
+
 sourceAccepted : String -> Bool
 sourceAccepted source = case checkSource False source of
   Left _ => False
@@ -50,7 +53,15 @@ scripted script = case prepareInteractive 128 128 consumingRead of
 public export
 checks : List (String, Bool)
 checks =
-  [ ("source readLine has an explicit result type",
+  [ ("source unrestricted read description may be discarded",
+      sourceAccepted "main : IO Unit\nmain = let (action : IO ReadResult) = readLine in pure Unit ()")
+  , ("source explicitly linear read description cannot be discarded",
+      not (sourceAccepted "main : IO Unit\nmain = let (1 action : IO ReadResult) = readLine in pure Unit ()"))
+  , ("source unrestricted read description may be reused",
+      sourceAccepted (sourceHandler ++ "main : IO Unit\nmain = do\n  let (action : IO ReadResult) = readLine\n  (1 first : ReadResult) <- action\n  handle first\n  (1 second : ReadResult) <- action\n  handle second"))
+  , ("source explicitly linear read description cannot be reused",
+      not (sourceAccepted (sourceHandler ++ "main : IO Unit\nmain = do\n  let (1 action : IO ReadResult) = readLine\n  (1 first : ReadResult) <- action\n  handle first\n  (1 second : ReadResult) <- action\n  handle second")))
+  , ("source readLine has an explicit result type",
       sourceAccepted "main : IO ReadResult\nmain = readLine")
   , ("source readLine is not IO String",
       not (sourceAccepted "main : IO String\nmain = readLine"))

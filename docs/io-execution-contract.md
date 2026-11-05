@@ -37,7 +37,7 @@ capability ownership and cleanup after partial effects.
 Run `make -j8 io-test`. Its four suites build in independent temporary
 directories and can run concurrently:
 
-- 164 hosted core IO/argument/sequence/script/input checks, plus a real flush smoke
+- 168 hosted core IO/argument/sequence/script/input checks, plus a real flush smoke
   test and three checked-core stdin smoke tests (Unicode CRLF, EOF and input
   length failure);
 - 17 direct C runtime tests for output planning and the separate interactive
