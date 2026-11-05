@@ -2,6 +2,8 @@
 module Fibril.Source.Global
 
 import Data.Fin
+import Data.List1
+import Data.String
 import Fibril.Core.Quantity
 import Fibril.Core.Term
 
@@ -29,6 +31,16 @@ GlobalWithQuantity = GlobalEntry Nothing 0
 public export
 Global : String -> Term 0 -> Term 0 -> GlobalDefinition
 Global = GlobalWithQuantity Unrestricted
+
+||| Qualified candidates for a short name; only used for ambiguity diagnostics.
+public export
+qualifiedCandidates : String -> List GlobalDefinition -> List String
+qualifiedCandidates name entries = map (\entry => entry.name) (filter matches entries)
+  where
+    matches : GlobalDefinition -> Bool
+    matches entry = case reverse (forget (Data.String.split (== '.') entry.name)) of
+      short :: _ :: _ => short == name
+      _ => False
 
 public export
 lookupGlobal : String -> List GlobalDefinition -> Maybe (Term 0)

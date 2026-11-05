@@ -509,7 +509,11 @@ mutual
        then Left (ElaborationFailure (authoredPosition item) "Elaborated declaration budget exhausted") else Right ()
     (used, declarations) <- lowerItem moduleName schemas nodes item
     (remaining, names) <- admit slots seen declarations
-    let visible = case item of InterfaceItem authored => localSchemas moduleName authored ++ schemas; _ => schemas
+    -- Source-order local bindings shadow short imported schema aliases, but
+    -- never remove their qualified names.
+    let shadowed = map (\site => site.name) (bindingSites item)
+    let remainingSchemas = filter (\schema => not (elem schema.name shadowed)) schemas
+    let visible = case item of InterfaceItem authored => localSchemas moduleName authored ++ remainingSchemas; _ => remainingSchemas
     following <- lower moduleName visible (minus nodes used) remaining names rest
     Right (declarations ++ following)
 

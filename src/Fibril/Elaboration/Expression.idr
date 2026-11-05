@@ -223,7 +223,9 @@ mutual
         Just _ => Left (CannotElaborate name.span.start "Data-case constructor is shadowed by a local binder")
         Nothing => Right ()
     definition <- case find (\entry => entry.name == name.spelling) globals of
-      Nothing => Left (Unbound name.span.start name.spelling)
+      Nothing => case qualifiedCandidates name.spelling globals of
+        _ :: _ :: _ => Left (CannotElaborate name.span.start ("Ambiguous imported name " ++ name.spelling ++ "; use a qualified name"))
+        _ => Left (Unbound name.span.start name.spelling)
       Just entry => Right entry
     if definition.quantity /= Unrestricted then Left (CannotElaborate name.span.start "Data-case constructor must be an unrestricted checked global") else Right ()
     if coreNodes definition.value > 512 then Left (CannotElaborate name.span.start "Data-case constructor exceeds 512 nodes") else Right ()
@@ -409,7 +411,9 @@ mutual
     if name == "_" then Left (Unbound span.start name)
        else case lookupName name env of
          Nothing => case lookupGlobal name globals of
-           Nothing => Left (Unbound span.start name)
+           Nothing => case qualifiedCandidates name globals of
+             _ :: _ :: _ => Left (CannotElaborate span.start ("Ambiguous imported name " ++ name ++ "; use a qualified name"))
+             _ => Left (Unbound span.start name)
            Just value => Right (rename absurd value)
          Just index => Right (Variable index)
   elaborateInWith globals context env (NQualifiedRef span name) =

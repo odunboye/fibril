@@ -2,6 +2,8 @@
 module Fibril.Driver.ProjectNavigation
 
 import Data.List
+import Data.List1
+import Data.String
 import Fibril.Source.Text
 import Fibril.Source.Lexer
 import Fibril.Source.Document
@@ -34,15 +36,25 @@ bindings onlyExports snapshot = case (snapshot.document.moduleHeader, snapshot.d
 -- source-order visibility, privacy, and every qualified reference.
 definitionIn : ModuleGraph -> ModuleSnapshot -> Nat -> Nat -> Maybe SourceLocation
 definitionIn graph current line column =
-  let visible = concatMap (\snapshot =>
-        if snapshot.path == current.path then bindings False snapshot
+  let local = bindings False current
+      imported : List (String, SourceLocation)
+      imported = concatMap (\snapshot =>
+        if snapshot.path == current.path then []
         else case snapshot.document.moduleHeader of
           Nothing => []
           Just header => if any (\dependency => dependency.components == header.components)
                                  current.document.imports
                             then bindings True snapshot else []) graph.modules
-      references = documentReferencesUsing (Located current.path)
-                     (\name => lookup name visible) current.document
+      short : String -> String
+      short = \name => case reverse (forget (Data.String.split (== '.') name)) of
+        [] => name
+        part :: _ => part
+      unqualified : String -> Maybe SourceLocation
+      unqualified = \name => case filter (\entry => short (fst entry) == name) imported of
+        [(_, target)] => Just target
+        _ => Nothing
+      references = documentReferencesWithGlobals (Located current.path) unqualified
+                     (\name => lookup name (local ++ imported)) current.document
    in map target (find (\reference =>
         line == reference.origin.start.line &&
         column >= reference.origin.start.column &&

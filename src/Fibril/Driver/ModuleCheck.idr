@@ -2,6 +2,8 @@
 module Fibril.Driver.ModuleCheck
 
 import Data.List
+import Data.List1
+import Data.String
 import Data.Vect
 import Fibril.Core.Quantity
 import Fibril.Core.Size
@@ -282,13 +284,33 @@ compileDeclarations snapshot name globals (decl :: rest) remaining = do
            (if decl.exported then qualified :: following.exports else following.exports) following.remaining)
 
 directImports : ModuleSnapshot -> List Interface -> Either GraphError (List Weighted)
-directImports snapshot interfaces = collect snapshot.document.imports
+directImports snapshot interfaces = collect [] snapshot.document.imports
   where
-    collect : List ImportDeclaration -> Either GraphError (List Weighted)
-    collect [] = Right []
-    collect (dependency :: rest) = case find (\entry => entry.name == dependency.components) interfaces of
-      Nothing => Left (problem snapshot (Just dependency.span.start) "Missing checked dependency interface")
-      Just entry => (entry.bindings ++) <$> collect rest
+    collect : List (List String) -> List ImportDeclaration -> Either GraphError (List Weighted)
+    collect seen [] = Right []
+    collect seen (dependency :: rest) =
+      if elem dependency.components seen then collect seen rest else
+        case find (\entry => entry.name == dependency.components) interfaces of
+          Nothing => Left (problem snapshot (Just dependency.span.start) "Missing checked dependency interface")
+          Just entry => (entry.bindings ++) <$> collect (dependency.components :: seen) rest
+
+-- Add a short name only when exactly one direct import exports it.  Keep the
+-- qualified entry as the authority, and do not register aliases as providers.
+shortName : String -> String
+shortName name = case reverse (forget (Data.String.split (== '.') name)) of
+  [] => name
+  part :: _ => part
+
+importAliases : List Weighted -> List Weighted
+importAliases imported = mapMaybe alias groups
+  where
+    named : List (String, Weighted)
+    named = map (\entry => (shortName entry.global.name, entry)) imported
+    groups : List (List1 (String, Weighted))
+    groups = groupBy (\a, b => fst a == fst b) (sortBy (\a, b => compare (fst a) (fst b)) named)
+    alias : List1 (String, Weighted) -> Maybe Weighted
+    alias ((name, entry) ::: []) = Just ({ global := { name := name, provider := Nothing } entry.global } entry)
+    alias _ = Nothing
 
 directSchemas : ModuleSnapshot -> List Interface -> List InterfaceSchema
 directSchemas snapshot interfaces = concatMap (\dependency =>
@@ -329,8 +351,15 @@ compileGraph requireEntry graph prelude interfaces remaining (snapshot :: rest) 
      then Left (problem snapshot Nothing "Entry snapshot must be last in dependency order")
      else Right ()
   imported <- directImports snapshot interfaces
-  let schemas = directSchemas snapshot interfaces
-  let globals = imported ++ prelude
+  let aliases = importAliases imported
+  let qualifiedSchemas = directSchemas snapshot interfaces
+  let schemas = qualifiedSchemas ++ mapMaybe (\schema =>
+        if any (\entry => entry.global.name == shortName schema.name) aliases
+          then Just ({ name := shortName schema.name } schema) else Nothing) qualifiedSchemas
+  -- Imports shadow Prelude names; ambiguous imports must not silently fall
+  -- back to a Prelude definition. Local declarations are prepended later.
+  let visiblePrelude = filter (\entry => not (any (\item => shortName item.global.name == entry.global.name) imported)) prelude
+  let globals = imported ++ aliases ++ visiblePrelude
   case snapshot.document.moduleHeader of
     Nothing => if not requireEntry || snapshot.path /= graph.entry then Left (problem snapshot Nothing "Anonymous dependency") else do
       term <- anonymous snapshot schemas globals remaining

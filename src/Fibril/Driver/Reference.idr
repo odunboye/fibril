@@ -54,8 +54,11 @@ referenceAt source line column = do
   let declarations = case prelude.body of
         DeclarationDocument values => ordinaryDeclarations values
         _ => []
-  let global : String -> Maybe Meaning = \name => if any (\decl => decl.name == name) declarations ||
-                          any (\value => value.name == name) primitiveGlobals
+  -- Syntax-only lookup cannot know which direct imports export a short name;
+  -- do not misidentify a potentially shadowing import as Prelude or a primitive.
+  let global : String -> Maybe Meaning = \name => if null document.imports &&
+                          (any (\decl => decl.name == name) declarations ||
+                           any (\value => value.name == name) primitiveGlobals)
                          then Just (Standard name) else Nothing
   let references = documentReferencesWithGlobals (const Local) global (const Nothing) document
   let selected = find (\reference => contains line column reference.origin) references

@@ -5340,5 +5340,79 @@ class CLITests(unittest.TestCase):
                 self.assertIn("Unsupported command", result.stdout)
 
 
+class UnqualifiedImportsTests(unittest.TestCase):
+    def test_lookup_shadowing_ambiguity_and_visibility(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'A.fib').write_text('module A\nexport\ngreet : String -> String\ngreet = \\(x : String) => appendString "A" x\nsecret : String\nsecret = "secret"\n')
+            (root / 'B.fib').write_text('module B\nexport\ngreet : String -> String\ngreet = \\(x : String) => appendString "B" x\n')
+            main = root / 'Main.fib'
+            def execute(source):
+                main.write_text(source)
+                return run_cli('run', '--source-dir', directory, str(main), timeout=120)
+            result = execute('module Main\nimport A\nmain : IO Unit\nmain = putStrLn (greet "!")\n')
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout, 'A!\n')
+            nav = run_cli('definition', '--source-dir', directory, '--entry', str(main), '4', '18', str(main))
+            self.assertEqual(nav.returncode, 0, nav.stderr)
+            self.assertEqual(Path(json.loads(nav.stdout)['definition']['path']).name, 'A.fib')
+            result = execute('module Main\nimport A\nimport A\nmain : IO Unit\nmain = putStrLn (greet "!")\n')
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('Duplicate direct import', result.stderr)
+            result = execute('module Main\nimport A\nimport B\nmain : IO Unit\nmain = putStrLn (greet "!")\n')
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('Ambiguous imported name greet', result.stderr)
+            result = execute('module Main\nimport A\nimport B\nmain : IO Unit\nmain = putStrLn (A.greet "!")\n')
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout, 'A!\n')
+            result = execute('module Main\nimport A\ngreet : String -> String\ngreet = \\(x : String) => appendString "local" x\nmain : IO Unit\nmain = putStrLn (greet "!")\n')
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout, 'local!\n')
+            result = execute('module Main\nimport A\nmain : IO Unit\nmain = putStrLn secret\n')
+            self.assertNotEqual(result.returncode, 0)
+
+    def test_imported_constructor_patterns(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'Choice.fib').write_text('module Choice\nexport\ndata Choice : Type where\n  Yes : Choice\n  No : Choice\n')
+            main = root / 'Main.fib'
+            main.write_text('module Main\nimport Choice\nmain : IO Unit\nmain = putStrLn (case Yes return (\\(0 self : Choice) => String) of\n  Yes => "yes"\n  No => "no")\n')
+            result = run_cli('run', '--source-dir', directory, str(main), timeout=120)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout, 'yes\n')
+            nav = run_cli('definition', '--source-dir', directory, '--entry', str(main), '5', '4', str(main))
+            self.assertEqual(nav.returncode, 0, nav.stderr)
+            self.assertEqual(Path(json.loads(nav.stdout)['definition']['path']).name, 'Choice.fib')
+
+    def test_unqualified_implicit_metadata_and_reference(self):
+        import shutil
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(ROOT / 'examples/modules/implicit-arguments', root, dirs_exist_ok=True)
+            main = root / 'Main.fib'
+            main.write_text(main.read_text().replace('Utility.Identity.', ''))
+            result = run_cli('run', '--source-dir', directory, str(main), timeout=120)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'queued: receipt\nexplicit type\nphantom type\nboth inferred\npartly explicit\n')
+            # Syntax-only reference has no checked import context and must not
+            # fabricate a bundled Prelude target for a possibly shadowed name.
+            source = root / 'reference.fib'
+            source.write_text('module Main\nimport Utility.Identity\nmain : IO Unit\nmain = putStrLn "x"\n')
+            reference = run_cli('reference', '4', '9', str(source))
+            self.assertEqual(reference.returncode, 0, reference.stderr)
+            self.assertIsNone(json.loads(reference.stdout)['reference'])
+
+    def test_unqualified_interface_block(self):
+        import shutil
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(ROOT / 'examples/modules/interface-blocks', root, dirs_exist_ok=True)
+            instance = root / 'Instances/Text.fib'
+            instance.write_text(instance.read_text().replace('Algebra.Semigroup String', 'Semigroup String')
+                                .replace('Algebra.Monoid String', 'Monoid String'))
+            result = run_cli('run', '--source-dir', directory, str(root / 'Main.fib'), timeout=120)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+
 if __name__ == "__main__":
     unittest.main()

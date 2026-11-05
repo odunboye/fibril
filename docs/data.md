@@ -82,7 +82,8 @@ not complete, and ambiguous or exhausted cases require explicit braces.
 
 An export marker on the data declaration exports its type, constructors and
 requested helper; otherwise the bundle is private. Other modules must directly
-import the defining module and use qualified references. Dependencies must check
+import the defining module; unique imported names can be used unqualified, while
+ambiguous ones require qualification. Dependencies must check
 completely, including unused/private generated bodies, before publishing exports.
 
 ## Use the optional eliminator

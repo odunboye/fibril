@@ -474,7 +474,7 @@ def inspect_project_checking(name, executable, line_ending):
             "call cursor(3, 8)",
             "let report.builtin_help = fibril#definition()",
             "let report.builtin_buffer = &buftype ==# 'nofile' && &readonly && !&modifiable && getline(1) ==# 'Built-in reference: IO'",
-            "close",
+            "if report.builtin_help | close | endif",
             "execute 'buffer ' . dependency_buffer", "call cursor(4, 10)",
             "let report.prelude_help = fibril#reference()",
             "let report.prelude_buffer = &buftype ==# 'nofile' && &readonly && !&modifiable && getline('.') =~# '^putStrLn = '",
@@ -739,8 +739,10 @@ class EditorTests(unittest.TestCase):
                     self.assertEqual(report["accepted_items"], [])
                     self.assertTrue(report["no_extra_window"])
                     self.assertTrue(report["plug"])
-                    self.assertEqual(report["builtin_help"], 1, report["messages"])
-                    self.assertTrue(report["builtin_buffer"])
+                    # Syntax-only help cannot rule out a direct import that
+                    # shadows IO; it must not invent a standard definition.
+                    self.assertEqual(report["builtin_help"], 0, report["messages"])
+                    self.assertFalse(report["builtin_buffer"])
                     self.assertEqual(report["prelude_help"], 1, report["messages"])
                     self.assertTrue(report["prelude_buffer"])
                     self.assertEqual(report["definition_unloaded"], 1, report["messages"])

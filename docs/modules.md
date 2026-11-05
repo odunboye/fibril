@@ -92,6 +92,20 @@ only direct imports plus the bundled prelude; transitive modules' names do not
 leak. Earlier definitions in the current module are available unqualified and
 through its own qualifier, including private definitions. No self-import is needed.
 
+A unique exported name from a direct import may also be used without its module
+qualifier. Lexical binders and earlier local declarations take precedence; a
+unique direct import takes precedence over a bundled Prelude name. If multiple
+direct imports export the same short name, qualify it explicitly; Fibril does
+not pick one based on import order or silently fall back to Prelude. Private and
+transitive declarations remain unavailable. Repeated direct import declarations
+are rejected by the parser. Interface implementation-block targets follow the
+same visible short-name rule, retaining their checked qualified constructor.
+
+Project definition lookup resolves unique imported short names to the original
+authored source target. Same-file navigation cannot resolve imports. The
+syntax-only standard-reference lookup has no checked project context and therefore
+avoids guessing unqualified Prelude/primitive references in files with imports.
+
 Named-module globals must be erased or unrestricted and referenceable. Erased
 globals are checked with erased typing and retain their stage through lookup and
 imports; they may appear in types/erased arguments but not runtime values.
