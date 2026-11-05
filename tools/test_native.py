@@ -195,7 +195,7 @@ main = do
                     ('recursive-equations', b'!!!!\n'), ('recursive-render', b'receipt!!\n'),
                     ('recursive-data', b'!!\n'), ('recursive-list', b'hello world\n'),
                     ('polymorphic-recursion', b'hello world\n'), ('polymorphic-map', b'hello! world!\n'),
-                    ('uniform-recursion', b'yes,no,\n')]
+                    ('uniform-recursion', b'yes,no,\n'), ('uniform-nat-chain', b'receipt!!\n~~\n')]
         for example, expected in examples:
             with self.subTest(example=example), tempfile.TemporaryDirectory() as directory:
                 root = ROOT / 'examples/modules' / example

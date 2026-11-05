@@ -128,7 +128,7 @@ payload fields, indexed recursive families, more constructors and general
 recursive equations remain unsupported. Direct `case` can inspect this unary
 family once and exposes its actual tail linearly. Use the named fold for
 structural recursion, or the [restricted structural equation form](function-equations.md#structural-unary-data-equations)
-when its narrower syntax applies. The experimental C backend supports these
+with an optional uniform erased/unrestricted prefix when its syntax applies. The experimental C backend supports these
 fixed forms with separate native runtime budgets.
 
 ![Unary recursive data checking](diagrams/recursive-data.svg)

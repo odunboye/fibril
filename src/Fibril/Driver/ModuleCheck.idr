@@ -662,16 +662,19 @@ polymorphicSequenceEquation globals name inferred ty (NEquationLambda _ [param, 
 polymorphicSequenceEquation _ _ _ _ _ = Right Nothing
 
 -- Scope-indexed prefix peeling. Erased and unrestricted parameters are held
--- fixed across each recursive call; the final linear input is a sequence.
+-- fixed across each recursive call; the final linear input is a checked
+-- sequence, unary recursive value or Nat.
 private
-uniformSequenceCandidate : List Weighted -> String -> Nat -> Term 0 -> SourceSpan -> String ->
+uniformStructuralCandidate : List Weighted -> String -> Nat -> Term 0 -> SourceSpan -> String ->
   Token -> List Token -> Expr -> Token -> List Token -> Expr -> Token -> List Token ->
   Either ResolveError (Maybe (Term 0))
-uniformSequenceCandidate globals name implicitCount ty span scrutinee first firstBinder firstBody second secondBinder secondBody argument params =
+uniformStructuralCandidate globals name implicitCount ty span scrutinee first firstBinder firstBody second secondBinder secondBody argument params =
   let reversed = reverse (prefixModes implicitCount params)
       candidate = case (firstBinder, secondBinder) of
         ([], [_, tail]) => uniformCallPresent name reversed tail.spelling secondBody
         ([_, tail], []) => uniformCallPresent name reversed tail.spelling firstBody
+        ([], [tail]) => uniformCallPresent name reversed tail.spelling secondBody
+        ([tail], []) => uniformCallPresent name reversed tail.spelling firstBody
         _ => False
       names : List String = name :: map spelling params ++ [argument.spelling] in
   if length params > 64 || implicitCount > length params || not candidate ||
@@ -710,7 +713,46 @@ uniformSequenceCandidate globals name implicitCount ty span scrutinee first firs
         _ => Right Nothing
 
 
+    lowerUnary : Bool -> Context n -> Vect n String -> Term n -> Term (S n) -> Expr -> Token -> Expr ->
+                 Either ResolveError (Maybe (Term n))
+    lowerUnary natural context env family result base predecessor body = do
+      let names : List String = name :: map spelling params ++ [argument.spelling, predecessor.spelling]
+      let reversed = reverse (prefixModes implicitCount params)
+      if any (== "_") names || length (nub names) /= length names ||
+         any (\entry => entry == first.spelling || entry == second.spelling) names ||
+         not (uniformCallPresent name reversed predecessor.spelling body)
+        then Right Nothing else do
+      case (uniformExpression name reversed argument.spelling predecessor.spelling base,
+            uniformExpression name reversed argument.spelling predecessor.spelling body) of
+        (Just (False, baseExpr), Just (True, stepExpr)) => do
+          resultType <- case dropNewest result of
+            Nothing => Left (CannotElaborate span.start "Structural recursive equations require a result independent of the input")
+            Just resultType => Right resultType
+          let checkedGlobals = map global globals
+          baseTerm <- elaborateExpected checkedGlobals context env resultType baseExpr
+          let stepContext = Extend (Extend context Erased family) Linear (weaken resultType)
+          stepTerm <- elaborateExpected checkedGlobals stepContext (recursiveResultName :: "$structural.predecessor" :: env)
+                        (weaken (weaken resultType)) stepExpr
+          let motive = Lambda Erased (weaken family) (weaken (weaken resultType))
+          let step = Lambda Erased family (Lambda Linear (weaken resultType) stepTerm)
+          let folded = if natural then NatRec motive (weaken baseTerm) (weaken step) (Variable FZ)
+                                  else RecFold motive (weaken baseTerm) (weaken step) (Variable FZ)
+          Right (Just (Lambda Linear family folded))
+        _ => Right Nothing
+
     walk : Context n -> Vect n String -> List Token -> List (Bool, String) -> Term n -> Either ResolveError (Maybe (Term n))
+    walk context env [] [] (Pi Linear NatType result) =
+      if not (natBuiltinsVisible globals) then Right Nothing else
+        case (first.spelling, firstBinder, second.spelling, secondBinder) of
+          ("Zero", [], "Succ", [predecessor]) => lowerUnary True context env NatType result firstBody predecessor secondBody
+          ("Succ", [predecessor], "Zero", []) => lowerUnary True context env NatType result secondBody predecessor firstBody
+          _ => Right Nothing
+    walk context env [] [] (Pi Linear family@(RecType key) result) =
+      case (recursiveConstructorTag globals key first.spelling, firstBinder,
+            recursiveConstructorTag globals key second.spelling, secondBinder) of
+        (Just 0, [], Just 1, [predecessor]) => lowerUnary False context env family result firstBody predecessor secondBody
+        (Just 1, [predecessor], Just 0, []) => lowerUnary False context env family result secondBody predecessor firstBody
+        _ => Right Nothing
     walk context env [] [] (Pi Linear family@(SeqType _ element) result) =
       case (sequenceConstructorTag globals context family element first, firstBinder,
             sequenceConstructorTag globals context family element second, secondBinder) of
@@ -725,14 +767,14 @@ uniformSequenceCandidate globals name implicitCount ty span scrutinee first firs
       Right (map (Lambda Unrestricted domain) following)
     walk _ _ _ _ _ = Right Nothing
 private
-uniformSequenceEquation : List Weighted -> String -> Nat -> Term 0 -> Expr -> Either ResolveError (Maybe (Term 0))
-uniformSequenceEquation globals name implicitCount ty (NEquationLambda _ names _
+uniformStructuralEquation : List Weighted -> String -> Nat -> Term 0 -> Expr -> Either ResolveError (Maybe (Term 0))
+uniformStructuralEquation globals name implicitCount ty (NEquationLambda _ names _
   (NDataCase span (NRef _ scrutinee) Nothing [(first, firstBinder, firstBody), (second, secondBinder, secondBody)])) =
   case reverse names of
     [] => Right Nothing
     argument :: backwards =>
-      uniformSequenceCandidate globals name implicitCount ty span scrutinee first firstBinder firstBody second secondBinder secondBody argument (reverse backwards)
-uniformSequenceEquation _ _ _ _ _ = Right Nothing
+      uniformStructuralCandidate globals name implicitCount ty span scrutinee first firstBinder firstBody second secondBinder secondBody argument (reverse backwards)
+uniformStructuralEquation _ _ _ _ _ = Right Nothing
 
 private
 legacyRecursiveEquationReserve : String -> Expr -> Nat
@@ -770,6 +812,8 @@ uniformEquationReserve name (NEquationLambda _ names signature (NDataCase _ _ No
           shape = case (firstBinder, secondBinder) of
             ([], [_, tail]) => uniformCallPresent name reversed tail.spelling secondBody
             ([_, tail], []) => uniformCallPresent name reversed tail.spelling firstBody
+            ([], [tail]) => uniformCallPresent name reversed tail.spelling secondBody
+            ([tail], []) => uniformCallPresent name reversed tail.spelling firstBody
             _ => False in
         if length params <= 64 && count <= length params && shape
           then 128 + (40 + length params) * 513 else 0
@@ -857,7 +901,7 @@ compileDeclarations snapshot name globals (decl :: rest) remaining = do
       Right candidate => Right candidate
   recursive <- the (Either GraphError (Maybe (Term 0))) $ case recursive of
     Just result => Right (Just result)
-    Nothing => case uniformSequenceEquation globals decl.name implicitPrefix ty decl.value of
+    Nothing => case uniformStructuralEquation globals decl.name implicitPrefix ty decl.value of
       Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
       Right candidate => Right candidate
   value <- case recursive of

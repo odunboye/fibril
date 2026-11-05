@@ -1458,6 +1458,108 @@ class CLITests(unittest.TestCase):
             path.write_text(budgeted.replace('  alias rest => rest', '  More rest => rest'))
             self.assertEqual(project('run').stdout, 'ok\n')
 
+    def test_uniform_structural_nat_and_unary_telescope(self):
+        import shutil
+        fixture = ROOT / 'examples/modules/uniform-nat-chain'
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(fixture, root, dirs_exist_ok=True)
+            path = root / 'Main.fib'
+            source = path.read_text()
+            def project(command):
+                return run(command, '--source-dir', directory, str(path))
+            result = project('run')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'receipt!!\n~~\n')
+            # Both constructors can be supplied in either source order.
+            reversed_arms = source.replace('  Zero => initial\n  Succ previous => transform (iterate {Element} transform initial previous)',
+                                          '  Succ previous => transform (iterate {Element} transform initial previous)\n  Zero => initial')
+            reversed_arms = reversed_arms.replace('  Data.Chain.Empty => ""\n  Data.Chain.More previous => appendString marker (marks marker previous)',
+                                                '  Data.Chain.More previous => appendString marker (marks marker previous)\n  Data.Chain.Empty => ""')
+            path.write_text(reversed_arms)
+            self.assertEqual(project('run').stdout, 'receipt!!\n~~\n')
+            # Test empty branches and the actual authored recursive sites.
+            empty = source.replace('(Succ (Succ Zero))', 'Zero').replace('(Data.Chain.More (Data.Chain.More Data.Chain.Empty))', 'Data.Chain.Empty')
+            path.write_text(empty)
+            result = project('run')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'receipt\n\n')
+            path.write_text(source)
+            lines = source.splitlines()
+            for use, definition in [('iterate {Element} transform initial previous', 'iterate Element transform initial count ='),
+                                    ('marks marker previous', 'marks marker chain =')]:
+                row = next(i for i, line in enumerate(lines, 1) if use in line)
+                col = lines[row - 1].index(use) + 1
+                nav = run('definition', '--source-dir', directory, '--entry', str(path), str(row), str(col), str(path))
+                self.assertEqual(nav.returncode, 0, nav.stderr)
+                target = json.loads(nav.stdout)['definition']['range']['start']
+                self.assertEqual((target['line'], target['column']), (next(i for i, line in enumerate(lines, 1) if line.startswith(definition)), 1))
+            iterate_call = 'iterate {Element} transform initial previous'
+            marks_call = 'marks marker previous'
+            invalid = [source.replace(iterate_call, 'iterate {String} transform initial previous'),
+                       source.replace(iterate_call, 'iterate {Element} transform initial count'),
+                       source.replace(iterate_call, 'iterate {Element} transform initial (Succ previous)'),
+                       source.replace(iterate_call, 'iterate {Element} transform initial initial'),
+                       source.replace(iterate_call, 'iterate transform initial previous'),
+                       source.replace(iterate_call, 'Main.iterate {Element} transform initial previous'),
+                       source.replace(iterate_call, 'iterate {Element} transform (transform initial) previous'),
+                       source.replace('  Zero => initial', '  Zero => iterate {Element} transform initial Zero'),
+                       source.replace('(transform : (1 value : A) -> A)', '(1 transform : (1 value : A) -> A)'),
+                       source.replace(marks_call, 'marks "changed" previous'),
+                       source.replace(marks_call, 'marks marker chain'),
+                       source.replace(marks_call, 'marks marker (Data.Chain.More previous)'),
+                       source.replace('  Data.Chain.More previous =>', '  Data.Chain.More marker =>'),
+                       source.replace('import Data.Chain\n', 'import Data.Chain\nZero : Bool\nZero = True\n')]
+            for program in invalid:
+                with self.subTest(program=program[80:420]):
+                    path.write_text(program)
+                    rejected = project('run')
+                    self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
+                    self.assertEqual(rejected.stdout, '')
+            # A different recursive family must not stand in for a constructor.
+            other = ('data Other : Type where\n  End : Other\n  Next : (1 tail : Other) -> Other\n')
+            path.write_text(source.replace('marks :', other + 'marks :').replace('  Data.Chain.More previous =>', '  Next previous =>'))
+            rejected = project('run')
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertEqual(rejected.stdout, '')
+            dependent = ('module Main\nimport Data.Chain\n'
+                         'data Tagged (0 c : Data.Chain.Chain) : Type where\n  Tag : Tagged c\n'
+                         'broken : (prefix : String) -> (1 c : Data.Chain.Chain) -> Tagged c\n'
+                         'broken prefix c = case c of\n  Data.Chain.Empty => Tag Data.Chain.Empty\n'
+                         '  Data.Chain.More tail => broken prefix tail\n'
+                         'main : IO Unit\nmain = putStrLn "never"\n')
+            path.write_text(dependent)
+            rejected = project('run')
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertIn('result independent', rejected.stderr)
+            self.assertEqual(rejected.stdout, '')
+            # Admission at the uniform-prefix boundary for both unary shapes.
+            for family in ['Nat', 'Chain']:
+                for count in [64, 65]:
+                    names = [f'p{i}' for i in range(count)]
+                    signature = ' -> '.join(f'({name} : String)' for name in names) + f' -> (1 xs : {family}) -> String'
+                    header = ' '.join(names + ['xs'])
+                    call = ' '.join(['visit'] + names + ['tail'])
+                    data = '' if family == 'Nat' else 'data Chain : Type where\n  Empty : Chain\n  More : (1 tail : Chain) -> Chain\n'
+                    terminal, successor = ('Zero', 'Succ') if family == 'Nat' else ('Empty', 'More')
+                    program = ('module Main\n' + data + f'visit : {signature}\nvisit {header} = case xs of\n'
+                               f'  {terminal} => ""\n  {successor} tail => appendString p0 ({call})\n'
+                               'main : IO Unit\nmain = putStrLn "admitted"\n')
+                    path.write_text(program)
+                    result = project('run')
+                    if count == 64:
+                        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                        self.assertEqual(result.stdout, 'admitted\n')
+                    else:
+                        self.assertNotEqual(result.returncode, 0)
+                        self.assertEqual(result.stdout, '')
+            path.write_text(source)
+            formatted = run('format', str(path))
+            self.assertEqual(formatted.returncode, 0, formatted.stderr)
+            path.write_text(formatted.stdout)
+            self.assertEqual(run('format', '--check', str(path)).returncode, 0)
+            self.assertEqual(project('run').stdout, 'receipt!!\n~~\n')
+
     def test_uniform_structural_sequence_telescope(self):
         source = (ROOT / 'examples/modules/uniform-recursion/Main.fib').read_text()
         with tempfile.TemporaryDirectory() as directory:

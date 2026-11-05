@@ -1,0 +1,22 @@
+module Main
+
+import Data.Chain
+
+iterate : {0 A : Type} -> (transform : (1 value : A) -> A) ->
+  (initial : A) -> (1 count : Nat) -> A
+iterate Element transform initial count = case count of
+  Zero => initial
+  Succ previous => transform (iterate {Element} transform initial previous)
+
+marks : (marker : String) -> (1 chain : Data.Chain.Chain) -> String
+marks marker chain = case chain of
+  Data.Chain.Empty => ""
+  Data.Chain.More previous => appendString marker (marks marker previous)
+
+exclaim : (1 text : String) -> String
+exclaim text = appendString text "!"
+
+main : IO Unit
+main = do
+  putStrLn (iterate {String} exclaim "receipt" (Succ (Succ Zero)))
+  putStrLn (marks "~" (Data.Chain.More (Data.Chain.More Data.Chain.Empty)))

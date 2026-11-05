@@ -1,0 +1,6 @@
+module Data.Chain
+
+export
+data Chain : Type where
+  Empty : Chain
+  More : (1 tail : Chain) -> Chain

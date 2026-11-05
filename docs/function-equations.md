@@ -85,16 +85,18 @@ double n = case n of
 
 The [runnable example](../examples/modules/recursive-equations/Main.fib) prints
 four marks after doubling two. A second [example](../examples/modules/recursive-render/Main.fib)
-recursively constructs a String. The compiler accepts one named linear Nat
+recursively constructs a String. The compiler accepts a named linear Nat
 argument and a result type independent of that argument, with exactly one
-`Zero` arm and one `Succ k` arm in either order. The zero arm cannot use the
-function or either bound name. The successor arm must contain **exactly one
-direct call** `f k` on the immediate predecessor. Calls on the original input,
+`Zero` arm and one `Succ k` arm in either order. A bounded uniform telescope of
+erased or unrestricted parameters may precede the Nat input, as described below.
+The zero arm cannot use the function or the structural input. The successor arm
+must contain **exactly one direct call** on the immediate predecessor, such as
+`f k` or `f prefix k`. Calls on the original input,
 a successor, a different value, or multiple recursive calls are rejected.
 
 Branch expressions support ordinary references, literals, applications and
-conditionals; binders, annotations, nested cases and implicit-brace applications
-are not yet admitted in these branches. A call in only one conditional branch
+conditionals. Uniform-prefix equations also admit explicit brace applications;
+binders, annotations and nested cases are not yet admitted in these branches. A call in only one conditional branch
 may still be rejected by independent linear-usage checking. The predecessor may
 appear only as the argument of the recursive call, not as a runtime value.
 Binder and global-name collisions are not silently reinterpreted. The special
@@ -105,9 +107,9 @@ This syntactic admission constructs a closed core `NatRec`, whose step has an
 erased predecessor and a linear previous result. Independent core typing and
 usage checking remain authoritative. Unchecked signature normalization is
 size/payload guarded, and an inconclusive or exhausted attempt does not accept
-recursion. This is **not** a general termination checker: additional parameters,
-binder-containing successor expressions, multiple recursive calls, mutual
-recursion and dependent results need later work. Use explicit [`natRec` or `natRecWith`](nat-recursion.md) for operations
+recursion. This is **not** a general termination checker: changing recursive
+parameters, binder-containing successor expressions, multiple recursive calls,
+mutual recursion and results dependent on the recursive input need later work. Use explicit [`natRec` or `natRecWith`](nat-recursion.md) for operations
 outside this narrow source form. Experimental C emission supports these checked
 Nat forms, subject to its own runtime limits.
 
@@ -130,9 +132,10 @@ marks chain = case chain of
 
 The [recursive-data example](../examples/modules/recursive-data/Main.fib)
 compares direct one-step matching, a named fold and this equation form. No named
-eliminator is required for the equation. The signature has exactly one named
-linear input and a result independent of that input; the case has one terminal
-and one unary-tail arm, in either order. The successor body admits exactly one
+eliminator is required for the equation. The signature has one named linear recursive input and a result independent of
+that input; the case has one terminal and one unary-tail arm, in either order.
+Erased or unrestricted parameters may precede the input when passed uniformly
+on every recursive call. The successor body admits exactly one
 unqualified direct call on its immediate tail. As for Nat, the tail cannot
 otherwise be used, and branch expressions are limited to the binder-free subset
 above. An ordinary non-recursive direct case still works without this lowering.
@@ -204,8 +207,10 @@ both the reference and experimental C runtimes. The more general
 uses a renderer and separator captured by the repeated fold step.
 
 The uniform form admits up to **64 prefix binders** at quantity 0 or
-unrestricted, followed by one linear list input. Prefix domains and the result
-may depend on earlier parameters; the result must not depend on the list input.
+unrestricted, followed by one linear Nat, unary-recursive or list input. Prefix
+domains and the result may depend on earlier parameters; the result must not
+depend on the recursive input. The [Nat and chain example](../examples/modules/uniform-nat-chain/Main.fib)
+shows an erased type and reusable function as well as an imported unary family.
 Every recursive call must spell **all** prefix arguments with their authored
 implicit/explicit visibility and pass the same bound names in the same order,
 followed by the immediate tail. Omitted, reordered or changed arguments are not
@@ -226,7 +231,7 @@ parameter's elaborated domain is admitted at 512 raw core nodes before it is
 copied into the generated lambda. Module checking reserves 513 nodes per binder,
 plus signature/body expansion, before cloning globals. The recursive forms reserve
 additional admitted result-type copies and branch expansion before construction;
-list equations also reserve for the head, tail, induction-result binders and
+uniform equations also reserve for payloads, induction-result binders and the
 admitted prefix telescope;
 the existing cumulative
 200000-node construction budget and independent post-count still apply. These
