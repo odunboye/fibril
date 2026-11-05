@@ -11,5 +11,10 @@ marks : (1 chain : Data.Chain.Chain) -> String
 marks chain = Data.Chain.foldChain (\(0 self : Data.Chain.Chain) => String) ""
   (\(0 rest : Data.Chain.Chain) => \(1 result : String) => appendString result "!") chain
 
+marksByEquation : (1 chain : Data.Chain.Chain) -> String
+marksByEquation chain = case chain of
+  Data.Chain.Empty => ""
+  Data.Chain.More rest => appendString "!" (marksByEquation rest)
+
 main : IO Unit
-main = putStrLn (marks (dropOne (Data.Chain.More (Data.Chain.More (Data.Chain.More Data.Chain.Empty)))))
+main = putStrLn (marksByEquation (dropOne (Data.Chain.More (Data.Chain.More (Data.Chain.More Data.Chain.Empty)))))

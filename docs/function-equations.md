@@ -25,8 +25,8 @@ fibril run --source-dir examples/modules/function-equations examples/modules/fun
 Use explicit lambdas when writing anonymous functions, when annotations on the
 body are more readable, or when the signature is not an explicit Pi telescope.
 Ordinary named equations are elaboration convenience over existing core lambdas.
-A separate, narrowly bounded structural Nat-recursion form is described below;
-neither form constitutes a proof of whole-language totality.
+Separate, narrowly bounded structural forms for Nat and unary recursive data
+are described below; none constitutes a proof of whole-language totality.
 
 ![Function equation checking](diagrams/function-equations.svg)
 
@@ -51,8 +51,8 @@ Parameters are bare names or `_`, occupy the definition header line, and are
 unique except for wildcard `_`. **Every bare name, including an uppercase name,
 is a binder—not a constructor pattern.** `_` does not grant permission to discard
 a linear input. Nested constructor patterns, multiple clauses, guards, inferred signatures,
-general recursive definitions and termination checking are not added. A small
-structural Nat equation is the exception described below. Keep using
+general recursive definitions and termination checking are not added. Small
+structural Nat and unary-data equations are the exceptions described below. Keep using
 [direct data cases](direct-data-cases.md) in the body for existing nonrecursive
 data matching; constant and supported expected-dependent motives can be [inferred](data-motive-inference.md). Imported qualified function calls retain ordinary visibility rules.
 
@@ -107,8 +107,7 @@ usage checking remain authoritative. Unchecked signature normalization is
 size/payload guarded, and an inconclusive or exhausted attempt does not accept
 recursion. This is **not** a general termination checker: additional parameters,
 binder-containing successor expressions, multiple recursive calls, mutual
-recursion, dependent results and user-defined recursive types need later
-work. Use explicit [`natRec` or `natRecWith`](nat-recursion.md) for operations
+recursion and dependent results need later work. Use explicit [`natRec` or `natRecWith`](nat-recursion.md) for operations
 outside this narrow source form. C emission still rejects Nat computation.
 
 Project definition navigation resolves this exact self-call in import-free
@@ -116,12 +115,43 @@ modules with an unshadowed built-in Nat signature; other self-call navigation
 is not yet supported. Same-file rename/references do not infer recursive
 bindings. Formatting retains the authored case and validates its shape.
 
+## Structural unary-data equations
+
+The same restricted style works for the fixed unary recursive shape, including
+visible constructors from direct imports:
+
+~~~fibril
+marks : (1 chain : Chain) -> String
+marks chain = case chain of
+  Empty => ""
+  More rest => appendString "!" (marks rest)
+~~~
+
+The [recursive-data example](../examples/modules/recursive-data/Main.fib)
+compares direct one-step matching, a named fold and this equation form. No named
+eliminator is required for the equation. The signature has exactly one named
+linear input and a result independent of that input; the case has one terminal
+and one unary-tail arm, in either order. The successor body admits exactly one
+unqualified direct call on its immediate tail. As for Nat, the tail cannot
+otherwise be used, and branch expressions are limited to the binder-free subset
+above. An ordinary non-recursive direct case still works without this lowering.
+
+The compiler checks visible, unrestricted constructor globals against the
+canonical constructors for the exact inferred family under guarded conversion;
+spelling, declaration order and authored schema metadata are not authority.
+Transparent aliases may match. It lowers the admitted equation to a `RecFold`
+with an erased tail and linear induction result; independent core type and usage
+checks still validate the whole function. This is convenient syntax for the
+existing fixed-shape fold, not general recursive equations, positivity or a
+termination checker. Project navigation does not yet resolve the new recursive
+self-call; it does not invent a source location. The C backend still rejects it.
+
 ## Bounds, tooling and evidence
 
 The existing expression parser budget limits equation header arguments. A
 parameter's elaborated domain is admitted at 512 raw core nodes before it is
 copied into the generated lambda. Module checking reserves 513 nodes per binder,
-plus signature/body expansion, before cloning globals. The recursive form reserves
+plus signature/body expansion, before cloning globals. The recursive forms reserve
 additional admitted result-type copies and branch expansion before construction;
 the existing cumulative
 200000-node construction budget and independent post-count still apply. These

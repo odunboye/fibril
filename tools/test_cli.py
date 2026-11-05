@@ -1458,6 +1458,87 @@ class CLITests(unittest.TestCase):
             path.write_text(budgeted.replace('  alias rest => rest', '  More rest => rest'))
             self.assertEqual(project('run').stdout, 'ok\n')
 
+    def test_structural_unary_recursive_equations(self):
+        source = ('module Main\ndata Chain : Type where\n  Empty : Chain\n'
+                  '  More : (1 rest : Chain) -> Chain\n'
+                  'marks : (1 chain : Chain) -> String\nmarks chain = case chain of\n'
+                  '  Empty => ""\n  More rest => appendString "!" (marks rest)\n'
+                  'main : IO Unit\nmain = putStrLn (marks (More (More Empty)))\n')
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Main.fib'
+            def project(command):
+                return run(command, '--source-dir', directory, str(path))
+            path.write_text(source)
+            result = project('run')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, '!!\n')
+            path.write_text(source.replace('marks (More (More Empty))', 'marks Empty'))
+            self.assertEqual(project('run').stdout, '\n')
+            path.write_text(source.replace('  Empty => ""\n  More rest => appendString "!" (marks rest)',
+                                           '  More rest => appendString "!" (marks rest)\n  Empty => ""'))
+            self.assertEqual(project('run').stdout, '!!\n')
+            alias = ('Done : Chain\nDone = Empty\nNext : (1 tail : Chain) -> Chain\nNext tail = More tail\n')
+            path.write_text(source.replace('marks :', alias + 'marks :').replace('  Empty =>', '  Done =>').replace('  More rest =>', '  Next rest =>'))
+            self.assertEqual(project('run').stdout, '!!\n')
+            alias_type = source.replace('marks :', '0 Alias : Type\nAlias = Chain\nmarks :').replace('marks : (1 chain : Chain)', 'marks : (1 chain : Alias)')
+            path.write_text(alias_type)
+            self.assertEqual(project('run').stdout, '!!\n')
+            erased = source.replace('marks :', '0 marks :').replace('main = putStrLn (marks (More (More Empty)))', 'main = putStrLn "erased"')
+            path.write_text(erased)
+            result = project('run')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'erased\n')
+            foreign = ('data Other : Type where\n  Stop : Other\n  Next : (1 rest : Other) -> Other\n')
+            invalid = [source.replace('(marks rest)', '(marks chain)'),
+                       source.replace('(marks rest)', '(marks (More rest))'),
+                       source.replace('appendString "!" (marks rest)', 'appendString (marks rest) (marks rest)'),
+                       source.replace('  Empty => ""', '  Empty => marks Empty'),
+                       source.replace('appendString "!" (marks rest)', 'if True then marks rest else ""'),
+                       source.replace('  More rest => appendString "!" (marks rest)', '  More rest => appendString (marks rest) (marks rest)'),
+                       source.replace('  More rest =>', '  More marks =>'),
+                       source.replace('marks : (1 chain : Chain)', 'marks : (chain : Chain)'),
+                       source.replace('marks :', foreign + 'marks :').replace('  More rest =>', '  Next rest =>')]
+            for program in invalid:
+                with self.subTest(program=program[-160:]):
+                    path.write_text(program)
+                    rejected = project('run')
+                    self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
+                    self.assertEqual(rejected.stdout, '')
+            # Dependent result types are not silently approximated by a
+            # constant fold motive.
+            dependent = ('module Main\ndata Chain : Type where\n  Empty : Chain\n'
+                         '  More : (1 tail : Chain) -> Chain\n'
+                         'data Tagged (0 value : Chain) : Type where\n  Tag : Tagged value\n'
+                         'build : (1 chain : Chain) -> Tagged chain\nbuild chain = case chain of\n'
+                         '  Empty => Tag Empty\n  More rest => build rest\n'
+                         'main : IO Unit\nmain = putStrLn "never"\n')
+            path.write_text(dependent)
+            rejected = project('run')
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertIn('result independent', rejected.stderr)
+            self.assertEqual(rejected.stdout, '')
+            # An oversized transparent alias cannot serve as constructor evidence.
+            expression = 'More value'
+            for _ in range(50):
+                expression = 'identity (' + expression + ')'
+            large = ('identity : (1 value : Chain) -> Chain\nidentity value = value\n'
+                     'large : (1 value : Chain) -> Chain\nlarge value = ' + expression + '\n')
+            guarded = source.replace('marks :', large + 'marks :').replace('  More rest =>', '  large rest =>')
+            path.write_text(guarded)
+            rejected = project('run')
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertEqual(rejected.stdout, '')
+            path.write_text(guarded.replace('  large rest =>', '  More rest =>'))
+            result = project('run')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, '!!\n')
+            path.write_text(source)
+            formatted = run('format', str(path))
+            self.assertEqual(formatted.returncode, 0, formatted.stderr)
+            path.write_text(formatted.stdout)
+            self.assertEqual(run('format', '--check', str(path)).returncode, 0)
+            self.assertEqual(project('run').stdout, '!!\n')
+
     def test_direct_sequence_cases(self):
         source = ('module Main\ndata Items {0 A : Type} : Type where\n  eliminator foldItems\n'
                   '  Empty : Items A\n  Prepend : (1 head : A) -> (1 tail : Items A) -> Items A\n'

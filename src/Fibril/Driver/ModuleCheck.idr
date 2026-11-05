@@ -347,15 +347,82 @@ natRecursiveEquation globals name ty (NEquationLambda _ [argument] _
     _ => Right Nothing
 natRecursiveEquation _ _ _ _ = Right Nothing
 
+-- Constructor spelling and schema metadata are not evidence: use only visible
+-- unrestricted checked globals whose normalized values match this exact family.
 private
-recursiveEquationReserve : Expr -> Nat
+recursiveConstructorTag : List Weighted -> String -> String -> Maybe Nat
+recursiveConstructorTag globals key name = do
+  entry <- find (\item => item.global.name == name) globals
+  if entry.global.quantity /= Unrestricted then Nothing else do
+    value <- guardedNormal typeReductionFuel entry.global.value
+    if sameSyntax value (RecEnd (RecType key)) then Just 0 else
+      if sameSyntax value (Lambda Linear (RecType key) (RecMore (RecType key) (Variable FZ)))
+        then Just 1 else Nothing
+
+private
+unaryRecursiveEquation : List Weighted -> String -> Term 0 -> Expr -> Either ResolveError (Maybe (Term 0))
+unaryRecursiveEquation globals name ty (NEquationLambda _ [argument] _
+  (NDataCase span (NRef _ scrutinee) Nothing [(first, firstBinder, firstBody), (second, secondBinder, secondBody)])) = do
+  if argument.spelling == "_" || argument.spelling == name || scrutinee /= argument.spelling ||
+     isJust (find (\entry => entry.global.name == name) globals) ||
+     not (null (qualifiedCandidates name (map global globals))) then Right Nothing else do
+  case guardedNormal typeReductionFuel ty of
+    Just (Pi Linear family@(RecType key) result) =>
+      case (recursiveConstructorTag globals key first.spelling, firstBinder,
+            recursiveConstructorTag globals key second.spelling, secondBinder) of
+        (Just 0, [], Just 1, [predecessor]) => lower family result firstBody predecessor secondBody
+        (Just 1, [predecessor], Just 0, []) => lower family result secondBody predecessor firstBody
+        _ => Right Nothing
+    _ => Right Nothing
+  where
+    lower : Term 0 -> Term 1 -> Expr -> Token -> Expr -> Either ResolveError (Maybe (Term 0))
+    lower family result base predecessor body = do
+      if predecessor.spelling == "_" || predecessor.spelling == name || predecessor.spelling == argument.spelling ||
+         predecessor.spelling == first.spelling || predecessor.spelling == second.spelling ||
+         argument.spelling == first.spelling || argument.spelling == second.spelling ||
+         name == first.spelling || name == second.spelling
+        then Right Nothing else do
+      case (recursiveExpression name argument.spelling predecessor.spelling base,
+            recursiveExpression name argument.spelling predecessor.spelling body) of
+        (Just (False, baseExpr), Just (True, stepExpr)) => do
+          resultType <- case dropNewest result of
+            Nothing => Left (CannotElaborate span.start "Structural recursive equations require a result independent of the argument")
+            Just resultType => Right resultType
+          let checkedGlobals = map global globals
+          baseTerm <- elaborateExpected checkedGlobals Empty [] resultType baseExpr
+          let stepContext = Extend (Extend Empty Erased family) Linear (weaken resultType)
+          stepTerm <- elaborateExpected checkedGlobals stepContext [recursiveResultName, "$rec.predecessor"]
+                        (weaken (weaken resultType)) stepExpr
+          let motive : Term 1 = Lambda Erased (weaken family) (weaken (weaken resultType))
+          let branch : Term 1 = weaken (Lambda Erased family (Lambda Linear (weaken resultType) stepTerm))
+          Right (Just (Lambda Linear family (RecFold motive (weaken baseTerm) branch (Variable FZ))))
+        _ => Right Nothing
+unaryRecursiveEquation _ _ _ _ = Right Nothing
+
+-- This read-only probe allocates no rewritten expression before admission.
+private
+structuralCallPresent : String -> String -> Expr -> Bool
+structuralCallPresent name predecessor (NApply _ (NRef _ function) (NRef _ value)) =
+  function == name && value == predecessor
+structuralCallPresent name predecessor (NApply _ function value) =
+  structuralCallPresent name predecessor function || structuralCallPresent name predecessor value
+structuralCallPresent name predecessor (NIf _ condition yes no) =
+  structuralCallPresent name predecessor condition || structuralCallPresent name predecessor yes || structuralCallPresent name predecessor no
+structuralCallPresent _ _ _ = False
+
+private
+recursiveEquationReserve : String -> Expr -> Nat
 -- Reserve for admitted result-type copies in the closed branch contexts,
 -- motive, lambda annotation and their weakening, before any are built.
-recursiveEquationReserve (NEquationLambda _ [_] _ (NDataCase _ _ Nothing [(first, _, _), (second, _, _)])) =
-  if (first.spelling == "Zero" && second.spelling == "Succ") ||
-     (first.spelling == "Succ" && second.spelling == "Zero")
-    then 16 + 9 * 513 else 0
-recursiveEquationReserve _ = 0
+recursiveEquationReserve name (NEquationLambda _ [argument] _ (NDataCase _ _ Nothing [(first, firstBinder, firstBody), (second, secondBinder, secondBody)])) =
+  let natShape = (first.spelling == "Zero" && second.spelling == "Succ") ||
+                 (first.spelling == "Succ" && second.spelling == "Zero")
+      recursiveShape = case (firstBinder, secondBinder) of
+        ([], [predecessor]) => structuralCallPresent name predecessor.spelling secondBody
+        ([predecessor], []) => structuralCallPresent name predecessor.spelling firstBody
+        _ => False in
+    if natShape || recursiveShape then 16 + 9 * 513 else 0
+recursiveEquationReserve _ _ = 0
 
 compileDeclarations : ModuleSnapshot -> List String -> List Weighted -> List Declaration -> Nat ->
                       Either GraphError Compiled
@@ -367,7 +434,7 @@ compileDeclarations snapshot name globals (decl :: rest) remaining = do
      else Right ()
   if decl.dictionary && decl.quantity /= Unrestricted
      then Left (problem snapshot (Just decl.nameSpan.start) "Implementations require unrestricted named dictionary values") else Right ()
-  let estimate = cost remaining globals [] decl.expected + cost remaining globals [] decl.value + recursiveEquationReserve decl.value
+  let estimate = cost remaining globals [] decl.expected + cost remaining globals [] decl.value + recursiveEquationReserve decl.name decl.value
   if estimate > remaining then Left (problem snapshot (Just decl.nameSpan.start)
                                      "Expanded core construction budget exhausted (200000)")
      else Right ()
@@ -382,6 +449,11 @@ compileDeclarations snapshot name globals (decl :: rest) remaining = do
   recursive <- case natRecursiveEquation globals decl.name ty decl.value of
     Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
     Right candidate => Right candidate
+  recursive <- the (Either GraphError (Maybe (Term 0))) $ case recursive of
+    Just result => Right (Just result)
+    Nothing => case unaryRecursiveEquation globals decl.name ty decl.value of
+      Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
+      Right candidate => Right candidate
   value <- case recursive of
     Just recursive => Right recursive
     Nothing => case elaborateExpected (map global globals) Empty [] ty decl.value of

@@ -126,8 +126,9 @@ module-expansion, checking and reduction admissions also apply. These are not
 hard time, stack or allocation guarantees. Nested/mutual recursion, arbitrary
 payload fields, indexed recursive families, more constructors and general
 recursive equations remain unsupported. Direct `case` can inspect this unary
-family once and exposes its actual tail linearly; use the named fold for
-structural recursion. The C backend rejects these new computational forms.
+family once and exposes its actual tail linearly. Use the named fold for
+structural recursion, or the [restricted structural equation form](function-equations.md#structural-unary-data-equations)
+when its narrower syntax applies. The C backend rejects these computational forms.
 
 ![Unary recursive data checking](diagrams/recursive-data.svg)
 
