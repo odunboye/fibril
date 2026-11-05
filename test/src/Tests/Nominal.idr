@@ -164,6 +164,39 @@ checks =
       case step candidate of
         Just reduced => accepts (checkRuntime 512 128 ctx reduced expected)
         Nothing => False)
+  , ("sequence one-step case consumes both payloads and contracts",
+      let branch = Lambda Linear StringType (Lambda Linear seqType
+            (StringAppend (Variable (FS FZ)) (SeqFold seqMotive (StringValue "") seqStep (Variable FZ))))
+          candidate = SeqCase seqMotive seqValue (StringValue "empty") branch in
+      accepts (checkRuntime 512 128 Empty candidate StringType) &&
+      case normalize 64 candidate of
+        Normal result => sameSyntax result (StringValue "ab") && accepts (checkRuntime 512 128 Empty result StringType)
+        _ => False)
+  , ("sequence case joins linear captures and checks inactive branches",
+      let ctx = Extend Empty Linear StringType
+          branch = Lambda Linear StringType (Lambda Linear seqType
+            (StringAppend (Variable (FS FZ)) (SeqFold seqMotive (Variable (FS (FS FZ))) seqStep (Variable FZ))))
+          droppedHead = Lambda Linear StringType (Lambda Linear seqType
+            (SeqFold seqMotive (StringValue "") seqStep (Variable FZ)))
+          droppedTail = Lambda Linear StringType (Lambda Linear seqType (Variable (FS FZ))) in
+      accepts (checkRuntime 512 128 ctx (SeqCase seqMotive (SeqNil seqType) (Variable FZ) branch) StringType) &&
+      not (accepts (checkRuntime 512 128 Empty (SeqCase seqMotive (SeqNil seqType) (StringValue "") droppedHead) StringType)) &&
+      not (accepts (checkRuntime 512 128 Empty (SeqCase seqMotive (SeqNil seqType) (StringValue "") droppedTail) StringType)) &&
+      not (accepts (checkErased 512 128 ctx (SeqCase seqMotive (SeqNil seqType) BoolTrue branch) StringType)))
+  , ("sequence case dependent motive survives contraction with neutral tail",
+      let ctx = Extend Empty Linear seqType
+          value = SeqCons seqType (StringValue "a") (Variable FZ)
+          branch = Lambda Linear StringType (Lambda Linear seqType
+            (Lambda Erased (sequenceIndex (SeqCons seqType (Variable (FS FZ)) (Variable FZ)))
+              (StringAppend (Variable (FS (FS FZ)))
+                (Apply (SeqFold dependentSeqMotive dependentSeqBase dependentSeqStep (Variable (FS FZ)))
+                  (NominalValue (sequenceIndex (Variable (FS FZ))) (VariantValue indexShape 0 Nothing))))))
+          candidate = SeqCase dependentSeqMotive value dependentSeqBase branch
+          expected = Apply dependentSeqMotive value in
+      accepts (checkRuntime 512 128 ctx candidate expected) &&
+      case step candidate of
+        Just reduced => accepts (checkRuntime 512 128 ctx reduced expected)
+        Nothing => False)
   , ("sequence core checks and folds head and tail linearly",
       let candidate = SeqFold seqMotive (StringValue "") seqStep seqValue in
       accepts (checkRuntime 512 128 Empty candidate StringType) &&

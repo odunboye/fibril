@@ -172,12 +172,16 @@ mutual
        in 4 + resultSize + resultSize * cost limit globals env body
 
   -- Count each source arm once, then reserve its potential weakened copies.
+  -- Two payload binders may each require an admitted type annotation.
   -- Re-traversing nested case bodies per copy would make admission exponential.
-  dataArmsCost : Nat -> List Weighted -> List String -> Nat -> List (Token, Maybe Token, Expr) -> Nat
+  dataArmsCost : Nat -> List Weighted -> List String -> Nat -> List (Token, List Token, Expr) -> Nat
   dataArmsCost limit globals env copies [] = 0
   dataArmsCost limit globals env copies ((_, binder, body) :: rest) =
-    let branch = cost limit globals (maybe env (\token => token.spelling :: env) binder) body in
-      min (S limit) (1025 + copies * (513 + branch) + dataArmsCost limit globals env copies rest)
+    let branch = cost limit globals (reverse (map spelling binder) ++ env) body
+        binary = length binder > 1
+        reserve : Nat = if binary then 2051 else 1025
+        annotation : Nat = if binary then 1026 else 513 in
+      min (S limit) (reserve + copies * (annotation + branch) + dataArmsCost limit globals env copies rest)
 
   listCost : Nat -> List Weighted -> List String -> List Expr -> Nat
   listCost limit globals env [] = 0
@@ -320,8 +324,8 @@ natRecursiveEquation globals name ty (NEquationLambda _ [argument] _
       Nothing => Left (CannotElaborate span.start "Structural Nat equations require a result independent of the argument")
       Just resultType => do
         (base, predecessor, body) <- case (first.spelling, firstBinder, second.spelling, secondBinder) of
-          ("Zero", Nothing, "Succ", Just predecessor) => Right (firstBody, predecessor, secondBody)
-          ("Succ", Just predecessor, "Zero", Nothing) => Right (secondBody, predecessor, firstBody)
+          ("Zero", [], "Succ", [predecessor]) => Right (firstBody, predecessor, secondBody)
+          ("Succ", [predecessor], "Zero", []) => Right (secondBody, predecessor, firstBody)
           _ => Left (CannotElaborate span.start "Structural Nat equations require one Zero arm and one Succ predecessor arm")
         if predecessor.spelling == "_" || predecessor.spelling == name || predecessor.spelling == argument.spelling ||
            predecessor.spelling == "Zero" || predecessor.spelling == "Succ"

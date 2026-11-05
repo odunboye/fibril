@@ -564,12 +564,12 @@ mutual
   elaborateDeclarationsWithBudget nodes slots = lower Nothing [] (min nodes defaultConstructionBudget) slots []
 
 
-  mentionsDataArms : String -> List (Token, Maybe Token, Expr) -> Bool
+  mentionsDataArms : String -> List (Token, List Token, Expr) -> Bool
   mentionsDataArms name [] = False
   mentionsDataArms name ((constructor, binder, body) :: rest) =
-    name == constructor.spelling || (case binder of Just token => if token.spelling == name then False else mentions name body; Nothing => mentions name body) || mentionsDataArms name rest
+    name == constructor.spelling || (not (any (\token => token.spelling == name) binder) && mentions name body) || mentionsDataArms name rest
 
-  syntaxDataArms : List (Token, Maybe Token, Expr) -> Nat
+  syntaxDataArms : List (Token, List Token, Expr) -> Nat
   syntaxDataArms [] = 0
   syntaxDataArms ((_, _, body) :: rest) = capped (1 + syntaxNodes body + syntaxDataArms rest)
 

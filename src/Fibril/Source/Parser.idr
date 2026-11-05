@@ -341,7 +341,7 @@ mutual
 
   -- Preserve the full authored qualified span/name in the existing branch
   -- header token. Only the final actual Name token is navigable.
-  dataPatternHeader : Position -> List Token -> Either ParseError (Token, Maybe Token, List Token)
+  dataPatternHeader : Position -> List Token -> Either ParseError (Token, List Token, List Token)
   dataPatternHeader end tokens = do
     (first, following) <- expect Name end tokens
     (name, afterName) <- if qualifiedAhead following then do
@@ -350,10 +350,7 @@ mutual
         NQualifiedRef region text => Right (Located Name text region, rest)
         _ => Left (ParseFailure first.span.start "Expected qualified constructor name")
       else Right (first, following)
-    let parsed : (Maybe Token, List Token) = case afterName of
-          item :: rest => if item.kind == Name then (Just item, rest) else (Nothing, afterName)
-          [] => (Nothing, afterName)
-    let (bound, beforeArrow) = parsed
+    let (bound, beforeArrow) = Data.List.span (\item => item.kind == Name) afterName
     (arrow, remaining) <- expect BodyArrow end beforeArrow
     if arrow.span.start.line /= first.span.start.line
       then Left (ParseFailure arrow.span.start "Data-case header must occupy one line")
@@ -369,14 +366,14 @@ mutual
     first.span.start.line > marker.span.start.line && first.span.start.column > 1 &&
     (case dataPatternHeader marker.span.finish (first :: rest) of
       Left _ => False
-      Right (_, Nothing, _) => True
-      Right (_, Just _, _) =>
+      Right (_, [], _) => True
+      Right (_, _ :: _, _) =>
         let later = dropWhile (\item => item.span.start.line == first.span.start.line || item.span.start.column > first.span.start.column) rest
          in case later of
               next :: _ => next.span.start.column == first.span.start.column && dataHeader marker.span.finish later
               _ => False)
   dataBlockAhead _ [] = False
-  dataBranches : Nat -> Nat -> Position -> Nat -> List Token -> Either ParseError (List (Token, Maybe Token, Expr), List Token)
+  dataBranches : Nat -> Nat -> Position -> Nat -> List Token -> Either ParseError (List (Token, List Token, Expr), List Token)
   dataBranches depth budget end column [] = Right ([], [])
   dataBranches depth Z end column tokens@(first :: _) =
     if first.span.start.column < column then Right ([], tokens)
@@ -384,7 +381,7 @@ mutual
   dataBranches depth (S remainingBudget) end column tokens@(first :: _) =
     if first.span.start.column < column then Right ([], tokens) else do
       if first.span.start.column /= column || not (dataHeader end tokens)
-        then Left (ParseFailure first.span.start "Expected aligned nullary or unary data-case branch") else Right ()
+        then Left (ParseFailure first.span.start "Expected aligned data-case branch") else Right ()
       (name, bound, afterArrow) <- dataPatternHeader end tokens
       let (bodyTokens, rest) = Data.List.span
             (\item => item.span.start.line == name.span.start.line || item.span.start.column > column) afterArrow

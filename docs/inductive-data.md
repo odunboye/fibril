@@ -10,7 +10,7 @@ contract. [Closed nominal identity](nominal-data.md) now settles the non-recursi
 kernel representation. [Checked declaration construction](data-declarations.md)
 now allocates qualified keys and checks closed families/constructors, with exact
 admission and all-or-error layout output. Source integration, field-telescope packing and ordinary module exports now work.
-Direct source matching handles zero/unary non-recursive data. A restricted
+Direct source matching handles zero/unary non-recursive data and the fixed recursive shapes. A restricted
 [unary recursive declaration](data.md#unary-recursive-declarations) and a
 [parameterized list shape](data.md#parameterized-list-shape) now lower to finite,
 fixed-shape checked core types with structural folds; they do not introduce a

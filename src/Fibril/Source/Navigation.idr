@@ -148,7 +148,7 @@ mutual
      in walk context env domain ++ walk context env value ++ self context target ++
         walk context ((name, map context.localTarget target) :: env) body
 
-  walkDataArms : Walker destination -> Environment destination -> List (Token, Maybe Token, Expr) -> List (ReferenceTo destination)
+  walkDataArms : Walker destination -> Environment destination -> List (Token, List Token, Expr) -> List (ReferenceTo destination)
   walkDataArms context env [] = []
   walkDataArms context env ((constructor, binder, body) :: rest) =
     let qualified = elem '.' (unpack constructor.spelling)
@@ -164,11 +164,9 @@ mutual
         refs : List (ReferenceTo destination)
         refs = case (origin, selected) of (Just region, Just dest) => [RefersTo region dest]; _ => []
         binderRefs : List (ReferenceTo destination)
-        binderRefs = case binder of Nothing => []; Just bound => if bound.spelling == "_" then [] else self context (Just bound.span)
+        binderRefs = concatMap (\bound => if bound.spelling == "_" then [] else self context (Just bound.span)) binder
         following : Environment destination
-        following = case binder of
-          Nothing => env
-          Just bound => (bound.spelling, if bound.spelling == "_" then Nothing else Just (context.localTarget bound.span)) :: env
+        following = foldl (\scope, bound => (bound.spelling, if bound.spelling == "_" then Nothing else Just (context.localTarget bound.span)) :: scope) env binder
      in refs ++ binderRefs ++ walk context following body ++ walkDataArms context env rest
 
 dataParameters : Walker destination -> Environment destination -> List RecordParameter ->

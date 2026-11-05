@@ -1458,6 +1458,99 @@ class CLITests(unittest.TestCase):
             path.write_text(budgeted.replace('  alias rest => rest', '  More rest => rest'))
             self.assertEqual(project('run').stdout, 'ok\n')
 
+    def test_direct_sequence_cases(self):
+        source = ('module Main\ndata Items {0 A : Type} : Type where\n  eliminator foldItems\n'
+                  '  Empty : Items A\n  Prepend : (1 head : A) -> (1 tail : Items A) -> Items A\n'
+                  'join : (1 xs : Items String) -> String\njoin xs = case xs of\n'
+                  '  Empty => "empty"\n  Prepend head tail => appendString head '
+                  '(foldItems String (\\(0 ys : Items String) => String) "!" '
+                  '(\\(1 item : String) => \\(0 rest : Items String) => \\(1 result : String) => appendString item result) tail)\n'
+                  'main : IO Unit\nmain = putStrLn (join (Prepend "a" (Prepend "b" (Empty {String}))))\n')
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / 'Main.fib'
+            def project(command):
+                return run(command, '--source-dir', directory, str(path))
+            path.write_text(source)
+            checked = project('run')
+            self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
+            self.assertEqual(checked.stdout, 'ab!\n')
+            lines = source.splitlines()
+            row = next(i for i, line in enumerate(lines, 1) if 'Prepend head tail =>' in line)
+            line = lines[row - 1]
+            for binder, use in [('head', line.index('appendString head') + len('appendString ')),
+                                ('tail', line.rindex('tail)'))]:
+                nav = run('definition', '--source-dir', directory, '--entry', str(path), str(row), str(use + 1), str(path))
+                self.assertEqual(nav.returncode, 0, nav.stderr)
+                start = json.loads(nav.stdout)['definition']['range']['start']
+                self.assertEqual((start['line'], start['column']), (row, line.index(binder) + 1))
+            generic = ('identity : (0 A : Type) -> (1 xs : Items A) -> Items A\n'
+                       'identity A xs = case xs of\n  Empty => Empty {A}\n'
+                       '  Prepend head tail => Prepend head tail\n')
+            path.write_text(source.replace('join :', generic + 'join :').replace('join (Prepend "a"', 'join (identity String (Prepend "a"').replace('(Empty {String}))))', '(Empty {String})))))'))
+            result = project('run')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'ab!\n')
+            path.write_text(source.replace('case xs of', 'case xs return (\\(0 ys : Items String) => String) of'))
+            self.assertEqual(project('run').stdout, 'ab!\n')
+            path.write_text(source.replace('Prepend "a" (Prepend "b" (Empty {String}))', 'Empty {String}'))
+            self.assertEqual(project('run').stdout, 'empty\n')
+            # Transparent specialized aliases are accepted, but parameterized
+            # aliases must accept the actual element type before instantiation.
+            aliases = ('nilAlias : Items String\nnilAlias = Empty {String}\n'
+                       'consAlias : (1 h : String) -> (1 t : Items String) -> Items String\n'
+                       'consAlias h t = Prepend h t\n')
+            aliased = source.replace('join :', aliases + 'join :').replace('  Empty =>', '  nilAlias =>').replace('  Prepend head tail =>', '  consAlias head tail =>')
+            path.write_text(aliased)
+            self.assertEqual(project('run').stdout, 'ab!\n')
+            bad_alias = ('fake : (0 flag : Bool) -> Items String\nfake flag = Empty {String}\n')
+            path.write_text(source.replace('join :', bad_alias + 'join :').replace('  Empty =>', '  fake =>'))
+            rejected = project('run')
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertIn('parameter cannot accept', rejected.stderr)
+            self.assertEqual(rejected.stdout, '')
+            foreign = ('data Other {0 A : Type} : Type where\n  None : Other A\n'
+                       '  Next : (1 head : A) -> (1 tail : Other A) -> Other A\n')
+            wrong_type = ('wrong : Items Bool\nwrong = Empty {Bool}\n')
+            invalid = [source.replace('appendString head (foldItems', 'appendString "dropped" (foldItems'),
+                       source.replace('appendString head (foldItems', 'appendString head (appendString head (foldItems').replace(') tail)\nmain', ') tail))\nmain'),
+                       source.replace(') tail)\nmain', ') (Empty {String}))\nmain'),
+                       source.replace('  Prepend head tail =>', '  Prepend head =>'),
+                       source.replace('  Prepend head tail =>', '  Prepend head tail extra =>'),
+                       source.replace('  Empty => "empty"', '  Empty => "empty"\n  Empty => "duplicate"'),
+                       source.replace('join :', foreign + 'join :').replace('  Prepend head tail =>', '  Next head tail =>'),
+                       source.replace('join :', wrong_type + 'join :').replace('  Empty =>', '  wrong =>')]
+            for program in invalid:
+                with self.subTest(program=program[-200:]):
+                    path.write_text(program)
+                    rejected = project('run')
+                    self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
+                    self.assertEqual(rejected.stdout, '')
+            dependent = ('module Main\ndata Items {0 A : Type} : Type where\n  eliminator foldItems\n'
+                         '  Empty : Items A\n  Prepend : (1 head : A) -> (1 tail : Items A) -> Items A\n'
+                         'data Tagged (0 xs : Items String) : Type where\n  Bad : Tagged xs\n'
+                         '  Marked : (1 text : String) -> Tagged xs\n'
+                         'build : (1 xs : Items String) -> Tagged xs\nbuild xs = case xs of\n'
+                         '  Empty => Marked (Empty {String}) "empty"\n'
+                         '  Prepend head tail => Marked (Prepend head tail) (appendString head '
+                         '(foldItems String (\\(0 ys : Items String) => String) "!" '
+                         '(\\(1 item : String) => \\(0 rest : Items String) => \\(1 result : String) => appendString item result) tail))\n'
+                         'show : (0 xs : Items String) -> (1 value : Tagged xs) -> String\n'
+                         'show xs value = case value of\n  Bad => "bad"\n  Marked text => text\n'
+                         'main : IO Unit\nmain = putStrLn (show (Prepend "a" (Empty {String})) (build (Prepend "a" (Empty {String}))))\n')
+            path.write_text(dependent)
+            checked = project('run')
+            self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
+            self.assertEqual(checked.stdout, 'a!\n')
+            path.write_text(dependent.replace('case xs of', 'case xs return (\\(0 ys : Items String) => Tagged ys) of'))
+            self.assertEqual(project('run').stdout, 'a!\n')
+            path.write_text(source)
+            formatted = run('format', str(path))
+            self.assertEqual(formatted.returncode, 0, formatted.stderr)
+            path.write_text(formatted.stdout)
+            self.assertEqual(run('format', '--check', str(path)).returncode, 0)
+            self.assertEqual(project('run').stdout, 'ab!\n')
+
     def test_parameterized_recursive_list(self):
         import shutil
         fixture = ROOT / 'examples/modules/recursive-list'
@@ -1571,7 +1664,7 @@ class CLITests(unittest.TestCase):
             self.assertNotEqual(rejected.returncode, 0)
             self.assertEqual(rejected.stdout, '')
             # A repeated fold step cannot discard its linear head.
-            dropped = source.replace('appendString head result', 'result')
+            dropped = source.replace('appendString item result', 'result')
             path.write_text(dropped)
             rejected = project('run')
             self.assertNotEqual(rejected.returncode, 0)
@@ -1580,19 +1673,16 @@ class CLITests(unittest.TestCase):
                       'consume xs = Data.Items.foldItems String (\\(0 self : Data.Items.Items String) => String) "" '
                       '(\\(1 head : String) => \\(0 tail : Data.Items.Items String) => '
                       '\\(1 result : String) => appendString head result) xs\n\n')
-            bad_tail = source.replace('join : (1 items', helper + 'join : (1 items').replace(
-                'appendString head result', 'appendString head (appendString (consume tail) result)')
-            # Only change the join step, not the independently valid helper.
-            bad_tail = bad_tail.replace('appendString head (appendString (consume tail) result)) xs',
-                                        'appendString head result) xs', 1)
+            bad_tail = source.replace('appendString item result', 'appendString item (appendString (consume rest) result)').replace(
+                'join : (1 items', helper + 'join : (1 items')
             path.write_text(bad_tail)
             rejected = project('run')
             self.assertNotEqual(rejected.returncode, 0)
             self.assertIn('Binder usage: expected 0, observed 1', rejected.stderr)
             self.assertEqual(rejected.stdout, '')
             capture = source.replace('join : (1 items', 'join : (1 prefix : String) -> (1 items').replace(
-                'join items =', 'join prefix items =').replace('appendString head result',
-                'appendString prefix (appendString head result)').replace('(join (Data.Items.Prepend', '(join "p" (Data.Items.Prepend')
+                'join items =', 'join prefix items =').replace('appendString item result',
+                'appendString prefix (appendString item result)').replace('(join (Data.Items.Prepend', '(join "p" (Data.Items.Prepend')
             path.write_text(capture)
             rejected = project('run')
             self.assertNotEqual(rejected.returncode, 0)

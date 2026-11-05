@@ -31,6 +31,7 @@ mutual
   thin env (RecMore ty x) = [| RecMore (thin env ty) (thin env x) |]
   thin env (RecFold p z s x) = [| RecFold (thin env p) (thin env z) (thin env s) (thin env x) |]
   thin env (RecCase p x z s) = [| RecCase (thin env p) (thin env x) (thin env z) (thin env s) |]
+  thin env (SeqCase p x z s) = [| SeqCase (thin env p) (thin env x) (thin env z) (thin env s) |]
   thin env (SeqType key a) = SeqType key <$> thin env a
   thin env (SeqNil ty) = SeqNil <$> thin env ty
   thin env (SeqCons ty h t) = [| SeqCons (thin env ty) (thin env h) (thin env t) |]
@@ -95,6 +96,7 @@ mutual
   substitutionNodes env (RecMore ty x) = min (S inferredResultNodes) (1 + substitutionNodes env ty + substitutionNodes env x)
   substitutionNodes env (RecFold p z s x) = min (S inferredResultNodes) (1 + substitutionNodes env p + substitutionNodes env z + substitutionNodes env s + substitutionNodes env x)
   substitutionNodes env (RecCase p x z s) = min (S inferredResultNodes) (1 + substitutionNodes env p + substitutionNodes env x + substitutionNodes env z + substitutionNodes env s)
+  substitutionNodes env (SeqCase p x z s) = min (S inferredResultNodes) (1 + substitutionNodes env p + substitutionNodes env x + substitutionNodes env z + substitutionNodes env s)
   substitutionNodes env (SeqType _ a) = min (S inferredResultNodes) (1 + substitutionNodes env a)
   substitutionNodes env (SeqNil ty) = min (S inferredResultNodes) (1 + substitutionNodes env ty)
   substitutionNodes env (SeqCons ty h t) = min (S inferredResultNodes) (1 + substitutionNodes env ty + substitutionNodes env h + substitutionNodes env t)

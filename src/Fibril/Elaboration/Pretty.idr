@@ -65,10 +65,10 @@ mutual
   renderExpr (NAscribe _ value ty) = node "ascribe" [renderExpr value, renderExpr ty]
   renderExpr (NLet _ q name ty value body) = node "let" [show q, name, renderExpr ty, renderExpr value, renderExpr body]
 
-  renderDataArms : List (Token, Maybe Token, Expr) -> List String
+  renderDataArms : List (Token, List Token, Expr) -> List String
   renderDataArms [] = []
   renderDataArms ((name, binder, body) :: rest) =
-    node "arm" [name.spelling, maybe "nullary" spelling binder, renderExpr body] :: renderDataArms rest
+    node "arm" [name.spelling, case binder of [] => "nullary"; [one] => one.spelling; many => node "binders" (map spelling many), renderExpr body] :: renderDataArms rest
 
   renderTerms : List Expr -> List String
   renderTerms [] = []

@@ -14,8 +14,9 @@ one terminal and one direct linear self field; a [parameterized list shape](#par
 also carries a linear element. A built-in [Nat recursor](nat-recursion.md)
 supports structural computation. General recursive data, general strict
 positivity, indexed constructor refinement and general recursive function
-equations remain future work. [Direct multi-branch cases](direct-data-cases.md) now support zero- and
-one-field alternatives, including qualified direct imports; wider patterns remain future work.
+equations remain future work. [Direct multi-branch cases](direct-data-cases.md)
+support zero- and one-field alternatives and the fixed list head/tail shape,
+including qualified direct imports; general wider patterns remain future work.
 
 ![Source data lowering](diagrams/source-data.svg)
 
@@ -159,8 +160,9 @@ or incompatible element types are not interchangeable.
 
 The shape is positive by construction; this is not arbitrary recursive data or
 a general positivity checker. Extra payloads, dependent field telescopes,
-multiple parameters or indices, nonuniform recursion, nested/mutual recursion
-and direct source matching remain unsupported. Use the named fold. The generated
+multiple parameters or indices, nonuniform recursion and nested/mutual recursion
+remain unsupported. Direct `case` inspects one layer with a linear head and
+linear tail; use the named fold to recurse. The generated
 fixed templates reserve 128 nodes without the fold or 768 with it before named-IR
 construction and are post-counted; these are admissions, not hard resource
 bounds. The experimental C backend still rejects these recursive values/folds.
@@ -197,8 +199,8 @@ that captures an ambient linear value is rejected. A curried ordinary Pi type
 does not express the additive sharing between alternatives that direct kernel
 cases support. The helper does not weaken linearity to approximate that feature.
 [Direct source cases](direct-data-cases.md) now permit this additive sharing for
-nullary/unary non-recursive constructors and unary recursive families with an
-explicit or inferred motive.
+nullary/unary non-recursive constructors, unary recursive families and the fixed
+list-shaped head/tail family with an explicit or inferred motive.
 
 ### Staged case-metadata boundary
 

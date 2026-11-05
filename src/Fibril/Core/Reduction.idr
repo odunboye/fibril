@@ -81,6 +81,15 @@ mutual
     Nothing => case step head of
       Just next => Just (SeqCons ty next tail)
       Nothing => SeqCons ty head <$> step tail
+  step (SeqCase motive (SeqNil _) base cons) = Just base
+  step (SeqCase motive (SeqCons _ head tail) base cons) = Just (Apply (Apply cons head) tail)
+  step (SeqCase motive value base cons) = case step motive of
+    Just p => Just (SeqCase p value base cons)
+    Nothing => case step value of
+      Just x => Just (SeqCase motive x base cons)
+      Nothing => case step base of
+        Just z => Just (SeqCase motive value z cons)
+        Nothing => SeqCase motive value base <$> step cons
   step (SeqFold motive base next (SeqNil _)) = Just base
   step (SeqFold motive base next (SeqCons _ head tail)) =
     Just (Apply (Apply (Apply next head) tail) (SeqFold motive base next tail))

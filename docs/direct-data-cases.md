@@ -8,7 +8,8 @@ eliminator. Pattern branches can share an ambient linear resource: each
 alternative uses it in its own branch, and the ordinary runtime checker joins
 those alternative demands. This adds source convenience over existing core
 nominal/variant cases. It also supports one-step matching of the fixed unary
-recursive family; this is not itself a recursive definition or a soundness theorem. Prefer `Bool` for a choice without payload or a record when
+recursive and parameterized list shapes; this is not itself a recursive
+definition or a soundness theorem. Prefer `Bool` for a choice without payload or a record when
 all fields exist together. A named eliminator remains an explicit alternative,
 but its unrestricted branch arguments cannot capture ambient linear values.
 
@@ -35,7 +36,8 @@ fibril run --source-dir examples/modules/direct-data-case examples/modules/direc
 It prints `L: hello`, `R: yes`, then `no`. A separate
 [recursive-data example](../examples/modules/recursive-data/Main.fib) removes
 one layer of an imported unary recursive family, then uses its fold. The
-[request API](../examples/packages/request-api/src/Mail/Request.fib) exercises
+[recursive-list example](../examples/modules/recursive-list/Main.fib) matches a
+linear head and tail before folding the tail. The [request API](../examples/packages/request-api/src/Mail/Request.fib) exercises
 three email-service alternatives locally and from a qualified-import test package;
 it is a pure model, not an email server. A real submission needing a recipient,
 subject and body exposes the current wider-payload matching gap. The separate
@@ -55,24 +57,23 @@ family indexed by a finite choice and returns a different value type per branch.
   [motive inference](data-motive-inference.md) applies, including supported
   expected-dependent results in named equations. Otherwise write
   an explicit erased motive after `return` before `of`. Constructor patterns use a visible local or
-  qualified direct-import name and zero or one field binder: `Missing => ...`,
-  `Text x => ...`, or `Data.Sum.Left x => ...`.
+  qualified direct-import name: `Missing => ...`, `Text x => ...`,
+  `Data.Sum.Left x => ...`, or `Prepend head tail => ...` for a list shape.
   Bodies may continue on more-indented lines; grouped and nested cases work.
 - A direct block is recognized when its first arm is nullary or it contains at
-  least two aligned arms. A *single unary* pattern remains the existing record
-  pattern syntax; use the named eliminator for a one-constructor unary data type.
+  least two aligned arms. A *single unary or binary* pattern remains the existing
+  record pattern syntax; use the named eliminator for a one-constructor data type.
   This deliberate disambiguation preserves existing record programs.
 - Parenthesized data-header parameters remain explicit at construction sites;
   braced headers can opt constructors into [implicit parameters](data.md). The
   case derives actual nominal arguments from the scrutinee and applies them when
   checking branch names; generic erased type parameters are supported.
-- This slice supports nullary and **single-field** constructors, including
-  the fixed terminal/unary-self recursive family. A direct recursive case
-  exposes the actual tail **linearly**, unlike a fold's erased tail plus linear
-  induction result. List-shaped recursive data with a head and tail is not yet
-  supported by direct cases. Wider dependent-field constructors remain usable
-  through named eliminators, but are
-  not silently treated as direct one-field patterns. No nested patterns,
+- This slice supports nullary and **single-field** nominal constructors, the
+  fixed terminal/unary-self family, and the fixed parameterized list shape. A
+  direct list branch binds its head and tail **linearly**, while a fold exposes
+  an erased tail plus a linear induction result. General multi-field and
+  dependent-field constructors remain usable through named eliminators, but are
+  not silently treated as these fixed patterns. No nested patterns,
   constructor wildcard/implicit coverage or general-purpose dependent motive inference is provided.
 - This slice runs through named-module project checking (`--source-dir` or
   `--package`); standalone declaration-file checking does not publish the
@@ -82,7 +83,7 @@ family indexed by a finite choice and returns a different value type per branch.
   exports still apply. An unqualified local shadow is rejected; qualified names
   are not captured by local binders.
 - A pattern name is accepted when its checked global value is definitionally
-  the canonical constructor at that nominal type and tag. Consequently, a
+  the canonical constructor for the exposed family and constructor. Consequently, a
   transparent, unrestricted alias of a constructor can serve as a pattern name;
   it is not a nominal-membership certificate. Duplicate tags, foreign values,
   missing tags, wrong arity and inconclusive conversion fail closed.
@@ -124,6 +125,13 @@ motive fallback apply; the independent checker validates the completed term.
 The fold remains a different operation: it recursively computes a result and
 gives its step only an erased tail.
 
+A list scrutinee builds `SeqCase`, whose cons branch receives both the actual
+head and tail linearly. To compare a parameterized checked global with a
+canonical constructor, the elaborator first checks that its erased parameter
+can accept the exposed element type, then instantiates and compares under
+bounded guarded normalization. Specialized transparent aliases are also
+accepted if their checked values match. Extra unsolved parameters are not guessed.
+
 The module checker sees earlier checked globals only; later/forward definitions
 are unavailable. This first slice does not consume authored `DataSchema` hints;
 those remain untrusted metadata, not a source of typing authority.
@@ -131,14 +139,17 @@ those remain untrusted metadata, not a source of typing authority.
 ## Limits and evidence
 
 The parser and case planner admit at most 64 branches; the inferred nominal type
-and each constructor global value are admitted at 512 raw core nodes; normalizing
-or comparing a constructor uses the existing 128-step type-reduction fuel.
+and each constructor global value are admitted at 512 raw core nodes; list-case
+constructor instantiation and its canonical head/tail comparison also have a
+combined 512-node and character-payload admission, so larger types can require
+a different program structure. Normalizing or comparing a constructor uses the
+existing 128-step type-reduction fuel.
 Existing source/module, 200000-node expanded-core, checker-depth and formatter
 budgets remain independent. Inconclusive normalization/comparison is an error,
 not a guessed match. These admission policies are not memory, deadline or
 metatheory guarantees.
 
-Tests exercise generic Sum, unary recursive cases and aliases, both branches,
+Tests exercise generic Sum, unary and list recursive cases and aliases, both branches,
 source-order reversal, dependent motives, ambient linear use on both branches, missing/duplicate/unknown/foreign
 patterns, wrong payload arity, omitted/duplicated linear uses, erased payload
 misuse, malformed layout, grouped ascriptions, nesting, source navigation,
@@ -146,6 +157,6 @@ formatter idempotence, 64/65 parser admission and existing record-case behavior.
 They are sampled implementation evidence, not preservation, normalization,
 erasure or quantitative/cubical soundness proofs.
 
-Next: multiple and dependent field patterns, single-unary disambiguation and
-more general dependent motive inference through more contexts. Recursive data,
-positivity and structural termination remain separate milestones.
+Next: general multiple and dependent field patterns, single-pattern
+disambiguation and more general dependent motive inference through more contexts.
+General recursive data, positivity and structural termination remain separate milestones.

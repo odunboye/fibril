@@ -63,7 +63,7 @@ mutual
   sameExpr (NLet _ q name a b c) (NLet _ r other x y z) = q == r && name == other && sameExpr a x && sameExpr b y && sameExpr c z
   sameExpr _ _ = False
 
-  sameDataArms : List (Token, Maybe Token, Expr) -> List (Token, Maybe Token, Expr) -> Bool
+  sameDataArms : List (Token, List Token, Expr) -> List (Token, List Token, Expr) -> Bool
   sameDataArms [] [] = True
   sameDataArms ((name, binder, body) :: rest) ((other, next, result) :: remaining) =
     name.spelling == other.spelling && map spelling binder == map spelling next &&

@@ -29,6 +29,9 @@ stepHead (RecFold motive base next value) = map (RecFold motive base next) (step
 stepHead (RecCase motive (RecEnd _) base more) = Just base
 stepHead (RecCase motive (RecMore _ tail) base more) = Just (Apply more tail)
 stepHead (RecCase motive value base more) = map (\x => RecCase motive x base more) (stepHead value)
+stepHead (SeqCase motive (SeqNil _) base cons) = Just base
+stepHead (SeqCase motive (SeqCons _ head tail) base cons) = Just (Apply (Apply cons head) tail)
+stepHead (SeqCase motive value base cons) = map (\x => SeqCase motive x base cons) (stepHead value)
 stepHead (SeqFold motive base next (SeqNil _)) = Just base
 stepHead (SeqFold motive base next (SeqCons _ head tail)) = Just (Apply (Apply (Apply next head) tail) (SeqFold motive base next tail))
 stepHead (SeqFold motive base next value) = map (SeqFold motive base next) (stepHead value)

@@ -43,6 +43,8 @@ data Term : Nat -> Type where
   SeqNil : Term n -> Term n
   SeqCons : Term n -> Term n -> Term n -> Term n
   SeqFold : Term n -> Term n -> Term n -> Term n -> Term n
+  ||| One-step list matching exposes linear head and tail without recursion.
+  SeqCase : Term n -> Term n -> Term n -> Term n -> Term n
   ||| Primitive String : Type0, literal data, pure concatenation/comparison.
   StringType : Term n
   StringValue : String -> Term n
@@ -117,6 +119,7 @@ mutual
   rename env (SeqNil ty) = SeqNil (rename env ty)
   rename env (SeqCons ty head tail) = SeqCons (rename env ty) (rename env head) (rename env tail)
   rename env (SeqFold motive base step value) = SeqFold (rename env motive) (rename env base) (rename env step) (rename env value)
+  rename env (SeqCase motive value base cons) = SeqCase (rename env motive) (rename env value) (rename env base) (rename env cons)
   rename env StringType = StringType
   rename env (StringValue value) = StringValue value
   rename env (StringAppend left right) = StringAppend (rename env left) (rename env right)
@@ -187,6 +190,7 @@ mutual
   substituteTerm env (SeqNil ty) = SeqNil (substituteTerm env ty)
   substituteTerm env (SeqCons ty head tail) = SeqCons (substituteTerm env ty) (substituteTerm env head) (substituteTerm env tail)
   substituteTerm env (SeqFold motive base step value) = SeqFold (substituteTerm env motive) (substituteTerm env base) (substituteTerm env step) (substituteTerm env value)
+  substituteTerm env (SeqCase motive value base cons) = SeqCase (substituteTerm env motive) (substituteTerm env value) (substituteTerm env base) (substituteTerm env cons)
   substituteTerm env StringType = StringType
   substituteTerm env (StringValue value) = StringValue value
   substituteTerm env (StringAppend left right) =
@@ -264,6 +268,7 @@ mutual
   sameSyntax (SeqNil a) (SeqNil b) = sameSyntax a b
   sameSyntax (SeqCons a h t) (SeqCons b x y) = sameSyntax a b && sameSyntax h x && sameSyntax t y
   sameSyntax (SeqFold p z s x) (SeqFold q w t y) = sameSyntax p q && sameSyntax z w && sameSyntax s t && sameSyntax x y
+  sameSyntax (SeqCase p x z s) (SeqCase q y w t) = sameSyntax p q && sameSyntax x y && sameSyntax z w && sameSyntax s t
   sameSyntax StringType StringType = True
   sameSyntax (StringValue left) (StringValue right) = left == right
   sameSyntax (StringAppend a b) (StringAppend c d) = sameSyntax a c && sameSyntax b d

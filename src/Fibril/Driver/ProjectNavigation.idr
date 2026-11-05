@@ -62,9 +62,9 @@ recursiveReference snapshot (Ordinary decl) =
     (NPi _ Linear _ (NRef _ "Nat") _,
      NEquationLambda _ [argument] _ (NDataCase _ (NRef _ scrutinee) Nothing arms)) =>
       if argument.spelling /= scrutinee || length arms /= 2 then [] else
-        let findStep = find (\(name, binder, body) => name.spelling == "Succ" && isJust binder) arms in
+        let findStep = find (\(name, binder, body) => name.spelling == "Succ" && length binder == 1) arms in
         case findStep of
-          Just (_, Just pred, body) => case recursiveSite decl.name pred.spelling body of
+          Just (_, [pred], body) => case recursiveSite decl.name pred.spelling body of
             Just origin => [RefersTo origin (Located snapshot.path decl.definitionNameSpan)]
             Nothing => []
           _ => []

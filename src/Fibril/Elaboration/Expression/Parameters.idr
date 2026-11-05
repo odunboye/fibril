@@ -88,6 +88,9 @@ mutual
   match position mapping prune (RecCase p x z s) (RecCase q y w t) solutions = do
     solutions <- triple position mapping prune p x z q y w solutions
     match position mapping prune s t solutions
+  match position mapping prune (SeqCase p x z s) (SeqCase q y w t) solutions = do
+    solutions <- triple position mapping prune p x z q y w solutions
+    match position mapping prune s t solutions
   match position mapping prune (SeqType key a) (SeqType other b) solutions =
     if key == other then match position mapping prune a b solutions else failure position
   match position mapping prune (SeqNil ty) (SeqNil other) solutions = match position mapping prune ty other solutions
@@ -317,6 +320,14 @@ implicitArgumentType position (S fuel) context (RecCase motive value _ _) = do
   if 1 + typeNodes motive + typeNodes value > inferredParameterNodes ||
      payloadSize motive + payloadSize value > payloadLimit
     then Left (CannotElaborate position "Implicit recursive case result exceeds admission") else Right ()
+  case guardedNormal typeReductionFuel (Apply motive value) of
+    Just (Apply _ _) => Right Nothing
+    Just ty => Right (Just ty)
+    Nothing => Right Nothing
+implicitArgumentType position (S fuel) context (SeqCase motive value _ _) = do
+  if 1 + typeNodes motive + typeNodes value > inferredParameterNodes ||
+     payloadSize motive + payloadSize value > payloadLimit
+    then Left (CannotElaborate position "Implicit sequence case result exceeds admission") else Right ()
   case guardedNormal typeReductionFuel (Apply motive value) of
     Just (Apply _ _) => Right Nothing
     Just ty => Right (Just ty)

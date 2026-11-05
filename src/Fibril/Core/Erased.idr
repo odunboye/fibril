@@ -233,6 +233,29 @@ mutual
         requireCompatible reduction nextType (Pi Linear element (Pi Erased (weaken exposed) (Pi Linear ihType resultType)))
         Right (Apply motive value)
       _ => Left (RecursiveDataError "fold scrutinee must have a sequence type")
+  infer (S depth) reduction context (SeqCase motive value base cons) = do
+    valueType <- infer depth reduction context value
+    exposed <- exposeType reduction valueType
+    case exposed of
+      SeqType _ element => do
+        motiveType <- infer depth reduction context motive
+        motiveHead <- exposeType reduction motiveType
+        case motiveHead of
+          Pi Erased parameter result => do
+            requireCompatible reduction parameter exposed
+            resultHead <- exposeType reduction result
+            case resultHead of
+              Universe _ => Right ()
+              _ => Left (ExpectedUniverse resultHead)
+          _ => Left (RecursiveDataError "sequence case motive must have an erased matching binder and return a universe")
+        baseType <- infer depth reduction context base
+        requireCompatible reduction baseType (Apply motive (SeqNil exposed))
+        consType <- infer depth reduction context cons
+        let constructed = SeqCons (weaken (weaken exposed)) (Variable (FS FZ)) (Variable FZ)
+        let resultType = Apply (weaken (weaken motive)) constructed
+        requireCompatible reduction consType (Pi Linear element (Pi Linear (weaken exposed) resultType))
+        Right (Apply motive value)
+      _ => Left (RecursiveDataError "case scrutinee must have a sequence type")
   infer (S depth) reduction context StringType = Right (Universe 0)
   infer (S depth) reduction context (StringValue _) = Right StringType
   infer (S depth) reduction context (StringAppend left right) = do

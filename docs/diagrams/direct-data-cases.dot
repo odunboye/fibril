@@ -2,10 +2,10 @@ digraph DirectDataCases {
   rankdir=LR;
   node [shape=box];
   source [label="Authored case\nexplicit/inferred motive + aligned branches"];
-  infer [label="Infer scrutinee nominal type\nand actual variant shape"];
-  compare [label="Bounded canonical constructor comparison\nindices + shape + tag + arity"];
-  coverage [label="Exhaustive unique tags\norder branches by variant position"];
-  assemble [label="NominalCase / VariantCase\nactual payload quantity + type"];
+  infer [label="Infer scrutinee family\nnominal, unary recursive or list"];
+  compare [label="Guarded canonical constructor comparison\nfamily + parameters + arity"];
+  coverage [label="Exhaustive unique constructors\norder branches by checked shape"];
+  assemble [label="NominalCase / RecCase / SeqCase\nchecked dependent payload binders"];
   check [label="Independent ordinary core checks\nerased stage + branch usage joins"];
   source -> infer -> compare -> coverage -> assemble -> check;
 }
