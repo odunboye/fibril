@@ -78,6 +78,13 @@ mutual
   match position mapping prune (NatRecRuntime p z s x) (NatRecRuntime q w t y) solutions = do
     solutions <- triple position mapping prune p z s q w t solutions
     match position mapping prune x y solutions
+  match position mapping prune (RecType key) (RecType other) solutions =
+    if key == other then Right solutions else failure position
+  match position mapping prune (RecEnd ty) (RecEnd other) solutions = match position mapping prune ty other solutions
+  match position mapping prune (RecMore ty x) (RecMore other y) solutions = pair position mapping prune ty x other y solutions
+  match position mapping prune (RecFold p z s x) (RecFold q w t y) solutions = do
+    solutions <- triple position mapping prune p z s q w t solutions
+    match position mapping prune x y solutions
   match position mapping prune StringType StringType solutions = Right solutions
   match position mapping prune (StringValue x) (StringValue y) solutions =
     if x == y then Right solutions else failure position
@@ -281,6 +288,17 @@ implicitArgumentType position (S fuel) context (NatRecRuntime motive _ _ value) 
   if 1 + typeNodes motive + typeNodes value > inferredParameterNodes ||
      payloadSize motive + payloadSize value > payloadLimit
     then Left (CannotElaborate position "Implicit Nat recursor result exceeds admission") else Right ()
+  case guardedNormal typeReductionFuel (Apply motive value) of
+    Just (Apply _ _) => Right Nothing
+    Just ty => Right (Just ty)
+    Nothing => Right Nothing
+implicitArgumentType position (S fuel) context (RecType _) = Right (Just (Universe 0))
+implicitArgumentType position (S fuel) context (RecEnd ty) = Right (Just ty)
+implicitArgumentType position (S fuel) context (RecMore ty _) = Right (Just ty)
+implicitArgumentType position (S fuel) context (RecFold motive _ _ value) = do
+  if 1 + typeNodes motive + typeNodes value > inferredParameterNodes ||
+     payloadSize motive + payloadSize value > payloadLimit
+    then Left (CannotElaborate position "Implicit recursive fold result exceeds admission") else Right ()
   case guardedNormal typeReductionFuel (Apply motive value) of
     Just (Apply _ _) => Right Nothing
     Just ty => Right (Just ty)

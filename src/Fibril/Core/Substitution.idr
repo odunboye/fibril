@@ -35,6 +35,10 @@ mutual
   substituteCongruent left right agree (NatSucc x) = cong NatSucc (substituteCongruent left right agree x)
   substituteCongruent left right agree (NatRec p z s x) = rewrite substituteCongruent left right agree p in rewrite substituteCongruent left right agree z in rewrite substituteCongruent left right agree s in rewrite substituteCongruent left right agree x in Refl
   substituteCongruent left right agree (NatRecRuntime p z s x) = rewrite substituteCongruent left right agree p in rewrite substituteCongruent left right agree z in rewrite substituteCongruent left right agree s in rewrite substituteCongruent left right agree x in Refl
+  substituteCongruent left right agree (RecType key) = Refl
+  substituteCongruent left right agree (RecEnd ty) = cong RecEnd (substituteCongruent left right agree ty)
+  substituteCongruent left right agree (RecMore ty x) = rewrite substituteCongruent left right agree ty in rewrite substituteCongruent left right agree x in Refl
+  substituteCongruent left right agree (RecFold p z s x) = rewrite substituteCongruent left right agree p in rewrite substituteCongruent left right agree z in rewrite substituteCongruent left right agree s in rewrite substituteCongruent left right agree x in Refl
   substituteCongruent left right agree StringType = Refl
   substituteCongruent left right agree (StringValue _) = Refl
   substituteCongruent left right agree (IOType value) = cong IOType (substituteCongruent left right agree value)
@@ -119,6 +123,10 @@ mutual
   renameAsSubstitution env (NatSucc x) = cong NatSucc (renameAsSubstitution env x)
   renameAsSubstitution env (NatRec p z s x) = rewrite renameAsSubstitution env p in rewrite renameAsSubstitution env z in rewrite renameAsSubstitution env s in rewrite renameAsSubstitution env x in Refl
   renameAsSubstitution env (NatRecRuntime p z s x) = rewrite renameAsSubstitution env p in rewrite renameAsSubstitution env z in rewrite renameAsSubstitution env s in rewrite renameAsSubstitution env x in Refl
+  renameAsSubstitution env (RecType key) = Refl
+  renameAsSubstitution env (RecEnd ty) = cong RecEnd (renameAsSubstitution env ty)
+  renameAsSubstitution env (RecMore ty x) = rewrite renameAsSubstitution env ty in rewrite renameAsSubstitution env x in Refl
+  renameAsSubstitution env (RecFold p z s x) = rewrite renameAsSubstitution env p in rewrite renameAsSubstitution env z in rewrite renameAsSubstitution env s in rewrite renameAsSubstitution env x in Refl
   renameAsSubstitution env StringType = Refl
   renameAsSubstitution env (StringValue _) = Refl
   renameAsSubstitution env (IOType value) = cong IOType (renameAsSubstitution env value)

@@ -1,4 +1,4 @@
--- Closed non-recursive identity kernel; not a source declaration registry.
+-- Closed nominal and fixed-shape recursive kernels; not a declaration registry.
 module Tests.Nominal
 
 import Data.Fin
@@ -69,10 +69,68 @@ dependentIdentity = NominalCase identityMotive
       [Lambda Linear StringType (Variable FZ),
        Lambda Erased (Universe 0) (Lambda Linear (Variable FZ) (Variable FZ))]))
 
+recType : Term n
+recType = RecType "Example.Chain"
+
+recMotive : Term n
+recMotive = Lambda Erased recType StringType
+
+recStep : Term n
+recStep = Lambda Erased recType (Lambda Linear StringType (StringAppend (Variable FZ) (StringValue "!")))
+
+recValue : Term n
+recValue = RecMore recType (RecMore recType (RecEnd recType))
+
+indexShape : Term n
+indexShape = VariantType [Nothing]
+
+indexed : Term n -> Term n
+indexed x = NominalType "Example.ChainIndex" [x] indexShape
+
+dependentRecMotive : Term n
+dependentRecMotive = Lambda Erased recType (Pi Erased (indexed (Variable FZ)) StringType)
+
+dependentRecBase : Term n
+dependentRecBase = Lambda Erased (indexed (RecEnd recType)) (StringValue "base")
+
+dependentRecStep : Term n
+dependentRecStep = Lambda Erased recType
+  (Lambda Linear (Apply (weaken dependentRecMotive) (Variable FZ))
+    (Lambda Erased (indexed (RecMore recType (Variable (FS FZ))))
+      (Apply (Variable (FS FZ))
+        (NominalValue (indexed (Variable (FS (FS FZ)))) (VariantValue indexShape 0 Nothing)))))
+
 public export
 checks : List (String, Bool)
 checks =
-  [ ("assembled direct data case independently checks and reduces",
+  [ ("recursive fixed-shape data checks and structurally folds",
+      let candidate = RecFold recMotive (StringValue "base") recStep recValue in
+      accepts (checkRuntime 512 128 Empty candidate StringType) &&
+      case normalize 32 candidate of
+        Normal result => sameSyntax result (StringValue "base!!") && accepts (checkRuntime 512 128 Empty result StringType)
+        _ => False)
+  , ("recursive fold supports dependent motives and a neutral tail",
+      let ctx = Extend Empty Linear recType
+          tail = Variable FZ
+          value = RecMore recType tail
+          candidate = RecFold dependentRecMotive dependentRecBase dependentRecStep value
+          expected = Apply dependentRecMotive value in
+      accepts (checkRuntime 512 128 ctx candidate expected) &&
+      case step candidate of
+        Just reduced => accepts (checkRuntime 512 128 ctx reduced expected)
+        Nothing => False)
+  , ("recursive constructors reject wrong family and wrong annotations",
+      not (accepts (checkErased 512 128 Empty (RecEnd StringType) StringType)) &&
+      not (accepts (checkErased 512 128 Empty (RecMore recType (RecEnd (RecType "Example.Other"))) recType)))
+  , ("recursive fold checks every step even on terminal input",
+      not (accepts (checkRuntime 512 128 Empty
+        (RecFold recMotive (StringValue "base") (Lambda Erased recType (Lambda Linear StringType (StringValue "discarded"))) (RecEnd recType)) StringType)))
+  , ("recursive fold rejects a repeated step capturing a linear resource",
+      let ctx = Extend Empty Linear StringType
+          captures = Lambda Erased recType (Lambda Linear StringType
+            (StringAppend (Variable (FS (FS FZ))) (Variable FZ))) in
+      not (accepts (checkRuntime 512 128 ctx (RecFold recMotive (StringValue "base") captures (RecEnd recType)) StringType)))
+  , ("assembled direct data case independently checks and reduces",
       let candidate = assembleDataCase (tagged "Example.Optional" []) shape
             (constant (tagged "Example.Optional" []) StringType) value
             [StringValue "missing", Lambda Linear StringType (Variable FZ)]

@@ -50,6 +50,21 @@ mutual
       Nothing => case step next of
         Just s => Just (NatRecRuntime motive base s value)
         Nothing => map (NatRecRuntime motive base next) (step value)
+  step (RecType _) = Nothing
+  step (RecEnd ty) = RecEnd <$> step ty
+  step (RecMore ty tail) = case step ty of
+    Just next => Just (RecMore next tail)
+    Nothing => RecMore ty <$> step tail
+  step (RecFold motive base next (RecEnd _)) = Just base
+  step (RecFold motive base next (RecMore _ tail)) =
+    Just (Apply (Apply next tail) (RecFold motive base next tail))
+  step (RecFold motive base next value) = case step motive of
+    Just p => Just (RecFold p base next value)
+    Nothing => case step base of
+      Just z => Just (RecFold motive z next value)
+      Nothing => case step next of
+        Just s => Just (RecFold motive base s value)
+        Nothing => RecFold motive base next <$> step value
   step StringType = Nothing
   step (StringValue _) = Nothing
   step (StringAppend (StringValue left) (StringValue right)) = Just (StringValue (left ++ right))

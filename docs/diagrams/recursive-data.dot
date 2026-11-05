@@ -1,0 +1,11 @@
+digraph RecursiveData {
+  rankdir=LR;
+  node [shape=box];
+  source [label="data Chain : Type\nEmpty | More (1 Chain)"];
+  shape [label="Fixed positive core shape\nqualified identity + linear self field"];
+  check [label="Independent type +\nquantitative checks"];
+  fold [label="Dependent fold\nerased tail, linear result"];
+  future [label="Future: payloads, parameters,\nList, general positivity", style=dashed];
+  source -> shape -> check -> fold;
+  check -> future [style=dashed];
+}

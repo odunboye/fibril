@@ -25,11 +25,13 @@ primitive checked globals; there is no numeric-literal syntax in this slice.
 
 This is **not yet general recursive function syntax**. A narrowly restricted
 [named Nat equation](function-equations.md#structural-nat-equations) lowers to
-this recursor; other self-referential equations fail. Nor does this implement user-defined recursive data,
-recursive lists, positivity checking, mutual recursion or a termination checker
-for arbitrary definitions. `natRec` gives the step an erased predecessor and a
+this recursor; other self-referential equations fail. A separate
+[unary recursive-data slice](data.md#unary-recursive-declarations) admits one
+terminal and one direct linear self field. Recursive lists, general positivity
+checking, mutual recursion and a termination checker for arbitrary definitions
+remain future work. `natRec` gives the step an erased predecessor and a
 runtime recursive result. `natRecWith` additionally allows the step to inspect
-the predecessor, at the cost of requiring an unrestricted count. Explicit
+the predecessor, at the cost of requiring an unrestricted count. General
 structural recursion through other user types requires later work. The
 experimental C backend currently rejects Nat computation; use `fibril run`.
 
@@ -101,7 +103,7 @@ unrestricted count, an index-dependent result, invalid steps even on `Zero`,
 erased predecessor misuse, linear capture, inference for
 Nat values and fail-closed native emission. Structural renaming and substitution
 proofs cover the new nodes. These tests do not prove normalization, positivity,
-whole-language soundness or backend correctness. Next: checked recursive
+whole-language soundness or backend correctness. Next: general recursive
 declaration representation and positivity, followed by source equation
 termination checking that elaborates to checked recursors; neither is implied by
 this primitive.

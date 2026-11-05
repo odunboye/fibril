@@ -1,4 +1,4 @@
-# Non-recursive source data and named elimination
+# Source data and named elimination
 
 ## Use cases
 
@@ -8,11 +8,12 @@ shape can carry an error or a successful value. A constructor can carry several
 dependent fields. Prefer a record when all fields are present together, Bool for
 an uninformative decision, and direct values when no alternative is needed.
 
-This is non-recursive data, not yet general inductive data. A separate built-in
-[Nat recursor](nat-recursion.md) supports structural computation; recursive
-source data, List, strict positivity, indexed constructor refinement and
-general recursive function equations remain future work; a narrow Nat-only
-equation form lowers to the built-in recursor. [Direct multi-branch cases](direct-data-cases.md) now support zero- and
+Most of this page describes non-recursive data. A separate, deliberately
+restricted [recursive declaration slice](#unary-recursive-declarations) supports
+one terminal and one direct linear self field. A built-in
+[Nat recursor](nat-recursion.md) also supports structural computation. General
+recursive data, List, general strict positivity, indexed constructor refinement
+and general recursive function equations remain future work. [Direct multi-branch cases](direct-data-cases.md) now support zero- and
 one-field alternatives, including qualified direct imports; wider patterns remain future work.
 
 ![Source data lowering](diagrams/source-data.svg)
@@ -86,6 +87,47 @@ requested helper; otherwise the bundle is private. Other modules must directly
 import the defining module; unique imported names can be used unqualified, while
 ambiguous ones require qualification. Dependencies must check
 completely, including unused/private generated bodies, before publishing exports.
+
+## Unary recursive declarations
+
+A parameterless `Type 0` data declaration can have exactly one terminal
+constructor and one constructor with exactly one **linear direct self field**:
+
+~~~fibril
+data Chain : Type where
+  eliminator foldChain
+  Empty : Chain
+  More : (1 rest : Chain) -> Chain
+
+marks : (1 chain : Chain) -> String
+marks chain = foldChain (\(0 self : Chain) => String) ""
+  (\(0 rest : Chain) => \(1 result : String) => appendString result "!") chain
+~~~
+
+The [runnable import example](../examples/modules/recursive-data/Main.fib)
+prints `!!`. Constructor order can be reversed. The optional named fold accepts
+an erased dependent motive, a linear terminal result, an unrestricted step and a
+linear scrutinee. Its step receives the recursive tail **erased** for the motive
+and the recursively computed result **linearly**; it cannot inspect the tail at
+runtime. A step that may execute repeatedly cannot capture ambient linear data.
+Omitting the `eliminator` directive emits no helper.
+
+This is genuine structural recursion over the actual tail, not a Nat-backed
+encoding: a finite core type carries its qualified identity and an intrinsic
+fixed terminal/linear-self shape. The core independently checks constructors,
+motives, both fold cases and resource use. Its recursive computation descends
+only into the stored tail. The shape is strictly positive **by construction**;
+there is no general positivity checker or recursive declaration environment.
+Lowering reserves 64 generated-IR nodes without the helper or 512 with it before
+constructing the fixed templates, then checks their actual size; existing source,
+module-expansion, checking and reduction admissions also apply. These are not
+hard time, stack or allocation guarantees. Parameterized `List A`, nested/mutual recursion, extra payload fields, indexed
+recursive families, more constructors and general recursive equations remain
+unsupported. Direct source `case` currently handles non-recursive nominal data,
+not this recursive type; use the named fold. The C backend rejects these new
+computational forms.
+
+![Unary recursive data checking](diagrams/recursive-data.svg)
 
 ## Use the optional eliminator
 

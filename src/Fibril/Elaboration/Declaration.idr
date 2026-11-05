@@ -107,6 +107,10 @@ mutual
   -- getter result types without requiring a pair eta/conversion rule.
   mentions : String -> Expr -> Bool
   mentions name (NQualifiedRef _ reference) = name == reference
+  mentions name (NRecType _ key) = name == key
+  mentions name (NRecEnd _ ty) = mentions name ty
+  mentions name (NRecMore _ ty tail) = mentions name ty || mentions name tail
+  mentions name (NRecFold _ motive base next value) = mentions name motive || mentions name base || mentions name next || mentions name value
   mentions name (NNominalType _ _ indices shape) = mentionsList name indices || mentions name shape
   mentions name (NNominalValue _ a b) = mentions name a || mentions name b
   mentions name (NNominalCase _ a b c) = mentions name a || mentions name b || mentions name c
@@ -283,6 +287,10 @@ mutual
   capped = min (S defaultConstructionBudget)
 
   syntaxNodes : Expr -> Nat
+  syntaxNodes (NRecType _ _) = 1
+  syntaxNodes (NRecEnd _ ty) = capped (1 + syntaxNodes ty)
+  syntaxNodes (NRecMore _ ty tail) = capped (1 + syntaxNodes ty + syntaxNodes tail)
+  syntaxNodes (NRecFold _ motive base next value) = capped (1 + syntaxNodes motive + syntaxNodes base + syntaxNodes next + syntaxNodes value)
   syntaxNodes (NNominalType _ _ indices shape) = capped (1 + syntaxListNodes indices + syntaxNodes shape)
   syntaxNodes (NNominalValue _ a b) = capped (1 + syntaxNodes a + syntaxNodes b)
   syntaxNodes (NNominalCase _ a b c) = capped (1 + syntaxNodes a + syntaxNodes b + syntaxNodes c)
@@ -522,6 +530,12 @@ mutual
   elaborateDeclarationsIn : Maybe String -> List InterfaceSchema -> Nat -> List AuthoredDeclaration -> Either ElaborationError (List Declaration)
   elaborateDeclarationsIn moduleName schemas slots = lower moduleName schemas defaultConstructionBudget slots []
 
+  ||| Override the construction admission for named-module lowering; resulting
+  ||| declarations remain untrusted and require independent core checking.
+  public export
+  elaborateDeclarationsInWithBudget : Maybe String -> List InterfaceSchema -> Nat -> Nat -> List AuthoredDeclaration -> Either ElaborationError (List Declaration)
+  elaborateDeclarationsInWithBudget moduleName schemas nodes slots = lower moduleName schemas (min nodes defaultConstructionBudget) slots []
+
   ||| Ordinary headerless declarations retain their nonrecursive typed-let lowering.
   public export
   lowerDeclarations : Position -> List Declaration -> Expr
@@ -657,6 +671,79 @@ mutual
      in capped (family + foldl (\accum, ctor => capped (accum + ctorCost ctor)) 0 sourceData.constructors +
           (case sourceData.eliminator of Nothing => 0; Just _ => helper))
 
+  -- Initial recursive source data is a closed two-constructor unary spine.
+  -- The only recursive occurrence is the entire linear field domain; the core
+  -- RecType intrinsically fixes that strictly positive shape.
+  unaryRecursiveShape : String -> DataDeclaration -> Maybe (DataConstructor, DataConstructor, RecordField)
+  unaryRecursiveShape key sourceData =
+    if not (null sourceData.params) || sourceData.level /= 0 then Nothing else
+      case sourceData.constructors of
+        [first, second] => case (first.fields, second.fields) of
+          ([], [field]) => accept first second field
+          ([field], []) => accept second first field
+          _ => Nothing
+        _ => Nothing
+    where
+      accept : DataConstructor -> DataConstructor -> RecordField -> Maybe (DataConstructor, DataConstructor, RecordField)
+      accept terminal successor field =
+        if field.quantity /= Linear || field.token.spelling == sourceData.name.spelling then Nothing else
+          case field.ty of
+            NRef _ target => if target == sourceData.name.spelling then Just (terminal, successor, field) else Nothing
+            NQualifiedRef _ target => if target == key then Just (terminal, successor, field) else Nothing
+            _ => Nothing
+
+  recursiveEliminator : DataDeclaration -> DataConstructor -> DataConstructor -> Token -> Token -> Declaration
+  recursiveEliminator sourceData terminal successor keyword name =
+    let region = sourceData.span
+        ty = NQualifiedRef sourceData.name.span sourceData.name.spelling
+        p = "$rec.motive"
+        self = "$rec.self"
+        base = "$rec.base"
+        step = "$rec.step"
+        tail = "$rec.tail"
+        ih = "$rec.ih"
+        value = "$rec.value"
+        pRef = NRef region p
+        app = NApply region
+        motiveTy = NPi region Erased self ty (NSort region 0)
+        baseTy = app pRef (NQualifiedRef terminal.name.span terminal.name.spelling)
+        stepTy = NPi region Erased tail ty
+          (NPi region Linear ih (app pRef (NRef region tail))
+            (app pRef (app (NQualifiedRef successor.name.span successor.name.spelling) (NRef region tail))))
+        resultTy = NPi region Erased p motiveTy (NPi region Linear base baseTy
+          (NPi region Unrestricted step stepTy (NPi region Linear value ty (app pRef (NRef region value)))))
+        result = NLambda region Erased p motiveTy (NLambda region Linear base baseTy
+          (NLambda region Unrestricted step stepTy (NLambda region Linear value ty
+            (NRecFold region pRef (NRef region base) (NRef region step) (NRef region value)))))
+     in Declared True (Between keyword.span.start name.span.finish) name.span name.span sourceData.exported Unrestricted name.spelling resultTy result
+
+  lowerUnaryRecursiveData : String -> Nat -> DataDeclaration -> DataConstructor -> DataConstructor -> RecordField -> Either ElaborationError (Nat, List Declaration)
+  lowerUnaryRecursiveData key budget sourceData terminal successor field = do
+    -- A fixed upper reservation precedes constructing these fixed templates;
+    -- the actual named-IR node count is checked before returning them.
+    let estimate = case sourceData.eliminator of Nothing => 64; Just _ => 512
+    if estimate > budget then Left (ElaborationFailure sourceData.name.span.start "Generated recursive data construction budget exhausted") else Right ()
+    validateFields [] [] successor.fields
+    let region = sourceData.span
+    let own = sourceData.name.spelling
+    traverse_ (\ctor => case ctor.result of
+      NRef _ target => if target == own then Right () else Left (ElaborationFailure (extent ctor.result).start "Recursive constructor result must name its data type")
+      NQualifiedRef _ target => if target == key then Right () else Left (ElaborationFailure (extent ctor.result).start "Recursive constructor result must name its data type")
+      _ => Left (ElaborationFailure (extent ctor.result).start "Recursive constructor result must name its data type")) sourceData.constructors
+    let ty = NQualifiedRef sourceData.name.span own
+    let family = Declared True region sourceData.name.span sourceData.name.span sourceData.exported Erased own
+                   (NSort sourceData.name.span 0) (NRecType region key)
+    let nil = Declared True terminal.span terminal.name.span terminal.name.span sourceData.exported Unrestricted terminal.name.spelling
+                ty (NRecEnd terminal.span ty)
+    let more = Declared True successor.span successor.name.span successor.name.span sourceData.exported Unrestricted successor.name.spelling
+                 (NPi successor.span Linear field.token.spelling ty ty)
+                 (NLambda successor.span Linear field.token.spelling ty (NRecMore successor.span ty (fieldRef field)))
+    let generated = [family, nil, more] ++
+          (case sourceData.eliminator of Nothing => []; Just (keyword, name) => [recursiveEliminator sourceData terminal successor keyword name])
+    let actual = foldl (\accum, decl => capped (accum + syntaxNodes decl.expected + syntaxNodes decl.value)) 0 generated
+    if actual > estimate then Left (ElaborationFailure sourceData.name.span.start "Internal recursive data construction estimate was insufficient") else Right ()
+    Right (estimate, generated)
+
   lowerData : String -> Nat -> DataDeclaration -> Either ElaborationError (Nat, List Declaration)
   lowerData qualifier budget sourceData = do
     let estimate = dataCost sourceData
@@ -665,6 +752,16 @@ mutual
     key <- case dataKey (forget (Data.String.split (== '.') qualifier)) sourceData.name.spelling of
       Left error => Left (ElaborationFailure sourceData.name.span.start error.message)
       Right key => Right key
+    case unaryRecursiveShape key sourceData of
+      Just (terminal, successor, field) => lowerUnaryRecursiveData key budget sourceData terminal successor field
+      Nothing => lowerNonrecursiveData key estimate sourceData
+    where
+      lowerNonrecursiveData : String -> Nat -> DataDeclaration -> Either ElaborationError (Nat, List Declaration)
+      lowerNonrecursiveData key estimate sourceData = do
+        lowerOrdinaryData key estimate sourceData
+
+  lowerOrdinaryData : String -> Nat -> DataDeclaration -> Either ElaborationError (Nat, List Declaration)
+  lowerOrdinaryData key estimate sourceData = do
     let refs = map (\param => NRef param.span param.name) sourceData.params
     let ownName = sourceData.name.spelling
     if any (\param => param.name == ownName || mentions ownName param.domain || mentions key param.domain) sourceData.params

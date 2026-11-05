@@ -30,6 +30,12 @@ data Term : Nat -> Type where
   NatRec : Term n -> Term n -> Term n -> Term n -> Term n
   ||| Structural recursion with a runtime predecessor and unrestricted count.
   NatRecRuntime : Term n -> Term n -> Term n -> Term n -> Term n
+  ||| Closed fixed-shape recursive data: a terminal and one linear self field.
+  ||| The key distinguishes families; the complete two-arm shape is intrinsic.
+  RecType : String -> Term n
+  RecEnd : Term n -> Term n
+  RecMore : Term n -> Term n -> Term n
+  RecFold : Term n -> Term n -> Term n -> Term n -> Term n
   ||| Primitive String : Type0, literal data, pure concatenation/comparison.
   StringType : Term n
   StringValue : String -> Term n
@@ -95,6 +101,10 @@ mutual
   rename env (NatSucc value) = NatSucc (rename env value)
   rename env (NatRec motive base step value) = NatRec (rename env motive) (rename env base) (rename env step) (rename env value)
   rename env (NatRecRuntime motive base step value) = NatRecRuntime (rename env motive) (rename env base) (rename env step) (rename env value)
+  rename env (RecType key) = RecType key
+  rename env (RecEnd ty) = RecEnd (rename env ty)
+  rename env (RecMore ty value) = RecMore (rename env ty) (rename env value)
+  rename env (RecFold motive base step value) = RecFold (rename env motive) (rename env base) (rename env step) (rename env value)
   rename env StringType = StringType
   rename env (StringValue value) = StringValue value
   rename env (StringAppend left right) = StringAppend (rename env left) (rename env right)
@@ -156,6 +166,10 @@ mutual
   substituteTerm env (NatSucc value) = NatSucc (substituteTerm env value)
   substituteTerm env (NatRec motive base step value) = NatRec (substituteTerm env motive) (substituteTerm env base) (substituteTerm env step) (substituteTerm env value)
   substituteTerm env (NatRecRuntime motive base step value) = NatRecRuntime (substituteTerm env motive) (substituteTerm env base) (substituteTerm env step) (substituteTerm env value)
+  substituteTerm env (RecType key) = RecType key
+  substituteTerm env (RecEnd ty) = RecEnd (substituteTerm env ty)
+  substituteTerm env (RecMore ty value) = RecMore (substituteTerm env ty) (substituteTerm env value)
+  substituteTerm env (RecFold motive base step value) = RecFold (substituteTerm env motive) (substituteTerm env base) (substituteTerm env step) (substituteTerm env value)
   substituteTerm env StringType = StringType
   substituteTerm env (StringValue value) = StringValue value
   substituteTerm env (StringAppend left right) =
@@ -224,6 +238,10 @@ mutual
   sameSyntax (NatSucc x) (NatSucc y) = sameSyntax x y
   sameSyntax (NatRec p z s x) (NatRec q w t y) = sameSyntax p q && sameSyntax z w && sameSyntax s t && sameSyntax x y
   sameSyntax (NatRecRuntime p z s x) (NatRecRuntime q w t y) = sameSyntax p q && sameSyntax z w && sameSyntax s t && sameSyntax x y
+  sameSyntax (RecType x) (RecType y) = x == y
+  sameSyntax (RecEnd x) (RecEnd y) = sameSyntax x y
+  sameSyntax (RecMore t x) (RecMore u y) = sameSyntax t u && sameSyntax x y
+  sameSyntax (RecFold p z s x) (RecFold q w t y) = sameSyntax p q && sameSyntax z w && sameSyntax s t && sameSyntax x y
   sameSyntax StringType StringType = True
   sameSyntax (StringValue left) (StringValue right) = left == right
   sameSyntax (StringAppend a b) (StringAppend c d) = sameSyntax a c && sameSyntax b d

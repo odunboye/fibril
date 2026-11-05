@@ -18,6 +18,7 @@ import Fibril.Core.Reduction
 public export
 data CheckError : Type where
   NatError : String -> CheckError
+  RecursiveDataError : String -> CheckError
   NominalError : String -> CheckError
   VariantError : String -> CheckError
   CheckingLimit : CheckError
@@ -35,6 +36,7 @@ data CheckError : Type where
 public export
 Show CheckError where
   show (NatError message) = "Nat: " ++ message
+  show (RecursiveDataError message) = "Recursive data: " ++ message
   show (NominalError message) = "Nominal: " ++ message
   show (VariantError message) = "Variant: " ++ message
   show CheckingLimit = "Checking recursion budget exhausted"
@@ -124,6 +126,46 @@ mutual
     let resultType = Apply (weaken (weaken motive)) (NatSucc (Variable (FS FZ)))
     requireCompatible reduction nextType (Pi Unrestricted NatType (Pi Linear ihType resultType))
     Right (Apply motive value)
+  infer (S depth) reduction context (RecType key) = Right (Universe 0)
+  infer (S depth) reduction context (RecEnd annotation) = do
+    _ <- sortOf depth reduction context annotation
+    exposed <- exposeType reduction annotation
+    case exposed of
+      RecType _ => Right annotation
+      _ => Left (RecursiveDataError "terminal constructor requires a recursive-data type")
+  infer (S depth) reduction context (RecMore annotation tail) = do
+    _ <- sortOf depth reduction context annotation
+    exposed <- exposeType reduction annotation
+    case exposed of
+      RecType _ => do
+        tailType <- infer depth reduction context tail
+        requireCompatible reduction tailType annotation
+        Right annotation
+      _ => Left (RecursiveDataError "recursive constructor requires a recursive-data type")
+  infer (S depth) reduction context (RecFold motive base next value) = do
+    valueType <- infer depth reduction context value
+    exposed <- exposeType reduction valueType
+    case exposed of
+      RecType _ => do
+        motiveType <- infer depth reduction context motive
+        motiveHead <- exposeType reduction motiveType
+        case motiveHead of
+          Pi Erased parameter result => do
+            requireCompatible reduction parameter exposed
+            resultHead <- exposeType reduction result
+            case resultHead of
+              Universe _ => Right ()
+              _ => Left (ExpectedUniverse resultHead)
+          _ => Left (RecursiveDataError "fold motive must have an erased matching binder and return a universe")
+        baseType <- infer depth reduction context base
+        requireCompatible reduction baseType (Apply motive (RecEnd exposed))
+        nextType <- infer depth reduction context next
+        let ihType = Apply (weaken motive) (Variable FZ)
+        let resultType = Apply (weaken (weaken motive))
+                         (RecMore (weaken (weaken exposed)) (Variable (FS FZ)))
+        requireCompatible reduction nextType (Pi Erased exposed (Pi Linear ihType resultType))
+        Right (Apply motive value)
+      _ => Left (RecursiveDataError "fold scrutinee must have a recursive-data type")
   infer (S depth) reduction context StringType = Right (Universe 0)
   infer (S depth) reduction context (StringValue _) = Right StringType
   infer (S depth) reduction context (StringAppend left right) = do

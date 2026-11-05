@@ -7,7 +7,7 @@ the program at native runtime, then explicitly compile and run it using a C11
 compiler. This is a useful path for console prototypes and testing the native
 runtime boundary. It is **not a production backend** or a networked email
 service: there is no native HTTP, SMTP, TLS, storage, UI, FFI, recursive function
-or general data support yet. The built-in Nat recursor is not yet lowered to C.
+or general data support yet. Nat and unary recursive-data folds are not yet lowered to C.
 Finite nullary/unary nominal variants and cases
 are supported; pair/box payloads remain unsupported. For ordinary development, the existing bounded
 reference `fibril run` remains an alternative.

@@ -1,0 +1,10 @@
+module Main
+
+import Data.Chain
+
+marks : (1 chain : Data.Chain.Chain) -> String
+marks chain = Data.Chain.foldChain (\(0 self : Data.Chain.Chain) => String) ""
+  (\(0 rest : Data.Chain.Chain) => \(1 result : String) => appendString result "!") chain
+
+main : IO Unit
+main = putStrLn (marks (Data.Chain.More (Data.Chain.More Data.Chain.Empty)))

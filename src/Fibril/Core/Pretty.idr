@@ -26,6 +26,10 @@ mutual
   renderTerm (NatSucc x) = "(Succ " ++ renderTerm x ++ ")"
   renderTerm (NatRec p z s x) = "(NatRec " ++ renderTerm p ++ " " ++ renderTerm z ++ " " ++ renderTerm s ++ " " ++ renderTerm x ++ ")"
   renderTerm (NatRecRuntime p z s x) = "(NatRecRuntime " ++ renderTerm p ++ " " ++ renderTerm z ++ " " ++ renderTerm s ++ " " ++ renderTerm x ++ ")"
+  renderTerm (RecType key) = "(RecType " ++ show key ++ ")"
+  renderTerm (RecEnd ty) = "(RecEnd " ++ renderTerm ty ++ ")"
+  renderTerm (RecMore ty x) = "(RecMore " ++ renderTerm ty ++ " " ++ renderTerm x ++ ")"
+  renderTerm (RecFold p z s x) = "(RecFold " ++ renderTerm p ++ " " ++ renderTerm z ++ " " ++ renderTerm s ++ " " ++ renderTerm x ++ ")"
   renderTerm StringType = "String"
   renderTerm (StringValue value) = show value
   renderTerm (StringAppend left right) = "(StringAppend " ++ renderTerm left ++ " " ++ renderTerm right ++ ")"

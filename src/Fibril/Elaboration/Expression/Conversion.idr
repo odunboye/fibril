@@ -27,6 +27,10 @@ mutual
   admit (S budget) (NatSucc x) = admit budget x
   admit (S budget) (NatRec p z s x) = do a <- admit budget p; b <- admit a z; c <- admit b s; admit c x
   admit (S budget) (NatRecRuntime p z s x) = do a <- admit budget p; b <- admit a z; c <- admit b s; admit c x
+  admit (S budget) (RecType _) = Just budget
+  admit (S budget) (RecEnd ty) = admit budget ty
+  admit (S budget) (RecMore ty x) = do a <- admit budget ty; admit a x
+  admit (S budget) (RecFold p z s x) = do a <- admit budget p; b <- admit a z; c <- admit b s; admit c x
   admit (S budget) StringType = Just budget
   admit (S budget) (StringValue _) = Just budget
   admit (S budget) (StringAppend a b) = do x <- admit budget a; admit x b
@@ -91,6 +95,16 @@ mutual
     payload + payloadSize s + payloadSize x <= payloadLimit &&
     safeRedexes size payload p && safeRedexes size payload z && safeRedexes size payload s && safeRedexes size payload x
   safeRedexes size payload (NatRecRuntime p z s x) =
+    safeRedexes size payload p && safeRedexes size payload z && safeRedexes size payload s && safeRedexes size payload x
+  safeRedexes size payload (RecType _) = True
+  safeRedexes size payload (RecEnd ty) = safeRedexes size payload ty
+  safeRedexes size payload (RecMore ty x) = safeRedexes size payload ty && safeRedexes size payload x
+  safeRedexes size payload (RecFold p z s (RecMore ty x)) =
+    size + typeNodes s + typeNodes x + 2 <= inferredResultNodes &&
+    payload + payloadSize s + payloadSize x <= payloadLimit &&
+    safeRedexes size payload p && safeRedexes size payload z && safeRedexes size payload s &&
+    safeRedexes size payload ty && safeRedexes size payload x
+  safeRedexes size payload (RecFold p z s x) =
     safeRedexes size payload p && safeRedexes size payload z && safeRedexes size payload s && safeRedexes size payload x
   safeRedexes size payload StringType = True
   safeRedexes size payload (StringValue _) = True

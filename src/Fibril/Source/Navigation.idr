@@ -85,6 +85,10 @@ mutual
   walk context env (NSigma span q r name domain body) =
     let target = binderToken name span domain context.tokens
      in walk context env domain ++ self context target ++ walk context ((name, map context.localTarget target) :: env) body
+  walk context env (NRecType _ _) = []
+  walk context env (NRecEnd _ _) = []
+  walk context env (NRecMore _ _ _) = []
+  walk context env (NRecFold _ _ _ _ _) = []
   walk context env (NNominalType _ _ _ _) = []
   walk context env (NNominalValue _ _ _) = []
   walk context env (NNominalCase _ _ _ _) = []

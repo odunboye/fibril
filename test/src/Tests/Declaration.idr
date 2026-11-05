@@ -7,6 +7,9 @@ import Fibril.Source.Text
 import Fibril.Source.Lexer
 import Fibril.Source.Parser
 import Fibril.Source.Declaration
+import Fibril.Source.Document
+import Fibril.Elaboration.Declaration
+import Fibril.Elaboration.Interface
 import Fibril.Source.Symbol
 import Fibril.Source.Navigation
 import Fibril.Driver.Check
@@ -35,7 +38,18 @@ program = "not : (1 flag : Bool) -> Bool\nnot = \\(1 flag : Bool) => if flag the
 public export
 checks : List (String, Bool)
 checks =
-  [ ("named function equation inherits a dependent signature and quantities",
+  [ ("recursive-data generated IR is admitted before construction",
+      let source = "module Main\ndata Chain : Type where\n  eliminator foldChain\n  Empty : Chain\n  More : (1 rest : Chain) -> Chain\n" in
+      case parseDocument 64 256 source of
+        Right document => case document.body of
+          DeclarationDocument declarations =>
+            case (elaborateDeclarationsInWithBudget (Just "Main") [] 511 10 declarations,
+                  elaborateDeclarationsInWithBudget (Just "Main") [] 512 10 declarations) of
+              (Left _, Right generated) => length generated == 4
+              _ => False
+          _ => False
+        _ => False)
+  , ("named function equation inherits a dependent signature and quantities",
       accepted False "identity : (0 A : Type) -> (1 item : A) -> A\nidentity T value = value\nmain : Bool\nmain = identity Bool True")
   , ("named function equation rejects linear duplication",
       not (accepted False "duplicate : (1 text : String) -> String\nduplicate text = appendString text text\nmain : String\nmain = duplicate \"x\""))

@@ -112,6 +112,10 @@ mutual
     NUnitCase _ a b => 1 + cost limit globals env a + cost limit globals env b
     NSigma _ _ _ name a b => 1 + cost limit globals env a + cost limit globals (name :: env) b
     NPairValue _ ty a b => 1 + cost limit globals env ty + cost limit globals env a + cost limit globals env b
+    NRecType _ _ => 1
+    NRecEnd _ ty => 1 + cost limit globals env ty
+    NRecMore _ ty tail => 1 + cost limit globals env ty + cost limit globals env tail
+    NRecFold _ motive base next value => 1 + cost limit globals env motive + cost limit globals env base + cost limit globals env next + cost limit globals env value
     NNominalType _ _ indices shape => 1 + listCost limit globals env indices + cost limit globals env shape
     NNominalValue _ ty value => 1 + cost limit globals env ty + cost limit globals env value
     NNominalCase _ p value branch => 1 + cost limit globals env p + cost limit globals env value + cost limit globals env branch

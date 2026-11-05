@@ -438,6 +438,10 @@ mutual
     Right (Sigma q r domain body)
   elaborateInWith globals context env (NPairValue span ty first second) =
     [| PairValue (elaborateInWith globals context env ty) (elaborateInWith globals context env first) (elaborateInWith globals context env second) |]
+  elaborateInWith globals context env (NRecType _ key) = Right (RecType key)
+  elaborateInWith globals context env (NRecEnd _ ty) = RecEnd <$> elaborateInWith globals context env ty
+  elaborateInWith globals context env (NRecMore _ ty tail) = [| RecMore (elaborateInWith globals context env ty) (elaborateInWith globals context env tail) |]
+  elaborateInWith globals context env (NRecFold _ motive base next value) = [| RecFold (elaborateInWith globals context env motive) (elaborateInWith globals context env base) (elaborateInWith globals context env next) (elaborateInWith globals context env value) |]
   elaborateInWith globals context env (NNominalType span key indices shape) = do
     indices <- elaborateTerms globals context env indices
     shape <- elaborateInWith globals context env shape

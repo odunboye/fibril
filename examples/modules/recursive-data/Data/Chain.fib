@@ -1,0 +1,9 @@
+module Data.Chain
+
+-- The first recursive declaration slice admits exactly one terminal and one
+-- direct linear self field. The requested helper performs structural induction.
+export
+data Chain : Type where
+  eliminator foldChain
+  Empty : Chain
+  More : (1 rest : Chain) -> Chain

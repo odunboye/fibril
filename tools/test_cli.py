@@ -1354,6 +1354,134 @@ class CLITests(unittest.TestCase):
                     self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                     self.assertEqual(result.stdout, outcomes.get((state, event), "transition rejected") + "\n")
 
+    def test_user_defined_unary_recursive_data(self):
+        import shutil
+        fixture = ROOT / 'examples/modules/recursive-data'
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(fixture, root, dirs_exist_ok=True)
+            path = root / 'Main.fib'
+            library = root / 'Data/Chain.fib'
+            source, authored = path.read_text(), library.read_text()
+            def project(command):
+                return run(command, '--source-dir', directory, str(path))
+            result = project('run')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, '!!\n')
+            lines = source.splitlines()
+            row = next(i for i, line in enumerate(lines, 1) if 'Data.Chain.More' in line)
+            col = lines[row - 1].index('Data.Chain.More') + len('Data.Chain.') + 1
+            nav = run('definition', '--source-dir', directory, '--entry', str(path), str(row), str(col), str(path))
+            self.assertEqual(nav.returncode, 0, nav.stderr)
+            self.assertEqual(Path(json.loads(nav.stdout)['definition']['path']).name, 'Chain.fib')
+            path.write_text(source.replace('Data.Chain.', ''))
+            self.assertEqual(project('run').stdout, '!!\n')
+            path.write_text(source)
+            ir = run('elaborate', str(library))
+            self.assertEqual(ir.returncode, 0, ir.stderr)
+            self.assertIn('recursive-type', ir.stdout)
+            self.assertIn('recursive-fold', ir.stdout)
+            for file in [path, library]:
+                formatted = run('format', str(file))
+                self.assertEqual(formatted.returncode, 0, formatted.stderr)
+                file.write_text(formatted.stdout)
+                self.assertEqual(run('format', '--check', str(file)).returncode, 0)
+            self.assertEqual(project('run').stdout, '!!\n')
+            # Declaration order and fully qualified direct self references
+            # produce the same checked recursive family.
+            reversed_order = authored.replace('  Empty : Chain\n  More : (1 rest : Chain) -> Chain',
+                                               '  More : (1 rest : Chain) -> Chain\n  Empty : Chain')
+            library.write_text(reversed_order)
+            self.assertEqual(project('run').stdout, '!!\n')
+            qualified = authored.replace('(1 rest : Chain)', '(1 rest : Data.Chain.Chain)')
+            library.write_text(qualified)
+            self.assertEqual(project('run').stdout, '!!\n')
+            library.write_text(authored.replace('export\ndata Chain', 'data Chain'))
+            private = project('run')
+            self.assertNotEqual(private.returncode, 0)
+            self.assertEqual(private.stdout, '')
+            library.write_text(authored.replace('  eliminator foldChain\n', ''))
+            missing = project('run')
+            self.assertNotEqual(missing.returncode, 0)
+            self.assertEqual(missing.stdout, '')
+            path.write_text('module Main\nimport Data.Chain\nmain : IO Unit\nmain = putStrLn "no helper"\n')
+            self.assertEqual(project('run').stdout, 'no helper\n')
+            path.write_text(source)
+            library.write_text(authored)
+            dependency, client = root / 'dependency', root / 'client'
+            (dependency / 'src/Data').mkdir(parents=True)
+            (dependency / 'src/Data/Chain.fib').write_text(authored)
+            (dependency / 'fibril.yaml').write_text('schema: 1\nname: chain-lib\nmodule-prefix: Data.Chain\nsource-dir: src\nfoundation: de-morgan\nmodules: [Data.Chain]\ndependencies: {}\n')
+            (client / 'src').mkdir(parents=True)
+            (client / 'src/Main.fib').write_text(source)
+            (client / 'fibril.yaml').write_text('schema: 1\nname: chain-client\nmodule-prefix: Demo\nsource-dir: src\nfoundation: de-morgan\nentry: Main\ndependencies:\n  chain-lib:\n    path: ../dependency\n')
+            packaged = run('run', '--package', str(client / 'fibril.yaml'))
+            self.assertEqual(packaged.returncode, 0, packaged.stdout + packaged.stderr)
+            self.assertEqual(packaged.stdout, '!!\n')
+            # The generated fold checks a motive dependent on the *actual*
+            # recursive value, even with a neutral predecessor.
+            dependent = ('module Main\ndata Chain : Type where\n  eliminator foldChain\n'
+                         '  Empty : Chain\n  More : (1 rest : Chain) -> Chain\n'
+                         'data Tagged (0 chain : Chain) : Type where\n  Bad : Tagged chain\n'
+                         '  Mark : (1 text : String) -> Tagged chain\n'
+                         'build : (1 chain : Chain) -> Tagged chain\n'
+                         'build chain = foldChain (\\(0 self : Chain) => Tagged self) (Mark Empty "z") '
+                         '(\\(0 rest : Chain) => \\(1 previous : Tagged rest) => case previous of\n'
+                         '  Bad => Bad (More rest)\n  Mark text => Mark (More rest) (appendString text "!")) chain\n'
+                         'show : (0 chain : Chain) -> (1 value : Tagged chain) -> String\n'
+                         'show chain value = case value of\n  Bad => "bad"\n  Mark text => text\n'
+                         'main : IO Unit\nmain = putStrLn (show (More Empty) (build (More Empty)))\n')
+            path.write_text(dependent)
+            checked = project('run')
+            self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
+            self.assertEqual(checked.stdout, 'z!\n')
+            # Unsupported recursive shapes are rejected, not interpreted as
+            # positive by an unchecked name or descriptor.
+            bad = [authored.replace('(1 rest : Chain)', '(rest : Chain)'),
+                   authored.replace('(1 rest : Chain)', '(0 rest : Chain)'),
+                   authored.replace('(1 rest : Chain)', '(1 rest : Chain -> String)'),
+                   authored.replace('(1 rest : Chain)', '(1 rest : Chain) -> (1 extra : Chain)'),
+                   authored.replace('  Empty : Chain\n', ''),
+                   authored.replace('data Chain : Type', 'data Chain (0 A : Type) : Type'),
+                   authored.replace('More : (1 rest : Chain) -> Chain', 'More : (1 rest : Chain) -> String')]
+            path.write_text(source)
+            for program in bad:
+                with self.subTest(program=program):
+                    library.write_text(program)
+                    rejected = project('run')
+                    self.assertNotEqual(rejected.returncode, 0)
+                    self.assertEqual(rejected.stdout, '')
+            library.write_text(authored)
+            different = ('module Main\ndata A : Type where\n  AEnd : A\n  AMore : (1 tail : A) -> A\n'
+                         'data B : Type where\n  BEnd : B\n  BMore : (1 tail : B) -> B\n'
+                         'bad : A\nbad = BMore BEnd\nmain : IO Unit\nmain = putStrLn "never"\n')
+            path.write_text(different)
+            rejected = project('run')
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertEqual(rejected.stdout, '')
+            # The structural helper does not expose its erased predecessor at
+            # runtime or allow the repeated step to capture a linear value.
+            stage = ('module Main\ndata Chain : Type where\n  eliminator foldChain\n  Empty : Chain\n'
+                     '  More : (1 rest : Chain) -> Chain\n'
+                     'bad : (1 chain : Chain) -> Chain\nbad chain = foldChain '
+                     '(\\(0 self : Chain) => Chain) Empty '
+                     '(\\(0 rest : Chain) => \\(1 result : Chain) => rest) chain\n'
+                     'main : IO Unit\nmain = putStrLn "never"\n')
+            path.write_text(stage)
+            rejected = project('run')
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertEqual(rejected.stdout, '')
+            capture = ('module Main\ndata Chain : Type where\n  eliminator foldChain\n  Empty : Chain\n'
+                       '  More : (1 rest : Chain) -> Chain\n'
+                       'bad : (1 prefix : String) -> (1 chain : Chain) -> String\n'
+                       'bad prefix chain = foldChain (\\(0 self : Chain) => String) "" '
+                       '(\\(0 rest : Chain) => \\(1 result : String) => appendString prefix result) chain\n'
+                       'main : IO Unit\nmain = putStrLn "never"\n')
+            path.write_text(capture)
+            rejected = project('run')
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertEqual(rejected.stdout, '')
+
     def test_source_nonrecursive_data_and_named_elimination(self):
         example = ROOT / "examples/modules/data"
         expected = "present\nmissing\ndependent package\n"

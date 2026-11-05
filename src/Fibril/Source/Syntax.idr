@@ -20,6 +20,10 @@ data Expr
   | NBoolValue SourceSpan Bool
   | NIf SourceSpan Expr Expr Expr
   | NUnitCase SourceSpan Expr Expr
+  | NRecType SourceSpan String
+  | NRecEnd SourceSpan Expr
+  | NRecMore SourceSpan Expr Expr
+  | NRecFold SourceSpan Expr Expr Expr Expr
   | NNominalType SourceSpan String (List Expr) Expr
   | NNominalValue SourceSpan Expr Expr
   | NNominalCase SourceSpan Expr Expr Expr
@@ -86,6 +90,10 @@ extent (NBoolType span) = span
 extent (NBoolValue span _) = span
 extent (NIf span _ _ _) = span
 extent (NUnitCase span _ _) = span
+extent (NRecType span _) = span
+extent (NRecEnd span _) = span
+extent (NRecMore span _ _) = span
+extent (NRecFold span _ _ _ _) = span
 extent (NNominalType span _ _ _) = span
 extent (NNominalValue span _ _) = span
 extent (NNominalCase span _ _ _) = span
@@ -132,6 +140,10 @@ withExtent span (NBoolType _) = NBoolType span
 withExtent span (NBoolValue _ value) = NBoolValue span value
 withExtent span (NIf _ condition yes no) = NIf span condition yes no
 withExtent span (NUnitCase _ scrutinee body) = NUnitCase span scrutinee body
+withExtent span (NRecType _ key) = NRecType span key
+withExtent span (NRecEnd _ ty) = NRecEnd span ty
+withExtent span (NRecMore _ ty tail) = NRecMore span ty tail
+withExtent span (NRecFold _ motive base next value) = NRecFold span motive base next value
 withExtent span (NNominalType _ key indices shape) = NNominalType span key indices shape
 withExtent span (NNominalValue _ ty value) = NNominalValue span ty value
 withExtent span (NNominalCase _ motive value branch) = NNominalCase span motive value branch
