@@ -47,6 +47,8 @@ data Term : Nat -> Type where
   IOType : Term n -> Term n
   ||| Opaque file ownership indexed by an erased small region type. No value constructor.
   FileHandleType : Term n -> Term n
+  ||| Inert scope: result type, path and region-polymorphic ownership-returning body.
+  WithInputFile : Term n -> Term n -> Term n -> Term n
   IOPure : Term n -> Term n
   IOBind : Term n -> Term n -> Term n -> Term n -> Term n
   WriteLine : Term n -> Term n
@@ -76,6 +78,13 @@ public export
 readResultType : Term n
 readResultType = VariantType [Nothing, Just (Linear, StringType), Just (Linear, StringType)]
 
+||| Scope result: open failure, success, or result plus cleanup failure.
+public export
+fileScopeResultType : Term n -> Term n
+fileScopeResultType result = VariantType
+  [Just (Linear, StringType), Just (Linear, result),
+   Just (Linear, Sigma Linear Linear result StringType)]
+
 mutual
   ||| Extend a renaming under one binder, preserving the newly bound variable.
   public export
@@ -100,6 +109,7 @@ mutual
   rename env (BoxValue left right) = BoxValue (rename env left) (rename env right)
   rename env (StringEqual left right) = StringEqual (rename env left) (rename env right)
   rename env (IOType ty) = IOType (rename env ty)
+  rename env (WithInputFile result path body) = WithInputFile (rename env result) (rename env path) (rename env body)
   rename env (FileHandleType region) = FileHandleType (rename env region)
   rename env (NominalType key indices shape) = NominalType key (renameTerms env indices) (rename env shape)
   rename env (NominalValue ty value) = NominalValue (rename env ty) (rename env value)
@@ -161,6 +171,7 @@ mutual
   substituteTerm env (StringEqual left right) =
     StringEqual (substituteTerm env left) (substituteTerm env right)
   substituteTerm env (IOType ty) = IOType (substituteTerm env ty)
+  substituteTerm env (WithInputFile result path body) = WithInputFile (substituteTerm env result) (substituteTerm env path) (substituteTerm env body)
   substituteTerm env (FileHandleType region) = FileHandleType (substituteTerm env region)
   substituteTerm env (NominalType key indices shape) = NominalType key (substituteTerms env indices) (substituteTerm env shape)
   substituteTerm env (NominalValue ty value) = NominalValue (substituteTerm env ty) (substituteTerm env value)
@@ -231,6 +242,7 @@ mutual
   sameSyntax (VariantCase p x fs) (VariantCase q y gs) = sameSyntax p q && sameSyntax x y && sameTerms fs gs
   sameSyntax (BoxType q a) (BoxType r b) = q == r && sameSyntax a b
   sameSyntax (IOType a) (IOType b) = sameSyntax a b
+  sameSyntax (WithInputFile a p f) (WithInputFile b q g) = sameSyntax a b && sameSyntax p q && sameSyntax f g
   sameSyntax (FileHandleType a) (FileHandleType b) = sameSyntax a b
   sameSyntax (IOPure a) (IOPure b) = sameSyntax a b
   sameSyntax (WriteLine a) (WriteLine b) = sameSyntax a b
@@ -289,3 +301,11 @@ variantBranchType : Term n -> Term n -> Nat -> Maybe (Quantity, Term n) -> Term 
 variantBranchType motive ty tag Nothing = Apply motive (VariantValue ty tag Nothing)
 variantBranchType motive ty tag (Just (q, domain)) =
   Pi q domain (Apply (weaken motive) (VariantValue (weaken ty) tag (Just (Variable FZ))))
+
+||| Callback must return ownership under its abstract region, on every result path.
+public export
+scopedInputBodyType : Term n -> Term n
+scopedInputBodyType result = Pi Erased (Universe 0)
+  (Pi Linear (FileHandleType (Variable FZ))
+    (IOType (Sigma Linear Linear (FileHandleType (Variable (FS FZ)))
+      (weaken (weaken (weaken result))))))

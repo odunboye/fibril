@@ -35,6 +35,7 @@ mutual
   descend env hole target (BoxType q ty) = BoxType q (abstractWith env hole target ty)
   descend env hole target (BoxValue a b) = BoxValue (abstractWith env hole target a) (abstractWith env hole target b)
   descend env hole target (BoxCase a b c) = BoxCase (abstractWith env hole target a) (abstractWith env hole target b) (abstractWith env hole target c)
+  descend env hole target (WithInputFile result path body) = WithInputFile (abstractWith env hole target result) (abstractWith env hole target path) (abstractWith env hole target body)
   descend env hole target (IOType a) = IOType (abstractWith env hole target a)
   descend env hole target (FileHandleType region) = FileHandleType (abstractWith env hole target region)
   descend env hole target (IOPure a) = IOPure (abstractWith env hole target a)

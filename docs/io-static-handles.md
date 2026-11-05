@@ -55,9 +55,9 @@ execution and tests remain unchanged.
 
 ## Next gate
 
-Implement the scoped introduction/elimination boundary: a fresh region, a
-quantity-1 handle, and a continuation that must return matching ownership along
-with its result on every represented path. Type-check nested scopes and
-existential packaging before supplying real handles. Then connect the checked
-protocol to hosted cleanup and a matching native registry. See
+The [inert core scope boundary](io-core-scope.md) now checks a region-polymorphic
+callback that returns matching ownership, with nested-region and existential
+escape regressions. It still does not supply real handles or fresh runtime
+regions. Next connect the checked protocol to trusted hosted introduction,
+cleanup and a matching native registry. See
 [io-scoped-files.md](io-scoped-files.md) for the proposed protocol and limitations.

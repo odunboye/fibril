@@ -34,6 +34,7 @@ mutual
   renameAfterSubstitution env sigma ReadLine = Refl
   renameAfterSubstitution env sigma StringType = Refl
   renameAfterSubstitution env sigma (StringValue _) = Refl
+  renameAfterSubstitution env sigma (WithInputFile result path body) = rewrite renameAfterSubstitution env sigma result in rewrite renameAfterSubstitution env sigma path in rewrite renameAfterSubstitution env sigma body in Refl
   renameAfterSubstitution env sigma (IOType value) = cong IOType (renameAfterSubstitution env sigma value)
   renameAfterSubstitution env sigma (FileHandleType region) = cong FileHandleType (renameAfterSubstitution env sigma region)
   renameAfterSubstitution env sigma (NominalType key indices shape) = rewrite renameAfterSubstitutionTerms env sigma indices in rewrite renameAfterSubstitution env sigma shape in Refl
@@ -124,6 +125,7 @@ mutual
   substituteAfterRenaming env sigma ReadLine = Refl
   substituteAfterRenaming env sigma StringType = Refl
   substituteAfterRenaming env sigma (StringValue _) = Refl
+  substituteAfterRenaming env sigma (WithInputFile result path body) = rewrite substituteAfterRenaming env sigma result in rewrite substituteAfterRenaming env sigma path in rewrite substituteAfterRenaming env sigma body in Refl
   substituteAfterRenaming env sigma (IOType value) = cong IOType (substituteAfterRenaming env sigma value)
   substituteAfterRenaming env sigma (FileHandleType region) = cong FileHandleType (substituteAfterRenaming env sigma region)
   substituteAfterRenaming env sigma (NominalType key indices shape) = rewrite substituteAfterRenamingTerms env sigma indices in rewrite substituteAfterRenaming env sigma shape in Refl
@@ -224,6 +226,7 @@ mutual
   substituteComposition first second ReadLine = Refl
   substituteComposition first second StringType = Refl
   substituteComposition first second (StringValue _) = Refl
+  substituteComposition first second (WithInputFile result path body) = rewrite substituteComposition first second result in rewrite substituteComposition first second path in rewrite substituteComposition first second body in Refl
   substituteComposition first second (IOType value) = cong IOType (substituteComposition first second value)
   substituteComposition first second (FileHandleType region) = cong FileHandleType (substituteComposition first second region)
   substituteComposition first second (NominalType key indices shape) = rewrite substituteCompositionTerms first second indices in rewrite substituteComposition first second shape in Refl

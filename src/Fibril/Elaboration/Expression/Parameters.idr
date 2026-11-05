@@ -81,6 +81,10 @@ mutual
       match position mapping prune shape actualShape solutions
     else failure position
   match position mapping prune (VariantType xs) (VariantType ys) solutions = matchArms position mapping prune xs ys solutions
+  match position mapping prune (WithInputFile a p f) (WithInputFile b q g) solutions = do
+    first <- match position mapping prune a b solutions
+    second <- match position mapping prune p q first
+    match position mapping prune f g second
   match position mapping prune (IOType x) (IOType y) solutions = match position mapping prune x y solutions
   match position mapping prune (FileHandleType x) (FileHandleType y) solutions = match position mapping prune x y solutions
   match position mapping prune (IOPure x) (IOPure y) solutions = match position mapping prune x y solutions

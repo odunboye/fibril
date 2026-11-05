@@ -66,7 +66,8 @@ linear bind-result checking is not sufficient evidence for this milestone.
 See [the proposed ownership contract](io-ownership.md) and the
 [host-only scoped file pilot](io-scoped-files.md). The latter tests cleanup and
 revocation. Separate [abstract handle typing](io-static-handles.md) now checks
-transfer and quantity/region rejection cases; handle creation is still disabled.
+transfer and quantity/region rejection cases. An [inert core scope boundary](io-core-scope.md)
+checks ownership-returning callbacks; handle creation is still disabled.
 
 ## 2. Design incremental execution and richer effects
 
@@ -145,7 +146,7 @@ reusable authority or a linear resource. An effect label is not an OS sandbox.
 This document consolidates requirements; it does not implement those milestones.
 The current branch has a proposed ownership document, hosted planner budget
 changes and checked hosted stdout flushing. Run `python3 tools/test_io_hosted.py`
-from the repository root for 193 core IO, console argument, sequence, script, input and resource checks,
+from the repository root for 208 core IO, console argument, sequence, script, input and resource checks,
 plus real C `fflush` and checked-core stdin (Unicode CRLF/EOF/length failure)
 smoke tests on Chez. These pass, including direct-core
 64/65-write boundaries, injected write/flush failures, ordering and empty-plan

@@ -72,8 +72,8 @@ tests. They cover success, acquisition failure, body/cleanup failures, escaped
 leases, double close and use-after-close. A separate compile-negative check
 verifies that a host client cannot access the raw lease constructor.
 
-Abstract handle formation and negative typing tests for
-ownership duplication/discard/capture are now in place. Next: finalize and
-implement the region/ownership-returning introduction boundary, then connect
-hosted execution and the corresponding native registry/cleanup tests. Keep source file
+Abstract handle formation and the [inert ownership-returning core
+boundary](io-core-scope.md) now have typing regressions, including nested regions
+and existential escape. Next connect trusted hosted introduction/execution and
+the corresponding native registry/cleanup tests. Keep source file
 primitives disabled until those gates pass. Console IO remains unchanged.

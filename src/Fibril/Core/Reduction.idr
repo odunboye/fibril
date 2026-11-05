@@ -72,6 +72,11 @@ mutual
     Nothing => case step value of
       Just next => Just (BoxCase motive next branch)
       Nothing => map (BoxCase motive value) (step branch)
+  step (WithInputFile result path body) = case step result of
+    Just next => Just (WithInputFile next path body)
+    Nothing => case step path of
+      Just next => Just (WithInputFile result next body)
+      Nothing => map (WithInputFile result path) (step body)
   step (IOType ty) = map IOType (step ty)
   step (FileHandleType region) = map FileHandleType (step region)
   step (IOPure value) = map IOPure (step value)

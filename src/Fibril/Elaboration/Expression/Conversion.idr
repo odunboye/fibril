@@ -37,6 +37,10 @@ mutual
   admit (S budget) (BoxType _ a) = admit budget a
   admit (S budget) (BoxValue a b) = do x <- admit budget a; admit x b
   admit (S budget) (BoxCase a b c) = do x <- admit budget a; y <- admit x b; admit y c
+  admit (S budget) (WithInputFile result path body) = do
+    first <- admit budget result
+    second <- admit first path
+    admit second body
   admit (S budget) (IOType a) = admit budget a
   admit (S budget) (FileHandleType region) = admit budget region
   admit (S budget) (IOPure a) = admit budget a
@@ -89,6 +93,7 @@ mutual
   safeRedexes size payload (BoxType _ a) = safeRedexes size payload a
   safeRedexes size payload (BoxValue a b) = safeRedexes size payload a && safeRedexes size payload b
   safeRedexes size payload (BoxCase a b c) = safeRedexes size payload a && safeRedexes size payload b && safeRedexes size payload c
+  safeRedexes size payload (WithInputFile result path body) = safeRedexes size payload result && safeRedexes size payload path && safeRedexes size payload body
   safeRedexes size payload (IOType a) = safeRedexes size payload a
   safeRedexes size payload (FileHandleType region) = safeRedexes size payload region
   safeRedexes size payload (IOPure a) = safeRedexes size payload a

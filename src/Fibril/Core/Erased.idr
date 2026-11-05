@@ -95,6 +95,14 @@ mutual
     regionType <- infer depth reduction context region
     requireCompatible reduction regionType (Universe 0)
     Right (Universe 0)
+  infer (S depth) reduction context (WithInputFile result path body) = do
+    resultSort <- infer depth reduction context result
+    requireCompatible reduction resultSort (Universe 0)
+    pathType <- infer depth reduction context path
+    requireCompatible reduction pathType StringType
+    bodyType <- infer depth reduction context body
+    requireCompatible reduction bodyType (scopedInputBodyType result)
+    Right (IOType (fileScopeResultType result))
   infer (S depth) reduction context (IOType ty) = do
     level <- sortOf depth reduction context ty
     Right (Universe level)

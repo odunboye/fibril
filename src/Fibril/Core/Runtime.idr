@@ -58,6 +58,11 @@ mutual
     leftUsage <- analyze depth reduction context left
     rightUsage <- analyze depth reduction context right
     Right (combineUsage leftUsage rightUsage)
+  analyze (S depth) reduction context (WithInputFile result path body) = do
+    pathUsage <- analyze depth reduction context path
+    bodyUsage <- analyze depth reduction context body
+    -- Open failure skips the callback: it cannot own captured linear resources.
+    Right (combineUsage pathUsage (scaleUsage Unrestricted bodyUsage))
   analyze (S depth) reduction context (IOType _) = Left RuntimeTypeExpression
   analyze (S depth) reduction context (FileHandleType _) = Left RuntimeTypeExpression
   analyze (S depth) reduction context (IOPure value) = analyze depth reduction context value

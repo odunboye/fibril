@@ -30,6 +30,7 @@ mutual
   renameCongruent left right agree ReadLine = Refl
   renameCongruent left right agree StringType = Refl
   renameCongruent left right agree (StringValue _) = Refl
+  renameCongruent left right agree (WithInputFile result path body) = rewrite renameCongruent left right agree result in rewrite renameCongruent left right agree path in rewrite renameCongruent left right agree body in Refl
   renameCongruent left right agree (IOType value) = cong IOType (renameCongruent left right agree value)
   renameCongruent left right agree (FileHandleType region) = cong FileHandleType (renameCongruent left right agree region)
   renameCongruent left right agree (NominalType key indices shape) = rewrite renameCongruentTerms left right agree indices in rewrite renameCongruent left right agree shape in Refl
@@ -108,6 +109,7 @@ mutual
   renameIdentity ReadLine = Refl
   renameIdentity StringType = Refl
   renameIdentity (StringValue _) = Refl
+  renameIdentity (WithInputFile result path body) = rewrite renameIdentity result in rewrite renameIdentity path in rewrite renameIdentity body in Refl
   renameIdentity (IOType value) = cong IOType (renameIdentity value)
   renameIdentity (FileHandleType region) = cong FileHandleType (renameIdentity region)
   renameIdentity (NominalType key indices shape) = rewrite renameIdentityTerms indices in rewrite renameIdentity shape in Refl
@@ -192,6 +194,7 @@ mutual
   renameComposition first second ReadLine = Refl
   renameComposition first second StringType = Refl
   renameComposition first second (StringValue _) = Refl
+  renameComposition first second (WithInputFile result path body) = rewrite renameComposition first second result in rewrite renameComposition first second path in rewrite renameComposition first second body in Refl
   renameComposition first second (IOType value) = cong IOType (renameComposition first second value)
   renameComposition first second (FileHandleType region) = cong FileHandleType (renameComposition first second region)
   renameComposition first second (NominalType key indices shape) = rewrite renameCompositionTerms first second indices in rewrite renameComposition first second shape in Refl
