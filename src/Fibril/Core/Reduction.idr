@@ -65,6 +65,23 @@ mutual
       Nothing => case step next of
         Just s => Just (RecFold motive base s value)
         Nothing => RecFold motive base next <$> step value
+  step (SeqType key element) = SeqType key <$> step element
+  step (SeqNil ty) = SeqNil <$> step ty
+  step (SeqCons ty head tail) = case step ty of
+    Just next => Just (SeqCons next head tail)
+    Nothing => case step head of
+      Just next => Just (SeqCons ty next tail)
+      Nothing => SeqCons ty head <$> step tail
+  step (SeqFold motive base next (SeqNil _)) = Just base
+  step (SeqFold motive base next (SeqCons _ head tail)) =
+    Just (Apply (Apply (Apply next head) tail) (SeqFold motive base next tail))
+  step (SeqFold motive base next value) = case step motive of
+    Just p => Just (SeqFold p base next value)
+    Nothing => case step base of
+      Just z => Just (SeqFold motive z next value)
+      Nothing => case step next of
+        Just s => Just (SeqFold motive base s value)
+        Nothing => SeqFold motive base next <$> step value
   step StringType = Nothing
   step (StringValue _) = Nothing
   step (StringAppend (StringValue left) (StringValue right)) = Just (StringValue (left ++ right))

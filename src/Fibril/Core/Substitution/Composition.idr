@@ -40,6 +40,10 @@ mutual
   renameAfterSubstitution env sigma (RecEnd ty) = cong RecEnd (renameAfterSubstitution env sigma ty)
   renameAfterSubstitution env sigma (RecMore ty x) = rewrite renameAfterSubstitution env sigma ty in rewrite renameAfterSubstitution env sigma x in Refl
   renameAfterSubstitution env sigma (RecFold p z s x) = rewrite renameAfterSubstitution env sigma p in rewrite renameAfterSubstitution env sigma z in rewrite renameAfterSubstitution env sigma s in rewrite renameAfterSubstitution env sigma x in Refl
+  renameAfterSubstitution env sigma (SeqType key a) = cong (SeqType key) (renameAfterSubstitution env sigma a)
+  renameAfterSubstitution env sigma (SeqNil ty) = cong SeqNil (renameAfterSubstitution env sigma ty)
+  renameAfterSubstitution env sigma (SeqCons ty h t) = rewrite renameAfterSubstitution env sigma ty in rewrite renameAfterSubstitution env sigma h in rewrite renameAfterSubstitution env sigma t in Refl
+  renameAfterSubstitution env sigma (SeqFold p z s x) = rewrite renameAfterSubstitution env sigma p in rewrite renameAfterSubstitution env sigma z in rewrite renameAfterSubstitution env sigma s in rewrite renameAfterSubstitution env sigma x in Refl
   renameAfterSubstitution env sigma StringType = Refl
   renameAfterSubstitution env sigma (StringValue _) = Refl
   renameAfterSubstitution env sigma (IOType value) = cong IOType (renameAfterSubstitution env sigma value)
@@ -137,6 +141,10 @@ mutual
   substituteAfterRenaming env sigma (RecEnd ty) = cong RecEnd (substituteAfterRenaming env sigma ty)
   substituteAfterRenaming env sigma (RecMore ty x) = rewrite substituteAfterRenaming env sigma ty in rewrite substituteAfterRenaming env sigma x in Refl
   substituteAfterRenaming env sigma (RecFold p z s x) = rewrite substituteAfterRenaming env sigma p in rewrite substituteAfterRenaming env sigma z in rewrite substituteAfterRenaming env sigma s in rewrite substituteAfterRenaming env sigma x in Refl
+  substituteAfterRenaming env sigma (SeqType key a) = cong (SeqType key) (substituteAfterRenaming env sigma a)
+  substituteAfterRenaming env sigma (SeqNil ty) = cong SeqNil (substituteAfterRenaming env sigma ty)
+  substituteAfterRenaming env sigma (SeqCons ty h t) = rewrite substituteAfterRenaming env sigma ty in rewrite substituteAfterRenaming env sigma h in rewrite substituteAfterRenaming env sigma t in Refl
+  substituteAfterRenaming env sigma (SeqFold p z s x) = rewrite substituteAfterRenaming env sigma p in rewrite substituteAfterRenaming env sigma z in rewrite substituteAfterRenaming env sigma s in rewrite substituteAfterRenaming env sigma x in Refl
   substituteAfterRenaming env sigma StringType = Refl
   substituteAfterRenaming env sigma (StringValue _) = Refl
   substituteAfterRenaming env sigma (IOType value) = cong IOType (substituteAfterRenaming env sigma value)
@@ -244,6 +252,10 @@ mutual
   substituteComposition first second (RecEnd ty) = cong RecEnd (substituteComposition first second ty)
   substituteComposition first second (RecMore ty x) = rewrite substituteComposition first second ty in rewrite substituteComposition first second x in Refl
   substituteComposition first second (RecFold p z s x) = rewrite substituteComposition first second p in rewrite substituteComposition first second z in rewrite substituteComposition first second s in rewrite substituteComposition first second x in Refl
+  substituteComposition first second (SeqType key a) = cong (SeqType key) (substituteComposition first second a)
+  substituteComposition first second (SeqNil ty) = cong SeqNil (substituteComposition first second ty)
+  substituteComposition first second (SeqCons ty h t) = rewrite substituteComposition first second ty in rewrite substituteComposition first second h in rewrite substituteComposition first second t in Refl
+  substituteComposition first second (SeqFold p z s x) = rewrite substituteComposition first second p in rewrite substituteComposition first second z in rewrite substituteComposition first second s in rewrite substituteComposition first second x in Refl
   substituteComposition first second StringType = Refl
   substituteComposition first second (StringValue _) = Refl
   substituteComposition first second (IOType value) = cong IOType (substituteComposition first second value)

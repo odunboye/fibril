@@ -27,6 +27,10 @@ mutual
   coreNodes (RecEnd ty) = 1 + coreNodes ty
   coreNodes (RecMore ty x) = 1 + coreNodes ty + coreNodes x
   coreNodes (RecFold p z s x) = 1 + coreNodes p + coreNodes z + coreNodes s + coreNodes x
+  coreNodes (SeqType _ a) = 1 + coreNodes a
+  coreNodes (SeqNil ty) = 1 + coreNodes ty
+  coreNodes (SeqCons ty h t) = 1 + coreNodes ty + coreNodes h + coreNodes t
+  coreNodes (SeqFold p z s x) = 1 + coreNodes p + coreNodes z + coreNodes s + coreNodes x
   coreNodes StringType = 1
   coreNodes (StringValue _) = 1
   coreNodes (StringAppend a b) = 1 + coreNodes a + coreNodes b
@@ -85,6 +89,10 @@ mutual
   mentionsNominal key (RecEnd ty) = mentionsNominal key ty
   mentionsNominal key (RecMore ty x) = mentionsNominal key ty || mentionsNominal key x
   mentionsNominal key (RecFold p z s x) = mentionsNominal key p || mentionsNominal key z || mentionsNominal key s || mentionsNominal key x
+  mentionsNominal key (SeqType other a) = key == other || mentionsNominal key a
+  mentionsNominal key (SeqNil ty) = mentionsNominal key ty
+  mentionsNominal key (SeqCons ty h t) = mentionsNominal key ty || mentionsNominal key h || mentionsNominal key t
+  mentionsNominal key (SeqFold p z s x) = mentionsNominal key p || mentionsNominal key z || mentionsNominal key s || mentionsNominal key x
   mentionsNominal key StringType = False
   mentionsNominal key (StringValue _) = False
   mentionsNominal key (StringAppend a b) = mentionsNominal key a || mentionsNominal key b

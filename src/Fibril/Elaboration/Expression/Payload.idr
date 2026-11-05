@@ -39,6 +39,10 @@ mutual
   payloadWeight env (RecEnd ty) = payloadWeight env ty
   payloadWeight env (RecMore ty x) = cap (payloadWeight env ty + payloadWeight env x)
   payloadWeight env (RecFold p z s x) = cap (payloadWeight env p + payloadWeight env z + payloadWeight env s + payloadWeight env x)
+  payloadWeight env (SeqType key a) = cap (length key + payloadWeight env a)
+  payloadWeight env (SeqNil ty) = payloadWeight env ty
+  payloadWeight env (SeqCons ty h t) = cap (payloadWeight env ty + payloadWeight env h + payloadWeight env t)
+  payloadWeight env (SeqFold p z s x) = cap (payloadWeight env p + payloadWeight env z + payloadWeight env s + payloadWeight env x)
   payloadWeight env StringType = 0
   payloadWeight env (StringValue value) = cap (length value)
   payloadWeight env (StringAppend a b) = cap (payloadWeight env a + payloadWeight env b)

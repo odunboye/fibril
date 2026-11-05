@@ -5,7 +5,9 @@ digraph RecursiveData {
   shape [label="Fixed positive core shape\nqualified identity + linear self field"];
   check [label="Independent type +\nquantitative checks"];
   fold [label="Dependent fold\nerased tail, linear result"];
-  future [label="Future: payloads, parameters,\nList, general positivity", style=dashed];
+  sequence [label="Items A: linear element\n+ linear recursive tail"];
+  future [label="Future: general fields, indices,\nmutual recursion, positivity", style=dashed];
   source -> shape -> check -> fold;
+  sequence -> check;
   check -> future [style=dashed];
 }

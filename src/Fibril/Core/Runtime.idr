@@ -69,6 +69,17 @@ mutual
     nextUsage <- analyze depth reduction context next
     valueUsage <- analyze depth reduction context value
     Right (combineUsage valueUsage (combineUsage baseUsage (scaleUsage Unrestricted nextUsage)))
+  analyze (S depth) reduction context (SeqType _ _) = Left RuntimeTypeExpression
+  analyze (S depth) reduction context (SeqNil _) = Right zeroUsage
+  analyze (S depth) reduction context (SeqCons _ head tail) = do
+    headUsage <- analyze depth reduction context head
+    tailUsage <- analyze depth reduction context tail
+    Right (combineUsage headUsage tailUsage)
+  analyze (S depth) reduction context (SeqFold motive base next value) = do
+    baseUsage <- analyze depth reduction context base
+    nextUsage <- analyze depth reduction context next
+    valueUsage <- analyze depth reduction context value
+    Right (combineUsage valueUsage (combineUsage baseUsage (scaleUsage Unrestricted nextUsage)))
   analyze (S depth) reduction context StringType = Left RuntimeTypeExpression
   analyze (S depth) reduction context (StringValue _) = Right zeroUsage
   analyze (S depth) reduction context (StringAppend left right) = do

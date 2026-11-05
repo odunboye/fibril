@@ -36,6 +36,10 @@ mutual
   renameCongruent left right agree (RecEnd ty) = cong RecEnd (renameCongruent left right agree ty)
   renameCongruent left right agree (RecMore ty x) = rewrite renameCongruent left right agree ty in rewrite renameCongruent left right agree x in Refl
   renameCongruent left right agree (RecFold p z s x) = rewrite renameCongruent left right agree p in rewrite renameCongruent left right agree z in rewrite renameCongruent left right agree s in rewrite renameCongruent left right agree x in Refl
+  renameCongruent left right agree (SeqType key a) = cong (SeqType key) (renameCongruent left right agree a)
+  renameCongruent left right agree (SeqNil ty) = cong SeqNil (renameCongruent left right agree ty)
+  renameCongruent left right agree (SeqCons ty h t) = rewrite renameCongruent left right agree ty in rewrite renameCongruent left right agree h in rewrite renameCongruent left right agree t in Refl
+  renameCongruent left right agree (SeqFold p z s x) = rewrite renameCongruent left right agree p in rewrite renameCongruent left right agree z in rewrite renameCongruent left right agree s in rewrite renameCongruent left right agree x in Refl
   renameCongruent left right agree StringType = Refl
   renameCongruent left right agree (StringValue _) = Refl
   renameCongruent left right agree (IOType value) = cong IOType (renameCongruent left right agree value)
@@ -121,6 +125,10 @@ mutual
   renameIdentity (RecEnd ty) = cong RecEnd (renameIdentity ty)
   renameIdentity (RecMore ty x) = rewrite renameIdentity ty in rewrite renameIdentity x in Refl
   renameIdentity (RecFold p z s x) = rewrite renameIdentity p in rewrite renameIdentity z in rewrite renameIdentity s in rewrite renameIdentity x in Refl
+  renameIdentity (SeqType key a) = cong (SeqType key) (renameIdentity a)
+  renameIdentity (SeqNil ty) = cong SeqNil (renameIdentity ty)
+  renameIdentity (SeqCons ty h t) = rewrite renameIdentity ty in rewrite renameIdentity h in rewrite renameIdentity t in Refl
+  renameIdentity (SeqFold p z s x) = rewrite renameIdentity p in rewrite renameIdentity z in rewrite renameIdentity s in rewrite renameIdentity x in Refl
   renameIdentity StringType = Refl
   renameIdentity (StringValue _) = Refl
   renameIdentity (IOType value) = cong IOType (renameIdentity value)
@@ -212,6 +220,10 @@ mutual
   renameComposition first second (RecEnd ty) = cong RecEnd (renameComposition first second ty)
   renameComposition first second (RecMore ty x) = rewrite renameComposition first second ty in rewrite renameComposition first second x in Refl
   renameComposition first second (RecFold p z s x) = rewrite renameComposition first second p in rewrite renameComposition first second z in rewrite renameComposition first second s in rewrite renameComposition first second x in Refl
+  renameComposition first second (SeqType key a) = cong (SeqType key) (renameComposition first second a)
+  renameComposition first second (SeqNil ty) = cong SeqNil (renameComposition first second ty)
+  renameComposition first second (SeqCons ty h t) = rewrite renameComposition first second ty in rewrite renameComposition first second h in rewrite renameComposition first second t in Refl
+  renameComposition first second (SeqFold p z s x) = rewrite renameComposition first second p in rewrite renameComposition first second z in rewrite renameComposition first second s in rewrite renameComposition first second x in Refl
   renameComposition first second StringType = Refl
   renameComposition first second (StringValue _) = Refl
   renameComposition first second (IOType value) = cong IOType (renameComposition first second value)

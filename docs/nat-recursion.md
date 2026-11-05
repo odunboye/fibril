@@ -27,9 +27,9 @@ This is **not yet general recursive function syntax**. A narrowly restricted
 [named Nat equation](function-equations.md#structural-nat-equations) lowers to
 this recursor; other self-referential equations fail. A separate
 [unary recursive-data slice](data.md#unary-recursive-declarations) admits one
-terminal and one direct linear self field. Recursive lists, general positivity
-checking, mutual recursion and a termination checker for arbitrary definitions
-remain future work. `natRec` gives the step an erased predecessor and a
+terminal and one direct linear self field, alongside a restricted parameterized
+list shape. General positivity checking, mutual recursion and a termination
+checker for arbitrary definitions remain future work. `natRec` gives the step an erased predecessor and a
 runtime recursive result. `natRecWith` additionally allows the step to inspect
 the predecessor, at the cost of requiring an unrestricted count. General
 structural recursion through other user types requires later work. The

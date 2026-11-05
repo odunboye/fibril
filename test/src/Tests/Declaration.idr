@@ -49,6 +49,17 @@ checks =
               _ => False
           _ => False
         _ => False)
+  , ("sequence-data generated IR is admitted before construction",
+      let source = "module Main\ndata Items {0 A : Type} : Type where\n  eliminator foldItems\n  Empty : Items A\n  Prepend : (1 head : A) -> (1 tail : Items A) -> Items A\n" in
+      case parseDocument 64 256 source of
+        Right document => case document.body of
+          DeclarationDocument declarations =>
+            case (elaborateDeclarationsInWithBudget (Just "Main") [] 767 10 declarations,
+                  elaborateDeclarationsInWithBudget (Just "Main") [] 768 10 declarations) of
+              (Left _, Right generated) => length generated == 4
+              _ => False
+          _ => False
+        _ => False)
   , ("named function equation inherits a dependent signature and quantities",
       accepted False "identity : (0 A : Type) -> (1 item : A) -> A\nidentity T value = value\nmain : Bool\nmain = identity Bool True")
   , ("named function equation rejects linear duplication",

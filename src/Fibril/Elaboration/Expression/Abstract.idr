@@ -29,6 +29,10 @@ mutual
   descend env hole target (RecEnd ty) = RecEnd (abstractWith env hole target ty)
   descend env hole target (RecMore ty x) = RecMore (abstractWith env hole target ty) (abstractWith env hole target x)
   descend env hole target (RecFold p z s x) = RecFold (abstractWith env hole target p) (abstractWith env hole target z) (abstractWith env hole target s) (abstractWith env hole target x)
+  descend env hole target (SeqType key a) = SeqType key (abstractWith env hole target a)
+  descend env hole target (SeqNil ty) = SeqNil (abstractWith env hole target ty)
+  descend env hole target (SeqCons ty h t) = SeqCons (abstractWith env hole target ty) (abstractWith env hole target h) (abstractWith env hole target t)
+  descend env hole target (SeqFold p z s x) = SeqFold (abstractWith env hole target p) (abstractWith env hole target z) (abstractWith env hole target s) (abstractWith env hole target x)
   descend env hole target StringType = StringType
   descend env hole target (StringValue value) = StringValue value
   descend env hole target (StringAppend a b) = StringAppend (abstractWith env hole target a) (abstractWith env hole target b)

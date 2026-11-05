@@ -10,8 +10,8 @@ kernel before named data, recursive inductives and structural recursion.
 [Finite variants](finite-variants.md) are now implemented in the internal kernel;
 [closed nominal identity](nominal-data.md) and [source data](data.md) expose
 checked constructors, direct non-recursive cases and named elimination. A
-fixed terminal/unary-self recursive type with a structural fold is implemented;
-general recursive data and positivity remain future work. Nullary arms have
+fixed terminal/unary-self and parameterized list-shaped types with structural
+folds are implemented; general recursive data and positivity remain future work. Nullary arms have
 an explicit representation; hidden Unit padding does not support the required
 dependent motives under current Unit conversion.
 

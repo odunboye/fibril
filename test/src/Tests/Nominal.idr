@@ -100,10 +100,74 @@ dependentRecStep = Lambda Erased recType
       (Apply (Variable (FS FZ))
         (NominalValue (indexed (Variable (FS (FS FZ)))) (VariantValue indexShape 0 Nothing)))))
 
+seqType : Term n
+seqType = SeqType "Example.Words" StringType
+
+seqMotive : Term n
+seqMotive = Lambda Erased seqType StringType
+
+seqStep : Term n
+seqStep = Lambda Linear StringType (Lambda Erased seqType (Lambda Linear StringType
+  (StringAppend (Variable (FS (FS FZ))) (Variable FZ))))
+
+seqValue : Term n
+seqValue = SeqCons seqType (StringValue "a") (SeqCons seqType (StringValue "b") (SeqNil seqType))
+
+sequenceIndex : Term n -> Term n
+sequenceIndex x = NominalType "Example.SeqIndex" [x] indexShape
+
+dependentSeqMotive : Term n
+dependentSeqMotive = Lambda Erased seqType (Pi Erased (sequenceIndex (Variable FZ)) StringType)
+
+dependentSeqBase : Term n
+dependentSeqBase = Lambda Erased (sequenceIndex (SeqNil seqType)) (StringValue "")
+
+dependentSeqStep : Term n
+dependentSeqStep = Lambda Linear StringType (Lambda Erased seqType
+  (Lambda Linear (Apply (weaken (weaken dependentSeqMotive)) (Variable FZ))
+    (Lambda Erased (sequenceIndex (SeqCons seqType (Variable (FS (FS FZ))) (Variable (FS FZ))))
+      (StringAppend (Variable (FS (FS (FS FZ))))
+        (Apply (Variable (FS FZ))
+          (NominalValue (sequenceIndex (Variable (FS (FS FZ)))) (VariantValue indexShape 0 Nothing)))))))
+
 public export
 checks : List (String, Bool)
 checks =
-  [ ("recursive fixed-shape data checks and structurally folds",
+  [ ("sequence core checks and folds head and tail linearly",
+      let candidate = SeqFold seqMotive (StringValue "") seqStep seqValue in
+      accepts (checkRuntime 512 128 Empty candidate StringType) &&
+      case normalize 64 candidate of
+        Normal result => sameSyntax result (StringValue "ab") && accepts (checkRuntime 512 128 Empty result StringType)
+        _ => False)
+  , ("sequence fold supports dependent motives and a neutral tail",
+      let ctx = Extend Empty Linear seqType
+          value = SeqCons seqType (StringValue "a") (Variable FZ)
+          candidate = SeqFold dependentSeqMotive dependentSeqBase dependentSeqStep value
+          expected = Apply dependentSeqMotive value in
+      accepts (checkRuntime 512 128 ctx candidate expected) &&
+      case step candidate of
+        Just reduced => accepts (checkRuntime 512 128 ctx reduced expected)
+        Nothing => False)
+  , ("sequence identity retains key and element type",
+      not (accepts (checkErased 512 128 Empty (SeqNil (SeqType "Example.Other" StringType)) seqType)) &&
+      not (accepts (checkErased 512 128 Empty (SeqNil (SeqType "Example.Words" BoolType)) seqType)) &&
+      not (accepts (inferErased 512 128 Empty (SeqType "Example.Words" (Universe 0)))))
+  , ("sequence constructor rejects wrong payload and tail",
+      not (accepts (checkRuntime 512 128 Empty (SeqCons seqType BoolTrue (SeqNil seqType)) seqType)) &&
+      not (accepts (checkRuntime 512 128 Empty (SeqCons seqType (StringValue "x") (SeqNil (SeqType "Example.Other" StringType))) seqType)))
+  , ("sequence fold requires exactly one induction-result use",
+      let dropIH = Lambda Linear StringType (Lambda Erased seqType
+            (Lambda Linear StringType (Variable (FS (FS FZ))))) in
+      case checkRuntime 512 128 Empty (SeqFold seqMotive (StringValue "") dropIH (SeqNil seqType)) StringType of
+        Left (BoundUsage Linear Erased) => True
+        _ => False)
+  , ("sequence fold rejects discarded head and linear capture",
+      let dropHead = Lambda Linear StringType (Lambda Erased seqType (Lambda Linear StringType (Variable FZ)))
+          captured = Lambda Linear StringType (Lambda Erased seqType (Lambda Linear StringType
+            (StringAppend (Variable (FS (FS (FS FZ)))) (StringAppend (Variable (FS (FS FZ))) (Variable FZ))))) in
+      not (accepts (checkRuntime 512 128 Empty (SeqFold seqMotive (StringValue "") dropHead (SeqNil seqType)) StringType)) &&
+      not (accepts (checkRuntime 512 128 (Extend Empty Linear StringType) (SeqFold seqMotive (StringValue "") captured (SeqNil seqType)) StringType)))
+  , ("recursive fixed-shape data checks and structurally folds",
       let candidate = RecFold recMotive (StringValue "base") recStep recValue in
       accepts (checkRuntime 512 128 Empty candidate StringType) &&
       case normalize 32 candidate of

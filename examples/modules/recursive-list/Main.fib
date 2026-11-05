@@ -1,0 +1,12 @@
+module Main
+
+import Data.Items
+
+join : (1 items : Data.Items.Items String) -> String
+join items = Data.Items.foldItems String
+  (\(0 self : Data.Items.Items String) => String) ""
+  (\(1 head : String) => \(0 tail : Data.Items.Items String) =>
+    \(1 result : String) => appendString head result) items
+
+main : IO Unit
+main = putStrLn (join (Data.Items.Prepend "hello" (Data.Items.Prepend " world" (Data.Items.Empty {String}))))

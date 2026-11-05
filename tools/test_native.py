@@ -204,11 +204,12 @@ main = do
             self.assertIn('does not support this computational core construct', emitted.stderr)
 
     def test_recursive_data_is_not_yet_native(self):
-        root = ROOT / 'examples/modules/recursive-data'
-        emitted = run_cli('emit-c', '--source-dir', str(root), str(root / 'Main.fib'), timeout=120)
-        self.assertNotEqual(emitted.returncode, 0)
-        self.assertEqual(emitted.stdout, '')
-        self.assertIn('does not support this computational core construct', emitted.stderr)
+        for example in ['recursive-data', 'recursive-list']:
+            root = ROOT / 'examples/modules' / example
+            emitted = run_cli('emit-c', '--source-dir', str(root), str(root / 'Main.fib'), timeout=120)
+            self.assertNotEqual(emitted.returncode, 0)
+            self.assertEqual(emitted.stdout, '')
+            self.assertIn('does not support this computational core construct', emitted.stderr)
 
     def test_wider_data_still_fails_closed_without_pair_lowering(self):
         root = ROOT / 'examples/modules/data'

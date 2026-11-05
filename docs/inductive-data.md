@@ -11,9 +11,10 @@ kernel representation. [Checked declaration construction](data-declarations.md)
 now allocates qualified keys and checks closed families/constructors, with exact
 admission and all-or-error layout output. Source integration, field-telescope packing and ordinary module exports now work.
 Direct source matching handles zero/unary non-recursive data. A restricted
-[unary recursive declaration](data.md#unary-recursive-declarations) now lowers
-to a finite, fixed-shape checked core type with a structural fold; it does not
-introduce a general recursive declaration environment or positivity checker. A
+[unary recursive declaration](data.md#unary-recursive-declarations) and a
+[parameterized list shape](data.md#parameterized-list-shape) now lower to finite,
+fixed-shape checked core types with structural folds; they do not introduce a
+general recursive declaration environment or positivity checker. A
 separate built-in [Nat recursor](nat-recursion.md) and narrow single-argument
 Nat equation form support structural computation, not a general termination
 checker.
@@ -61,7 +62,7 @@ this gap.
 | D0: this design | Rules, representations, open decisions and acceptance tests. | Implemented data support. |
 | D1: finite-variant kernel (implemented) | Non-recursive finite alternatives, including nullary arms, dependent elimination and reduction. | Recursive inductives, nominal data declarations or a preservation proof. |
 | D2: authored non-recursive data | Declaration validation, a settled named-identity policy, checked constructors and exhaustive flat matching, module/editor integration. | Recursive self references, indices, nested coverage or termination checking. |
-| D3: recursive declarations (partial) | Fixed terminal/unary-self recursive type and checked fold; general checked representation, positivity and List remain future work. | General recursion or arbitrary indexed/mutual datatypes. |
+| D3: recursive declarations (partial) | Fixed terminal/unary-self and one-element list-shaped types with checked folds. | General positivity, arbitrary indexed/mutual datatypes or general recursion. |
 | D4: recursive function convenience | Structural recursion/termination checks and case-tree elaboration into admitted core terms. | Unrestricted recursion in types or proofs. |
 
 Complete each slice with tests, use cases, diagrams, compatibility notes and a

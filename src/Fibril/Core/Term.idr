@@ -36,6 +36,11 @@ data Term : Nat -> Type where
   RecEnd : Term n -> Term n
   RecMore : Term n -> Term n -> Term n
   RecFold : Term n -> Term n -> Term n -> Term n -> Term n
+  ||| Fixed positive list shape: one terminal and one linear element/tail arm.
+  SeqType : String -> Term n -> Term n
+  SeqNil : Term n -> Term n
+  SeqCons : Term n -> Term n -> Term n -> Term n
+  SeqFold : Term n -> Term n -> Term n -> Term n -> Term n
   ||| Primitive String : Type0, literal data, pure concatenation/comparison.
   StringType : Term n
   StringValue : String -> Term n
@@ -105,6 +110,10 @@ mutual
   rename env (RecEnd ty) = RecEnd (rename env ty)
   rename env (RecMore ty value) = RecMore (rename env ty) (rename env value)
   rename env (RecFold motive base step value) = RecFold (rename env motive) (rename env base) (rename env step) (rename env value)
+  rename env (SeqType key element) = SeqType key (rename env element)
+  rename env (SeqNil ty) = SeqNil (rename env ty)
+  rename env (SeqCons ty head tail) = SeqCons (rename env ty) (rename env head) (rename env tail)
+  rename env (SeqFold motive base step value) = SeqFold (rename env motive) (rename env base) (rename env step) (rename env value)
   rename env StringType = StringType
   rename env (StringValue value) = StringValue value
   rename env (StringAppend left right) = StringAppend (rename env left) (rename env right)
@@ -170,6 +179,10 @@ mutual
   substituteTerm env (RecEnd ty) = RecEnd (substituteTerm env ty)
   substituteTerm env (RecMore ty value) = RecMore (substituteTerm env ty) (substituteTerm env value)
   substituteTerm env (RecFold motive base step value) = RecFold (substituteTerm env motive) (substituteTerm env base) (substituteTerm env step) (substituteTerm env value)
+  substituteTerm env (SeqType key element) = SeqType key (substituteTerm env element)
+  substituteTerm env (SeqNil ty) = SeqNil (substituteTerm env ty)
+  substituteTerm env (SeqCons ty head tail) = SeqCons (substituteTerm env ty) (substituteTerm env head) (substituteTerm env tail)
+  substituteTerm env (SeqFold motive base step value) = SeqFold (substituteTerm env motive) (substituteTerm env base) (substituteTerm env step) (substituteTerm env value)
   substituteTerm env StringType = StringType
   substituteTerm env (StringValue value) = StringValue value
   substituteTerm env (StringAppend left right) =
@@ -242,6 +255,10 @@ mutual
   sameSyntax (RecEnd x) (RecEnd y) = sameSyntax x y
   sameSyntax (RecMore t x) (RecMore u y) = sameSyntax t u && sameSyntax x y
   sameSyntax (RecFold p z s x) (RecFold q w t y) = sameSyntax p q && sameSyntax z w && sameSyntax s t && sameSyntax x y
+  sameSyntax (SeqType key a) (SeqType other b) = key == other && sameSyntax a b
+  sameSyntax (SeqNil a) (SeqNil b) = sameSyntax a b
+  sameSyntax (SeqCons a h t) (SeqCons b x y) = sameSyntax a b && sameSyntax h x && sameSyntax t y
+  sameSyntax (SeqFold p z s x) (SeqFold q w t y) = sameSyntax p q && sameSyntax z w && sameSyntax s t && sameSyntax x y
   sameSyntax StringType StringType = True
   sameSyntax (StringValue left) (StringValue right) = left == right
   sameSyntax (StringAppend a b) (StringAppend c d) = sameSyntax a c && sameSyntax b d

@@ -442,6 +442,10 @@ mutual
   elaborateInWith globals context env (NRecEnd _ ty) = RecEnd <$> elaborateInWith globals context env ty
   elaborateInWith globals context env (NRecMore _ ty tail) = [| RecMore (elaborateInWith globals context env ty) (elaborateInWith globals context env tail) |]
   elaborateInWith globals context env (NRecFold _ motive base next value) = [| RecFold (elaborateInWith globals context env motive) (elaborateInWith globals context env base) (elaborateInWith globals context env next) (elaborateInWith globals context env value) |]
+  elaborateInWith globals context env (NSeqType _ key element) = SeqType key <$> elaborateInWith globals context env element
+  elaborateInWith globals context env (NSeqNil _ ty) = SeqNil <$> elaborateInWith globals context env ty
+  elaborateInWith globals context env (NSeqCons _ ty head tail) = [| SeqCons (elaborateInWith globals context env ty) (elaborateInWith globals context env head) (elaborateInWith globals context env tail) |]
+  elaborateInWith globals context env (NSeqFold _ motive base next value) = [| SeqFold (elaborateInWith globals context env motive) (elaborateInWith globals context env base) (elaborateInWith globals context env next) (elaborateInWith globals context env value) |]
   elaborateInWith globals context env (NNominalType span key indices shape) = do
     indices <- elaborateTerms globals context env indices
     shape <- elaborateInWith globals context env shape

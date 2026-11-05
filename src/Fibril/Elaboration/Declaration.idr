@@ -111,6 +111,10 @@ mutual
   mentions name (NRecEnd _ ty) = mentions name ty
   mentions name (NRecMore _ ty tail) = mentions name ty || mentions name tail
   mentions name (NRecFold _ motive base next value) = mentions name motive || mentions name base || mentions name next || mentions name value
+  mentions name (NSeqType _ key element) = name == key || mentions name element
+  mentions name (NSeqNil _ ty) = mentions name ty
+  mentions name (NSeqCons _ ty head tail) = mentions name ty || mentions name head || mentions name tail
+  mentions name (NSeqFold _ motive base next value) = mentions name motive || mentions name base || mentions name next || mentions name value
   mentions name (NNominalType _ _ indices shape) = mentionsList name indices || mentions name shape
   mentions name (NNominalValue _ a b) = mentions name a || mentions name b
   mentions name (NNominalCase _ a b c) = mentions name a || mentions name b || mentions name c
@@ -291,6 +295,10 @@ mutual
   syntaxNodes (NRecEnd _ ty) = capped (1 + syntaxNodes ty)
   syntaxNodes (NRecMore _ ty tail) = capped (1 + syntaxNodes ty + syntaxNodes tail)
   syntaxNodes (NRecFold _ motive base next value) = capped (1 + syntaxNodes motive + syntaxNodes base + syntaxNodes next + syntaxNodes value)
+  syntaxNodes (NSeqType _ _ element) = capped (1 + syntaxNodes element)
+  syntaxNodes (NSeqNil _ ty) = capped (1 + syntaxNodes ty)
+  syntaxNodes (NSeqCons _ ty head tail) = capped (1 + syntaxNodes ty + syntaxNodes head + syntaxNodes tail)
+  syntaxNodes (NSeqFold _ motive base next value) = capped (1 + syntaxNodes motive + syntaxNodes base + syntaxNodes next + syntaxNodes value)
   syntaxNodes (NNominalType _ _ indices shape) = capped (1 + syntaxListNodes indices + syntaxNodes shape)
   syntaxNodes (NNominalValue _ a b) = capped (1 + syntaxNodes a + syntaxNodes b)
   syntaxNodes (NNominalCase _ a b c) = capped (1 + syntaxNodes a + syntaxNodes b + syntaxNodes c)
@@ -744,6 +752,94 @@ mutual
     if actual > estimate then Left (ElaborationFailure sourceData.name.span.start "Internal recursive data construction estimate was insufficient") else Right ()
     Right (estimate, generated)
 
+  -- Exactly one erased Type0 parameter, a terminal, and a linear element plus
+  -- a linear direct self tail. No other parameter, index or payload shape is
+  -- inferred from metadata; unsupported recursive declarations fail closed.
+  sequenceRecursiveShape : String -> DataDeclaration -> Maybe (RecordParameter, DataConstructor, DataConstructor, RecordField, RecordField)
+  sequenceRecursiveShape key sourceData = case sourceData.params of
+    [parameter] => case parameter.domain of
+      NSort _ 0 => if parameter.quantity /= Erased || parameter.name == sourceData.name.spelling || sourceData.level /= 0
+        then Nothing else case sourceData.constructors of
+          [first, second] => case (first.fields, second.fields) of
+            ([], [head, tail]) => accept parameter first second head tail
+            ([head, tail], []) => accept parameter second first head tail
+            _ => Nothing
+          _ => Nothing
+      _ => Nothing
+    _ => Nothing
+    where
+      accept : RecordParameter -> DataConstructor -> DataConstructor -> RecordField -> RecordField -> Maybe (RecordParameter, DataConstructor, DataConstructor, RecordField, RecordField)
+      accept parameter terminal successor head tail =
+        if head.quantity /= Linear || tail.quantity /= Linear ||
+           head.token.spelling == sourceData.name.spelling || tail.token.spelling == sourceData.name.spelling
+          then Nothing else case (head.ty, tail.ty) of
+            (NRef _ element, NApply _ (NRef _ target) (NRef _ index)) =>
+              if element == parameter.name && target == sourceData.name.spelling && index == parameter.name
+                then Just (parameter, terminal, successor, head, tail) else Nothing
+            (NRef _ element, NApply _ (NQualifiedRef _ target) (NRef _ index)) =>
+              if element == parameter.name && target == key && index == parameter.name
+                then Just (parameter, terminal, successor, head, tail) else Nothing
+            _ => Nothing
+
+  sequenceEliminator : DataDeclaration -> RecordParameter -> DataConstructor -> DataConstructor -> Token -> Token -> Declaration
+  sequenceEliminator sourceData parameter terminal successor keyword name =
+    let region = sourceData.span
+        params = sourceData.params
+        ty = applyParameters region (NQualifiedRef sourceData.name.span sourceData.name.spelling) params
+        element = NRef parameter.span parameter.name
+        p = "$seq.motive"
+        self = "$seq.self"
+        base = "$seq.base"
+        step = "$seq.step"
+        head = "$seq.head"
+        tail = "$seq.tail"
+        ih = "$seq.ih"
+        value = "$seq.value"
+        pRef = NRef region p
+        app = NApply region
+        nilRef = applyConstructorParameters sourceData.implicitConstructors region (NQualifiedRef terminal.name.span terminal.name.spelling) params
+        consRef = applyConstructorParameters sourceData.implicitConstructors region (NQualifiedRef successor.name.span successor.name.spelling) params
+        motiveTy = NPi region Erased self ty (NSort region 0)
+        baseTy = app pRef nilRef
+        stepTy = NPi region Linear head element (NPi region Erased tail ty
+          (NPi region Linear ih (app pRef (NRef region tail))
+            (app pRef (app (app consRef (NRef region head)) (NRef region tail)))))
+        resultTy = NPi region Erased p motiveTy (NPi region Linear base baseTy
+          (NPi region Unrestricted step stepTy (NPi region Linear value ty (app pRef (NRef region value)))))
+        result = NLambda region Erased p motiveTy (NLambda region Linear base baseTy
+          (NLambda region Unrestricted step stepTy (NLambda region Linear value ty
+            (NSeqFold region pRef (NRef region base) (NRef region step) (NRef region value)))))
+     in Declared True (Between keyword.span.start name.span.finish) name.span name.span sourceData.exported Unrestricted name.spelling
+          (parameterPis region params resultTy) (parameterLambdas region params result)
+
+  lowerSequenceRecursiveData : String -> Nat -> DataDeclaration -> RecordParameter -> DataConstructor -> DataConstructor -> RecordField -> RecordField -> Either ElaborationError (Nat, List Declaration)
+  lowerSequenceRecursiveData key budget sourceData parameter terminal successor head tail = do
+    let estimate = case sourceData.eliminator of Nothing => 128; Just _ => 768
+    if estimate > budget then Left (ElaborationFailure sourceData.name.span.start "Generated sequence data construction budget exhausted") else Right ()
+    validateFields [] sourceData.params successor.fields
+    let region = sourceData.span
+    let own = sourceData.name.spelling
+    traverse_ (\ctor => case dictionaryTarget ctor.result [] of
+      Just (target, [NRef _ index]) => if (target == own || target == key) && index == parameter.name
+        then Right () else Left (ElaborationFailure (extent ctor.result).start "Sequence constructor result must apply its data type to the parameter")
+      _ => Left (ElaborationFailure (extent ctor.result).start "Sequence constructor result must apply its data type to the parameter")) sourceData.constructors
+    let params = sourceData.params
+    let ty = applyParameters region (NQualifiedRef sourceData.name.span own) params
+    let family = Declared True region sourceData.name.span sourceData.name.span sourceData.exported Erased own
+          (parameterPis region params (NSort sourceData.name.span 0))
+          (parameterLambdas region params (NSeqType region key (NRef parameter.span parameter.name)))
+    let nil = Declared True terminal.span terminal.name.span terminal.name.span sourceData.exported Unrestricted terminal.name.spelling
+          (constructorParameterPis sourceData.implicitConstructors region params ty)
+          (parameterLambdas region params (NSeqNil terminal.span ty))
+    let more = Declared True successor.span successor.name.span successor.name.span sourceData.exported Unrestricted successor.name.spelling
+          (constructorParameterPis sourceData.implicitConstructors region params (fieldPis region successor.fields ty))
+          (parameterLambdas region params (fieldLambdas region successor.fields (NSeqCons successor.span ty (fieldRef head) (fieldRef tail))))
+    let generated = [family, nil, more] ++
+          (case sourceData.eliminator of Nothing => []; Just (keyword, name) => [sequenceEliminator sourceData parameter terminal successor keyword name])
+    let actual = foldl (\accum, decl => capped (accum + syntaxNodes decl.expected + syntaxNodes decl.value)) 0 generated
+    if actual > estimate then Left (ElaborationFailure sourceData.name.span.start "Internal sequence data construction estimate was insufficient") else Right ()
+    Right (estimate, generated)
+
   lowerData : String -> Nat -> DataDeclaration -> Either ElaborationError (Nat, List Declaration)
   lowerData qualifier budget sourceData = do
     let estimate = dataCost sourceData
@@ -754,7 +850,9 @@ mutual
       Right key => Right key
     case unaryRecursiveShape key sourceData of
       Just (terminal, successor, field) => lowerUnaryRecursiveData key budget sourceData terminal successor field
-      Nothing => lowerNonrecursiveData key estimate sourceData
+      Nothing => case sequenceRecursiveShape key sourceData of
+        Just (parameter, terminal, successor, head, tail) => lowerSequenceRecursiveData key budget sourceData parameter terminal successor head tail
+        Nothing => lowerNonrecursiveData key estimate sourceData
     where
       lowerNonrecursiveData : String -> Nat -> DataDeclaration -> Either ElaborationError (Nat, List Declaration)
       lowerNonrecursiveData key estimate sourceData = do

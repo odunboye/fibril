@@ -85,6 +85,13 @@ mutual
   match position mapping prune (RecFold p z s x) (RecFold q w t y) solutions = do
     solutions <- triple position mapping prune p z s q w t solutions
     match position mapping prune x y solutions
+  match position mapping prune (SeqType key a) (SeqType other b) solutions =
+    if key == other then match position mapping prune a b solutions else failure position
+  match position mapping prune (SeqNil ty) (SeqNil other) solutions = match position mapping prune ty other solutions
+  match position mapping prune (SeqCons ty h t) (SeqCons other x y) solutions = triple position mapping prune ty h t other x y solutions
+  match position mapping prune (SeqFold p z s x) (SeqFold q w t y) solutions = do
+    solutions <- triple position mapping prune p z s q w t solutions
+    match position mapping prune x y solutions
   match position mapping prune StringType StringType solutions = Right solutions
   match position mapping prune (StringValue x) (StringValue y) solutions =
     if x == y then Right solutions else failure position
@@ -299,6 +306,17 @@ implicitArgumentType position (S fuel) context (RecFold motive _ _ value) = do
   if 1 + typeNodes motive + typeNodes value > inferredParameterNodes ||
      payloadSize motive + payloadSize value > payloadLimit
     then Left (CannotElaborate position "Implicit recursive fold result exceeds admission") else Right ()
+  case guardedNormal typeReductionFuel (Apply motive value) of
+    Just (Apply _ _) => Right Nothing
+    Just ty => Right (Just ty)
+    Nothing => Right Nothing
+implicitArgumentType position (S fuel) context (SeqType _ _) = Right (Just (Universe 0))
+implicitArgumentType position (S fuel) context (SeqNil ty) = Right (Just ty)
+implicitArgumentType position (S fuel) context (SeqCons ty _ _) = Right (Just ty)
+implicitArgumentType position (S fuel) context (SeqFold motive _ _ value) = do
+  if 1 + typeNodes motive + typeNodes value > inferredParameterNodes ||
+     payloadSize motive + payloadSize value > payloadLimit
+    then Left (CannotElaborate position "Implicit sequence fold result exceeds admission") else Right ()
   case guardedNormal typeReductionFuel (Apply motive value) of
     Just (Apply _ _) => Right Nothing
     Just ty => Right (Just ty)

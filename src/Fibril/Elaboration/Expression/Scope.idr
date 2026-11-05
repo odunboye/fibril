@@ -30,6 +30,10 @@ mutual
   thin env (RecEnd ty) = RecEnd <$> thin env ty
   thin env (RecMore ty x) = [| RecMore (thin env ty) (thin env x) |]
   thin env (RecFold p z s x) = [| RecFold (thin env p) (thin env z) (thin env s) (thin env x) |]
+  thin env (SeqType key a) = SeqType key <$> thin env a
+  thin env (SeqNil ty) = SeqNil <$> thin env ty
+  thin env (SeqCons ty h t) = [| SeqCons (thin env ty) (thin env h) (thin env t) |]
+  thin env (SeqFold p z s x) = [| SeqFold (thin env p) (thin env z) (thin env s) (thin env x) |]
   thin env StringType = Just StringType
   thin env (StringValue value) = Just (StringValue value)
   thin env (StringAppend a b) = [| StringAppend (thin env a) (thin env b) |]
@@ -89,6 +93,10 @@ mutual
   substitutionNodes env (RecEnd ty) = min (S inferredResultNodes) (1 + substitutionNodes env ty)
   substitutionNodes env (RecMore ty x) = min (S inferredResultNodes) (1 + substitutionNodes env ty + substitutionNodes env x)
   substitutionNodes env (RecFold p z s x) = min (S inferredResultNodes) (1 + substitutionNodes env p + substitutionNodes env z + substitutionNodes env s + substitutionNodes env x)
+  substitutionNodes env (SeqType _ a) = min (S inferredResultNodes) (1 + substitutionNodes env a)
+  substitutionNodes env (SeqNil ty) = min (S inferredResultNodes) (1 + substitutionNodes env ty)
+  substitutionNodes env (SeqCons ty h t) = min (S inferredResultNodes) (1 + substitutionNodes env ty + substitutionNodes env h + substitutionNodes env t)
+  substitutionNodes env (SeqFold p z s x) = min (S inferredResultNodes) (1 + substitutionNodes env p + substitutionNodes env z + substitutionNodes env s + substitutionNodes env x)
   substitutionNodes env StringType = 1
   substitutionNodes env (StringValue _) = 1
   substitutionNodes env (StringAppend a b) = min (S inferredResultNodes) (1 + substitutionNodes env a + substitutionNodes env b)

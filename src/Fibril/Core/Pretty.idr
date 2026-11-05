@@ -30,6 +30,10 @@ mutual
   renderTerm (RecEnd ty) = "(RecEnd " ++ renderTerm ty ++ ")"
   renderTerm (RecMore ty x) = "(RecMore " ++ renderTerm ty ++ " " ++ renderTerm x ++ ")"
   renderTerm (RecFold p z s x) = "(RecFold " ++ renderTerm p ++ " " ++ renderTerm z ++ " " ++ renderTerm s ++ " " ++ renderTerm x ++ ")"
+  renderTerm (SeqType key a) = "(SeqType " ++ show key ++ " " ++ renderTerm a ++ ")"
+  renderTerm (SeqNil ty) = "(SeqNil " ++ renderTerm ty ++ ")"
+  renderTerm (SeqCons ty h t) = "(SeqCons " ++ renderTerm ty ++ " " ++ renderTerm h ++ " " ++ renderTerm t ++ ")"
+  renderTerm (SeqFold p z s x) = "(SeqFold " ++ renderTerm p ++ " " ++ renderTerm z ++ " " ++ renderTerm s ++ " " ++ renderTerm x ++ ")"
   renderTerm StringType = "String"
   renderTerm (StringValue value) = show value
   renderTerm (StringAppend left right) = "(StringAppend " ++ renderTerm left ++ " " ++ renderTerm right ++ ")"

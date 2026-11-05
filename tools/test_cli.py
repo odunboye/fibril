@@ -1354,6 +1354,151 @@ class CLITests(unittest.TestCase):
                     self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                     self.assertEqual(result.stdout, outcomes.get((state, event), "transition rejected") + "\n")
 
+    def test_parameterized_recursive_list(self):
+        import shutil
+        fixture = ROOT / 'examples/modules/recursive-list'
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(fixture, root, dirs_exist_ok=True)
+            path, library = root / 'Main.fib', root / 'Data/Items.fib'
+            source, authored = path.read_text(), library.read_text()
+            def project(command):
+                return run(command, '--source-dir', directory, str(path))
+            result = project('run')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'hello world\n')
+            lines = source.splitlines()
+            row = next(i for i, line in enumerate(lines, 1) if 'Data.Items.Prepend' in line)
+            col = lines[row - 1].index('Data.Items.Prepend') + len('Data.Items.') + 1
+            nav = run('definition', '--source-dir', directory, '--entry', str(path), str(row), str(col), str(path))
+            self.assertEqual(nav.returncode, 0, nav.stderr)
+            self.assertEqual(Path(json.loads(nav.stdout)['definition']['path']).name, 'Items.fib')
+            path.write_text(source.replace('Data.Items.', ''))
+            self.assertEqual(project('run').stdout, 'hello world\n')
+            path.write_text(source)
+            for file in [path, library]:
+                formatted = run('format', str(file))
+                self.assertEqual(formatted.returncode, 0, formatted.stderr)
+                file.write_text(formatted.stdout)
+                self.assertEqual(run('format', '--check', str(file)).returncode, 0)
+            self.assertEqual(project('run').stdout, 'hello world\n')
+            # Parenthesized parameters preserve explicit constructor arguments.
+            library.write_text(authored.replace('{0 A : Type}', '(0 A : Type)'))
+            explicit = source.replace('Data.Items.Prepend "hello"', 'Data.Items.Prepend String "hello"')
+            explicit = explicit.replace('Data.Items.Prepend " world"', 'Data.Items.Prepend String " world"').replace('Data.Items.Empty {String}', 'Data.Items.Empty String')
+            path.write_text(explicit)
+            self.assertEqual(project('run').stdout, 'hello world\n')
+            # Reversed constructors and a qualified direct self type are safe.
+            reversed_order = authored.replace('  Empty : Items A\n  Prepend : (1 head : A) -> (1 tail : Items A) -> Items A',
+                                               '  Prepend : (1 head : A) -> (1 tail : Items A) -> Items A\n  Empty : Items A')
+            library.write_text(reversed_order.replace('(1 tail : Items A)', '(1 tail : Data.Items.Items A)'))
+            path.write_text(source)
+            self.assertEqual(project('run').stdout, 'hello world\n')
+            library.write_text(authored.replace('export\ndata Items', 'data Items'))
+            rejected = project('run')
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertEqual(rejected.stdout, '')
+            library.write_text(authored)
+            bool_program = ('module Main\nimport Data.Items\n'
+                            'flags : (1 xs : Data.Items.Items Bool) -> String\n'
+                            'flags xs = Data.Items.foldItems Bool (\\(0 self : Data.Items.Items Bool) => String) "" '
+                            '(\\(1 head : Bool) => \\(0 tail : Data.Items.Items Bool) => \\(1 result : String) => '
+                            'if head then appendString "T" result else appendString "F" result) xs\n'
+                            'main : IO Unit\nmain = putStrLn (flags (Data.Items.Prepend True '
+                            '(Data.Items.Prepend False (Data.Items.Empty {Bool}))))\n')
+            path.write_text(bool_program)
+            boolean = project('run')
+            self.assertEqual(boolean.returncode, 0, boolean.stdout + boolean.stderr)
+            self.assertEqual(boolean.stdout, 'TF\n')
+            path.write_text(source)
+            dependency, client = root / 'dependency', root / 'client'
+            (dependency / 'src/Data').mkdir(parents=True)
+            (dependency / 'src/Data/Items.fib').write_text(authored)
+            (dependency / 'fibril.yaml').write_text('schema: 1\nname: items-lib\nmodule-prefix: Data.Items\nsource-dir: src\nfoundation: de-morgan\nmodules: [Data.Items]\ndependencies: {}\n')
+            (client / 'src').mkdir(parents=True)
+            (client / 'src/Main.fib').write_text(source)
+            (client / 'fibril.yaml').write_text('schema: 1\nname: items-client\nmodule-prefix: Demo\nsource-dir: src\nfoundation: de-morgan\nentry: Main\ndependencies:\n  items-lib:\n    path: ../dependency\n')
+            packaged = run('run', '--package', str(client / 'fibril.yaml'))
+            self.assertEqual(packaged.returncode, 0, packaged.stdout + packaged.stderr)
+            self.assertEqual(packaged.stdout, 'hello world\n')
+            # The generated fold preserves a motive indexed by the actual list
+            # and gives its step an erased tail and linear head/induction result.
+            dependent = ('module Main\ndata Items {0 A : Type} : Type where\n  eliminator foldItems\n'
+                         '  Empty : Items A\n  Prepend : (1 head : A) -> (1 tail : Items A) -> Items A\n'
+                         'data Tagged (0 xs : Items String) : Type where\n  Bad : Tagged xs\n'
+                         '  Marked : (1 text : String) -> Tagged xs\n'
+                         'build : (1 xs : Items String) -> Tagged xs\n'
+                         'build xs = foldItems String (\\(0 ys : Items String) => Tagged ys) (Marked (Empty {String}) "") '
+                         '(\\(1 head : String) => \\(0 tail : Items String) => \\(1 prev : Tagged tail) => case prev of\n'
+                         '  Bad => Marked (Prepend {String} head tail) head\n'
+                         '  Marked text => Marked (Prepend {String} head tail) (appendString head text)) xs\n'
+                         'show : (0 xs : Items String) -> (1 value : Tagged xs) -> String\n'
+                         'show xs value = case value of\n  Bad => "bad"\n  Marked text => text\n'
+                         'main : IO Unit\nmain = putStrLn (show (Prepend "a" (Empty {String})) (build (Prepend "a" (Empty {String}))))\n')
+            path.write_text(dependent)
+            checked = project('run')
+            self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
+            self.assertEqual(checked.stdout, 'a\n')
+            path.write_text(source)
+            # Shape recognition is deliberately narrow; reject negative,
+            # nonuniform, nonlinear, dependent and multi-field recursion.
+            bad = [authored.replace('{0 A : Type}', '{A : Type}'),
+                   authored.replace('(1 head : A)', '(head : A)'),
+                   authored.replace('(1 tail : Items A)', '(tail : Items A)'),
+                   authored.replace('(1 tail : Items A)', '(0 tail : Items A)'),
+                   authored.replace('(1 tail : Items A)', '(1 tail : Items Bool)'),
+                   authored.replace('(1 tail : Items A)', '(1 tail : Items A -> String)'),
+                   authored.replace('(1 tail : Items A)', '(1 tail : Items A) -> (1 extra : A)'),
+                   authored.replace('Empty : Items A', 'Empty : Items String'),
+                   authored.replace('  Empty : Items A\n', '')]
+            for program in bad:
+                with self.subTest(program=program):
+                    library.write_text(program)
+                    rejected = project('run')
+                    self.assertNotEqual(rejected.returncode, 0)
+                    self.assertEqual(rejected.stdout, '')
+            library.write_text(authored)
+            direct = ('module Main\nimport Data.Items\nmain : IO Unit\nmain = putStrLn '
+                      '(case Data.Items.Empty {String} of\n'
+                      '  Data.Items.Empty => "empty"\n'
+                      '  Data.Items.Prepend item => item)\n')
+            path.write_text(direct)
+            rejected = project('run')
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertEqual(rejected.stdout, '')
+            # A repeated fold step cannot discard its linear head.
+            dropped = source.replace('appendString head result', 'result')
+            path.write_text(dropped)
+            rejected = project('run')
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertEqual(rejected.stdout, '')
+            helper = ('consume : (1 xs : Data.Items.Items String) -> String\n'
+                      'consume xs = Data.Items.foldItems String (\\(0 self : Data.Items.Items String) => String) "" '
+                      '(\\(1 head : String) => \\(0 tail : Data.Items.Items String) => '
+                      '\\(1 result : String) => appendString head result) xs\n\n')
+            bad_tail = source.replace('join : (1 items', helper + 'join : (1 items').replace(
+                'appendString head result', 'appendString head (appendString (consume tail) result)')
+            # Only change the join step, not the independently valid helper.
+            bad_tail = bad_tail.replace('appendString head (appendString (consume tail) result)) xs',
+                                        'appendString head result) xs', 1)
+            path.write_text(bad_tail)
+            rejected = project('run')
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertIn('Binder usage: expected 0, observed 1', rejected.stderr)
+            self.assertEqual(rejected.stdout, '')
+            capture = source.replace('join : (1 items', 'join : (1 prefix : String) -> (1 items').replace(
+                'join items =', 'join prefix items =').replace('appendString head result',
+                'appendString prefix (appendString head result)').replace('(join (Data.Items.Prepend', '(join "p" (Data.Items.Prepend')
+            path.write_text(capture)
+            rejected = project('run')
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertIn('Binder usage: expected 1, observed unrestricted', rejected.stderr)
+            self.assertEqual(rejected.stdout, '')
+            path.write_text(source.replace('Data.Items.Empty {String}', 'Data.Items.Empty {Bool}'))
+            rejected = project('run')
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertEqual(rejected.stdout, '')
+
     def test_user_defined_unary_recursive_data(self):
         import shutil
         fixture = ROOT / 'examples/modules/recursive-data'

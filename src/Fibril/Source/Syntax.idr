@@ -24,6 +24,10 @@ data Expr
   | NRecEnd SourceSpan Expr
   | NRecMore SourceSpan Expr Expr
   | NRecFold SourceSpan Expr Expr Expr Expr
+  | NSeqType SourceSpan String Expr
+  | NSeqNil SourceSpan Expr
+  | NSeqCons SourceSpan Expr Expr Expr
+  | NSeqFold SourceSpan Expr Expr Expr Expr
   | NNominalType SourceSpan String (List Expr) Expr
   | NNominalValue SourceSpan Expr Expr
   | NNominalCase SourceSpan Expr Expr Expr
@@ -94,6 +98,10 @@ extent (NRecType span _) = span
 extent (NRecEnd span _) = span
 extent (NRecMore span _ _) = span
 extent (NRecFold span _ _ _ _) = span
+extent (NSeqType span _ _) = span
+extent (NSeqNil span _) = span
+extent (NSeqCons span _ _ _) = span
+extent (NSeqFold span _ _ _ _) = span
 extent (NNominalType span _ _ _) = span
 extent (NNominalValue span _ _) = span
 extent (NNominalCase span _ _ _) = span
@@ -144,6 +152,10 @@ withExtent span (NRecType _ key) = NRecType span key
 withExtent span (NRecEnd _ ty) = NRecEnd span ty
 withExtent span (NRecMore _ ty tail) = NRecMore span ty tail
 withExtent span (NRecFold _ motive base next value) = NRecFold span motive base next value
+withExtent span (NSeqType _ key element) = NSeqType span key element
+withExtent span (NSeqNil _ ty) = NSeqNil span ty
+withExtent span (NSeqCons _ ty head tail) = NSeqCons span ty head tail
+withExtent span (NSeqFold _ motive base next value) = NSeqFold span motive base next value
 withExtent span (NNominalType _ key indices shape) = NNominalType span key indices shape
 withExtent span (NNominalValue _ ty value) = NNominalValue span ty value
 withExtent span (NNominalCase _ motive value branch) = NNominalCase span motive value branch

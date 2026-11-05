@@ -10,10 +10,11 @@ an uninformative decision, and direct values when no alternative is needed.
 
 Most of this page describes non-recursive data. A separate, deliberately
 restricted [recursive declaration slice](#unary-recursive-declarations) supports
-one terminal and one direct linear self field. A built-in
-[Nat recursor](nat-recursion.md) also supports structural computation. General
-recursive data, List, general strict positivity, indexed constructor refinement
-and general recursive function equations remain future work. [Direct multi-branch cases](direct-data-cases.md) now support zero- and
+one terminal and one direct linear self field; a [parameterized list shape](#parameterized-list-shape)
+also carries a linear element. A built-in [Nat recursor](nat-recursion.md)
+supports structural computation. General recursive data, general strict
+positivity, indexed constructor refinement and general recursive function
+equations remain future work. [Direct multi-branch cases](direct-data-cases.md) now support zero- and
 one-field alternatives, including qualified direct imports; wider patterns remain future work.
 
 ![Source data lowering](diagrams/source-data.svg)
@@ -121,13 +122,48 @@ there is no general positivity checker or recursive declaration environment.
 Lowering reserves 64 generated-IR nodes without the helper or 512 with it before
 constructing the fixed templates, then checks their actual size; existing source,
 module-expansion, checking and reduction admissions also apply. These are not
-hard time, stack or allocation guarantees. Parameterized `List A`, nested/mutual recursion, extra payload fields, indexed
-recursive families, more constructors and general recursive equations remain
-unsupported. Direct source `case` currently handles non-recursive nominal data,
+hard time, stack or allocation guarantees. Nested/mutual recursion, arbitrary
+payload fields, indexed recursive families, more constructors and general
+recursive equations remain unsupported. Direct source `case` currently handles non-recursive nominal data,
 not this recursive type; use the named fold. The C backend rejects these new
 computational forms.
 
 ![Unary recursive data checking](diagrams/recursive-data.svg)
+
+## Parameterized list shape
+
+A second fixed positive shape supports a useful `List A`-style type:
+
+~~~fibril
+data Items {0 A : Type} : Type where
+  eliminator foldItems
+  Empty : Items A
+  Prepend : (1 head : A) -> (1 tail : Items A) -> Items A
+~~~
+
+The [runnable imported example](../examples/modules/recursive-list/Main.fib)
+uses `Prepend "hello" ...`, an explicit `Empty {String}`, and `foldItems String`
+to print `hello world`. Parenthesized `(0 A : Type)` headers retain explicit
+constructor arguments instead. The type family and fold parameters remain
+explicit in either spelling.
+
+The accepted form has exactly one erased `Type 0` parameter, one nullary
+constructor, and one constructor whose fields are exactly a linear element of
+that parameter followed by a linear direct self tail with the **same** parameter.
+Both constructor orders are accepted. The dependent fold's step takes the
+head linearly, the actual tail erased and the recursive result linearly. The
+step itself is unrestricted because it can execute repeatedly; capturing a
+linear resource or discarding the linear head/result is rejected. Core checking
+retains both the qualified family key and the element type, so two list families
+or incompatible element types are not interchangeable.
+
+The shape is positive by construction; this is not arbitrary recursive data or
+a general positivity checker. Extra payloads, dependent field telescopes,
+multiple parameters or indices, nonuniform recursion, nested/mutual recursion
+and direct source matching remain unsupported. Use the named fold. The generated
+fixed templates reserve 128 nodes without the fold or 768 with it before named-IR
+construction and are post-counted; these are admissions, not hard resource
+bounds. The experimental C backend still rejects these recursive values/folds.
 
 ## Use the optional eliminator
 

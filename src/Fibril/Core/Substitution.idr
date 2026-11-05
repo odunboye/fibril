@@ -39,6 +39,10 @@ mutual
   substituteCongruent left right agree (RecEnd ty) = cong RecEnd (substituteCongruent left right agree ty)
   substituteCongruent left right agree (RecMore ty x) = rewrite substituteCongruent left right agree ty in rewrite substituteCongruent left right agree x in Refl
   substituteCongruent left right agree (RecFold p z s x) = rewrite substituteCongruent left right agree p in rewrite substituteCongruent left right agree z in rewrite substituteCongruent left right agree s in rewrite substituteCongruent left right agree x in Refl
+  substituteCongruent left right agree (SeqType key a) = cong (SeqType key) (substituteCongruent left right agree a)
+  substituteCongruent left right agree (SeqNil ty) = cong SeqNil (substituteCongruent left right agree ty)
+  substituteCongruent left right agree (SeqCons ty h t) = rewrite substituteCongruent left right agree ty in rewrite substituteCongruent left right agree h in rewrite substituteCongruent left right agree t in Refl
+  substituteCongruent left right agree (SeqFold p z s x) = rewrite substituteCongruent left right agree p in rewrite substituteCongruent left right agree z in rewrite substituteCongruent left right agree s in rewrite substituteCongruent left right agree x in Refl
   substituteCongruent left right agree StringType = Refl
   substituteCongruent left right agree (StringValue _) = Refl
   substituteCongruent left right agree (IOType value) = cong IOType (substituteCongruent left right agree value)
@@ -127,6 +131,10 @@ mutual
   renameAsSubstitution env (RecEnd ty) = cong RecEnd (renameAsSubstitution env ty)
   renameAsSubstitution env (RecMore ty x) = rewrite renameAsSubstitution env ty in rewrite renameAsSubstitution env x in Refl
   renameAsSubstitution env (RecFold p z s x) = rewrite renameAsSubstitution env p in rewrite renameAsSubstitution env z in rewrite renameAsSubstitution env s in rewrite renameAsSubstitution env x in Refl
+  renameAsSubstitution env (SeqType key a) = cong (SeqType key) (renameAsSubstitution env a)
+  renameAsSubstitution env (SeqNil ty) = cong SeqNil (renameAsSubstitution env ty)
+  renameAsSubstitution env (SeqCons ty h t) = rewrite renameAsSubstitution env ty in rewrite renameAsSubstitution env h in rewrite renameAsSubstitution env t in Refl
+  renameAsSubstitution env (SeqFold p z s x) = rewrite renameAsSubstitution env p in rewrite renameAsSubstitution env z in rewrite renameAsSubstitution env s in rewrite renameAsSubstitution env x in Refl
   renameAsSubstitution env StringType = Refl
   renameAsSubstitution env (StringValue _) = Refl
   renameAsSubstitution env (IOType value) = cong IOType (renameAsSubstitution env value)
