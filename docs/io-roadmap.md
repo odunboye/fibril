@@ -4,54 +4,70 @@ Status: proposal. Branch: `feature/qtt`.
 
 Fibril's core already treats IO as pure descriptions of effects (`IOType`,
 `IOPure`, `IOBind`, `WriteLine` in `Core/Term.idr`) and carries QTT quantities
-on binders. This roadmap finishes IO on top of that substrate and fixes the
-gaps that Idris 2's IO leaves open, without overcommitting to multi-backend
-or concurrency design.
+on binders. A read of the current tree shows that most of what an earlier
+version of this document called Phase A and Phase B is **already in place**
+on `master`. The sections below have been revised to reflect that.
 
-## Phase A — basic IO end-to-end
+## Already shipped
 
-Goal: a program `main : IO Unit` that prints a line via the C backend.
+- **Typing** (`Core/Erased.idr`): rules for `IOType`, `IOPure`, `WriteLine`,
+  `IOBind`. The continuation in `IOBind` is required at quantity `Linear`,
+  which gives the exactly-once discipline the Phase B section used to call
+  for.
+- **Reduction** (`Core/WeakHead.idr`): monad left identity
+  (`IOBind a b (IOPure v) k ⇒ Apply k v`); `IOBind` is otherwise neutral
+  and only steps under the action it is sequencing. Erasure/CSE through an
+  action is structurally prevented.
+- **Runtime usage** (`Core/Runtime.idr`): usage rules for `IOPure`,
+  `WriteLine`, `IOBind` that combine action and continuation usage.
+- **Host effect model** (`Fibril.Effect.Console`): `ConsoleAction = PrintLine
+  String`.
+- **Driver** (`Fibril.Driver.Run`): `prepareIO` extracts a list of console
+  actions from a checked `main : IO Unit`; `executeConsoleActions` performs
+  them. Entry points: `runProject`, `runPackage`, `runFile`.
+- **C backend** (`Fibril.Driver.Native`): `IOPure`, `IOBind`, `WriteLine`
+  lower to `f_pure`, `f_bind`, `f_write`; `emitCheckedC` validates the entry
+  against `IOType UnitType` before emitting.
 
-- Elaboration surface for `IO`, `pure`, `>>=` / `do`, `writeLine`.
-- Reduction: `IOBind` / `WriteLine` are neutral under `Reduction.idr` and
-  `WeakHead.idr`. No β through an action, no CSE across binds.
-- Erasure: `Core/Erased.idr` does not drop `IO` actions, even at result type
-  `Unit`. Drives Idris 2 gap (9).
-- Runtime driver in `Core/Runtime.idr` and the C emitter: walk the IO tree,
-  `IOPure` returns, `IOBind` sequences, `WriteLine` lowers to `puts`.
-- `main` entry point hook.
-- Tests: golden-output test for a hello-world program.
+## Phase C — richer primitive effects
 
-## Phase B — linear world token
+The primitive effect set today is just `WriteLine`. Typed exceptions earn
+their keep only once there are effects that can fail, so these come first.
 
-Goal: exactly-once effect execution guaranteed by the type system. Fixes
-Idris 2 gap (1).
+- `ReadLine : IO String` (and define EOF behavior explicitly in docs).
+- `GetArgs : IO (List String)`.
+- Optional: environment lookup, time, exit code.
+- Driver: extend `ConsoleAction` with request/response variants or switch
+  to a small free-monad interpreter in `Fibril.Effect.Console`.
+- C backend: corresponding `f_read_line`, `f_get_args` primitives.
+- Tests: golden tests for each new primitive.
 
-- Represent IO as `World -o (a, World)` or keep the current ADT and require
-  quantity 1 on the continuation in `IOBind`.
-- Prefer the latter: no new type former, just a quantity choice on an
-  existing one. The QTT substrate already enforces it via `Core/Usage.idr`.
-- Tests: reject double-bind of the same action; reject discarded IO.
-
-## Phase C — typed exceptions
+## Phase D — typed exceptions
 
 Goal: `IO e a` with `e` as a typed error channel. Fixes Idris 2 gap (6).
 
-- Add an error-type parameter to `IOType`.
-- Primitives: `throw : e -> IO e a`, `catch : IO e a -> (e -> IO f a) -> IO f a`.
-- Runtime: a thrown value propagates up `IOBind` until a `catch` frame.
+- Add an error-type parameter to `IOType` (migration touches every IO
+  constructor's typing rule and every backend case).
+- Primitives: `throw : e -> IO e a`,
+  `catch : IO e a -> (e -> IO f a) -> IO f a`.
+- Reduction: `catch` reduces when its argument is `IOPure` (success) or a
+  `throw` at the head; otherwise steps inside the argument. `IOBind` must
+  propagate a `throw` past the continuation.
+- Runtime: a thrown value propagates up `IOBind` until a `catch` frame; an
+  uncaught `throw` at top level aborts `main` with the error rendered.
 - Tests: throw across binds; catch recovers; uncaught throw aborts `main`.
 
-## Phase D — pure interpreter for testing
+## Phase E — pure interpreter for testing
 
 Goal: run an `IO e a` symbolically against a scripted environment. Fixes
-Idris 2 gap (10). Trivial once A–C are in, because IO is a free structure.
+Idris 2 gap (10). `prepareIO` is close to this already but is specialized to
+`PrintLine` and doesn't model input or exceptions.
 
-- A function `runPure : Script -> IO e a -> (Log, Either e a)` in the core.
+- Generalize to `runPure : Script -> IO e a -> (Log, Either e a)`.
 - `Script` provides canned responses for input primitives.
 - Tests use `runPure` instead of real IO.
 
-## Phase E — small typed FFI with linear handles
+## Phase F — small typed FFI with linear handles
 
 Goal: foreign calls with checked signatures and linear ownership of foreign
 resources. Partially fixes Idris 2 gap (3). Explicitly refuses a general
@@ -75,6 +91,5 @@ resources. Partially fixes Idris 2 gap (3). Explicitly refuses a general
 
 ## Order of work
 
-A → B → C → D → E. Each phase is its own PR against `feature/qtt`. B and C
-are independent after A; D requires C; E is independent of B/C/D but easier
-after B (for handle linearity).
+C → D → E → F. Each phase is its own PR against `feature/qtt`. E depends on
+D; F is independent and can land in parallel.
