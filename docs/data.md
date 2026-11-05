@@ -11,7 +11,8 @@ an uninformative decision, and direct values when no alternative is needed.
 This is non-recursive data, not yet general inductive data. A separate built-in
 [Nat recursor](nat-recursion.md) supports structural computation; recursive
 source data, List, strict positivity, indexed constructor refinement and
-recursive function equations remain future work. [Direct multi-branch cases](direct-data-cases.md) now support zero- and
+general recursive function equations remain future work; a narrow Nat-only
+equation form lowers to the built-in recursor. [Direct multi-branch cases](direct-data-cases.md) now support zero- and
 one-field alternatives, including qualified direct imports; wider patterns remain future work.
 
 ![Source data lowering](diagrams/source-data.svg)

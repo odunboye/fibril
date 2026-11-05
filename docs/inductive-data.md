@@ -13,7 +13,9 @@ admission and all-or-error layout output. Source integration, field-telescope pa
 Exhaustive direct source matching remains a D2 gate; no recursive
 declaration environment has been introduced. A separate built-in
 [Nat structural recursor](nat-recursion.md) now supports first-order recursive
-computation without accepting user-defined recursive declarations or equations.
+computation without accepting user-defined recursive declarations. A narrow
+single-argument Nat equation form lowers to that recursor; it is not a general
+termination checker.
 
 ## Use cases
 

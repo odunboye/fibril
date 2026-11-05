@@ -3,11 +3,14 @@ module Fibril.Driver.ProjectNavigation
 
 import Data.List
 import Data.List1
+import Data.Maybe
 import Data.String
+import Fibril.Core.Quantity
 import Fibril.Source.Text
 import Fibril.Source.Lexer
 import Fibril.Source.Document
 import Fibril.Source.Declaration
+import Fibril.Source.Syntax
 import Fibril.Source.Navigation
 import Fibril.Source.Diagnostic
 import Fibril.Runtime.Path
@@ -32,6 +35,33 @@ bindings onlyExports snapshot = case (snapshot.document.moduleHeader, snapshot.d
       (filter (\decl => not onlyExports || decl.exported) (concatMap bindingSites declarations))
   _ => []
 
+-- Only called on an accepted project. The compiler admits this exact narrow
+-- form as a self-recursive equation; keep the authored call's real span.
+recursiveSite : String -> String -> Expr -> Maybe SourceSpan
+recursiveSite name pred (NApply _ (NRef _ "Succ") value) = recursiveSite name pred value
+recursiveSite name pred (NApply _ (NRef span function) (NRef _ argument)) =
+  if function == name && argument == pred then Just span else Nothing
+recursiveSite _ _ _ = Nothing
+
+recursiveReference : ModuleSnapshot -> AuthoredDeclaration -> List (ReferenceTo SourceLocation)
+recursiveReference snapshot (Ordinary decl) =
+  let shadows = case snapshot.document.body of
+        DeclarationDocument declarations => any (\site => elem site.name ["Nat", "Zero", "Succ"]) (concatMap bindingSites declarations)
+        _ => True in
+  if not (null snapshot.document.imports) || shadows then [] else
+  case (decl.expected, decl.value) of
+    (NPi _ Linear _ (NRef _ "Nat") (NRef _ "Nat"),
+     NEquationLambda _ [argument] _ (NDataCase _ (NRef _ scrutinee) Nothing arms)) =>
+      if argument.spelling /= scrutinee || length arms /= 2 then [] else
+        let findStep = find (\(name, binder, body) => name.spelling == "Succ" && isJust binder) arms in
+        case findStep of
+          Just (_, Just pred, body) => case recursiveSite decl.name pred.spelling body of
+            Just origin => [RefersTo origin (Located snapshot.path decl.definitionNameSpan)]
+            Nothing => []
+          _ => []
+    _ => []
+recursiveReference _ _ = []
+
 -- Private: the caller has already checked the entire graph, including
 -- source-order visibility, privacy, and every qualified reference.
 definitionIn : ModuleGraph -> ModuleSnapshot -> Nat -> Nat -> Maybe SourceLocation
@@ -55,10 +85,13 @@ definitionIn graph current line column =
         _ => Nothing
       references = documentReferencesWithGlobals (Located current.path) unqualified
                      (\name => lookup name (local ++ imported)) current.document
+      recursionRefs = case current.document.body of
+        DeclarationDocument declarations => concatMap (recursiveReference current) declarations
+        _ => []
    in map target (find (\reference =>
         line == reference.origin.start.line &&
         column >= reference.origin.start.column &&
-        column < reference.origin.finish.column) references)
+        column < reference.origin.finish.column) (recursionRefs ++ references))
 
 locationJSON : SourceLocation -> String
 locationJSON location = jsonObject

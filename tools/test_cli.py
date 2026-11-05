@@ -3764,6 +3764,85 @@ class CLITests(unittest.TestCase):
             plain.write_text('identity : {0 A : Type} -> (1 value : A) -> A\nidentity T x = x\nmain : IO Unit\nmain = putStrLn (identity "x")\n')
             self.assertNotEqual(run('run', str(plain)).returncode, 0)
 
+    def test_structural_nat_recursive_equations(self):
+        source = (ROOT / 'examples/modules/recursive-equations/Main.fib').read_text()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / 'Main.fib'
+            def project(command):
+                return run(command, '--source-dir', directory, str(path))
+            path.write_text(source)
+            result = project('run')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, '!!!!\n')
+            self_line = next(i for i, line in enumerate(source.splitlines(), 1) if 'double smaller' in line)
+            self_col = source.splitlines()[self_line - 1].index('double smaller') + 1
+            nav = run('definition', '--source-dir', directory, '--entry', str(path), str(self_line), str(self_col), str(path))
+            self.assertEqual(nav.returncode, 0, nav.stderr)
+            self.assertEqual(json.loads(nav.stdout)['definition']['range']['start']['line'], 5)
+            # Checked function type aliases are admitted by guarded conversion.
+            alias = source.replace('double : (1 count : Nat) -> Nat', '0 NatFunction : Type\nNatFunction = (1 count : Nat) -> Nat\ndouble : NatFunction')
+            path.write_text(alias)
+            alias_result = project('run')
+            self.assertEqual(alias_result.returncode, 0, alias_result.stdout + alias_result.stderr)
+            self.assertEqual(alias_result.stdout, '!!!!\n')
+            path.write_text(source)
+            formatted = run('format', str(path))
+            self.assertEqual(formatted.returncode, 0, formatted.stderr)
+            path.write_text(formatted.stdout)
+            self.assertEqual(project('run').stdout, '!!!!\n')
+            reversed_arms = source.replace('  Zero => Zero\n  Succ smaller => Succ (Succ (double smaller))',
+                                           '  Succ smaller => Succ (Succ (double smaller))\n  Zero => Zero')
+            path.write_text(reversed_arms)
+            self.assertEqual(project('run').stdout, '!!!!\n')
+            # None of these calls is the unique admitted recursive call on the
+            # immediate predecessor; no failed match becomes a core fixpoint.
+            bad_steps = ['double count', 'double (Succ smaller)',
+                         'Succ (double (double smaller))', 'Succ smaller',
+                         'double', 'double {Nat} smaller',
+                         '(\\(1 smaller : Nat) => double smaller) smaller']
+            for step in bad_steps:
+                with self.subTest(step=step):
+                    path.write_text(source.replace('Succ (Succ (double smaller))', step))
+                    rejected = project('run')
+                    self.assertNotEqual(rejected.returncode, 0)
+                    self.assertEqual(rejected.stdout, '')
+            for changed in [source.replace('(1 count : Nat)', '(count : Nat)', 1),
+                            source.replace('Succ smaller =>', 'Succ double =>'),
+                            source.replace('double count = case count', 'double Zero = case Zero'),
+                            source.replace('Zero => Zero', 'Zero => double Zero')]:
+                path.write_text(changed)
+                rejected = project('run')
+                self.assertNotEqual(rejected.returncode, 0)
+                self.assertEqual(rejected.stdout, '')
+            # A visible imported name—even an identical alias—must not be
+            # silently reinterpreted as a built-in constructor pattern.
+            (root / 'Other.fib').write_text('module Other\nexport\nZero : Nat\nZero = Zero\n')
+            path.write_text(source.replace('module Main\n', 'module Main\nimport Other\n'))
+            rejected = project('run')
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertEqual(rejected.stdout, '')
+            # Ambiguous imported names are not silently turned into a self-call.
+            for module in ['A', 'B']:
+                (root / f'{module}.fib').write_text(f'module {module}\nexport\ndouble : (1 n : Nat) -> Nat\ndouble n = n\n')
+            path.write_text(source.replace('module Main\n', 'module Main\nimport A\nimport B\n'))
+            rejected = project('run')
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertEqual(rejected.stdout, '')
+            # An unchecked duplicating type expression must fail within
+            # conversion admission, rather than being expanded unchecked.
+            huge = 'Nat'
+            for _ in range(14):
+                huge = '(\\(0 T : Type) => T -> T) (' + huge + ')'
+            path.write_text(source.replace('(1 count : Nat) -> Nat', huge, 1))
+            rejected = project('run')
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertEqual(rejected.stdout, '')
+            # Standalone declarations do not publish this module-only lowering.
+            plain = root / 'plain.fib'
+            plain.write_text(source.replace('module Main\n', ''))
+            self.assertNotEqual(run('run', str(plain)).returncode, 0)
+
     def test_runtime_nat_predecessor(self):
         source = (ROOT / 'examples/modules/nat-predecessor/Main.fib').read_text()
         with tempfile.TemporaryDirectory() as directory:

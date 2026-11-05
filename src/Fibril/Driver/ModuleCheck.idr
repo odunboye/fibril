@@ -25,6 +25,7 @@ import Fibril.Elaboration.DataSchema
 import Fibril.Source.Global
 import Fibril.Elaboration.Expression
 import Fibril.Elaboration.Expression.Scope
+import Fibril.Elaboration.Expression.Conversion
 import Fibril.Elaboration.Expression.Constructor
 import Fibril.Elaboration.Expression.Parameters
 import Fibril.Driver.Limits
@@ -236,6 +237,71 @@ dictionarySignature (S depth) ty = case weakHead typeReductionFuel ty of
     Right False
   HeadForm _ => Left "Implementation signature must be a dictionary-shaped unary or dependent-pair type, or a factory returning one"
 
+-- Initial structural-equation admission is intentionally syntax directed:
+-- no source binder or arbitrary call is reconstructed or guessed. The only
+-- self call is f predecessor, beneath zero or more built-in Succ applications.
+private
+natLiteral : Expr -> Maybe (Term n)
+natLiteral (NRef _ "Zero") = Just NatZero
+natLiteral (NApply _ (NRef _ "Succ") value) = NatSucc <$> natLiteral value
+natLiteral _ = Nothing
+
+private
+natRecursiveStep : String -> String -> Expr -> Maybe (Term (S n))
+natRecursiveStep name predecessor (NApply _ (NRef _ "Succ") value) =
+  NatSucc <$> natRecursiveStep name predecessor value
+natRecursiveStep name predecessor (NApply _ (NRef _ function) (NRef _ argument)) =
+  if function == name && argument == predecessor then Just (Variable FZ) else Nothing
+natRecursiveStep _ _ _ = Nothing
+
+private
+natBuiltinsVisible : List Weighted -> Bool
+natBuiltinsVisible globals =
+  -- Imported/local entries always also have a qualified identity. Refuse the
+  -- special syntax if either name could have been shadowed, even by an alias
+  -- whose value happens to equal the primitive.
+  if not (null (qualifiedCandidates "Zero" (map global globals))) ||
+     not (null (qualifiedCandidates "Succ" (map global globals))) then False else
+    case (find (\entry => entry.global.name == "Zero") globals,
+          find (\entry => entry.global.name == "Succ") globals) of
+      (Just zero, Just succ) => zero.global.quantity == Unrestricted && succ.global.quantity == Unrestricted &&
+        sameSyntax zero.global.value NatZero &&
+        sameSyntax succ.global.value (Lambda Linear NatType (NatSucc (Variable FZ)))
+      _ => False
+
+private
+natRecursiveEquation : List Weighted -> String -> Term 0 -> Expr -> Maybe (Term 0)
+natRecursiveEquation globals name ty (NEquationLambda _ [argument] _
+  (NDataCase _ (NRef _ scrutinee) Nothing [(first, firstBinder, firstBody), (second, secondBinder, secondBody)])) = do
+  if name == "Zero" || name == "Succ" || argument.spelling == "_" || argument.spelling == name ||
+     argument.spelling == "Zero" || argument.spelling == "Succ" ||
+     scrutinee /= argument.spelling || not (natBuiltinsVisible globals) ||
+     isJust (find (\entry => entry.global.name == name) globals) ||
+     not (null (qualifiedCandidates name (map global globals))) then Nothing else Just ()
+  -- Never reduce an unchecked signature without the guarded node/payload
+  -- admission used by speculative conversion. Exhaustion is inconclusive.
+  normalized <- guardedNormal typeReductionFuel ty
+  case normalized of
+    Pi Linear NatType NatType => Just ()
+    _ => Nothing
+  (base, predecessor, body) <- case (first.spelling, firstBinder, second.spelling, secondBinder) of
+    ("Zero", Nothing, "Succ", Just predecessor) => Just (firstBody, predecessor, secondBody)
+    ("Succ", Just predecessor, "Zero", Nothing) => Just (secondBody, predecessor, firstBody)
+    _ => Nothing
+  if predecessor.spelling == "_" || predecessor.spelling == name || predecessor.spelling == argument.spelling ||
+     predecessor.spelling == "Zero" || predecessor.spelling == "Succ" then Nothing else Just ()
+  zero <- the (Maybe (Term 1)) (natLiteral base)
+  successor <- the (Maybe (Term 3)) (natRecursiveStep name predecessor.spelling body)
+  let motive = Lambda Erased NatType NatType
+  let branch = Lambda Erased NatType (Lambda Linear NatType successor)
+  Just (Lambda Linear NatType (NatRec motive zero branch (Variable FZ)))
+natRecursiveEquation _ _ _ _ = Nothing
+
+private
+recursiveEquationReserve : Expr -> Nat
+recursiveEquationReserve (NEquationLambda _ [_] _ (NDataCase _ _ _ _)) = 16
+recursiveEquationReserve _ = 0
+
 compileDeclarations : ModuleSnapshot -> List String -> List Weighted -> List Declaration -> Nat ->
                       Either GraphError Compiled
 compileDeclarations snapshot name globals [] remaining = Right (Definitions [] [] remaining)
@@ -246,7 +312,7 @@ compileDeclarations snapshot name globals (decl :: rest) remaining = do
      else Right ()
   if decl.dictionary && decl.quantity /= Unrestricted
      then Left (problem snapshot (Just decl.nameSpan.start) "Implementations require unrestricted named dictionary values") else Right ()
-  let estimate = cost remaining globals [] decl.expected + cost remaining globals [] decl.value
+  let estimate = cost remaining globals [] decl.expected + cost remaining globals [] decl.value + recursiveEquationReserve decl.value
   if estimate > remaining then Left (problem snapshot (Just decl.nameSpan.start)
                                      "Expanded core construction budget exhausted (200000)")
      else Right ()
@@ -258,9 +324,11 @@ compileDeclarations snapshot name globals (decl :: rest) remaining = do
   if implicitPrefix > 0 && not (validImplicitPrefix decl.generated implicitPrefix ty)
     then Left (problem snapshot (Just decl.nameSpan.start) "Implicit metadata does not match an erased leading Pi prefix followed by an explicit Pi")
     else Right ()
-  value <- case elaborateExpected (map global globals) Empty [] ty decl.value of
-    Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
-    Right value => Right value
+  value <- case natRecursiveEquation globals decl.name ty decl.value of
+    Just recursive => Right recursive
+    Nothing => case elaborateExpected (map global globals) Empty [] ty decl.value of
+      Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
+      Right value => Right value
   if nodes ty + nodes value > estimate
      then Left (problem snapshot Nothing "Internal module expansion estimate was insufficient")
      else Right ()

@@ -196,11 +196,12 @@ main = do
         self.assertNotEqual(emitted.returncode, 0)
         self.assertEqual(emitted.stdout, '')
         self.assertIn('does not support this computational core construct', emitted.stderr)
-        root = ROOT / 'examples/modules/nat-predecessor'
-        emitted = run_cli('emit-c', '--source-dir', str(root), str(root / 'Main.fib'), timeout=120)
-        self.assertNotEqual(emitted.returncode, 0)
-        self.assertEqual(emitted.stdout, '')
-        self.assertIn('does not support this computational core construct', emitted.stderr)
+        for example in ['nat-predecessor', 'recursive-equations']:
+            root = ROOT / 'examples/modules' / example
+            emitted = run_cli('emit-c', '--source-dir', str(root), str(root / 'Main.fib'), timeout=120)
+            self.assertNotEqual(emitted.returncode, 0)
+            self.assertEqual(emitted.stdout, '')
+            self.assertIn('does not support this computational core construct', emitted.stderr)
 
     def test_wider_data_still_fails_closed_without_pair_lowering(self):
         root = ROOT / 'examples/modules/data'

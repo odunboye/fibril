@@ -1,0 +1,14 @@
+module Main
+
+-- The accepted first equation form recurses only on the immediate predecessor.
+double : (1 count : Nat) -> Nat
+double count = case count of
+  Zero => Zero
+  Succ smaller => Succ (Succ (double smaller))
+
+marks : (1 count : Nat) -> String
+marks count = natRec (\(0 k : Nat) => String) ""
+  (\(0 k : Nat) => \(1 result : String) => appendString result "!") count
+
+main : IO Unit
+main = putStrLn (marks (double (Succ (Succ Zero))))

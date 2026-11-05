@@ -23,8 +23,9 @@ The [runnable example](../examples/modules/nat-recursion/Main.fib) uses three
 successors and prints `receipt!!!`. `Nat`, `Zero`, `Succ` and `natRec` are
 primitive checked globals; there is no numeric-literal syntax in this slice.
 
-This is **not yet general recursive function syntax**: self-referential
-equations still fail. Nor does it implement user-defined recursive data,
+This is **not yet general recursive function syntax**. A narrowly restricted
+[named Nat equation](function-equations.md#structural-nat-equations) lowers to
+this recursor; other self-referential equations fail. Nor does this implement user-defined recursive data,
 recursive lists, positivity checking, mutual recursion or a termination checker
 for arbitrary definitions. `natRec` gives the step an erased predecessor and a
 runtime recursive result. `natRecWith` additionally allows the step to inspect
@@ -86,7 +87,8 @@ and an unrestricted predecessor binder. These are conservative rules, not a
 proof of quantitative preservation.
 
 No source annotation certifies termination: recursion in this slice is the core
-recursor's structurally smaller operand. Evaluator/conversion fuel is an
+recursor's structurally smaller operand. The accepted narrow Nat-equation form
+constructs that same checked recursor rather than introducing a fixpoint. Evaluator/conversion fuel is an
 operational admission and can be exhausted; it is not a termination proof or a
 time, stack or allocation guarantee. Guarded speculative conversion accounts
 for the next successor contraction before building it. Existing independent
