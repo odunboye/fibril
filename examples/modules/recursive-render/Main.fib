@@ -1,0 +1,10 @@
+module Main
+
+-- A single recursive call on the smaller Nat is checked as an induction result.
+render : (1 count : Nat) -> String
+render count = case count of
+  Zero => "receipt"
+  Succ smaller => appendString (render smaller) "!"
+
+main : IO Unit
+main = putStrLn (render (Succ (Succ Zero)))

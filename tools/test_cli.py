@@ -3764,6 +3764,85 @@ class CLITests(unittest.TestCase):
             plain.write_text('identity : {0 A : Type} -> (1 value : A) -> A\nidentity T x = x\nmain : IO Unit\nmain = putStrLn (identity "x")\n')
             self.assertNotEqual(run('run', str(plain)).returncode, 0)
 
+    def test_structural_nat_recursive_string_equations(self):
+        source = (ROOT / 'examples/modules/recursive-render/Main.fib').read_text()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Main.fib'
+            def project(command):
+                return run(command, '--source-dir', directory, str(path))
+            path.write_text(source)
+            result = project('run')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'receipt!!\n')
+            nominal = ('module Main\ndata Result : Type where\n  Bad : Result\n  Good : (1 message : String) -> Result\n'
+                       'identity : {0 A : Type} -> (1 value : A) -> A\nidentity A value = value\n'
+                       'build : (1 count : Nat) -> Result\nbuild count = case count of\n'
+                       '  Zero => Good "ok"\n  Succ smaller => identity (build smaller)\n'
+                       'show : (1 result : Result) -> String\nshow result = case result of\n'
+                       '  Bad => "bad"\n  Good message => message\n'
+                       'main : IO Unit\nmain = putStrLn (show (build (Succ (Succ Zero))))\n')
+            path.write_text(nominal)
+            nominal_result = project('run')
+            self.assertEqual(nominal_result.returncode, 0, nominal_result.stdout + nominal_result.stderr)
+            self.assertEqual(nominal_result.stdout, 'ok\n')
+            # Result annotations and referenced globals are reserved before
+            # the transformed branch is elaborated and copied.
+            def wide_result(width):
+                ty = ' -> '.join(['String'] * (width + 1))
+                value = ''.join(f'\\(x{i} : String) => ' for i in range(width)) + '"end"'
+                return (f'module Main\n0 Result : Type\nResult = {ty}\nbase : Result\nbase = {value}\n'
+                        'f : (1 n : Nat) -> Result\nf n = case n of\n'
+                        '  Zero => base\n  Succ k => f k\nmain : IO Unit\nmain = putStrLn "ok"\n')
+            path.write_text(wide_result(60))
+            wide = project('run')
+            self.assertEqual(wide.returncode, 0, wide.stdout + wide.stderr)
+            self.assertEqual(wide.stdout, 'ok\n')
+            path.write_text(wide_result(130))
+            exhausted = project('run')
+            self.assertNotEqual(exhausted.returncode, 0)
+            self.assertEqual(exhausted.stdout, '')
+            self.assertNotIn('Internal module expansion estimate was insufficient', exhausted.stderr)
+            with_global = source.replace('render : (1 count : Nat)', 'suffix : String\nsuffix = "?"\nrender : (1 count : Nat)').replace('appendString (render smaller) "!"', 'appendString (render smaller) suffix')
+            path.write_text(with_global)
+            self.assertEqual(project('run').stdout, 'receipt??\n')
+            formatted = run('format', str(path))
+            self.assertEqual(formatted.returncode, 0, formatted.stderr)
+            path.write_text(formatted.stdout)
+            self.assertEqual(project('run').stdout, 'receipt??\n')
+            zero = source.replace('Succ (Succ Zero)', 'Zero')
+            path.write_text(zero)
+            self.assertEqual(project('run').stdout, 'receipt\n')
+            path.write_text(source)
+            line = next(i for i, row in enumerate(source.splitlines(), 1) if 'render smaller' in row)
+            col = source.splitlines()[line - 1].index('render smaller') + 1
+            nav = run('definition', '--source-dir', directory, '--entry', str(path), str(line), str(col), str(path))
+            self.assertEqual(nav.returncode, 0, nav.stderr)
+            self.assertEqual(json.loads(nav.stdout)['definition']['range']['start']['line'], 5)
+            # No hidden, repeated or non-decreasing recursive use is accepted.
+            bad = ['appendString (render count) "!"',
+                   'appendString (render (Succ smaller)) "!"',
+                   'appendString (render smaller) (render smaller)',
+                   'appendString (render smaller) (render Zero)',
+                   'if True then render smaller else "unused"',
+                   'appendString (render smaller) (render : Nat -> String)',
+                   '(\\(1 x : String) => x) (render smaller)']
+            for body in bad:
+                with self.subTest(body=body):
+                    path.write_text(source.replace('appendString (render smaller) "!"', body))
+                    rejected = project('run')
+                    self.assertNotEqual(rejected.returncode, 0)
+                    self.assertEqual(rejected.stdout, '')
+            path.write_text(source.replace('Zero => "receipt"', 'Zero => render Zero'))
+            rejected = project('run')
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertEqual(rejected.stdout, '')
+            # Even syntactically admitted branches undergo the normal type
+            # checker; a Nat is not a String result.
+            path.write_text(source.replace('appendString (render smaller) "!"', 'Succ (render smaller)'))
+            rejected = project('run')
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertEqual(rejected.stdout, '')
+
     def test_structural_nat_recursive_equations(self):
         source = (ROOT / 'examples/modules/recursive-equations/Main.fib').read_text()
         with tempfile.TemporaryDirectory() as directory:

@@ -38,9 +38,18 @@ bindings onlyExports snapshot = case (snapshot.document.moduleHeader, snapshot.d
 -- Only called on an accepted project. The compiler admits this exact narrow
 -- form as a self-recursive equation; keep the authored call's real span.
 recursiveSite : String -> String -> Expr -> Maybe SourceSpan
-recursiveSite name pred (NApply _ (NRef _ "Succ") value) = recursiveSite name pred value
 recursiveSite name pred (NApply _ (NRef span function) (NRef _ argument)) =
   if function == name && argument == pred then Just span else Nothing
+recursiveSite name pred (NApply _ function argument) =
+  case recursiveSite name pred function of
+    Just site => Just site
+    Nothing => recursiveSite name pred argument
+recursiveSite name pred (NIf _ condition yes no) =
+  case recursiveSite name pred condition of
+    Just site => Just site
+    Nothing => case recursiveSite name pred yes of
+      Just site => Just site
+      Nothing => recursiveSite name pred no
 recursiveSite _ _ _ = Nothing
 
 recursiveReference : ModuleSnapshot -> AuthoredDeclaration -> List (ReferenceTo SourceLocation)
@@ -50,7 +59,7 @@ recursiveReference snapshot (Ordinary decl) =
         _ => True in
   if not (null snapshot.document.imports) || shadows then [] else
   case (decl.expected, decl.value) of
-    (NPi _ Linear _ (NRef _ "Nat") (NRef _ "Nat"),
+    (NPi _ Linear _ (NRef _ "Nat") _,
      NEquationLambda _ [argument] _ (NDataCase _ (NRef _ scrutinee) Nothing arms)) =>
       if argument.spelling /= scrutinee || length arms /= 2 then [] else
         let findStep = find (\(name, binder, body) => name.spelling == "Succ" && isJust binder) arms in

@@ -84,23 +84,30 @@ double n = case n of
 ~~~
 
 The [runnable example](../examples/modules/recursive-equations/Main.fib) prints
-four marks after doubling two. The compiler accepts one named linear Nat
-argument and a Nat result, with exactly one `Zero` arm and one `Succ k` arm in
-either order. The zero body must be `Zero` wrapped in zero or more `Succ`s. The
-successor body must be **exactly one call** `double k`, wrapped in zero or more
-`Succ`s. `k` is the immediate predecessor; calls on the original input, a
-successor, a different value, or multiple recursive calls are rejected. Binder
-and global-name collisions are not silently reinterpreted. The special syntax is
-only accepted when the built-in `Zero` and `Succ` are visible without shadowing;
-qualified aliases remain ordinary names, not evidence of recursion.
+four marks after doubling two. A second [example](../examples/modules/recursive-render/Main.fib)
+recursively constructs a String. The compiler accepts one named linear Nat
+argument and a result type independent of that argument, with exactly one
+`Zero` arm and one `Succ k` arm in either order. The zero arm cannot use the
+function or either bound name. The successor arm must contain **exactly one
+direct call** `f k` on the immediate predecessor. Calls on the original input,
+a successor, a different value, or multiple recursive calls are rejected.
+
+Branch expressions support ordinary references, literals, applications and
+conditionals; binders, annotations, nested cases and implicit-brace applications
+are not yet admitted in these branches. A call in only one conditional branch
+may still be rejected by independent linear-usage checking. The predecessor may
+appear only as the argument of the recursive call, not as a runtime value.
+Binder and global-name collisions are not silently reinterpreted. The special
+syntax is only accepted when the built-in `Zero` and `Succ` are visible without
+shadowing; qualified aliases remain ordinary names, not evidence of recursion.
 
 This syntactic admission constructs a closed core `NatRec`, whose step has an
 erased predecessor and a linear previous result. Independent core typing and
 usage checking remain authoritative. Unchecked signature normalization is
 size/payload guarded, and an inconclusive or exhausted attempt does not accept
 recursion. This is **not** a general termination checker: additional parameters,
-String results, arbitrary successor expressions, multiple recursive calls,
-mutual recursion, dependent results and user-defined recursive types need later
+binder-containing successor expressions, multiple recursive calls, mutual
+recursion, dependent results and user-defined recursive types need later
 work. Use explicit [`natRec` or `natRecWith`](nat-recursion.md) for operations
 outside this narrow source form. C emission still rejects Nat computation.
 
@@ -114,7 +121,9 @@ bindings. Formatting retains the authored case and validates its shape.
 The existing expression parser budget limits equation header arguments. A
 parameter's elaborated domain is admitted at 512 raw core nodes before it is
 copied into the generated lambda. Module checking reserves 513 nodes per binder,
-plus signature/body expansion, before cloning globals; the existing cumulative
+plus signature/body expansion, before cloning globals. The recursive form reserves
+additional admitted result-type copies and branch expansion before construction;
+the existing cumulative
 200000-node construction budget and independent post-count still apply. These
 are work-admission policies, not proofs of bounded memory or execution time.
 

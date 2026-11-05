@@ -237,22 +237,49 @@ dictionarySignature (S depth) ty = case weakHead typeReductionFuel ty of
     Right False
   HeadForm _ => Left "Implementation signature must be a dictionary-shaped unary or dependent-pair type, or a factory returning one"
 
--- Initial structural-equation admission is intentionally syntax directed:
--- no source binder or arbitrary call is reconstructed or guessed. The only
--- self call is f predecessor, beneath zero or more built-in Succ applications.
+-- Internal-only: '$' cannot begin an authored identifier. The original syntax
+-- remains the source of navigation; this name is never emitted as a source use.
 private
-natLiteral : Expr -> Maybe (Term n)
-natLiteral (NRef _ "Zero") = Just NatZero
-natLiteral (NApply _ (NRef _ "Succ") value) = NatSucc <$> natLiteral value
-natLiteral _ = Nothing
+recursiveResultName : String
+recursiveResultName = "$nat.recursive.result"
 
+-- Admit only binder-free ordinary expressions. Every occurrence of the three
+-- relevant source names is inspected; exactly one direct self-call can be
+-- replaced by a reference to the linear induction-result slot.
 private
-natRecursiveStep : String -> String -> Expr -> Maybe (Term (S n))
-natRecursiveStep name predecessor (NApply _ (NRef _ "Succ") value) =
-  NatSucc <$> natRecursiveStep name predecessor value
-natRecursiveStep name predecessor (NApply _ (NRef _ function) (NRef _ argument)) =
-  if function == name && argument == predecessor then Just (Variable FZ) else Nothing
-natRecursiveStep _ _ _ = Nothing
+recursiveExpression : String -> String -> String -> Expr -> Maybe (Bool, Expr)
+recursiveExpression name argument predecessor (NApply span (NRef site function) (NRef valueSite value)) =
+  if function == name && value == predecessor
+    then Just (True, NRef site recursiveResultName)
+    else do
+      (leftUsed, left) <- recursiveExpression name argument predecessor (NRef site function)
+      (rightUsed, right) <- recursiveExpression name argument predecessor (NRef valueSite value)
+      if leftUsed && rightUsed then Nothing else Just (leftUsed || rightUsed, NApply span left right)
+recursiveExpression name argument predecessor (NApply span function value) = do
+  (leftUsed, left) <- recursiveExpression name argument predecessor function
+  (rightUsed, right) <- recursiveExpression name argument predecessor value
+  if leftUsed && rightUsed then Nothing else Just (leftUsed || rightUsed, NApply span left right)
+recursiveExpression name argument predecessor (NIf span condition yes no) = do
+  (conditionUsed, condition) <- recursiveExpression name argument predecessor condition
+  (yesUsed, yes) <- recursiveExpression name argument predecessor yes
+  (noUsed, no) <- recursiveExpression name argument predecessor no
+  if (conditionUsed && (yesUsed || noUsed)) || (yesUsed && noUsed)
+    then Nothing else Just (conditionUsed || yesUsed || noUsed, NIf span condition yes no)
+recursiveExpression name argument predecessor expr@(NRef _ ref) =
+  if ref == name || ref == argument || ref == predecessor || ref == recursiveResultName
+    then Nothing else Just (False, expr)
+recursiveExpression name argument predecessor expr@(NQualifiedRef _ ref) =
+  case reverse (forget (Data.String.split (== '.') ref)) of
+    short :: _ => if short == name then Nothing else Just (False, expr)
+    [] => Nothing
+recursiveExpression _ _ _ expr@(NSort _ _) = Just (False, expr)
+recursiveExpression _ _ _ expr@(NUnitType _) = Just (False, expr)
+recursiveExpression _ _ _ expr@(NUnitValue _) = Just (False, expr)
+recursiveExpression _ _ _ expr@(NStringType _) = Just (False, expr)
+recursiveExpression _ _ _ expr@(NStringValue _ _) = Just (False, expr)
+recursiveExpression _ _ _ expr@(NBoolType _) = Just (False, expr)
+recursiveExpression _ _ _ expr@(NBoolValue _ _) = Just (False, expr)
+recursiveExpression _ _ _ _ = Nothing
 
 private
 natBuiltinsVisible : List Weighted -> Bool
@@ -270,36 +297,52 @@ natBuiltinsVisible globals =
       _ => False
 
 private
-natRecursiveEquation : List Weighted -> String -> Term 0 -> Expr -> Maybe (Term 0)
+natRecursiveEquation : List Weighted -> String -> Term 0 -> Expr -> Either ResolveError (Maybe (Term 0))
 natRecursiveEquation globals name ty (NEquationLambda _ [argument] _
-  (NDataCase _ (NRef _ scrutinee) Nothing [(first, firstBinder, firstBody), (second, secondBinder, secondBody)])) = do
+  (NDataCase span (NRef _ scrutinee) Nothing [(first, firstBinder, firstBody), (second, secondBinder, secondBody)])) = do
   if name == "Zero" || name == "Succ" || argument.spelling == "_" || argument.spelling == name ||
      argument.spelling == "Zero" || argument.spelling == "Succ" ||
      scrutinee /= argument.spelling || not (natBuiltinsVisible globals) ||
      isJust (find (\entry => entry.global.name == name) globals) ||
-     not (null (qualifiedCandidates name (map global globals))) then Nothing else Just ()
+     not (null (qualifiedCandidates name (map global globals))) then Right Nothing else do
   -- Never reduce an unchecked signature without the guarded node/payload
   -- admission used by speculative conversion. Exhaustion is inconclusive.
-  normalized <- guardedNormal typeReductionFuel ty
-  case normalized of
-    Pi Linear NatType NatType => Just ()
-    _ => Nothing
-  (base, predecessor, body) <- case (first.spelling, firstBinder, second.spelling, secondBinder) of
-    ("Zero", Nothing, "Succ", Just predecessor) => Just (firstBody, predecessor, secondBody)
-    ("Succ", Just predecessor, "Zero", Nothing) => Just (secondBody, predecessor, firstBody)
-    _ => Nothing
-  if predecessor.spelling == "_" || predecessor.spelling == name || predecessor.spelling == argument.spelling ||
-     predecessor.spelling == "Zero" || predecessor.spelling == "Succ" then Nothing else Just ()
-  zero <- the (Maybe (Term 1)) (natLiteral base)
-  successor <- the (Maybe (Term 3)) (natRecursiveStep name predecessor.spelling body)
-  let motive = Lambda Erased NatType NatType
-  let branch = Lambda Erased NatType (Lambda Linear NatType successor)
-  Just (Lambda Linear NatType (NatRec motive zero branch (Variable FZ)))
-natRecursiveEquation _ _ _ _ = Nothing
+  case guardedNormal typeReductionFuel ty of
+    Just (Pi Linear NatType result) => case dropNewest result of
+      Nothing => Left (CannotElaborate span.start "Structural Nat equations require a result independent of the argument")
+      Just resultType => do
+        (base, predecessor, body) <- case (first.spelling, firstBinder, second.spelling, secondBinder) of
+          ("Zero", Nothing, "Succ", Just predecessor) => Right (firstBody, predecessor, secondBody)
+          ("Succ", Just predecessor, "Zero", Nothing) => Right (secondBody, predecessor, firstBody)
+          _ => Left (CannotElaborate span.start "Structural Nat equations require one Zero arm and one Succ predecessor arm")
+        if predecessor.spelling == "_" || predecessor.spelling == name || predecessor.spelling == argument.spelling ||
+           predecessor.spelling == "Zero" || predecessor.spelling == "Succ"
+          then Left (CannotElaborate predecessor.span.start "Invalid structural predecessor binder") else Right ()
+        baseExpr <- case recursiveExpression name argument.spelling predecessor.spelling base of
+          Just (False, value) => Right value
+          _ => Left (CannotElaborate (extent base).start "Structural zero arm cannot use the function, input, predecessor or unsupported syntax")
+        stepExpr <- case recursiveExpression name argument.spelling predecessor.spelling body of
+          Just (True, value) => Right value
+          _ => Left (CannotElaborate (extent body).start "Structural successor arm needs exactly one direct call on the predecessor and supported binder-free syntax")
+        let checkedGlobals = map global globals
+        zero <- elaborateExpected checkedGlobals Empty [] resultType baseExpr
+        let stepContext = Extend (Extend Empty Erased NatType) Linear (weaken resultType)
+        successor <- elaborateExpected checkedGlobals stepContext [recursiveResultName, "$nat.predecessor"]
+                        (weaken (weaken resultType)) stepExpr
+        let motive : Term 1 = Lambda Erased NatType (weaken (weaken resultType))
+        let branch : Term 1 = weaken (Lambda Erased NatType (Lambda Linear (weaken resultType) successor))
+        Right (Just (Lambda Linear NatType (NatRec motive (weaken zero) branch (Variable FZ))))
+    _ => Right Nothing
+natRecursiveEquation _ _ _ _ = Right Nothing
 
 private
 recursiveEquationReserve : Expr -> Nat
-recursiveEquationReserve (NEquationLambda _ [_] _ (NDataCase _ _ _ _)) = 16
+-- Reserve for admitted result-type copies in the closed branch contexts,
+-- motive, lambda annotation and their weakening, before any are built.
+recursiveEquationReserve (NEquationLambda _ [_] _ (NDataCase _ _ Nothing [(first, _, _), (second, _, _)])) =
+  if (first.spelling == "Zero" && second.spelling == "Succ") ||
+     (first.spelling == "Succ" && second.spelling == "Zero")
+    then 16 + 9 * 513 else 0
 recursiveEquationReserve _ = 0
 
 compileDeclarations : ModuleSnapshot -> List String -> List Weighted -> List Declaration -> Nat ->
@@ -324,7 +367,10 @@ compileDeclarations snapshot name globals (decl :: rest) remaining = do
   if implicitPrefix > 0 && not (validImplicitPrefix decl.generated implicitPrefix ty)
     then Left (problem snapshot (Just decl.nameSpan.start) "Implicit metadata does not match an erased leading Pi prefix followed by an explicit Pi")
     else Right ()
-  value <- case natRecursiveEquation globals decl.name ty decl.value of
+  recursive <- case natRecursiveEquation globals decl.name ty decl.value of
+    Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
+    Right candidate => Right candidate
+  value <- case recursive of
     Just recursive => Right recursive
     Nothing => case elaborateExpected (map global globals) Empty [] ty decl.value of
       Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
