@@ -63,7 +63,9 @@ separate resource-sensitive API, or whether a linear world/capability discipline
 is required. Specify creation, transfer, duplication, discard, execution and
 exceptional cleanup. Add positive and negative tests for each rule. Existing
 linear bind-result checking is not sufficient evidence for this milestone.
-See [the proposed ownership contract](io-ownership.md).
+See [the proposed ownership contract](io-ownership.md) and the
+[host-only scoped file pilot](io-scoped-files.md). The latter tests cleanup and
+revocation, not source-level handle typing.
 
 ## 2. Design incremental execution and richer effects
 
@@ -142,7 +144,7 @@ reusable authority or a linear resource. An effect label is not an OS sandbox.
 This document consolidates requirements; it does not implement those milestones.
 The current branch has a proposed ownership document, hosted planner budget
 changes and checked hosted stdout flushing. Run `python3 tools/test_io_hosted.py`
-from the repository root for 168 core IO, console argument, sequence, script and input checks,
+from the repository root for 179 core IO, console argument, sequence, script, input and resource checks,
 plus real C `fflush` and checked-core stdin (Unicode CRLF/EOF/length failure)
 smoke tests on Chez. These pass, including direct-core
 64/65-write boundaries, injected write/flush failures, ordering and empty-plan

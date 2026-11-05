@@ -19,6 +19,7 @@ import Data.List
 import System
 import Tests.IO
 import Tests.ReadLine
+import Tests.ResourceScope
 import Tests.ConsoleArguments
 import Tests.ConsoleSequence
 import Tests.ConsoleScript
@@ -30,13 +31,17 @@ main : IO ()
 main = do
   hostChecks <- runSequenceChecks
   scriptHostChecks <- runScriptHostChecks
+  resourceChecks <- runResourceChecks
   fixture <- getEnv "FIBRIL_IO_INPUT_FIXTURE"
   inputChecks <- case fixture of
     Nothing => pure [("input fixture environment is set", False)]
-    Just path => runInputFileChecks path
+    Just path => do
+      lines <- runInputFileChecks path
+      scoped <- runScopedInputChecks path
+      pure (lines ++ scoped)
   let results = Tests.IO.checks ++ Tests.ReadLine.checks ++ Tests.ConsoleArguments.checks ++
                 Tests.ConsoleSequence.checks ++ Tests.ConsoleScript.checks ++
-                Tests.ConsoleInput.checks ++ hostChecks ++ scriptHostChecks ++ inputChecks
+                Tests.ConsoleInput.checks ++ hostChecks ++ scriptHostChecks ++ resourceChecks ++ inputChecks
   traverse_ (\(label, ok) => putStrLn ((if ok then "PASS: " else "FAIL: ") ++ label)) results
   if all snd results then pure () else exitFailure
   flushed <- executeConsoleActions [PrintLine "PASS: real stdout flush adapter"]
@@ -110,6 +115,21 @@ def main():
             line.startswith("HOSTED_IO_OK ") for line in result.stdout.splitlines()
         ):
             raise SystemExit(1)
+        (work / "ForgeScope.idr").write_text(
+            "module ForgeScope\nimport Fibril.Runtime.ScopedInput\nbad : ScopedInput\nbad = InputLease\n",
+            encoding="utf-8",
+        )
+        rejected = subprocess.run(
+            shlex.split(env.get("IDRIS2", "idris2")) +
+            ["--source-dir", ".", "--check", "ForgeScope.idr"],
+            cwd=work, env=env, capture_output=True, text=True, timeout=60,
+        )
+        diagnostic = rejected.stdout + rejected.stderr
+        if "InputLease" not in diagnostic or not any(
+            marker in diagnostic for marker in ["private", "Undefined name", "not accessible"]
+        ):
+            raise SystemExit("Scoped file constructor opacity check failed:\n" + diagnostic)
+        print("PASS: scoped input raw lease constructor is inaccessible")
         (work / "Interactive.idr").write_text(INTERACTIVE, encoding="utf-8")
         for label, supplied, expected in [
             ("Unicode CRLF input", "λ 🌍\r\n", "received:λ 🌍"),

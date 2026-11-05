@@ -1,6 +1,8 @@
 # Proposed IO ownership contract
 
-Status: design proposal; not implemented or a soundness claim.
+Status: source ownership remains a design proposal, not a soundness claim.
+A [host-only scoped input-file pilot](io-scoped-files.md) now implements cleanup
+and lease revocation, but not source-level linear handles.
 
 ## Preserve the distinction between descriptions and execution
 
