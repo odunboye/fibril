@@ -5,6 +5,8 @@ import Data.List
 import Fibril.Effect.Resource
 import Fibril.Runtime.Resource
 import Fibril.Runtime.ScopedInput
+import Fibril.Runtime.Console
+import Fibril.Effect.ConsoleProgram
 
 %default total
 
@@ -87,7 +89,67 @@ runScopedInputChecks path = do
     writeIORef called True
     readScopedInput 32 lease)
   wasCalled <- readIORef called
-  pure [ ("scoped input reads and closes real file",
+  (sessionRead, sessionReadCleanup) <- withInputSession (\session => do
+    opened <- openSessionInput session path
+    case opened of
+      Left err => pure (Left err)
+      Right lease => readScopedInput 32 lease)
+  saved <- newIORef (the (Maybe ScopedInput) Nothing)
+  (interpreterResult, interpreterCleanup) <- withInputSession (\session => do
+    opened <- openSessionInput session path
+    case opened of
+      Left _ => pure Nothing
+      Right lease => do
+        writeIORef saved (Just lease)
+        outcome <- runConsoleProgram 0 (\_ => pure (Right ()))
+          (pure (Right Nothing)) (Await (WriteRequest "not executed") (\_ => Finished ()))
+        pure (Just outcome))
+  captured <- readIORef saved
+  closedOnLimit <- the (IO Bool) $ case captured of
+    Nothing => pure False
+    Just lease => do
+      response <- readScopedInput 32 lease
+      pure (response == Left FileLeaseClosed)
+  (escapedSession, escapedSessionCleanup) <- withInputSession (\session => pure session)
+  reopenedSession <- openSessionInput escapedSession path
+  (multiple, multipleCleanup) <- withInputSession (\session => do
+    first <- openSessionInput session path
+    second <- openSessionInput session path
+    pure $ case (first, second) of
+      (Right left, Right right) => Just (left, right)
+      _ => Nothing)
+  bothRevoked <- the (IO Bool) $ case multiple of
+    Nothing => pure False
+    Just (left, right) => do
+      first <- readScopedInput 32 left
+      second <- readScopedInput 32 right
+      pure (first == Left FileLeaseClosed && second == Left FileLeaseClosed)
+  (explicitSessionClose, explicitSessionCleanup) <- withInputSession (\session => do
+    opened <- openSessionInput session path
+    case opened of
+      Left err => pure (Left err)
+      Right lease => closeScopedInput lease)
+  (sessionOpenFailure, sessionOpenCleanup) <- withInputSession (\session =>
+    openSessionInput session (path ++ ".missing"))
+  pure [ ("input session reads through a registered lease",
+           sessionRead == Right (Just "hello") && null sessionReadCleanup)
+       , ("input session cleans up after interpreter request exhaustion",
+           case interpreterResult of
+             Just (Left ConsoleRequestLimit) => closedOnLimit && null interpreterCleanup
+             _ => False)
+       , ("escaped input session cannot open more files",
+           case reopenedSession of
+             Left FileSessionClosed => null escapedSessionCleanup
+             _ => False)
+       , ("input session revokes every registered lease",
+           bothRevoked && null multipleCleanup)
+       , ("input session does not double-close explicitly closed leases",
+           explicitSessionClose == Right () && null explicitSessionCleanup)
+       , ("input session acquisition failure adds no cleanup failure",
+           case sessionOpenFailure of
+             Left (FileOpenFailed _) => null sessionOpenCleanup
+             _ => False)
+       , ("scoped input reads and closes real file",
            case read of
              ResourceFinished (Right (Just "hello")) (Right ()) => True
              _ => False)

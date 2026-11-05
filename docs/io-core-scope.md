@@ -65,9 +65,11 @@ Fifteen checks cover valid ownership-returning callbacks, inert normalization,
 missing ownership, existential duplication, skipped-callback capture, nested
 region substitution, malformed paths/results and fail-closed execution.
 
-Next: a trusted introduction boundary that creates fresh runtime regions and
-maps handles to revocable host resources, implements ownership-returning reads,
-and cleans up even if body interpretation fails before returning ownership.
+A [host session registry](io-resource-session.md) now cleans registered leases
+on represented interpreter failure. Next connect a trusted introduction boundary
+that creates runtime regions and maps handles to those resources, implements
+ownership-returning reads, and invokes the session backstop if body interpretation
+fails before returning ownership.
 Native execution must enforce the same lifetime/cleanup contract. Only then
 expose scoped source primitives. This is not a subject-reduction proof,
 exception-safe source resource implementation or world-token IO.

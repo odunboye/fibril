@@ -21,7 +21,9 @@ not static linearity or a thread-safe concurrent lease.
 Close uses checked C `fclose`, not the host API that discards its return status.
 The lease is revoked before calling close, even on failure: retrying an
 indeterminate close could affect a reused descriptor. Automatic scope cleanup
-accepts an already revoked lease rather than closing twice.
+returns a revoked lease's stored close outcome rather than closing twice.
+A [host resource session](io-resource-session.md) now tracks multiple leases and
+cleans up on represented interpreter failure before normal ownership return.
 
 `Effect.Resource.ResourceOutcome error value` distinguishes acquisition failure
 from a body result paired with a cleanup result. The generic host seam

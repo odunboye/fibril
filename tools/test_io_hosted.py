@@ -117,21 +117,25 @@ def main():
             line.startswith("HOSTED_IO_OK ") for line in result.stdout.splitlines()
         ):
             raise SystemExit(1)
-        (work / "ForgeScope.idr").write_text(
-            "module ForgeScope\nimport Fibril.Runtime.ScopedInput\nbad : ScopedInput\nbad = InputLease\n",
-            encoding="utf-8",
-        )
-        rejected = subprocess.run(
-            shlex.split(env.get("IDRIS2", "idris2")) +
-            ["--source-dir", ".", "--check", "ForgeScope.idr"],
-            cwd=work, env=env, capture_output=True, text=True, timeout=60,
-        )
-        diagnostic = rejected.stdout + rejected.stderr
-        if "InputLease" not in diagnostic or not any(
-            marker in diagnostic for marker in ["private", "Undefined name", "not accessible"]
-        ):
-            raise SystemExit("Scoped file constructor opacity check failed:\n" + diagnostic)
-        print("PASS: scoped input raw lease constructor is inaccessible")
+        for module, exported_type, constructor in [
+            ("ForgeScope", "ScopedInput", "InputLease"),
+            ("ForgeSession", "InputSession", "Session"),
+        ]:
+            (work / f"{module}.idr").write_text(
+                f"module {module}\nimport Fibril.Runtime.ScopedInput\n"
+                f"bad : {exported_type}\nbad = {constructor}\n", encoding="utf-8",
+            )
+            rejected = subprocess.run(
+                shlex.split(env.get("IDRIS2", "idris2")) +
+                ["--source-dir", ".", "--check", f"{module}.idr"],
+                cwd=work, env=env, capture_output=True, text=True, timeout=60,
+            )
+            diagnostic = rejected.stdout + rejected.stderr
+            if constructor not in diagnostic or not any(
+                marker in diagnostic for marker in ["private", "Undefined name", "not accessible"]
+            ):
+                raise SystemExit("Resource constructor opacity check failed:\n" + diagnostic)
+            print(f"PASS: {exported_type} constructor is inaccessible")
         (work / "Interactive.idr").write_text(INTERACTIVE, encoding="utf-8")
         for label, supplied, expected in [
             ("Unicode CRLF input", "λ 🌍\r\n", "received:λ 🌍"),
