@@ -16,7 +16,7 @@ typedef struct FThunk FThunk;
 typedef struct FAction { const unsigned char *bytes; size_t length; struct FAction *next; } FAction;
 struct FRuntime { FAllocation *allocations; size_t bytes, steps, depth, actions; const char *error; FAction *head, *tail; };
 struct FEnv { FThunk *value; FEnv *tail; };
-typedef enum { V_UNIT, V_ERASED, V_BOOL, V_STRING, V_CLOSURE, V_NOMINAL, V_VARIANT, V_PURE, V_BIND, V_WRITE } FTag;
+typedef enum { V_UNIT, V_ERASED, V_BOOL, V_STRING, V_CLOSURE, V_NOMINAL, V_VARIANT, V_PURE, V_BIND, V_WRITE, V_READ } FTag;
 struct FValue {
   FTag tag;
   union {
@@ -187,6 +187,7 @@ static FValue *io1(FRuntime *r, FEnv *env, FTag tag, FEval first, FEval second) 
 FValue *f_pure(FRuntime *r, FEnv *env, FEval value) { return io1(r, env, V_PURE, value, NULL); }
 FValue *f_bind(FRuntime *r, FEnv *env, FEval action, FEval continuation) { return io1(r, env, V_BIND, action, continuation); }
 FValue *f_write(FRuntime *r, FEnv *env, FEval text) { return io1(r, env, V_WRITE, text, NULL); }
+FValue *f_read_line(FRuntime *r) { return new_value(r, V_READ); }
 
 /* Build the complete action plan before writing anything to the host. */
 static FThunk *plan(FRuntime *r, FValue *io) {
@@ -214,6 +215,102 @@ static FThunk *plan(FRuntime *r, FValue *io) {
     if (following) result = plan(r, following);
   } else fail(r, "native program returned a non-IO value");
   r->depth--; return result;
+}
+/* Validate scalar UTF-8 and count decoded characters. Reject overlong forms,
+   surrogates and values beyond U+10FFFF rather than inventing replacements. */
+static int utf8_count(const unsigned char *bytes, size_t length, size_t *count) {
+  size_t i = 0; *count = 0;
+  while (i < length) {
+    unsigned char c = bytes[i++]; size_t more; uint32_t value, minimum;
+    if (c < 128) { (*count)++; continue; }
+    if (c >= 194 && c <= 223) { more = 1; value = c & 31; minimum = 128; }
+    else if (c >= 224 && c <= 239) { more = 2; value = c & 15; minimum = 2048; }
+    else if (c >= 240 && c <= 244) { more = 3; value = c & 7; minimum = 65536; }
+    else return 0;
+    if (more > length - i) return 0;
+    while (more--) {
+      unsigned char next = bytes[i++];
+      if ((next & 192) != 128) return 0;
+      value = (value << 6) | (next & 63);
+    }
+    if (value < minimum || value > 0x10ffff || (value >= 0xd800 && value <= 0xdfff)) return 0;
+    (*count)++;
+  }
+  return 1;
+}
+static FValue *read_result(FRuntime *r, size_t tag, FValue *payload) {
+  FValue *v = new_value(r, V_VARIANT);
+  if (!v) return NULL;
+  v->as.variant.tag = tag;
+  if (payload) { v->as.variant.payload = ready(r, payload); if (!v->as.variant.payload) return NULL; }
+  return v;
+}
+static FValue *input_error(FRuntime *r, const char *message) {
+  FValue *text = f_literal(r, (const unsigned char *)message, strlen(message));
+  return text ? read_result(r, 2, text) : NULL;
+}
+static FValue *read_line(FRuntime *r, size_t limit) {
+  if (fflush(stdout) == EOF) return input_error(r, "Console stdout flush failed");
+  /* Admission caps limit at 8192, so this multiplication cannot overflow. */
+  size_t capacity = limit * 4 + 2, length = 0; int overflow = 0, c;
+  unsigned char *bytes = allocate(r, capacity);
+  if (!bytes) return NULL;
+  while ((c = fgetc(stdin)) != EOF) {
+    if (length < capacity) bytes[length++] = (unsigned char)c; else overflow = 1;
+    if (c == '\n') break;
+  }
+  if (ferror(stdin)) return input_error(r, "Console input failed");
+  if (!length && c == EOF) return read_result(r, 0, NULL);
+  if (overflow) return input_error(r, "Console input line length limit exceeded");
+  if (length && bytes[length - 1] == '\n') {
+    length--; if (length && bytes[length - 1] == '\r') length--;
+  }
+  size_t characters;
+  if (!utf8_count(bytes, length, &characters)) return input_error(r, "Console input is not valid UTF-8");
+  if (characters > limit) return input_error(r, "Console input line length limit exceeded");
+  FValue *text = f_literal(r, bytes, length);
+  return text ? read_result(r, 1, text) : NULL;
+}
+static FThunk *interact(FRuntime *r, FValue *io, size_t *requests, size_t line_limit) {
+  if (!enter(r)) return NULL;
+  FThunk *result = NULL;
+  if (!io) fail(r, "missing native IO description");
+  else if (io->tag == V_PURE) result = io->as.io.first;
+  else if (io->tag == V_READ || io->tag == V_WRITE) {
+    if (!*requests) fail(r, "native interactive request budget exhausted");
+    else {
+      (*requests)--;
+      if (io->tag == V_READ) result = ready(r, read_line(r, line_limit));
+      else {
+        FValue *text = force(r, io->as.io.first);
+        if (!text || text->tag != V_STRING) fail(r, "native write expects a string");
+        else if ((text->as.string.length && fwrite(text->as.string.bytes, 1, text->as.string.length, stdout) != text->as.string.length) || fputc('\n', stdout) == EOF)
+          fail(r, "native stdout write failed");
+        else result = ready(r, f_unit(r));
+      }
+    }
+  } else if (io->tag == V_BIND) {
+    FValue *first = force(r, io->as.io.first);
+    FThunk *value = first ? interact(r, first, requests, line_limit) : NULL;
+    FValue *next = value ? force(r, io->as.io.second) : NULL;
+    FValue *following = next ? apply_thunk(r, next, value) : NULL;
+    if (following) result = interact(r, following, requests, line_limit);
+  } else fail(r, "native program returned a non-IO value");
+  r->depth--; return result;
+}
+int fibril_native_interactive_run(FEval entry, size_t requests, size_t line_characters) {
+  FRuntime r = {0};
+  if (line_characters > 8192 || requests > F_MAX_STEPS) fail(&r, "native interactive admission limit exceeded");
+  FValue *io = r.error ? NULL : evaluate(&r, entry, NULL);
+  FThunk *final = io ? interact(&r, io, &requests, line_characters) : NULL;
+  FValue *unit = final ? force(&r, final) : NULL;
+  if (!r.error && (!unit || unit->tag != V_UNIT)) fail(&r, "native main did not return unit");
+  /* Earlier effects can be visible even when later computation fails. */
+  if (!r.error && fflush(stdout) == EOF) fail(&r, "native stdout flush failed");
+  int status = r.error ? 1 : 0;
+  if (r.error) fprintf(stderr, "fibril native: %s\n", r.error);
+  while (r.allocations) { FAllocation *next = r.allocations->next; free(r.allocations); r.allocations = next; }
+  return status;
 }
 int fibril_native_run(FEval entry) {
   FRuntime r = {0};

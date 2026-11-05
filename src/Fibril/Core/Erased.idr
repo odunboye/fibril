@@ -76,6 +76,7 @@ mutual
   infer (S depth) reduction context BoolType = Right (Universe 0)
   infer (S depth) reduction context BoolTrue = Right BoolType
   infer (S depth) reduction context BoolFalse = Right BoolType
+  infer (S depth) reduction context ReadLine = Right (IOType readResultType)
   infer (S depth) reduction context StringType = Right (Universe 0)
   infer (S depth) reduction context (StringValue _) = Right StringType
   infer (S depth) reduction context (StringAppend left right) = do

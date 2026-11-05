@@ -22,6 +22,7 @@ mutual
   admit (S budget) BoolType = Just budget
   admit (S budget) BoolTrue = Just budget
   admit (S budget) BoolFalse = Just budget
+  admit (S budget) ReadLine = Just budget
   admit (S budget) StringType = Just budget
   admit (S budget) (StringValue _) = Just budget
   admit (S budget) (StringAppend a b) = do x <- admit budget a; admit x b
@@ -72,6 +73,7 @@ mutual
   safeRedexes size payload BoolType = True
   safeRedexes size payload BoolTrue = True
   safeRedexes size payload BoolFalse = True
+  safeRedexes size payload ReadLine = True
   safeRedexes size payload StringType = True
   safeRedexes size payload (StringValue _) = True
   safeRedexes size payload (StringAppend a b) = safeRedexes size payload a && safeRedexes size payload b

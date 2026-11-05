@@ -1,0 +1,9 @@
+-- Requires explicitly selected interactive execution, not output-only run.
+handleRead : (1 result : ReadResult) -> IO Unit
+handleRead = \(1 result : ReadResult) => readCase (IO Unit) result (putStrLn "EOF") (\(1 text : String) => putStrLn (appendString "received:" text)) (\(1 message : String) => putStrLn (appendString "error:" message))
+
+main : IO Unit
+main = do
+  putStrLn "prompt"
+  (1 result : ReadResult) <- readLine
+  handleRead result

@@ -1,6 +1,7 @@
 # Scripted host console protocol
 
-Status: implemented host-side scaffold, not a Fibril source-level input feature.
+Status: implemented host-side protocol, now used by the checked interactive
+[source input API](io-input.md). The protocol datatype itself is host-only.
 
 `Fibril.Effect.ConsoleProgram` separates typed requests from their responses:
 
@@ -8,7 +9,7 @@ Status: implemented host-side scaffold, not a Fibril source-level input feature.
 - `ReadLineRequest` returns `Either String (Maybe String)`.
   `Right (Just line)` is input, `Right Nothing` is EOF and `Left message` is a
   represented input failure. The host adapter's newline and decoding behavior
-  is described below; no source-level input primitive is installed.
+  is described below; source programs use the separate `readLine` API.
 
 A `ConsoleProgram a` is either `Finished a` or `Await request continuation`.
 Continuations can construct subsequent requests from the response. These are
@@ -76,6 +77,10 @@ is delivered as the read response without attempting input. There is no implicit
 final flush. Existing source `run` is unchanged. Focused tests exercise real stdin
 with Unicode CRLF input and EOF, plus injected prompt-flush ordering and errors.
 
-Remaining work: incremental core-to-protocol interpretation for input (the
-current bridge is output-only and preflighted), source input typing/resource
-rules, native lowering, and full source-to-backend differential tests.
+`Driver.Interactive.prepareInteractive` now bridges checked closed core
+`IO Unit` terms to incremental requests, including the inert core read request.
+See [io-core-input.md](io-core-input.md) for the distinct failure semantics and
+real stdin checks. Explicit native input lowering now has seven checked-core
+source-level differential cases; see [io-native-input.md](io-native-input.md).
+The [standalone source API](io-input.md) is implemented; package integration,
+full CLI validation and stronger resource ownership remain separate work.

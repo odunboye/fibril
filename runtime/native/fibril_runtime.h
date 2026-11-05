@@ -26,5 +26,9 @@ FValue *f_unit_case(FRuntime *r, FEnv *env, FEval scrutinee, FEval body);
 FValue *f_pure(FRuntime *r, FEnv *env, FEval value);
 FValue *f_bind(FRuntime *r, FEnv *env, FEval action, FEval continuation);
 FValue *f_write(FRuntime *r, FEnv *env, FEval text);
+/* Inert request; only the separate interactive runner may execute it. */
+FValue *f_read_line(FRuntime *r);
 int fibril_native_run(FEval entry);
+/* Incremental execution may leave output before a later error. */
+int fibril_native_interactive_run(FEval entry, size_t requests, size_t line_characters);
 #endif

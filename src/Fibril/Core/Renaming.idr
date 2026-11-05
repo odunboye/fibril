@@ -27,6 +27,7 @@ mutual
   renameCongruent left right agree BoolType = Refl
   renameCongruent left right agree BoolTrue = Refl
   renameCongruent left right agree BoolFalse = Refl
+  renameCongruent left right agree ReadLine = Refl
   renameCongruent left right agree StringType = Refl
   renameCongruent left right agree (StringValue _) = Refl
   renameCongruent left right agree (IOType value) = cong IOType (renameCongruent left right agree value)
@@ -103,6 +104,7 @@ mutual
   renameIdentity BoolType = Refl
   renameIdentity BoolTrue = Refl
   renameIdentity BoolFalse = Refl
+  renameIdentity ReadLine = Refl
   renameIdentity StringType = Refl
   renameIdentity (StringValue _) = Refl
   renameIdentity (IOType value) = cong IOType (renameIdentity value)
@@ -185,6 +187,7 @@ mutual
   renameComposition first second BoolType = Refl
   renameComposition first second BoolTrue = Refl
   renameComposition first second BoolFalse = Refl
+  renameComposition first second ReadLine = Refl
   renameComposition first second StringType = Refl
   renameComposition first second (StringValue _) = Refl
   renameComposition first second (IOType value) = cong IOType (renameComposition first second value)

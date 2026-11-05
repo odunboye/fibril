@@ -27,6 +27,7 @@ mutual
   step BoolType = Nothing
   step BoolTrue = Nothing
   step BoolFalse = Nothing
+  step ReadLine = Nothing
   step StringType = Nothing
   step (StringValue _) = Nothing
   step (StringAppend (StringValue left) (StringValue right)) = Just (StringValue (left ++ right))

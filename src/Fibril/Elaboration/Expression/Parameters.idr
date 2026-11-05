@@ -69,6 +69,7 @@ mutual
   match position mapping prune BoolType BoolType solutions = Right solutions
   match position mapping prune BoolTrue BoolTrue solutions = Right solutions
   match position mapping prune BoolFalse BoolFalse solutions = Right solutions
+  match position mapping prune ReadLine ReadLine solutions = Right solutions
   match position mapping prune StringType StringType solutions = Right solutions
   match position mapping prune (StringValue x) (StringValue y) solutions =
     if x == y then Right solutions else failure position
@@ -254,6 +255,7 @@ implicitArgumentType position (S fuel) context (Variable index) = Just <$> looku
 implicitArgumentType position (S fuel) context (StringValue _) = Right (Just StringType)
 implicitArgumentType position (S fuel) context BoolTrue = Right (Just BoolType)
 implicitArgumentType position (S fuel) context BoolFalse = Right (Just BoolType)
+implicitArgumentType position (S fuel) context ReadLine = Right (Just (IOType readResultType))
 implicitArgumentType position (S fuel) context UnitValue = Right (Just UnitType)
 implicitArgumentType position (S fuel) context StringType = Right (Just (Universe 0))
 implicitArgumentType position (S fuel) context BoolType = Right (Just (Universe 0))

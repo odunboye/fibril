@@ -36,13 +36,16 @@ capability ownership and cleanup after partial effects.
 
 Run `make io-test`:
 
-- 138 hosted core IO/argument/sequence/script/input checks, plus a real flush smoke
-  test and two interactive stdin smoke tests (Unicode CRLF and EOF);
-- seven direct C runtime tests for pure Unit, UTF-8, bind order, 64 writes,
-  rejection at 65 writes, late invalid-result output suppression and a real
-  broken-pipe flush failure (POSIX only);
+- 164 hosted core IO/argument/sequence/script/input checks, plus a real flush smoke
+  test and three checked-core stdin smoke tests (Unicode CRLF, EOF and input
+  length failure);
+- 17 direct C runtime tests for output planning and the separate interactive
+  runtime, including UTF-8, EOF, read failure, length/request limits, prompt
+  visibility, late-result output suppression and broken-pipe flush failure;
 - seven source-to-C examples whose compiled stdout matches the hosted plan,
-  covering sequencing, helpers, do lets/results, computed strings and IO map.
+  covering sequencing, helpers, do lets/results, computed strings and IO map;
+- seven source-level hosted/native interactive file-driver comparisons, described separately
+  in [io-native-input.md](io-native-input.md), not governed by preflight semantics.
 
 The hosted checks include rejecting an over-budget write before normalizing its
 expensive text. The broken-pipe harness ignores SIGPIPE so stdio can return its

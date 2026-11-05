@@ -21,6 +21,7 @@ mutual
   renderTerm BoolType = "Bool"
   renderTerm BoolTrue = "True"
   renderTerm BoolFalse = "False"
+  renderTerm ReadLine = "ReadLine"
   renderTerm StringType = "String"
   renderTerm (StringValue value) = show value
   renderTerm (StringAppend left right) = "(StringAppend " ++ renderTerm left ++ " " ++ renderTerm right ++ ")"

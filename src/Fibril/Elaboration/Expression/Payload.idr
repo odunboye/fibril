@@ -30,6 +30,7 @@ mutual
   payloadWeight env BoolType = 0
   payloadWeight env BoolTrue = 0
   payloadWeight env BoolFalse = 0
+  payloadWeight env ReadLine = 0
   payloadWeight env StringType = 0
   payloadWeight env (StringValue value) = cap (length value)
   payloadWeight env (StringAppend a b) = cap (payloadWeight env a + payloadWeight env b)

@@ -48,6 +48,8 @@ data Term : Nat -> Type where
   IOPure : Term n -> Term n
   IOBind : Term n -> Term n -> Term n -> Term n -> Term n
   WriteLine : Term n -> Term n
+  ||| Inert input request. EOF/line/error are positional alternatives in readResultType.
+  ReadLine : Term n
   ||| Nondependent branches; runtime checking joins their resource permissions.
   BoolCase : Term n -> Term n -> Term n -> Term n
   Sigma : Quantity -> Quantity -> Term n -> Term (S n) -> Term n
@@ -66,6 +68,12 @@ variantAt _ [] = Nothing
 variantAt Z (x :: _) = Just x
 variantAt (S tag) (_ :: rest) = variantAt tag rest
 
+||| Internal input result: tag 0 EOF, tag 1 line, tag 2 represented error.
+||| String payloads must be consumed linearly; no host execution happens here.
+public export
+readResultType : Term n
+readResultType = VariantType [Nothing, Just (Linear, StringType), Just (Linear, StringType)]
+
 mutual
   ||| Extend a renaming under one binder, preserving the newly bound variable.
   public export
@@ -83,6 +91,7 @@ mutual
   rename env BoolType = BoolType
   rename env BoolTrue = BoolTrue
   rename env BoolFalse = BoolFalse
+  rename env ReadLine = ReadLine
   rename env StringType = StringType
   rename env (StringValue value) = StringValue value
   rename env (StringAppend left right) = StringAppend (rename env left) (rename env right)
@@ -139,6 +148,7 @@ mutual
   substituteTerm env BoolType = BoolType
   substituteTerm env BoolTrue = BoolTrue
   substituteTerm env BoolFalse = BoolFalse
+  substituteTerm env ReadLine = ReadLine
   substituteTerm env StringType = StringType
   substituteTerm env (StringValue value) = StringValue value
   substituteTerm env (StringAppend left right) =
@@ -202,6 +212,7 @@ mutual
   sameSyntax BoolType BoolType = True
   sameSyntax BoolTrue BoolTrue = True
   sameSyntax BoolFalse BoolFalse = True
+  sameSyntax ReadLine ReadLine = True
   sameSyntax StringType StringType = True
   sameSyntax (StringValue left) (StringValue right) = left == right
   sameSyntax (StringAppend a b) (StringAppend c d) = sameSyntax a c && sameSyntax b d

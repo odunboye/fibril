@@ -18,6 +18,7 @@ PROGRAM = r'''module Main
 import Data.List
 import System
 import Tests.IO
+import Tests.ReadLine
 import Tests.ConsoleArguments
 import Tests.ConsoleSequence
 import Tests.ConsoleScript
@@ -33,7 +34,7 @@ main = do
   inputChecks <- case fixture of
     Nothing => pure [("input fixture environment is set", False)]
     Just path => runInputFileChecks path
-  let results = Tests.IO.checks ++ Tests.ConsoleArguments.checks ++
+  let results = Tests.IO.checks ++ Tests.ReadLine.checks ++ Tests.ConsoleArguments.checks ++
                 Tests.ConsoleSequence.checks ++ Tests.ConsoleScript.checks ++
                 Tests.ConsoleInput.checks ++ hostChecks ++ scriptHostChecks ++ inputChecks
   traverse_ (\(label, ok) => putStrLn ((if ok then "PASS: " else "FAIL: ") ++ label)) results
@@ -48,28 +49,38 @@ main = do
 INTERACTIVE = r'''module Interactive
 
 import System
+import Data.Fin
+import Fibril.Core.Term
+import Fibril.Core.Quantity
+import Fibril.Driver.Interactive
 import Fibril.Effect.ConsoleProgram
 import Fibril.Runtime.Console
 import Fibril.Runtime.ConsoleInput
 
-program : ConsoleProgram (Either String ())
-program = Await (WriteRequest "prompt") (\written => case written of
-  Left err => Finished (Left err)
-  Right () => Await ReadLineRequest (\response => case response of
-    Left err => Finished (Left err)
-    Right Nothing => Await (WriteRequest "EOF") Finished
-    Right (Just text) => Await (WriteRequest ("received:" ++ text)) Finished))
+readProgram : Term 0
+readProgram = IOBind readResultType UnitType ReadLine
+  (Lambda Linear readResultType
+    (VariantCase (Lambda Erased readResultType (IOType UnitType)) (Variable FZ)
+      [WriteLine (StringValue "EOF"),
+       Lambda Linear StringType (WriteLine (StringAppend (StringValue "received:") (Variable FZ))),
+       Lambda Linear StringType (WriteLine (StringAppend (StringValue "error:") (Variable FZ)))]))
+
+program : Term 0
+program = IOBind UnitType UnitType (WriteLine (StringValue "prompt"))
+  (Lambda Linear UnitType (UnitCase (Variable FZ) (weaken readProgram)))
 
 main : IO ()
-main = do
-  result <- runInteractiveConsoleProgram 3 32 program
-  case result of
-    Right (Right ()) => do
-      flushed <- flushStdout
-      case flushed of
-        Right () => putStrLn "HOSTED_INTERACTIVE_OK"
-        Left err => do putStrLn ("FAIL: " ++ err); exitFailure
-    _ => do putStrLn "FAIL: interactive execution"; exitFailure
+main = case prepareInteractive 128 128 program of
+  Left err => do putStrLn ("FAIL: " ++ show err); exitFailure
+  Right prepared => do
+    result <- runInteractiveConsoleProgram 3 32 prepared
+    case result of
+      Right (Right ()) => do
+        flushed <- flushStdout
+        case flushed of
+          Right () => putStrLn "HOSTED_INTERACTIVE_OK"
+          Left err => do putStrLn ("FAIL: " ++ err); exitFailure
+      _ => do putStrLn "FAIL: interactive execution"; exitFailure
 '''
 
 
@@ -103,6 +114,8 @@ def main():
         for label, supplied, expected in [
             ("Unicode CRLF input", "λ 🌍\r\n", "received:λ 🌍"),
             ("EOF", "", "EOF"),
+            ("line length failure", "x" * 33 + "\n",
+             "error:Console input line length limit exceeded"),
         ]:
             interactive = subprocess.run(
                 shlex.split(env.get("IDRIS2", "idris2")) +
@@ -115,7 +128,7 @@ def main():
                 print(interactive.stdout, end="")
                 print(interactive.stderr, end="", file=sys.stderr)
                 raise SystemExit(f"Interactive smoke test failed: {label}")
-            print(f"PASS: real interactive stdin ({label})")
+            print(f"PASS: checked-core interactive stdin ({label})")
 
 
 if __name__ == "__main__":

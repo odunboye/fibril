@@ -5,6 +5,7 @@ import Data.Fin
 import Fibril.Core.Quantity
 import Fibril.Core.Term
 import Fibril.Source.Global
+import Fibril.Source.Primitive.Input
 
 %default total
 
@@ -28,6 +29,7 @@ bindConstructor =
 public export
 primitiveGlobals : List GlobalDefinition
 primitiveGlobals =
+  inputPrimitiveGlobals ++
   [ Global "IO" (Pi Erased (Universe 0) (Universe 0)) ioConstructor
   , Global "primPure"
       (Pi Erased (Universe 0) (Pi Linear (Variable FZ) (IOType (Variable (FS FZ)))))

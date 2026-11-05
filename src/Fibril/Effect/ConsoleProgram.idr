@@ -18,6 +18,13 @@ data ConsoleProgram : Type -> Type where
   Finished : a -> ConsoleProgram a
   Await : ConsoleRequest response -> (response -> ConsoleProgram a) -> ConsoleProgram a
 
+||| Compose host descriptions without interpreting requests.
+public export
+thenConsole : ConsoleProgram a -> (a -> ConsoleProgram b) -> ConsoleProgram b
+thenConsole (Finished value) next = next value
+thenConsole (Await request respond) next =
+  Await request (\response => thenConsole (respond response) next)
+
 ||| Adapt an already prepared output plan without adding source-level effects.
 ||| Stop on the first represented write failure, as the existing adapter does.
 public export

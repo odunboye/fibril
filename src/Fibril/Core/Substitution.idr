@@ -30,6 +30,7 @@ mutual
   substituteCongruent left right agree BoolType = Refl
   substituteCongruent left right agree BoolTrue = Refl
   substituteCongruent left right agree BoolFalse = Refl
+  substituteCongruent left right agree ReadLine = Refl
   substituteCongruent left right agree StringType = Refl
   substituteCongruent left right agree (StringValue _) = Refl
   substituteCongruent left right agree (IOType value) = cong IOType (substituteCongruent left right agree value)
@@ -109,6 +110,7 @@ mutual
   renameAsSubstitution env BoolType = Refl
   renameAsSubstitution env BoolTrue = Refl
   renameAsSubstitution env BoolFalse = Refl
+  renameAsSubstitution env ReadLine = Refl
   renameAsSubstitution env StringType = Refl
   renameAsSubstitution env (StringValue _) = Refl
   renameAsSubstitution env (IOType value) = cong IOType (renameAsSubstitution env value)

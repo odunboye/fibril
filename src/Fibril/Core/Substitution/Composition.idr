@@ -31,6 +31,7 @@ mutual
   renameAfterSubstitution env sigma BoolType = Refl
   renameAfterSubstitution env sigma BoolTrue = Refl
   renameAfterSubstitution env sigma BoolFalse = Refl
+  renameAfterSubstitution env sigma ReadLine = Refl
   renameAfterSubstitution env sigma StringType = Refl
   renameAfterSubstitution env sigma (StringValue _) = Refl
   renameAfterSubstitution env sigma (IOType value) = cong IOType (renameAfterSubstitution env sigma value)
@@ -119,6 +120,7 @@ mutual
   substituteAfterRenaming env sigma BoolType = Refl
   substituteAfterRenaming env sigma BoolTrue = Refl
   substituteAfterRenaming env sigma BoolFalse = Refl
+  substituteAfterRenaming env sigma ReadLine = Refl
   substituteAfterRenaming env sigma StringType = Refl
   substituteAfterRenaming env sigma (StringValue _) = Refl
   substituteAfterRenaming env sigma (IOType value) = cong IOType (substituteAfterRenaming env sigma value)
@@ -217,6 +219,7 @@ mutual
   substituteComposition first second BoolType = Refl
   substituteComposition first second BoolTrue = Refl
   substituteComposition first second BoolFalse = Refl
+  substituteComposition first second ReadLine = Refl
   substituteComposition first second StringType = Refl
   substituteComposition first second (StringValue _) = Refl
   substituteComposition first second (IOType value) = cong IOType (substituteComposition first second value)

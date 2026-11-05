@@ -21,6 +21,7 @@ io-test:
 	IDRIS2="$(IDRIS2)" python3 tools/test_io_hosted.py
 	CC="$(CC)" python3 tools/test_io_native_runtime.py
 	IDRIS2="$(IDRIS2)" CC="$(CC)" python3 tools/test_io_emitter.py
+	IDRIS2="$(IDRIS2)" CC="$(CC)" python3 tools/test_io_interactive.py
 
 native-test: build
 	CC="$(CC)" python3 tools/test_native.py

@@ -67,6 +67,14 @@ See [the proposed ownership contract](io-ownership.md).
 
 ## 2. Design incremental execution and richer effects
 
+An [inert core read request](io-core-input.md) now has an explicit EOF/line/error
+result type and a checked incremental host interpreter. It is now exposed
+to source programs through the [standalone interactive API](io-input.md).
+The output planner and output-only emitter fail closed on it; explicit
+interactive native emission and execution pass seven source-level hosted/native
+differential cases. See [io-native-input.md](io-native-input.md).
+
+
 Input cannot be implemented merely by adding a request to the complete output
 plan: subsequent computation may depend on the response. Introduce a bounded
 request/response interpreter and define the point at which effects occur.
@@ -96,7 +104,7 @@ A [typed host protocol and scripted interpreter](io-scripted.md) now exist in
 `Effect/ConsoleProgram`, with twelve checks for input, EOF, failures and request
 budgets. An incremental host interpreter supports injectable callbacks and real
 writes; input is explicitly unsupported by the production adapter. These are
-not yet connected to checked core input. A separate real host input adapter
+connected to checked core input through `Driver.Interactive`. A separate real host input adapter
 handles LF/CRLF, EOF, errors and post-read length limits; see `io-scripted.md`.
 
 Start with a host-side interpreter over checked core descriptions, with scripted
@@ -134,8 +142,9 @@ reusable authority or a linear resource. An effect label is not an OS sandbox.
 This document consolidates requirements; it does not implement those milestones.
 The current branch has a proposed ownership document, hosted planner budget
 changes and checked hosted stdout flushing. Run `python3 tools/test_io_hosted.py`
-from the repository root for 138 core IO, console argument, sequence, script and input checks,
-plus real C `fflush` and interactive stdin (Unicode CRLF/EOF) smoke tests on Chez. These pass, including direct-core
+from the repository root for 164 core IO, console argument, sequence, script and input checks,
+plus real C `fflush` and checked-core stdin (Unicode CRLF/EOF/length failure)
+smoke tests on Chez. These pass, including direct-core
 64/65-write boundaries, injected write/flush failures, ordering and empty-plan
 flushing. The runner uses temporary build output without pack or project/YAML
 dependencies. Checked emission now lives in `Driver.Native.Emit`, with seven
@@ -153,9 +162,10 @@ primitive is proposed.
 
 The current [console execution contract](io-execution-contract.md) records shared
 observable behavior and backend limitations. `make io-test` runs the focused
-hosted checks and seven direct native runtime tests without the YAML dependency.
+hosted checks and 17 direct native runtime tests without the YAML dependency.
 The direct runtime fixtures bypass source checking; a separate seven-example
 source-to-C suite now exercises checked C emission and compares hosted output.
+Seven further cases compare source-level interactive native and hosted file drivers.
 
 
 Run the core IO, console planning, CLI and native suites for each target revision.

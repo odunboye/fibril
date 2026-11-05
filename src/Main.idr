@@ -9,6 +9,7 @@ import Fibril.Driver.Check
 import Fibril.Driver.CheckReport
 import Fibril.Driver.Evaluate
 import Fibril.Driver.Run
+import Fibril.Driver.Interactive.Run
 import Fibril.Driver.Native
 import Fibril.Driver.Test
 import Fibril.Driver.ModuleGraph
@@ -56,6 +57,7 @@ Usage:
   fibril test                  Check all listed modules, evaluate tests main : Bool
   fibril test --package PATH   Same pure test workflow for an explicit package
   fibril emit-c PATH           Check and emit experimental C source to stdout
+  fibril emit-c-interactive PATH  Emit incremental C with stdin support (standalone)
   fibril emit-c --source-dir ROOT ENTRY  Check modules and emit C
   fibril emit-c --package PATH  Check a local package and emit C
   fibril run                   Check ./fibril.yaml, then execute its IO plan
@@ -66,6 +68,7 @@ Usage:
   fibril check --json PATH      JSON runtime-check report (no effect execution)
   fibril check --erased PATH    Check only the erased ordinary fragment
   fibril run PATH              Check main : IO Unit, then execute prepared stdout requests
+  fibril run-interactive PATH  Execute incremental stdin/stdout IO (standalone)
   fibril run --source-dir ROOT ENTRY  Check modules, then execute the complete IO plan
   fibril eval --source-dir ROOT ENTRY  Checked module reference normalization
   fibril eval --source-dir ROOT --fuel N ENTRY  Module normalization with fuel 0..4096
@@ -146,6 +149,7 @@ packageGraph manifest = do
   loaded <- loadLocalPackageGraph CheckInventory manifest
   printServiceReport (case loaded of Left err => Left (renderGraphError err); Right graph => Right [renderModuleGraph graph])
 
+covering
 main : IO ()
 main = do
   args <- getArgs
@@ -163,6 +167,8 @@ main = do
     ["emit-c", "--package", manifest] => emitCPackage manifest >>= printC
     ["emit-c", "--source-dir", root, entry] => emitCProject root entry >>= printC
     ["emit-c", path] => emitCFile path >>= printC
+    ["emit-c-interactive", path] => emitInteractiveCFile path >>= printC
+    ["run-interactive", path] => runInteractiveFile path >>= printExecution
     ["module-graph"] => packageGraph "fibril.yaml"
     ["module-graph", "--package", manifest] => packageGraph manifest
     ["module-graph", root, entry] => do
