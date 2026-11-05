@@ -1,0 +1,18 @@
+module Main
+
+data Items {0 A : Type} : Type where
+  Empty : Items A
+  Prepend : (1 head : A) -> (1 tail : Items A) -> Items A
+
+renderItems : {0 A : Type} -> (render : (1 item : A) -> String) ->
+  (separator : String) -> (1 items : Items A) -> String
+renderItems Element render separator items = case items of
+  Empty => ""
+  Prepend head tail => appendString (render head)
+    (appendString separator (renderItems {Element} render separator tail))
+
+showBool : (1 value : Bool) -> String
+showBool value = if value then "yes" else "no"
+
+main : IO Unit
+main = putStrLn (renderItems {Bool} showBool "," (Prepend True (Prepend False (Empty {Bool}))))

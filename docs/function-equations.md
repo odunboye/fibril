@@ -186,8 +186,9 @@ The [polymorphic example](../examples/modules/polymorphic-recursion/Main.fib)
 uses the actual erased parameter in a dependent result. For an implicit prefix,
 `copy tail` or `copy {Element} tail` keeps that parameter fixed; with an explicit
 `(0 A : Type)` prefix, use `copy Element tail`. The equation header names both
-parameters. A separate, fixed map-shaped form supports two leading implicit
-`Type 0` parameters and one unrestricted transformer:
+parameters. A bounded uniform-telescope form supports multiple erased and
+unrestricted parameters before the linear list, including the familiar mapping
+shape:
 
 ~~~fibril
 mapItems : {0 A : Type} -> {0 B : Type} ->
@@ -198,16 +199,22 @@ mapItems A B transform items = case items of
 ~~~
 
 The [mapping example](../examples/modules/polymorphic-map/Main.fib) runs under
-both the reference and experimental C runtimes. Its recursive call must spell
-both type arguments and pass the **same** type parameters and transformer,
-followed by the immediate tail; omission, reordered or changed arguments are not
-inferred as equal. The transformer is unrestricted because the fold step can
-execute repeatedly; a linear transformer cannot be captured. The admitted
-signature is exactly the same list family at `A` to that family at `B`, with a
-linear-element transformer. This is convenience over a checked fold, not a
-general termination checker.
+both the reference and experimental C runtimes. The more general
+[uniform-telescope example](../examples/modules/uniform-recursion/Main.fib)
+uses a renderer and separator captured by the repeated fold step.
 
-Other multiple-parameter telescopes, dependent results over the input, arbitrary
+The uniform form admits up to **64 prefix binders** at quantity 0 or
+unrestricted, followed by one linear list input. Prefix domains and the result
+may depend on earlier parameters; the result must not depend on the list input.
+Every recursive call must spell **all** prefix arguments with their authored
+implicit/explicit visibility and pass the same bound names in the same order,
+followed by the immediate tail. Omitted, reordered or changed arguments are not
+guessed equal. Prefix arguments captured by the repeated step must be erased or
+unrestricted; a linear prefix is not accepted. This is convenience over a
+checked fold, not a general termination checker. The earlier single-erased-type
+form still permits its documented omitted implicit argument.
+
+Dependent results over the input, non-uniform recursive arguments, arbitrary
 recursive calls and general termination checking remain unsupported. Checked project definition navigation
 resolves the authored self-call; experimental C emission supports the checked
 fixed-shape fold subject to native limits.
@@ -219,7 +226,8 @@ parameter's elaborated domain is admitted at 512 raw core nodes before it is
 copied into the generated lambda. Module checking reserves 513 nodes per binder,
 plus signature/body expansion, before cloning globals. The recursive forms reserve
 additional admitted result-type copies and branch expansion before construction;
-list equations also reserve for the head, tail and induction-result binders;
+list equations also reserve for the head, tail, induction-result binders and
+admitted prefix telescope;
 the existing cumulative
 200000-node construction budget and independent post-count still apply. These
 are work-admission policies, not proofs of bounded memory or execution time.

@@ -194,7 +194,8 @@ main = do
         examples = [('nat-recursion', b'receipt!!!\n'), ('nat-predecessor', b'!!!\n'),
                     ('recursive-equations', b'!!!!\n'), ('recursive-render', b'receipt!!\n'),
                     ('recursive-data', b'!!\n'), ('recursive-list', b'hello world\n'),
-                    ('polymorphic-recursion', b'hello world\n'), ('polymorphic-map', b'hello! world!\n')]
+                    ('polymorphic-recursion', b'hello world\n'), ('polymorphic-map', b'hello! world!\n'),
+                    ('uniform-recursion', b'yes,no,\n')]
         for example, expected in examples:
             with self.subTest(example=example), tempfile.TemporaryDirectory() as directory:
                 root = ROOT / 'examples/modules' / example

@@ -356,33 +356,46 @@ polyRecursiveExpression _ _ _ _ _ expr@(NBoolType _) = Just (False, expr)
 polyRecursiveExpression _ _ _ _ _ expr@(NBoolValue _ _) = Just (False, expr)
 polyRecursiveExpression _ _ _ _ _ _ = Nothing
 
--- Exact, uniform recursive call for the two-type-parameter mapping slice.
--- Both implicit type arguments and the reusable function must be explicit and
--- unchanged; omission or a computed argument is never guessed to be equal.
+-- Prefix arguments must be passed explicitly, in authored visibility order,
+-- with the same lexical binders. No omitted or computed argument is guessed.
 private
-mappingCallSite : String -> String -> String -> String -> String -> Expr -> Maybe SourceSpan
-mappingCallSite name a b fn tail
-  (NApply _ (NApply _ (NImplicitApply _ (NImplicitApply _ (NRef site function) (NRef _ first)) (NRef _ second)) (NRef _ supplied)) (NRef _ value)) =
-    if function == name && first == a && second == b && supplied == fn && value == tail then Just site else Nothing
-mappingCallSite _ _ _ _ _ _ = Nothing
+prefixModes : Nat -> List Token -> List (Bool, String)
+prefixModes _ [] = []
+prefixModes Z (token :: rest) = (False, token.spelling) :: prefixModes Z rest
+prefixModes (S count) (token :: rest) = (True, token.spelling) :: prefixModes count rest
 
 private
-mappingExpression : String -> String -> String -> String -> String -> String -> Expr -> Maybe (Bool, Expr)
-mappingExpression name a b fn argument tail expression = case mappingCallSite name a b fn tail expression of
+peelUniformCall : String -> List (Bool, String) -> Expr -> Maybe SourceSpan
+peelUniformCall name [] (NRef site function) = if function == name then Just site else Nothing
+peelUniformCall name ((True, expected) :: rest) (NImplicitApply _ function (NRef _ supplied)) =
+  if expected == supplied then peelUniformCall name rest function else Nothing
+peelUniformCall name ((False, expected) :: rest) (NApply _ function (NRef _ supplied)) =
+  if expected == supplied then peelUniformCall name rest function else Nothing
+peelUniformCall _ _ _ = Nothing
+
+private
+uniformCallSite : String -> List (Bool, String) -> String -> Expr -> Maybe SourceSpan
+uniformCallSite name reversed tail (NApply _ function (NRef _ value)) =
+  if value == tail then peelUniformCall name reversed function else Nothing
+uniformCallSite _ _ _ _ = Nothing
+
+private
+uniformExpression : String -> List (Bool, String) -> String -> String -> Expr -> Maybe (Bool, Expr)
+uniformExpression name reversed argument tail expression = case uniformCallSite name reversed tail expression of
   Just site => Just (True, NRef site recursiveResultName)
   Nothing => case expression of
     NApply span function value => do
-      (leftUsed, left) <- mappingExpression name a b fn argument tail function
-      (rightUsed, right) <- mappingExpression name a b fn argument tail value
+      (leftUsed, left) <- uniformExpression name reversed argument tail function
+      (rightUsed, right) <- uniformExpression name reversed argument tail value
       if leftUsed && rightUsed then Nothing else Just (leftUsed || rightUsed, NApply span left right)
     NImplicitApply span function value => do
-      (leftUsed, left) <- mappingExpression name a b fn argument tail function
-      (rightUsed, right) <- mappingExpression name a b fn argument tail value
+      (leftUsed, left) <- uniformExpression name reversed argument tail function
+      (rightUsed, right) <- uniformExpression name reversed argument tail value
       if leftUsed && rightUsed then Nothing else Just (leftUsed || rightUsed, NImplicitApply span left right)
     NIf span condition yes no => do
-      (conditionUsed, condition) <- mappingExpression name a b fn argument tail condition
-      (yesUsed, yes) <- mappingExpression name a b fn argument tail yes
-      (noUsed, no) <- mappingExpression name a b fn argument tail no
+      (conditionUsed, condition) <- uniformExpression name reversed argument tail condition
+      (yesUsed, yes) <- uniformExpression name reversed argument tail yes
+      (noUsed, no) <- uniformExpression name reversed argument tail no
       if (conditionUsed && (yesUsed || noUsed)) || (yesUsed && noUsed)
         then Nothing else Just (conditionUsed || yesUsed || noUsed, NIf span condition yes no)
     NRef _ ref => if ref == name || ref == argument || ref == tail || ref == recursiveResultName then Nothing else Just (False, expression)
@@ -397,6 +410,18 @@ mappingExpression name a b fn argument tail expression = case mappingCallSite na
     NBoolType _ => Just (False, expression)
     NBoolValue _ _ => Just (False, expression)
     _ => Nothing
+
+-- Only a fixed-size source-call plan is inspected before module admission;
+-- this walk does not construct rewritten expressions or cloned core terms.
+private
+uniformCallPresent : String -> List (Bool, String) -> String -> Expr -> Bool
+uniformCallPresent name reversed tail expression = case uniformCallSite name reversed tail expression of
+  Just _ => True
+  Nothing => case expression of
+    NApply _ left right => uniformCallPresent name reversed tail left || uniformCallPresent name reversed tail right
+    NImplicitApply _ left right => uniformCallPresent name reversed tail left || uniformCallPresent name reversed tail right
+    NIf _ condition yes no => uniformCallPresent name reversed tail condition || uniformCallPresent name reversed tail yes || uniformCallPresent name reversed tail no
+    _ => False
 
 private
 natBuiltinsVisible : List Weighted -> Bool
@@ -636,79 +661,84 @@ polymorphicSequenceEquation globals name inferred ty (NEquationLambda _ [param, 
         _ => Right Nothing
 polymorphicSequenceEquation _ _ _ _ _ = Right Nothing
 
+-- Scope-indexed prefix peeling. Erased and unrestricted parameters are held
+-- fixed across each recursive call; the final linear input is a sequence.
 private
-mappingCallPresent : String -> String -> String -> String -> String -> Expr -> Bool
-mappingCallPresent name a b fn tail expression = case mappingCallSite name a b fn tail expression of
-  Just _ => True
-  Nothing => case expression of
-    NApply _ left right => mappingCallPresent name a b fn tail left || mappingCallPresent name a b fn tail right
-    NImplicitApply _ left right => mappingCallPresent name a b fn tail left || mappingCallPresent name a b fn tail right
-    NIf _ condition yes no => mappingCallPresent name a b fn tail condition || mappingCallPresent name a b fn tail yes || mappingCallPresent name a b fn tail no
-    _ => False
-
-
--- Restricted map-like recursion: two erased types, an unrestricted linear
--- element transformer, and one linear list. The result is the same family at
--- the second type; all arguments in the self-call must be unchanged.
-private
-mappingSequenceEquation : List Weighted -> String -> Nat -> Term 0 -> Expr -> Either ResolveError (Maybe (Term 0))
-mappingSequenceEquation globals name implicitCount ty (NEquationLambda _ [a, b, fn, argument] _
-  (NDataCase span (NRef _ scrutinee) Nothing [(first, firstBinder, firstBody), (second, secondBinder, secondBody)])) = do
-  let names : List String = [name, a.spelling, b.spelling, fn.spelling, argument.spelling]
-  let candidate = case (firstBinder, secondBinder) of
-        ([], [_, tail]) => mappingCallPresent name a.spelling b.spelling fn.spelling tail.spelling secondBody
-        ([_, tail], []) => mappingCallPresent name a.spelling b.spelling fn.spelling tail.spelling firstBody
+uniformSequenceCandidate : List Weighted -> String -> Nat -> Term 0 -> SourceSpan -> String ->
+  Token -> List Token -> Expr -> Token -> List Token -> Expr -> Token -> List Token ->
+  Either ResolveError (Maybe (Term 0))
+uniformSequenceCandidate globals name implicitCount ty span scrutinee first firstBinder firstBody second secondBinder secondBody argument params =
+  let reversed = reverse (prefixModes implicitCount params)
+      candidate = case (firstBinder, secondBinder) of
+        ([], [_, tail]) => uniformCallPresent name reversed tail.spelling secondBody
+        ([_, tail], []) => uniformCallPresent name reversed tail.spelling firstBody
         _ => False
-  if implicitCount /= 2 || not candidate || any (== "_") names || length (nub names) /= length names ||
-     scrutinee /= argument.spelling || isJust (find (\entry => entry.global.name == name) globals) ||
-     not (null (qualifiedCandidates name (map global globals))) then Right Nothing else do
-  case guardedNormal typeReductionFuel ty of
-    Just (Pi Erased (Universe 0) (Pi Erased (Universe 0)
-      (Pi Unrestricted mapper@(Pi Linear (Variable (FS FZ)) (Variable (FS FZ)))
-        (Pi Linear family@(SeqType key (Variable (FS (FS FZ))))
-          result@(SeqType resultKey (Variable (FS (FS FZ)))))))) =>
-      if key /= resultKey then Right Nothing else
-        let context = Extend (Extend (Extend Empty Erased (Universe 0)) Erased (Universe 0)) Unrestricted mapper
-            element = Variable (FS (FS FZ)) in
-        case (sequenceConstructorTag globals context family element first, firstBinder,
-              sequenceConstructorTag globals context family element second, secondBinder) of
-          (Just 0, [], Just 1, [head, tail]) => lower context mapper family element result firstBody head tail secondBody
-          (Just 1, [head, tail], Just 0, []) => lower context mapper family element result secondBody head tail firstBody
-          _ => Right Nothing
-    _ => Right Nothing
+      names : List String = name :: map spelling params ++ [argument.spelling] in
+  if length params > 64 || implicitCount > length params || not candidate ||
+     any (== "_") names || length (nub names) /= length names || scrutinee /= argument.spelling ||
+     isJust (find (\entry => entry.global.name == name) globals) ||
+     not (null (qualifiedCandidates name (map global globals)))
+    then Right Nothing else
+    case guardedNormal typeReductionFuel ty of
+      Nothing => Right Nothing
+      Just exposed => walk Empty [] params (prefixModes implicitCount params) exposed
   where
-    lower : Context 3 -> Term 2 -> Term 3 -> Term 3 -> Term 4 -> Expr -> Token -> Token -> Expr -> Either ResolveError (Maybe (Term 0))
-    lower context mapper family element result base head tail body = do
-      let names : List String = [name, a.spelling, b.spelling, fn.spelling, argument.spelling, head.spelling, tail.spelling]
+    lower : Context n -> Vect n String -> Term n -> Term n -> Term (S n) -> Expr -> Token -> Token -> Expr ->
+            Either ResolveError (Maybe (Term n))
+    lower context env family element result base head tail body = do
+      let names : List String = name :: map spelling params ++ [argument.spelling, head.spelling, tail.spelling]
+      let reversed = reverse (prefixModes implicitCount params)
       if any (== "_") names || length (nub names) /= length names ||
          any (\entry => entry == first.spelling || entry == second.spelling) names ||
-         not (mappingCallPresent name a.spelling b.spelling fn.spelling tail.spelling body)
+         not (uniformCallPresent name reversed tail.spelling body)
         then Right Nothing else do
-      case (mappingExpression name a.spelling b.spelling fn.spelling argument.spelling tail.spelling base,
-            mappingExpression name a.spelling b.spelling fn.spelling argument.spelling tail.spelling body) of
+      case (uniformExpression name reversed argument.spelling tail.spelling base,
+            uniformExpression name reversed argument.spelling tail.spelling body) of
         (Just (False, baseExpr), Just (True, stepExpr)) => do
           resultType <- case dropNewest result of
-            Nothing => Left (CannotElaborate span.start "Structural mapping requires a result independent of the input")
+            Nothing => Left (CannotElaborate span.start "Structural sequence equations require a result independent of the input")
             Just resultType => Right resultType
           let checkedGlobals = map global globals
-          baseTerm <- elaborateExpected checkedGlobals context [fn.spelling, b.spelling, a.spelling] resultType baseExpr
+          baseTerm <- elaborateExpected checkedGlobals context env resultType baseExpr
           let stepContext = Extend (Extend (Extend context Linear element) Erased (weaken family)) Linear (weaken (weaken resultType))
-          stepTerm <- elaborateExpected checkedGlobals stepContext [recursiveResultName, "$seq.tail", head.spelling, fn.spelling, b.spelling, a.spelling]
+          stepTerm <- elaborateExpected checkedGlobals stepContext (recursiveResultName :: "$seq.tail" :: head.spelling :: env)
                         (weaken (weaken (weaken resultType))) stepExpr
-          let motive : Term 4 = Lambda Erased (weaken family) (weaken (weaken resultType))
-          let step : Term 3 = Lambda Linear element (Lambda Erased (weaken family)
-                                (Lambda Linear (weaken (weaken resultType)) stepTerm))
-          let sequenceBody : Term 3 = Lambda Linear family (SeqFold motive (weaken baseTerm) (weaken step) (Variable FZ))
-          let mapperBody : Term 2 = Lambda Unrestricted mapper sequenceBody
-          Right (Just (Lambda Erased (Universe 0) (Lambda Erased (Universe 0) mapperBody)))
+          let motive = Lambda Erased (weaken family) (weaken (weaken resultType))
+          let step = Lambda Linear element (Lambda Erased (weaken family)
+                       (Lambda Linear (weaken (weaken resultType)) stepTerm))
+          Right (Just (Lambda Linear family (SeqFold motive (weaken baseTerm) (weaken step) (Variable FZ))))
         _ => Right Nothing
-mappingSequenceEquation _ _ _ _ _ = Right Nothing
+
+
+    walk : Context n -> Vect n String -> List Token -> List (Bool, String) -> Term n -> Either ResolveError (Maybe (Term n))
+    walk context env [] [] (Pi Linear family@(SeqType _ element) result) =
+      case (sequenceConstructorTag globals context family element first, firstBinder,
+            sequenceConstructorTag globals context family element second, secondBinder) of
+        (Just 0, [], Just 1, [head, tail]) => lower context env family element result firstBody head tail secondBody
+        (Just 1, [head, tail], Just 0, []) => lower context env family element result secondBody head tail firstBody
+        _ => Right Nothing
+    walk context env (token :: rest) ((_, _) :: modes) (Pi Erased domain result) = do
+      following <- walk (Extend context Erased domain) (token.spelling :: env) rest modes result
+      Right (map (Lambda Erased domain) following)
+    walk context env (token :: rest) ((False, _) :: modes) (Pi Unrestricted domain result) = do
+      following <- walk (Extend context Unrestricted domain) (token.spelling :: env) rest modes result
+      Right (map (Lambda Unrestricted domain) following)
+    walk _ _ _ _ _ = Right Nothing
+private
+uniformSequenceEquation : List Weighted -> String -> Nat -> Term 0 -> Expr -> Either ResolveError (Maybe (Term 0))
+uniformSequenceEquation globals name implicitCount ty (NEquationLambda _ names _
+  (NDataCase span (NRef _ scrutinee) Nothing [(first, firstBinder, firstBody), (second, secondBinder, secondBody)])) =
+  case reverse names of
+    [] => Right Nothing
+    argument :: backwards =>
+      uniformSequenceCandidate globals name implicitCount ty span scrutinee first firstBinder firstBody second secondBinder secondBody argument (reverse backwards)
+uniformSequenceEquation _ _ _ _ _ = Right Nothing
 
 private
-recursiveEquationReserve : String -> Expr -> Nat
+legacyRecursiveEquationReserve : String -> Expr -> Nat
 -- Reserve for admitted result-type copies in the closed branch contexts,
 -- motive, lambda annotation and their weakening, before any are built.
-recursiveEquationReserve name (NEquationLambda _ [argument] _ (NDataCase _ _ Nothing [(first, firstBinder, firstBody), (second, secondBinder, secondBody)])) =
+legacyRecursiveEquationReserve name (NEquationLambda _ [argument] _ (NDataCase _ _ Nothing [(first, firstBinder, firstBody), (second, secondBinder, secondBody)])) =
   let natShape = (first.spelling == "Zero" && second.spelling == "Succ") ||
                  (first.spelling == "Succ" && second.spelling == "Zero")
       recursiveShape = case (firstBinder, secondBinder) of
@@ -720,19 +750,35 @@ recursiveEquationReserve name (NEquationLambda _ [argument] _ (NDataCase _ _ Not
         ([_, tail], []) => structuralCallPresent name tail.spelling firstBody
         _ => False in
     if sequenceShape then 32 + 16 * 513 else if natShape || recursiveShape then 16 + 9 * 513 else 0
-recursiveEquationReserve name (NEquationLambda _ [_, _] _ (NDataCase _ _ Nothing [(_, firstBinder, firstBody), (_, secondBinder, secondBody)])) =
+legacyRecursiveEquationReserve name (NEquationLambda _ [_, _] _ (NDataCase _ _ Nothing [(_, firstBinder, firstBody), (_, secondBinder, secondBody)])) =
   let shape = case (firstBinder, secondBinder) of
         ([], [_, tail]) => polymorphicCallPresent name tail.spelling secondBody
         ([_, tail], []) => polymorphicCallPresent name tail.spelling firstBody
         _ => False in
     if shape then 64 + 24 * 513 else 0
-recursiveEquationReserve name (NEquationLambda _ [a, b, fn, _] _ (NDataCase _ _ Nothing [(_, firstBinder, firstBody), (_, secondBinder, secondBody)])) =
-  let shape = case (firstBinder, secondBinder) of
-        ([], [_, tail]) => mappingCallPresent name a.spelling b.spelling fn.spelling tail.spelling secondBody
-        ([_, tail], []) => mappingCallPresent name a.spelling b.spelling fn.spelling tail.spelling firstBody
-        _ => False in
-    if shape then 128 + 40 * 513 else 0
-recursiveEquationReserve _ _ = 0
+legacyRecursiveEquationReserve _ _ = 0
+
+private
+uniformEquationReserve : String -> Expr -> Nat
+uniformEquationReserve name (NEquationLambda _ names signature (NDataCase _ _ Nothing [(_, firstBinder, firstBody), (_, secondBinder, secondBody)])) =
+  case reverse names of
+    [] => 0
+    (_ :: backwards) =>
+      let params = reverse backwards
+          count = implicitPrefixCount signature
+          reversed = reverse (prefixModes count params)
+          shape = case (firstBinder, secondBinder) of
+            ([], [_, tail]) => uniformCallPresent name reversed tail.spelling secondBody
+            ([_, tail], []) => uniformCallPresent name reversed tail.spelling firstBody
+            _ => False in
+        if length params <= 64 && count <= length params && shape
+          then 128 + (40 + length params) * 513 else 0
+uniformEquationReserve _ _ = 0
+
+private
+recursiveEquationReserve : String -> Expr -> Nat
+recursiveEquationReserve name expression =
+  max (legacyRecursiveEquationReserve name expression) (uniformEquationReserve name expression)
 
 -- The admitted rewriter guarantees exactly one occurrence of the function
 -- name in the branch expressions. Recover only its authored Name token; grouped
@@ -811,7 +857,7 @@ compileDeclarations snapshot name globals (decl :: rest) remaining = do
       Right candidate => Right candidate
   recursive <- the (Either GraphError (Maybe (Term 0))) $ case recursive of
     Just result => Right (Just result)
-    Nothing => case mappingSequenceEquation globals decl.name implicitPrefix ty decl.value of
+    Nothing => case uniformSequenceEquation globals decl.name implicitPrefix ty decl.value of
       Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
       Right candidate => Right candidate
   value <- case recursive of

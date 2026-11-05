@@ -1458,6 +1458,94 @@ class CLITests(unittest.TestCase):
             path.write_text(budgeted.replace('  alias rest => rest', '  More rest => rest'))
             self.assertEqual(project('run').stdout, 'ok\n')
 
+    def test_uniform_structural_sequence_telescope(self):
+        source = (ROOT / 'examples/modules/uniform-recursion/Main.fib').read_text()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Main.fib'
+            def project(command):
+                return run(command, '--source-dir', directory, str(path))
+            path.write_text(source)
+            result = project('run')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'yes,no,\n')
+            lines = source.splitlines()
+            row = next(i for i, line in enumerate(lines, 1) if '(renderItems {Element} render separator tail)' in line)
+            col = lines[row - 1].index('renderItems {Element}') + 1
+            nav = run('definition', '--source-dir', directory, '--entry', str(path), str(row), str(col), str(path))
+            self.assertEqual(nav.returncode, 0, nav.stderr)
+            target = json.loads(nav.stdout)['definition']['range']['start']
+            self.assertEqual((target['line'], target['column']), (next(i for i, line in enumerate(lines, 1) if line.startswith('renderItems Element render separator items =')), 1))
+            explicit = source.replace('renderItems : {0 A : Type}', 'renderItems : (0 A : Type)').replace('renderItems {Element} render separator tail', 'renderItems Element render separator tail').replace('renderItems {Bool} showBool', 'renderItems Bool showBool')
+            path.write_text(explicit)
+            result = project('run')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'yes,no,\n')
+            # The result may depend on erased telescope parameters, just not on
+            # the structural input; reusable arguments stay fixed on recursion.
+            mapper = (ROOT / 'examples/modules/polymorphic-map/Main.fib').read_text()
+            mapper = mapper.replace('(1 items : Items A) -> Items B', '(unused : String) -> (1 items : Items A) -> Items B')
+            mapper = mapper.replace('mapItems A B transform items =', 'mapItems A B transform unused items =')
+            mapper = mapper.replace('mapItems {A} {B} transform tail', 'mapItems {A} {B} transform unused tail')
+            mapper = mapper.replace('mapItems {String} {String} exclaim\n', 'mapItems {String} {String} exclaim "unused"\n')
+            path.write_text(mapper)
+            result = project('run')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'hello! world!\n')
+            # An erased non-Type parameter and a concrete list element are
+            # allowed when the recursive call repeats that parameter exactly.
+            flag = ('module Main\ndata Items {0 A : Type} : Type where\n  Empty : Items A\n'
+                    '  Prepend : (1 head : A) -> (1 tail : Items A) -> Items A\n'
+                    'render : (0 flag : Bool) -> (1 xs : Items String) -> String\n'
+                    'render flag xs = case xs of\n  Empty => ""\n'
+                    '  Prepend head tail => appendString head (render flag tail)\n'
+                    'main : IO Unit\nmain = putStrLn (render True (Prepend "ok" (Empty {String})))\n')
+            path.write_text(flag)
+            result = project('run')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'ok\n')
+            call = 'renderItems {Element} render separator tail'
+            invalid = [source.replace(call, 'renderItems {Bool} render separator tail'),
+                       source.replace(call, 'renderItems {Element} showBool separator tail'),
+                       source.replace(call, 'renderItems {Element} render ":" tail'),
+                       source.replace(call, 'renderItems {Element} separator render tail'),
+                       source.replace(call, 'renderItems {Element} render separator items'),
+                       source.replace(call, 'renderItems {Element} render separator (Prepend head tail)'),
+                       source.replace(call, 'renderItems render separator tail'),
+                       source.replace(call, 'Main.renderItems {Element} render separator tail'),
+                       source.replace('(render : (1 item : A) -> String)', '(1 render : (1 item : A) -> String)'),
+                       source.replace('appendString (render head)', 'appendString "discarded"'),
+                       source.replace('  Prepend head tail =>', '  Prepend tail tail =>')]
+            for program in invalid:
+                with self.subTest(program=program[120:480]):
+                    path.write_text(program)
+                    rejected = project('run')
+                    self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
+                    self.assertEqual(rejected.stdout, '')
+            for count in [64, 65]:
+                names = [f'p{i}' for i in range(count)]
+                signature = ' -> '.join(f'({name} : String)' for name in names) + ' -> (1 xs : Items String) -> String'
+                header = ' '.join(names + ['xs'])
+                call = ' '.join(['visit'] + names + ['tail'])
+                admitted = ('module Main\ndata Items {0 A : Type} : Type where\n  Empty : Items A\n'
+                            '  Prepend : (1 head : A) -> (1 tail : Items A) -> Items A\n' +
+                            f'visit : {signature}\nvisit {header} = case xs of\n  Empty => ""\n'
+                            f'  Prepend head tail => appendString head ({call})\n'
+                            'main : IO Unit\nmain = putStrLn "admitted"\n')
+                path.write_text(admitted)
+                result = project('run')
+                if count == 64:
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertEqual(result.stdout, 'admitted\n')
+                else:
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertEqual(result.stdout, '')
+            path.write_text(source)
+            formatted = run('format', str(path))
+            self.assertEqual(formatted.returncode, 0, formatted.stderr)
+            path.write_text(formatted.stdout)
+            self.assertEqual(run('format', '--check', str(path)).returncode, 0)
+            self.assertEqual(project('run').stdout, 'yes,no,\n')
+
     def test_polymorphic_structural_mapping_equations(self):
         source = (ROOT / 'examples/modules/polymorphic-map/Main.fib').read_text()
         with tempfile.TemporaryDirectory() as directory:
