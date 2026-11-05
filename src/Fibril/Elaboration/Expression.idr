@@ -453,36 +453,8 @@ mutual
         _ :: _ :: _ => Left (CannotElaborate name.span.start ("Ambiguous imported name " ++ name.spelling ++ "; use a qualified name"))
         _ => Left (Unbound name.span.start name.spelling)
       Just entry => Right entry
-    if definition.quantity /= Unrestricted then Left (CannotElaborate name.span.start "Data-case constructor must be an unrestricted checked global") else Right ()
-    closed <- case guardedNormal typeReductionFuel definition.value of
-      Nothing => Left (CannotElaborate name.span.start "Sequence-case constructor comparison exhausted admission or reduction")
-      Just result => Right result
-    -- Constructor globals have one erased element parameter. A specialized
-    -- transparent alias can instead already be a terminal or linear function.
-    if 1 + typeNodes closed + typeNodes element > inferredResultNodes ||
-       payloadSize closed + payloadSize element > payloadLimit
-      then Left (CannotElaborate name.span.start "Sequence-case constructor instantiation exceeds admission") else Right ()
-    let lifted = rename absurd closed
-    candidate <- case closed of
-      Lambda Erased domain _ => do
-        case checkErased checkingDepth typeReductionFuel ctx element (rename absurd domain) of
-          Left _ => Left (CannotElaborate name.span.start "Sequence-case constructor parameter cannot accept the element type")
-          Right () => Right ()
-        case guardedNormal typeReductionFuel (Apply lifted element) of
-          Nothing => Left (CannotElaborate name.span.start "Sequence-case constructor instantiation exhausted admission or reduction")
-          Just result => Right result
-      _ => Right lifted
-    -- Account for both retained copies of the family and the element domain
-    -- before constructing the canonical binary constructor for comparison.
-    if 6 + 2 * typeNodes ty + typeNodes element > inferredResultNodes ||
-       2 * payloadSize ty + payloadSize element > payloadLimit
-      then Left (CannotElaborate name.span.start "Sequence-case canonical constructor exceeds admission") else Right ()
+    tag <- checkedSequenceConstructor name.span.start ctx ty element definition
     let nil = SeqNil ty
-    let cons = Lambda Linear element (Lambda Linear (weaken ty)
-                 (SeqCons (weaken (weaken ty)) (Variable (FS FZ)) (Variable FZ)))
-    tag <- if guardedEqual typeReductionFuel candidate nil then Right 0 else
-             if guardedEqual typeReductionFuel candidate cons then Right 1 else
-               Left (CannotElaborate name.span.start "Sequence-case constructor does not match the scrutinee family and element type, or comparison was inconclusive")
     branch <- case (tag, binders) of
       (0, []) => case hint of
         Nothing => elaborateInWith globals (Just ctx) env body

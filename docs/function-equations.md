@@ -25,8 +25,8 @@ fibril run --source-dir examples/modules/function-equations examples/modules/fun
 Use explicit lambdas when writing anonymous functions, when annotations on the
 body are more readable, or when the signature is not an explicit Pi telescope.
 Ordinary named equations are elaboration convenience over existing core lambdas.
-Separate, narrowly bounded structural forms for Nat and unary recursive data
-are described below; none constitutes a proof of whole-language totality.
+Separate, narrowly bounded structural forms for Nat, unary recursive data and
+the list shape are described below; none proves whole-language totality.
 
 ![Function equation checking](diagrams/function-equations.svg)
 
@@ -52,7 +52,7 @@ unique except for wildcard `_`. **Every bare name, including an uppercase name,
 is a binder—not a constructor pattern.** `_` does not grant permission to discard
 a linear input. Nested constructor patterns, multiple clauses, guards, inferred signatures,
 general recursive definitions and termination checking are not added. Small
-structural Nat and unary-data equations are the exceptions described below. Keep using
+structural Nat, unary-data and list-shaped equations are the exceptions below. Keep using
 [direct data cases](direct-data-cases.md) in the body for existing nonrecursive
 data matching; constant and supported expected-dependent motives can be [inferred](data-motive-inference.md). Imported qualified function calls retain ordinary visibility rules.
 
@@ -146,6 +146,35 @@ existing fixed-shape fold, not general recursive equations, positivity or a
 termination checker. Project navigation does not yet resolve the new recursive
 self-call; it does not invent a source location. The C backend still rejects it.
 
+## Structural list-shaped equations
+
+For a fixed list-shaped family at a **closed element type**, the analogous
+single-argument equation can use both the head and the recursive result:
+
+~~~fibril
+join : (1 items : Items String) -> String
+join items = case items of
+  Empty => ""
+  Prepend head tail => appendString head (join tail)
+~~~
+
+The [recursive-list example](../examples/modules/recursive-list/Main.fib) uses
+qualified constructors from a direct import. As with unary equations, there
+must be one terminal and one successor arm in either order, no explicit motive,
+and exactly one direct self-call on the immediate tail. The head and tail names
+must be distinct and referenceable. The head is linear; the tail may only occur
+as the argument to that recursive call. A base expression cannot reference the
+input or function. The same binder-free expression whitelist applies.
+
+The compiler shares the guarded, checked constructor comparison used by direct
+list cases, including checking an erased parameter's domain before applying the
+actual element type. The equation lowers to `SeqFold` with a linear head, erased
+tail and linear induction result, and is independently checked. A named fold
+is not required. The single-argument result must be input-independent; leading
+polymorphic parameters, dependent results, arbitrary recursive calls and general
+termination checking remain unsupported. Project navigation does not yet resolve
+this self-call, and the C backend rejects it.
+
 ## Bounds, tooling and evidence
 
 The existing expression parser budget limits equation header arguments. A
@@ -153,6 +182,7 @@ parameter's elaborated domain is admitted at 512 raw core nodes before it is
 copied into the generated lambda. Module checking reserves 513 nodes per binder,
 plus signature/body expansion, before cloning globals. The recursive forms reserve
 additional admitted result-type copies and branch expansion before construction;
+list equations also reserve for the head, tail and induction-result binders;
 the existing cumulative
 200000-node construction budget and independent post-count still apply. These
 are work-admission policies, not proofs of bounded memory or execution time.

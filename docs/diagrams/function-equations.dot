@@ -5,7 +5,7 @@ digraph FunctionEquations {
   pi [label="Explicit Pi telescope\ndomain + quantity in scoped context"];
   body [label="Ordinary generated core lambdas"];
   structural [label="Restricted immediate-tail self call\nchecked constructors + guarded admission"];
-  fold [label="NatRec / unary RecFold\nerased tail + linear induction result"];
+  fold [label="NatRec / RecFold / SeqFold\nerased tail + linear induction result"];
   check [label="Independent core checker\ntyping + erased/runtime usage"];
   source -> pi -> body -> check;
   source -> structural -> fold -> check;

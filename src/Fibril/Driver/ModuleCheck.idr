@@ -399,6 +399,59 @@ unaryRecursiveEquation globals name ty (NEquationLambda _ [argument] _
         _ => Right Nothing
 unaryRecursiveEquation _ _ _ _ = Right Nothing
 
+-- Share the exact guarded comparison used for direct sequence cases.
+private
+sequenceConstructorTag : List Weighted -> Term 0 -> Term 0 -> Token -> Maybe Nat
+sequenceConstructorTag globals family element name = do
+  entry <- find (\item => item.global.name == name.spelling) globals
+  case checkedSequenceConstructor name.span.start Empty family element entry.global of
+    Right tag => Just tag
+    Left _ => Nothing
+
+private
+sequenceRecursiveEquation : List Weighted -> String -> Term 0 -> Expr -> Either ResolveError (Maybe (Term 0))
+sequenceRecursiveEquation globals name ty (NEquationLambda _ [argument] _
+  (NDataCase span (NRef _ scrutinee) Nothing [(first, firstBinder, firstBody), (second, secondBinder, secondBody)])) = do
+  if argument.spelling == "_" || argument.spelling == name || scrutinee /= argument.spelling ||
+     isJust (find (\entry => entry.global.name == name) globals) ||
+     not (null (qualifiedCandidates name (map global globals))) then Right Nothing else do
+  case guardedNormal typeReductionFuel ty of
+    Just (Pi Linear family@(SeqType _ element) result) =>
+      case (sequenceConstructorTag globals family element first, firstBinder,
+            sequenceConstructorTag globals family element second, secondBinder) of
+        (Just 0, [], Just 1, [head, tail]) => lower family element result firstBody head tail secondBody
+        (Just 1, [head, tail], Just 0, []) => lower family element result secondBody head tail firstBody
+        _ => Right Nothing
+    _ => Right Nothing
+  where
+    lower : Term 0 -> Term 0 -> Term 1 -> Expr -> Token -> Token -> Expr -> Either ResolveError (Maybe (Term 0))
+    lower family element result base head tail body = do
+      if head.spelling == "_" || tail.spelling == "_" || head.spelling == tail.spelling ||
+         head.spelling == name || head.spelling == argument.spelling ||
+         head.spelling == first.spelling || head.spelling == second.spelling ||
+         tail.spelling == name || tail.spelling == argument.spelling ||
+         tail.spelling == first.spelling || tail.spelling == second.spelling ||
+         argument.spelling == first.spelling || argument.spelling == second.spelling ||
+         name == first.spelling || name == second.spelling
+        then Right Nothing else do
+      case (recursiveExpression name argument.spelling tail.spelling base,
+            recursiveExpression name argument.spelling tail.spelling body) of
+        (Just (False, baseExpr), Just (True, stepExpr)) => do
+          resultType <- case dropNewest result of
+            Nothing => Left (CannotElaborate span.start "Structural sequence equations require a result independent of the argument")
+            Just resultType => Right resultType
+          let checkedGlobals = map global globals
+          baseTerm <- elaborateExpected checkedGlobals Empty [] resultType baseExpr
+          let stepContext = Extend (Extend (Extend Empty Linear element) Erased (weaken family)) Linear (weaken (weaken resultType))
+          stepTerm <- elaborateExpected checkedGlobals stepContext [recursiveResultName, "$seq.tail", head.spelling]
+                        (weaken (weaken (weaken resultType))) stepExpr
+          let motive : Term 1 = Lambda Erased (weaken family) (weaken (weaken resultType))
+          let step : Term 0 = Lambda Linear element (Lambda Erased (weaken family)
+                                (Lambda Linear (weaken (weaken resultType)) stepTerm))
+          Right (Just (Lambda Linear family (SeqFold motive (weaken baseTerm) (weaken step) (Variable FZ))))
+        _ => Right Nothing
+sequenceRecursiveEquation _ _ _ _ = Right Nothing
+
 -- This read-only probe allocates no rewritten expression before admission.
 private
 structuralCallPresent : String -> String -> Expr -> Bool
@@ -420,8 +473,12 @@ recursiveEquationReserve name (NEquationLambda _ [argument] _ (NDataCase _ _ Not
       recursiveShape = case (firstBinder, secondBinder) of
         ([], [predecessor]) => structuralCallPresent name predecessor.spelling secondBody
         ([predecessor], []) => structuralCallPresent name predecessor.spelling firstBody
+        _ => False
+      sequenceShape = case (firstBinder, secondBinder) of
+        ([], [_, tail]) => structuralCallPresent name tail.spelling secondBody
+        ([_, tail], []) => structuralCallPresent name tail.spelling firstBody
         _ => False in
-    if natShape || recursiveShape then 16 + 9 * 513 else 0
+    if sequenceShape then 32 + 16 * 513 else if natShape || recursiveShape then 16 + 9 * 513 else 0
 recursiveEquationReserve _ _ = 0
 
 compileDeclarations : ModuleSnapshot -> List String -> List Weighted -> List Declaration -> Nat ->
@@ -452,6 +509,11 @@ compileDeclarations snapshot name globals (decl :: rest) remaining = do
   recursive <- the (Either GraphError (Maybe (Term 0))) $ case recursive of
     Just result => Right (Just result)
     Nothing => case unaryRecursiveEquation globals decl.name ty decl.value of
+      Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
+      Right candidate => Right candidate
+  recursive <- the (Either GraphError (Maybe (Term 0))) $ case recursive of
+    Just result => Right (Just result)
+    Nothing => case sequenceRecursiveEquation globals decl.name ty decl.value of
       Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
       Right candidate => Right candidate
   value <- case recursive of

@@ -163,7 +163,9 @@ The shape is positive by construction; this is not arbitrary recursive data or
 a general positivity checker. Extra payloads, dependent field telescopes,
 multiple parameters or indices, nonuniform recursion and nested/mutual recursion
 remain unsupported. Direct `case` inspects one layer with a linear head and
-linear tail; use the named fold to recurse. The generated
+linear tail. For recursion, use the named fold or the restricted
+[list-shaped equation form](function-equations.md#structural-list-shaped-equations)
+at a closed element type. The generated
 fixed templates reserve 128 nodes without the fold or 768 with it before named-IR
 construction and are post-counted; these are admissions, not hard resource
 bounds. The experimental C backend still rejects these recursive values/folds.

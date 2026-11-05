@@ -10,5 +10,10 @@ join items = case items of
     (\(1 item : String) => \(0 rest : Data.Items.Items String) =>
       \(1 result : String) => appendString item result) tail)
 
+joinByEquation : (1 items : Data.Items.Items String) -> String
+joinByEquation items = case items of
+  Data.Items.Empty => ""
+  Data.Items.Prepend head tail => appendString head (joinByEquation tail)
+
 main : IO Unit
-main = putStrLn (join (Data.Items.Prepend "hello" (Data.Items.Prepend " world" (Data.Items.Empty {String}))))
+main = putStrLn (joinByEquation (Data.Items.Prepend "hello" (Data.Items.Prepend " world" (Data.Items.Empty {String}))))

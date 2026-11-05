@@ -1458,6 +1458,103 @@ class CLITests(unittest.TestCase):
             path.write_text(budgeted.replace('  alias rest => rest', '  More rest => rest'))
             self.assertEqual(project('run').stdout, 'ok\n')
 
+    def test_structural_sequence_recursive_equations(self):
+        source = ('module Main\ndata Items {0 A : Type} : Type where\n  Empty : Items A\n'
+                  '  Prepend : (1 head : A) -> (1 tail : Items A) -> Items A\n'
+                  'join : (1 xs : Items String) -> String\njoin xs = case xs of\n'
+                  '  Empty => ""\n  Prepend head tail => appendString head (join tail)\n'
+                  'main : IO Unit\nmain = putStrLn (join (Prepend "a" (Prepend "b" (Empty {String}))))\n')
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Main.fib'
+            def project(command):
+                return run(command, '--source-dir', directory, str(path))
+            path.write_text(source)
+            result = project('run')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'ab\n')
+            path.write_text(source.replace('join (Prepend "a" (Prepend "b" (Empty {String})))', 'join (Empty {String})'))
+            self.assertEqual(project('run').stdout, '\n')
+            reversed_arms = source.replace('  Empty => ""\n  Prepend head tail => appendString head (join tail)',
+                                           '  Prepend head tail => appendString head (join tail)\n  Empty => ""')
+            path.write_text(reversed_arms)
+            self.assertEqual(project('run').stdout, 'ab\n')
+            aliases = ('nilAlias : Items String\nnilAlias = Empty {String}\n'
+                       'consAlias : (1 h : String) -> (1 t : Items String) -> Items String\n'
+                       'consAlias h t = Prepend h t\n')
+            path.write_text(source.replace('join :', aliases + 'join :').replace('  Empty =>', '  nilAlias =>').replace('  Prepend head tail =>', '  consAlias head tail =>'))
+            self.assertEqual(project('run').stdout, 'ab\n')
+            shadow = source.replace('join :', 'head : String\nhead = "base"\njoin :').replace('  Empty => ""', '  Empty => head')
+            path.write_text(shadow)
+            self.assertEqual(project('run').stdout, 'abbase\n')
+            flags = ('module Main\ndata Items {0 A : Type} : Type where\n  Empty : Items A\n'
+                     '  Prepend : (1 head : A) -> (1 tail : Items A) -> Items A\n'
+                     'render : (1 flag : Bool) -> String\nrender flag = if flag then "T" else "F"\n'
+                     'flags : (1 xs : Items Bool) -> String\nflags xs = case xs of\n  Empty => ""\n'
+                     '  Prepend head tail => appendString (render head) (flags tail)\n'
+                     'main : IO Unit\nmain = putStrLn (flags (Prepend True (Prepend False (Empty {Bool}))))\n')
+            path.write_text(flags)
+            self.assertEqual(project('run').stdout, 'TF\n')
+            explicit = source.replace('{0 A : Type}', '(0 A : Type)').replace('Prepend "a"', 'Prepend String "a"').replace('Prepend "b"', 'Prepend String "b"').replace('Empty {String}', 'Empty String')
+            path.write_text(explicit)
+            self.assertEqual(project('run').stdout, 'ab\n')
+            erased = source.replace('join :', '0 join :').replace('main = putStrLn (join (Prepend "a" (Prepend "b" (Empty {String}))))', 'main = putStrLn "erased"')
+            path.write_text(erased)
+            result = project('run')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'erased\n')
+            bad_param = 'fake : (0 flag : Bool) -> Items String\nfake flag = Empty {String}\n'
+            other = ('data Other {0 A : Type} : Type where\n  None : Other A\n'
+                     '  Next : (1 head : A) -> (1 tail : Other A) -> Other A\n')
+            invalid = [source.replace('appendString head (join tail)', 'join tail'),
+                       source.replace('appendString head (join tail)', 'appendString head (appendString head (join tail))'),
+                       source.replace('(join tail)', '(join xs)'),
+                       source.replace('(join tail)', '(join (Prepend head tail))'),
+                       source.replace('appendString head (join tail)', 'appendString (join tail) (join tail)'),
+                       source.replace('  Empty => ""', '  Empty => join (Empty {String})'),
+                       source.replace('appendString head (join tail)', 'if True then appendString head (join tail) else head'),
+                       source.replace('Prepend head tail =>', 'Prepend tail tail =>'),
+                       source.replace('join : (1 xs : Items String)', 'join : (xs : Items String)'),
+                       source.replace('join :', bad_param + 'join :').replace('  Empty =>', '  fake =>'),
+                       source.replace('join :', other + 'join :').replace('  Prepend head tail =>', '  Next head tail =>')]
+            for program in invalid:
+                with self.subTest(program=program[-150:]):
+                    path.write_text(program)
+                    rejected = project('run')
+                    self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
+                    self.assertEqual(rejected.stdout, '')
+            dependent = ('module Main\ndata Items {0 A : Type} : Type where\n  Empty : Items A\n'
+                         '  Prepend : (1 head : A) -> (1 tail : Items A) -> Items A\n'
+                         'data Tagged (0 xs : Items String) : Type where\n  Tag : Tagged xs\n'
+                         'nil : Items String\nnil = Empty {String}\n'
+                         'build : (1 xs : Items String) -> Tagged xs\nbuild xs = case xs of\n'
+                         '  Empty => Tag nil\n  Prepend head tail => build tail\n'
+                         'main : IO Unit\nmain = putStrLn "never"\n')
+            path.write_text(dependent)
+            rejected = project('run')
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertIn('result independent', rejected.stderr)
+            self.assertEqual(rejected.stdout, '')
+            expression = 'Prepend h t'
+            for _ in range(50):
+                expression = 'identity (' + expression + ')'
+            large = ('identity : (1 value : Items String) -> Items String\nidentity value = value\n'
+                     'large : (1 h : String) -> (1 t : Items String) -> Items String\nlarge h t = ' + expression + '\n')
+            guarded = source.replace('join :', large + 'join :').replace('  Prepend head tail =>', '  large head tail =>')
+            path.write_text(guarded)
+            rejected = project('run')
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertEqual(rejected.stdout, '')
+            path.write_text(guarded.replace('  large head tail =>', '  Prepend head tail =>'))
+            result = project('run')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'ab\n')
+            path.write_text(source)
+            formatted = run('format', str(path))
+            self.assertEqual(formatted.returncode, 0, formatted.stderr)
+            path.write_text(formatted.stdout)
+            self.assertEqual(run('format', '--check', str(path)).returncode, 0)
+            self.assertEqual(project('run').stdout, 'ab\n')
+
     def test_structural_unary_recursive_equations(self):
         source = ('module Main\ndata Chain : Type where\n  Empty : Chain\n'
                   '  More : (1 rest : Chain) -> Chain\n'
