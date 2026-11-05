@@ -1354,6 +1354,110 @@ class CLITests(unittest.TestCase):
                     self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                     self.assertEqual(result.stdout, outcomes.get((state, event), "transition rejected") + "\n")
 
+    def test_direct_unary_recursive_data_cases(self):
+        source = ('module Main\ndata Chain : Type where\n  eliminator foldChain\n'
+                  '  Empty : Chain\n  More : (1 rest : Chain) -> Chain\n'
+                  'drop : (1 value : Chain) -> Chain\ndrop value = case value of\n'
+                  '  Empty => Empty\n  More rest => rest\n'
+                  'marks : (1 value : Chain) -> String\nmarks value = foldChain (\\(0 self : Chain) => String) "" '
+                  '(\\(0 rest : Chain) => \\(1 result : String) => appendString result "!") value\n'
+                  'main : IO Unit\nmain = putStrLn (marks (drop (More (More Empty))))\n')
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / 'Main.fib'
+            def project(command):
+                return run(command, '--source-dir', directory, str(path))
+            path.write_text(source)
+            result = project('run')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, '!\n')
+            explicit = source.replace('case value of', 'case value return (\\(0 self : Chain) => Chain) of')
+            path.write_text(explicit)
+            self.assertEqual(project('run').stdout, '!\n')
+            reversed_arms = source.replace('  Empty => Empty\n  More rest => rest', '  More rest => rest\n  Empty => Empty')
+            path.write_text(reversed_arms)
+            self.assertEqual(project('run').stdout, '!\n')
+            aliases = ('emptyAlias : Chain\nemptyAlias = Empty\n'
+                       'moreAlias : (1 item : Chain) -> Chain\nmoreAlias item = More item\n')
+            path.write_text(source.replace('drop :', aliases + 'drop :').replace('  Empty => Empty\n  More rest => rest',
+                                                                                  '  emptyAlias => Empty\n  moreAlias rest => rest'))
+            self.assertEqual(project('run').stdout, '!\n')
+            # A dependent expected result is abstracted over the actual
+            # scrutinee, and the successor branch consumes the real tail.
+            dependent = ('module Main\ndata Chain : Type where\n  eliminator foldChain\n'
+                         '  Empty : Chain\n  More : (1 rest : Chain) -> Chain\n'
+                         'data Tagged (0 chain : Chain) : Type where\n  Bad : Tagged chain\n'
+                         '  Mark : (1 text : String) -> Tagged chain\n'
+                         'build : (1 value : Chain) -> Tagged value\nbuild value = case value of\n'
+                         '  Empty => Mark Empty "empty"\n'
+                         '  More rest => Mark (More rest) (foldChain (\\(0 self : Chain) => String) "tail" '
+                         '(\\(0 r : Chain) => \\(1 text : String) => appendString text "!") rest)\n'
+                         'show : (0 value : Chain) -> (1 tagged : Tagged value) -> String\n'
+                         'show value tagged = case tagged of\n  Bad => "bad"\n  Mark text => text\n'
+                         'main : IO Unit\nmain = putStrLn (show (More Empty) (build (More Empty)))\n')
+            path.write_text(dependent)
+            result = project('run')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'tail\n')
+            path.write_text(dependent.replace('case value of', 'case value return (\\(0 self : Chain) => Tagged self) of'))
+            self.assertEqual(project('run').stdout, 'tail\n')
+            # Imported aliases must be checked values of this exact family.
+            other = ('data Other : Type where\n  Stop : Other\n  Again : (1 rest : Other) -> Other\n')
+            duplicate = ('combine : (1 left : Chain) -> (1 right : Chain) -> Chain\n'
+                         'combine left right = foldChain (\\(0 self : Chain) => Chain) left '
+                         '(\\(0 tail : Chain) => \\(1 result : Chain) => More result) right\n')
+            invalid = [source.replace('  More rest => rest', '  More rest => Empty'),
+                       source.replace('drop :', duplicate + 'drop :').replace('  More rest => rest', '  More rest => combine rest rest'),
+                       source.replace('  More rest => rest', '  More => Empty'),
+                       source.replace('  More rest => rest', '  Empty => Empty'),
+                       source.replace('  More rest => rest\n', ''),
+                       source.replace('drop :', other + 'drop :').replace('  More rest => rest', '  Again rest => rest')]
+            for program in invalid:
+                with self.subTest(program=program[-180:]):
+                    path.write_text(program)
+                    rejected = project('run')
+                    self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
+                    self.assertEqual(rejected.stdout, '')
+            # A linear capture may be shared across alternatives but not
+            # discarded in one of them.
+            shared = ('module Main\ndata Chain : Type where\n  eliminator foldChain\n  Empty : Chain\n'
+                      '  More : (1 rest : Chain) -> Chain\n'
+                      'use : (1 prefix : String) -> (1 value : Chain) -> String\n'
+                      'use prefix value = case value of\n  Empty => prefix\n'
+                      '  More rest => foldChain (\\(0 self : Chain) => String) prefix '
+                      '(\\(0 r : Chain) => \\(1 x : String) => appendString x "!") rest\n'
+                      'main : IO Unit\nmain = putStrLn (use "ok" (More Empty))\n')
+            path.write_text(shared)
+            self.assertEqual(project('run').stdout, 'ok\n')
+            path.write_text(shared.replace('  Empty => prefix', '  Empty => "dropped"'))
+            rejected = project('run')
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertEqual(rejected.stdout, '')
+            shadow = source.replace('drop : (1 value : Chain)', 'drop : (More : String) -> (1 value : Chain)')
+            shadow = shadow.replace('drop value = case value', 'drop More value = case value').replace('drop (More (More Empty))', 'drop "shadow" (More (More Empty))')
+            path.write_text(shadow)
+            rejected = project('run')
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertIn('shadowed', rejected.stderr)
+            self.assertEqual(rejected.stdout, '')
+            # A large transparent constructor alias is rejected by guarded
+            # conversion; naming the original constructor remains available.
+            expression = 'More value'
+            for _ in range(50):
+                expression = 'identity (' + expression + ')'
+            budgeted = ('module Main\ndata Chain : Type where\n  Empty : Chain\n  More : (1 rest : Chain) -> Chain\n'
+                        'identity : (1 x : Chain) -> Chain\nidentity x = x\n'
+                        'alias : (1 value : Chain) -> Chain\nalias value = ' + expression + '\n'
+                        'inspect : (1 value : Chain) -> Chain\ninspect value = case value of\n'
+                        '  Empty => Empty\n  alias rest => rest\nmain : IO Unit\nmain = putStrLn "ok"\n')
+            path.write_text(budgeted)
+            rejected = project('run')
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertIn('constructor comparison exhausted', rejected.stderr)
+            self.assertEqual(rejected.stdout, '')
+            path.write_text(budgeted.replace('  alias rest => rest', '  More rest => rest'))
+            self.assertEqual(project('run').stdout, 'ok\n')
+
     def test_parameterized_recursive_list(self):
         import shutil
         fixture = ROOT / 'examples/modules/recursive-list'

@@ -133,7 +133,38 @@ dependentSeqStep = Lambda Linear StringType (Lambda Erased seqType
 public export
 checks : List (String, Bool)
 checks =
-  [ ("sequence core checks and folds head and tail linearly",
+  [ ("recursive one-step case exposes and consumes the linear tail",
+      let more = Lambda Linear recType (RecFold recMotive (StringValue "") recStep (Variable FZ))
+          candidate = RecCase recMotive recValue (StringValue "end") more in
+      accepts (checkRuntime 512 128 Empty candidate StringType) &&
+      case normalize 32 candidate of
+        Normal result => sameSyntax result (StringValue "!") && accepts (checkRuntime 512 128 Empty result StringType)
+        _ => False)
+  , ("recursive case joins one-use branch captures",
+      let ctx = Extend Empty Linear StringType
+          more = Lambda Linear recType (RecFold recMotive (Variable (FS FZ)) recStep (Variable FZ))
+          candidate = RecCase recMotive (RecEnd recType) (Variable FZ) more in
+      accepts (checkRuntime 512 128 ctx candidate StringType))
+  , ("recursive case rejects a dropped tail and a bad inactive branch",
+      let dropped = Lambda Linear recType (StringValue "bad")
+          wrong = Lambda Linear recType (RecFold recMotive (StringValue "") recStep (Variable FZ)) in
+      not (accepts (checkRuntime 512 128 Empty (RecCase recMotive (RecEnd recType) (StringValue "ok") dropped) StringType)) &&
+      not (accepts (checkErased 512 128 Empty (RecCase recMotive (RecEnd recType) BoolTrue wrong) StringType)))
+  , ("recursive case checks dependent motives on neutral tails",
+      let ctx = Extend Empty Linear recType
+          tail = Variable FZ
+          value = RecMore recType tail
+          more = Lambda Linear recType
+            (Lambda Erased (indexed (RecMore recType (Variable FZ)))
+              (Apply (RecFold dependentRecMotive dependentRecBase dependentRecStep (Variable (FS FZ)))
+                (NominalValue (indexed (Variable (FS FZ))) (VariantValue indexShape 0 Nothing))))
+          candidate = RecCase dependentRecMotive value dependentRecBase more
+          expected = Apply dependentRecMotive value in
+      accepts (checkRuntime 512 128 ctx candidate expected) &&
+      case step candidate of
+        Just reduced => accepts (checkRuntime 512 128 ctx reduced expected)
+        Nothing => False)
+  , ("sequence core checks and folds head and tail linearly",
       let candidate = SeqFold seqMotive (StringValue "") seqStep seqValue in
       accepts (checkRuntime 512 128 Empty candidate StringType) &&
       case normalize 64 candidate of

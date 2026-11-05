@@ -166,6 +166,28 @@ mutual
         requireCompatible reduction nextType (Pi Erased exposed (Pi Linear ihType resultType))
         Right (Apply motive value)
       _ => Left (RecursiveDataError "fold scrutinee must have a recursive-data type")
+  infer (S depth) reduction context (RecCase motive value base more) = do
+    valueType <- infer depth reduction context value
+    exposed <- exposeType reduction valueType
+    case exposed of
+      RecType _ => do
+        motiveType <- infer depth reduction context motive
+        motiveHead <- exposeType reduction motiveType
+        case motiveHead of
+          Pi Erased parameter result => do
+            requireCompatible reduction parameter exposed
+            resultHead <- exposeType reduction result
+            case resultHead of
+              Universe _ => Right ()
+              _ => Left (ExpectedUniverse resultHead)
+          _ => Left (RecursiveDataError "case motive must have an erased matching binder and return a universe")
+        baseType <- infer depth reduction context base
+        requireCompatible reduction baseType (Apply motive (RecEnd exposed))
+        moreType <- infer depth reduction context more
+        let resultType = Apply (weaken motive) (RecMore (weaken exposed) (Variable FZ))
+        requireCompatible reduction moreType (Pi Linear exposed resultType)
+        Right (Apply motive value)
+      _ => Left (RecursiveDataError "case scrutinee must have a unary recursive-data type")
   infer (S depth) reduction context (SeqType key element) = do
     level <- sortOf depth reduction context element
     if level == 0 then Right (Universe 0)

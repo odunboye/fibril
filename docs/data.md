@@ -124,9 +124,9 @@ constructing the fixed templates, then checks their actual size; existing source
 module-expansion, checking and reduction admissions also apply. These are not
 hard time, stack or allocation guarantees. Nested/mutual recursion, arbitrary
 payload fields, indexed recursive families, more constructors and general
-recursive equations remain unsupported. Direct source `case` currently handles non-recursive nominal data,
-not this recursive type; use the named fold. The C backend rejects these new
-computational forms.
+recursive equations remain unsupported. Direct `case` can inspect this unary
+family once and exposes its actual tail linearly; use the named fold for
+structural recursion. The C backend rejects these new computational forms.
 
 ![Unary recursive data checking](diagrams/recursive-data.svg)
 
@@ -197,7 +197,8 @@ that captures an ambient linear value is rejected. A curried ordinary Pi type
 does not express the additive sharing between alternatives that direct kernel
 cases support. The helper does not weaken linearity to approximate that feature.
 [Direct source cases](direct-data-cases.md) now permit this additive sharing for
-nullary/unary nonrecursive constructors with an explicit or inferred motive.
+nullary/unary non-recursive constructors and unary recursive families with an
+explicit or inferred motive.
 
 ### Staged case-metadata boundary
 

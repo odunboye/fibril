@@ -30,6 +30,7 @@ mutual
   renderTerm (RecEnd ty) = "(RecEnd " ++ renderTerm ty ++ ")"
   renderTerm (RecMore ty x) = "(RecMore " ++ renderTerm ty ++ " " ++ renderTerm x ++ ")"
   renderTerm (RecFold p z s x) = "(RecFold " ++ renderTerm p ++ " " ++ renderTerm z ++ " " ++ renderTerm s ++ " " ++ renderTerm x ++ ")"
+  renderTerm (RecCase p x z s) = "(RecCase " ++ renderTerm p ++ " " ++ renderTerm x ++ " " ++ renderTerm z ++ " " ++ renderTerm s ++ ")"
   renderTerm (SeqType key a) = "(SeqType " ++ show key ++ " " ++ renderTerm a ++ ")"
   renderTerm (SeqNil ty) = "(SeqNil " ++ renderTerm ty ++ ")"
   renderTerm (SeqCons ty h t) = "(SeqCons " ++ renderTerm ty ++ " " ++ renderTerm h ++ " " ++ renderTerm t ++ ")"

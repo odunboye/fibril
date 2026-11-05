@@ -29,6 +29,7 @@ mutual
   descend env hole target (RecEnd ty) = RecEnd (abstractWith env hole target ty)
   descend env hole target (RecMore ty x) = RecMore (abstractWith env hole target ty) (abstractWith env hole target x)
   descend env hole target (RecFold p z s x) = RecFold (abstractWith env hole target p) (abstractWith env hole target z) (abstractWith env hole target s) (abstractWith env hole target x)
+  descend env hole target (RecCase p x z s) = RecCase (abstractWith env hole target p) (abstractWith env hole target x) (abstractWith env hole target z) (abstractWith env hole target s)
   descend env hole target (SeqType key a) = SeqType key (abstractWith env hole target a)
   descend env hole target (SeqNil ty) = SeqNil (abstractWith env hole target ty)
   descend env hole target (SeqCons ty h t) = SeqCons (abstractWith env hole target ty) (abstractWith env hole target h) (abstractWith env hole target t)

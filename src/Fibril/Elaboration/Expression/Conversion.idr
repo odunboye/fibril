@@ -31,6 +31,7 @@ mutual
   admit (S budget) (RecEnd ty) = admit budget ty
   admit (S budget) (RecMore ty x) = do a <- admit budget ty; admit a x
   admit (S budget) (RecFold p z s x) = do a <- admit budget p; b <- admit a z; c <- admit b s; admit c x
+  admit (S budget) (RecCase p x z s) = do a <- admit budget p; b <- admit a x; c <- admit b z; admit c s
   admit (S budget) (SeqType _ a) = admit budget a
   admit (S budget) (SeqNil ty) = admit budget ty
   admit (S budget) (SeqCons ty h t) = do a <- admit budget ty; b <- admit a h; admit b t
@@ -110,6 +111,10 @@ mutual
     safeRedexes size payload ty && safeRedexes size payload x
   safeRedexes size payload (RecFold p z s x) =
     safeRedexes size payload p && safeRedexes size payload z && safeRedexes size payload s && safeRedexes size payload x
+  -- A recursive-case contraction selects a branch or constructs one Apply;
+  -- it duplicates no subtree and is smaller than its already admitted input.
+  safeRedexes size payload (RecCase p x z s) =
+    safeRedexes size payload p && safeRedexes size payload x && safeRedexes size payload z && safeRedexes size payload s
   safeRedexes size payload (SeqType _ a) = safeRedexes size payload a
   safeRedexes size payload (SeqNil ty) = safeRedexes size payload ty
   safeRedexes size payload (SeqCons ty h t) = safeRedexes size payload ty && safeRedexes size payload h && safeRedexes size payload t

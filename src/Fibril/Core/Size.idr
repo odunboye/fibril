@@ -27,6 +27,7 @@ mutual
   coreNodes (RecEnd ty) = 1 + coreNodes ty
   coreNodes (RecMore ty x) = 1 + coreNodes ty + coreNodes x
   coreNodes (RecFold p z s x) = 1 + coreNodes p + coreNodes z + coreNodes s + coreNodes x
+  coreNodes (RecCase p x z s) = 1 + coreNodes p + coreNodes x + coreNodes z + coreNodes s
   coreNodes (SeqType _ a) = 1 + coreNodes a
   coreNodes (SeqNil ty) = 1 + coreNodes ty
   coreNodes (SeqCons ty h t) = 1 + coreNodes ty + coreNodes h + coreNodes t
@@ -89,6 +90,7 @@ mutual
   mentionsNominal key (RecEnd ty) = mentionsNominal key ty
   mentionsNominal key (RecMore ty x) = mentionsNominal key ty || mentionsNominal key x
   mentionsNominal key (RecFold p z s x) = mentionsNominal key p || mentionsNominal key z || mentionsNominal key s || mentionsNominal key x
+  mentionsNominal key (RecCase p x z s) = mentionsNominal key p || mentionsNominal key x || mentionsNominal key z || mentionsNominal key s
   mentionsNominal key (SeqType other a) = key == other || mentionsNominal key a
   mentionsNominal key (SeqNil ty) = mentionsNominal key ty
   mentionsNominal key (SeqCons ty h t) = mentionsNominal key ty || mentionsNominal key h || mentionsNominal key t

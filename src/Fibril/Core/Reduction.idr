@@ -65,6 +65,15 @@ mutual
       Nothing => case step next of
         Just s => Just (RecFold motive base s value)
         Nothing => RecFold motive base next <$> step value
+  step (RecCase motive (RecEnd _) base more) = Just base
+  step (RecCase motive (RecMore _ tail) base more) = Just (Apply more tail)
+  step (RecCase motive value base more) = case step motive of
+    Just p => Just (RecCase p value base more)
+    Nothing => case step value of
+      Just x => Just (RecCase motive x base more)
+      Nothing => case step base of
+        Just z => Just (RecCase motive value z more)
+        Nothing => RecCase motive value base <$> step more
   step (SeqType key element) = SeqType key <$> step element
   step (SeqNil ty) = SeqNil <$> step ty
   step (SeqCons ty head tail) = case step ty of

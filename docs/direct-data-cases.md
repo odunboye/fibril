@@ -1,4 +1,4 @@
-# Direct cases for non-recursive data
+# Direct cases for data
 
 ## Use cases
 
@@ -7,8 +7,8 @@ or request choice without encoding it as a function or requesting a named
 eliminator. Pattern branches can share an ambient linear resource: each
 alternative uses it in its own branch, and the ordinary runtime checker joins
 those alternative demands. This adds source convenience over existing core
-nominal/variant cases; it does not add recursive data, recursion or a new
-soundness theorem. Prefer `Bool` for a choice without payload or a record when
+nominal/variant cases. It also supports one-step matching of the fixed unary
+recursive family; this is not itself a recursive definition or a soundness theorem. Prefer `Bool` for a choice without payload or a record when
 all fields exist together. A named eliminator remains an explicit alternative,
 but its unrestricted branch arguments cannot capture ambient linear values.
 
@@ -33,6 +33,8 @@ fibril run --source-dir examples/modules/direct-data-case examples/modules/direc
 ~~~
 
 It prints `L: hello`, `R: yes`, then `no`. A separate
+[recursive-data example](../examples/modules/recursive-data/Main.fib) removes
+one layer of an imported unary recursive family, then uses its fold. The
 [request API](../examples/packages/request-api/src/Mail/Request.fib) exercises
 three email-service alternatives locally and from a qualified-import test package;
 it is a pure model, not an email server. A real submission needing a recipient,
@@ -64,15 +66,19 @@ family indexed by a finite choice and returns a different value type per branch.
   braced headers can opt constructors into [implicit parameters](data.md). The
   case derives actual nominal arguments from the scrutinee and applies them when
   checking branch names; generic erased type parameters are supported.
-- This slice supports only nullary and **single-field** constructors. Wider
-  dependent-field constructors remain usable through named eliminators, but are
+- This slice supports nullary and **single-field** constructors, including
+  the fixed terminal/unary-self recursive family. A direct recursive case
+  exposes the actual tail **linearly**, unlike a fold's erased tail plus linear
+  induction result. List-shaped recursive data with a head and tail is not yet
+  supported by direct cases. Wider dependent-field constructors remain usable
+  through named eliminators, but are
   not silently treated as direct one-field patterns. No nested patterns,
   constructor wildcard/implicit coverage or general-purpose dependent motive inference is provided.
 - This slice runs through named-module project checking (`--source-dir` or
   `--package`); standalone declaration-file checking does not publish the
   checked globals required by these patterns. Local patterns use unqualified
-  names; imported patterns use the normal qualified names from an explicit direct
-  source-module import. Package-level direct-dependency permissions and private
+  names; imported patterns can use qualified names or unique short names from an
+  explicit direct source-module import. Package-level direct-dependency permissions and private
   exports still apply. An unqualified local shadow is rejected; qualified names
   are not captured by local binders.
 - A pattern name is accepted when its checked global value is definitionally
@@ -109,6 +115,15 @@ retains branch alignment.
    motive, payload use and runtime branch permission joins. No helper application
    or unrestricted branch argument approximates those rules.
 
+For a unary recursive scrutinee, the elaborator instead compares each checked
+constructor value with the exact canonical terminal or linear-tail constructor
+for that `RecType` key, under guarded node/payload admission. It builds a core
+`RecCase`: the terminal branch has no payload and the successor branch receives
+the actual tail at quantity 1. The same expected-result abstraction and explicit
+motive fallback apply; the independent checker validates the completed term.
+The fold remains a different operation: it recursively computes a result and
+gives its step only an erased tail.
+
 The module checker sees earlier checked globals only; later/forward definitions
 are unavailable. This first slice does not consume authored `DataSchema` hints;
 those remain untrusted metadata, not a source of typing authority.
@@ -123,8 +138,8 @@ budgets remain independent. Inconclusive normalization/comparison is an error,
 not a guessed match. These admission policies are not memory, deadline or
 metatheory guarantees.
 
-Tests exercise generic Sum, both branches, source-order reversal, dependent
-motives, ambient linear use on both branches, missing/duplicate/unknown/foreign
+Tests exercise generic Sum, unary recursive cases and aliases, both branches,
+source-order reversal, dependent motives, ambient linear use on both branches, missing/duplicate/unknown/foreign
 patterns, wrong payload arity, omitted/duplicated linear uses, erased payload
 misuse, malformed layout, grouped ascriptions, nesting, source navigation,
 formatter idempotence, 64/65 parser admission and existing record-case behavior.
