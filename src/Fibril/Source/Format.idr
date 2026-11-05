@@ -23,7 +23,7 @@ horizontal char = char == ' ' || char == '\t'
 
 separator : Token -> Token -> List Char
 separator previous next =
-  if previous.kind == Dot || next.kind == Dot ||
+  if previous.kind == Dot || next.kind == Dot || next.kind == Comma ||
      previous.kind == OpenParen || next.kind == CloseParen ||
      previous.kind == DictionaryOpen || previous.kind == OpenBrace || next.kind == CloseBrace ||
      (previous.kind == Lambda && next.kind == OpenParen)

@@ -34,6 +34,7 @@ Build with `pack build fibril`, then invoke `./build/exec/fibril`.
 | reference LINE COLUMN PATH | Tagged built-in documentation or bundled Prelude declaration snapshot; syntax/lexical lookup |
 | references LINE COLUMN PATH | Same-file lexical occurrences, including declaration sites, as JSON |
 | definition --source-dir ROOT --entry ENTRY LINE COLUMN PATH | Checked project definition; version-2 file/range target and source snapshots |
+| definition --package MANIFEST LINE COLUMN PATH | Checked application package definition; same version-2 packet across its loaded dependency graph |
 | definition LINE COLUMN PATH | Same-file lexical target as JSON, using one-based scalar coordinates; errors on stderr |
 | symbols PATH | JSON declaration ranges, syntax only; errors on stderr |
 | demo | Run built-in ordinary checking and cubical algebra examples |

@@ -2,6 +2,11 @@
 module Fibril.Driver.ModuleCheck
 
 import Data.List
+import Data.List1
+import Data.Maybe
+import Data.String
+import Data.SortedSet
+import Data.SortedMap
 import Data.Vect
 import Fibril.Core.Quantity
 import Fibril.Core.Size
@@ -197,6 +202,14 @@ record CheckedProject where
   graph : ModuleGraph
   term : Term 0
   inferredType : Term 0
+  ||| Checked visible export spelling and canonical origin for dependency modules.
+  checkedExports : List (List String, List (String, String))
+
+exportIndex : List Interface -> List (List String, List (String, String))
+exportIndex interfaces = map (\entry => (entry.name, mapMaybe exportedName entry.bindings)) interfaces
+  where
+    exportedName : Weighted -> Maybe (String, String)
+    exportedName binding = map (\origin => (binding.global.name, origin)) binding.global.canonicalName
 
 problem : ModuleSnapshot -> Maybe Position -> String -> GraphError
 problem snapshot point message =
@@ -274,12 +287,49 @@ compileDeclarations snapshot name globals (decl :: rest) remaining = do
     Left message => Left ({ stage := "runtime-checking" } (problem snapshot (Just decl.nameSpan.start) message))
     else Right False
   let identity = moduleText name ++ "." ++ decl.name
-  let definition = GlobalEntry (if provider then Just identity else Nothing) implicitPrefix decl.quantity decl.name ty value
+  let definition = GlobalEntry (if provider then Just identity else Nothing) (Just identity) implicitPrefix decl.quantity decl.name ty value
   let local = weighted definition
   let qualified = Weight ({ name := identity } definition) local.size
   following <- compileDeclarations snapshot name (local :: qualified :: globals) rest (minus remaining estimate)
   Right (Definitions (local :: following.locals)
            (if decl.exported then qualified :: following.exports else following.exports) following.remaining)
+
+shortName : String -> String
+shortName name = case reverse (forget (Data.String.split (== '.') name)) of
+  [] => name
+  part :: _ => part
+
+
+selectedSchema : List Weighted -> InterfaceSchema -> InterfaceSchema
+selectedSchema bindings schema =
+  { constructorVisible := any (\binding => binding.global.name == schema.constructorName &&
+      binding.global.canonicalName == Just schema.constructorOrigin) bindings } schema
+
+-- Validate against checked exports once; all visibility paths consume this view.
+filteredImports : ModuleSnapshot -> List Interface -> Either GraphError (List Interface)
+filteredImports snapshot interfaces = traverse select snapshot.document.imports
+  where
+    validate : List Weighted -> List String -> List Token -> Either GraphError ()
+    validate bindings seen [] = Right ()
+    validate bindings seen (selector :: rest) = do
+      if elem selector.spelling seen
+        then Left (problem snapshot (Just selector.span.start) "Duplicate import selector") else Right ()
+      if any (\entry => shortName entry.global.name == selector.spelling) bindings
+        then validate bindings (selector.spelling :: seen) rest
+        else Left (problem snapshot (Just selector.span.start) "Import selector is not a checked export")
+
+    select : ImportDeclaration -> Either GraphError Interface
+    select dependency = case find (\entry => entry.name == dependency.components) interfaces of
+      Nothing => Left (problem snapshot (Just dependency.span.start) "Missing checked dependency interface")
+      Just entry => case dependency.selectors of
+        Nothing => Right entry
+        Just selectors => do
+          validate entry.bindings [] selectors
+          let names = map spelling selectors
+          let bindings = filter (\binding => elem (shortName binding.global.name) names) entry.bindings
+          let schemas = map (selectedSchema bindings)
+                        (filter (\schema => elem (shortName schema.name) names) entry.schemas)
+          Right ({ bindings := bindings, schemas := schemas } entry)
 
 directImports : ModuleSnapshot -> List Interface -> Either GraphError (List Weighted)
 directImports snapshot interfaces = collect snapshot.document.imports
@@ -290,15 +340,113 @@ directImports snapshot interfaces = collect snapshot.document.imports
       Nothing => Left (problem snapshot (Just dependency.span.start) "Missing checked dependency interface")
       Just entry => (entry.bindings ++) <$> collect rest
 
-directSchemas : ModuleSnapshot -> List Interface -> List InterfaceSchema
-directSchemas snapshot interfaces = concatMap (\dependency =>
-  case find (\entry => entry.name == dependency.components) interfaces of
-    Nothing => []
-    Just entry => entry.schemas) snapshot.document.imports
+-- Add a short name only when exactly one direct import exports it.  Keep the
+-- qualified entry as the authority, and do not register aliases as providers.
 
-elaborateAt : ModuleSnapshot -> List InterfaceSchema -> List AuthoredDeclaration -> Either GraphError (List Declaration)
-elaborateAt snapshot schemas authored = case elaborateDeclarationsIn
-  (map (\header => moduleText header.components) snapshot.document.moduleHeader) schemas 64 authored of
+importAliases : List Weighted -> List Weighted
+importAliases imported = mapMaybe alias groups
+  where
+    named : List (String, Weighted)
+    named = map (\entry => (shortName entry.global.name, entry)) imported
+
+    groups : List (List1 (String, Weighted))
+    groups = groupBy (\a, b => fst a == fst b) (sortBy (\a, b => compare (fst a) (fst b)) named)
+
+    alias : List1 (String, Weighted) -> Maybe Weighted
+    alias group = case forget group of
+      [] => Nothing
+      ((name, entry) :: rest) =>
+        if all (\(_, other) => other.global.canonicalName == entry.global.canonicalName) rest
+          then Just ({ global := { name := name, provider := Nothing } entry.global } entry)
+          else Nothing
+
+qualifiedImportAliases : ModuleSnapshot -> List Interface -> List Weighted
+qualifiedImportAliases snapshot interfaces = concatMap aliases snapshot.document.imports
+  where
+    aliases : ImportDeclaration -> List Weighted
+    aliases dependency = case (dependency.alias, find (\entry => entry.name == dependency.components) interfaces) of
+      (Just alias, Just entry) => map (\binding =>
+        { global := { name := alias.spelling ++ "." ++ shortName binding.global.name, provider := Nothing } binding.global } binding) entry.bindings
+      _ => []
+
+schemaAlias : SortedSet String -> InterfaceSchema -> Maybe InterfaceSchema
+schemaAlias aliases schema =
+  let name = shortName schema.name in
+  if Data.SortedSet.contains name aliases
+    then Just ({ name := name } schema) else Nothing
+
+-- Resolve constructor availability across all selected direct imports by checked
+-- canonical identity, rather than selecting an import path by list order.
+visibleSchema : SortedMap String String -> InterfaceSchema -> InterfaceSchema
+visibleSchema constructors schema = case Data.SortedMap.lookup schema.constructorOrigin constructors of
+  Nothing => { constructorVisible := False } schema
+  Just name => { constructorName := name, constructorVisible := True } schema
+
+directSchemas : ModuleSnapshot -> List Interface -> List Weighted -> List Weighted -> List InterfaceSchema
+directSchemas snapshot interfaces aliases imported =
+  let constructors = Data.SortedMap.fromList (mapMaybe (\entry => map (\origin => (origin, entry.global.name)) entry.global.canonicalName) imported)
+      schemas = concatMap (\dependency =>
+        case find (\entry => entry.name == dependency.components) interfaces of
+          Nothing => []
+          Just entry => map (visibleSchema constructors) entry.schemas) snapshot.document.imports
+      qualifiedSchemas = concatMap (\dependency =>
+        case (dependency.alias, find (\entry => entry.name == dependency.components) interfaces) of
+          (Just alias, Just entry) => map (\schema => { name := alias.spelling ++ "." ++ shortName schema.name } (visibleSchema constructors schema)) entry.schemas
+          _ => []) snapshot.document.imports
+      aliasNames = Data.SortedSet.fromList (map (\entry => entry.global.name) aliases)
+   in schemas ++ qualifiedSchemas ++ mapMaybe (schemaAlias aliasNames) schemas
+
+-- Publish only selected checked bindings, preserving their canonical origins.
+publicBindings : ModuleSnapshot -> List Interface -> List Weighted -> Either GraphError (List Weighted)
+publicBindings snapshot interfaces locals = collect [] snapshot.document.imports
+  where
+    collect : List Weighted -> List ImportDeclaration -> Either GraphError (List Weighted)
+    collect published [] = Right published
+    collect published (dependency :: rest) = case dependency.publicMarker of
+      Nothing => collect published rest
+      Just marker => case find (\entry => entry.name == dependency.components) interfaces of
+        Nothing => Left (problem snapshot (Just marker.span.start) "Missing checked dependency interface")
+        Just entry => do
+          let bindings = entry.bindings
+          next <- add published bindings
+          collect next rest
+      where
+        add : List Weighted -> List Weighted -> Either GraphError (List Weighted)
+        add seen [] = Right seen
+        add seen (binding :: remaining) = do
+          let name = shortName binding.global.name
+          let matches = filter (\existing => shortName existing.global.name == name) (locals ++ seen)
+          if any (\existing => existing.global.canonicalName /= binding.global.canonicalName) matches
+            then Left (problem snapshot (map (\selector => selector.span.start) (find (\selector => selector.spelling == name) (fromMaybe [] dependency.selectors))) ("Conflicting public export " ++ name))
+            else if null matches
+              then add (binding :: seen) remaining
+              else add seen remaining
+
+-- Rebase only selected public interface schemas. Their constructor is visible
+-- only if the facade actually publishes the same checked constructor origin.
+publicSchemas : List String -> ModuleSnapshot -> List Interface -> List Weighted -> List InterfaceSchema
+publicSchemas moduleName snapshot interfaces published =
+  nubBy (\a, b => a.name == b.name && a.constructorOrigin == b.constructorOrigin)
+    (concatMap fromImport snapshot.document.imports)
+  where
+    rebase : InterfaceSchema -> InterfaceSchema
+    rebase schema =
+      let constructor = moduleText moduleName ++ "." ++ shortName schema.constructorName in
+      { name := moduleText moduleName ++ "." ++ shortName schema.name,
+        constructorName := constructor,
+        constructorVisible := any (\binding => binding.global.name == constructor &&
+          binding.global.canonicalName == Just schema.constructorOrigin) published } schema
+
+    fromImport : ImportDeclaration -> List InterfaceSchema
+    fromImport dependency = case dependency.publicMarker of
+      Nothing => []
+      Just _ => case find (\entry => entry.name == dependency.components) interfaces of
+        Nothing => []
+        Just entry => map rebase entry.schemas
+
+elaborateAt : ModuleSnapshot -> List InterfaceSchema -> List String -> List AuthoredDeclaration -> Either GraphError (List Declaration)
+elaborateAt snapshot schemas imported authored = case elaborateDeclarationsInWithImports
+  (map (\header => moduleText header.components) snapshot.document.moduleHeader) schemas imported 64 authored of
   Left err => Left ({ stage := "elaboration" } (problem snapshot (Just err.position) err.message))
   Right declarations => Right declarations
 
@@ -308,7 +456,7 @@ anonymous snapshot schemas globals remaining = do
     EmptyDocument => Left (problem snapshot Nothing "Entry requires an expression or main")
     ExpressionDocument expression => Right expression
     DeclarationDocument authored => do
-      declarations <- elaborateAt snapshot schemas authored
+      declarations <- elaborateAt snapshot schemas [] authored
       if any (\decl => decl.name == "main") declarations
          then Right (lowerDeclarations snapshot.document.end declarations)
          else Left (problem snapshot Nothing "Entry requires a main definition")
@@ -328,24 +476,35 @@ compileGraph requireEntry graph prelude interfaces remaining (snapshot :: rest) 
   if requireEntry && snapshot.path == graph.entry && not (null rest)
      then Left (problem snapshot Nothing "Entry snapshot must be last in dependency order")
      else Right ()
-  imported <- directImports snapshot interfaces
-  let schemas = directSchemas snapshot interfaces
-  let globals = imported ++ prelude
+  visibleInterfaces <- filteredImports snapshot interfaces
+  imported <- directImports snapshot visibleInterfaces
+  if length imported > 4096 then Left (problem snapshot Nothing "Imported binding budget exhausted (4096)") else Right ()
+  let aliases = importAliases imported
+  let schemas = directSchemas snapshot visibleInterfaces aliases imported
+  -- Imports shadow Prelude names; ambiguous imports must not silently fall
+  -- back to a Prelude definition. Local declarations are prepended later.
+  let importedNames = Data.SortedSet.fromList (map (\entry => shortName entry.global.name) imported)
+  let visiblePrelude = filter (\entry => not (Data.SortedSet.contains entry.global.name importedNames)) prelude
+  let globals = imported ++ qualifiedImportAliases snapshot visibleInterfaces ++ aliases ++ visiblePrelude
   case snapshot.document.moduleHeader of
     Nothing => if not requireEntry || snapshot.path /= graph.entry then Left (problem snapshot Nothing "Anonymous dependency") else do
       term <- anonymous snapshot schemas globals remaining
       case inferRuntime checkingDepth typeReductionFuel Empty term of
         Left err => Left ({ stage := "runtime-checking" } (problem snapshot Nothing ("Entry checking: " ++ show err)))
-        Right checked => Right (Just (Project graph term checked.inferredType))
+        Right checked => Right (Just (Project graph term checked.inferredType (exportIndex interfaces)))
     Just header => do
       if any (\entry => entry.name == header.components) interfaces
          then Left (problem snapshot (Just header.nameSpan.start) "Duplicate checked module identity")
          else Right ()
       declarations <- case snapshot.document.body of
-        DeclarationDocument authored => elaborateAt snapshot schemas authored
+        DeclarationDocument authored => elaborateAt snapshot schemas (map (\entry => entry.global.name) imported) authored
         EmptyDocument => Right []
         _ => Left (problem snapshot Nothing "Named modules require declarations")
       compiled <- compileDeclarations snapshot header.components globals declarations remaining
+      published <- publicBindings snapshot visibleInterfaces compiled.exports
+      if length published + length compiled.exports > 4096
+        then Left (problem snapshot Nothing "Export binding budget exhausted (4096)") else Right ()
+      let rebased = map (\entry => { global := { name := moduleText header.components ++ "." ++ shortName entry.global.name } entry.global } entry) published
       case graph.scope of
         PackageRoots _ _ => if header.components == ["Main"] then do
           main <- case find (\entry => entry.global.name == "main") compiled.locals of
@@ -370,14 +529,15 @@ compileGraph requireEntry graph prelude interfaces remaining (snapshot :: rest) 
               Just term => Right term
             case inferRuntime checkingDepth typeReductionFuel Empty term of
               Left err => Left ({ stage := "runtime-checking" } (problem snapshot Nothing ("Entry checking: " ++ show err)))
-              Right checked => Right (Just (Project graph term checked.inferredType))
+              Right checked => Right (Just (Project graph term checked.inferredType (exportIndex interfaces)))
          else let visible = case snapshot.document.body of
                     DeclarationDocument authored => exportedSchemas (moduleText header.components) authored
                     _ => []
                in let dataHints = case snapshot.document.body of
                         DeclarationDocument authored => exportedDataSchemas (moduleText header.components) authored
                         _ => []
-                   in compileGraph requireEntry graph prelude (Exports header.components compiled.exports visible dataHints :: interfaces)
+                   in let publishedSchemas = publicSchemas header.components snapshot visibleInterfaces (compiled.exports ++ rebased)
+                   in compileGraph requireEntry graph prelude (Exports header.components (compiled.exports ++ rebased) (visible ++ publishedSchemas) dataHints :: interfaces)
                            compiled.remaining rest
 
 ||| Check every dependency declaration before exposing its qualified exports.

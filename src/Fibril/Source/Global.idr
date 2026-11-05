@@ -2,6 +2,8 @@
 module Fibril.Source.Global
 
 import Data.Fin
+import Data.List1
+import Data.String
 import Fibril.Core.Quantity
 import Fibril.Core.Term
 
@@ -14,6 +16,7 @@ public export
 record GlobalDefinition where
   constructor GlobalEntry
   provider : Maybe String
+  canonicalName : Maybe String
   implicitPrefix : Nat
   quantity : Quantity
   name : String
@@ -23,12 +26,25 @@ record GlobalDefinition where
 ||| Compatibility constructors do not opt ordinary globals into provider lookup.
 public export
 GlobalWithQuantity : Quantity -> String -> Term 0 -> Term 0 -> GlobalDefinition
-GlobalWithQuantity = GlobalEntry Nothing 0
+GlobalWithQuantity = GlobalEntry Nothing Nothing 0
 
 ||| Existing primitive/prelude definitions remain unrestricted.
 public export
 Global : String -> Term 0 -> Term 0 -> GlobalDefinition
 Global = GlobalWithQuantity Unrestricted
+
+||| Qualified candidates for a short name; only used for ambiguity diagnostics.
+public export
+qualifiedCandidates : String -> List GlobalDefinition -> List String
+qualifiedCandidates name entries = nub (map canonical (filter matches entries))
+  where
+    canonical : GlobalDefinition -> String
+    canonical entry = fromMaybe entry.name entry.canonicalName
+
+    matches : GlobalDefinition -> Bool
+    matches entry = case reverse (forget (Data.String.split (== '.') entry.name)) of
+      short :: _ :: _ => short == name
+      _ => False
 
 public export
 lookupGlobal : String -> List GlobalDefinition -> Maybe (Term 0)

@@ -110,5 +110,5 @@ sameBody _ _ = False
 public export
 sameDocumentShape : ParsedDocument -> ParsedDocument -> Bool
 sameDocumentShape a b = map (\header => header.components) a.moduleHeader == map (\header => header.components) b.moduleHeader &&
-  map (\dependency => dependency.components) a.imports == map (\dependency => dependency.components) b.imports &&
+  map (\dependency => (dependency.components, map spelling dependency.publicMarker, map spelling dependency.alias, map (map spelling) dependency.selectors)) a.imports == map (\dependency => (dependency.components, map spelling dependency.publicMarker, map spelling dependency.alias, map (map spelling) dependency.selectors)) b.imports &&
   sameBody a.body b.body

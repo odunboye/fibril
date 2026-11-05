@@ -44,6 +44,7 @@ primitiveValid entry =
 public export
 checks : List (String, Bool)
 checks =
+  map (\entry => ("primitive " ++ entry.name ++ " matches its declared type", primitiveValid entry)) primitiveGlobals ++
   [ ("IO binding arrow has its own located token",
       case lexSource "<- ->" of
         Right [binding, function] => binding.kind == BindArrow && function.kind == Arrow &&

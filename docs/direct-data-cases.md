@@ -71,8 +71,9 @@ family indexed by a finite choice and returns a different value type per branch.
 - This slice runs through named-module project checking (`--source-dir` or
   `--package`); standalone declaration-file checking does not publish the
   checked globals required by these patterns. Local patterns use unqualified
-  names; imported patterns use the normal qualified names from an explicit direct
-  source-module import. Package-level direct-dependency permissions and private
+  names; exported constructors from direct imports may be qualified or, if their
+  short name is unique, unqualified. Ambiguous names require qualification.
+  Package-level direct-dependency permissions and private
   exports still apply. An unqualified local shadow is rejected; qualified names
   are not captured by local binders.
 - A pattern name is accepted when its checked global value is definitionally
