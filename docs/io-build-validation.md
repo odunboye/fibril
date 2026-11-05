@@ -8,7 +8,13 @@ make -j8 io-cli-test
 make -j8 test io-test
 ```
 
-The full build and combined regression command pass on the local Chez toolchain.
+The full build and aggregate regression command passed at earlier checkpoints.
+For the native-resource runtime slice, aggregate runs hit 300/600-second deadlines
+without a reported test failure. Validation then passed in split runs: the
+unit/property phase completed, `python3 tools/test_cli.py -v` passed all 108 tests,
+and `make -j8 io-test io-cli-test native-test` passed. Do not interpret the timed-out
+aggregate commands themselves as passes.
+
 The focused suites accept `IDRIS2=/path/to/installed/idris2` and build independently
 in temporary directories, allowing parallel execution.
 
@@ -19,8 +25,9 @@ Validation includes:
 - 108 existing full-CLI tests, including project creation and module/package paths;
 - 12 existing native-emitter tests;
 - 8 interactive tests against the actual built CLI, including emitted C;
-- 245 focused hosted checks plus constructor-opacity and flush/stdin smoke tests;
-- 17 direct native runtime tests;
+- 246 focused hosted checks plus constructor-opacity and flush/stdin smoke tests;
+- 17 direct console-native runtime tests and 23 resource-native runtime tests;
+- the 23 resource-native tests also pass with address/undefined-behavior sanitizers;
 - seven compiled output-only examples and seven interactive source-level
   hosted/native comparisons.
 

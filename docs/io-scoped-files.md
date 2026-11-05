@@ -2,7 +2,8 @@
 
 Status: host-only implementation and tests. A separate
 [abstract source handle type](io-static-handles.md) now has typing tests, but no
-source open/read/close primitive or native handle value exists.
+source open/read/close primitive or checked native handle emission exists.
+The native runtime now has a separate private resource representation.
 
 ## Implemented host boundary
 
@@ -79,5 +80,6 @@ boundary](io-core-scope.md) now have typing regressions, including nested region
 and existential escape. A [dedicated checked hosted runner](io-resource-execution.md)
 now introduces scope handles and checks their ownership return. Hosted
 [ownership-returning reads](io-owned-file-reads.md) now validate live generations.
-Next implement corresponding native registry/cleanup tests. Keep source file
+The [native registry and cleanup runtime](io-native-resources.md) now has direct
+tests. Next enable checked resource emission and differential validation. Keep source file
 primitives disabled until those gates pass. Console IO remains unchanged.

@@ -71,7 +71,8 @@ A [host session registry](io-resource-session.md) and
 [trusted introduction runner](io-resource-execution.md) now create runtime
 regions and close scopes on represented body failure. Hosted
 [ownership-returning reads](io-owned-file-reads.md) now validate live generations.
-Matching native resource execution remains the next gate before source exposure.
+The [native resource runtime](io-native-resources.md) now has direct tests;
+checked emission and differential validation remain gates before source exposure.
 Native execution must enforce the same lifetime/cleanup contract. Only then
 expose scoped source primitives. This is not a subject-reduction proof,
 exception-safe source resource implementation or world-token IO.

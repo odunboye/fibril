@@ -150,7 +150,7 @@ reusable authority or a linear resource. An effect label is not an OS sandbox.
 This document consolidates requirements; it does not implement those milestones.
 The current branch has a proposed ownership document, hosted planner budget
 changes and checked hosted stdout flushing. Run `python3 tools/test_io_hosted.py`
-from the repository root for 245 core IO, console argument, sequence, script, input and resource checks,
+from the repository root for 246 core IO, console argument, sequence, script, input and resource checks,
 plus real C `fflush` and checked-core stdin (Unicode CRLF/EOF/length failure)
 smoke tests on Chez. These pass, including direct-core
 64/65-write boundaries, injected write/flush failures, ordering and empty-plan
@@ -172,7 +172,8 @@ primitive is proposed.
 
 The current [console execution contract](io-execution-contract.md) records shared
 observable behavior and backend limitations. `make io-test` runs the focused
-hosted checks and 17 direct native runtime tests without the YAML dependency.
+hosted checks, 17 console-native runtime tests and 23
+[resource-native runtime tests](io-native-resources.md) without the YAML dependency.
 The direct runtime fixtures bypass source checking; a separate seven-example
 source-to-C suite now exercises checked C emission and compares hosted output.
 Seven further cases compare source-level interactive native and hosted file drivers.

@@ -1,7 +1,8 @@
 # Ownership-returning hosted file reads
 
-Status: checked core read operation and hosted execution. Source file primitives
-and native scoped-file execution remain disabled.
+Status: checked core read operation and hosted execution. A
+[trusted native resource runtime](io-native-resources.md) now has direct tests;
+checked native resource emission and source file primitives remain disabled.
 
 ## Core operation
 
@@ -58,7 +59,8 @@ position after a stale read, continued ownership after read failure, EOF, closed
 leases and real checked scopes reading/closing files. A compile-negative check
 verifies that clients cannot construct the ownership table.
 
-Next implement matching native handle/pair representation, generation checks,
-scoped cleanup and differential tests before exposing source scoped-file APIs.
+Native handle/pair representation, generation checks and scoped cleanup now
+have direct runtime tests. Next implement checked resource emission and
+hosted/native differential tests before exposing source scoped-file APIs.
 This is not world-token IO, general exception-safe cleanup, an OS sandbox or a
 verified backend.

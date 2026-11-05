@@ -2,6 +2,7 @@
 module Fibril.Runtime.ScopedInput
 
 import Data.IORef
+import Data.List
 import System.File
 import Fibril.Effect.Resource
 import Fibril.Runtime.Resource
@@ -84,7 +85,7 @@ readScopedInput limit (InputLease state) = do
         Right line => Right line
 
 acquire : String -> IO (Either ScopedInputError ScopedInput)
-acquire path = do
+acquire path = if elem '\0' (unpack path) then pure (Left (FileOpenFailed "NUL in path")) else do
   opened <- openFile path Read
   case opened of
     Left err => pure (Left (FileOpenFailed (show err)))

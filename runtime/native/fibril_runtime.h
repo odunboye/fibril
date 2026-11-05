@@ -23,6 +23,11 @@ FValue *f_lambda(FRuntime *r, FEnv *env, int erased, FEval body);
 FValue *f_apply(FRuntime *r, FEnv *env, FEval function, FEval argument);
 FValue *f_append(FRuntime *r, FEnv *env, FEval left, FEval right);
 FValue *f_unit_case(FRuntime *r, FEnv *env, FEval scrutinee, FEval body);
+FValue *f_pair(FRuntime *r, FEnv *env, int first_erased, int second_erased, FEval first, FEval second);
+FValue *f_pair_case(FRuntime *r, FEnv *env, FEval scrutinee, FEval branch);
+/* Trusted backend operations; no source constructors for live references. */
+FValue *f_with_input(FRuntime *r, FEnv *env, FEval path, FEval body);
+FValue *f_read_input(FRuntime *r, FEnv *env, FEval handle);
 FValue *f_pure(FRuntime *r, FEnv *env, FEval value);
 FValue *f_bind(FRuntime *r, FEnv *env, FEval action, FEval continuation);
 FValue *f_write(FRuntime *r, FEnv *env, FEval text);
@@ -31,4 +36,6 @@ FValue *f_read_line(FRuntime *r);
 int fibril_native_run(FEval entry);
 /* Incremental execution may leave output before a later error. */
 int fibril_native_interactive_run(FEval entry, size_t requests, size_t line_characters);
+/* File scopes require this explicit runner; cleanup does not consume requests. */
+int fibril_native_resource_run(FEval entry, size_t requests, size_t line_characters);
 #endif

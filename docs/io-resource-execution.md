@@ -1,7 +1,7 @@
 # Hosted checked resource execution
 
 Status: dedicated hosted runner for checked core scopes. No source scope/file
-operations or native resource execution are enabled yet. The console-only
+operations or checked native resource emission are enabled yet. The console-only
 interactive runner and both emitters retain their fail-closed scope gates.
 
 ## Trusted introduction boundary
@@ -46,13 +46,16 @@ revocation and to inject an early-close state error, not a real OS fclose failur
 
 ## Evidence and remaining gates
 
-Ten new tests exercise real open/close, returned ownership, acquisition failure,
+Eleven initial tests exercise real open/close, returned ownership, acquisition failure,
+NUL-path rejection,
 shared request and description-depth exhaustion, output failure, distinct nested
 regions, primary plus cleanup-state errors, cleanup-result handling and rejection
 of injected runtime references. Existing file/session tests separately cover
 revocation, opacity and scope outcome preservation.
 
 Ownership-returning file reads and live-reference checks now execute in the
-hosted runner. Next implement matching native resource registration and cleanup. Only after those paths pass
+hosted runner. A [native resource runtime](io-native-resources.md) now has
+registration/cleanup tests; checked resource emission and differential validation
+remain next. Only after those paths pass
 should source scope/file primitives be exposed. This runner is not a completed
 linear-resource semantics, verified backend or world-token IO implementation.

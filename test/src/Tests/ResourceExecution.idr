@@ -128,7 +128,14 @@ runResourceExecutionChecks path = do
   depthLimited <- runResourceTermWith 2 128 64 host (scopeEntry path returnUnit)
   depthLeases <- readIORef leases
   depthClosed <- allClosed depthLeases
-  pure [ ("checked resource scope closes before ownership return on depth exhaustion",
+  clear
+  nulPath <- runResourceTermWith 128 128 64 host (scopeEntry (path ++ "\0suffix") returnUnit)
+  nulLeases <- readIORef leases
+  nulWrites <- readIORef writes
+  pure [ ("resource path rejects embedded NUL before acquiring a lease",
+           successful nulPath && nulPath.regionsCreated == 0 && null nulLeases &&
+           nulWrites == ["File open failed: NUL in path"])
+       , ("checked resource scope closes before ownership return on depth exhaustion",
            case depthLimited.outcome of
              Left ResourceDepthLimit => depthClosed && length depthLeases == 1 &&
                null depthLimited.cleanupFailures

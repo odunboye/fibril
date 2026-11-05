@@ -34,15 +34,17 @@ capability ownership and cleanup after partial effects.
 
 ## Evidence
 
-Run `make -j8 io-test`. Its four suites build in independent temporary
+Run `make -j8 io-test`. Its five suites build in independent temporary
 directories and can run concurrently:
 
-- 245 hosted core IO/argument/sequence/script/input/resource checks, plus a real flush smoke
+- 246 hosted core IO/argument/sequence/script/input/resource checks, plus a real flush smoke
   test and three checked-core stdin smoke tests (Unicode CRLF, EOF and input
   length failure);
 - 17 direct C runtime tests for output planning and the separate interactive
   runtime, including UTF-8, EOF, read failure, length/request limits, prompt
   visibility, late-result output suppression and broken-pipe flush failure;
+- 23 separate trusted-C resource runtime tests (not checked resource emission),
+  detailed in [io-native-resources.md](io-native-resources.md);
 - seven source-to-C examples whose compiled stdout matches the hosted plan,
   covering sequencing, helpers, do lets/results, computed strings and IO map;
 - seven source-level hosted/native interactive file-driver comparisons, described separately

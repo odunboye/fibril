@@ -1,7 +1,8 @@
 # Region-indexed abstract handle typing
 
 Status: abstract source handle type plus a dedicated trusted hosted scope
-runner. No source handle creation/file operation or native handle value exists.
+runner. No source handle creation/file operation or checked native handle
+emission exists; the native runtime has a private handle representation.
 
 ## Implemented
 
@@ -51,7 +52,8 @@ Distinct abstract region parameters are kept distinct. The dedicated hosted
 resource runner now introduces per-run internal region identities and maps
 scope ownership to host leases, but there is no source scope operation. Users
 may write equal concrete region arguments; this type constructor alone does
-not establish fresh scope identities. No native handle registry exists.
+not establish fresh scope identities. The native runtime now has a private
+handle registry, but checked resource emission remains disabled.
 Existing console execution is unchanged.
 
 ## Next gate
@@ -61,5 +63,6 @@ callback that returns matching ownership, with nested-region and existential
 escape regressions. A [hosted runner](io-resource-execution.md) now introduces
 internal handles and checks their ownership return. Hosted
 [ownership-returning reads](io-owned-file-reads.md) now advance live generations.
-Native execution and source exposure remain gated. See
+The [native resource runtime](io-native-resources.md) has direct tests; checked
+native emission and source exposure remain gated. See
 [io-scoped-files.md](io-scoped-files.md) for the proposed protocol and limitations.
