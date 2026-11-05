@@ -89,6 +89,7 @@ examples: build
 	./build/exec/fibril run --source-dir examples/modules/recursive-render examples/modules/recursive-render/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/recursive-data examples/modules/recursive-data/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/recursive-list examples/modules/recursive-list/Main.fib
+	./build/exec/fibril run --source-dir examples/modules/polymorphic-recursion examples/modules/polymorphic-recursion/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/motive-contexts examples/modules/motive-contexts/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/motive-do examples/modules/motive-do/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/direct-data-case examples/modules/direct-data-case/Main.fib

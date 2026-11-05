@@ -1458,6 +1458,52 @@ class CLITests(unittest.TestCase):
             path.write_text(budgeted.replace('  alias rest => rest', '  More rest => rest'))
             self.assertEqual(project('run').stdout, 'ok\n')
 
+    def test_polymorphic_structural_sequence_equations(self):
+        source = (ROOT / 'examples/modules/polymorphic-recursion/Main.fib').read_text()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Main.fib'
+            def project(command):
+                return run(command, '--source-dir', directory, str(path))
+            path.write_text(source)
+            result = project('run')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'hello world\n')
+            path.write_text(source.replace('copy tail', 'copy {Element} tail'))
+            self.assertEqual(project('run').stdout, 'hello world\n')
+            explicit = source.replace('copy : {0 A : Type}', 'copy : (0 A : Type)').replace('copy tail', 'copy Element tail').replace('join (copy (Prepend', 'join (copy String (Prepend')
+            path.write_text(explicit)
+            result = project('run')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'hello world\n')
+            reversed_arms = source.replace('  Empty => Empty {Element}\n  Prepend head tail => Prepend head (copy tail)',
+                                           '  Prepend head tail => Prepend head (copy tail)\n  Empty => Empty {Element}')
+            path.write_text(reversed_arms)
+            self.assertEqual(project('run').stdout, 'hello world\n')
+            # Different result type depending on the erased parameter, but not
+            # on the structural input, is retained by the checked fold.
+            invalid = [source.replace('copy tail', 'copy items'),
+                       source.replace('copy tail', 'copy (Prepend head tail)'),
+                       source.replace('copy tail', 'copy {String} tail'),
+                       source.replace('Prepend head (copy tail)', 'Prepend head (copy {Bool} tail)'),
+                       source.replace('Prepend head (copy tail)', 'copy tail'),
+                       source.replace('Prepend head (copy tail)', 'Prepend head (Prepend head (copy tail))'),
+                       source.replace('  Empty => Empty {Element}', '  Empty => copy (Empty {Element})'),
+                       explicit.replace('copy Element tail', 'copy String tail'),
+                       explicit.replace('copy Element tail', 'copy tail'),
+                       source.replace('  Prepend head tail =>', '  Prepend tail tail =>')]
+            for program in invalid:
+                with self.subTest(program=program[150:450]):
+                    path.write_text(program)
+                    rejected = project('run')
+                    self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
+                    self.assertEqual(rejected.stdout, '')
+            path.write_text(source)
+            formatted = run('format', str(path))
+            self.assertEqual(formatted.returncode, 0, formatted.stderr)
+            path.write_text(formatted.stdout)
+            self.assertEqual(run('format', '--check', str(path)).returncode, 0)
+            self.assertEqual(project('run').stdout, 'hello world\n')
+
     def test_structural_sequence_recursive_equations(self):
         source = ('module Main\ndata Items {0 A : Type} : Type where\n  Empty : Items A\n'
                   '  Prepend : (1 head : A) -> (1 tail : Items A) -> Items A\n'

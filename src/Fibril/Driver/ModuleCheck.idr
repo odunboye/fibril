@@ -293,6 +293,59 @@ recursiveExpression _ _ _ expr@(NBoolType _) = Just (False, expr)
 recursiveExpression _ _ _ expr@(NBoolValue _ _) = Just (False, expr)
 recursiveExpression _ _ _ _ = Nothing
 
+-- One erased family parameter is held fixed throughout structural recursion.
+-- Only the authored parameter, or its safe omitted implicit form, is accepted.
+private
+polyRecursiveExpression : Bool -> String -> String -> String -> String -> Expr -> Maybe (Bool, Expr)
+polyRecursiveExpression inferred param name argument tail (NApply span (NRef site function) (NRef valueSite value)) =
+  if inferred && function == name && value == tail then Just (True, NRef site recursiveResultName) else do
+    (leftUsed, left) <- polyRecursiveExpression inferred param name argument tail (NRef site function)
+    (rightUsed, right) <- polyRecursiveExpression inferred param name argument tail (NRef valueSite value)
+    if leftUsed && rightUsed then Nothing else Just (leftUsed || rightUsed, NApply span left right)
+polyRecursiveExpression inferred param name argument tail (NApply span left@(NApply _ (NRef site function) (NRef _ supplied)) right@(NRef _ value)) =
+  if not inferred && function == name && supplied == param && value == tail
+    then Just (True, NRef site recursiveResultName)
+    else do
+      (leftUsed, left) <- polyRecursiveExpression inferred param name argument tail left
+      (rightUsed, right) <- polyRecursiveExpression inferred param name argument tail right
+      if leftUsed && rightUsed then Nothing else Just (leftUsed || rightUsed, NApply span left right)
+polyRecursiveExpression inferred param name argument tail (NApply span left@(NImplicitApply _ (NRef site function) (NRef _ supplied)) right@(NRef _ value)) =
+  if inferred && function == name && supplied == param && value == tail
+    then Just (True, NRef site recursiveResultName)
+    else do
+      (leftUsed, left) <- polyRecursiveExpression inferred param name argument tail left
+      (rightUsed, right) <- polyRecursiveExpression inferred param name argument tail right
+      if leftUsed && rightUsed then Nothing else Just (leftUsed || rightUsed, NApply span left right)
+polyRecursiveExpression inferred param name argument tail (NApply span function value) = do
+  (leftUsed, left) <- polyRecursiveExpression inferred param name argument tail function
+  (rightUsed, right) <- polyRecursiveExpression inferred param name argument tail value
+  if leftUsed && rightUsed then Nothing else Just (leftUsed || rightUsed, NApply span left right)
+polyRecursiveExpression inferred param name argument tail (NImplicitApply span function value) = do
+  (leftUsed, left) <- polyRecursiveExpression inferred param name argument tail function
+  (rightUsed, right) <- polyRecursiveExpression inferred param name argument tail value
+  if leftUsed && rightUsed then Nothing else Just (leftUsed || rightUsed, NImplicitApply span left right)
+polyRecursiveExpression inferred param name argument tail (NIf span condition yes no) = do
+  (conditionUsed, condition) <- polyRecursiveExpression inferred param name argument tail condition
+  (yesUsed, yes) <- polyRecursiveExpression inferred param name argument tail yes
+  (noUsed, no) <- polyRecursiveExpression inferred param name argument tail no
+  if (conditionUsed && (yesUsed || noUsed)) || (yesUsed && noUsed)
+    then Nothing else Just (conditionUsed || yesUsed || noUsed, NIf span condition yes no)
+polyRecursiveExpression inferred param name argument tail expr@(NRef _ ref) =
+  if ref == name || ref == argument || ref == tail || ref == recursiveResultName
+    then Nothing else Just (False, expr)
+polyRecursiveExpression inferred param name argument tail expr@(NQualifiedRef _ ref) =
+  case reverse (forget (Data.String.split (== '.') ref)) of
+    short :: _ => if short == name then Nothing else Just (False, expr)
+    [] => Nothing
+polyRecursiveExpression _ _ _ _ _ expr@(NSort _ _) = Just (False, expr)
+polyRecursiveExpression _ _ _ _ _ expr@(NUnitType _) = Just (False, expr)
+polyRecursiveExpression _ _ _ _ _ expr@(NUnitValue _) = Just (False, expr)
+polyRecursiveExpression _ _ _ _ _ expr@(NStringType _) = Just (False, expr)
+polyRecursiveExpression _ _ _ _ _ expr@(NStringValue _ _) = Just (False, expr)
+polyRecursiveExpression _ _ _ _ _ expr@(NBoolType _) = Just (False, expr)
+polyRecursiveExpression _ _ _ _ _ expr@(NBoolValue _ _) = Just (False, expr)
+polyRecursiveExpression _ _ _ _ _ _ = Nothing
+
 private
 natBuiltinsVisible : List Weighted -> Bool
 natBuiltinsVisible globals =
@@ -401,10 +454,10 @@ unaryRecursiveEquation _ _ _ _ = Right Nothing
 
 -- Share the exact guarded comparison used for direct sequence cases.
 private
-sequenceConstructorTag : List Weighted -> Term 0 -> Term 0 -> Token -> Maybe Nat
-sequenceConstructorTag globals family element name = do
+sequenceConstructorTag : List Weighted -> Context n -> Term n -> Term n -> Token -> Maybe Nat
+sequenceConstructorTag globals context family element name = do
   entry <- find (\item => item.global.name == name.spelling) globals
-  case checkedSequenceConstructor name.span.start Empty family element entry.global of
+  case checkedSequenceConstructor name.span.start context family element entry.global of
     Right tag => Just tag
     Left _ => Nothing
 
@@ -417,8 +470,8 @@ sequenceRecursiveEquation globals name ty (NEquationLambda _ [argument] _
      not (null (qualifiedCandidates name (map global globals))) then Right Nothing else do
   case guardedNormal typeReductionFuel ty of
     Just (Pi Linear family@(SeqType _ element) result) =>
-      case (sequenceConstructorTag globals family element first, firstBinder,
-            sequenceConstructorTag globals family element second, secondBinder) of
+      case (sequenceConstructorTag globals Empty family element first, firstBinder,
+            sequenceConstructorTag globals Empty family element second, secondBinder) of
         (Just 0, [], Just 1, [head, tail]) => lower family element result firstBody head tail secondBody
         (Just 1, [head, tail], Just 0, []) => lower family element result secondBody head tail firstBody
         _ => Right Nothing
@@ -452,6 +505,55 @@ sequenceRecursiveEquation globals name ty (NEquationLambda _ [argument] _
         _ => Right Nothing
 sequenceRecursiveEquation _ _ _ _ = Right Nothing
 
+private
+polymorphicSequenceEquation : List Weighted -> String -> Bool -> Term 0 -> Expr -> Either ResolveError (Maybe (Term 0))
+polymorphicSequenceEquation globals name inferred ty (NEquationLambda _ [param, argument] _
+  (NDataCase span (NRef _ scrutinee) Nothing [(first, firstBinder, firstBody), (second, secondBinder, secondBody)])) = do
+  if param.spelling == "_" || argument.spelling == "_" ||
+     param.spelling == name || argument.spelling == name || param.spelling == argument.spelling ||
+     scrutinee /= argument.spelling || isJust (find (\entry => entry.global.name == name) globals) ||
+     not (null (qualifiedCandidates name (map global globals))) then Right Nothing else do
+  case guardedNormal typeReductionFuel ty of
+    Just (Pi Erased (Universe 0) (Pi Linear family@(SeqType _ (Variable FZ)) result)) =>
+      let context = Extend Empty Erased (Universe 0)
+          element = Variable FZ in
+      case (sequenceConstructorTag globals context family element first, firstBinder,
+            sequenceConstructorTag globals context family element second, secondBinder) of
+        (Just 0, [], Just 1, [head, tail]) => lower context family element result firstBody head tail secondBody
+        (Just 1, [head, tail], Just 0, []) => lower context family element result secondBody head tail firstBody
+        _ => Right Nothing
+    _ => Right Nothing
+  where
+    lower : Context 1 -> Term 1 -> Term 1 -> Term 2 -> Expr -> Token -> Token -> Expr -> Either ResolveError (Maybe (Term 0))
+    lower context family element result base head tail body = do
+      if head.spelling == "_" || tail.spelling == "_" || head.spelling == tail.spelling ||
+         head.spelling == name || head.spelling == param.spelling || head.spelling == argument.spelling ||
+         head.spelling == first.spelling || head.spelling == second.spelling ||
+         tail.spelling == name || tail.spelling == param.spelling || tail.spelling == argument.spelling ||
+         tail.spelling == first.spelling || tail.spelling == second.spelling ||
+         param.spelling == first.spelling || param.spelling == second.spelling ||
+         argument.spelling == first.spelling || argument.spelling == second.spelling ||
+         name == first.spelling || name == second.spelling
+        then Right Nothing else do
+      case (polyRecursiveExpression inferred param.spelling name argument.spelling tail.spelling base,
+            polyRecursiveExpression inferred param.spelling name argument.spelling tail.spelling body) of
+        (Just (False, baseExpr), Just (True, stepExpr)) => do
+          resultType <- case dropNewest result of
+            Nothing => Left (CannotElaborate span.start "Structural sequence equations require a result independent of the argument")
+            Just resultType => Right resultType
+          let checkedGlobals = map global globals
+          baseTerm <- elaborateExpected checkedGlobals context [param.spelling] resultType baseExpr
+          let stepContext = Extend (Extend (Extend context Linear element) Erased (weaken family)) Linear (weaken (weaken resultType))
+          stepTerm <- elaborateExpected checkedGlobals stepContext [recursiveResultName, "$seq.tail", head.spelling, param.spelling]
+                        (weaken (weaken (weaken resultType))) stepExpr
+          let motive : Term 2 = Lambda Erased (weaken family) (weaken (weaken resultType))
+          let step : Term 1 = Lambda Linear element (Lambda Erased (weaken family)
+                                (Lambda Linear (weaken (weaken resultType)) stepTerm))
+          let body : Term 1 = Lambda Linear family (SeqFold motive (weaken baseTerm) (weaken step) (Variable FZ))
+          Right (Just (Lambda Erased (Universe 0) body))
+        _ => Right Nothing
+polymorphicSequenceEquation _ _ _ _ _ = Right Nothing
+
 -- This read-only probe allocates no rewritten expression before admission.
 private
 structuralCallPresent : String -> String -> Expr -> Bool
@@ -462,6 +564,21 @@ structuralCallPresent name predecessor (NApply _ function value) =
 structuralCallPresent name predecessor (NIf _ condition yes no) =
   structuralCallPresent name predecessor condition || structuralCallPresent name predecessor yes || structuralCallPresent name predecessor no
 structuralCallPresent _ _ _ = False
+
+private
+polymorphicCallPresent : String -> String -> Expr -> Bool
+polymorphicCallPresent name tail (NApply _ (NRef _ function) (NRef _ value)) = function == name && value == tail
+polymorphicCallPresent name tail (NApply _ left@(NApply _ (NRef _ function) _) right@(NRef _ value)) =
+  (function == name && value == tail) || polymorphicCallPresent name tail left || polymorphicCallPresent name tail right
+polymorphicCallPresent name tail (NApply _ left@(NImplicitApply _ (NRef _ function) _) right@(NRef _ value)) =
+  (function == name && value == tail) || polymorphicCallPresent name tail left || polymorphicCallPresent name tail right
+polymorphicCallPresent name tail (NApply _ function value) =
+  polymorphicCallPresent name tail function || polymorphicCallPresent name tail value
+polymorphicCallPresent name tail (NImplicitApply _ function value) =
+  polymorphicCallPresent name tail function || polymorphicCallPresent name tail value
+polymorphicCallPresent name tail (NIf _ condition yes no) =
+  polymorphicCallPresent name tail condition || polymorphicCallPresent name tail yes || polymorphicCallPresent name tail no
+polymorphicCallPresent _ _ _ = False
 
 private
 recursiveEquationReserve : String -> Expr -> Nat
@@ -479,6 +596,12 @@ recursiveEquationReserve name (NEquationLambda _ [argument] _ (NDataCase _ _ Not
         ([_, tail], []) => structuralCallPresent name tail.spelling firstBody
         _ => False in
     if sequenceShape then 32 + 16 * 513 else if natShape || recursiveShape then 16 + 9 * 513 else 0
+recursiveEquationReserve name (NEquationLambda _ [_, _] _ (NDataCase _ _ Nothing [(_, firstBinder, firstBody), (_, secondBinder, secondBody)])) =
+  let shape = case (firstBinder, secondBinder) of
+        ([], [_, tail]) => polymorphicCallPresent name tail.spelling secondBody
+        ([_, tail], []) => polymorphicCallPresent name tail.spelling firstBody
+        _ => False in
+    if shape then 64 + 24 * 513 else 0
 recursiveEquationReserve _ _ = 0
 
 compileDeclarations : ModuleSnapshot -> List String -> List Weighted -> List Declaration -> Nat ->
@@ -514,6 +637,11 @@ compileDeclarations snapshot name globals (decl :: rest) remaining = do
   recursive <- the (Either GraphError (Maybe (Term 0))) $ case recursive of
     Just result => Right (Just result)
     Nothing => case sequenceRecursiveEquation globals decl.name ty decl.value of
+      Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
+      Right candidate => Right candidate
+  recursive <- the (Either GraphError (Maybe (Term 0))) $ case recursive of
+    Just result => Right (Just result)
+    Nothing => case polymorphicSequenceEquation globals decl.name (implicitPrefix == 1) ty decl.value of
       Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
       Right candidate => Right candidate
   value <- case recursive of

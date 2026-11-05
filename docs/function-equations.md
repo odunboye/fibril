@@ -148,8 +148,8 @@ self-call; it does not invent a source location. The C backend still rejects it.
 
 ## Structural list-shaped equations
 
-For a fixed list-shaped family at a **closed element type**, the analogous
-single-argument equation can use both the head and the recursive result:
+For a fixed list-shaped family, a structural equation can use both the head
+and the recursive result:
 
 ~~~fibril
 join : (1 items : Items String) -> String
@@ -170,8 +170,22 @@ The compiler shares the guarded, checked constructor comparison used by direct
 list cases, including checking an erased parameter's domain before applying the
 actual element type. The equation lowers to `SeqFold` with a linear head, erased
 tail and linear induction result, and is independently checked. A named fold
-is not required. The single-argument result must be input-independent; leading
-polymorphic parameters, dependent results, arbitrary recursive calls and general
+is not required. The result must be input-independent. One leading erased `Type 0` parameter is
+also supported when the list element is exactly that parameter:
+
+~~~fibril
+copy : {0 A : Type} -> (1 items : Items A) -> Items A
+copy Element items = case items of
+  Empty => Empty {Element}
+  Prepend head tail => Prepend head (copy tail)
+~~~
+
+The [polymorphic example](../examples/modules/polymorphic-recursion/Main.fib)
+uses the actual erased parameter in a dependent result. For an implicit prefix,
+`copy tail` or `copy {Element} tail` keeps that parameter fixed; with an explicit
+`(0 A : Type)` prefix, use `copy Element tail`. The equation header names both
+parameters. Multiple leading parameters, a different recursive type parameter,
+dependent results over the input, arbitrary recursive calls and general
 termination checking remain unsupported. Project navigation does not yet resolve
 this self-call, and the C backend rejects it.
 

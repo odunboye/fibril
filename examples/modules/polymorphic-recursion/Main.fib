@@ -1,0 +1,19 @@
+module Main
+
+data Items {0 A : Type} : Type where
+  eliminator foldItems
+  Empty : Items A
+  Prepend : (1 head : A) -> (1 tail : Items A) -> Items A
+
+copy : {0 A : Type} -> (1 items : Items A) -> Items A
+copy Element items = case items of
+  Empty => Empty {Element}
+  Prepend head tail => Prepend head (copy tail)
+
+join : (1 items : Items String) -> String
+join items = foldItems String (\(0 self : Items String) => String) ""
+  (\(1 head : String) => \(0 tail : Items String) =>
+    \(1 result : String) => appendString head result) items
+
+main : IO Unit
+main = putStrLn (join (copy (Prepend "hello" (Prepend " world" (Empty {String})))))
