@@ -48,5 +48,6 @@ Interactive admission limits are checked before generating C.
 both standalone file drivers and checked interactive emission. Seven differential cases cover
 Unicode CRLF, EOF, empty/unterminated lines, bare final CR, length errors and a
 Unicode length boundary. These are well-formed UTF-8 tests, not malformed-input
-parity or full CLI argument-dispatch coverage. `make io-test` includes this suite and
+parity. Actual interactive CLI dispatch is covered separately by
+`tools/test_io_cli.py`. `make io-test` includes this suite and
 retains the output-only checked-emission differential examples.

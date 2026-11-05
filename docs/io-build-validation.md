@@ -1,34 +1,43 @@
-# IO build validation boundary
+# IO build validation
 
-The focused suites run independently in temporary directories:
+## Passing commands
 
 ```sh
-make -j8 io-test
-# If the package-manager launcher is unavailable:
-make -j8 io-test IDRIS2=/path/to/installed/idris2
+make -j8 build
+make -j8 io-cli-test
+make -j8 test io-test
 ```
 
-This runs 168 hosted checks, real flush/stdin smoke tests, 17 direct C runtime
-tests, seven output-only compiled examples and seven interactive source-level
-hosted/native comparisons. It checks the standalone input file drivers but not
-the complete CLI binary's argument dispatch or project/package paths.
+The full build and combined regression command pass on the local Chez toolchain.
+The focused suites accept `IDRIS2=/path/to/installed/idris2` and build independently
+in temporary directories, allowing parallel execution.
 
-## Full-CLI blocker observed locally
+Validation includes:
 
-`make -j8 build` timed out inside the package/compiler path. A bounded direct
-compiler diagnostic of the full Main dependency graph was CPU-active rather
-than sleeping; one early sample showed approximately 5.8 GB resident memory and
-predominantly garbage collection. The diagnostic was stopped rather than left
-consuming resources. This observation does not identify the responsible module
-or establish a regression introduced by IO.
+- deterministic bootstrap regressions;
+- 27 property groups, each sampling 100 cases;
+- 108 existing full-CLI tests, including project creation and module/package paths;
+- 12 existing native-emitter tests;
+- 8 interactive tests against the actual built CLI, including emitted C;
+- 168 focused hosted checks plus flush/stdin smoke tests;
+- 17 direct native runtime tests;
+- seven compiled output-only examples and seven interactive source-level
+  hosted/native comparisons.
 
-A minimal YAML import checks when its transitive installed packages are supplied.
-Therefore calling the full-CLI failure simply a YAML bug is not justified. The
-full dependency graph still needs a reproducible baseline comparison and module
-bisection before attributing the allocation behavior. Shared package state and
-other sessions' builds were not changed to work around it.
+## Resolved build stall
 
-Until a complete CLI build and dispatch tests pass, distinguish implemented and
-tested file-driver behavior from the unvalidated final CLI integration. Focused
-suite success is not a substitute for full project tests, property tests or
-quantitative preservation proofs.
+Earlier full builds stalled and a sampled compiler process showed heavy garbage
+collection and approximately 5.8 GB resident memory. Terminal logging localized
+the stall to `Project.New`, before the IO CLI modules. Its private option parser
+matched several Boolean/Maybe state arguments in clause heads. Rewriting it to
+dispatch on arguments first and inspect state inside the branches removed the
+observed stall; existing CLI/project tests pass with unchanged option messages.
+
+A minimal YAML import checks with its transitive packages, so the earlier
+attribution to YAML was not supported. Once compilation progressed, it exposed
+an emitter-refactoring regression: `Driver.Native` lacked an explicit import of
+`Core.Term`. That import is restored, and the complete Main module and executable
+now build. No shared package state or other worktree was changed for these fixes.
+
+These tests establish observed behavior, not quantitative preservation, a verified
+backend, malformed-input equivalence or exception-safe linear resource ownership.

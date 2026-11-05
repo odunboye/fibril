@@ -1,9 +1,9 @@
 # Standalone interactive input
 
-Status: source primitives, checked Prelude wrappers, hosted interpretation and
-native emission implemented on `feature/qtt`. CLI dispatch is wired; the full
-CLI build remains subject to the local project/YAML toolchain blocker. Focused
-tests invoke the same standalone file drivers directly.
+Status: source primitives, checked Prelude wrappers, hosted interpretation,
+native emission and standalone CLI commands implemented on `feature/qtt`.
+The complete CLI builds and passes interactive command tests; see
+[build validation](io-build-validation.md).
 
 ## Source API
 
@@ -72,4 +72,5 @@ only well-formed UTF-8 parity is currently tested.
 
 `make io-test` includes seven source-level hosted/native comparisons using the
 standalone file drivers, including EOF, Unicode and length failures. Full CLI
-argument dispatch and project/package regression suites remain separate work.
+argument dispatch is covered by `make -j8 io-cli-test`; existing project/package
+regressions also pass. Interactive package/source-dir options remain unsupported.

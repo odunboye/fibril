@@ -149,11 +149,11 @@ smoke tests on Chez. These pass, including direct-core
 flushing. The runner uses temporary build output without pack or project/YAML
 dependencies. Checked emission now lives in `Driver.Native.Emit`, with seven
 source-to-C differential examples run by `tools/test_io_emitter.py` and
-`make io-test`. Broader project/package validation remains blocked locally by
-the full dependency/compiler graph and build timeouts. A minimal YAML import
-checks once its transitive packages are supplied; this does not isolate the
-full-CLI stall to YAML. See [build validation](io-build-validation.md). This is targeted validation, not
-a full suite run or completed world-token IO.
+`make -j8 io-test`. The full CLI build, existing project/package tests and new
+interactive CLI tests now pass under `make -j8 test io-test`. The earlier stall
+was localized to the pre-existing project option parser; see
+[build validation](io-build-validation.md). These passing regressions do not
+constitute completed world-token IO or resource-safe exception handling.
 
 Concurrency, cancellation and callbacks remain deferred until their lifetime and
 cleanup semantics are specified. Hosted/native behavior already needs a shared

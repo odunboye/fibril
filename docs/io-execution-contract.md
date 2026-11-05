@@ -57,4 +57,5 @@ The direct C fixtures bypass elaboration and emission and intentionally include
 an invalid result to exercise defensive runtime checks. They do not establish
 that such a result can pass source checking. The separate source-to-C tests exercise checked emission through
 `Driver.Native.Emit`, extracted unchanged from `Driver.Native` (which re-exports
-it). They avoid project loading; full CLI/package/module suites remain necessary.
+it). They avoid project loading. The full CLI/package/module suites also pass;
+see [build validation](io-build-validation.md) for the separate full-suite scope.

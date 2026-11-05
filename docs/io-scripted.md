@@ -82,5 +82,5 @@ with Unicode CRLF input and EOF, plus injected prompt-flush ordering and errors.
 See [io-core-input.md](io-core-input.md) for the distinct failure semantics and
 real stdin checks. Explicit native input lowering now has seven checked-core
 source-level differential cases; see [io-native-input.md](io-native-input.md).
-The [standalone source API](io-input.md) is implemented; package integration,
-full CLI validation and stronger resource ownership remain separate work.
+The [standalone source API](io-input.md) and full CLI validation are implemented;
+interactive package integration and stronger resource ownership remain separate work.

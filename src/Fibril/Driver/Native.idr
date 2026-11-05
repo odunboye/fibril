@@ -2,6 +2,7 @@
 module Fibril.Driver.Native
 
 import public Fibril.Driver.Native.Emit
+import Fibril.Core.Term
 import Fibril.Source.File
 import Fibril.Source.Diagnostic
 import Fibril.Driver.Check
