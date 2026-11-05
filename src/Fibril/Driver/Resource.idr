@@ -17,6 +17,7 @@ import Fibril.Driver.Interactive
 import Fibril.Runtime.Console
 import Fibril.Runtime.ConsoleInput
 import Fibril.Runtime.ScopedInput
+import Fibril.Runtime.InputOwnership
 import Fibril.Effect.Console
 
 %default total
@@ -32,6 +33,7 @@ data ResourceError
   | ResourceExpectedString
   | ResourceExpectedUnit
   | ResourceOwnershipReturn
+  | ResourceReferenceFailure InputOwnershipError
   | ResourceWriteFailure String
   | ResourceCleanupFailure ResourceError ScopedInputError
 
@@ -46,6 +48,7 @@ Show ResourceError where
   show ResourceExpectedString = "Resource path/write operand did not normalize to String"
   show ResourceExpectedUnit = "Resource main did not normalize to Unit"
   show ResourceOwnershipReturn = "Scope did not return its matching ownership pair"
+  show (ResourceReferenceFailure err) = show err
   show (ResourceWriteFailure err) = "Resource output failed: " ++ err
   show (ResourceCleanupFailure primary cleanup) = show primary ++ "; cleanup: " ++ show cleanup
 
@@ -90,19 +93,20 @@ consumeRequest remaining = do
     Z => pure (Left ResourceRequestLimit)
     S rest => writeIORef remaining rest >> pure (Right ())
 
-returnedOwnership : Nat -> Nat -> Term 0 -> Term 0 -> Either ResourceError (Term 0)
+returnedOwnership : Nat -> Nat -> Term 0 -> Term 0 -> Either ResourceError (Nat, Term 0)
 returnedOwnership fuel identity result value = do
   exposed <- normal fuel value
   validate exposed (Sigma Linear Linear (FileHandleType (runtimeFileRegion identity)) (weaken result))
   case exposed of
-    PairValue _ (FileHandleValue returned) payload =>
-      if identity == returned then validate payload result >> Right payload
+    PairValue _ (FileHandleValue returned generation) payload =>
+      if identity == returned then validate payload result >> Right (generation, payload)
       else Left ResourceOwnershipReturn
     _ => Left ResourceOwnershipReturn
 
 -- Every recursive description interpretation decreases depth. Request fuel is
 -- shared through the entire run, but mandatory cleanup never consumes it.
-execute : Nat -> Nat -> IORef Nat -> IORef Nat -> InputSession -> ResourceAdapters ->
+covering
+execute : Nat -> Nat -> IORef Nat -> InputOwnershipTable -> InputSession -> ResourceAdapters ->
           Term 0 -> IO (Either ResourceError (Term 0))
 execute Z fuel requests next session host term = pure (Left ResourceDepthLimit)
 execute (S depth) fuel requests next session host term =
@@ -130,6 +134,23 @@ execute (S depth) fuel requests next session host term =
             Right () => do
               response <- host.readInput
               pure (Right (readResponseValue response))
+        ReadInputFile reference => case normal fuel reference of
+          Left err => pure (Left err)
+          Right (FileHandleValue identity generation) => do
+            allowed <- consumeRequest requests
+            case allowed of
+              Left err => pure (Left err)
+              Right () => do
+                read <- readOwnedInput 8192 next identity generation
+                pure $ case read of
+                  Left err => Left (ResourceReferenceFailure err)
+                  Right (successor, response) =>
+                    let value = readResponseValue (case response of
+                          Left err => Left (show err)
+                          Right line => Right line) in
+                      Right (PairValue (fileReadResultType (runtimeFileRegion identity))
+                        (FileHandleValue identity successor) value)
+          Right _ => pure (Left ResourceOwnershipReturn)
         IOBind a b action continuation => do
           first <- execute depth fuel requests next session host action
           case first of
@@ -154,12 +175,20 @@ execute (S depth) fuel requests next session host term =
                   Left err => pure (Right (VariantValue (fileScopeResultType result) 0
                                     (Just (StringValue (show err)))))
                   Right lease => do
-                    identity <- readIORef next
-                    writeIORef next (S identity)
+                    identity <- registerInputOwnership next lease
                     host.observeLease identity lease
                     computed <- execute depth fuel requests next session host
-                      (Apply (Apply body (runtimeFileRegion identity)) (FileHandleValue identity))
-                    let returned = computed >>= returnedOwnership fuel identity result
+                      (Apply (Apply body (runtimeFileRegion identity)) (FileHandleValue identity 0))
+                    let owned : Either ResourceError (Nat, Term 0)
+                        owned = computed >>= returnedOwnership fuel identity result
+                    returned <- the (IO (Either ResourceError (Term 0))) $ case owned of
+                      Left err => pure (Left err)
+                      Right (generation, payload) => do
+                        valid <- checkInputOwnership next identity generation
+                        pure $ case valid of
+                          Left err => Left (ResourceReferenceFailure err)
+                          Right () => Right payload
+                    revokeInputOwnership next identity
                     closed <- closeScopedInput lease
                     pure $ case (returned, closed) of
                       (Left primary, Left cleanup) => Left (ResourceCleanupFailure primary cleanup)
@@ -173,6 +202,7 @@ execute (S depth) fuel requests next session host term =
 ||| Scope IDs are fresh within this session only; no raw File appears in a term.
 ||| Session cleanup preserves failures independently of the primary run outcome.
 public export
+covering
 runResourceTermWith : Nat -> Nat -> Nat -> ResourceAdapters -> Term 0 -> IO ResourceExecution
 runResourceTermWith depth fuel requestLimit host term =
   if containsFileReference term || coreNodes term > 8192 || payloadSize term > payloadLimit
@@ -181,7 +211,7 @@ runResourceTermWith depth fuel requestLimit host term =
       Left err => pure (ExecutedResources (Left err) [] 0)
       Right () => do
         requests <- newIORef requestLimit
-        next <- newIORef 0
+        next <- newInputOwnershipTable
         (result, failures) <- withInputSession (\session => do
           interpreted <- execute depth fuel requests next session host term
           let normalized : Either ResourceError (Term 0)
@@ -197,7 +227,7 @@ runResourceTermWith depth fuel requestLimit host term =
                     Left err => Left (ResourceWriteFailure err)
                     Right () => Right ()
                 _ => pure (Left ResourceExpectedUnit))
-        created <- readIORef next
+        created <- inputRegionsCreated next
         pure (ExecutedResources result failures created)
 
 ||| Explicit host-only entry. Source/native resource operations remain disabled.

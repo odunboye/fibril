@@ -117,7 +117,7 @@ runResourceExecutionChecks path = do
   -- Even erased syntax may not inject a pre-existing runtime reference.
   let injected = Apply
         (Lambda Erased (FileHandleType (runtimeFileRegion 0)) (IOPure UnitValue))
-        (FileHandleValue 0)
+        (FileHandleValue 0 0)
   rejected <- runResourceTermWith 128 128 64 host injected
   rejectedLeases <- readIORef leases
   clear

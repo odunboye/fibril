@@ -69,9 +69,9 @@ region substitution, malformed paths/results and fail-closed execution.
 
 A [host session registry](io-resource-session.md) and
 [trusted introduction runner](io-resource-execution.md) now create runtime
-regions and close scopes on represented body failure. Next implement
-ownership-returning reads with live-reference checks, then matching native
-resource execution before source exposure.
+regions and close scopes on represented body failure. Hosted
+[ownership-returning reads](io-owned-file-reads.md) now validate live generations.
+Matching native resource execution remains the next gate before source exposure.
 Native execution must enforce the same lifetime/cleanup contract. Only then
 expose scoped source primitives. This is not a subject-reduction proof,
 exception-safe source resource implementation or world-token IO.

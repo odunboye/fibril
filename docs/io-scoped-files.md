@@ -77,6 +77,7 @@ verifies that a host client cannot access the raw lease constructor.
 Abstract handle formation and the [inert ownership-returning core
 boundary](io-core-scope.md) now have typing regressions, including nested regions
 and existential escape. A [dedicated checked hosted runner](io-resource-execution.md)
-now introduces scope handles and checks their ownership return. Next add
-ownership-returning reads and corresponding native registry/cleanup tests. Keep source file
+now introduces scope handles and checks their ownership return. Hosted
+[ownership-returning reads](io-owned-file-reads.md) now validate live generations.
+Next implement corresponding native registry/cleanup tests. Keep source file
 primitives disabled until those gates pass. Console IO remains unchanged.

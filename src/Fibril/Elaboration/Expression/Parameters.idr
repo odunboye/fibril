@@ -70,8 +70,9 @@ mutual
   match position mapping prune BoolTrue BoolTrue solutions = Right solutions
   match position mapping prune BoolFalse BoolFalse solutions = Right solutions
   match position mapping prune ReadLine ReadLine solutions = Right solutions
-  match position mapping prune (FileHandleValue left) (FileHandleValue right) solutions =
-    if left == right then Right solutions else failure position
+  match position mapping prune (FileHandleValue left first) (FileHandleValue right second) solutions =
+    if left == right && first == second then Right solutions else failure position
+  match position mapping prune (ReadInputFile left) (ReadInputFile right) solutions = match position mapping prune left right solutions
   match position mapping prune StringType StringType solutions = Right solutions
   match position mapping prune (StringValue x) (StringValue y) solutions =
     if x == y then Right solutions else failure position
@@ -263,7 +264,7 @@ implicitArgumentType position (S fuel) context (StringValue _) = Right (Just Str
 implicitArgumentType position (S fuel) context BoolTrue = Right (Just BoolType)
 implicitArgumentType position (S fuel) context BoolFalse = Right (Just BoolType)
 implicitArgumentType position (S fuel) context ReadLine = Right (Just (IOType readResultType))
-implicitArgumentType position (S fuel) context (FileHandleValue identity) = Right (Just (FileHandleType (runtimeFileRegion identity)))
+implicitArgumentType position (S fuel) context (FileHandleValue identity _) = Right (Just (FileHandleType (runtimeFileRegion identity)))
 implicitArgumentType position (S fuel) context UnitValue = Right (Just UnitType)
 implicitArgumentType position (S fuel) context StringType = Right (Just (Universe 0))
 implicitArgumentType position (S fuel) context BoolType = Right (Just (Universe 0))

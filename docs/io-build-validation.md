@@ -19,7 +19,7 @@ Validation includes:
 - 108 existing full-CLI tests, including project creation and module/package paths;
 - 12 existing native-emitter tests;
 - 8 interactive tests against the actual built CLI, including emitted C;
-- 224 focused hosted checks plus constructor-opacity and flush/stdin smoke tests;
+- 245 focused hosted checks plus constructor-opacity and flush/stdin smoke tests;
 - 17 direct native runtime tests;
 - seven compiled output-only examples and seven interactive source-level
   hosted/native comparisons.
@@ -37,7 +37,10 @@ A minimal YAML import checks with its transitive packages, so the earlier
 attribution to YAML was not supported. Once compilation progressed, it exposed
 an emitter-refactoring regression: `Driver.Native` lacked an explicit import of
 `Core.Term`. That import is restored, and the complete Main module and executable
-now build. No shared package state or other worktree was changed for these fixes.
+now build. The experimental resource driver is also kept in Main's import
+closure so application-package builds include the library interfaces needed by
+the installed test dependency; no resource CLI command is exposed by that import.
+No other worktree was changed for these fixes.
 
 These tests establish observed behavior, not quantitative preservation, a verified
 backend, malformed-input equivalence or exception-safe linear resource ownership.

@@ -9,7 +9,8 @@ import Fibril.Core.Quantity
 mutual
   public export
   containsFileReference : Term n -> Bool
-  containsFileReference (FileHandleValue _) = True
+  containsFileReference (FileHandleValue _ _) = True
+  containsFileReference (ReadInputFile handle) = containsFileReference handle
   containsFileReference (Variable _) = False
   containsFileReference (Universe _) = False
   containsFileReference UnitType = False

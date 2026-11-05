@@ -70,7 +70,8 @@ transfer and quantity/region rejection cases. An [inert core scope boundary](io-
 checks ownership-returning callbacks. A [host session registry](io-resource-session.md)
 handles cleanup on represented interpreter failure. A [dedicated hosted resource
 runner](io-resource-execution.md) now introduces checked scope handles and
-validates their ownership return; source handle creation is still disabled.
+validates their ownership return. Hosted [ownership-returning file reads](io-owned-file-reads.md)
+now advance live generations; source handle creation is still disabled.
 
 ## 2. Design incremental execution and richer effects
 
@@ -149,7 +150,7 @@ reusable authority or a linear resource. An effect label is not an OS sandbox.
 This document consolidates requirements; it does not implement those milestones.
 The current branch has a proposed ownership document, hosted planner budget
 changes and checked hosted stdout flushing. Run `python3 tools/test_io_hosted.py`
-from the repository root for 224 core IO, console argument, sequence, script, input and resource checks,
+from the repository root for 245 core IO, console argument, sequence, script, input and resource checks,
 plus real C `fflush` and checked-core stdin (Unicode CRLF/EOF/length failure)
 smoke tests on Chez. These pass, including direct-core
 64/65-write boundaries, injected write/flush failures, ordering and empty-plan

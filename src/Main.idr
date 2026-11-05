@@ -10,6 +10,9 @@ import Fibril.Driver.CheckReport
 import Fibril.Driver.Evaluate
 import Fibril.Driver.Run
 import Fibril.Driver.Interactive.Run
+-- Keep the experimental resource library in the application package's build
+-- closure so installed test dependencies include it; no CLI command exposes it.
+import Fibril.Driver.Resource
 import Fibril.Driver.Native
 import Fibril.Driver.Test
 import Fibril.Driver.ModuleGraph

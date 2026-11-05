@@ -21,6 +21,7 @@ import Tests.IO
 import Tests.ReadLine
 import Tests.ResourceScope
 import Tests.ResourceExecution
+import Tests.OwnedRead
 import Tests.HandleOwnership
 import Tests.ScopedOwnership
 import Tests.ConsoleArguments
@@ -42,8 +43,9 @@ main = do
       lines <- runInputFileChecks path
       scoped <- runScopedInputChecks path
       executed <- runResourceExecutionChecks path
-      pure (lines ++ scoped ++ executed)
-  let results = Tests.IO.checks ++ Tests.ReadLine.checks ++ Tests.HandleOwnership.checks ++ Tests.ScopedOwnership.checks ++ Tests.ConsoleArguments.checks ++
+      owned <- runOwnedReadChecks path
+      pure (lines ++ scoped ++ executed ++ owned)
+  let results = Tests.IO.checks ++ Tests.ReadLine.checks ++ Tests.HandleOwnership.checks ++ Tests.ScopedOwnership.checks ++ Tests.OwnedRead.checks ++ Tests.ConsoleArguments.checks ++
                 Tests.ConsoleSequence.checks ++ Tests.ConsoleScript.checks ++
                 Tests.ConsoleInput.checks ++ hostChecks ++ scriptHostChecks ++ resourceChecks ++ inputChecks
   traverse_ (\(label, ok) => putStrLn ((if ok then "PASS: " else "FAIL: ") ++ label)) results
@@ -106,6 +108,8 @@ def main():
         (work / "Main.idr").write_text(PROGRAM, encoding="utf-8")
         fixture = work / "input.txt"
         fixture.write_bytes("hello\n\nλ 🌍\r\nlast\r".encode("utf-8"))
+        (work / "input.txt.empty").write_bytes(b"")
+        (work / "input.txt.long").write_bytes(b"x" * 8193 + b"\n")
         env["FIBRIL_IO_INPUT_FIXTURE"] = str(fixture)
         result = subprocess.run(
             shlex.split(env.get("IDRIS2", "idris2")) +
@@ -122,9 +126,10 @@ def main():
         for module, exported_type, constructor in [
             ("ForgeScope", "ScopedInput", "InputLease"),
             ("ForgeSession", "InputSession", "Session"),
+            ("ForgeOwnership", "InputOwnershipTable", "Table"),
         ]:
             (work / f"{module}.idr").write_text(
-                f"module {module}\nimport Fibril.Runtime.ScopedInput\n"
+                f"module {module}\nimport Fibril.Runtime.ScopedInput\nimport Fibril.Runtime.InputOwnership\n"
                 f"bad : {exported_type}\nbad = {constructor}\n", encoding="utf-8",
             )
             rejected = subprocess.run(

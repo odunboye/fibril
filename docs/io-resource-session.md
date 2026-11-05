@@ -40,5 +40,6 @@ Compile-negative checks verify opacity of both lease and session constructors.
 
 The dedicated resource runner now connects checked core scopes to session-backed
 execution, introduces internal region/handle references and validates ownership
-return. Next implement ownership-returning reads and matching native cleanup. Current source file operations stay
+return. Hosted [ownership-returning reads](io-owned-file-reads.md) now check live
+reference generations. Matching native cleanup remains a next gate. Current source file operations stay
 disabled until those gates are tested.

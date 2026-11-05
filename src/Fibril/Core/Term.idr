@@ -48,7 +48,9 @@ data Term : Nat -> Type where
   ||| Opaque file ownership indexed by an erased small region type. No value constructor.
   FileHandleType : Term n -> Term n
   ||| Trusted runtime reference only; no source constructor or raw file pointer.
-  FileHandleValue : Nat -> Term n
+  FileHandleValue : Nat -> Nat -> Term n
+  ||| Consume ownership and return its successor alongside a line/EOF/error result.
+  ReadInputFile : Term n -> Term n
   ||| Inert scope: result type, path and region-polymorphic ownership-returning body.
   WithInputFile : Term n -> Term n -> Term n -> Term n
   IOPure : Term n -> Term n
@@ -86,6 +88,11 @@ public export
 runtimeFileRegion : Nat -> Term n
 runtimeFileRegion identity = NominalType ("$fibril.file-region." ++ show identity) [] (VariantType [Nothing])
 
+||| A successful read operation always returns ownership, including EOF/read errors.
+public export
+fileReadResultType : Term n -> Term n
+fileReadResultType region = Sigma Linear Linear (FileHandleType region) readResultType
+
 ||| Scope result: open failure, success, or result plus cleanup failure.
 public export
 fileScopeResultType : Term n -> Term n
@@ -111,7 +118,8 @@ mutual
   rename env BoolTrue = BoolTrue
   rename env BoolFalse = BoolFalse
   rename env ReadLine = ReadLine
-  rename env (FileHandleValue identity) = FileHandleValue identity
+  rename env (FileHandleValue identity generation) = FileHandleValue identity generation
+  rename env (ReadInputFile handle) = ReadInputFile (rename env handle)
   rename env StringType = StringType
   rename env (StringValue value) = StringValue value
   rename env (StringAppend left right) = StringAppend (rename env left) (rename env right)
@@ -171,7 +179,8 @@ mutual
   substituteTerm env BoolTrue = BoolTrue
   substituteTerm env BoolFalse = BoolFalse
   substituteTerm env ReadLine = ReadLine
-  substituteTerm env (FileHandleValue identity) = FileHandleValue identity
+  substituteTerm env (FileHandleValue identity generation) = FileHandleValue identity generation
+  substituteTerm env (ReadInputFile handle) = ReadInputFile (substituteTerm env handle)
   substituteTerm env StringType = StringType
   substituteTerm env (StringValue value) = StringValue value
   substituteTerm env (StringAppend left right) =
@@ -238,7 +247,8 @@ mutual
   sameSyntax BoolTrue BoolTrue = True
   sameSyntax BoolFalse BoolFalse = True
   sameSyntax ReadLine ReadLine = True
-  sameSyntax (FileHandleValue left) (FileHandleValue right) = left == right
+  sameSyntax (FileHandleValue left first) (FileHandleValue right second) = left == right && first == second
+  sameSyntax (ReadInputFile left) (ReadInputFile right) = sameSyntax left right
   sameSyntax StringType StringType = True
   sameSyntax (StringValue left) (StringValue right) = left == right
   sameSyntax (StringAppend a b) (StringAppend c d) = sameSyntax a c && sameSyntax b d

@@ -32,7 +32,8 @@ mutual
   renameAfterSubstitution env sigma BoolTrue = Refl
   renameAfterSubstitution env sigma BoolFalse = Refl
   renameAfterSubstitution env sigma ReadLine = Refl
-  renameAfterSubstitution env sigma (FileHandleValue _) = Refl
+  renameAfterSubstitution env sigma (FileHandleValue _ _) = Refl
+  renameAfterSubstitution env sigma (ReadInputFile handle) = cong ReadInputFile (renameAfterSubstitution env sigma handle)
   renameAfterSubstitution env sigma StringType = Refl
   renameAfterSubstitution env sigma (StringValue _) = Refl
   renameAfterSubstitution env sigma (WithInputFile result path body) = rewrite renameAfterSubstitution env sigma result in rewrite renameAfterSubstitution env sigma path in rewrite renameAfterSubstitution env sigma body in Refl
@@ -124,7 +125,8 @@ mutual
   substituteAfterRenaming env sigma BoolTrue = Refl
   substituteAfterRenaming env sigma BoolFalse = Refl
   substituteAfterRenaming env sigma ReadLine = Refl
-  substituteAfterRenaming env sigma (FileHandleValue _) = Refl
+  substituteAfterRenaming env sigma (FileHandleValue _ _) = Refl
+  substituteAfterRenaming env sigma (ReadInputFile handle) = cong ReadInputFile (substituteAfterRenaming env sigma handle)
   substituteAfterRenaming env sigma StringType = Refl
   substituteAfterRenaming env sigma (StringValue _) = Refl
   substituteAfterRenaming env sigma (WithInputFile result path body) = rewrite substituteAfterRenaming env sigma result in rewrite substituteAfterRenaming env sigma path in rewrite substituteAfterRenaming env sigma body in Refl
@@ -226,7 +228,8 @@ mutual
   substituteComposition first second BoolTrue = Refl
   substituteComposition first second BoolFalse = Refl
   substituteComposition first second ReadLine = Refl
-  substituteComposition first second (FileHandleValue _) = Refl
+  substituteComposition first second (FileHandleValue _ _) = Refl
+  substituteComposition first second (ReadInputFile handle) = cong ReadInputFile (substituteComposition first second handle)
   substituteComposition first second StringType = Refl
   substituteComposition first second (StringValue _) = Refl
   substituteComposition first second (WithInputFile result path body) = rewrite substituteComposition first second result in rewrite substituteComposition first second path in rewrite substituteComposition first second body in Refl

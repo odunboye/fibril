@@ -31,7 +31,8 @@ mutual
   payloadWeight env BoolTrue = 0
   payloadWeight env BoolFalse = 0
   payloadWeight env ReadLine = 0
-  payloadWeight env (FileHandleValue _) = 0
+  payloadWeight env (FileHandleValue _ _) = 0
+  payloadWeight env (ReadInputFile handle) = payloadWeight env handle
   payloadWeight env StringType = 0
   payloadWeight env (StringValue value) = cap (length value)
   payloadWeight env (StringAppend a b) = cap (payloadWeight env a + payloadWeight env b)

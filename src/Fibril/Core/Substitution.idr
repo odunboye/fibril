@@ -31,7 +31,8 @@ mutual
   substituteCongruent left right agree BoolTrue = Refl
   substituteCongruent left right agree BoolFalse = Refl
   substituteCongruent left right agree ReadLine = Refl
-  substituteCongruent left right agree (FileHandleValue _) = Refl
+  substituteCongruent left right agree (FileHandleValue _ _) = Refl
+  substituteCongruent left right agree (ReadInputFile handle) = cong ReadInputFile (substituteCongruent left right agree handle)
   substituteCongruent left right agree StringType = Refl
   substituteCongruent left right agree (StringValue _) = Refl
   substituteCongruent left right agree (WithInputFile result path body) = rewrite substituteCongruent left right agree result in rewrite substituteCongruent left right agree path in rewrite substituteCongruent left right agree body in Refl
@@ -114,7 +115,8 @@ mutual
   renameAsSubstitution env BoolTrue = Refl
   renameAsSubstitution env BoolFalse = Refl
   renameAsSubstitution env ReadLine = Refl
-  renameAsSubstitution env (FileHandleValue _) = Refl
+  renameAsSubstitution env (FileHandleValue _ _) = Refl
+  renameAsSubstitution env (ReadInputFile handle) = cong ReadInputFile (renameAsSubstitution env handle)
   renameAsSubstitution env StringType = Refl
   renameAsSubstitution env (StringValue _) = Refl
   renameAsSubstitution env (WithInputFile result path body) = rewrite renameAsSubstitution env result in rewrite renameAsSubstitution env path in rewrite renameAsSubstitution env body in Refl

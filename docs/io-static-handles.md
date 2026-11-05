@@ -59,6 +59,7 @@ Existing console execution is unchanged.
 The [inert core scope boundary](io-core-scope.md) now checks a region-polymorphic
 callback that returns matching ownership, with nested-region and existential
 escape regressions. A [hosted runner](io-resource-execution.md) now introduces
-internal handles and checks their ownership return. Next add ownership-returning
-reads, native execution and source exposure. See
+internal handles and checks their ownership return. Hosted
+[ownership-returning reads](io-owned-file-reads.md) now advance live generations.
+Native execution and source exposure remain gated. See
 [io-scoped-files.md](io-scoped-files.md) for the proposed protocol and limitations.

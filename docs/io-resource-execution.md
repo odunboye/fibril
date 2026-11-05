@@ -19,8 +19,10 @@ load-bearing. IDs are fresh within a single run, not globally persistent names.
 The execution result is Unit and escaped host leases are revoked at session exit.
 
 The runner instantiates the checked region-polymorphic body with that region
-and handle. After body interpretation it checks the ownership pair against the
-expected region/type and explicitly checks the returned handle ID before
+and a generation-zero handle. [Ownership-returning reads](io-owned-file-reads.md)
+now advance generations and reject stale/unknown/revoked references. After body interpretation it checks the ownership pair against the
+expected region/type and explicitly checks the returned handle ID and live
+generation before
 releasing the corresponding lease. No raw host file pointer occurs in a term.
 
 ## Results and cleanup
@@ -50,7 +52,7 @@ regions, primary plus cleanup-state errors, cleanup-result handling and rejectio
 of injected runtime references. Existing file/session tests separately cover
 revocation, opacity and scope outcome preservation.
 
-Next implement ownership-returning file reads and live-reference checks, then
-matching native resource registration and cleanup. Only after those paths pass
+Ownership-returning file reads and live-reference checks now execute in the
+hosted runner. Next implement matching native resource registration and cleanup. Only after those paths pass
 should source scope/file primitives be exposed. This runner is not a completed
 linear-resource semantics, verified backend or world-token IO implementation.
