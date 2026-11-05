@@ -1,7 +1,7 @@
 PACK ?= pack
 IDRIS2 ?= idris2
 
-.PHONY: prelude prelude-check build test native-test editor-test examples bench bench-smoke python-embed-test docs handbook serve-docs clean
+.PHONY: prelude prelude-check build test io-test native-test editor-test examples bench bench-smoke python-embed-test docs handbook serve-docs clean
 prelude:
 	python3 tools/embed_prelude.py
 
@@ -15,6 +15,12 @@ test: build
 	$(PACK) test fibril
 	python3 tools/test_cli.py
 	CC="$(CC)" python3 tools/test_native.py
+
+# Focused IO checks without pack/YAML; includes source-to-C differential tests.
+io-test:
+	IDRIS2="$(IDRIS2)" python3 tools/test_io_hosted.py
+	CC="$(CC)" python3 tools/test_io_native_runtime.py
+	IDRIS2="$(IDRIS2)" CC="$(CC)" python3 tools/test_io_emitter.py
 
 native-test: build
 	CC="$(CC)" python3 tools/test_native.py

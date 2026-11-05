@@ -43,6 +43,8 @@ import Tests.Sigma
 import Tests.Qualified
 import Tests.Rename
 import Tests.Console
+import Tests.ConsoleInput
+import Tests.ConsoleScript
 import Tests.ConsoleSequence
 import Tests.String
 import Tests.ConsoleArguments
@@ -335,8 +337,9 @@ checks =
 main : IO ()
 main = do
   sequenceChecks <- runSequenceChecks
+  scriptHostChecks <- runScriptHostChecks
   projectChecks <- runProjectChecks
-  let failed = filter (not . snd) (Tests.Main.checks ++ Tests.Reduction.checks ++ Tests.Erased.checks ++ Tests.Runtime.checks ++ Tests.Pretty.checks ++ Tests.SourceText.checks ++ Tests.UTF8.checks ++ Tests.Lexer.checks ++ Tests.Frontend.checks ++ Tests.Compatibility.checks ++ Tests.Evaluate.checks ++ Tests.Let.checks ++ Tests.Unit.checks ++ Tests.UnitCase.checks ++ Tests.Boolean.checks ++ Tests.Alternatives.checks ++ Tests.Diagnostic.checks ++ Tests.CheckDiagnostic.checks ++ Tests.CheckReport.checks ++ Tests.Renaming.checks ++ Tests.Substitution.checks ++ Tests.SubstitutionComposition.checks ++ Tests.Beta.checks ++ Tests.Fuel.checks ++ Tests.Declaration.checks ++ Tests.Document.checks ++ Tests.ConstructorPattern.checks ++ Tests.MotiveScope.checks ++ Tests.Manifest.checks ++ Tests.Workspace.checks ++ Tests.DataCaseParser.checks ++ Tests.DataSchema.checks ++ Tests.DataDeclaration.checks ++ Tests.Nominal.checks ++ Tests.Variant.checks ++ Tests.Box.checks ++ Tests.Sigma.checks ++ Tests.Qualified.checks ++ Tests.Rename.checks ++ Tests.Console.checks ++ Tests.ConsoleSequence.checks ++ Tests.String.checks ++ Tests.ConsoleArguments.checks ++ Tests.IO.checks ++ sequenceChecks ++ projectChecks)
+  let failed = filter (not . snd) (Tests.Main.checks ++ Tests.Reduction.checks ++ Tests.Erased.checks ++ Tests.Runtime.checks ++ Tests.Pretty.checks ++ Tests.SourceText.checks ++ Tests.UTF8.checks ++ Tests.Lexer.checks ++ Tests.Frontend.checks ++ Tests.Compatibility.checks ++ Tests.Evaluate.checks ++ Tests.Let.checks ++ Tests.Unit.checks ++ Tests.UnitCase.checks ++ Tests.Boolean.checks ++ Tests.Alternatives.checks ++ Tests.Diagnostic.checks ++ Tests.CheckDiagnostic.checks ++ Tests.CheckReport.checks ++ Tests.Renaming.checks ++ Tests.Substitution.checks ++ Tests.SubstitutionComposition.checks ++ Tests.Beta.checks ++ Tests.Fuel.checks ++ Tests.Declaration.checks ++ Tests.Document.checks ++ Tests.ConstructorPattern.checks ++ Tests.MotiveScope.checks ++ Tests.Manifest.checks ++ Tests.Workspace.checks ++ Tests.DataCaseParser.checks ++ Tests.DataSchema.checks ++ Tests.DataDeclaration.checks ++ Tests.Nominal.checks ++ Tests.Variant.checks ++ Tests.Box.checks ++ Tests.Sigma.checks ++ Tests.Qualified.checks ++ Tests.Rename.checks ++ Tests.Console.checks ++ Tests.ConsoleSequence.checks ++ Tests.ConsoleScript.checks ++ Tests.ConsoleInput.checks ++ Tests.String.checks ++ Tests.ConsoleArguments.checks ++ Tests.IO.checks ++ sequenceChecks ++ scriptHostChecks ++ projectChecks)
   case failed of
     [] => do
       putStrLn "Deterministic bootstrap regressions passed."
