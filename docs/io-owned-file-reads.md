@@ -1,8 +1,8 @@
 # Ownership-returning hosted file reads
 
-Status: checked core read operation and hosted execution. A
-[trusted native resource runtime](io-native-resources.md) now has direct tests;
-checked native resource emission and source file primitives remain disabled.
+Status: checked core read operation, hosted execution and
+[checked native resource emission](io-resource-emission.md) with differential
+tests. Source file primitives remain disabled.
 
 ## Core operation
 
@@ -45,8 +45,9 @@ reference admission prevents source references being supplied across runs.
 
 ## Input and failure behavior
 
-The hosted adapter uses the existing LF/CRLF, EOF and Unicode behavior, with a
-post-decoding 8192-character limit in the resource runner. Overlong lines have
+Both adapters use LF/CRLF and EOF distinctions, bounded byte capture and strict
+UTF-8 decoding, with an 8192-character limit in the resource runner. NUL text is
+rejected rather than truncated; valid U+FFFD is preserved. Overlong lines have
 already been consumed. Their represented error still carries successor ownership
 and can be followed by another read. Unknown/stale/revoked references instead
 stop interpretation; enclosing scopes still perform cleanup.
@@ -59,8 +60,9 @@ position after a stale read, continued ownership after read failure, EOF, closed
 leases and real checked scopes reading/closing files. A compile-negative check
 verifies that clients cannot construct the ownership table.
 
-Native handle/pair representation, generation checks and scoped cleanup now
-have direct runtime tests. Next implement checked resource emission and
-hosted/native differential tests before exposing source scoped-file APIs.
+Native handle/pair representation, generation checks and scoped cleanup have
+direct runtime tests. Checked resource emission now has 25 hosted/native cases,
+including two reads and reads after text errors or buffer overflow. Source
+scoped-file API design and capability/cleanup contracts remain separate gates.
 This is not world-token IO, general exception-safe cleanup, an OS sandbox or a
 verified backend.

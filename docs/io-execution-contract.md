@@ -15,6 +15,8 @@ This is an observable implementation contract, not a preservation proof.
   newline. Bind supplies the earlier action's result to its continuation.
 - Admit at most 64 writes. Hosted and native resource/reduction budgets otherwise
   differ; matching admission for every well-typed program is not promised.
+- Reject NUL text before writing rather than silently truncating it. This is
+  text output, not binary IO.
 - Stop on represented write failure. After successful sequencing, including an
   empty plan, flush stdout and report flush failure. Do not retry writes or
   explicitly perform the final flush after a reported write failure.
@@ -34,21 +36,22 @@ capability ownership and cleanup after partial effects.
 
 ## Evidence
 
-Run `make -j8 io-test`. Its five suites build in independent temporary
+Run `make -j8 io-test`. Its six suites build in independent temporary
 directories and can run concurrently:
 
-- 246 hosted core IO/argument/sequence/script/input/resource checks, plus a real flush smoke
-  test and three checked-core stdin smoke tests (Unicode CRLF, EOF and input
-  length failure);
-- 17 direct C runtime tests for output planning and the separate interactive
+- 258 hosted core IO/argument/sequence/script/input/resource checks, plus real
+  flush and five checked-core stdin smoke tests;
+- 19 direct C runtime tests for output planning and the separate interactive
   runtime, including UTF-8, EOF, read failure, length/request limits, prompt
   visibility, late-result output suppression and broken-pipe flush failure;
-- 23 separate trusted-C resource runtime tests (not checked resource emission),
+- 25 separate trusted-C resource runtime tests (not checked resource emission),
   detailed in [io-native-resources.md](io-native-resources.md);
 - seven source-to-C examples whose compiled stdout matches the hosted plan,
   covering sequencing, helpers, do lets/results, computed strings and IO map;
-- seven source-level hosted/native interactive file-driver comparisons, described separately
-  in [io-native-input.md](io-native-input.md), not governed by preflight semantics.
+- ten source-level hosted/native interactive file-driver comparisons, described
+  in [io-native-input.md](io-native-input.md), not governed by preflight semantics;
+- 25 checked-core resource comparisons through explicit resource emission,
+  described in [io-resource-emission.md](io-resource-emission.md).
 
 The hosted checks include rejecting an over-budget write before normalizing its
 expensive text. The broken-pipe harness ignores SIGPIPE so stdio can return its
@@ -58,6 +61,5 @@ is not promised to become a represented error.
 The direct C fixtures bypass elaboration and emission and intentionally include
 an invalid result to exercise defensive runtime checks. They do not establish
 that such a result can pass source checking. The separate source-to-C tests exercise checked emission through
-`Driver.Native.Emit`, extracted unchanged from `Driver.Native` (which re-exports
-it). They avoid project loading. The full CLI/package/module suites also pass;
+`Driver.Native.Emit`, re-exported by `Driver.Native`. They avoid project loading. The full CLI/package/module suites also pass;
 see [build validation](io-build-validation.md) for the separate full-suite scope.

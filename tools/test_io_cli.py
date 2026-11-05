@@ -40,6 +40,17 @@ class InteractiveCLITests(unittest.TestCase):
         self.assertEqual(result.stdout, "prompt\nreceived:λ 🌍\n".encode())
         self.assertEqual(result.stderr, b"")
 
+    def test_text_input_errors_are_not_truncated_or_replaced(self):
+        for supplied, message in [
+            (b"a\0b\n", b"Console input contains NUL"),
+            (b"\xff\n", b"Console input is not valid UTF-8"),
+        ]:
+            with self.subTest(supplied=supplied):
+                result = run_cli("run-interactive", EXAMPLE, supplied=supplied)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.stdout, b"prompt\nerror:" + message + b"\n")
+                self.assertEqual(result.stderr, b"")
+
     def test_source_eof(self):
         result = run_cli("run-interactive", EXAMPLE)
         self.assertEqual(result.returncode, 0, result.stderr)

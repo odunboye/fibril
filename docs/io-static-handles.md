@@ -44,7 +44,7 @@ syntax/type errors as false evidence of resource rejection.
 ## What this does not establish
 
 `FileHandle region` is not intrinsically linear independent of its binder.
-The future trusted introduction boundary must supply ownership at quantity 1
+Trusted introduction boundaries must supply ownership at quantity 1
 and preserve that discipline in every operation. A source helper declared with
 an unrestricted handle parameter does not magically become linear.
 
@@ -53,8 +53,8 @@ resource runner now introduces per-run internal region identities and maps
 scope ownership to host leases, but there is no source scope operation. Users
 may write equal concrete region arguments; this type constructor alone does
 not establish fresh scope identities. The native runtime now has a private
-handle registry, but checked resource emission remains disabled.
-Existing console execution is unchanged.
+handle registry and [checked resource emission](io-resource-emission.md).
+Existing console-only resource gates are unchanged.
 
 ## Next gate
 
@@ -63,6 +63,7 @@ callback that returns matching ownership, with nested-region and existential
 escape regressions. A [hosted runner](io-resource-execution.md) now introduces
 internal handles and checks their ownership return. Hosted
 [ownership-returning reads](io-owned-file-reads.md) now advance live generations.
-The [native resource runtime](io-native-resources.md) has direct tests; checked
-native emission and source exposure remain gated. See
+The [native resource runtime](io-native-resources.md) has direct tests, and checked
+resource emission has hosted/native comparisons. Source exposure still requires
+an ergonomic owned-result API and capability/cleanup contracts. See
 [io-scoped-files.md](io-scoped-files.md) for the proposed protocol and limitations.

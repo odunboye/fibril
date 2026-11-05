@@ -24,6 +24,7 @@ readBody : Term 0
 readBody = Lambda Erased (Universe 0)
   (Lambda Linear (FileHandleType (Variable FZ)) (ReadInputFile (Variable FZ)))
 
+public export
 readHandler : Term 0
 readHandler = Lambda Linear readResultType
   (VariantCase (Lambda Erased readResultType (IOType UnitType)) (Variable FZ)
@@ -31,6 +32,7 @@ readHandler = Lambda Linear readResultType
      Lambda Linear StringType (WriteLine (Variable FZ)),
      Lambda Linear StringType (WriteLine (Variable FZ))])
 
+public export
 readEntry : String -> Term 0
 readEntry path = IOBind (fileScopeResultType readResultType) UnitType
   (WithInputFile readResultType (StringValue path) readBody)

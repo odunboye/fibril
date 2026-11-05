@@ -66,11 +66,12 @@ on success. Input can block; no timeout, sandbox or crash guarantee is provided.
 
 Empty lines differ from EOF. LF/CRLF terminators are stripped; unterminated final
 lines and bare final CR are preserved. Overlong lines are consumed and return an
-error. Hosted length checks occur after allocation/decoding; native buffering is
-bounded. Native rejects malformed UTF-8, while hosted decoding follows Idris/Chez;
-only well-formed UTF-8 parity is currently tested.
+error. Both adapters bound captured bytes, strictly decode scalar UTF-8 and
+reject embedded NUL instead of silently truncating text. They preserve valid
+U+FFFD. Text writes also reject NUL; this is not binary IO. Draining an overlong
+line still has no elapsed-time bound.
 
-`make io-test` includes seven source-level hosted/native comparisons using the
+`make -j8 io-test` includes ten source-level hosted/native comparisons using the
 standalone file drivers, including EOF, Unicode and length failures. Full CLI
 argument dispatch is covered by `make -j8 io-cli-test`; existing project/package
 regressions also pass. Interactive package/source-dir options remain unsupported.

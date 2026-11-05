@@ -90,7 +90,12 @@ static FValue *loop(FRuntime *r, FEnv *e);
 static FValue *loop_function(FRuntime *r, FEnv *e) { return f_lambda(r, e, 0, loop); }
 static FValue *loop(FRuntime *r, FEnv *e) { return f_apply(r, e, loop_function, unit); }
 static FValue *growing_value(FRuntime *r, FEnv *e) { (void)r; (void)e; return growing; }
+static FValue *nul_text(FRuntime *r, FEnv *e) {
+  static const unsigned char bytes[] = {'a', 0, 'b'};
+  (void)e; return f_literal(r, bytes, sizeof(bytes));
+}
 static FValue *body(FRuntime *r, FEnv *e) {
+  if (mode == 32) return f_write(r, e, nul_text);
   if (mode == 1 || mode == 8) return read0(r, e);
   if (mode == 2) return f_bind(r, e, read0, stale_next);
   if (mode == 3) return unit_io(r, e);
@@ -185,10 +190,20 @@ class NativeResourceTests(unittest.TestCase):
         self.assertIn(b"OPEN_CALLS=0", result.stderr)
         self.assertEqual(closes, 0)
 
+    def test_nul_output_fails_and_closes_scope(self):
+        result = self.assert_failure_closed(32, b"Console output contains NUL")
+        self.assertEqual(result.stdout, b"")
+
     def test_owned_read_unicode_crlf(self):
         result, closes = self.run_scope(1, "λ 🌍\r\n".encode())
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual((result.stdout, closes), ("λ 🌍\n".encode(), 1))
+
+    def test_owned_read_rejects_nul_text_without_losing_ownership(self):
+        result, closes = self.run_scope(1, b"a\0b\n")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, b"File read failed: Console input contains NUL\n")
+        self.assertEqual(closes, 1)
 
     def test_owned_read_eof_and_empty_line(self):
         for contents, expected in [(b"", b"EOF\n"), (b"\n", b"\n")]:

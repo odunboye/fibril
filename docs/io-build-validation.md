@@ -5,15 +5,15 @@
 ```sh
 make -j8 build
 make -j8 io-cli-test
-make -j8 test io-test
+make -j8 test
+make -j8 io-test
 ```
 
-The full build and aggregate regression command passed at earlier checkpoints.
-For the native-resource runtime slice, aggregate runs hit 300/600-second deadlines
-without a reported test failure. Validation then passed in split runs: the
-unit/property phase completed, `python3 tools/test_cli.py -v` passed all 108 tests,
-and `make -j8 io-test io-cli-test native-test` passed. Do not interpret the timed-out
-aggregate commands themselves as passes.
+The current checked-resource-emission revision passes `make -j8 build`,
+`make -j8 test` and the complete focused `make -j8 io-test` separately. The full
+focused IO target also passes with address/undefined-behavior sanitizers enabled
+through CC. Earlier aggregate `test io-test` runs hit 300/600-second deadlines
+without a reported test failure; those timed-out invocations are not passes.
 
 The focused suites accept `IDRIS2=/path/to/installed/idris2` and build independently
 in temporary directories, allowing parallel execution.
@@ -24,12 +24,14 @@ Validation includes:
 - 27 property groups, each sampling 100 cases;
 - 108 existing full-CLI tests, including project creation and module/package paths;
 - 12 existing native-emitter tests;
-- 8 interactive tests against the actual built CLI, including emitted C;
-- 246 focused hosted checks plus constructor-opacity and flush/stdin smoke tests;
-- 17 direct console-native runtime tests and 23 resource-native runtime tests;
-- the 23 resource-native tests also pass with address/undefined-behavior sanitizers;
-- seven compiled output-only examples and seven interactive source-level
-  hosted/native comparisons.
+- 9 interactive tests against the actual built CLI, including emitted C;
+- 258 focused hosted checks plus constructor-opacity and flush/stdin smoke tests;
+- 19 direct console-native runtime tests and 25 resource-native runtime tests;
+- seven compiled output-only examples and ten interactive source-level comparisons;
+- 25 checked-core resource hosted/native comparisons, including real process
+  failure status, input-byte errors, ownership threading and visible prefixes;
+- all native portions of the focused IO target pass with address/undefined-behavior
+  sanitizers, including generated resource programs.
 
 ## Resolved build stall
 
@@ -50,4 +52,4 @@ the installed test dependency; no resource CLI command is exposed by that import
 No other worktree was changed for these fixes.
 
 These tests establish observed behavior, not quantitative preservation, a verified
-backend, malformed-input equivalence or exception-safe linear resource ownership.
+backend, an all-input equivalence theorem or exception-safe linear resource ownership.

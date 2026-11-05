@@ -10,6 +10,7 @@ import Fibril.Runtime.ScopedInput
 
 %default total
 
+public export
 returnUnit : Term 0
 returnUnit = Lambda Erased (Universe 0)
   (Lambda Linear (FileHandleType (Variable FZ))
@@ -17,6 +18,7 @@ returnUnit = Lambda Erased (Universe 0)
       (Sigma Linear Linear (FileHandleType (Variable (FS FZ))) UnitType)
       (Variable FZ) UnitValue)))
 
+public export
 scopeEntry : String -> Term 0 -> Term 0
 scopeEntry path body = IOBind (fileScopeResultType UnitType) UnitType
   (WithInputFile UnitType (StringValue path) body)
@@ -31,6 +33,7 @@ scopeEntry path body = IOBind (fileScopeResultType UnitType) UnitType
              (UnitCase (Variable (FS FZ)) (WriteLine (Variable FZ))))))]))
 
 -- Run a closed IO Unit action, then return the still-owned outer handle.
+public export
 thenReturn : Term 0 -> Term 0
 thenReturn action = Lambda Erased (Universe 0)
   (Lambda Linear (FileHandleType (Variable FZ))

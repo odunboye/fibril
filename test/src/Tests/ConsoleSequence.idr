@@ -139,7 +139,10 @@ runSequenceChecks = do
         pure (Left "injected input failure")
   readFailure <- readAfterFlush flush failedRead
   readFailureEvents <- readIORef seen
-  pure [("console prompt flush precedes input",
+  nulOutput <- executeConsole (PrintLine "a\0b")
+  pure [("console rejects NUL output instead of truncating it",
+          nulOutput == Left "Console output contains NUL"),
+        ("console prompt flush precedes input",
           readResult == Right (Just "response") && reverse readEvents == ["flush", "read"]),
         ("console prompt flush failure prevents input",
           blockedRead == Left "injected flush failure" && reverse blockedEvents == ["flush failed"]),

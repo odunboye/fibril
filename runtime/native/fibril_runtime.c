@@ -291,6 +291,7 @@ static FValue *read_line_from(FRuntime *r, FILE *input, size_t limit, int file_i
   if (length && bytes[length - 1] == '\n') {
     length--; if (length && bytes[length - 1] == '\r') length--;
   }
+  if (length && memchr(bytes, 0, length)) return input_error(r, file_input ? "File read failed: Console input contains NUL" : "Console input contains NUL");
   size_t characters;
   if (!utf8_count(bytes, length, &characters)) return input_error(r, file_input ? "File read failed: Console input is not valid UTF-8" : "Console input is not valid UTF-8");
   if (characters > limit) return input_error(r, file_input ? "File read failed: Console input line length limit exceeded" : "Console input line length limit exceeded");
@@ -393,6 +394,7 @@ static FThunk *interact(FRuntime *r, FValue *io, size_t *requests, size_t line_l
       else {
         FValue *text = force(r, io->as.io.first);
         if (!text || text->tag != V_STRING) fail(r, "native write expects a string");
+        else if (text->as.string.length && memchr(text->as.string.bytes, 0, text->as.string.length)) fail(r, "Console output contains NUL");
         else if ((text->as.string.length && fwrite(text->as.string.bytes, 1, text->as.string.length, stdout) != text->as.string.length) || fputc('\n', stdout) == EOF)
           fail(r, "native stdout write failed");
         else result = ready(r, f_unit(r));
@@ -456,6 +458,7 @@ int fibril_native_run(FEval entry) {
   FValue *unit = final ? force(&r, final) : NULL;
   if (!r.error && (!unit || unit->tag != V_UNIT)) fail(&r, "native main did not return unit");
   if (!r.error) for (FAction *a = r.head; a; a = a->next) {
+    if (a->length && memchr(a->bytes, 0, a->length)) { fail(&r, "Console output contains NUL"); break; }
     if ((a->length && fwrite(a->bytes, 1, a->length, stdout) != a->length) || fputc('\n', stdout) == EOF) {
       fail(&r, "native stdout write failed"); break;
     }

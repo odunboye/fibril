@@ -22,6 +22,7 @@ import Tests.ReadLine
 import Tests.ResourceScope
 import Tests.ResourceExecution
 import Tests.OwnedRead
+import Tests.ResourceEmission
 import Tests.HandleOwnership
 import Tests.ScopedOwnership
 import Tests.ConsoleArguments
@@ -45,7 +46,7 @@ main = do
       executed <- runResourceExecutionChecks path
       owned <- runOwnedReadChecks path
       pure (lines ++ scoped ++ executed ++ owned)
-  let results = Tests.IO.checks ++ Tests.ReadLine.checks ++ Tests.HandleOwnership.checks ++ Tests.ScopedOwnership.checks ++ Tests.OwnedRead.checks ++ Tests.ConsoleArguments.checks ++
+  let results = Tests.IO.checks ++ Tests.ReadLine.checks ++ Tests.HandleOwnership.checks ++ Tests.ScopedOwnership.checks ++ Tests.OwnedRead.checks ++ Tests.ResourceEmission.checks ++ Tests.ConsoleArguments.checks ++
                 Tests.ConsoleSequence.checks ++ Tests.ConsoleScript.checks ++
                 Tests.ConsoleInput.checks ++ hostChecks ++ scriptHostChecks ++ resourceChecks ++ inputChecks
   traverse_ (\(label, ok) => putStrLn ((if ok then "PASS: " else "FAIL: ") ++ label)) results
@@ -110,6 +111,9 @@ def main():
         fixture.write_bytes("hello\n\nλ 🌍\r\nlast\r".encode("utf-8"))
         (work / "input.txt.empty").write_bytes(b"")
         (work / "input.txt.long").write_bytes(b"x" * 8193 + b"\n")
+        (work / "input.txt.nul").write_bytes(b"a\0b\nnext\n")
+        (work / "input.txt.invalid").write_bytes(b"\xff\nnext\n")
+        (work / "input.txt.overflow").write_bytes(b"x" * 40000 + b"\nnext\n")
         env["FIBRIL_IO_INPUT_FIXTURE"] = str(fixture)
         result = subprocess.run(
             shlex.split(env.get("IDRIS2", "idris2")) +
@@ -147,6 +151,8 @@ def main():
         for label, supplied, expected in [
             ("Unicode CRLF input", "λ 🌍\r\n", "received:λ 🌍"),
             ("EOF", "", "EOF"),
+            ("NUL rejected", "a\0b\n", "error:Console input contains NUL"),
+            ("literal replacement character", "�\n", "received:�"),
             ("line length failure", "x" * 33 + "\n",
              "error:Console input line length limit exceeded"),
         ]:

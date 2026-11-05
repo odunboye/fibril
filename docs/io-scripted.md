@@ -65,11 +65,12 @@ format.
 line without its final LF or CRLF. Empty lines are `Just ""`; EOF is `Nothing`.
 An unterminated final line (including a bare trailing CR) is preserved. The
 adapter checks the host file error flag explicitly and does not conflate read
-failure with EOF. A supplied character limit is checked after reading and
-decoding: this is not a bounded-allocation or nonblocking input implementation.
-An overlong line has already been consumed. Decoding follows the host backend;
-Unicode behavior is tested on Chez, not specified for all backends or malformed
-input. The borrowed handle is never closed by the adapter.
+failure with EOF. Byte collection is capped at four times the supplied character
+limit plus CR/LF; decoded scalar length is checked afterwards. Overlong lines
+are drained without retaining further bytes. Strict UTF-8 decoding and explicit
+NUL rejection avoid C-string truncation. Valid U+FFFD is preserved. This is not
+binary IO, a total-allocation bound or a nonblocking implementation. The borrowed
+handle is never closed by the adapter; C-compatible execution is tested on Chez.
 
 `runInteractiveConsoleProgram` connects real stdin to the protocol with request
 fuel and a per-line limit. Before each read it flushes stdout; a flush failure
@@ -80,7 +81,7 @@ with Unicode CRLF input and EOF, plus injected prompt-flush ordering and errors.
 `Driver.Interactive.prepareInteractive` now bridges checked closed core
 `IO Unit` terms to incremental requests, including the inert core read request.
 See [io-core-input.md](io-core-input.md) for the distinct failure semantics and
-real stdin checks. Explicit native input lowering now has seven checked-core
+real stdin checks. Explicit native input lowering now has ten checked-core
 source-level differential cases; see [io-native-input.md](io-native-input.md).
 The [standalone source API](io-input.md) and full CLI validation are implemented;
 interactive package integration and stronger resource ownership remain separate work.

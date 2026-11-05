@@ -18,6 +18,18 @@ checks =
   , ("line terminator strips only one newline", stripLineTerminator "hello\n\n" == "hello\n")
   ]
 
+covering
+rejectedLine : String -> String -> IO Bool
+rejectedLine path expected = do
+  opened <- openFile path Read
+  case opened of
+    Left _ => pure False
+    Right handle => do
+      first <- readConsoleLine 32 handle
+      next <- readConsoleLine 32 handle
+      closeFile handle
+      pure (first == Left expected && next == Right (Just "next"))
+
 ||| The focused Python runner supplies an isolated fixture containing:
 ||| hello LF, empty LF, Unicode CRLF, then final bare-CR data without LF.
 public export
@@ -56,7 +68,13 @@ runInputFileChecks path = do
             Left _ => True
             Right _ => False
       _ <- removeFile (path ++ ".write-only")
-      pure [ ("real EOF response records and replays",
+      nul <- rejectedLine (path ++ ".nul") "Console input contains NUL"
+      invalid <- rejectedLine (path ++ ".invalid") "Console input is not valid UTF-8"
+      overflow <- rejectedLine (path ++ ".overflow") "Console input line length limit exceeded"
+      pure [ ("text input rejects NUL without truncation and retains next line", nul)
+           , ("text input rejects invalid UTF-8 and retains next line", invalid)
+           , ("text input drains an overflowing line without losing the next", overflow)
+           , ("real EOF response records and replays",
                 case (recordedEOF.outcome, replayedEOF.result) of
                   (Right (Right Nothing), Right (Right Nothing)) =>
                     length recordedEOF.transcript == 1 && null replayedEOF.remaining

@@ -59,6 +59,11 @@ static FValue *input_program(FRuntime *r, FEnv *e) { return f_bind(r, e, input_r
 static FValue *prompt_body(FRuntime *r, FEnv *e) { return f_unit_case(r, e, consume, input_program); }
 static FValue *prompt_next(FRuntime *r, FEnv *e) { return f_lambda(r, e, 0, prompt_body); }
 static FValue *interactive(FRuntime *r, FEnv *e) { return f_bind(r, e, write, prompt_next); }
+static FValue *nul_text(FRuntime *r, FEnv *e) {
+  static const unsigned char bytes[] = {'a', 0, 'b'};
+  (void)e; return f_literal(r, bytes, sizeof(bytes));
+}
+static FValue *nul_entry(FRuntime *r, FEnv *e) { return f_write(r, e, nul_text); }
 int main(int argc, char **argv) {
   if (argc != 3 && argc != 4) return 2;
   /* Observe represented stdio errors instead of process-level SIGPIPE death.
@@ -66,7 +71,7 @@ int main(int argc, char **argv) {
   signal(SIGPIPE, SIG_IGN);
   if (argc == 4) return fibril_native_interactive_run(interactive, (size_t)atoi(argv[1]), (size_t)atoi(argv[2]));
   remaining = atoi(argv[1]); bad_result = atoi(argv[2]);
-  return fibril_native_run(remaining == -1 ? unicode_entry : remaining == -2 ? ordered : chain);
+  return fibril_native_run(remaining == -1 ? unicode_entry : remaining == -2 ? ordered : remaining == -3 ? nul_entry : chain);
 }
 '''
 
@@ -97,6 +102,12 @@ class NativeIORuntimeTests(unittest.TestCase):
             [str(self.executable), str(requests), str(limit), "interactive"],
             input=supplied, capture_output=True, timeout=10,
         )
+
+    def test_preflight_rejects_nul_output_without_truncation(self):
+        result = self.run_plan(-3)
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(result.stdout, b"")
+        self.assertIn(b"Console output contains NUL", result.stderr)
 
     def test_interactive_unicode_crlf(self):
         result = self.run_interactive("λ 🌍\r\n".encode())
@@ -158,6 +169,11 @@ class NativeIORuntimeTests(unittest.TestCase):
         result = self.run_interactive("🌍🌍\n".encode(), limit=2)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout, "line\n🌍🌍\n".encode())
+
+    def test_interactive_nul_is_an_error_not_truncated_input(self):
+        result = self.run_interactive(b"a\0b\n")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, b"line\nConsole input contains NUL\n")
 
     def test_interactive_invalid_utf8_is_a_result(self):
         for supplied in [b"\xff\n", b"\xc0\x80\n", b"\xed\xa0\x80\n", b"\xf4\x90\x80\x80\n"]:

@@ -81,5 +81,7 @@ and existential escape. A [dedicated checked hosted runner](io-resource-executio
 now introduces scope handles and checks their ownership return. Hosted
 [ownership-returning reads](io-owned-file-reads.md) now validate live generations.
 The [native registry and cleanup runtime](io-native-resources.md) now has direct
-tests. Next enable checked resource emission and differential validation. Keep source file
-primitives disabled until those gates pass. Console IO remains unchanged.
+tests. [Checked resource emission](io-resource-emission.md) now has 25 hosted/native
+comparisons, including text errors and successor ownership. Next design source
+owned-result eliminators and explicit capability/cleanup contracts; file primitives
+remain disabled. Existing console-only resource gates remain unchanged.

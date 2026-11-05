@@ -2,6 +2,7 @@
 module Fibril.Runtime.Console
 
 import System.File
+import Data.List
 import Fibril.Effect.Console
 import Fibril.Effect.ConsoleProgram
 
@@ -24,7 +25,8 @@ flushStdout = do
 ||| validation is separate, not a sandbox/atomic-output or real-time guarantee.
 public export
 executeConsole : ConsoleAction -> IO (Either String ())
-executeConsole (PrintLine text) = do
+executeConsole (PrintLine text) = if elem '\0' (unpack text)
+  then pure (Left "Console output contains NUL") else do
   result <- fPutStrLn stdout text
   pure $ case result of
     Left err => Left ("Console output failed: " ++ show err)

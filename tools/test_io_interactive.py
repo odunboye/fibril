@@ -80,6 +80,9 @@ def main():
         cases = [
             ("Unicode CRLF", "λ 🌍\r\n", "received:λ 🌍"),
             ("EOF", "", "EOF"),
+            ("NUL input rejected", "a\0b\n", "error:Console input contains NUL"),
+            ("invalid UTF-8 rejected", b"\xff\n", "error:Console input is not valid UTF-8"),
+            ("literal replacement scalar", "�\n", "received:�"),
             ("empty line", "\n", "received:"),
             ("unterminated line", "hello", "received:hello"),
             ("bare final CR", "hello\r", "received:hello\r"),
@@ -87,7 +90,7 @@ def main():
             ("Unicode length boundary", "🌍" * 8192 + "\n", "received:" + "🌍" * 8192),
         ]
         for label, supplied, reply in cases:
-            encoded = supplied.encode("utf-8")
+            encoded = supplied if isinstance(supplied, bytes) else supplied.encode("utf-8")
             hosted = subprocess.run(
                 command, cwd=work, env=env, input=encoded, capture_output=True, timeout=180,
             )

@@ -26,17 +26,17 @@ Native input:
 - preserves an unterminated line, including a final bare CR;
 - distinguishes empty input lines from EOF and host read errors;
 - validates scalar UTF-8 and counts decoded characters;
-- returns malformed UTF-8 as an input-error value;
+- returns malformed UTF-8 and embedded NUL as input-error values;
 - bounds its per-line byte buffer by four times the character limit plus two;
 - consumes through newline/EOF even when a line exceeds buffer capacity, then
   returns a length error. This draining can block without a timeout.
 
-The host adapter instead checks length after host decoding/allocation, and
-malformed-input decoding follows Idris/Chez. Only the documented well-formed
-UTF-8 subset is a current cross-backend compatibility target. No source/native
-input equivalence theorem is claimed.
+The hosted adapter now uses bounded byte collection and the strict scalar
+UTF-8 decoder, rather than C-string-based line decoding. Both adapters reject
+NUL text without truncation and preserve valid U+FFFD. Text output also rejects
+NUL; this is not binary IO. No source/native equivalence theorem is claimed.
 
-`tools/test_io_native_runtime.py` now has 17 direct runtime tests, including a
+`tools/test_io_native_runtime.py` now has 19 direct runtime tests, including a
 pipe test observing the flushed prompt before supplying input and a real read
 error from a directory descriptor. Those fixtures are trusted C, not evidence of source checking or emission.
 `Driver.Native.Emit.emitCheckedInteractiveC requests lineLimit term` now checks
@@ -45,9 +45,9 @@ runtime. `emitCheckedC` remains output-only and rejects computational reads.
 Interactive admission limits are checked before generating C.
 
 `tools/test_io_interactive.py` resolves `examples/core/read-line.fib` through
-both standalone file drivers and checked interactive emission. Seven differential cases cover
-Unicode CRLF, EOF, empty/unterminated lines, bare final CR, length errors and a
-Unicode length boundary. These are well-formed UTF-8 tests, not malformed-input
-parity. Actual interactive CLI dispatch is covered separately by
-`tools/test_io_cli.py`. `make io-test` includes this suite and
+both standalone file drivers and checked interactive emission. Ten differential
+cases cover Unicode CRLF, EOF, empty/unterminated lines, bare final CR, length
+errors, a Unicode length boundary, NUL rejection, malformed UTF-8 and preservation
+of literal U+FFFD. Actual interactive CLI dispatch is covered separately by
+`tools/test_io_cli.py`. `make -j8 io-test` includes this suite and
 retains the output-only checked-emission differential examples.

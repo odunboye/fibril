@@ -1,7 +1,7 @@
 PACK ?= pack
 IDRIS2 ?= idris2
 
-.PHONY: prelude prelude-check build test io-test io-hosted-test io-runtime-test io-resource-runtime-test io-emitter-test io-interactive-test io-cli-test native-test editor-test examples bench bench-smoke python-embed-test docs handbook serve-docs clean
+.PHONY: prelude prelude-check build test io-test io-hosted-test io-runtime-test io-resource-runtime-test io-resource-emitter-test io-emitter-test io-interactive-test io-cli-test native-test editor-test examples bench bench-smoke python-embed-test docs handbook serve-docs clean
 prelude:
 	python3 tools/embed_prelude.py
 
@@ -18,7 +18,7 @@ test: build
 	CC="$(CC)" python3 tools/test_io_cli.py
 
 # Each suite builds in its own temporary directory, safe with make -j8.
-io-test: io-hosted-test io-runtime-test io-resource-runtime-test io-emitter-test io-interactive-test
+io-test: io-hosted-test io-runtime-test io-resource-runtime-test io-resource-emitter-test io-emitter-test io-interactive-test
 
 io-hosted-test:
 	IDRIS2="$(IDRIS2)" python3 tools/test_io_hosted.py
@@ -28,6 +28,9 @@ io-runtime-test:
 
 io-resource-runtime-test:
 	CC="$(CC)" python3 tools/test_io_native_resources.py
+
+io-resource-emitter-test:
+	IDRIS2="$(IDRIS2)" CC="$(CC)" python3 tools/test_io_resource_emitter.py
 
 io-emitter-test:
 	IDRIS2="$(IDRIS2)" CC="$(CC)" python3 tools/test_io_emitter.py

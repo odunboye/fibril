@@ -1,7 +1,8 @@
 # Native scoped-resource runtime
 
-Status: trusted C runtime and direct adversarial tests. Checked resource emission
-and source scoped-file primitives remain disabled. Existing console-only native
+Status: trusted C runtime, direct adversarial tests and
+[checked resource emission](io-resource-emission.md) with differential tests.
+Source scoped-file primitives remain disabled. Existing console-only native
 entry points reject resource requests without opening files.
 
 ## Runtime boundary
@@ -24,8 +25,8 @@ the body. Open-error wording is not promised to match every host platform.
 
 Native pairs carry two lazy fields with explicit erasure flags; pair elimination
 uses ordinary closure application. Scope ownership and read-result pairs retain
-both fields. Code generation must preserve quantities before this pair API is
-exposed to source programs; direct C fixture success is not typing evidence.
+both fields. Checked resource emission derives erasure flags from the checked Sigma
+annotation. Direct C fixture success alone is not typing evidence.
 
 ## Cleanup and budgets
 
@@ -47,10 +48,10 @@ registry is sequential, not thread-safe or a sandbox.
 
 ## Validation
 
-`make -j8 io-resource-runtime-test` runs 23 trusted-C tests. They cover acquisition,
+`make -j8 io-resource-runtime-test` runs 25 trusted-C tests. They cover acquisition,
 current/stale/revoked ownership, successor reads, EOF, read errors, nested scopes,
 region swaps, malformed ownership returns, erased pair fields, NUL paths,
-partial output and cleanup after request/evaluation/allocation exhaustion.
+NUL text read/write rejection, partial output and cleanup after request/evaluation/allocation exhaustion.
 Open/close counters check that other runners perform no acquisition and that
 cleanup never closes an acquired stream twice. fclose injection calls the real
 close first and then changes its status; it tests represented error handling,
@@ -63,6 +64,7 @@ make -j8 io-resource-runtime-test CC='cc -fsanitize=address,undefined -fno-omit-
 ```
 
 These fixtures intentionally bypass checking and sometimes violate linearity to
-exercise defensive runtime failures. No hosted/native resource differential
-suite or checked resource emitter is claimed yet. Existing checked output and
-console-input emission retains its earlier behavior and tests.
+exercise defensive runtime failures. A separate 25-case checked-core
+[hosted/native differential suite](io-resource-emission.md) now covers resource
+emission, ownership threading, text boundaries and represented failures.
+Existing output and console-only emission retains its resource gates.

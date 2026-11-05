@@ -79,7 +79,7 @@ An [inert core read request](io-core-input.md) now has an explicit EOF/line/erro
 result type and a checked incremental host interpreter. It is now exposed
 to source programs through the [standalone interactive API](io-input.md).
 The output planner and output-only emitter fail closed on it; explicit
-interactive native emission and execution pass seven source-level hosted/native
+interactive native emission and execution pass ten source-level hosted/native
 differential cases. See [io-native-input.md](io-native-input.md).
 
 
@@ -147,21 +147,21 @@ reusable authority or a linear resource. An effect label is not an OS sandbox.
    and native execution, then input primitives with explicit EOF/error behavior.
 5. Introduce restricted foreign/resource operations only after ownership tests.
 
-This document consolidates requirements; it does not implement those milestones.
-The current branch has a proposed ownership document, hosted planner budget
-changes and checked hosted stdout flushing. Run `python3 tools/test_io_hosted.py`
-from the repository root for 246 core IO, console argument, sequence, script, input and resource checks,
-plus real C `fflush` and checked-core stdin (Unicode CRLF/EOF/length failure)
-smoke tests on Chez. These pass, including direct-core
-64/65-write boundaries, injected write/flush failures, ordering and empty-plan
-flushing. The runner uses temporary build output without pack or project/YAML
-dependencies. Checked emission now lives in `Driver.Native.Emit`, with seven
-source-to-C differential examples run by `tools/test_io_emitter.py` and
-`make -j8 io-test`. The full CLI build, existing project/package tests and new
-interactive CLI tests now pass under `make -j8 test io-test`. The earlier stall
-was localized to the pre-existing project option parser; see
-[build validation](io-build-validation.md). These passing regressions do not
-constitute completed world-token IO or resource-safe exception handling.
+Milestones remain incremental rather than complete. The branch now has scoped
+host ownership, checked resource execution and
+[explicit checked resource emission](io-resource-emission.md). Run
+`python3 tools/test_io_hosted.py` for 258 core IO, argument, sequence, script,
+input and resource checks, plus real C flush and stdin smoke tests on Chez.
+Input adapters now share strict UTF-8 decoding and explicit NUL text rejection;
+no C-string truncation is accepted as a successful text read or write.
+
+Checked emission lives in `Driver.Native.Emit`. The latest `make -j8 test` and
+`make -j8 io-test` pass separately, including CLI/project regressions and generated
+resource programs. The focused target also passes with sanitizers enabled. See
+[build validation](io-build-validation.md) for earlier aggregate timeouts and the
+resolved project option-parser stall. These observations do not constitute
+completed world-token IO, a source filesystem capability API or general
+exception-safe resource ownership. Source file primitives remain disabled.
 
 Concurrency, cancellation and callbacks remain deferred until their lifetime and
 cleanup semantics are specified. Hosted/native behavior already needs a shared
@@ -171,12 +171,12 @@ primitive is proposed.
 ## Validation
 
 The current [console execution contract](io-execution-contract.md) records shared
-observable behavior and backend limitations. `make io-test` runs the focused
-hosted checks, 17 console-native runtime tests and 23
+observable behavior and backend limitations. `make -j8 io-test` runs the focused
+hosted checks, 19 console-native runtime tests and 25
 [resource-native runtime tests](io-native-resources.md) without the YAML dependency.
-The direct runtime fixtures bypass source checking; a separate seven-example
-source-to-C suite now exercises checked C emission and compares hosted output.
-Seven further cases compare source-level interactive native and hosted file drivers.
+The direct fixtures bypass source checking. Separate suites compare seven
+output-only compiled examples, ten source interactive programs/input cases and
+25 checked-core resource cases against hosted execution.
 
 
 Run the core IO, console planning, CLI and native suites for each target revision.

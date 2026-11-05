@@ -1,8 +1,9 @@
 # Hosted checked resource execution
 
-Status: dedicated hosted runner for checked core scopes. No source scope/file
-operations or checked native resource emission are enabled yet. The console-only
-interactive runner and both emitters retain their fail-closed scope gates.
+Status: dedicated hosted runner for checked core scopes, now compared against
+[checked native resource emission](io-resource-emission.md). No source scope/file
+operations are enabled yet. Output-only and console-interactive runners and
+emitters retain their fail-closed scope gates.
 
 ## Trusted introduction boundary
 
@@ -55,7 +56,7 @@ revocation, opacity and scope outcome preservation.
 
 Ownership-returning file reads and live-reference checks now execute in the
 hosted runner. A [native resource runtime](io-native-resources.md) now has
-registration/cleanup tests; checked resource emission and differential validation
-remain next. Only after those paths pass
-should source scope/file primitives be exposed. This runner is not a completed
+registration/cleanup tests and [checked emission](io-resource-emission.md) now
+has 25 hosted/native cases. Source scope/file exposure remains a separate API,
+capability and cleanup-contract gate. This runner is not a completed
 linear-resource semantics, verified backend or world-token IO implementation.

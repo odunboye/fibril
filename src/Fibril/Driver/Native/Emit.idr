@@ -7,11 +7,21 @@ import Fibril.Core.Term
 import Fibril.Core.Quantity
 import Fibril.Core.Context
 import Fibril.Core.Runtime
+import Fibril.Core.WeakHead
+import Fibril.Core.ResourceAdmission
 import Fibril.Core.Limits
 import Fibril.Core.Size
 import Fibril.Elaboration.Expression.Payload
 
 %default total
+
+data NativeMode = Preflight | Interactive | Resources
+
+Eq NativeMode where
+  Preflight == Preflight = True
+  Interactive == Interactive = True
+  Resources == Resources = True
+  _ == _ = False
 
 record Generated where
   constructor Output
@@ -48,79 +58,95 @@ constant : Nat -> String -> Generated
 constant n expr = Output n (S n) [function n ("(void)e; return " ++ expr ++ ";")]
 
 mutual
-  generate : Bool -> Nat -> Term n -> Either String Generated
-  generate interactive n (Variable index) = Right (Output n (S n) [function n ("return f_variable(r, e, " ++ show (finToNat index) ++ ");")])
-  generate interactive n (StringValue value) = Right (Output n (S n) [literal n value])
-  generate interactive n UnitValue = Right (constant n "f_unit(r)")
-  generate interactive n (Universe _) = Right (constant n "f_erased(r)")
-  generate interactive n UnitType = Right (constant n "f_erased(r)")
-  generate interactive n BoolType = Right (constant n "f_erased(r)")
-  generate interactive n BoolTrue = Right (constant n "f_bool(r, 1)")
-  generate interactive n BoolFalse = Right (constant n "f_bool(r, 0)")
-  generate interactive n StringType = Right (constant n "f_erased(r)")
-  generate interactive n (IOType _) = Right (constant n "f_erased(r)")
-  generate interactive n (FileHandleType _) = Right (constant n "f_erased(r)")
-  generate interactive n (Pi _ _ _) = Right (constant n "f_erased(r)")
-  generate interactive n (Sigma _ _ _ _) = Right (constant n "f_erased(r)")
-  generate interactive n (BoxType _ _) = Right (constant n "f_erased(r)")
-  generate interactive n (NominalType _ _ _) = Right (constant n "f_erased(r)")
-  generate interactive n (VariantType _) = Right (constant n "f_erased(r)")
-  generate interactive n (Lambda quantity domain body) = do
-    generated <- generate interactive (S n) body
+  generate : NativeMode -> Nat -> Term n -> Either String Generated
+  generate mode n (Variable index) = Right (Output n (S n) [function n ("return f_variable(r, e, " ++ show (finToNat index) ++ ");")])
+  generate mode n (StringValue value) = Right (Output n (S n) [literal n value])
+  generate mode n UnitValue = Right (constant n "f_unit(r)")
+  generate mode n (Universe _) = Right (constant n "f_erased(r)")
+  generate mode n UnitType = Right (constant n "f_erased(r)")
+  generate mode n BoolType = Right (constant n "f_erased(r)")
+  generate mode n BoolTrue = Right (constant n "f_bool(r, 1)")
+  generate mode n BoolFalse = Right (constant n "f_bool(r, 0)")
+  generate mode n StringType = Right (constant n "f_erased(r)")
+  generate mode n (IOType _) = Right (constant n "f_erased(r)")
+  generate mode n (FileHandleType _) = Right (constant n "f_erased(r)")
+  generate mode n (Pi _ _ _) = Right (constant n "f_erased(r)")
+  generate mode n (Sigma _ _ _ _) = Right (constant n "f_erased(r)")
+  generate mode n (BoxType _ _) = Right (constant n "f_erased(r)")
+  generate mode n (NominalType _ _ _) = Right (constant n "f_erased(r)")
+  generate mode n (VariantType _) = Right (constant n "f_erased(r)")
+  generate mode n (Lambda quantity domain body) = do
+    generated <- generate mode (S n) body
     let flag = if quantity == Erased then "1" else "0"
     let code = function n ("return f_lambda(r, e, " ++ flag ++ ", " ++ name generated.root ++ ");")
     Right (Output n generated.next (code :: generated.definitions))
-  generate interactive n (Apply function argument) = binary interactive n "f_apply" function argument
-  generate interactive n (StringAppend left right) = binary interactive n "f_append" left right
-  generate interactive n (StringEqual left right) = binary interactive n "f_string_equal" left right
-  generate interactive n (BoolCase condition yes no) = ternary interactive n "f_bool_case" condition yes no
-  generate interactive n (NominalValue _ value) = unary interactive n "f_nominal" value
-  generate interactive n (NominalCase _ scrutinee branch) = binary interactive n "f_nominal_case" scrutinee branch
-  generate interactive n (VariantValue _ tag Nothing) =
+  generate mode n (Apply function argument) = binary mode n "f_apply" function argument
+  generate mode n (StringAppend left right) = binary mode n "f_append" left right
+  generate mode n (StringEqual left right) = binary mode n "f_string_equal" left right
+  generate mode n (BoolCase condition yes no) = ternary mode n "f_bool_case" condition yes no
+  generate mode n (NominalValue _ value) = unary mode n "f_nominal" value
+  generate mode n (NominalCase _ scrutinee branch) = binary mode n "f_nominal_case" scrutinee branch
+  generate mode n (VariantValue _ tag Nothing) =
     Right (Output n (S n) [function n ("(void)e; return f_variant(r, e, " ++ show tag ++ ", NULL);")])
-  generate interactive n (VariantValue _ tag (Just value)) = do
-    part <- generate interactive (S n) value
+  generate mode n (VariantValue _ tag (Just value)) = do
+    part <- generate mode (S n) value
     let code = function n ("return f_variant(r, e, " ++ show tag ++ ", " ++ name part.root ++ ");")
     Right (Output n part.next (code :: part.definitions))
-  generate interactive n (VariantCase _ scrutinee []) = Left "C backend rejects an empty variant case"
-  generate interactive n (VariantCase _ scrutinee branches) = do
-    scrutineeCode <- generate interactive (S n) scrutinee
-    (next, roots, definitions) <- generateBranches interactive scrutineeCode.next branches
+  generate mode n (VariantCase _ scrutinee []) = Left "C backend rejects an empty variant case"
+  generate mode n (VariantCase _ scrutinee branches) = do
+    scrutineeCode <- generate mode (S n) scrutinee
+    (next, roots, definitions) <- generateBranches mode scrutineeCode.next branches
     let code = function n ("return f_variant_case(r, e, " ++ name scrutineeCode.root ++ ", " ++
                            show (length roots) ++ ", (FEval[]){" ++ concat (intersperse "," (map name roots)) ++ "});")
     Right (Output n next (code :: (scrutineeCode.definitions ++ definitions)))
-  generate interactive n (UnitCase scrutinee body) = binary interactive n "f_unit_case" scrutinee body
-  generate interactive n (IOPure value) = unary interactive n "f_pure" value
-  generate interactive n (WriteLine text) = unary interactive n "f_write" text
-  generate interactive n (IOBind _ _ action continuation) = binary interactive n "f_bind" action continuation
-  generate True n ReadLine = Right (constant n "f_read_line(r)")
-  generate interactive n _ = Left "C backend does not support this computational core construct"
+  generate mode n (UnitCase scrutinee body) = binary mode n "f_unit_case" scrutinee body
+  generate mode n (IOPure value) = unary mode n "f_pure" value
+  generate mode n (WriteLine text) = unary mode n "f_write" text
+  generate mode n (IOBind _ _ action continuation) = binary mode n "f_bind" action continuation
+  generate Interactive n ReadLine = Right (constant n "f_read_line(r)")
+  generate Resources n ReadLine = Right (constant n "f_read_line(r)")
+  generate Resources n (WithInputFile _ path body) = binary Resources n "f_with_input" path body
+  generate Resources n (ReadInputFile handle) = unary Resources n "f_read_input" handle
+  generate Resources n (PairCase _ scrutinee branch) = binary Resources n "f_pair_case" scrutinee branch
+  generate Resources n (PairValue annotation first second) =
+    case weakHead typeReductionFuel annotation of
+      HeadLimit _ => Left "Native pair annotation reduction budget exhausted"
+      HeadForm (Sigma q r _ _) => do
+        a <- generate Resources (S n) first
+        b <- generate Resources a.next second
+        let erasedFirst = if q == Erased then "1" else "0"
+        let erasedSecond = if r == Erased then "1" else "0"
+        let code = function n ("return f_pair(r, e, " ++ erasedFirst ++ ", " ++ erasedSecond ++ ", " ++
+                               name a.root ++ ", " ++ name b.root ++ ");")
+        Right (Output n b.next (code :: (a.definitions ++ b.definitions)))
+      HeadForm _ => Left "Native pair annotation did not expose Sigma"
+  generate mode n _ = Left "C backend does not support this computational core construct"
 
-  generateBranches : Bool -> Nat -> List (Term n) -> Either String (Nat, List Nat, List String)
-  generateBranches interactive n [] = Right (n, [], [])
-  generateBranches interactive n (branch :: rest) = do
-    first <- generate interactive n branch
-    (next, roots, definitions) <- generateBranches interactive first.next rest
+  generateBranches : NativeMode -> Nat -> List (Term n) -> Either String (Nat, List Nat, List String)
+  generateBranches mode n [] = Right (n, [], [])
+  generateBranches mode n (branch :: rest) = do
+    first <- generate mode n branch
+    (next, roots, definitions) <- generateBranches mode first.next rest
     Right (next, first.root :: roots, first.definitions ++ definitions)
 
-  ternary : Bool -> Nat -> String -> Term n -> Term n -> Term n -> Either String Generated
-  ternary interactive n operation first second third = do
-    a <- generate interactive (S n) first
-    b <- generate interactive a.next second
-    c <- generate interactive b.next third
+  ternary : NativeMode -> Nat -> String -> Term n -> Term n -> Term n -> Either String Generated
+  ternary mode n operation first second third = do
+    a <- generate mode (S n) first
+    b <- generate mode a.next second
+    c <- generate mode b.next third
     let code = function n ("return " ++ operation ++ "(r, e, " ++ name a.root ++ ", " ++ name b.root ++ ", " ++ name c.root ++ ");")
     Right (Output n c.next (code :: (a.definitions ++ b.definitions ++ c.definitions)))
 
-  unary : Bool -> Nat -> String -> Term n -> Either String Generated
-  unary interactive n operation term = do
-    part <- generate interactive (S n) term
+  unary : NativeMode -> Nat -> String -> Term n -> Either String Generated
+  unary mode n operation term = do
+    part <- generate mode (S n) term
     let code = function n ("return " ++ operation ++ "(r, e, " ++ name part.root ++ ");")
     Right (Output n part.next (code :: part.definitions))
 
-  binary : Bool -> Nat -> String -> Term n -> Term n -> Either String Generated
-  binary interactive n operation first second = do
-    a <- generate interactive (S n) first
-    b <- generate interactive a.next second
+  binary : NativeMode -> Nat -> String -> Term n -> Term n -> Either String Generated
+  binary mode n operation first second = do
+    a <- generate mode (S n) first
+    b <- generate mode a.next second
     let code = function n ("return " ++ operation ++ "(r, e, " ++ name a.root ++ ", " ++ name b.root ++ ");")
     Right (Output n b.next (code :: (a.definitions ++ b.definitions)))
 
@@ -128,19 +154,23 @@ prototypes : Nat -> Nat -> List String
 prototypes start Z = []
 prototypes start (S count) = prototype start :: prototypes (S start) count
 
-emitEntry : Bool -> Nat -> Nat -> Term 0 -> Either String String
-emitEntry interactive requests lineLimit term = do
+emitEntry : NativeMode -> Nat -> Nat -> Term 0 -> Either String String
+emitEntry mode requests lineLimit term = do
+  if mode == Resources && containsFileReference term
+    then Left "Native resource entry rejects runtime file references" else Right ()
   case checkRuntime checkingDepth typeReductionFuel Empty term (IOType UnitType) of
     Left err => Left ("Native entry checking: " ++ show err)
     Right _ => Right ()
   if coreNodes term > 8192 then Left "Native core admission exceeds 8192 nodes" else Right ()
   if payloadSize term > payloadLimit then Left "Native literal admission exceeds 8192 characters" else Right ()
-  if interactive && (requests > 100000 || lineLimit > 8192)
-     then Left "Native interactive admission limit exceeded" else Right ()
-  code <- generate interactive 0 term
-  let entry = if interactive
-        then "fibril_native_interactive_run(" ++ name code.root ++ ", " ++ show requests ++ ", " ++ show lineLimit ++ ")"
-        else "fibril_native_run(" ++ name code.root ++ ")"
+  if mode /= Preflight && (requests > 100000 || lineLimit > 8192)
+     then Left (if mode == Resources then "Native resource admission limit exceeded"
+                else "Native interactive admission limit exceeded") else Right ()
+  code <- generate mode 0 term
+  let entry = case mode of
+        Preflight => "fibril_native_run(" ++ name code.root ++ ")"
+        Interactive => "fibril_native_interactive_run(" ++ name code.root ++ ", " ++ show requests ++ ", " ++ show lineLimit ++ ")"
+        Resources => "fibril_native_resource_run(" ++ name code.root ++ ", " ++ show requests ++ ", " ++ show lineLimit ++ ")"
   Right ("/* Generated from checked Fibril core; experimental native subset. */\n" ++
          "#include \"fibril_runtime.h\"\n" ++ concat (prototypes 0 code.next) ++
          concat code.definitions ++ "int main(void) { return " ++ entry ++ "; }\n")
@@ -149,9 +179,14 @@ emitEntry interactive requests lineLimit term = do
 ||| Output-only mode rejects computational read requests.
 public export
 emitCheckedC : Term 0 -> Either String String
-emitCheckedC = emitEntry False 0 0
+emitCheckedC = emitEntry Preflight 0 0
 
-||| Explicit incremental entry; later failures can follow already visible output.
+||| Explicit incremental console entry; resource requests remain unsupported.
 public export
 emitCheckedInteractiveC : Nat -> Nat -> Term 0 -> Either String String
-emitCheckedInteractiveC = emitEntry True
+emitCheckedInteractiveC = emitEntry Interactive
+
+||| Explicit scoped-resource entry. No caller-supplied runtime references allowed.
+public export
+emitCheckedResourceC : Nat -> Nat -> Term 0 -> Either String String
+emitCheckedResourceC = emitEntry Resources
