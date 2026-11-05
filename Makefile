@@ -93,6 +93,7 @@ examples: build
 	./build/exec/fibril run --source-dir examples/modules/polymorphic-map examples/modules/polymorphic-map/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/uniform-recursion examples/modules/uniform-recursion/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/uniform-nat-chain examples/modules/uniform-nat-chain/Main.fib
+	./build/exec/fibril run --source-dir examples/modules/conditional-recursion examples/modules/conditional-recursion/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/motive-contexts examples/modules/motive-contexts/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/motive-do examples/modules/motive-do/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/direct-data-case examples/modules/direct-data-case/Main.fib

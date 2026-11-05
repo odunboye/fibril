@@ -1458,6 +1458,121 @@ class CLITests(unittest.TestCase):
             path.write_text(budgeted.replace('  alias rest => rest', '  More rest => rest'))
             self.assertEqual(project('run').stdout, 'ok\n')
 
+    def test_structural_calls_in_exclusive_conditionals(self):
+        import re
+        source = (ROOT / 'examples/modules/conditional-recursion/Main.fib').read_text()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Main.fib'
+            def project(command):
+                return run(command, '--source-dir', directory, str(path))
+            path.write_text(source)
+            result = project('run')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'TT\nFF\nTT\nFF\na!b!\na?b?\n')
+            lines = source.splitlines()
+            for name, definition in [('natMarks', 'natMarks flag count ='),
+                                     ('chainMarks', 'chainMarks flag chain ='),
+                                     ('join', 'join flag items =')]:
+                sites = [(row, line.index('(' + name + ' ') + 2)
+                         for row, line in enumerate(lines, 1) if '(' + name + ' flag ' in line]
+                # Exclude calls in main: only the authored step's alternatives.
+                sites = [(row, col) for row, col in sites if row < next(i for i, line in enumerate(lines, 1) if line.startswith('main :'))]
+                self.assertEqual(len(sites), 2)
+                expected = next(i for i, line in enumerate(lines, 1) if line.startswith(definition))
+                for row, col in sites:
+                    nav = run('definition', '--source-dir', directory, '--entry', str(path), str(row), str(col), str(path))
+                    self.assertEqual(nav.returncode, 0, nav.stderr)
+                    start = json.loads(nav.stdout)['definition']['range']['start']
+                    self.assertEqual((start['line'], start['column']), (expected, 1))
+            # The original single-argument Nat lowering has the same rule.
+            legacy = ('module Main\nchoose : (1 n : Nat) -> String\nchoose n = case n of\n'
+                      '  Zero => ""\n  Succ previous => if True then appendString "a" (choose previous) '
+                      'else appendString "b" (choose previous)\n'
+                      'main : IO Unit\nmain = putStrLn (choose (Succ (Succ Zero)))\n')
+            path.write_text(legacy)
+            result = project('run')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'aa\n')
+            nested = legacy.replace('if True then appendString "a" (choose previous) else appendString "b" (choose previous)',
+                                    'if True then (if True then appendString "a" (choose previous) else appendString "b" (choose previous)) else appendString "c" (choose previous)')
+            path.write_text(nested)
+            result = project('run')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'aa\n')
+            nestedLines = nested.splitlines()
+            row = next(i for i, line in enumerate(nestedLines, 1) if line.startswith('  Succ previous =>'))
+            line = nestedLines[row - 1]
+            offsets = [match.start() for match in re.finditer(r'choose previous', line)]
+            self.assertEqual(len(offsets), 3)
+            targetRow = next(i for i, line in enumerate(nestedLines, 1) if line.startswith('choose n ='))
+            for offset in offsets:
+                nav = run('definition', '--source-dir', directory, '--entry', str(path), str(row), str(offset + 1), str(path))
+                self.assertEqual(nav.returncode, 0, nav.stderr)
+                start = json.loads(nav.stdout)['definition']['range']['start']
+                self.assertEqual((start['line'], start['column']), (targetRow, 1))
+            # An erased declaration is checked at the erased stage; runtime
+            # branch-use claims do not apply to this non-runtime definition.
+            erased = legacy.replace('choose :', '0 choose :').replace(
+                'else appendString "b" (choose previous)', 'else "erased"').replace(
+                'main = putStrLn (choose (Succ (Succ Zero)))', 'main = putStrLn "checked"')
+            path.write_text(erased)
+            result = project('run')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'checked\n')
+            # The one-erased-parameter implicit omission path also accepts both
+            # alternatives, preserving the linear head on either path.
+            poly = (ROOT / 'examples/modules/polymorphic-recursion/Main.fib').read_text().replace(
+                '  Prepend head tail => Prepend head (copy tail)',
+                '  Prepend head tail => if True then Prepend head (copy tail) else Prepend head (copy tail)')
+            poly = poly[:poly.index('main : IO Unit')] + 'main : IO Unit\nmain = putStrLn "checked"\n'
+            path.write_text(poly)
+            result = project('run')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'checked\n')
+            polyLines = poly.splitlines()
+            row = next(i for i, line in enumerate(polyLines, 1) if 'then Prepend head (copy tail) else Prepend head (copy tail)' in line)
+            line = polyLines[row - 1]
+            first = line.index('copy tail')
+            second = line.index('copy tail', first + 1)
+            targetRow = next(i for i, line in enumerate(polyLines, 1) if line.startswith('copy Element items ='))
+            for offset in [first, second]:
+                nav = run('definition', '--source-dir', directory, '--entry', str(path), str(row), str(offset + 1), str(path))
+                self.assertEqual(nav.returncode, 0, nav.stderr)
+                start = json.loads(nav.stdout)['definition']['range']['start']
+                self.assertEqual((start['line'], start['column']), (targetRow, 1))
+            grouped = source.replace('(chainMarks flag tail)', '((chainMarks) flag tail)', 1)
+            path.write_text(grouped)
+            groupedLines = grouped.splitlines()
+            row = next(i for i, line in enumerate(groupedLines, 1) if '((chainMarks) flag tail)' in line)
+            offset = groupedLines[row - 1].index('chainMarks)')
+            nav = run('definition', '--source-dir', directory, '--entry', str(path), str(row), str(offset + 1), str(path))
+            self.assertIsNotNone(json.loads(nav.stdout)['definition'])
+            punctuation = run('definition', '--source-dir', directory, '--entry', str(path), str(row), str(offset), str(path))
+            self.assertIsNone(json.loads(punctuation.stdout)['definition'])
+            # Calls on the same execution path, mismatched tails and an absent
+            # branch use remain rejected. No output occurs on checking failure.
+            invalid = [source.replace('then appendString "T" (natMarks flag previous)',
+                                      'then appendString (natMarks flag previous) (natMarks flag previous)', 1),
+                       source.replace('else appendString "F" (natMarks flag previous)', 'else "missing"', 1),
+                       source.replace('else appendString "F" (chainMarks flag tail)',
+                                      'else appendString "F" (chainMarks flag (More tail))', 1),
+                       source.replace('if flag\n    then appendString "T" (natMarks flag previous)',
+                                      'if equalString (natMarks flag previous) ""\n    then appendString "T" (natMarks flag previous)', 1),
+                       source.replace('else appendString head (appendString "?" (join flag tail))',
+                                      'else appendString "dropped" (join flag tail)')]
+            for program in invalid:
+                with self.subTest(program=program[200:700]):
+                    path.write_text(program)
+                    rejected = project('run')
+                    self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
+                    self.assertEqual(rejected.stdout, '')
+            path.write_text(source)
+            formatted = run('format', str(path))
+            self.assertEqual(formatted.returncode, 0, formatted.stderr)
+            path.write_text(formatted.stdout)
+            self.assertEqual(run('format', '--check', str(path)).returncode, 0)
+            self.assertEqual(project('run').stdout, 'TT\nFF\nTT\nFF\na!b!\na?b?\n')
+
     def test_uniform_structural_nat_and_unary_telescope(self):
         import shutil
         fixture = ROOT / 'examples/modules/uniform-nat-chain'

@@ -1,0 +1,39 @@
+module Main
+
+data Chain : Type where
+  Empty : Chain
+  More : (1 tail : Chain) -> Chain
+
+data Items {0 A : Type} : Type where
+  Nil : Items A
+  Cons : (1 head : A) -> (1 tail : Items A) -> Items A
+
+natMarks : (flag : Bool) -> (1 count : Nat) -> String
+natMarks flag count = case count of
+  Zero => ""
+  Succ previous => if flag
+    then appendString "T" (natMarks flag previous)
+    else appendString "F" (natMarks flag previous)
+
+chainMarks : (flag : Bool) -> (1 chain : Chain) -> String
+chainMarks flag chain = case chain of
+  Empty => ""
+  More tail => if flag
+    then appendString "T" (chainMarks flag tail)
+    else appendString "F" (chainMarks flag tail)
+
+join : (flag : Bool) -> (1 items : Items String) -> String
+join flag items = case items of
+  Nil => ""
+  Cons head tail => if flag
+    then appendString head (appendString "!" (join flag tail))
+    else appendString head (appendString "?" (join flag tail))
+
+main : IO Unit
+main = do
+  putStrLn (natMarks True (Succ (Succ Zero)))
+  putStrLn (natMarks False (Succ (Succ Zero)))
+  putStrLn (chainMarks True (More (More Empty)))
+  putStrLn (chainMarks False (More (More Empty)))
+  putStrLn (join True (Cons "a" (Cons "b" (Nil {String}))))
+  putStrLn (join False (Cons "a" (Cons "b" (Nil {String}))))

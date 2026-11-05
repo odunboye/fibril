@@ -90,14 +90,17 @@ argument and a result type independent of that argument, with exactly one
 `Zero` arm and one `Succ k` arm in either order. A bounded uniform telescope of
 erased or unrestricted parameters may precede the Nat input, as described below.
 The zero arm cannot use the function or the structural input. The successor arm
-must contain **exactly one direct call** on the immediate predecessor, such as
-`f k` or `f prefix k`. Calls on the original input,
-a successor, a different value, or multiple recursive calls are rejected.
+must contain a direct call on the immediate predecessor, such as `f k` or
+`f prefix k`. Both alternatives of an `if` may contain such a call: they are
+mutually exclusive. Calls that can occur together, or calls on the original
+input, a successor or a different value, are rejected.
 
 Branch expressions support ordinary references, literals, applications and
 conditionals. Uniform-prefix equations also admit explicit brace applications;
 binders, annotations and nested cases are not yet admitted in these branches. A call in only one conditional branch
-may still be rejected by independent linear-usage checking. The predecessor may
+is rejected for runtime-checked functions by independent linear-usage checking
+when another path drops the induction result. Erased declarations are checked
+at the erased stage instead. The predecessor may
 appear only as the argument of the recursive call, not as a runtime value.
 Binder and global-name collisions are not silently reinterpreted. The special
 syntax is only accepted when the built-in `Zero` and `Succ` are visible without
@@ -108,8 +111,9 @@ erased predecessor and a linear previous result. Independent core typing and
 usage checking remain authoritative. Unchecked signature normalization is
 size/payload guarded, and an inconclusive or exhausted attempt does not accept
 recursion. This is **not** a general termination checker: changing recursive
-parameters, binder-containing successor expressions, multiple recursive calls,
-mutual recursion and results dependent on the recursive input need later work. Use explicit [`natRec` or `natRecWith`](nat-recursion.md) for operations
+parameters, binder-containing successor expressions, multiple calls along the
+same path, mutual recursion and results dependent on the recursive input need
+later work. Use explicit [`natRec` or `natRecWith`](nat-recursion.md) for operations
 outside this narrow source form. Experimental C emission supports these checked
 Nat forms, subject to its own runtime limits.
 
@@ -135,8 +139,8 @@ compares direct one-step matching, a named fold and this equation form. No named
 eliminator is required for the equation. The signature has one named linear recursive input and a result independent of
 that input; the case has one terminal and one unary-tail arm, in either order.
 Erased or unrestricted parameters may precede the input when passed uniformly
-on every recursive call. The successor body admits exactly one
-unqualified direct call on its immediate tail. As for Nat, the tail cannot
+on every recursive call. The successor body admits unqualified direct calls on
+its immediate tail, including one in each mutually exclusive conditional branch. As for Nat, the tail cannot
 otherwise be used, and branch expressions are limited to the binder-free subset
 above. An ordinary non-recursive direct case still works without this lowering.
 
@@ -166,8 +170,9 @@ join items = case items of
 The [recursive-list example](../examples/modules/recursive-list/Main.fib) uses
 qualified constructors from a direct import. As with unary equations, there
 must be one terminal and one successor arm in either order, no explicit motive,
-and exactly one direct self-call on the immediate tail. The head and tail names
-must be distinct and referenceable. The head is linear; the tail may only occur
+and direct self-calls only on the immediate tail. Calls in both mutually
+exclusive conditional branches may share the induction result; calls on the
+same execution path are rejected. The head and tail names must be distinct and referenceable. The head is linear; the tail may only occur
 as the argument to that recursive call. A base expression cannot reference the
 input or function. The same binder-free expression whitelist applies.
 
@@ -205,6 +210,12 @@ The [mapping example](../examples/modules/polymorphic-map/Main.fib) runs under
 both the reference and experimental C runtimes. The more general
 [uniform-telescope example](../examples/modules/uniform-recursion/Main.fib)
 uses a renderer and separator captured by the repeated fold step.
+
+The [conditional-recursion example](../examples/modules/conditional-recursion/Main.fib)
+exercises exclusive calls for Nat, unary data and lists. The rewriter admits
+those syntactic alternatives; runtime-checked declarations must still pass the
+independent branch-sensitive linear-use check. This is not a general path or
+termination proof.
 
 The uniform form admits up to **64 prefix binders** at quantity 0 or
 unrestricted, followed by one linear Nat, unary-recursive or list input. Prefix

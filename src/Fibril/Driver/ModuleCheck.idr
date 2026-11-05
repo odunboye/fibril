@@ -266,8 +266,9 @@ recursiveResultName : String
 recursiveResultName = "$nat.recursive.result"
 
 -- Admit only binder-free ordinary expressions. Every occurrence of the three
--- relevant source names is inspected; exactly one direct self-call can be
--- replaced by a reference to the linear induction-result slot.
+-- relevant source names is inspected; direct self-calls on mutually exclusive
+-- paths can share the linear induction-result slot. The core checker verifies
+-- that every runtime path uses that slot exactly once.
 private
 recursiveExpression : String -> String -> String -> Expr -> Maybe (Bool, Expr)
 recursiveExpression name argument predecessor (NApply span (NRef site function) (NRef valueSite value)) =
@@ -285,7 +286,7 @@ recursiveExpression name argument predecessor (NIf span condition yes no) = do
   (conditionUsed, condition) <- recursiveExpression name argument predecessor condition
   (yesUsed, yes) <- recursiveExpression name argument predecessor yes
   (noUsed, no) <- recursiveExpression name argument predecessor no
-  if (conditionUsed && (yesUsed || noUsed)) || (yesUsed && noUsed)
+  if conditionUsed && (yesUsed || noUsed)
     then Nothing else Just (conditionUsed || yesUsed || noUsed, NIf span condition yes no)
 recursiveExpression name argument predecessor expr@(NRef _ ref) =
   if ref == name || ref == argument || ref == predecessor || ref == recursiveResultName
@@ -338,7 +339,7 @@ polyRecursiveExpression inferred param name argument tail (NIf span condition ye
   (conditionUsed, condition) <- polyRecursiveExpression inferred param name argument tail condition
   (yesUsed, yes) <- polyRecursiveExpression inferred param name argument tail yes
   (noUsed, no) <- polyRecursiveExpression inferred param name argument tail no
-  if (conditionUsed && (yesUsed || noUsed)) || (yesUsed && noUsed)
+  if conditionUsed && (yesUsed || noUsed)
     then Nothing else Just (conditionUsed || yesUsed || noUsed, NIf span condition yes no)
 polyRecursiveExpression inferred param name argument tail expr@(NRef _ ref) =
   if ref == name || ref == argument || ref == tail || ref == recursiveResultName
@@ -396,7 +397,7 @@ uniformExpression name reversed argument tail expression = case uniformCallSite 
       (conditionUsed, condition) <- uniformExpression name reversed argument tail condition
       (yesUsed, yes) <- uniformExpression name reversed argument tail yes
       (noUsed, no) <- uniformExpression name reversed argument tail no
-      if (conditionUsed && (yesUsed || noUsed)) || (yesUsed && noUsed)
+      if conditionUsed && (yesUsed || noUsed)
         then Nothing else Just (conditionUsed || yesUsed || noUsed, NIf span condition yes no)
     NRef _ ref => if ref == name || ref == argument || ref == tail || ref == recursiveResultName then Nothing else Just (False, expression)
     NQualifiedRef _ ref => case reverse (forget (Data.String.split (== '.') ref)) of
@@ -465,7 +466,7 @@ natRecursiveEquation globals name ty (NEquationLambda _ [argument] _
           _ => Left (CannotElaborate (extent base).start "Structural zero arm cannot use the function, input, predecessor or unsupported syntax")
         stepExpr <- case recursiveExpression name argument.spelling predecessor.spelling body of
           Just (True, value) => Right value
-          _ => Left (CannotElaborate (extent body).start "Structural successor arm needs exactly one direct call on the predecessor and supported binder-free syntax")
+          _ => Left (CannotElaborate (extent body).start "Structural successor arm needs direct calls on the predecessor along exclusive paths and supported binder-free syntax")
         let checkedGlobals = map global globals
         zero <- elaborateExpected checkedGlobals Empty [] resultType baseExpr
         let stepContext = Extend (Extend Empty Erased NatType) Linear (weaken resultType)
@@ -824,40 +825,45 @@ recursiveEquationReserve : String -> Expr -> Nat
 recursiveEquationReserve name expression =
   max (legacyRecursiveEquationReserve name expression) (uniformEquationReserve name expression)
 
--- The admitted rewriter guarantees exactly one occurrence of the function
--- name in the branch expressions. Recover only its authored Name token; grouped
--- expression spans can include punctuation and must not become navigation spans.
+-- Recover only authored Name tokens for the successfully admitted occurrences.
+-- Grouped expression spans can include punctuation and are not navigation spans.
 private
-structuralNameSpan : String -> Expr -> Maybe SourceSpan
-structuralNameSpan name (NRef span ref) = if ref == name then Just span else Nothing
-structuralNameSpan name (NApply _ function argument) = case structuralNameSpan name function of
-  Just span => Just span
-  Nothing => structuralNameSpan name argument
-structuralNameSpan name (NImplicitApply _ function argument) = case structuralNameSpan name function of
-  Just span => Just span
-  Nothing => structuralNameSpan name argument
-structuralNameSpan name (NIf _ condition yes no) = case structuralNameSpan name condition of
-  Just span => Just span
-  Nothing => case structuralNameSpan name yes of
-    Just span => Just span
-    Nothing => structuralNameSpan name no
-structuralNameSpan _ _ = Nothing
+structuralNameSpans : String -> Expr -> List SourceSpan -> List SourceSpan
+structuralNameSpans name (NRef span ref) rest = if ref == name then span :: rest else rest
+structuralNameSpans name (NApply _ function argument) rest =
+  structuralNameSpans name function (structuralNameSpans name argument rest)
+structuralNameSpans name (NImplicitApply _ function argument) rest =
+  structuralNameSpans name function (structuralNameSpans name argument rest)
+structuralNameSpans name (NIf _ condition yes no) rest =
+  structuralNameSpans name condition (structuralNameSpans name yes (structuralNameSpans name no rest))
+structuralNameSpans _ _ rest = rest
 
 private
-structuralSite : ModuleSnapshot -> Declaration -> Maybe RecursiveSite
-structuralSite snapshot decl = case decl.value of
-  NEquationLambda _ _ _ (NDataCase _ _ _ arms) => do
-    span <- firstName arms
-    token <- find (\token => token.kind == Name && token.spelling == decl.name &&
-                     token.span.start.offset >= span.start.offset && token.span.finish.offset <= span.finish.offset) snapshot.document.tokens
-    Just (StructuralSite snapshot.path token.span decl.definitionNameSpan)
-  _ => Nothing
+structuralSites : ModuleSnapshot -> Declaration -> List RecursiveSite
+structuralSites snapshot decl = case decl.value of
+  NEquationLambda _ _ _ (NDataCase _ _ _ arms) =>
+    let spans = branchNames arms
+        tokens = snapshot.document.tokens in
+      collect (S (length spans + length tokens)) spans tokens
+  _ => []
   where
-    firstName : List (Token, List Token, Expr) -> Maybe SourceSpan
-    firstName [] = Nothing
-    firstName ((_, _, body) :: rest) = case structuralNameSpan decl.name body of
-      Just span => Just span
-      Nothing => firstName rest
+    branchNames : List (Token, List Token, Expr) -> List SourceSpan
+    branchNames [] = []
+    branchNames ((_, _, body) :: rest) = structuralNameSpans decl.name body (branchNames rest)
+
+    -- Both lists are in authored order. Advance at least one per step instead
+    -- of rescanning the complete token stream for each recursive reference.
+    collect : Nat -> List SourceSpan -> List Token -> List RecursiveSite
+    collect Z _ _ = []
+    collect (S fuel) [] _ = []
+    collect (S fuel) _ [] = []
+    collect (S fuel) spans@(span :: rest) tokens@(token :: later) =
+      if token.span.start.offset >= span.finish.offset then collect fuel rest tokens else
+      if token.span.finish.offset <= span.start.offset then collect fuel spans later else
+      if token.kind == Name && token.spelling == decl.name &&
+         token.span.start.offset >= span.start.offset && token.span.finish.offset <= span.finish.offset
+        then StructuralSite snapshot.path token.span decl.definitionNameSpan :: collect fuel rest later
+        else collect fuel spans later
 
 compileDeclarations : ModuleSnapshot -> List String -> List Weighted -> List Declaration -> Nat ->
                       Either GraphError Compiled
@@ -929,7 +935,7 @@ compileDeclarations snapshot name globals (decl :: rest) remaining = do
   let qualified = Weight ({ name := identity } definition) local.size
   following <- compileDeclarations snapshot name (local :: qualified :: globals) rest (minus remaining estimate)
   let ownSites = case recursive of
-        Just _ => maybe [] pure (structuralSite snapshot decl)
+        Just _ => structuralSites snapshot decl
         Nothing => []
   Right (Definitions (local :: following.locals)
            (if decl.exported then qualified :: following.exports else following.exports)
