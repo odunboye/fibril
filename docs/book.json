@@ -256,6 +256,10 @@
         "path": "docs/nat-recursion.md"
       },
       {
+        "title": "Abstract size-change certificates",
+        "path": "docs/size-change-certificates.md"
+      },
+      {
         "title": "Ordinary core draft",
         "path": "docs/core-draft.md"
       },

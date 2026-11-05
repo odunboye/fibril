@@ -19,6 +19,7 @@ The generated homepage separates teaching chapters, references, and project reco
 - [Implicit arguments](implicit-arguments.md): infer erased prefixes on direct checked global calls.
 
 - [Experimental checked C emission](native-c.md): compile a supported console subset without precomputing output.
+- [Abstract size-change certificates](size-change-certificates.md): a bounded graph-level checker, not source termination checking.
 
 - [Direct non-recursive data cases](direct-data-cases.md): exhaustive local or qualified zero/unary matches with linear branch joins.
 
