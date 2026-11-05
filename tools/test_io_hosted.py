@@ -20,6 +20,7 @@ import System
 import Tests.IO
 import Tests.ReadLine
 import Tests.ResourceScope
+import Tests.HandleOwnership
 import Tests.ConsoleArguments
 import Tests.ConsoleSequence
 import Tests.ConsoleScript
@@ -39,7 +40,7 @@ main = do
       lines <- runInputFileChecks path
       scoped <- runScopedInputChecks path
       pure (lines ++ scoped)
-  let results = Tests.IO.checks ++ Tests.ReadLine.checks ++ Tests.ConsoleArguments.checks ++
+  let results = Tests.IO.checks ++ Tests.ReadLine.checks ++ Tests.HandleOwnership.checks ++ Tests.ConsoleArguments.checks ++
                 Tests.ConsoleSequence.checks ++ Tests.ConsoleScript.checks ++
                 Tests.ConsoleInput.checks ++ hostChecks ++ scriptHostChecks ++ resourceChecks ++ inputChecks
   traverse_ (\(label, ok) => putStrLn ((if ok then "PASS: " else "FAIL: ") ++ label)) results

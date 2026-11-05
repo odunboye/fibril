@@ -28,6 +28,7 @@ mutual
   thin env (StringEqual a b) = [| StringEqual (thin env a) (thin env b) |]
   thin env (BoolCase a b c) = [| BoolCase (thin env a) (thin env b) (thin env c) |]
   thin env (IOType a) = IOType <$> thin env a
+  thin env (FileHandleType region) = FileHandleType <$> thin env region
   thin env (IOPure a) = IOPure <$> thin env a
   thin env (WriteLine a) = WriteLine <$> thin env a
   thin env (IOBind a b c d) = [| IOBind (thin env a) (thin env b) (thin env c) (thin env d) |]
@@ -79,6 +80,7 @@ mutual
   substitutionNodes env (StringEqual a b) = min (S inferredResultNodes) (1 + substitutionNodes env a + substitutionNodes env b)
   substitutionNodes env (BoolCase a b c) = min (S inferredResultNodes) (1 + substitutionNodes env a + substitutionNodes env b + substitutionNodes env c)
   substitutionNodes env (IOType a) = min (S inferredResultNodes) (1 + substitutionNodes env a)
+  substitutionNodes env (FileHandleType region) = min (S inferredResultNodes) (1 + substitutionNodes env region)
   substitutionNodes env (IOPure a) = min (S inferredResultNodes) (1 + substitutionNodes env a)
   substitutionNodes env (WriteLine a) = min (S inferredResultNodes) (1 + substitutionNodes env a)
   substitutionNodes env (IOBind a b c d) = min (S inferredResultNodes) (1 + substitutionNodes env a + substitutionNodes env b + substitutionNodes env c + substitutionNodes env d)

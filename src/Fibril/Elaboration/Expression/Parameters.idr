@@ -82,6 +82,7 @@ mutual
     else failure position
   match position mapping prune (VariantType xs) (VariantType ys) solutions = matchArms position mapping prune xs ys solutions
   match position mapping prune (IOType x) (IOType y) solutions = match position mapping prune x y solutions
+  match position mapping prune (FileHandleType x) (FileHandleType y) solutions = match position mapping prune x y solutions
   match position mapping prune (IOPure x) (IOPure y) solutions = match position mapping prune x y solutions
   match position mapping prune (WriteLine x) (WriteLine y) solutions = match position mapping prune x y solutions
   match position mapping prune (BoxValue x y) (BoxValue u v) solutions = pair position mapping prune x y u v solutions

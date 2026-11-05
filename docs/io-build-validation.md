@@ -19,7 +19,7 @@ Validation includes:
 - 108 existing full-CLI tests, including project creation and module/package paths;
 - 12 existing native-emitter tests;
 - 8 interactive tests against the actual built CLI, including emitted C;
-- 179 focused hosted checks plus constructor-opacity and flush/stdin smoke tests;
+- 193 focused hosted checks plus constructor-opacity and flush/stdin smoke tests;
 - 17 direct native runtime tests;
 - seven compiled output-only examples and seven interactive source-level
   hosted/native comparisons.

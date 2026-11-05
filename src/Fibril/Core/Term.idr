@@ -45,6 +45,8 @@ data Term : Nat -> Type where
   BoxCase : Term n -> Term n -> Term n -> Term n
   ||| Pure descriptions of effects; only the external runner performs writes.
   IOType : Term n -> Term n
+  ||| Opaque file ownership indexed by an erased small region type. No value constructor.
+  FileHandleType : Term n -> Term n
   IOPure : Term n -> Term n
   IOBind : Term n -> Term n -> Term n -> Term n -> Term n
   WriteLine : Term n -> Term n
@@ -98,6 +100,7 @@ mutual
   rename env (BoxValue left right) = BoxValue (rename env left) (rename env right)
   rename env (StringEqual left right) = StringEqual (rename env left) (rename env right)
   rename env (IOType ty) = IOType (rename env ty)
+  rename env (FileHandleType region) = FileHandleType (rename env region)
   rename env (NominalType key indices shape) = NominalType key (renameTerms env indices) (rename env shape)
   rename env (NominalValue ty value) = NominalValue (rename env ty) (rename env value)
   rename env (NominalCase motive value branch) = NominalCase (rename env motive) (rename env value) (rename env branch)
@@ -158,6 +161,7 @@ mutual
   substituteTerm env (StringEqual left right) =
     StringEqual (substituteTerm env left) (substituteTerm env right)
   substituteTerm env (IOType ty) = IOType (substituteTerm env ty)
+  substituteTerm env (FileHandleType region) = FileHandleType (substituteTerm env region)
   substituteTerm env (NominalType key indices shape) = NominalType key (substituteTerms env indices) (substituteTerm env shape)
   substituteTerm env (NominalValue ty value) = NominalValue (substituteTerm env ty) (substituteTerm env value)
   substituteTerm env (NominalCase motive value branch) = NominalCase (substituteTerm env motive) (substituteTerm env value) (substituteTerm env branch)
@@ -227,6 +231,7 @@ mutual
   sameSyntax (VariantCase p x fs) (VariantCase q y gs) = sameSyntax p q && sameSyntax x y && sameTerms fs gs
   sameSyntax (BoxType q a) (BoxType r b) = q == r && sameSyntax a b
   sameSyntax (IOType a) (IOType b) = sameSyntax a b
+  sameSyntax (FileHandleType a) (FileHandleType b) = sameSyntax a b
   sameSyntax (IOPure a) (IOPure b) = sameSyntax a b
   sameSyntax (WriteLine a) (WriteLine b) = sameSyntax a b
   sameSyntax (IOBind a b c d) (IOBind e f g h) =

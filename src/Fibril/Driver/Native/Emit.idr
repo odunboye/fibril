@@ -59,6 +59,7 @@ mutual
   generate interactive n BoolFalse = Right (constant n "f_bool(r, 0)")
   generate interactive n StringType = Right (constant n "f_erased(r)")
   generate interactive n (IOType _) = Right (constant n "f_erased(r)")
+  generate interactive n (FileHandleType _) = Right (constant n "f_erased(r)")
   generate interactive n (Pi _ _ _) = Right (constant n "f_erased(r)")
   generate interactive n (Sigma _ _ _ _) = Right (constant n "f_erased(r)")
   generate interactive n (BoxType _ _) = Right (constant n "f_erased(r)")

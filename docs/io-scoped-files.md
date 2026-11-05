@@ -1,7 +1,8 @@
 # Scoped input-file ownership: first pilot
 
-Status: host-only implementation and tests. No file handle type, open/read/close
-primitive or ownership guarantee has been exposed to Fibril source or native C.
+Status: host-only implementation and tests. A separate
+[abstract source handle type](io-static-handles.md) now has typing tests, but no
+source open/read/close primitive or native handle value exists.
 
 ## Implemented host boundary
 
@@ -71,7 +72,8 @@ tests. They cover success, acquisition failure, body/cleanup failures, escaped
 leases, double close and use-after-close. A separate compile-negative check
 verifies that a host client cannot access the raw lease constructor.
 
-Next: finalize the region/ownership-returning source signature, implement core
-rules and negative typing tests for duplication/discard/capture/escape, then
-implement the corresponding native registry and cleanup tests. Keep source file
+Abstract handle formation and negative typing tests for
+ownership duplication/discard/capture are now in place. Next: finalize and
+implement the region/ownership-returning introduction boundary, then connect
+hosted execution and the corresponding native registry/cleanup tests. Keep source file
 primitives disabled until those gates pass. Console IO remains unchanged.

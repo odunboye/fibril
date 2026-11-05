@@ -34,6 +34,7 @@ mutual
   coreNodes (BoxValue a b) = 1 + coreNodes a + coreNodes b
   coreNodes (BoxCase a b c) = 1 + coreNodes a + coreNodes b + coreNodes c
   coreNodes (IOType a) = 1 + coreNodes a
+  coreNodes (FileHandleType region) = 1 + coreNodes region
   coreNodes (IOPure a) = 1 + coreNodes a
   coreNodes (WriteLine a) = 1 + coreNodes a
   coreNodes (IOBind a b c d) = 1 + coreNodes a + coreNodes b + coreNodes c + coreNodes d
@@ -84,6 +85,7 @@ mutual
   mentionsNominal key (BoxValue a b) = mentionsNominal key a || mentionsNominal key b
   mentionsNominal key (BoxCase a b c) = mentionsNominal key a || mentionsNominal key b || mentionsNominal key c
   mentionsNominal key (IOType a) = mentionsNominal key a
+  mentionsNominal key (FileHandleType region) = mentionsNominal key region
   mentionsNominal key (IOPure a) = mentionsNominal key a
   mentionsNominal key (WriteLine a) = mentionsNominal key a
   mentionsNominal key (IOBind a b c d) = mentionsNominal key a || mentionsNominal key b || mentionsNominal key c || mentionsNominal key d

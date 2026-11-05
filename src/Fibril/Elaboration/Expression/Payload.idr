@@ -46,6 +46,7 @@ mutual
   payloadWeight env (BoxValue a b) = cap (payloadWeight env a + payloadWeight env b)
   payloadWeight env (BoxCase a b c) = cap (payloadWeight env a + payloadWeight env b + payloadWeight env c)
   payloadWeight env (IOType a) = payloadWeight env a
+  payloadWeight env (FileHandleType region) = payloadWeight env region
   payloadWeight env (IOPure a) = payloadWeight env a
   payloadWeight env (WriteLine a) = payloadWeight env a
   payloadWeight env (IOBind a b c d) = cap (payloadWeight env a + payloadWeight env b + payloadWeight env c + payloadWeight env d)

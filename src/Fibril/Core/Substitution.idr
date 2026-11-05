@@ -34,6 +34,7 @@ mutual
   substituteCongruent left right agree StringType = Refl
   substituteCongruent left right agree (StringValue _) = Refl
   substituteCongruent left right agree (IOType value) = cong IOType (substituteCongruent left right agree value)
+  substituteCongruent left right agree (FileHandleType region) = cong FileHandleType (substituteCongruent left right agree region)
   substituteCongruent left right agree (NominalType key indices shape) = rewrite substituteCongruentTerms left right agree indices in rewrite substituteCongruent left right agree shape in Refl
   substituteCongruent left right agree (NominalValue ty value) = rewrite substituteCongruent left right agree ty in rewrite substituteCongruent left right agree value in Refl
   substituteCongruent left right agree (NominalCase motive value branch) = rewrite substituteCongruent left right agree motive in rewrite substituteCongruent left right agree value in rewrite substituteCongruent left right agree branch in Refl
@@ -114,6 +115,7 @@ mutual
   renameAsSubstitution env StringType = Refl
   renameAsSubstitution env (StringValue _) = Refl
   renameAsSubstitution env (IOType value) = cong IOType (renameAsSubstitution env value)
+  renameAsSubstitution env (FileHandleType region) = cong FileHandleType (renameAsSubstitution env region)
   renameAsSubstitution env (NominalType key indices shape) = rewrite renameAsSubstitutionTerms env indices in rewrite renameAsSubstitution env shape in Refl
   renameAsSubstitution env (NominalValue ty value) = rewrite renameAsSubstitution env ty in rewrite renameAsSubstitution env value in Refl
   renameAsSubstitution env (NominalCase motive value branch) = rewrite renameAsSubstitution env motive in rewrite renameAsSubstitution env value in rewrite renameAsSubstitution env branch in Refl

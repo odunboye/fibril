@@ -2,7 +2,8 @@
 
 Status: source ownership remains a design proposal, not a soundness claim.
 A [host-only scoped input-file pilot](io-scoped-files.md) now implements cleanup
-and lease revocation, but not source-level linear handles.
+and lease revocation. A [region-indexed abstract handle type](io-static-handles.md)
+now has source typing tests, but no source handle creation or file operations.
 
 ## Preserve the distinction between descriptions and execution
 

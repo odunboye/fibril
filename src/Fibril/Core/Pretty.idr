@@ -37,6 +37,7 @@ mutual
   renderTerm (BoxValue ty value) = "(BoxValue " ++ renderTerm ty ++ " " ++ renderTerm value ++ ")"
   renderTerm (BoxCase motive value branch) = "(BoxCase " ++ renderTerm motive ++ " " ++ renderTerm value ++ " " ++ renderTerm branch ++ ")"
   renderTerm (IOType ty) = "(IO " ++ renderTerm ty ++ ")"
+  renderTerm (FileHandleType region) = "(FileHandle " ++ renderTerm region ++ ")"
   renderTerm (IOPure value) = "(Pure " ++ renderTerm value ++ ")"
   renderTerm (WriteLine text) = "(WriteLine " ++ renderTerm text ++ ")"
   renderTerm (IOBind a b action next) =

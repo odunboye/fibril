@@ -91,6 +91,10 @@ mutual
     rightType <- infer depth reduction context right
     requireCompatible reduction rightType StringType
     Right BoolType
+  infer (S depth) reduction context (FileHandleType region) = do
+    regionType <- infer depth reduction context region
+    requireCompatible reduction regionType (Universe 0)
+    Right (Universe 0)
   infer (S depth) reduction context (IOType ty) = do
     level <- sortOf depth reduction context ty
     Right (Universe level)

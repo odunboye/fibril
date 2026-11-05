@@ -73,6 +73,7 @@ mutual
       Just next => Just (BoxCase motive next branch)
       Nothing => map (BoxCase motive value) (step branch)
   step (IOType ty) = map IOType (step ty)
+  step (FileHandleType region) = map FileHandleType (step region)
   step (IOPure value) = map IOPure (step value)
   step (WriteLine text) = map WriteLine (step text)
   step (IOBind a b (IOPure value) next) = Just (Apply next value)
