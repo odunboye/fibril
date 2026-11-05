@@ -24,11 +24,39 @@ bindConstructor =
         (IOBind (Variable (FS (FS (FS FZ)))) (Variable (FS (FS FZ)))
                 (Variable (FS FZ)) (Variable FZ)))))
 
+natMotive : Term 0
+natMotive = Pi Erased NatType (Universe 0)
+
+-- The ambient context is [base, motive]; the step receives an erased
+-- predecessor and one linear induction result.
+natStep : Term 2
+natStep = Pi Erased NatType
+  (Pi Linear (Apply (Variable (FS (FS FZ))) (Variable FZ))
+    (Apply (Variable (FS (FS (FS FZ)))) (NatSucc (Variable (FS FZ)))))
+
+natRecType : Term 0
+natRecType = Pi Erased natMotive
+  (Pi Linear (Apply (Variable FZ) NatZero)
+    (Pi Unrestricted natStep
+      (Pi Linear NatType (Apply (Variable (FS (FS (FS FZ)))) (Variable FZ)))))
+
+natRecValue : Term 0
+natRecValue = Lambda Erased natMotive
+  (Lambda Linear (Apply (Variable FZ) NatZero)
+    (Lambda Unrestricted natStep
+      (Lambda Linear NatType
+        (NatRec (Variable (FS (FS (FS FZ)))) (Variable (FS (FS FZ)))
+                (Variable (FS FZ)) (Variable FZ)))))
+
 ||| Small-type interface: A/B : Type0. IOType itself preserves arbitrary levels.
 public export
 primitiveGlobals : List GlobalDefinition
 primitiveGlobals =
-  [ Global "IO" (Pi Erased (Universe 0) (Universe 0)) ioConstructor
+  [ GlobalWithQuantity Erased "Nat" (Universe 0) NatType
+  , Global "Zero" NatType NatZero
+  , Global "Succ" (Pi Linear NatType NatType) (Lambda Linear NatType (NatSucc (Variable FZ)))
+  , Global "natRec" natRecType natRecValue
+  , Global "IO" (Pi Erased (Universe 0) (Universe 0)) ioConstructor
   , Global "primPure"
       (Pi Erased (Universe 0) (Pi Linear (Variable FZ) (IOType (Variable (FS FZ)))))
       pureConstructor

@@ -83,6 +83,7 @@ examples: build
 	./build/exec/fibril run --source-dir examples/modules/implicit-arguments examples/modules/implicit-arguments/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/implicit-constraints examples/modules/implicit-constraints/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/implicit-constructors examples/modules/implicit-constructors/Main.fib
+	./build/exec/fibril run --source-dir examples/modules/nat-recursion examples/modules/nat-recursion/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/motive-contexts examples/modules/motive-contexts/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/motive-do examples/modules/motive-do/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/direct-data-case examples/modules/direct-data-case/Main.fib

@@ -240,6 +240,10 @@
         "path": "docs/inductive-data.md"
       },
       {
+        "title": "Structural recursion over Nat",
+        "path": "docs/nat-recursion.md"
+      },
+      {
         "title": "Ordinary core draft",
         "path": "docs/core-draft.md"
       },

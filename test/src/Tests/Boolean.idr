@@ -13,6 +13,9 @@ import Fibril.Source.Global
 import Fibril.Source.Primitive
 import Fibril.Driver.Check
 import Fibril.Driver.Evaluate
+import Fibril.Elaboration.Expression.Parameters
+import Fibril.Source.Text
+import Fibril.Source.Resolve.Error
 
 %default total
 
@@ -34,7 +37,21 @@ formerEqualityCounterexample = "\\(flag : Bool) => \\(x : Unit) => if flag then 
 public export
 checks : List (String, Bool)
 checks =
-  [ ("Boolean library functions are not primitives",
+  [ ("Nat formation and structural iterator",
+      accepted True "(Nat : Type)" &&
+      normalIs 128 "natRec (\\(0 k : Nat) => String) \"a\" (\\(0 k : Nat) => \\(1 x : String) => appendString x \"!\") (Succ (Succ Zero))" "\"a!!\"")
+  , ("Nat recursor proposal normalizes a constant motive",
+      case implicitArgumentType (At 0 1 1) 16 Empty
+        (NatRec (Lambda Erased NatType NatType) NatZero NatZero NatZero) of
+        Right (Just NatType) => True
+        _ => False)
+  , ("Nat recursor rejects linear capture in a repeated step",
+      not (accepted False "\\(1 text : String) => natRec (\\(0 k : Nat) => String) \"\" (\\(0 k : Nat) => \\(1 x : String) => appendString x text) Zero"))
+  , ("Nat recursor checks a step even at zero",
+      not (accepted False "natRec (\\(0 k : Nat) => String) \"ok\" (\\(0 k : Nat) => \\(1 x : String) => True) Zero"))
+  , ("Nat predecessor is erased",
+      not (accepted False "natRec (\\(0 k : Nat) => Nat) Zero (\\(0 k : Nat) => \\(1 x : Nat) => k) (Succ Zero)"))
+  , ("Boolean library functions are not primitives",
       all (\name => case lookupGlobal name primitiveGlobals of Nothing => True; _ => False)
           ["notBool", "andBool", "orBool"])
   , ("Boolean library negation truth table",

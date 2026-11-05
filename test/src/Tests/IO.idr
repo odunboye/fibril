@@ -36,7 +36,7 @@ primitiveValid : GlobalDefinition -> Bool
 primitiveValid entry =
   case checkErased 256 128 Empty entry.value entry.declaredType of
     Left _ => False
-    Right () => if entry.name == "IO" then True else
+    Right () => if entry.name == "IO" || entry.quantity == Erased then True else
       case checkRuntime 256 128 Empty entry.value entry.declaredType of
         Left _ => False
         Right _ => True

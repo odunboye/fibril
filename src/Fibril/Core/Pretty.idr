@@ -21,6 +21,10 @@ mutual
   renderTerm BoolType = "Bool"
   renderTerm BoolTrue = "True"
   renderTerm BoolFalse = "False"
+  renderTerm NatType = "Nat"
+  renderTerm NatZero = "Zero"
+  renderTerm (NatSucc x) = "(Succ " ++ renderTerm x ++ ")"
+  renderTerm (NatRec p z s x) = "(NatRec " ++ renderTerm p ++ " " ++ renderTerm z ++ " " ++ renderTerm s ++ " " ++ renderTerm x ++ ")"
   renderTerm StringType = "String"
   renderTerm (StringValue value) = show value
   renderTerm (StringAppend left right) = "(StringAppend " ++ renderTerm left ++ " " ++ renderTerm right ++ ")"

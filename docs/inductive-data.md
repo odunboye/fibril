@@ -11,7 +11,9 @@ kernel representation. [Checked declaration construction](data-declarations.md)
 now allocates qualified keys and checks closed families/constructors, with exact
 admission and all-or-error layout output. Source integration, field-telescope packing and ordinary module exports now work.
 Exhaustive direct source matching remains a D2 gate; no recursive
-declaration environment has been introduced.
+declaration environment has been introduced. A separate built-in
+[Nat structural recursor](nat-recursion.md) now supports first-order recursive
+computation without accepting user-defined recursive declarations or equations.
 
 ## Use cases
 

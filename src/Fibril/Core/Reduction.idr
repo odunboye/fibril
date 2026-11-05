@@ -27,6 +27,19 @@ mutual
   step BoolType = Nothing
   step BoolTrue = Nothing
   step BoolFalse = Nothing
+  step NatType = Nothing
+  step NatZero = Nothing
+  step (NatSucc value) = map NatSucc (step value)
+  step (NatRec motive base next NatZero) = Just base
+  step (NatRec motive base next (NatSucc value)) =
+    Just (Apply (Apply next value) (NatRec motive base next value))
+  step (NatRec motive base next value) = case step motive of
+    Just p => Just (NatRec p base next value)
+    Nothing => case step base of
+      Just z => Just (NatRec motive z next value)
+      Nothing => case step next of
+        Just s => Just (NatRec motive base s value)
+        Nothing => map (NatRec motive base next) (step value)
   step StringType = Nothing
   step (StringValue _) = Nothing
   step (StringAppend (StringValue left) (StringValue right)) = Just (StringValue (left ++ right))

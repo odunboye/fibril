@@ -30,6 +30,10 @@ mutual
   payloadWeight env BoolType = 0
   payloadWeight env BoolTrue = 0
   payloadWeight env BoolFalse = 0
+  payloadWeight env NatType = 0
+  payloadWeight env NatZero = 0
+  payloadWeight env (NatSucc x) = payloadWeight env x
+  payloadWeight env (NatRec p z s x) = cap (payloadWeight env p + payloadWeight env z + payloadWeight env s + payloadWeight env x)
   payloadWeight env StringType = 0
   payloadWeight env (StringValue value) = cap (length value)
   payloadWeight env (StringAppend a b) = cap (payloadWeight env a + payloadWeight env b)

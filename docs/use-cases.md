@@ -30,7 +30,7 @@ for supported syntax, checking boundaries and resource limits.
 | [Bare Type](bare-type.md) | Reduce universe-zero annotation noise in data, records and polymorphic signatures. | Exactly Type 0; use explicit levels when clarity matters. No universe polymorphism or new core power. |
 | [Experimental C emission](native-c.md) | Compile a checked console subset into a real native executable. | Not an application backend, verified runtime, sandbox or production deployment. |
 | [Direct data cases](direct-data-cases.md) | Match local Sum/Optional alternatives without an eliminator, including linear resources shared across branches. | Constant or expected-dependent motive inference, or explicit `return`; local/direct-imported zero/unary patterns only. Use a named eliminator for wider payloads. |
-| [Non-recursive data](data.md) | Express Optional/Result-style choices with checked named constructors and an optional consuming eliminator; constructors may carry dependent fields. | Use records when every field is present. Direct zero/unary cases exist; wider patterns, recursive Nat/List and termination checking remain future work. |
+| [Non-recursive data](data.md) | Express Optional/Result-style choices with checked named constructors and an optional consuming eliminator; constructors may carry dependent fields. | Use records when every field is present. Direct zero/unary cases exist; wider patterns, recursive source data and termination checking remain future work. A separate built-in Nat recursor supports structural computation. |
 | [Singleton records](unary-records.md) | Give a one-field package the same construction/pattern workflow as other records, without dummy Unit padding. | Use the field directly when the wrapper adds no useful abstraction. |
 | [Erased record parameters](records.md) | Reuse one record definition across element types or indices without treating those parameters as runtime data. | A fixed concrete record is enough. |
 | [Requested getters](records.md) | Access one field when the checker permits discarding the others. | Destructure and consume the package when other fields are linear. Not every field admits a safe getter. |
@@ -136,7 +136,7 @@ matching, rather than authored declarations, remains pending.
 [Non-recursive source data](data.md) now exposes finite choices and named
 elimination, with an [Optional/dependent-package example](../examples/modules/data/Main.fib).
 The [inductive-data plan](inductive-data.md) still separates direct source cases,
-recursive Nat/List, positivity and termination from those implemented features.
+recursive source data, positivity and general termination checking from those implemented features.
 
 Recursive inductive data, recursive instance construction, symbolic fixities,
 checked equality/path terms and native/web/embedded backends remain future work.

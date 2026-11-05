@@ -3764,6 +3764,68 @@ class CLITests(unittest.TestCase):
             plain.write_text('identity : {0 A : Type} -> (1 value : A) -> A\nidentity T x = x\nmain : IO Unit\nmain = putStrLn (identity "x")\n')
             self.assertNotEqual(run('run', str(plain)).returncode, 0)
 
+    def test_total_nat_recursion(self):
+        source = (ROOT / 'examples/modules/nat-recursion/Main.fib').read_text()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Main.fib'
+            def project(command):
+                return run(command, '--source-dir', directory, str(path))
+            path.write_text(source)
+            result = project('run')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'receipt!!!\n')
+            zero = source.replace('Succ (Succ (Succ Zero))', 'Zero')
+            path.write_text(zero)
+            self.assertEqual(project('run').stdout, 'receipt\n')
+            # Recursion is through natRec only; a source self-call has no
+            # independently checked decreasing-argument certificate.
+            path.write_text('module Main\nloop : (1 n : Nat) -> String\nloop n = loop n\nmain : IO Unit\nmain = putStrLn (loop Zero)\n')
+            rejected = project('run')
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertEqual(rejected.stdout, '')
+            # Erased predecessors cannot be returned at runtime, even when
+            # the current scrutinee is a known successor.
+            invalid = ('module Main\nbad : (1 n : Nat) -> Nat\n'
+                       'bad n = natRec (\\(0 k : Nat) => Nat) Zero '
+                       '(\\(0 k : Nat) => \\(1 result : Nat) => k) n\n'
+                       'main : IO Unit\nmain = putStrLn "never"\n')
+            path.write_text(invalid)
+            rejected = project('run')
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertEqual(rejected.stdout, '')
+            # Inference can use direct Nat values and a recursor result.
+            generic = ('module Main\nidentity : {0 A : Type} -> (1 x : A) -> A\nidentity A x = x\n'
+                       'use : (1 n : Nat) -> String\nuse n = natRec (\\(0 k : Nat) => String) "z" '
+                       '(\\(0 k : Nat) => \\(1 x : String) => appendString x "!") n\n'
+                       'main : IO Unit\nmain = putStrLn (use (identity (Succ (identity Zero))))\n')
+            path.write_text(generic)
+            result = project('run')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'z!\n')
+            indexed = ('module Main\ndata Mark (0 n : Nat) : Type where\n'
+                       '  A : (1 value : String) -> Mark n\n  B : (1 value : String) -> Mark n\n'
+                       'read : {0 n : Nat} -> (1 value : Mark (Succ n)) -> String\n'
+                       'read n value = case value of\n  A text => text\n  B text => text\n'
+                       'main : IO Unit\nmain = putStrLn (read (A (Succ Zero) "index"))\n')
+            path.write_text(indexed)
+            result = project('run')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'index\n')
+            dependent = ('module Main\ndata Mark (0 n : Nat) : Type where\n'
+                         '  A : (1 value : String) -> Mark n\n  B : (1 value : String) -> Mark n\n'
+                         'carry : (1 n : Nat) -> Mark n\n'
+                         'carry n = natRec (\\(0 k : Nat) => Mark k) (A Zero "z") '
+                         '(\\(0 k : Nat) => \\(1 prev : Mark k) => case prev of\n'
+                         '  A text => A (Succ k) (appendString text "!")\n'
+                         '  B text => B (Succ k) (appendString text "!")) n\n'
+                         'show : (0 n : Nat) -> (1 value : Mark n) -> String\n'
+                         'show n value = case value of\n  A text => text\n  B text => text\n'
+                         'main : IO Unit\nmain = putStrLn (show (Succ Zero) (carry (Succ Zero)))\n')
+            path.write_text(dependent)
+            result = project('run')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'z!\n')
+
     def test_implicit_data_constructors(self):
         import shutil
         fixture = ROOT / 'examples/modules/implicit-constructors'

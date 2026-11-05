@@ -1,0 +1,11 @@
+digraph NatRecursion {
+  rankdir=LR;
+  node [shape=box];
+  source [label="Nat, Zero, Succ, natRec\nauthored program"];
+  core [label="Scoped core NatRec\nstructural predecessor"];
+  check [label="Independent type and\nquantitative checks"];
+  reduce [label="Bounded reference reduction\nZero / Succ computation"];
+  later [label="Future: recursive data,\npositivity, recursive equations", style=dashed];
+  source -> core -> check -> reduce;
+  check -> later [style=dashed];
+}

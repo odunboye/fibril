@@ -47,6 +47,14 @@ mutual
   analyze (S depth) reduction context BoolType = Left RuntimeTypeExpression
   analyze (S depth) reduction context BoolTrue = Right zeroUsage
   analyze (S depth) reduction context BoolFalse = Right zeroUsage
+  analyze (S depth) reduction context NatType = Left RuntimeTypeExpression
+  analyze (S depth) reduction context NatZero = Right zeroUsage
+  analyze (S depth) reduction context (NatSucc value) = analyze depth reduction context value
+  analyze (S depth) reduction context (NatRec motive base next value) = do
+    baseUsage <- analyze depth reduction context base
+    nextUsage <- analyze depth reduction context next
+    valueUsage <- analyze depth reduction context value
+    Right (combineUsage valueUsage (combineUsage baseUsage (scaleUsage Unrestricted nextUsage)))
   analyze (S depth) reduction context StringType = Left RuntimeTypeExpression
   analyze (S depth) reduction context (StringValue _) = Right zeroUsage
   analyze (S depth) reduction context (StringAppend left right) = do

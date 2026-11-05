@@ -1,0 +1,13 @@
+module Main
+
+-- natRec is a total structural recursor. The predecessor is erased; the
+-- previous result is linear, and the step may run any number of times.
+repeat : (1 count : Nat) -> (1 text : String) -> String
+repeat count text = natRec
+  (\(0 k : Nat) => String)
+  text
+  (\(0 k : Nat) => \(1 result : String) => appendString result "!")
+  count
+
+main : IO Unit
+main = putStrLn (repeat (Succ (Succ (Succ Zero))) "receipt")

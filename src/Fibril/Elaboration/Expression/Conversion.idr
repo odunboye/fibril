@@ -22,6 +22,10 @@ mutual
   admit (S budget) BoolType = Just budget
   admit (S budget) BoolTrue = Just budget
   admit (S budget) BoolFalse = Just budget
+  admit (S budget) NatType = Just budget
+  admit (S budget) NatZero = Just budget
+  admit (S budget) (NatSucc x) = admit budget x
+  admit (S budget) (NatRec p z s x) = do a <- admit budget p; b <- admit a z; c <- admit b s; admit c x
   admit (S budget) StringType = Just budget
   admit (S budget) (StringValue _) = Just budget
   admit (S budget) (StringAppend a b) = do x <- admit budget a; admit x b
@@ -72,6 +76,15 @@ mutual
   safeRedexes size payload BoolType = True
   safeRedexes size payload BoolTrue = True
   safeRedexes size payload BoolFalse = True
+  safeRedexes size payload NatType = True
+  safeRedexes size payload NatZero = True
+  safeRedexes size payload (NatSucc x) = safeRedexes size payload x
+  safeRedexes size payload (NatRec p z s (NatSucc x)) =
+    size + typeNodes s + typeNodes x + 2 <= inferredResultNodes &&
+    payload + payloadSize s + payloadSize x <= payloadLimit &&
+    safeRedexes size payload p && safeRedexes size payload z && safeRedexes size payload s && safeRedexes size payload x
+  safeRedexes size payload (NatRec p z s x) =
+    safeRedexes size payload p && safeRedexes size payload z && safeRedexes size payload s && safeRedexes size payload x
   safeRedexes size payload StringType = True
   safeRedexes size payload (StringValue _) = True
   safeRedexes size payload (StringAppend a b) = safeRedexes size payload a && safeRedexes size payload b

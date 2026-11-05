@@ -17,6 +17,7 @@ import Fibril.Core.Reduction
 ||| Failures distinguish exhausted checking/reduction from actual rejection.
 public export
 data CheckError : Type where
+  NatError : String -> CheckError
   NominalError : String -> CheckError
   VariantError : String -> CheckError
   CheckingLimit : CheckError
@@ -33,6 +34,7 @@ data CheckError : Type where
 
 public export
 Show CheckError where
+  show (NatError message) = "Nat: " ++ message
   show (NominalError message) = "Nominal: " ++ message
   show (VariantError message) = "Variant: " ++ message
   show CheckingLimit = "Checking recursion budget exhausted"
@@ -76,6 +78,32 @@ mutual
   infer (S depth) reduction context BoolType = Right (Universe 0)
   infer (S depth) reduction context BoolTrue = Right BoolType
   infer (S depth) reduction context BoolFalse = Right BoolType
+  infer (S depth) reduction context NatType = Right (Universe 0)
+  infer (S depth) reduction context NatZero = Right NatType
+  infer (S depth) reduction context (NatSucc value) = do
+    ty <- infer depth reduction context value
+    requireCompatible reduction ty NatType
+    Right NatType
+  infer (S depth) reduction context (NatRec motive base next value) = do
+    valueType <- infer depth reduction context value
+    requireCompatible reduction valueType NatType
+    motiveType <- infer depth reduction context motive
+    motiveHead <- exposeType reduction motiveType
+    case motiveHead of
+      Pi Erased parameter result => do
+        requireCompatible reduction parameter NatType
+        resultHead <- exposeType reduction result
+        case resultHead of
+          Universe _ => Right ()
+          _ => Left (ExpectedUniverse resultHead)
+      _ => Left (NatError "recursor motive must have an erased Nat binder and return a universe")
+    baseType <- infer depth reduction context base
+    requireCompatible reduction baseType (Apply motive NatZero)
+    nextType <- infer depth reduction context next
+    let ihType = Apply (weaken motive) (Variable FZ)
+    let resultType = Apply (weaken (weaken motive)) (NatSucc (Variable (FS FZ)))
+    requireCompatible reduction nextType (Pi Erased NatType (Pi Linear ihType resultType))
+    Right (Apply motive value)
   infer (S depth) reduction context StringType = Right (Universe 0)
   infer (S depth) reduction context (StringValue _) = Right StringType
   infer (S depth) reduction context (StringAppend left right) = do
