@@ -190,26 +190,180 @@ main = do
                     self.assertNotEqual(native.returncode, 0)
                     self.assertIn(b'action budget', native.stderr)
 
-    def test_nat_recursion_is_not_yet_native(self):
-        root = ROOT / 'examples/modules/nat-recursion'
-        emitted = run_cli('emit-c', '--source-dir', str(root), str(root / 'Main.fib'), timeout=120)
-        self.assertNotEqual(emitted.returncode, 0)
-        self.assertEqual(emitted.stdout, '')
-        self.assertIn('does not support this computational core construct', emitted.stderr)
-        for example in ['nat-predecessor', 'recursive-equations', 'recursive-render']:
-            root = ROOT / 'examples/modules' / example
-            emitted = run_cli('emit-c', '--source-dir', str(root), str(root / 'Main.fib'), timeout=120)
-            self.assertNotEqual(emitted.returncode, 0)
-            self.assertEqual(emitted.stdout, '')
-            self.assertIn('does not support this computational core construct', emitted.stderr)
+    def test_checked_recursive_examples_match_reference(self):
+        examples = [('nat-recursion', b'receipt!!!\n'), ('nat-predecessor', b'!!!\n'),
+                    ('recursive-equations', b'!!!!\n'), ('recursive-render', b'receipt!!\n'),
+                    ('recursive-data', b'!!\n'), ('recursive-list', b'hello world\n'),
+                    ('polymorphic-recursion', b'hello world\n')]
+        for example, expected in examples:
+            with self.subTest(example=example), tempfile.TemporaryDirectory() as directory:
+                root = ROOT / 'examples/modules' / example
+                args = ['--source-dir', str(root), str(root / 'Main.fib')]
+                _, native = self.compile_and_run(args, directory)
+                reference = run_cli('run', *args, text=False, timeout=120)
+                self.assertEqual(reference.returncode, 0, reference.stderr)
+                self.assertEqual(native.returncode, 0, native.stderr)
+                self.assertEqual(native.stdout, expected)
+                self.assertEqual(native.stdout, reference.stdout)
 
-    def test_recursive_data_is_not_yet_native(self):
-        for example in ['recursive-data', 'recursive-list']:
-            root = ROOT / 'examples/modules' / example
-            emitted = run_cli('emit-c', '--source-dir', str(root), str(root / 'Main.fib'), timeout=120)
-            self.assertNotEqual(emitted.returncode, 0)
-            self.assertEqual(emitted.stdout, '')
-            self.assertIn('does not support this computational core construct', emitted.stderr)
+    def test_recursive_cases_and_captured_fold_environment(self):
+        source = r'''module Main
+
+data Chain : Type where
+  eliminator foldChain
+  Empty : Chain
+  More : (1 tail : Chain) -> Chain
+
+data Items {0 A : Type} : Type where
+  eliminator foldItems
+  Nil : Items A
+  Cons : (1 head : A) -> (1 tail : Items A) -> Items A
+
+marks : (1 prefix : String) -> (1 xs : Chain) -> String
+marks prefix xs = case xs of
+  Empty => prefix
+  More tail => foldChain (\(0 self : Chain) => String) prefix
+    (\(0 rest : Chain) => \(1 result : String) => appendString result "!") tail
+
+join : (1 xs : Items String) -> String
+join xs = case xs of
+  Nil => "empty"
+  Cons head tail => appendString head (foldItems String (\(0 self : Items String) => String) "!"
+    (\(1 item : String) => \(0 rest : Items String) => \(1 result : String) => appendString item result) tail)
+
+main : IO Unit
+main = do
+  putStrLn (marks "base" Empty)
+  putStrLn (marks "base" (More (More Empty)))
+  putStrLn (join (Nil {String}))
+  putStrLn (join (Cons "a" (Cons "b" (Nil {String}))))
+'''
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Main.fib'
+            path.write_text(source)
+            args = ['--source-dir', directory, str(path)]
+            _, native = self.compile_and_run(args, directory)
+            reference = run_cli('run', *args, text=False, timeout=120)
+            self.assertEqual(reference.returncode, 0, reference.stderr)
+            self.assertEqual(native.returncode, 0, native.stderr)
+            self.assertEqual(native.stdout, b'base\nbase!\nempty\nab!\n')
+            self.assertEqual(native.stdout, reference.stdout)
+
+    def test_recursive_unselected_branch_is_lazy(self):
+        doubling = ('double : (x : String) -> String\ndouble x = appendString x x\n'
+                    'v0 : String\nv0 = "0123456789abcdef"\n' +
+                    ''.join(f'v{i} : String\nv{i} = double v{i-1}\n' for i in range(1, 22)))
+        import textwrap
+        source = 'module Main\n' + doubling + textwrap.dedent(r'''
+        data Items {0 A : Type} : Type where
+          eliminator foldItems
+          Nil : Items A
+          Cons : (1 head : A) -> (1 tail : Items A) -> Items A
+        render : (1 xs : Items String) -> String
+        render xs = case xs of
+          Nil => v21
+          Cons head tail => appendString head (foldItems String (\(0 self : Items String) => String) "!"
+            (\(1 item : String) => \(0 rest : Items String) => \(1 result : String) => appendString item result) tail)
+        main : IO Unit
+        main = putStrLn (render (Cons "selected" (Nil {String})))
+        ''')
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Main.fib'
+            path.write_text(source)
+            _, native = self.compile_and_run(['--source-dir', directory, str(path)], directory)
+            self.assertEqual(native.returncode, 0, native.stderr)
+            self.assertEqual(native.stdout, b'selected!\n')
+
+    def test_runtime_fold_thunks_are_lazy_and_memoized(self):
+        # Direct runtime probes intentionally bypass the Fibril checker. They
+        # exercise delayed and shared thunks, not source-level typing claims.
+        probes = [r'''
+#include "fibril_runtime.h"
+static FValue *bomb(FRuntime *r, FEnv *e) { (void)e; return f_variable(r, NULL, 0); }
+static FValue *value(FRuntime *r, FEnv *e) { return f_nat_succ(r, e, bomb); }
+static FValue *literal(FRuntime *r, FEnv *e) { (void)e; return f_literal(r, (const unsigned char *)"lazy", 4); }
+static FValue *inner(FRuntime *r, FEnv *e) { return f_lambda(r, e, 0, literal); }
+static FValue *step(FRuntime *r, FEnv *e) { return f_lambda(r, e, 1, inner); }
+static FValue *fold(FRuntime *r, FEnv *e) { return f_nat_rec(r, e, bomb, step, value); }
+static FValue *entry(FRuntime *r, FEnv *e) { return f_write(r, e, fold); }
+int main(void) { return fibril_native_run(entry); }
+''', r'''
+#include "fibril_runtime.h"
+static int calls;
+static FValue *zero(FRuntime *r, FEnv *e) { (void)e; return f_nat_zero(r); }
+static FValue *value(FRuntime *r, FEnv *e) { return f_nat_succ(r, e, zero); }
+static FValue *base(FRuntime *r, FEnv *e) { (void)e; calls++; return f_literal(r, (const unsigned char *)"x", 1); }
+static FValue *var(FRuntime *r, FEnv *e) { return f_variable(r, e, 0); }
+static FValue *twice(FRuntime *r, FEnv *e) { return f_append(r, e, var, var); }
+static FValue *inner(FRuntime *r, FEnv *e) { return f_lambda(r, e, 0, twice); }
+static FValue *step(FRuntime *r, FEnv *e) { return f_lambda(r, e, 1, inner); }
+static FValue *fold(FRuntime *r, FEnv *e) { return f_nat_rec(r, e, base, step, value); }
+static FValue *entry(FRuntime *r, FEnv *e) { return f_write(r, e, fold); }
+int main(void) { int result = fibril_native_run(entry); return result ? result : calls == 1 ? 0 : 2; }
+''']
+        for source, expected in zip(probes, [b'lazy\n', b'xx\n']):
+            with self.subTest(expected=expected), tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / 'probe.c'
+                executable = Path(directory) / 'probe'
+                path.write_text(source)
+                build = subprocess.run(CC + ['-std=c11', '-Wall', '-Wextra', '-Werror', '-pedantic',
+                                              '-I', str(RUNTIME), str(path), str(RUNTIME / 'fibril_runtime.c'),
+                                              '-o', str(executable)], capture_output=True, text=True, timeout=120)
+                self.assertEqual(build.returncode, 0, build.stderr)
+                native = subprocess.run([str(executable)], capture_output=True, timeout=120)
+                self.assertEqual(native.returncode, 0, native.stderr)
+                self.assertEqual(native.stdout, expected)
+
+    def test_runtime_recursive_tags_and_erased_slots_fail_closed(self):
+        # These deliberately malformed runtime calls are not checked Fibril.
+        probes = [r'''
+#include "fibril_runtime.h"
+static FValue *zero(FRuntime *r, FEnv *e) { (void)e; return f_nat_zero(r); }
+static FValue *unit(FRuntime *r, FEnv *e) { (void)e; return f_unit(r); }
+static FValue *fold(FRuntime *r, FEnv *e) { return f_rec_fold(r, e, unit, unit, zero); }
+static FValue *entry(FRuntime *r, FEnv *e) { return f_write(r, e, fold); }
+int main(void) { return fibril_native_run(entry); }
+''', r'''
+#include "fibril_runtime.h"
+static FValue *zero(FRuntime *r, FEnv *e) { (void)e; return f_nat_zero(r); }
+static FValue *value(FRuntime *r, FEnv *e) { return f_nat_succ(r, e, zero); }
+static FValue *force_erased(FRuntime *r, FEnv *e) { return f_variable(r, e, 0); }
+static FValue *step(FRuntime *r, FEnv *e) { return f_lambda(r, e, 1, force_erased); }
+static FValue *unit(FRuntime *r, FEnv *e) { (void)e; return f_unit(r); }
+static FValue *fold(FRuntime *r, FEnv *e) { return f_nat_rec(r, e, unit, step, value); }
+static FValue *entry(FRuntime *r, FEnv *e) { return f_write(r, e, fold); }
+int main(void) { return fibril_native_run(entry); }
+''']
+        for source, message in zip(probes, [b'matching recursive value', b'erased argument was forced']):
+            with self.subTest(message=message), tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / 'probe.c'
+                executable = Path(directory) / 'probe'
+                path.write_text(source)
+                build = subprocess.run(CC + ['-std=c11', '-Wall', '-Wextra', '-Werror', '-pedantic',
+                                              '-I', str(RUNTIME), str(path), str(RUNTIME / 'fibril_runtime.c'),
+                                              '-o', str(executable)], capture_output=True, text=True, timeout=120)
+                self.assertEqual(build.returncode, 0, build.stderr)
+                native = subprocess.run([str(executable)], capture_output=True, timeout=120)
+                self.assertNotEqual(native.returncode, 0)
+                self.assertEqual(native.stdout, b'')
+                self.assertIn(message, native.stderr)
+
+    def test_recursive_budget_failure_precedes_all_output(self):
+        source = ('module Main\ndouble : (1 n : Nat) -> Nat\ndouble n = case n of\n'
+                  '  Zero => Zero\n  Succ k => Succ (Succ (double k))\n'
+                  'n0 : Nat\nn0 = Succ Zero\n' +
+                  ''.join(f'n{i} : Nat\nn{i} = double n{i-1}\n' for i in range(1, 9)) +
+                  'repeat : (1 count : Nat) -> String\n'
+                  'repeat count = natRec (\\(0 k : Nat) => String) "x" '
+                  '(\\(0 k : Nat) => \\(1 result : String) => appendString result "!") count\n'
+                  'main : IO Unit\nmain = do\n  putStrLn "must not appear"\n  putStrLn (repeat n8)\n')
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Main.fib'
+            path.write_text(source)
+            _, native = self.compile_and_run(['--source-dir', directory, str(path)], directory)
+            self.assertNotEqual(native.returncode, 0)
+            self.assertEqual(native.stdout, b'')
+            self.assertIn(b'evaluation budget exhausted', native.stderr)
 
     def test_wider_data_still_fails_closed_without_pair_lowering(self):
         root = ROOT / 'examples/modules/data'

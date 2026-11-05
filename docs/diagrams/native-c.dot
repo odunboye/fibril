@@ -5,7 +5,7 @@ digraph NativeC {
   check [label="Independent core + usage check\noriginal closed main : IO Unit"];
   emit [label="Bounded supported-core lowering\nC functions, no evaluation"];
   cc [label="User-selected C compiler\nexplicit separate command"];
-  run [label="Native runtime\nlazy values + complete stdout plan"];
+  run [label="Native runtime\nlazy recursive fields + suspended folds\ncomplete stdout plan"];
   host [label="Host stdout\nerrors may be partial"];
   source -> check -> emit -> cc -> run -> host;
 }

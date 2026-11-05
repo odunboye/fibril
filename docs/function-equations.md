@@ -108,7 +108,8 @@ size/payload guarded, and an inconclusive or exhausted attempt does not accept
 recursion. This is **not** a general termination checker: additional parameters,
 binder-containing successor expressions, multiple recursive calls, mutual
 recursion and dependent results need later work. Use explicit [`natRec` or `natRecWith`](nat-recursion.md) for operations
-outside this narrow source form. C emission still rejects Nat computation.
+outside this narrow source form. Experimental C emission supports these checked
+Nat forms, subject to its own runtime limits.
 
 After project checking, definition navigation resolves accepted structural
 self-calls using the actual authored name token and definition span. Same-file
@@ -144,7 +145,8 @@ with an erased tail and linear induction result; independent core type and usage
 checks still validate the whole function. This is convenient syntax for the
 existing fixed-shape fold, not general recursive equations, positivity or a
 termination checker. Checked project definition navigation uses a self-call
-site recorded only when lowering succeeds. The C backend still rejects it.
+site recorded only when lowering succeeds. Experimental C emission supports this
+checked fixed-shape fold, subject to native limits.
 
 ## Structural list-shaped equations
 
@@ -187,7 +189,8 @@ uses the actual erased parameter in a dependent result. For an implicit prefix,
 parameters. Multiple leading parameters, a different recursive type parameter,
 dependent results over the input, arbitrary recursive calls and general
 termination checking remain unsupported. Checked project definition navigation
-resolves the authored self-call; the C backend rejects it.
+resolves the authored self-call; experimental C emission supports the checked
+fixed-shape fold subject to native limits.
 
 ## Bounds, tooling and evidence
 

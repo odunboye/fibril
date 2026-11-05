@@ -128,7 +128,8 @@ payload fields, indexed recursive families, more constructors and general
 recursive equations remain unsupported. Direct `case` can inspect this unary
 family once and exposes its actual tail linearly. Use the named fold for
 structural recursion, or the [restricted structural equation form](function-equations.md#structural-unary-data-equations)
-when its narrower syntax applies. The C backend rejects these computational forms.
+when its narrower syntax applies. The experimental C backend supports these
+fixed forms with separate native runtime budgets.
 
 ![Unary recursive data checking](diagrams/recursive-data.svg)
 
@@ -168,7 +169,8 @@ linear tail. For recursion, use the named fold or the restricted
 at a closed element type or with one leading erased element-type parameter. The generated
 fixed templates reserve 128 nodes without the fold or 768 with it before named-IR
 construction and are post-counted; these are admissions, not hard resource
-bounds. The experimental C backend still rejects these recursive values/folds.
+bounds. The experimental C backend also supports these fixed recursive values,
+cases and folds, subject to its own limits.
 
 ## Use the optional eliminator
 

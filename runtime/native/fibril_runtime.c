@@ -16,7 +16,10 @@ typedef struct FThunk FThunk;
 typedef struct FAction { const unsigned char *bytes; size_t length; struct FAction *next; } FAction;
 struct FRuntime { FAllocation *allocations; size_t bytes, steps, depth, actions; const char *error; FAction *head, *tail; };
 struct FEnv { FThunk *value; FEnv *tail; };
-typedef enum { V_UNIT, V_ERASED, V_BOOL, V_STRING, V_CLOSURE, V_NOMINAL, V_VARIANT, V_PURE, V_BIND, V_WRITE } FTag;
+typedef enum { V_UNIT, V_ERASED, V_BOOL, V_STRING, V_CLOSURE, V_NOMINAL, V_VARIANT,
+               V_NAT_ZERO, V_NAT_SUCC, V_REC_END, V_REC_MORE, V_SEQ_NIL, V_SEQ_CONS,
+               V_PURE, V_BIND, V_WRITE } FTag;
+typedef enum { F_NAT, F_NAT_RUNTIME, F_REC, F_SEQ } FFoldKind;
 struct FValue {
   FTag tag;
   union {
@@ -24,11 +27,23 @@ struct FValue {
     int boolean;
     FThunk *nominal;
     struct { size_t tag; FThunk *payload; } variant;
+    struct { FThunk *head, *tail; } recursive;
     struct { FEval body; FEnv *env; int erased; } closure;
     struct { FThunk *first, *second; } io;
   } as;
 };
-struct FThunk { FEval code; FEnv *env; FValue *value; int state; };
+struct FThunk {
+  FEval code;
+  FEnv *env;
+  FValue *value;
+  int state, is_fold;
+  FFoldKind fold_kind;
+  FThunk *input;
+  FEval base, step;
+};
+
+static FValue *evaluate_fold(FRuntime *r, FFoldKind kind, FEnv *env,
+                             FEval base, FEval step, FThunk *input);
 
 static void fail(FRuntime *r, const char *message) { if (!r->error) r->error = message; }
 static void *allocate(FRuntime *r, size_t size) {
@@ -58,7 +73,7 @@ static FValue *new_value(FRuntime *r, FTag tag) {
 }
 static FThunk *thunk(FRuntime *r, FEval code, FEnv *env) {
   FThunk *t = allocate(r, sizeof(*t));
-  if (t) { t->code = code; t->env = env; t->value = NULL; t->state = 0; }
+  if (t) { memset(t, 0, sizeof(*t)); t->code = code; t->env = env; }
   return t;
 }
 static FThunk *ready(FRuntime *r, FValue *value) {
@@ -72,7 +87,8 @@ static FValue *force(FRuntime *r, FThunk *t) {
   if (t->state == 2) return t->value;
   if (t->state == 1) { fail(r, "cyclic native thunk"); return NULL; }
   t->state = 1;
-  FValue *value = evaluate(r, t->code, t->env);
+  FValue *value = t->is_fold ? evaluate_fold(r, t->fold_kind, t->env, t->base, t->step, t->input)
+                             : evaluate(r, t->code, t->env);
   if (!value) return NULL;
   t->value = value; t->state = 2; return value;
 }
@@ -116,6 +132,44 @@ FValue *f_apply(FRuntime *r, FEnv *env, FEval function, FEval argument) {
   if (!fun->as.closure.erased && !arg) return NULL;
   return apply_thunk(r, fun, arg);
 }
+static FThunk *fold_thunk(FRuntime *r, FFoldKind kind, FEnv *env,
+                          FEval base, FEval step, FThunk *input) {
+  FThunk *result = thunk(r, NULL, env);
+  if (result) { result->is_fold = 1; result->fold_kind = kind; result->base = base; result->step = step; result->input = input; }
+  return result;
+}
+static FValue *evaluate_fold(FRuntime *r, FFoldKind kind, FEnv *env,
+                             FEval base, FEval step, FThunk *input) {
+  if (!enter(r)) return NULL;
+  FValue *result = NULL;
+  FValue *value = force(r, input);
+  if (value) {
+    int is_base = (kind == F_NAT || kind == F_NAT_RUNTIME) ? value->tag == V_NAT_ZERO :
+                  kind == F_REC ? value->tag == V_REC_END : value->tag == V_SEQ_NIL;
+    int is_step = (kind == F_NAT || kind == F_NAT_RUNTIME) ? value->tag == V_NAT_SUCC :
+                  kind == F_REC ? value->tag == V_REC_MORE : value->tag == V_SEQ_CONS;
+    if (is_base) result = evaluate(r, base, env);
+    else if (is_step && value->as.recursive.tail && (kind != F_SEQ || value->as.recursive.head)) {
+      FValue *branch = evaluate(r, step, env);
+      FThunk *next = branch ? fold_thunk(r, kind, env, base, step, value->as.recursive.tail) : NULL;
+      if (next && kind == F_SEQ) branch = apply_thunk(r, branch, value->as.recursive.head);
+      if (next && branch) branch = apply_thunk(r, branch, kind == F_NAT_RUNTIME ? value->as.recursive.tail : NULL);
+      if (next && branch) result = apply_thunk(r, branch, next);
+    } else fail(r, "native fold expects a matching recursive value");
+  }
+  r->depth--;
+  return result;
+}
+static FValue *fold(FRuntime *r, FFoldKind kind, FEnv *env, FEval base, FEval step, FEval value) {
+  if (!base || !step || !value) { fail(r, "missing native fold expression"); return NULL; }
+  FThunk *input = thunk(r, value, env);
+  return input ? evaluate_fold(r, kind, env, base, step, input) : NULL;
+}
+FValue *f_nat_rec(FRuntime *r, FEnv *env, FEval base, FEval step, FEval value) { return fold(r, F_NAT, env, base, step, value); }
+FValue *f_nat_rec_runtime(FRuntime *r, FEnv *env, FEval base, FEval step, FEval value) { return fold(r, F_NAT_RUNTIME, env, base, step, value); }
+FValue *f_rec_fold(FRuntime *r, FEnv *env, FEval base, FEval step, FEval value) { return fold(r, F_REC, env, base, step, value); }
+FValue *f_seq_fold(FRuntime *r, FEnv *env, FEval base, FEval step, FEval value) { return fold(r, F_SEQ, env, base, step, value); }
+
 FValue *f_append(FRuntime *r, FEnv *env, FEval left, FEval right) {
   FValue *a = evaluate(r, left, env);
   if (!a) return NULL;
@@ -171,6 +225,47 @@ FValue *f_variant_case(FRuntime *r, FEnv *env, FEval scrutinee, size_t count, co
   FValue *branch = evaluate(r, branches[v->as.variant.tag], env);
   if (!branch) return NULL;
   return v->as.variant.payload ? apply_thunk(r, branch, v->as.variant.payload) : branch;
+}
+FValue *f_nat_zero(FRuntime *r) { return new_value(r, V_NAT_ZERO); }
+FValue *f_rec_end(FRuntime *r) { return new_value(r, V_REC_END); }
+FValue *f_seq_nil(FRuntime *r) { return new_value(r, V_SEQ_NIL); }
+static FValue *recursive_value(FRuntime *r, FEnv *env, FTag tag, FEval head, FEval tail) {
+  if (!tail || (tag == V_SEQ_CONS && !head)) { fail(r, "missing native recursive field"); return NULL; }
+  FValue *value = new_value(r, tag);
+  if (!value) return NULL;
+  value->as.recursive.tail = thunk(r, tail, env);
+  if (!value->as.recursive.tail) return NULL;
+  if (head) {
+    value->as.recursive.head = thunk(r, head, env);
+    if (!value->as.recursive.head) return NULL;
+  }
+  return value;
+}
+FValue *f_nat_succ(FRuntime *r, FEnv *env, FEval tail) { return recursive_value(r, env, V_NAT_SUCC, NULL, tail); }
+FValue *f_rec_more(FRuntime *r, FEnv *env, FEval tail) { return recursive_value(r, env, V_REC_MORE, NULL, tail); }
+FValue *f_seq_cons(FRuntime *r, FEnv *env, FEval head, FEval tail) { return recursive_value(r, env, V_SEQ_CONS, head, tail); }
+FValue *f_rec_case(FRuntime *r, FEnv *env, FEval scrutinee, FEval base, FEval more) {
+  if (!scrutinee || !base || !more) { fail(r, "missing native recursive-case expression"); return NULL; }
+  FValue *value = evaluate(r, scrutinee, env);
+  if (!value) return NULL;
+  if (value->tag == V_REC_END) return evaluate(r, base, env);
+  if (value->tag != V_REC_MORE || !value->as.recursive.tail) {
+    fail(r, "native recursive case expects a recursive value"); return NULL;
+  }
+  FValue *branch = evaluate(r, more, env);
+  return branch ? apply_thunk(r, branch, value->as.recursive.tail) : NULL;
+}
+FValue *f_seq_case(FRuntime *r, FEnv *env, FEval scrutinee, FEval base, FEval cons) {
+  if (!scrutinee || !base || !cons) { fail(r, "missing native sequence-case expression"); return NULL; }
+  FValue *value = evaluate(r, scrutinee, env);
+  if (!value) return NULL;
+  if (value->tag == V_SEQ_NIL) return evaluate(r, base, env);
+  if (value->tag != V_SEQ_CONS || !value->as.recursive.head || !value->as.recursive.tail) {
+    fail(r, "native sequence case expects a sequence value"); return NULL;
+  }
+  FValue *branch = evaluate(r, cons, env);
+  branch = branch ? apply_thunk(r, branch, value->as.recursive.head) : NULL;
+  return branch ? apply_thunk(r, branch, value->as.recursive.tail) : NULL;
 }
 FValue *f_unit_case(FRuntime *r, FEnv *env, FEval scrutinee, FEval body) {
   FValue *value = evaluate(r, scrutinee, env);

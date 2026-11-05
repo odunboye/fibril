@@ -33,7 +33,8 @@ checker for arbitrary definitions remain future work. `natRec` gives the step an
 runtime recursive result. `natRecWith` additionally allows the step to inspect
 the predecessor, at the cost of requiring an unrestricted count. General
 structural recursion through other user types requires later work. The
-experimental C backend currently rejects Nat computation; use `fibril run`.
+experimental C backend also supports these checked Nat forms, with its own
+admission limits; `fibril run` remains the reference alternative.
 
 ![Structural recursion boundary](diagrams/nat-recursion.svg)
 
@@ -101,7 +102,7 @@ checker and full reduction limits continue to apply.
 Tests cover zero and successor computation, runtime predecessor access with an
 unrestricted count, an index-dependent result, invalid steps even on `Zero`,
 erased predecessor misuse, linear capture, inference for
-Nat values and fail-closed native emission. Structural renaming and substitution
+Nat values, sampled native/reference agreement and fail-closed unsupported native forms. Structural renaming and substitution
 proofs cover the new nodes. These tests do not prove normalization, positivity,
 whole-language soundness or backend correctness. Next: general recursive
 declaration representation and positivity, followed by source equation
