@@ -19,6 +19,7 @@ mutual
   coreNodes BoolTrue = 1
   coreNodes BoolFalse = 1
   coreNodes ReadLine = 1
+  coreNodes (FileHandleValue _) = 1
   coreNodes StringType = 1
   coreNodes (StringValue _) = 1
   coreNodes (StringAppend a b) = 1 + coreNodes a + coreNodes b
@@ -71,6 +72,7 @@ mutual
   mentionsNominal key BoolTrue = False
   mentionsNominal key BoolFalse = False
   mentionsNominal key ReadLine = False
+  mentionsNominal key (FileHandleValue _) = False
   mentionsNominal key StringType = False
   mentionsNominal key (StringValue _) = False
   mentionsNominal key (StringAppend a b) = mentionsNominal key a || mentionsNominal key b

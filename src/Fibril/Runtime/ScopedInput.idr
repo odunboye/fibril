@@ -18,6 +18,14 @@ data ScopedInputError
   | FileSessionClosed
 
 public export
+Show ScopedInputError where
+  show (FileOpenFailed message) = "File open failed: " ++ message
+  show (FileReadFailed message) = "File read failed: " ++ message
+  show FileCloseFailed = "File close failed"
+  show FileLeaseClosed = "File lease is closed"
+  show FileSessionClosed = "File session is closed"
+
+public export
 Eq ScopedInputError where
   FileOpenFailed left == FileOpenFailed right = left == right
   FileReadFailed left == FileReadFailed right = left == right

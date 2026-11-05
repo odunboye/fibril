@@ -1,7 +1,7 @@
 # Host resource sessions and abnormal interpreter completion
 
-Status: host-only lifetime management, not yet connected to inert core scopes or
-source handle creation. This prepares cleanup for an interpreter that can stop
+Status: host lifetime management, now used by the dedicated
+[checked resource runner](io-resource-execution.md), but not source handle creation. This prepares cleanup for an interpreter that can stop
 before returning its normal ownership pair.
 
 `Runtime.ScopedInput.withInputSession body` creates an opaque per-execution
@@ -38,9 +38,7 @@ Compile-negative checks verify opacity of both lease and session constructors.
 
 ## Next integration gate
 
-Connect the checked core scope boundary to a session-backed request protocol,
-introduce runtime region/handle references without exposing constructors to
-source, validate returned ownership and ensure the session cleanup backstop runs
-when interpreter fuel prevents normal scope exit. Then implement ownership-
-returning reads and matching native cleanup. Current source file operations stay
+The dedicated resource runner now connects checked core scopes to session-backed
+execution, introduces internal region/handle references and validates ownership
+return. Next implement ownership-returning reads and matching native cleanup. Current source file operations stay
 disabled until those gates are tested.

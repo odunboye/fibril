@@ -1,7 +1,8 @@
 # Checked scoped ownership boundary
 
-Status: inert core syntax and typing rules, not executable file IO or a source
-scope primitive. Existing hosted lease tests are a separate implementation slice.
+Status: pure core syntax and typing rules with a dedicated checked hosted
+resource runner. No source scope primitive or native resource execution exists.
+See [hosted resource execution](io-resource-execution.md).
 
 ## Core shape
 
@@ -54,9 +55,10 @@ the description's result annotation, path and body, as with other pure IO
 syntax. Structural scope transport, renaming/substitution proofs and accounting
 include every field.
 
-A checked `IO Unit` program that consumes this scope's result is currently
-rejected by both native emission modes and by hosted incremental interpretation,
-before any scope request is exposed. No source primitive creates this syntax.
+A checked `IO Unit` program that consumes this scope's result is rejected by
+both native emission modes and by the console-only hosted incremental
+interpreter. A separate resource runner now executes checked scopes using
+session-backed host leases. No source primitive creates this syntax.
 The tests intentionally enforce those gates until execution and cleanup exist.
 
 ## Evidence and remaining work
@@ -65,11 +67,11 @@ Fifteen checks cover valid ownership-returning callbacks, inert normalization,
 missing ownership, existential duplication, skipped-callback capture, nested
 region substitution, malformed paths/results and fail-closed execution.
 
-A [host session registry](io-resource-session.md) now cleans registered leases
-on represented interpreter failure. Next connect a trusted introduction boundary
-that creates runtime regions and maps handles to those resources, implements
-ownership-returning reads, and invokes the session backstop if body interpretation
-fails before returning ownership.
+A [host session registry](io-resource-session.md) and
+[trusted introduction runner](io-resource-execution.md) now create runtime
+regions and close scopes on represented body failure. Next implement
+ownership-returning reads with live-reference checks, then matching native
+resource execution before source exposure.
 Native execution must enforce the same lifetime/cleanup contract. Only then
 expose scoped source primitives. This is not a subject-reduction proof,
 exception-safe source resource implementation or world-token IO.

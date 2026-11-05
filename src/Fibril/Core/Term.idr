@@ -47,6 +47,8 @@ data Term : Nat -> Type where
   IOType : Term n -> Term n
   ||| Opaque file ownership indexed by an erased small region type. No value constructor.
   FileHandleType : Term n -> Term n
+  ||| Trusted runtime reference only; no source constructor or raw file pointer.
+  FileHandleValue : Nat -> Term n
   ||| Inert scope: result type, path and region-polymorphic ownership-returning body.
   WithInputFile : Term n -> Term n -> Term n -> Term n
   IOPure : Term n -> Term n
@@ -78,6 +80,12 @@ public export
 readResultType : Term n
 readResultType = VariantType [Nothing, Just (Linear, StringType), Just (Linear, StringType)]
 
+||| Internal nominal region identity, fresh within one resource-runner session.
+||| The reserved key cannot be named by source identifiers; raw core remains trusted.
+public export
+runtimeFileRegion : Nat -> Term n
+runtimeFileRegion identity = NominalType ("$fibril.file-region." ++ show identity) [] (VariantType [Nothing])
+
 ||| Scope result: open failure, success, or result plus cleanup failure.
 public export
 fileScopeResultType : Term n -> Term n
@@ -103,6 +111,7 @@ mutual
   rename env BoolTrue = BoolTrue
   rename env BoolFalse = BoolFalse
   rename env ReadLine = ReadLine
+  rename env (FileHandleValue identity) = FileHandleValue identity
   rename env StringType = StringType
   rename env (StringValue value) = StringValue value
   rename env (StringAppend left right) = StringAppend (rename env left) (rename env right)
@@ -162,6 +171,7 @@ mutual
   substituteTerm env BoolTrue = BoolTrue
   substituteTerm env BoolFalse = BoolFalse
   substituteTerm env ReadLine = ReadLine
+  substituteTerm env (FileHandleValue identity) = FileHandleValue identity
   substituteTerm env StringType = StringType
   substituteTerm env (StringValue value) = StringValue value
   substituteTerm env (StringAppend left right) =
@@ -228,6 +238,7 @@ mutual
   sameSyntax BoolTrue BoolTrue = True
   sameSyntax BoolFalse BoolFalse = True
   sameSyntax ReadLine ReadLine = True
+  sameSyntax (FileHandleValue left) (FileHandleValue right) = left == right
   sameSyntax StringType StringType = True
   sameSyntax (StringValue left) (StringValue right) = left == right
   sameSyntax (StringAppend a b) (StringAppend c d) = sameSyntax a c && sameSyntax b d

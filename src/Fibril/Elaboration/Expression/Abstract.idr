@@ -21,6 +21,7 @@ mutual
   descend env hole target BoolTrue = BoolTrue
   descend env hole target BoolFalse = BoolFalse
   descend env hole target ReadLine = ReadLine
+  descend env hole target (FileHandleValue identity) = FileHandleValue identity
   descend env hole target StringType = StringType
   descend env hole target (StringValue value) = StringValue value
   descend env hole target (StringAppend a b) = StringAppend (abstractWith env hole target a) (abstractWith env hole target b)

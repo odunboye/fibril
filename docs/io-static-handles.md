@@ -1,7 +1,7 @@
 # Region-indexed abstract handle typing
 
-Status: abstract core/source type and typing regressions. No source handle
-creation, file operation, generative scope or native handle value is implemented.
+Status: abstract source handle type plus a dedicated trusted hosted scope
+runner. No source handle creation/file operation or native handle value exists.
 
 ## Implemented
 
@@ -12,7 +12,9 @@ The source boundary exposes only the erased type constructor:
 FileHandle : (0 region : Type 0) -> Type 0
 ```
 
-It has no value constructor. Unit cannot be coerced into a handle. Region terms
+It has no source value constructor. The hosted runner introduces internal
+`FileHandleValue` references only after successful acquisition and rejects such
+references in caller entry syntax. Unit cannot be coerced into a handle. Region terms
 remain relevant to type conversion: handles over distinct abstract region
 parameters are not interchangeable. The type former itself is runtime-erased.
 Scope transport, renaming/substitution proofs, accounting and normalization
@@ -45,19 +47,18 @@ The future trusted introduction boundary must supply ownership at quantity 1
 and preserve that discipline in every operation. A source helper declared with
 an unrestricted handle parameter does not magically become linear.
 
-Distinct abstract region parameters are kept distinct, but no fresh generative
-region operation exists yet. Users may write equal concrete region arguments;
-this type constructor alone does not establish fresh scope identities.
-
-No connection yet exists between these abstract source types and the host-only
-`ScopedInput` leases. Nor is there a native handle registry. Existing console
-execution and tests remain unchanged.
+Distinct abstract region parameters are kept distinct. The dedicated hosted
+resource runner now introduces per-run internal region identities and maps
+scope ownership to host leases, but there is no source scope operation. Users
+may write equal concrete region arguments; this type constructor alone does
+not establish fresh scope identities. No native handle registry exists.
+Existing console execution is unchanged.
 
 ## Next gate
 
 The [inert core scope boundary](io-core-scope.md) now checks a region-polymorphic
 callback that returns matching ownership, with nested-region and existential
-escape regressions. It still does not supply real handles or fresh runtime
-regions. Next connect the checked protocol to trusted hosted introduction,
-cleanup and a matching native registry. See
+escape regressions. A [hosted runner](io-resource-execution.md) now introduces
+internal handles and checks their ownership return. Next add ownership-returning
+reads, native execution and source exposure. See
 [io-scoped-files.md](io-scoped-files.md) for the proposed protocol and limitations.

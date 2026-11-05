@@ -28,6 +28,7 @@ mutual
   renameCongruent left right agree BoolTrue = Refl
   renameCongruent left right agree BoolFalse = Refl
   renameCongruent left right agree ReadLine = Refl
+  renameCongruent left right agree (FileHandleValue _) = Refl
   renameCongruent left right agree StringType = Refl
   renameCongruent left right agree (StringValue _) = Refl
   renameCongruent left right agree (WithInputFile result path body) = rewrite renameCongruent left right agree result in rewrite renameCongruent left right agree path in rewrite renameCongruent left right agree body in Refl
@@ -107,6 +108,7 @@ mutual
   renameIdentity BoolTrue = Refl
   renameIdentity BoolFalse = Refl
   renameIdentity ReadLine = Refl
+  renameIdentity (FileHandleValue _) = Refl
   renameIdentity StringType = Refl
   renameIdentity (StringValue _) = Refl
   renameIdentity (WithInputFile result path body) = rewrite renameIdentity result in rewrite renameIdentity path in rewrite renameIdentity body in Refl
@@ -192,6 +194,7 @@ mutual
   renameComposition first second BoolTrue = Refl
   renameComposition first second BoolFalse = Refl
   renameComposition first second ReadLine = Refl
+  renameComposition first second (FileHandleValue _) = Refl
   renameComposition first second StringType = Refl
   renameComposition first second (StringValue _) = Refl
   renameComposition first second (WithInputFile result path body) = rewrite renameComposition first second result in rewrite renameComposition first second path in rewrite renameComposition first second body in Refl

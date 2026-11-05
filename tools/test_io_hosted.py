@@ -20,6 +20,7 @@ import System
 import Tests.IO
 import Tests.ReadLine
 import Tests.ResourceScope
+import Tests.ResourceExecution
 import Tests.HandleOwnership
 import Tests.ScopedOwnership
 import Tests.ConsoleArguments
@@ -40,7 +41,8 @@ main = do
     Just path => do
       lines <- runInputFileChecks path
       scoped <- runScopedInputChecks path
-      pure (lines ++ scoped)
+      executed <- runResourceExecutionChecks path
+      pure (lines ++ scoped ++ executed)
   let results = Tests.IO.checks ++ Tests.ReadLine.checks ++ Tests.HandleOwnership.checks ++ Tests.ScopedOwnership.checks ++ Tests.ConsoleArguments.checks ++
                 Tests.ConsoleSequence.checks ++ Tests.ConsoleScript.checks ++
                 Tests.ConsoleInput.checks ++ hostChecks ++ scriptHostChecks ++ resourceChecks ++ inputChecks

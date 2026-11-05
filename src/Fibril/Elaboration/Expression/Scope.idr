@@ -22,6 +22,7 @@ mutual
   thin env BoolTrue = Just BoolTrue
   thin env BoolFalse = Just BoolFalse
   thin env ReadLine = Just ReadLine
+  thin env (FileHandleValue identity) = Just (FileHandleValue identity)
   thin env StringType = Just StringType
   thin env (StringValue value) = Just (StringValue value)
   thin env (StringAppend a b) = [| StringAppend (thin env a) (thin env b) |]
@@ -75,6 +76,7 @@ mutual
   substitutionNodes env BoolTrue = 1
   substitutionNodes env BoolFalse = 1
   substitutionNodes env ReadLine = 1
+  substitutionNodes env (FileHandleValue _) = 1
   substitutionNodes env StringType = 1
   substitutionNodes env (StringValue _) = 1
   substitutionNodes env (StringAppend a b) = min (S inferredResultNodes) (1 + substitutionNodes env a + substitutionNodes env b)

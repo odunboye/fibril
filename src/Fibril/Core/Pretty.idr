@@ -22,6 +22,7 @@ mutual
   renderTerm BoolTrue = "True"
   renderTerm BoolFalse = "False"
   renderTerm ReadLine = "ReadLine"
+  renderTerm (FileHandleValue identity) = "(RuntimeFileHandle " ++ show identity ++ ")"
   renderTerm StringType = "String"
   renderTerm (StringValue value) = show value
   renderTerm (StringAppend left right) = "(StringAppend " ++ renderTerm left ++ " " ++ renderTerm right ++ ")"

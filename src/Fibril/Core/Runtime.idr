@@ -48,6 +48,7 @@ mutual
   analyze (S depth) reduction context BoolTrue = Right zeroUsage
   analyze (S depth) reduction context BoolFalse = Right zeroUsage
   analyze (S depth) reduction context ReadLine = Right zeroUsage
+  analyze (S depth) reduction context (FileHandleValue _) = Right zeroUsage
   analyze (S depth) reduction context StringType = Left RuntimeTypeExpression
   analyze (S depth) reduction context (StringValue _) = Right zeroUsage
   analyze (S depth) reduction context (StringAppend left right) = do
