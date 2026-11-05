@@ -20,6 +20,9 @@ stepHead (UnitCase scrutinee body) = map (\next => UnitCase next body) (stepHead
 stepHead (NatRec motive base next NatZero) = Just base
 stepHead (NatRec motive base next (NatSucc value)) = Just (Apply (Apply next value) (NatRec motive base next value))
 stepHead (NatRec motive base next value) = map (NatRec motive base next) (stepHead value)
+stepHead (NatRecRuntime motive base next NatZero) = Just base
+stepHead (NatRecRuntime motive base next (NatSucc value)) = Just (Apply (Apply next value) (NatRecRuntime motive base next value))
+stepHead (NatRecRuntime motive base next value) = map (NatRecRuntime motive base next) (stepHead value)
 stepHead (BoolCase BoolTrue yes no) = Just yes
 stepHead (BoolCase BoolFalse yes no) = Just no
 stepHead (BoolCase condition yes no) =

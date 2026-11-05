@@ -26,9 +26,9 @@ primitive checked globals; there is no numeric-literal syntax in this slice.
 This is **not yet general recursive function syntax**: self-referential
 equations still fail. Nor does it implement user-defined recursive data,
 recursive lists, positivity checking, mutual recursion or a termination checker
-for arbitrary definitions. `natRec` expresses structural recursion by giving the
-step only the result for the smaller number. Its predecessor argument is erased,
-so a step cannot inspect or return the predecessor at runtime. Explicit
+for arbitrary definitions. `natRec` gives the step an erased predecessor and a
+runtime recursive result. `natRecWith` additionally allows the step to inspect
+the predecessor, at the cost of requiring an unrestricted count. Explicit
 structural recursion through other user types requires later work. The
 experimental C backend currently rejects Nat computation; use `fibril run`.
 
@@ -65,6 +65,26 @@ zero or many times. Consequently it cannot capture an ambient linear resource.
 The base and count are each accounted for once. These are conservative usage
 rules, not a proved quantitative preservation theorem.
 
+### Inspecting the predecessor
+
+Use `natRecWith` when the step needs the predecessor at runtime:
+
+~~~fibril
+triangle : (count : Nat) -> Nat
+triangle count = natRecWith (\(0 k : Nat) => Nat) Zero
+  (\(k : Nat) => \(1 previous : Nat) => add k previous) count
+~~~
+
+The complete [triangle example](../examples/modules/nat-predecessor/Main.fib)
+uses `add` and prints three marks for the sum `0 + 1 + 2`. This is a separate
+core recursor with step `(k : Nat) -> (1 previous : P k) -> P (Succ k)`.
+The count must be unrestricted: a successor contraction supplies its
+predecessor both to the step and to the recursive call. The checker scales the
+count and step usage by unrestricted permission, rejecting linear captures;
+the base is still used once. There is no implicit conversion between an erased
+and an unrestricted predecessor binder. These are conservative rules, not a
+proof of quantitative preservation.
+
 No source annotation certifies termination: recursion in this slice is the core
 recursor's structurally smaller operand. Evaluator/conversion fuel is an
 operational admission and can be exhausted; it is not a termination proof or a
@@ -74,8 +94,9 @@ checker and full reduction limits continue to apply.
 
 ## Evidence and next steps
 
-Tests cover zero and successor computation, an index-dependent result, invalid
-steps even on `Zero`, erased predecessor misuse, linear capture, inference for
+Tests cover zero and successor computation, runtime predecessor access with an
+unrestricted count, an index-dependent result, invalid steps even on `Zero`,
+erased predecessor misuse, linear capture, inference for
 Nat values and fail-closed native emission. Structural renaming and substitution
 proofs cover the new nodes. These tests do not prove normalization, positivity,
 whole-language soundness or backend correctness. Next: checked recursive

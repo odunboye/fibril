@@ -31,6 +31,7 @@ mutual
   renameCongruent left right agree NatZero = Refl
   renameCongruent left right agree (NatSucc x) = cong NatSucc (renameCongruent left right agree x)
   renameCongruent left right agree (NatRec p z s x) = rewrite renameCongruent left right agree p in rewrite renameCongruent left right agree z in rewrite renameCongruent left right agree s in rewrite renameCongruent left right agree x in Refl
+  renameCongruent left right agree (NatRecRuntime p z s x) = rewrite renameCongruent left right agree p in rewrite renameCongruent left right agree z in rewrite renameCongruent left right agree s in rewrite renameCongruent left right agree x in Refl
   renameCongruent left right agree StringType = Refl
   renameCongruent left right agree (StringValue _) = Refl
   renameCongruent left right agree (IOType value) = cong IOType (renameCongruent left right agree value)
@@ -111,6 +112,7 @@ mutual
   renameIdentity NatZero = Refl
   renameIdentity (NatSucc x) = cong NatSucc (renameIdentity x)
   renameIdentity (NatRec p z s x) = rewrite renameIdentity p in rewrite renameIdentity z in rewrite renameIdentity s in rewrite renameIdentity x in Refl
+  renameIdentity (NatRecRuntime p z s x) = rewrite renameIdentity p in rewrite renameIdentity z in rewrite renameIdentity s in rewrite renameIdentity x in Refl
   renameIdentity StringType = Refl
   renameIdentity (StringValue _) = Refl
   renameIdentity (IOType value) = cong IOType (renameIdentity value)
@@ -197,6 +199,7 @@ mutual
   renameComposition first second NatZero = Refl
   renameComposition first second (NatSucc x) = cong NatSucc (renameComposition first second x)
   renameComposition first second (NatRec p z s x) = rewrite renameComposition first second p in rewrite renameComposition first second z in rewrite renameComposition first second s in rewrite renameComposition first second x in Refl
+  renameComposition first second (NatRecRuntime p z s x) = rewrite renameComposition first second p in rewrite renameComposition first second z in rewrite renameComposition first second s in rewrite renameComposition first second x in Refl
   renameComposition first second StringType = Refl
   renameComposition first second (StringValue _) = Refl
   renameComposition first second (IOType value) = cong IOType (renameComposition first second value)

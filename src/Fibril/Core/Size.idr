@@ -22,6 +22,7 @@ mutual
   coreNodes NatZero = 1
   coreNodes (NatSucc x) = 1 + coreNodes x
   coreNodes (NatRec p z s x) = 1 + coreNodes p + coreNodes z + coreNodes s + coreNodes x
+  coreNodes (NatRecRuntime p z s x) = 1 + coreNodes p + coreNodes z + coreNodes s + coreNodes x
   coreNodes StringType = 1
   coreNodes (StringValue _) = 1
   coreNodes (StringAppend a b) = 1 + coreNodes a + coreNodes b
@@ -75,6 +76,7 @@ mutual
   mentionsNominal key NatZero = False
   mentionsNominal key (NatSucc x) = mentionsNominal key x
   mentionsNominal key (NatRec p z s x) = mentionsNominal key p || mentionsNominal key z || mentionsNominal key s || mentionsNominal key x
+  mentionsNominal key (NatRecRuntime p z s x) = mentionsNominal key p || mentionsNominal key z || mentionsNominal key s || mentionsNominal key x
   mentionsNominal key StringType = False
   mentionsNominal key (StringValue _) = False
   mentionsNominal key (StringAppend a b) = mentionsNominal key a || mentionsNominal key b

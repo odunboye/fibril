@@ -55,6 +55,12 @@ mutual
     nextUsage <- analyze depth reduction context next
     valueUsage <- analyze depth reduction context value
     Right (combineUsage valueUsage (combineUsage baseUsage (scaleUsage Unrestricted nextUsage)))
+  analyze (S depth) reduction context (NatRecRuntime motive base next value) = do
+    baseUsage <- analyze depth reduction context base
+    nextUsage <- analyze depth reduction context next
+    valueUsage <- analyze depth reduction context value
+    Right (combineUsage (scaleUsage Unrestricted valueUsage)
+           (combineUsage baseUsage (scaleUsage Unrestricted nextUsage)))
   analyze (S depth) reduction context StringType = Left RuntimeTypeExpression
   analyze (S depth) reduction context (StringValue _) = Right zeroUsage
   analyze (S depth) reduction context (StringAppend left right) = do

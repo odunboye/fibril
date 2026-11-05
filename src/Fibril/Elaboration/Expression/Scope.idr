@@ -25,6 +25,7 @@ mutual
   thin env NatZero = Just NatZero
   thin env (NatSucc x) = NatSucc <$> thin env x
   thin env (NatRec p z s x) = [| NatRec (thin env p) (thin env z) (thin env s) (thin env x) |]
+  thin env (NatRecRuntime p z s x) = [| NatRecRuntime (thin env p) (thin env z) (thin env s) (thin env x) |]
   thin env StringType = Just StringType
   thin env (StringValue value) = Just (StringValue value)
   thin env (StringAppend a b) = [| StringAppend (thin env a) (thin env b) |]
@@ -79,6 +80,7 @@ mutual
   substitutionNodes env NatZero = 1
   substitutionNodes env (NatSucc x) = min (S inferredResultNodes) (1 + substitutionNodes env x)
   substitutionNodes env (NatRec p z s x) = min (S inferredResultNodes) (1 + substitutionNodes env p + substitutionNodes env z + substitutionNodes env s + substitutionNodes env x)
+  substitutionNodes env (NatRecRuntime p z s x) = min (S inferredResultNodes) (1 + substitutionNodes env p + substitutionNodes env z + substitutionNodes env s + substitutionNodes env x)
   substitutionNodes env StringType = 1
   substitutionNodes env (StringValue _) = 1
   substitutionNodes env (StringAppend a b) = min (S inferredResultNodes) (1 + substitutionNodes env a + substitutionNodes env b)

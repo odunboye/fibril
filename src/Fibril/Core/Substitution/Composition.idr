@@ -35,6 +35,7 @@ mutual
   renameAfterSubstitution env sigma NatZero = Refl
   renameAfterSubstitution env sigma (NatSucc x) = cong NatSucc (renameAfterSubstitution env sigma x)
   renameAfterSubstitution env sigma (NatRec p z s x) = rewrite renameAfterSubstitution env sigma p in rewrite renameAfterSubstitution env sigma z in rewrite renameAfterSubstitution env sigma s in rewrite renameAfterSubstitution env sigma x in Refl
+  renameAfterSubstitution env sigma (NatRecRuntime p z s x) = rewrite renameAfterSubstitution env sigma p in rewrite renameAfterSubstitution env sigma z in rewrite renameAfterSubstitution env sigma s in rewrite renameAfterSubstitution env sigma x in Refl
   renameAfterSubstitution env sigma StringType = Refl
   renameAfterSubstitution env sigma (StringValue _) = Refl
   renameAfterSubstitution env sigma (IOType value) = cong IOType (renameAfterSubstitution env sigma value)
@@ -127,6 +128,7 @@ mutual
   substituteAfterRenaming env sigma NatZero = Refl
   substituteAfterRenaming env sigma (NatSucc x) = cong NatSucc (substituteAfterRenaming env sigma x)
   substituteAfterRenaming env sigma (NatRec p z s x) = rewrite substituteAfterRenaming env sigma p in rewrite substituteAfterRenaming env sigma z in rewrite substituteAfterRenaming env sigma s in rewrite substituteAfterRenaming env sigma x in Refl
+  substituteAfterRenaming env sigma (NatRecRuntime p z s x) = rewrite substituteAfterRenaming env sigma p in rewrite substituteAfterRenaming env sigma z in rewrite substituteAfterRenaming env sigma s in rewrite substituteAfterRenaming env sigma x in Refl
   substituteAfterRenaming env sigma StringType = Refl
   substituteAfterRenaming env sigma (StringValue _) = Refl
   substituteAfterRenaming env sigma (IOType value) = cong IOType (substituteAfterRenaming env sigma value)
@@ -229,6 +231,7 @@ mutual
   substituteComposition first second NatZero = Refl
   substituteComposition first second (NatSucc x) = cong NatSucc (substituteComposition first second x)
   substituteComposition first second (NatRec p z s x) = rewrite substituteComposition first second p in rewrite substituteComposition first second z in rewrite substituteComposition first second s in rewrite substituteComposition first second x in Refl
+  substituteComposition first second (NatRecRuntime p z s x) = rewrite substituteComposition first second p in rewrite substituteComposition first second z in rewrite substituteComposition first second s in rewrite substituteComposition first second x in Refl
   substituteComposition first second StringType = Refl
   substituteComposition first second (StringValue _) = Refl
   substituteComposition first second (IOType value) = cong IOType (substituteComposition first second value)

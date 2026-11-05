@@ -1,0 +1,18 @@
+module Main
+
+add : (1 left : Nat) -> (1 right : Nat) -> Nat
+add left right = natRec (\(0 k : Nat) => Nat) right
+  (\(0 k : Nat) => \(1 result : Nat) => Succ result) left
+
+-- The count is unrestricted because each step can inspect the predecessor
+-- as well as consume the recursive result.
+triangle : (count : Nat) -> Nat
+triangle count = natRecWith (\(0 k : Nat) => Nat) Zero
+  (\(k : Nat) => \(1 result : Nat) => add k result) count
+
+marks : (1 count : Nat) -> String
+marks count = natRec (\(0 k : Nat) => String) ""
+  (\(0 k : Nat) => \(1 result : String) => appendString result "!") count
+
+main : IO Unit
+main = putStrLn (marks (triangle (Succ (Succ (Succ Zero)))))

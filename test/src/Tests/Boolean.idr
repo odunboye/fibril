@@ -29,6 +29,12 @@ normalIs fuel source expected = case evaluateSource fuel source of
   Right lines => elem ("Normal: " ++ expected) lines
   Left _ => False
 
+natStringMotive : Term n
+natStringMotive = Lambda Erased NatType StringType
+
+natStringStep : Term n
+natStringStep = Lambda Unrestricted NatType (Lambda Linear StringType (Variable FZ))
+
 -- Regression for the former exact-vector policy: beta reduction exposes 0/1
 -- from two omega approximations. Permission joining must accept both stages.
 formerEqualityCounterexample : String
@@ -45,6 +51,45 @@ checks =
         (NatRec (Lambda Erased NatType NatType) NatZero NatZero NatZero) of
         Right (Just NatType) => True
         _ => False)
+  , ("runtime predecessor core checks and preserves checking after a step",
+      let term = NatRecRuntime natStringMotive (StringValue "base") natStringStep (NatSucc NatZero) in
+      case (checkRuntime 512 128 Empty term StringType, step term) of
+        (Right _, Just reduced) => case checkRuntime 512 128 Empty reduced StringType of
+          Right _ => True
+          Left _ => False
+        _ => False)
+  , ("runtime predecessor core zero and successor computation",
+      case (step (the (Term 0) (NatRecRuntime natStringMotive (StringValue "base") natStringStep NatZero)),
+            normalize 16 (the (Term 0) (NatRecRuntime natStringMotive (StringValue "base") natStringStep (NatSucc NatZero)))) of
+        (Just (StringValue "base"), Normal (StringValue "base")) => True
+        _ => False)
+  , ("runtime predecessor core permits a linear base exactly once",
+      case checkRuntime 512 128 (Extend Empty Linear StringType)
+        (NatRecRuntime natStringMotive (Variable FZ) natStringStep NatZero) StringType of
+        Right _ => True
+        _ => False)
+  , ("runtime predecessor core rejects a linear capture in the repeated step",
+      let captured = Lambda Unrestricted NatType (Lambda Linear StringType
+            (StringAppend (Variable (FS (FS FZ))) (Variable FZ))) in
+      case checkRuntime 512 128 (Extend Empty Linear StringType)
+        (NatRecRuntime natStringMotive (StringValue "base") captured NatZero) StringType of
+        Left (ContextUsage _ Linear Unrestricted) => True
+        _ => False)
+  , ("runtime predecessor core rejects an erased count",
+      case checkRuntime 512 128 (Extend Empty Erased NatType)
+        (NatRecRuntime natStringMotive (StringValue "base") natStringStep (Variable FZ)) StringType of
+        Left (ContextUsage _ Erased Unrestricted) => True
+        _ => False)
+  , ("runtime predecessor core requires one induction-result use",
+      let discarded = Lambda Unrestricted NatType (Lambda Linear StringType (StringValue "lost")) in
+      case checkRuntime 512 128 Empty
+        (NatRecRuntime natStringMotive (StringValue "base") discarded NatZero) StringType of
+        Left (BoundUsage Linear Erased) => True
+        _ => False)
+  , ("runtime predecessor recursor computes with an unrestricted count",
+      normalIs 128 "natRecWith (\\(0 k : Nat) => Nat) Zero (\\(k : Nat) => \\(1 x : Nat) => natRec (\\(0 j : Nat) => Nat) x (\\(0 j : Nat) => \\(1 y : Nat) => Succ y) k) (Succ (Succ (Succ Zero)))" "(Succ (Succ (Succ Zero)))")
+  , ("runtime predecessor recursor rejects a linear count",
+      not (accepted False "\\(1 n : Nat) => natRecWith (\\(0 k : Nat) => Nat) Zero (\\(k : Nat) => \\(1 x : Nat) => natRec (\\(0 j : Nat) => Nat) x (\\(0 j : Nat) => \\(1 y : Nat) => Succ y) k) n"))
   , ("Nat recursor rejects linear capture in a repeated step",
       not (accepted False "\\(1 text : String) => natRec (\\(0 k : Nat) => String) \"\" (\\(0 k : Nat) => \\(1 x : String) => appendString x text) Zero"))
   , ("Nat recursor checks a step even at zero",

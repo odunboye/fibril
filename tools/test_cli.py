@@ -3764,6 +3764,28 @@ class CLITests(unittest.TestCase):
             plain.write_text('identity : {0 A : Type} -> (1 value : A) -> A\nidentity T x = x\nmain : IO Unit\nmain = putStrLn (identity "x")\n')
             self.assertNotEqual(run('run', str(plain)).returncode, 0)
 
+    def test_runtime_nat_predecessor(self):
+        source = (ROOT / 'examples/modules/nat-predecessor/Main.fib').read_text()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Main.fib'
+            def project(command):
+                return run(command, '--source-dir', directory, str(path))
+            path.write_text(source)
+            result = project('run')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, '!!!\n')
+            path.write_text(source.replace('triangle : (count : Nat)', 'triangle : (1 count : Nat)'))
+            rejected = project('run')
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertIn('Binder usage: expected 1, observed unrestricted', rejected.stderr)
+            self.assertEqual(rejected.stdout, '')
+            # An erased predecessor cannot stand in for the unrestricted
+            # predecessor required by this distinct recursor.
+            path.write_text(source.replace('(\\(k : Nat) => \\(1 result : Nat)', '(\\(0 k : Nat) => \\(1 result : Nat)'))
+            rejected = project('run')
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertEqual(rejected.stdout, '')
+
     def test_total_nat_recursion(self):
         source = (ROOT / 'examples/modules/nat-recursion/Main.fib').read_text()
         with tempfile.TemporaryDirectory() as directory:
@@ -3822,6 +3844,15 @@ class CLITests(unittest.TestCase):
                          'show n value = case value of\n  A text => text\n  B text => text\n'
                          'main : IO Unit\nmain = putStrLn (show (Succ Zero) (carry (Succ Zero)))\n')
             path.write_text(dependent)
+            result = project('run')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'z!\n')
+            # The runtime-predecessor recursor also handles the dependent
+            # motive; only its count and step predecessor become unrestricted.
+            with_runtime_pred = (dependent.replace('carry : (1 n : Nat)', 'carry : (n : Nat)')
+                                 .replace('carry n = natRec ', 'carry n = natRecWith ')
+                                 .replace('(\\(0 k : Nat) => \\(1 prev : Mark k)', '(\\(k : Nat) => \\(1 prev : Mark k)'))
+            path.write_text(with_runtime_pred)
             result = project('run')
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertEqual(result.stdout, 'z!\n')

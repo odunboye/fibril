@@ -24,6 +24,7 @@ mutual
   descend env hole target NatZero = NatZero
   descend env hole target (NatSucc x) = NatSucc (abstractWith env hole target x)
   descend env hole target (NatRec p z s x) = NatRec (abstractWith env hole target p) (abstractWith env hole target z) (abstractWith env hole target s) (abstractWith env hole target x)
+  descend env hole target (NatRecRuntime p z s x) = NatRecRuntime (abstractWith env hole target p) (abstractWith env hole target z) (abstractWith env hole target s) (abstractWith env hole target x)
   descend env hole target StringType = StringType
   descend env hole target (StringValue value) = StringValue value
   descend env hole target (StringAppend a b) = StringAppend (abstractWith env hole target a) (abstractWith env hole target b)

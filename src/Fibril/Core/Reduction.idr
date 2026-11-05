@@ -40,6 +40,16 @@ mutual
       Nothing => case step next of
         Just s => Just (NatRec motive base s value)
         Nothing => map (NatRec motive base next) (step value)
+  step (NatRecRuntime motive base next NatZero) = Just base
+  step (NatRecRuntime motive base next (NatSucc value)) =
+    Just (Apply (Apply next value) (NatRecRuntime motive base next value))
+  step (NatRecRuntime motive base next value) = case step motive of
+    Just p => Just (NatRecRuntime p base next value)
+    Nothing => case step base of
+      Just z => Just (NatRecRuntime motive z next value)
+      Nothing => case step next of
+        Just s => Just (NatRecRuntime motive base s value)
+        Nothing => map (NatRecRuntime motive base next) (step value)
   step StringType = Nothing
   step (StringValue _) = Nothing
   step (StringAppend (StringValue left) (StringValue right)) = Just (StringValue (left ++ right))

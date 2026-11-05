@@ -48,6 +48,28 @@ natRecValue = Lambda Erased natMotive
         (NatRec (Variable (FS (FS (FS FZ)))) (Variable (FS (FS FZ)))
                 (Variable (FS FZ)) (Variable FZ)))))
 
+-- Runtime access to the predecessor requires unrestricted use of the count:
+-- the successor contraction passes the predecessor to both the step and the
+-- recursive call.
+natRuntimeStep : Term 2
+natRuntimeStep = Pi Unrestricted NatType
+  (Pi Linear (Apply (Variable (FS (FS FZ))) (Variable FZ))
+    (Apply (Variable (FS (FS (FS FZ)))) (NatSucc (Variable (FS FZ)))))
+
+natRecWithType : Term 0
+natRecWithType = Pi Erased natMotive
+  (Pi Linear (Apply (Variable FZ) NatZero)
+    (Pi Unrestricted natRuntimeStep
+      (Pi Unrestricted NatType (Apply (Variable (FS (FS (FS FZ)))) (Variable FZ)))))
+
+natRecWithValue : Term 0
+natRecWithValue = Lambda Erased natMotive
+  (Lambda Linear (Apply (Variable FZ) NatZero)
+    (Lambda Unrestricted natRuntimeStep
+      (Lambda Unrestricted NatType
+        (NatRecRuntime (Variable (FS (FS (FS FZ)))) (Variable (FS (FS FZ)))
+                       (Variable (FS FZ)) (Variable FZ)))))
+
 ||| Small-type interface: A/B : Type0. IOType itself preserves arbitrary levels.
 public export
 primitiveGlobals : List GlobalDefinition
@@ -56,6 +78,7 @@ primitiveGlobals =
   , Global "Zero" NatType NatZero
   , Global "Succ" (Pi Linear NatType NatType) (Lambda Linear NatType (NatSucc (Variable FZ)))
   , Global "natRec" natRecType natRecValue
+  , Global "natRecWith" natRecWithType natRecWithValue
   , Global "IO" (Pi Erased (Universe 0) (Universe 0)) ioConstructor
   , Global "primPure"
       (Pi Erased (Universe 0) (Pi Linear (Variable FZ) (IOType (Variable (FS FZ)))))
