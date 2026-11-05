@@ -35,47 +35,12 @@ bindings onlyExports snapshot = case (snapshot.document.moduleHeader, snapshot.d
       (filter (\decl => not onlyExports || decl.exported) (concatMap bindingSites declarations))
   _ => []
 
--- Only called on an accepted project. The compiler admits this exact narrow
--- form as a self-recursive equation; keep the authored call's real span.
-recursiveSite : String -> String -> Expr -> Maybe SourceSpan
-recursiveSite name pred (NApply _ (NRef span function) (NRef _ argument)) =
-  if function == name && argument == pred then Just span else Nothing
-recursiveSite name pred (NApply _ function argument) =
-  case recursiveSite name pred function of
-    Just site => Just site
-    Nothing => recursiveSite name pred argument
-recursiveSite name pred (NIf _ condition yes no) =
-  case recursiveSite name pred condition of
-    Just site => Just site
-    Nothing => case recursiveSite name pred yes of
-      Just site => Just site
-      Nothing => recursiveSite name pred no
-recursiveSite _ _ _ = Nothing
-
-recursiveReference : ModuleSnapshot -> AuthoredDeclaration -> List (ReferenceTo SourceLocation)
-recursiveReference snapshot (Ordinary decl) =
-  let shadows = case snapshot.document.body of
-        DeclarationDocument declarations => any (\site => elem site.name ["Nat", "Zero", "Succ"]) (concatMap bindingSites declarations)
-        _ => True in
-  if not (null snapshot.document.imports) || shadows then [] else
-  case (decl.expected, decl.value) of
-    (NPi _ Linear _ (NRef _ "Nat") _,
-     NEquationLambda _ [argument] _ (NDataCase _ (NRef _ scrutinee) Nothing arms)) =>
-      if argument.spelling /= scrutinee || length arms /= 2 then [] else
-        let findStep = find (\(name, binder, body) => name.spelling == "Succ" && length binder == 1) arms in
-        case findStep of
-          Just (_, [pred], body) => case recursiveSite decl.name pred.spelling body of
-            Just origin => [RefersTo origin (Located snapshot.path decl.definitionNameSpan)]
-            Nothing => []
-          _ => []
-    _ => []
-recursiveReference _ _ = []
-
 -- Private: the caller has already checked the entire graph, including
 -- source-order visibility, privacy, and every qualified reference.
-definitionIn : ModuleGraph -> ModuleSnapshot -> Nat -> Nat -> Maybe SourceLocation
-definitionIn graph current line column =
-  let local = bindings False current
+definitionIn : CheckedProject -> ModuleSnapshot -> Nat -> Nat -> Maybe SourceLocation
+definitionIn project current line column =
+  let graph = project.graph
+      local = bindings False current
       imported : List (String, SourceLocation)
       imported = concatMap (\snapshot =>
         if snapshot.path == current.path then []
@@ -94,9 +59,8 @@ definitionIn graph current line column =
         _ => Nothing
       references = documentReferencesWithGlobals (Located current.path) unqualified
                      (\name => lookup name (local ++ imported)) current.document
-      recursionRefs = case current.document.body of
-        DeclarationDocument declarations => concatMap (recursiveReference current) declarations
-        _ => []
+      recursionRefs = map (\site => RefersTo site.origin (Located site.path site.target))
+                        (filter (\site => site.path == current.path) project.recursiveSites)
    in map target (find (\reference =>
         line == reference.origin.start.line &&
         column >= reference.origin.start.column &&
@@ -130,7 +94,7 @@ prepareProjectDefinition root entry line column path = do
       pure $ case canonical >>= (\path => find (\snapshot => snapshot.path == path) project.graph.modules) of
         Nothing => Left (renderFileError path "Query file is not in the checked project graph")
         Just snapshot => Right (ProjectTarget project.graph snapshot
-                                 (definitionIn project.graph snapshot line column))
+                                 (definitionIn project snapshot line column))
 
 public export
 renderProjectDefinition : ProjectDefinition -> String

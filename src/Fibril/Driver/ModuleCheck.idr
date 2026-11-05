@@ -200,10 +200,19 @@ record Interface where
   schemas : List InterfaceSchema
   dataSchemas : List DataSchema
 
+||| Authored source spans recorded only for a successfully checked lowering.
+public export
+record RecursiveSite where
+  constructor StructuralSite
+  path : String
+  origin : SourceSpan
+  target : SourceSpan
+
 record Compiled where
   constructor Definitions
   locals : List Weighted
   exports : List Weighted
+  sites : List RecursiveSite
   remaining : Nat
 
 public export
@@ -212,6 +221,7 @@ record CheckedProject where
   graph : ModuleGraph
   term : Term 0
   inferredType : Term 0
+  recursiveSites : List RecursiveSite
 
 problem : ModuleSnapshot -> Maybe Position -> String -> GraphError
 problem snapshot point message =
@@ -604,9 +614,44 @@ recursiveEquationReserve name (NEquationLambda _ [_, _] _ (NDataCase _ _ Nothing
     if shape then 64 + 24 * 513 else 0
 recursiveEquationReserve _ _ = 0
 
+-- The admitted rewriter guarantees exactly one occurrence of the function
+-- name in the branch expressions. Recover only its authored Name token; grouped
+-- expression spans can include punctuation and must not become navigation spans.
+private
+structuralNameSpan : String -> Expr -> Maybe SourceSpan
+structuralNameSpan name (NRef span ref) = if ref == name then Just span else Nothing
+structuralNameSpan name (NApply _ function argument) = case structuralNameSpan name function of
+  Just span => Just span
+  Nothing => structuralNameSpan name argument
+structuralNameSpan name (NImplicitApply _ function argument) = case structuralNameSpan name function of
+  Just span => Just span
+  Nothing => structuralNameSpan name argument
+structuralNameSpan name (NIf _ condition yes no) = case structuralNameSpan name condition of
+  Just span => Just span
+  Nothing => case structuralNameSpan name yes of
+    Just span => Just span
+    Nothing => structuralNameSpan name no
+structuralNameSpan _ _ = Nothing
+
+private
+structuralSite : ModuleSnapshot -> Declaration -> Maybe RecursiveSite
+structuralSite snapshot decl = case decl.value of
+  NEquationLambda _ _ _ (NDataCase _ _ _ arms) => do
+    span <- firstName arms
+    token <- find (\token => token.kind == Name && token.spelling == decl.name &&
+                     token.span.start.offset >= span.start.offset && token.span.finish.offset <= span.finish.offset) snapshot.document.tokens
+    Just (StructuralSite snapshot.path token.span decl.definitionNameSpan)
+  _ => Nothing
+  where
+    firstName : List (Token, List Token, Expr) -> Maybe SourceSpan
+    firstName [] = Nothing
+    firstName ((_, _, body) :: rest) = case structuralNameSpan decl.name body of
+      Just span => Just span
+      Nothing => firstName rest
+
 compileDeclarations : ModuleSnapshot -> List String -> List Weighted -> List Declaration -> Nat ->
                       Either GraphError Compiled
-compileDeclarations snapshot name globals [] remaining = Right (Definitions [] [] remaining)
+compileDeclarations snapshot name globals [] remaining = Right (Definitions [] [] [] remaining)
 compileDeclarations snapshot name globals (decl :: rest) remaining = do
   if decl.quantity == Linear || decl.name == "_"
      then Left (problem snapshot (Just decl.nameSpan.start)
@@ -668,8 +713,12 @@ compileDeclarations snapshot name globals (decl :: rest) remaining = do
   let local = weighted definition
   let qualified = Weight ({ name := identity } definition) local.size
   following <- compileDeclarations snapshot name (local :: qualified :: globals) rest (minus remaining estimate)
+  let ownSites = case recursive of
+        Just _ => maybe [] pure (structuralSite snapshot decl)
+        Nothing => []
   Right (Definitions (local :: following.locals)
-           (if decl.exported then qualified :: following.exports else following.exports) following.remaining)
+           (if decl.exported then qualified :: following.exports else following.exports)
+           (ownSites ++ following.sites) following.remaining)
 
 directImports : ModuleSnapshot -> List Interface -> Either GraphError (List Weighted)
 directImports snapshot interfaces = collect [] snapshot.document.imports
@@ -730,11 +779,11 @@ anonymous snapshot schemas globals remaining = do
           then Left (problem snapshot Nothing "Internal entry expansion estimate was insufficient")
           else Right term
 
-compileGraph : Bool -> ModuleGraph -> List Weighted -> List Interface -> Nat -> List ModuleSnapshot ->
+compileGraph : Bool -> ModuleGraph -> List Weighted -> List Interface -> Nat -> List RecursiveSite -> List ModuleSnapshot ->
                Either GraphError (Maybe CheckedProject)
-compileGraph requireEntry graph prelude interfaces remaining [] =
+compileGraph requireEntry graph prelude interfaces remaining sites [] =
   if requireEntry then Left (GraphFailure graph.entry "" Nothing "No entry snapshot in graph") else Right Nothing
-compileGraph requireEntry graph prelude interfaces remaining (snapshot :: rest) = do
+compileGraph requireEntry graph prelude interfaces remaining sites (snapshot :: rest) = do
   if requireEntry && snapshot.path == graph.entry && not (null rest)
      then Left (problem snapshot Nothing "Entry snapshot must be last in dependency order")
      else Right ()
@@ -753,7 +802,7 @@ compileGraph requireEntry graph prelude interfaces remaining (snapshot :: rest) 
       term <- anonymous snapshot schemas globals remaining
       case inferRuntime checkingDepth typeReductionFuel Empty term of
         Left err => Left ({ stage := "runtime-checking" } (problem snapshot Nothing ("Entry checking: " ++ show err)))
-        Right checked => Right (Just (Project graph term checked.inferredType))
+        Right checked => Right (Just (Project graph term checked.inferredType sites))
     Just header => do
       if any (\entry => entry.name == header.components) interfaces
          then Left (problem snapshot (Just header.nameSpan.start) "Duplicate checked module identity")
@@ -787,7 +836,7 @@ compileGraph requireEntry graph prelude interfaces remaining (snapshot :: rest) 
               Just term => Right term
             case inferRuntime checkingDepth typeReductionFuel Empty term of
               Left err => Left ({ stage := "runtime-checking" } (problem snapshot Nothing ("Entry checking: " ++ show err)))
-              Right checked => Right (Just (Project graph term checked.inferredType))
+              Right checked => Right (Just (Project graph term checked.inferredType (sites ++ compiled.sites)))
          else let visible = case snapshot.document.body of
                     DeclarationDocument authored => exportedSchemas (moduleText header.components) authored
                     _ => []
@@ -795,7 +844,7 @@ compileGraph requireEntry graph prelude interfaces remaining (snapshot :: rest) 
                         DeclarationDocument authored => exportedDataSchemas (moduleText header.components) authored
                         _ => []
                    in compileGraph requireEntry graph prelude (Exports header.components compiled.exports visible dataHints :: interfaces)
-                           compiled.remaining rest
+                           compiled.remaining (sites ++ compiled.sites) rest
 
 ||| Check every dependency declaration before exposing its qualified exports.
 ||| Expansion budget concerns elaboration, not normalization/allocation/time bounds.
@@ -805,7 +854,7 @@ checkModuleGraph graph = do
   prelude <- case preludeGlobals of
     Left err => Left ({ stage := "prelude" } (GraphFailure graph.entry "" Nothing ("Bundled prelude: " ++ err)))
     Right globals => Right (map weighted globals)
-  checked <- compileGraph True graph prelude [] 200000 graph.modules
+  checked <- compileGraph True graph prelude [] 200000 [] graph.modules
   case checked of
     Just project => Right project
     Nothing => Left (GraphFailure graph.entry "" Nothing "Missing checked entry")
@@ -816,7 +865,7 @@ checkInventoryGraph graph = do
   prelude <- case preludeGlobals of
     Left err => Left (GraphFailure graph.root "" Nothing (show err))
     Right globals => Right (map weighted globals)
-  _ <- compileGraph False graph prelude [] 200000 graph.modules
+  _ <- compileGraph False graph prelude [] 200000 [] graph.modules
   Right ()
 
 public export

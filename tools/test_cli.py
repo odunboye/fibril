@@ -1458,6 +1458,66 @@ class CLITests(unittest.TestCase):
             path.write_text(budgeted.replace('  alias rest => rest', '  More rest => rest'))
             self.assertEqual(project('run').stdout, 'ok\n')
 
+    def test_checked_structural_self_call_navigation(self):
+        import shutil
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(ROOT / 'examples/modules/recursive-data', root, dirs_exist_ok=True)
+            path = root / 'Main.fib'
+            source = path.read_text().replace('(marksByEquation rest)', '((marksByEquation) rest)')
+            path.write_text(source)
+            lines = source.splitlines()
+            row = next(i for i, line in enumerate(lines, 1) if '((marksByEquation) rest)' in line)
+            start = lines[row - 1].index('marksByEquation')
+            nav = run('definition', '--source-dir', directory, '--entry', str(path), str(row), str(start + 1), str(path))
+            self.assertEqual(nav.returncode, 0, nav.stderr)
+            target = json.loads(nav.stdout)['definition']['range']['start']
+            definition_row = next(i for i, line in enumerate(lines, 1) if line.startswith('marksByEquation chain ='))
+            self.assertEqual((target['line'], target['column']), (definition_row, 1))
+            # Parentheses around the authored name are not part of its span.
+            punctuation = run('definition', '--source-dir', directory, '--entry', str(path), str(row), str(start), str(path))
+            self.assertIsNone(json.loads(punctuation.stdout)['definition'])
+            poly = (ROOT / 'examples/modules/polymorphic-recursion/Main.fib').read_text().replace('copy tail', 'copy {Element} tail')
+            path.write_text(poly)
+            lines = poly.splitlines()
+            row = next(i for i, line in enumerate(lines, 1) if '(copy {Element} tail)' in line)
+            col = lines[row - 1].index('copy {Element} tail') + 1
+            nav = run('definition', '--source-dir', directory, '--entry', str(path), str(row), str(col), str(path))
+            target = json.loads(nav.stdout)['definition']['range']['start']
+            self.assertEqual((target['line'], target['column']), (next(i for i, line in enumerate(lines, 1) if line.startswith('copy Element items =')), 1))
+            # An earlier imported homonym remains an ordinary call, not a
+            # recursive self-reference merely because the body looks similar.
+            (root / 'Data').mkdir(exist_ok=True)
+            (root / 'Data/Helper.fib').write_text('module Data.Helper\nimport Data.Chain\nexport\nmarks : (1 c : Data.Chain.Chain) -> String\nmarks c = Data.Chain.foldChain (\\(0 x : Data.Chain.Chain) => String) "first" (\\(0 x : Data.Chain.Chain) => \\(1 r : String) => r) c\n')
+            ordinary = ('module Main\nimport Data.Chain\nimport Data.Helper\n'
+                        'marks : (1 c : Data.Chain.Chain) -> String\nmarks c = case c of\n'
+                        '  Data.Chain.Empty => "empty"\n  Data.Chain.More tail => marks tail\n'
+                        'main : IO Unit\nmain = putStrLn (marks (Data.Chain.More Data.Chain.Empty))\n')
+            path.write_text(ordinary)
+            lines = ordinary.splitlines()
+            row = next(i for i, line in enumerate(lines, 1) if '=> marks tail' in line)
+            col = lines[row - 1].index('marks tail') + 1
+            nav = run('definition', '--source-dir', directory, '--entry', str(path), str(row), str(col), str(path))
+            self.assertEqual(nav.returncode, 0, nav.stderr)
+            definition = json.loads(nav.stdout)['definition']
+            self.assertEqual(Path(definition['path']).name, 'Helper.fib')
+            # Checked sites from a dependency module must reach project navigation.
+            helper = root / 'Data/Helper.fib'
+            helper_source = ('module Data.Helper\nimport Data.Chain\nexport\n'
+                             'marks : (1 c : Data.Chain.Chain) -> String\nmarks c = case c of\n'
+                             '  Data.Chain.Empty => ""\n'
+                             '  Data.Chain.More tail => appendString "!" (marks tail)\n')
+            helper.write_text(helper_source)
+            path.write_text('module Main\nimport Data.Chain\nimport Data.Helper\nmain : IO Unit\nmain = putStrLn (Data.Helper.marks Data.Chain.Empty)\n')
+            lines = helper_source.splitlines()
+            row = next(i for i, line in enumerate(lines, 1) if '(marks tail)' in line)
+            col = lines[row - 1].index('marks tail') + 1
+            nav = run('definition', '--source-dir', directory, '--entry', str(path), str(row), str(col), str(helper))
+            self.assertEqual(nav.returncode, 0, nav.stderr)
+            definition = json.loads(nav.stdout)['definition']
+            self.assertEqual(Path(definition['path']).name, 'Helper.fib')
+            self.assertEqual(definition['range']['start']['line'], 5)
+
     def test_polymorphic_structural_sequence_equations(self):
         source = (ROOT / 'examples/modules/polymorphic-recursion/Main.fib').read_text()
         with tempfile.TemporaryDirectory() as directory:

@@ -110,10 +110,10 @@ binder-containing successor expressions, multiple recursive calls, mutual
 recursion and dependent results need later work. Use explicit [`natRec` or `natRecWith`](nat-recursion.md) for operations
 outside this narrow source form. C emission still rejects Nat computation.
 
-Project definition navigation resolves this exact self-call in import-free
-modules with an unshadowed built-in Nat signature; other self-call navigation
-is not yet supported. Same-file rename/references do not infer recursive
-bindings. Formatting retains the authored case and validates its shape.
+After project checking, definition navigation resolves accepted structural
+self-calls using the actual authored name token and definition span. Same-file
+rename/references do not yet infer recursive bindings. Formatting retains the
+authored case and validates its shape.
 
 ## Structural unary-data equations
 
@@ -143,8 +143,8 @@ Transparent aliases may match. It lowers the admitted equation to a `RecFold`
 with an erased tail and linear induction result; independent core type and usage
 checks still validate the whole function. This is convenient syntax for the
 existing fixed-shape fold, not general recursive equations, positivity or a
-termination checker. Project navigation does not yet resolve the new recursive
-self-call; it does not invent a source location. The C backend still rejects it.
+termination checker. Checked project definition navigation uses a self-call
+site recorded only when lowering succeeds. The C backend still rejects it.
 
 ## Structural list-shaped equations
 
@@ -186,8 +186,8 @@ uses the actual erased parameter in a dependent result. For an implicit prefix,
 `(0 A : Type)` prefix, use `copy Element tail`. The equation header names both
 parameters. Multiple leading parameters, a different recursive type parameter,
 dependent results over the input, arbitrary recursive calls and general
-termination checking remain unsupported. Project navigation does not yet resolve
-this self-call, and the C backend rejects it.
+termination checking remain unsupported. Checked project definition navigation
+resolves the authored self-call; the C backend rejects it.
 
 ## Bounds, tooling and evidence
 
