@@ -1,6 +1,11 @@
 # Documentation
 
-## Start with the textbook
+## Learn to program
+
+Start with the [Programming in Fibril tutorial](tutorial/README.md) for a
+hands-on introduction to the language and its current limitations.
+
+## Learn the implementation
 
 Begin with [Chapter 1: Orientation](book/00-orientation.md), then follow
 [binding](book/01-binding.md), [resources](book/02-resources.md),

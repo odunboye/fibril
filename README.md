@@ -73,6 +73,8 @@ dummy application entry. App scaffolds include a separate test package with a st
 too; replace its True result with real application assertions. `--source-only`
 remains minimal. Workspace-member discovery and locks remain future work.
 
+Learn the language with the [Programming in Fibril tutorial](docs/tutorial/README.md).
+
 Start with the [feature use-case guide](docs/use-cases.md) for what each feature
 is for, when to use it, and when a simpler alternative is better.
 

@@ -1,5 +1,17 @@
 [
   {
+    "title": "Programming in Fibril",
+    "pages": [
+      { "title": "Tutorial overview", "path": "docs/tutorial/README.md" },
+      { "title": "1. Getting started", "path": "docs/tutorial/01-getting-started.md" },
+      { "title": "2. Values and functions", "path": "docs/tutorial/02-functions.md" },
+      { "title": "3. Types and quantities", "path": "docs/tutorial/03-types-and-quantities.md" },
+      { "title": "4. Data and pattern matching", "path": "docs/tutorial/04-data.md" },
+      { "title": "5. Records and interfaces", "path": "docs/tutorial/05-abstraction.md" },
+      { "title": "6. Console programs and projects", "path": "docs/tutorial/06-projects.md" }
+    ]
+  },
+  {
     "title": "Part I · Read the implementation",
     "pages": [
       {
