@@ -140,3 +140,13 @@ checkRuntimePathEndpoint depth reduction fuel path endpoint = do
     Left (TypingError ReductionLimit) => Left ClosedPathExhausted
     Left _ => Left ClosedPathRejected
     Right _ => Right (MkRuntimeCheckedClosedBool checked)
+
+||| Check raw closed path syntax and both declared boundaries before observing a
+||| literal endpoint. Only the resulting ordinary closed Boolean crosses the
+||| boundary; this is not a core path constructor or a shared work budget.
+export
+lowerClosedBoolEndpoint : Nat -> Nat -> Nat -> CorePathExpr 0 -> Term 0 -> Term 0 -> Bool ->
+                          Either ClosedPathFailure RuntimeCheckedClosedBool
+lowerClosedBoolEndpoint depth reduction fuel path left right endpoint = do
+  checked <- checkClosedPath depth reduction fuel path left right
+  checkRuntimePathEndpoint depth reduction fuel checked endpoint

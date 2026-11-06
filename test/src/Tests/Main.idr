@@ -524,6 +524,31 @@ checks =
             (Right _, Right _) => True; _ => False
           Left _ => False
         Left _ => False)
+  , ("raw closed path lowering checks both endpoint observations",
+      let path = CoreAbstract (CoreTerm (BoolCase BoolTrue BoolFalse BoolTrue)) in
+      case (lowerClosedBoolEndpoint 64 64 6 path BoolFalse BoolFalse False,
+            lowerClosedBoolEndpoint 64 64 6 path BoolFalse BoolFalse True) of
+        (Right zero, Right one) =>
+          case (betaCompare 64 (forgetRuntimeCheckedBool zero) BoolFalse,
+                betaCompare 64 (forgetRuntimeCheckedBool one) BoolFalse) of
+            (EqualNormalForms, EqualNormalForms) => True
+            _ => False
+        _ => False)
+  , ("raw lowering rejects mismatched unobserved boundaries",
+      let path = CoreAbstract (CoreTerm BoolTrue) in
+      case (lowerClosedBoolEndpoint 64 64 6 path BoolTrue BoolFalse False,
+            lowerClosedBoolEndpoint 64 64 6 path BoolFalse BoolTrue True) of
+        (Left ClosedPathRejected, Left ClosedPathRejected) => True
+        _ => False)
+  , ("raw lowering fails closed on unsupported payload and exhaustion",
+      case (lowerClosedBoolEndpoint 64 64 6 (CoreAbstract (CoreTerm UnitValue)) BoolTrue BoolTrue False,
+            lowerClosedBoolEndpoint 0 64 6 (CoreAbstract (CoreTerm BoolTrue)) BoolTrue BoolTrue False,
+            lowerClosedBoolEndpoint 64 0 6
+              (CoreAbstract (CoreTerm (BoolCase BoolTrue BoolTrue BoolFalse))) BoolTrue BoolTrue False,
+            lowerClosedBoolEndpoint 64 64 0 (CoreAbstract (CoreTerm BoolTrue)) BoolTrue BoolTrue False) of
+        (Left ClosedPathRejected, Left ClosedPathExhausted,
+         Left ClosedPathExhausted, Left ClosedPathExhausted) => True
+        _ => False)
   , ("runtime checked endpoint composes with ordinary linear identity",
       case checkClosedPath 64 64 5 (CoreAbstract (CoreTerm BoolTrue)) BoolTrue BoolTrue of
         Right path => case checkRuntimePathEndpoint 64 64 6 path False of

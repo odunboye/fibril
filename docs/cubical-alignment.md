@@ -276,7 +276,7 @@ rule that all path data erase is not enough. The existing empty computational
 context and restricted Boolean grammar avoid captures for the experiment only;
 they are not rules for weakening into arbitrary linear contexts or for transport.
 
-## Candidate closed-Boolean core boundary (specification, not implemented)
+## Candidate closed-Boolean core boundary (experimental API, not integrated)
 
 A conservative first integration can compile an endpoint observation to an
 **ordinary** `Term 0`, rather than introducing a runtime path representation.
@@ -287,8 +287,10 @@ result as `Bool` with the ordinary runtime checker in `Empty`. Any unsupported
 form, mismatch, or exhausted component check must prevent emission. The output
 is the checked ordinary Boolean expression, not a path or a proof that can be
 used as a core type. Its erasure and execution are therefore exactly those of
-that existing core expression. This describes a compile-time lowering boundary,
-not general path support and not yet a new `Fibril.Core.Term` constructor.
+that existing core expression. `lowerClosedBoolEndpoint` implements this sequence
+as an experimental API returning an opaque runtime-checked Boolean witness; it
+is not wired into elaboration or code generation. This describes a compile-time
+lowering boundary, not general path support or a new `Fibril.Core.Term` constructor.
 
 The integration is acceptable only if all of these obligations are met:
 
