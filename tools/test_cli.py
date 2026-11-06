@@ -2071,6 +2071,79 @@ class CLITests(unittest.TestCase):
                 self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
                 self.assertNotIn('Expanded core construction budget exhausted', rejected.stderr)
 
+    def test_structural_list_with_distinct_linear_string_accumulator(self):
+        fixture = ROOT / 'examples/modules/linear-accumulator'
+        source = (fixture / 'StringAccumulator.fib').read_text()
+        initial = 'Data.Items.Prepend "a" (Data.Items.Prepend "b" (Data.Items.Empty {String}))'
+        update = 'appendOnto tail (appendString acc head)'
+        self.assertIn(initial, source)
+        self.assertIn(update, source)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(fixture / 'Data', root / 'Data')
+            path = root / 'StringAccumulator.fib'
+            def project(program):
+                path.write_text(program)
+                return run('run', '--source-dir', str(root), str(path))
+            for value, expected in [(initial, 'cab\n'), ('Data.Items.Empty {String}', 'c\n'),
+                                    ('Data.Items.Prepend "a" (Data.Items.Empty {String})', 'ca\n')]:
+                result = project(source.replace(initial, value))
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(result.stdout, expected)
+            arms = ('  Data.Items.Empty => acc\n'
+                    '  Data.Items.Prepend head tail => appendOnto tail (appendString acc head)')
+            self.assertIn(arms, source)
+            result = project(source.replace(arms, '\n'.join(reversed(arms.splitlines()))))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'cab\n')
+            alias = ('0 TextType : Type\nTextType = String\n' + source[source.index('appendOnto :'):])
+            alias = source[:source.index('appendOnto :')] + alias.replace('(1 acc : String) -> String', '(1 acc : TextType) -> TextType')
+            result = project(alias)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'cab\n')
+            erased = source[:source.index('main : IO Unit')].replace('appendOnto :', '0 appendOnto :') + 'main : IO Unit\nmain = putStrLn "checked"\n'
+            result = project(erased)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            invalid = [source.replace('(1 acc : String) -> String', '(1 acc : String) -> Bool'),
+                       source.replace('(1 acc : String) -> String', '(acc : String) -> String'),
+                       source.replace('(1 acc : String) -> String', '(0 acc : String) -> String'),
+                       source.replace(update, 'appendOnto items (appendString acc head)'),
+                       source.replace(update, 'appendOnto tail (appendString acc acc)'),
+                       source.replace(update, 'appendOnto tail acc'),
+                       source.replace('Data.Items.Empty => acc', 'Data.Items.Empty => "bad"')]
+            for program in invalid:
+                self.assertNotEqual(program, source)
+                rejected = project(program)
+                self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
+                self.assertNotIn('Expanded core construction budget exhausted', rejected.stderr)
+
+    def test_accumulator_equations_reject_dependent_types(self):
+        fixture = ROOT / 'examples/modules/linear-accumulator'
+        examples = [
+            ('data IndexedList (0 tag : Data.Items.Items String) : Type where\n'
+             '  MkIndexedList : IndexedList tag\n',
+             '(1 items : Data.Items.Items String) -> (1 acc : IndexedList items) -> IndexedList items',
+             'acc', 'bad tail acc'),
+            ('data Indexed (0 tag : String) : Type where\n  MkIndexed : Indexed tag\n',
+             '(1 items : Data.Items.Items String) -> (1 acc : String) -> Indexed acc',
+             'MkIndexed acc', 'bad tail (appendString acc head)')]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(fixture / 'Data', root / 'Data')
+            path = root / 'Dependent.fib'
+            for declaration, signature, base, call in examples:
+                preamble = 'module Dependent\nimport Data.Items\n' + declaration + '0 bad : ' + signature + '\n'
+                main = 'main : IO Unit\nmain = putStrLn "checked"\n'
+                path.write_text(preamble + 'bad items acc = ' + base + '\n' + main)
+                baseline = run('check', '--source-dir', str(root), str(path))
+                self.assertEqual(baseline.returncode, 0, baseline.stdout + baseline.stderr)
+                path.write_text(preamble + 'bad items acc = case items of\n'
+                                '  Data.Items.Empty => ' + base + '\n'
+                                '  Data.Items.Prepend head tail => ' + call + '\n' + main)
+                rejected = run('check', '--source-dir', str(root), str(path))
+                self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
+                self.assertIn('Unbound', rejected.stderr)
+
     def test_structural_sequence_recursive_equations(self):
         source = ('module Main\ndata Items {0 A : Type} : Type where\n  Empty : Items A\n'
                   '  Prepend : (1 head : A) -> (1 tail : Items A) -> Items A\n'

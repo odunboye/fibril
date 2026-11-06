@@ -248,12 +248,15 @@ reverseOnto items acc = case items of
 ~~~
 
 The [runnable example](../examples/modules/linear-accumulator/Main.fib) uses
-qualified imported constructors. The signature has exactly two linear inputs
-and a result, all the same checked fixed list family. The case scrutinizes the
-first input; the empty branch is exactly the accumulator, and the cons branch
-is exactly a direct self-call on the immediate tail and an update. Branch order
-may be reversed. The [computed-update example](../examples/modules/linear-accumulator/Decorated.fib)
-transforms each head before adding it to the accumulator.
+qualified imported constructors. The signature has exactly two linear inputs:
+a checked fixed list family and a closed accumulator type. The result must be
+the same closed type as the accumulator, independent of both inputs. The case
+scrutinizes the first input; the empty branch is exactly the accumulator, and
+the cons branch is exactly a direct self-call on the immediate tail and an
+update. Branch order may be reversed. The [computed-update example](../examples/modules/linear-accumulator/Decorated.fib)
+transforms each head before adding it to a list accumulator; the
+[String-accumulator example](../examples/modules/linear-accumulator/StringAccumulator.fib)
+uses a different accumulator type from the input list.
 
 The update may use the head, accumulator, and visible globals in a bounded
 binder-free expression of ordinary or braced applications, `if`, references,
@@ -266,7 +269,7 @@ discard them. Implicit prefixes on the recursive function, indirect calls,
 other recursive arguments and additional function parameters remain unsupported.
 
 The compiler lowers this shape to a `SeqFold` returning a linear
-accumulator-to-list function. Its base is the identity; each step builds a
+accumulator-to-accumulator function. Its base is the identity; each step builds a
 function that applies the linear induction result to the independently checked
 update. The original accumulator is not captured by the repeatedly invoked
 step. The whole generated core is independently checked for types and usage.

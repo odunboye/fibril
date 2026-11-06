@@ -1,0 +1,12 @@
+module StringAccumulator
+
+import Data.Items
+
+-- The accumulator and result are String, not the list family.
+appendOnto : (1 items : Data.Items.Items String) -> (1 acc : String) -> String
+appendOnto items acc = case items of
+  Data.Items.Empty => acc
+  Data.Items.Prepend head tail => appendOnto tail (appendString acc head)
+
+main : IO Unit
+main = putStrLn (appendOnto (Data.Items.Prepend "a" (Data.Items.Prepend "b" (Data.Items.Empty {String}))) "c")

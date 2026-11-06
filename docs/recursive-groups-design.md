@@ -32,8 +32,9 @@ accumulator transformer: the accumulator is supplied to that transformer, not
 captured by the repeatedly invoked fold step. The runnable
 [linear accumulator example](../examples/modules/linear-accumulator/Main.fib)
 uses strings; the [computed-update example](../examples/modules/linear-accumulator/Decorated.fib)
-transforms each head. Tests observe empty, singleton and multi-element inputs,
-including a nonempty accumulator. This is direct-style convenience, **not new
+transforms each head. The [String-accumulator example](../examples/modules/linear-accumulator/StringAccumulator.fib)
+uses a different closed accumulator type. Tests observe empty, singleton and
+multi-element inputs, including a nonempty accumulator. This is direct-style convenience, **not new
 expressive power or general termination checking**. It does not use the
 experimental size-change checker. Reference/native agreement is sampled
 behavior, not a backend correctness proof.
