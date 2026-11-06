@@ -107,6 +107,46 @@ body checking happens before closure admission. An accepted result
 still **cannot authorize a Fibril definition**: no adapter connects this
 fragment to checked bodies or proves call completeness in the language.
 
+## Comparison with Idris 2
+
+Idris 2 already applies size-change analysis to actual Idris definitions,
+including mutually recursive functions. In this repository's Idris 2 checkout,
+`src/idris2/src/Core/Termination/CallGraph.idr` analyzes normalized clause
+bodies, walks nested arguments, follows generated case functions and compares
+arguments with caller patterns. `Core/Termination/SizeChange.idr` composes
+call graphs and checks idempotent self-cycles. The worked examples in
+`src/idris2/tests/idris2/total/total017/Paper.idr` include mutual recursion,
+nested calls and changing argument positions. These are Idris examples, not
+Fibril acceptance tests.
+
+Idris 2's extraction depends on its own terms, contexts, pattern definitions,
+normalization and case elaboration. Fibril's current core instead uses checked
+recursors such as `NatRec`, `RecFold` and `SeqFold`; it has no general named
+recursive-call term. Simply invoking Idris's checker on the Idris implementation
+of Fibril would not check a Fibril program, and translating into Idris would
+itself require a trusted correspondence. The Idris FAQ documents limitations
+around fully applied calls and higher-order applications. Idris also provides
+trusted assertions such as `assert_smaller` and `assert_total`; these are not
+verified decrease evidence. Its tutorial explicitly cautions that the current
+Idris totality checker can miss total functions and may also accept non-total
+ones, so it should not be treated as an unconditional proof oracle.
+
+Both implementations use the finite size-change criterion; this prototype
+adds a bounded certificate-checking experiment and a separate synthetic body
+rewalk, not an established soundness advantage. Its graph algebra is shared
+between producer and verifier. Its smaller accepted fragment is not a substitute
+for Idris's real-program analysis. Do not expand the synthetic grammar solely
+for feature parity: the useful next design is an explicit representation and
+operational semantics for Fibril recursive definitions, together with a way to
+check all calls and their decrease evidence against those exact bodies. Adapt
+Idris's extraction and test ideas to that representation, while keeping
+coverage, positivity, quantitative use and evaluation obligations distinct.
+Until then, continue using Fibril's existing checked structural recursors.
+
+The Idris 2 source licence is in `src/idris2/LICENSE`. Copying or adapting its
+implementation requires observing its redistribution conditions; studying its
+algorithms alone does not add an Idris compiler dependency to Fibril.
+
 ## Trust and future integration
 
 The checker cannot establish that the supplied direct graph contains every real
