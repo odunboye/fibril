@@ -272,6 +272,25 @@ useful ingredients, not typed quantitative substitution, erasure or ownership
 preservation theorems. Tests find counterexamples and regressions; reviewer
 approval and successful builds do not supply missing metatheory.
 
+## Initial implementation slice
+
+`Fibril.Cubical.RuntimeInterface` now admits literal Unit/Bool and recursively
+nondependent Pi interfaces, retaining binder quantities in an opaque shape.
+It rejects all variables, so abstract bases and dependent interfaces are not yet
+supported. It performs no normalization, logical conversion or ordinary checker
+calls and is not connected to ordinary runtime acceptance. Comparison admits
+both original inputs before comparing their shapes; one shared node-work
+allowance covers both admissions and comparison. Unsupported syntax and work
+exhaustion are distinct failures, never comparison evidence. The allowance is
+not a wall-clock, call-stack or total-allocation guarantee.
+
+This is only the literal-interface part of the proposed firewall: it is not pure
+program admission, general-path checking, transport or the full multi-resource
+budget policy. `Tests.Cubical.RuntimeInterface` exercises exact work boundaries,
+quantities, dependence, effects, handles and unsupported beta wrappers. An
+external compile-negative fixture checks constructor opacity. General logical
+paths and the proof gates below remain unimplemented.
+
 ## 9. Execution gates
 
 1. Review this rule sheet; settle concrete syntax, derivations and budget API.

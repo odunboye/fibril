@@ -75,6 +75,14 @@ if ! grep -q 'IndependentPath.MkRuntimeCheckedClosedBool is private' "$tmp/forge
   exit 1
 fi
 echo 'Runtime checked endpoint opacity negative test passed.'
+"$idris" -p fibril --check ForgeRuntimeInterface.idr > "$tmp/forge-interface.log" 2>&1 || true
+if ! grep -q 'RuntimeInterface.Admitted is private' "$tmp/forge-interface.log"; then
+  echo 'Negative runtime-interface opacity check failed for an unrelated reason:' >&2
+  read -r -d '' output < "$tmp/forge-interface.log" || true
+  printf '%s\n' "$output" >&2
+  exit 1
+fi
+echo 'Runtime interface opacity negative test passed.'
 for fixture in PathCapturesCoreVariable PathEscapesDimension; do
   "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1 || true
   if ! grep -Fq 'Mismatch between: S ?k and 0.' "$tmp/$fixture.log"; then
