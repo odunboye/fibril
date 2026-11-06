@@ -414,13 +414,13 @@ checks =
   , ("independent path never accepts unsupported core syntax in dead branch",
       case checkClosedPath 64 64 4
              (CoreAbstract (CoreTerm (BoolCase BoolTrue BoolTrue UnitValue))) BoolTrue BoolTrue of
-        Left Rejected => True; _ => False)
+        Left ClosedPathRejected => True; _ => False)
   , ("independent closed path rejects boundary mismatch",
       case checkClosedPath 64 64 4 (CoreAbstract (CoreTerm BoolTrue)) BoolTrue BoolFalse of
-        Left Rejected => True; _ => False)
+        Left ClosedPathRejected => True; _ => False)
   , ("independent closed path propagates exhausted checking",
       case checkClosedPath 64 64 1 (CoreAbstract (CoreTerm BoolTrue)) BoolTrue BoolTrue of
-        Left Exhausted => True; _ => False)
+        Left ClosedPathExhausted => True; _ => False)
   , ("independent witness application can exhaust",
       case checkClosedPath 64 64 4 (CoreAbstract (CoreTerm BoolTrue)) BoolTrue BoolTrue of
         Right path => case applyCheckedClosedPath 64 64 1 path Zero of

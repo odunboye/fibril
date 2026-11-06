@@ -115,8 +115,10 @@ It is **not yet the independent path judgment** described above:
    `IndependentPath` module exposes an opaque `CheckedClosedPath` witness only
    after the fragment checker accepts, but this is not a core typing derivation.
    `checkCorePathExpr` itself returns only a status; callers must not treat raw
-   `CoreStepped` syntax as a reusable typing certificate. Applying a witness
-   rechecks its recorded inputs under the supplied budgets.
+   `CoreStepped` syntax as a reusable typing certificate. Witness construction
+   distinguishes rejection from exhaustion with `ClosedPathFailure`, whose
+   constructors cannot express success. Applying a witness rechecks its recorded
+   inputs under the supplied budgets.
 2. `collapseBody` accepts nested syntactic constant paths by inferring identical
    endpoints, then discards their dimension applications. This is a deliberately
    narrow shortcut, not general path inference, face checking, or conversion.

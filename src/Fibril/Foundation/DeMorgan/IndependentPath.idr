@@ -15,16 +15,21 @@ export
 data CheckedClosedPath : Type where
   MkCheckedClosedPath : CorePathExpr 0 -> Term 0 -> Term 0 -> CheckedClosedPath
 
+||| Failure cannot represent successful checking. Exhaustion is inconclusive,
+||| while rejection covers mismatched or unsupported inputs.
+public export
+data ClosedPathFailure = ClosedPathRejected | ClosedPathExhausted
+
 ||| Reject unsupported inputs and propagate exhausted checks without producing
 ||| a witness. The witness records exactly the checked expression and endpoints.
 export
 checkClosedPath : Nat -> Nat -> Nat -> CorePathExpr 0 -> Term 0 -> Term 0 ->
-                  Either PathCheck CheckedClosedPath
+                  Either ClosedPathFailure CheckedClosedPath
 checkClosedPath depth reduction fuel path left right =
   case checkCorePathExpr depth reduction fuel path left right of
     Accepted => Right (MkCheckedClosedPath path left right)
-    Rejected => Left Rejected
-    Exhausted => Left Exhausted
+    Rejected => Left ClosedPathRejected
+    Exhausted => Left ClosedPathExhausted
 
 ||| Apply a checked path at a closed interval. The experimental runner rechecks
 ||| its recorded inputs with the supplied budgets; exhaustion still fails closed.
