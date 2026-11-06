@@ -1,0 +1,17 @@
+digraph RecursiveGroupsDesign {
+  rankdir=LR;
+  node [shape=box];
+  source [label="Proposed source equations\nnot currently accepted"];
+  group [label="Exact scoped group\nsignatures + bodies + dependencies"];
+  typing [label="Check types, coverage\nand quantitative usage"];
+  calls [label="Rewalk all permitted call sites\nand justify relation cells"];
+  cert [label="Verify untrusted closure\nagainst authenticated calls"];
+  artifact [label="Same checked group\nno forged checked flag"];
+  evaluate [label="Specified bounded evaluation\nconversion boundary unresolved"];
+  backend [label="Backends: reject until supported", style=dashed];
+  source -> group [style=dashed];
+  group -> typing -> artifact;
+  group -> calls -> cert -> artifact;
+  artifact -> evaluate;
+  artifact -> backend [style=dashed];
+}

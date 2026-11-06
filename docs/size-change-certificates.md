@@ -149,6 +149,10 @@ algorithms alone does not add an Idris compiler dependency to Fibril.
 
 ## Trust and future integration
 
+The [recursive groups design](recursive-groups-design.md) proposes a concrete
+source goal and the additional core, usage and evaluation boundaries; it is
+not implemented.
+
 The checker cannot establish that the supplied direct graph contains every real
 call, that its edges describe the actual arguments, or that a strict cell is
 true. To use this criterion for programs, future work must independently tie

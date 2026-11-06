@@ -286,6 +286,10 @@
         "path": "docs/size-change-certificates.md"
       },
       {
+        "title": "Recursive groups (proposed)",
+        "path": "docs/recursive-groups-design.md"
+      },
+      {
         "title": "Ordinary core draft",
         "path": "docs/core-draft.md"
       },

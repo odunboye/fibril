@@ -20,6 +20,7 @@ The generated homepage separates teaching chapters, references, and project reco
 
 - [Experimental checked C emission](native-c.md): compile a supported console subset without precomputing output.
 - [Abstract size-change certificates](size-change-certificates.md): a bounded graph-level checker, not source termination checking.
+- [Recursive groups design](recursive-groups-design.md): proposed exact-body, typing, termination and evaluation boundary; not implemented.
 
 - [Direct non-recursive data cases](direct-data-cases.md): exhaustive local or qualified zero/unary matches with linear branch joins.
 
