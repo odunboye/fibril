@@ -222,17 +222,21 @@ declarations context env (item@(DataItem sourceData) :: rest) =
                                      in fieldRefs ++ walk context scope ctor.result) sourceData.constructors
    in refs ++ paramRefs ++ ctorRefs ++ declarations context following rest
 
-declarations context env (item@(RecordItem _) :: rest) =
+declarations context env (item@(RecordItem authored) :: rest) =
   let sites = bindingSites item
       refs = map (\site => RefersTo site.nameSpan (context.localTarget site.definitionNameSpan)) sites
       following = foldl (\scope, site => (site.name, Just (context.localTarget site.definitionNameSpan)) :: scope) env sites
-   in refs ++ declarations context following rest
+      (paramRefs, paramScope) = dataParameters context env authored.params
+      (fieldRefs, _) = dataFields context paramScope authored.fields
+   in refs ++ paramRefs ++ fieldRefs ++ declarations context following rest
 
-declarations context env (item@(InterfaceItem _) :: rest) =
+declarations context env (item@(InterfaceItem authored) :: rest) =
   let sites = bindingSites item
       refs = map (\site => RefersTo site.nameSpan (context.localTarget site.definitionNameSpan)) sites
       following = foldl (\scope, site => (site.name, Just (context.localTarget site.definitionNameSpan)) :: scope) env sites
-   in refs ++ declarations context following rest
+      (paramRefs, paramScope) = dataParameters context env authored.params
+      (fieldRefs, _) = dataFields context paramScope authored.fields
+   in refs ++ paramRefs ++ fieldRefs ++ declarations context following rest
 
 ||| Shared traversal with lexical shadowing before unqualified global lookup.
 public export

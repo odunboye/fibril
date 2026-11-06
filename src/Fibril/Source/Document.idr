@@ -27,6 +27,9 @@ record ImportDeclaration where
   span : SourceSpan
   nameSpan : SourceSpan
   components : List String
+  publicMarker : Maybe Token
+  alias : Maybe Token
+  selectors : Maybe (List Token)
 
 public export
 data DocumentBody = EmptyDocument | ExpressionDocument Expr | DeclarationDocument (List AuthoredDeclaration)
@@ -67,12 +70,23 @@ header keyword end tokens = do
      then Left (ParseFailure keyword.span.start "Module/import headers must start in column 1")
      else Right ()
   (names, nameSpan, rest) <- parts 16 end keyword.span.start.line tokens
-  case rest of
-    token :: _ => if token.span.start.line == keyword.span.start.line
-      then Left (ParseFailure token.span.start "Unexpected tokens after module/import header")
-      else Right ()
-    [] => Right ()
   Right (names, Between keyword.span.start nameSpan.finish, nameSpan, rest)
+
+parseSelectors : Nat -> Nat -> Position -> List Token -> Either ParseError (List Token, SourceSpan, List Token)
+parseSelectors Z line end tokens = Left (ParseFailure (maybe end (\token => token.span.start) (head' tokens)) "Import selector budget exhausted (64)")
+parseSelectors (S budget) line end [] = Left (ParseFailure end "Expected import selector")
+parseSelectors (S budget) line end (token :: rest) = do
+  if token.span.start.line /= line || token.kind /= Name || token.spelling == "_"
+    then Left (ParseFailure token.span.start "Expected unqualified import selector on the import line") else Right ()
+  case rest of
+    separator :: following =>
+      if separator.span.start.line /= line then Left (ParseFailure separator.span.start "Expected comma or closing parenthesis on the import line")
+      else if separator.kind == CloseParen then Right ([token], separator.span, following)
+      else if separator.kind == Comma then do
+        (remaining, close, trailing) <- parseSelectors budget line end following
+        Right (token :: remaining, close, trailing)
+      else Left (ParseFailure separator.span.start "Expected comma or closing parenthesis")
+    [] => Left (ParseFailure end "Expected closing parenthesis")
 
 importHeaders : Nat -> Position -> List (List String) -> List Token ->
                 Either ParseError (List ImportDeclaration, List Token)
@@ -82,11 +96,51 @@ importHeaders budget end seen tokens@(token :: rest) =
     case budget of
       Z => Left (ParseFailure token.span.start "Import count budget exhausted")
       S remaining => do
-        (names, span, nameSpan, following) <- header token end rest
+        let (publicMarker, afterPublic) = the (Maybe Token, List Token) $ case rest of
+              marker :: following => if marker.spelling == "public" && marker.span.start.line == token.span.start.line
+                then (Just marker, following) else (Nothing, rest)
+              [] => (Nothing, rest)
+        (names, span, nameSpan, afterName) <- header token end afterPublic
+        (alias, following) <- the (Either ParseError (Maybe Token, List Token)) $ case afterName of
+          marker :: value :: remaining =>
+            if marker.span.start.line == token.span.start.line && marker.spelling == "as" then
+              if value.span.start.line == token.span.start.line && component value.spelling
+                 then Right (Just value, remaining)
+                 else Left (ParseFailure value.span.start "Expected uppercase alias on the import line")
+            else Right (Nothing, afterName)
+          _ => Right (Nothing, afterName)
+        (selection, importSpan, following) <- the (Either ParseError (Maybe (List Token), SourceSpan, List Token)) $ case following of
+          opening :: trailing => if opening.kind == OpenParen && opening.span.start.line == token.span.start.line then do
+            (names, close, trailing) <- parseSelectors 64 token.span.start.line end trailing
+            Right (Just names, Between span.start close.finish, trailing)
+            else Right (Nothing, maybe span (\value => Between span.start value.span.finish) alias, following)
+          [] => Right (Nothing, maybe span (\value => Between span.start value.span.finish) alias, following)
+        if isJust publicMarker && isNothing selection
+          then Left (ParseFailure token.span.start "Public import requires a nonempty selector") else Right ()
+        case following of
+          next :: _ => if next.span.start.line == token.span.start.line
+            then Left (ParseFailure next.span.start "Unexpected tokens after import header") else Right ()
+          [] => Right ()
         if elem names seen then Left (ParseFailure token.span.start "Duplicate direct import")
            else Right ()
         (imports, trailing) <- importHeaders remaining end (names :: seen) following
-        Right (Imported span nameSpan names :: imports, trailing)
+        Right (Imported importSpan nameSpan names publicMarker alias selection :: imports, trailing)
+
+validateAliases : Maybe ModuleHeader -> List ImportDeclaration -> Either ParseError ()
+validateAliases header imports = check [] imports
+  where
+    prefixes : List String
+    prefixes = mapMaybe (head' . components) imports ++
+               maybe [] (\h => maybe [] pure (head' h.components)) header
+
+    check : List String -> List ImportDeclaration -> Either ParseError ()
+    check seen [] = Right ()
+    check seen (dependency :: rest) = case dependency.alias of
+      Nothing => check seen rest
+      Just alias =>
+        if elem alias.spelling seen || elem alias.spelling prefixes
+          then Left (ParseFailure alias.span.start "Import alias conflicts with another alias or module qualifier prefix")
+          else check (alias.spelling :: seen) rest
 
 parseTokens : Nat -> Nat -> Position -> List Token -> Either ParseError ParsedDocument
 parseTokens declarations expressions end tokens = do
@@ -94,10 +148,17 @@ parseTokens declarations expressions end tokens = do
     case tokens of
       token :: rest => if token.kind == ModuleKeyword then do
         (names, span, nameSpan, following) <- header token end rest
+        case following of
+          next :: _ => if next.span.start.line == token.span.start.line
+            then Left (ParseFailure next.span.start "Unexpected tokens after module header") else Right ()
+          [] => Right ()
         Right (Just (Header span nameSpan names), following)
         else Right (Nothing, tokens)
       [] => Right (Nothing, [])
   (imports, remaining) <- importHeaders 32 end [] following
+  validateAliases moduleHeader imports
+  if isNothing moduleHeader && any (isJust . publicMarker) imports
+    then Left (ParseFailure (maybe end (\dependency => dependency.span.start) (find (isJust . publicMarker) imports)) "Public imports require a named module") else Right ()
   body <- the (Either ParseError DocumentBody) $ case remaining of
     [] => Right EmptyDocument
     first :: _ =>

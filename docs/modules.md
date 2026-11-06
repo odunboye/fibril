@@ -1,5 +1,8 @@
 # First local module/import implementation contract
 
+For planned import controls, re-exports, resolution diagnostics and editor work,
+see the [import and name-resolution roadmap](import-resolution-plan.md).
+
 ## Use cases
 
 Use modules to split a program into reusable components and make its public API deliberate. Direct imports give access to checked exported declarations; erased globals are useful for published type abbreviations without granting runtime access.
@@ -44,6 +47,24 @@ qualifiers, not value/member projections.
 These services do not validate module/file identity, load dependencies, type-check
 modules, enforce private access, or check imported calls by themselves; use the project checker for that. The existing headerless program path still uses ordinary core
 checking and retains its regression suite.
+
+## Import qualifier aliases
+
+`import App.Greeting as Greeting` adds `Greeting.greet` as a source spelling
+for the checked export `App.Greeting.greet`. The original full qualifier and
+unique unqualified imports remain available. Aliases do not change dependency
+loading, package ownership, export visibility, erased quantities, or provider
+identity, and do not expose transitive imports. Aliases are one uppercase module
+component on the import line; duplicate imports remain errors.
+
+As a conservative Fibril restriction, an alias must differ from every other alias
+and from the first component of every direct import and the current module name,
+including its own imported module. This preserves unambiguous original qualifiers;
+it is not a claim of Idris syntax or semantics. Formatting retains aliases and
+checked project definition navigation resolves their exported names in single-root
+and checked application or library-inventory package graphs. The optional
+package-aware editor client validates source and manifest snapshots before jumping.
+Project-wide rename remains unsupported.
 
 ## Qualified references and declared signatures
 
@@ -304,9 +325,21 @@ Rules for the first parser/loader:
   scalar positions, explicit signatures, and column-one declaration framing stay.
 - Definitions are private unless their signature has an export modifier. The
   modifier belongs to the whole signature/definition pair, not a separate value.
-- Imports expose only explicitly exported names, through the full module qualifier.
-  No open imports, aliases, wildcard exports, re-exports, or implicit transitive
-  visibility in this slice. Duplicate direct imports are rejected.
+- Direct imports expose explicitly exported names both qualified and, when unique,
+  unqualified. If multiple imports export the same short name, unqualified use
+  fails and a full or import-alias qualifier is required. Local bindings shadow imports; imported
+  names shadow Prelude names. Private and transitive names remain unavailable.
+  Selective imports restrict these visible exports. Named modules may explicitly
+  publish checked selections with `import public A as X (name)`; downstream
+  users import the facade and use its qualifier or a unique short name, not the
+  original qualifier without a separate direct import. Same-origin paths are
+  deduplicated; conflicting publications are rejected. Public interface schemas
+  retain their original constructor identity; constructing an implementation
+  requires the matching constructor to be selected and published. Imports remain
+  transparent, and package direct-dependency checks apply to each authored import. Single-root
+  project definition navigation uses checked export identities to locate original
+  definitions through public imports; missing source origins remain unresolved.
+  Duplicate direct imports are rejected.
 - A file must directly import another module to use its qualifier. Its own
   qualifier is available for already checked, earlier definitions. Loading a transitive
   dependency does not install its names into every caller's source environment.
@@ -444,3 +477,14 @@ late dependency failures. Preserve every existing single-file example and test.
 
 This contract is design work. Passing handbook/link tests validates its packaging,
 not the unimplemented module semantics or metatheory.
+
+### Selective imports
+
+`import A.B (x, T)` and `import A.B as C (x, T)` import only the
+listed checked exports. The list is nonempty, on the import line, and limited
+to 64 names. Each name must be distinct and exported; private and unknown names
+are rejected alike. Selection applies to unqualified, full-module, and alias
+spellings. Selecting a type or interface does not select its constructors,
+methods, helpers, or providers. An interface implementation block requires both
+the interface and its constructor to be selected. Import selection does not
+change dependency loading or package permissions.

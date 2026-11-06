@@ -6668,6 +6668,37 @@ class CLITests(unittest.TestCase):
 
 
 class UnqualifiedImportsTests(unittest.TestCase):
+    def test_alias_ambiguity_reports_canonical_definitions(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name in ['A', 'B']:
+                (root / (name + '.fib')).write_text(
+                    'module ' + name + '\nexport\n'
+                    'keep : {0 T : Type} -> (1 x : T) -> T\nkeep T x = x\n'
+                    'export\ndata Choice : Type where\n  Yes : Choice\n  No : Choice\n')
+            main = root / 'Main.fib'
+
+            def check(imports, body):
+                main.write_text('module Main\n' + imports + '\nmain : IO Unit\nmain = ' + body + '\n')
+                return run_cli('check', '--source-dir', directory, str(main), timeout=120)
+
+            for body in ['putStrLn (keep "ok")', 'putStrLn (keep {String} "ok")',
+                         'putStrLn (case A.Yes of\n  Yes => "yes"\n  A.No => "no")']:
+                with self.subTest(body=body):
+                    result = check('import A as X\nimport B as Y', body)
+                    self.assertNotEqual(result.returncode, 0)
+                    short = 'Yes' if 'case' in body else 'keep'
+                    self.assertIn('candidates: A.' + short + ', B.' + short + ';', result.stderr)
+                    self.assertNotIn('X.' + short, result.stderr)
+                    self.assertNotIn('Y.' + short, result.stderr)
+
+            for body in ['putStrLn (keep "ok")', 'putStrLn (keep {String} "ok")',
+                         'putStrLn (X.keep {String} (A.keep "ok"))',
+                         'putStrLn (case X.Yes of\n  Yes => "yes"\n  No => "no")']:
+                with self.subTest(unique=body):
+                    result = check('import A as X', body)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_lookup_shadowing_ambiguity_and_visibility(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -6697,6 +6728,124 @@ class UnqualifiedImportsTests(unittest.TestCase):
             self.assertEqual(result.stdout, 'local!\n')
             result = execute('module Main\nimport A\nmain : IO Unit\nmain = putStrLn secret\n')
             self.assertNotEqual(result.returncode, 0)
+
+    def test_navigation_in_record_and_interface_fields(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'A.fib').write_text('module A\nexport\n0 Name : Type\nName = String\n')
+            main = root / 'Main.fib'
+            main.write_text('module Main\nimport A\nrecord Person : Type where\n  constructor MkPerson\n  value : Name\ninterface Describe : Type where\n  constructor MkDescribe\n  render : (value : Name) -> String\nmain : IO Unit\nmain = putStrLn "ok"\n')
+            for line, column in [('5', '12'), ('8', '21')]:
+                result = run_cli('definition', '--source-dir', directory, '--entry', str(main), line, column, str(main), timeout=120)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                packet = json.loads(result.stdout)
+                self.assertIsNotNone(packet['definition'], result.stdout)
+                self.assertEqual(Path(packet['definition']['path']).name, 'A.fib')
+
+    def test_interface_value_collision_reports_both_candidates(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'A.fib').write_text('module A\nexport\ninterface Ops (0 T : Type) : Type where\n  constructor MkOps\n  op : (x : T) -> T\n')
+            (root / 'B.fib').write_text('module B\nexport\n0 Ops : Type\nOps = String\n')
+            main = root / 'Main.fib'
+            main.write_text('module Main\nimport A\nimport B\nimplementation chosen : Ops String where\n  op = \\(x : String) => x\nmain : IO Unit\nmain = putStrLn "ok"\n')
+            result = run_cli('check', '--source-dir', directory, str(main), timeout=120)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('Ambiguous imported interface Ops', result.stderr)
+            self.assertIn('A.Ops', result.stderr)
+            self.assertIn('B.Ops', result.stderr)
+
+    def test_ambiguous_interface_reports_candidates_and_qualified_works(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name in ['A', 'B']:
+                (root / (name + '.fib')).write_text('module ' + name + '\nexport\ninterface Ops (0 T : Type) : Type where\n  constructor MkOps\n  op : (x : T) -> T\n')
+            main = root / 'Main.fib'
+            source = 'module Main\nimport A\nimport B\nimplementation chosen : Ops String where\n  op = \\(x : String) => x\nmain : IO Unit\nmain = putStrLn "ok"\n'
+            main.write_text(source)
+            result = run_cli('check', '--source-dir', directory, str(main), timeout=120)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('Ambiguous imported interface Ops', result.stderr)
+            self.assertIn('A.Ops', result.stderr)
+            self.assertIn('B.Ops', result.stderr)
+            main.write_text(source.replace('chosen : Ops String', 'chosen : A.Ops String'))
+            result = run_cli('check', '--source-dir', directory, str(main), timeout=120)
+            self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_local_type_shadow_does_not_reuse_imported_interface_schema(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'A.fib').write_text('module A\nexport\ninterface Ops (0 T : Type) : Type where\n  constructor MkOps\n  op : (x : T) -> T\n')
+            (root / 'B.fib').write_text('module B\nexport\ninterface Other (0 T : Type) : Type where\n  constructor MkOther\n  different : (x : T) -> T\n')
+            main = root / 'Main.fib'
+            main.write_text('module Main\nimport A\nimport B\n0 Ops : (0 T : Type) -> Type\nOps = \\(0 T : Type) => B.Other T\nimplementation chosen : Ops String where\n  op = \\(x : String) => x\nmain : IO Unit\nmain = putStrLn "ok"\n')
+            result = run_cli('check', '--source-dir', directory, str(main), timeout=120)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('Interface schema unavailable', result.stderr)
+
+    def test_ambiguous_explicit_implicit_arguments_show_candidates(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name in ['A', 'B']:
+                (root / (name + '.fib')).write_text('module ' + name + '\nexport\nkeep : {0 T : Type} -> (1 x : T) -> T\nkeep T x = x\n')
+            main = root / 'Main.fib'
+            main.write_text('module Main\nimport A\nimport B\nmain : IO Unit\nmain = putStrLn (keep {String} "x")\n')
+            result = run_cli('check', '--source-dir', directory, str(main), timeout=120)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('Ambiguous imported name keep', result.stderr)
+            self.assertIn('A.keep', result.stderr)
+            self.assertIn('B.keep', result.stderr)
+
+    def test_explicit_implicit_call_respects_local_shadowing(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name in ['A', 'B']:
+                (root / (name + '.fib')).write_text('module ' + name + '\nexport\nkeep : {0 T : Type} -> (1 x : T) -> T\nkeep T x = x\n')
+            main = root / 'Main.fib'
+            main.write_text('module Main\nimport A\nimport B\nkeep : String -> String\nkeep x = x\nmain : IO Unit\nmain = putStrLn (keep {String} "x")\n')
+            result = run_cli('check', '--source-dir', directory, str(main), timeout=120)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('Explicit {arguments} require', result.stderr)
+            self.assertNotIn('Ambiguous imported name', result.stderr)
+
+    def test_ambiguous_import_does_not_fall_back_to_prelude(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name in ['A', 'B']:
+                (root / (name + '.fib')).write_text('module ' + name + '\nexport\nputStrLn : String -> IO Unit\nputStrLn x = pure Unit ()\n')
+            main = root / 'Main.fib'
+            main.write_text('module Main\nimport A\nimport B\nmain : IO Unit\nmain = putStrLn "x"\n')
+            result = run_cli('check', '--source-dir', directory, str(main), timeout=120)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('Ambiguous imported name putStrLn', result.stderr)
+
+    def test_implicit_arguments_and_definition_navigation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'A.fib').write_text('module A\nexport\nkeep : {0 A : Type} -> (1 x : A) -> A\nkeep A x = x\n')
+            main = root / 'Main.fib'
+            main.write_text('module Main\nimport A\nmain : IO Unit\nmain = putStrLn (keep "ok")\n')
+            result = run_cli('run', '--source-dir', directory, str(main), timeout=120)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout, 'ok\n')
+            result = run_cli('definition', '--source-dir', directory, '--entry', str(main), '4', '19', str(main), timeout=120)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            packet = json.loads(result.stdout)
+            self.assertEqual(Path(packet['definition']['path']).name, 'A.fib')
+
+    def test_unqualified_interface_schema_and_direct_only(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'A.fib').write_text('module A\nexport\ninterface Ops (0 T : Type) : Type where\n  constructor MkOps\n  op : (x : T) -> T\n')
+            (root / 'B.fib').write_text('module B\nimport A\nexport\nimplementation ops : Ops String where\n  op = \\(x : String) => x\n')
+            main = root / 'Main.fib'
+            main.write_text('module Main\nimport B\nmain : IO Unit\nmain = putStrLn "ok"\n')
+            result = run_cli('check', '--source-dir', directory, str(main), timeout=120)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            main.write_text('module Main\nimport B\nx : Ops String\nx = ops\nmain : IO Unit\nmain = putStrLn "ok"\n')
+            result = run_cli('check', '--source-dir', directory, str(main), timeout=120)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('Unbound', result.stderr)
 
     def test_imported_constructor_patterns(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -6739,6 +6888,526 @@ class UnqualifiedImportsTests(unittest.TestCase):
                                 .replace('Algebra.Monoid String', 'Monoid String'))
             result = run_cli('run', '--source-dir', directory, str(root / 'Main.fib'), timeout=120)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+
+class RecursiveImportIntegrationTests(unittest.TestCase):
+    def test_selective_alias_recursive_data_and_omitted_constructor(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'Chain.fib').write_text('module Chain\nexport\ndata Chain : Type where\n  Empty : Chain\n  More : (1 rest : Chain) -> Chain\n')
+            main = root / 'Main.fib'
+            source = ('module Main\nimport Chain as C (Chain, Empty, More)\n'
+                      'marks : (1 chain : C.Chain) -> String\nmarks chain = case chain of\n'
+                      '  C.Empty => ""\n  C.More rest => appendString "!" (marks rest)\n'
+                      'main : IO Unit\nmain = putStrLn (marks (C.More C.Empty))\n')
+            main.write_text(source)
+            result = run_cli('run', '--source-dir', directory, str(main), timeout=120)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout, '!\n')
+            nav = run_cli('definition', '--source-dir', directory, '--entry', str(main), '6', '39', str(main), timeout=120)
+            self.assertEqual(nav.returncode, 0, nav.stderr)
+            self.assertEqual(json.loads(nav.stdout)['definition']['range']['start']['line'], 4)
+            main.write_text(source.replace('(Chain, Empty, More)', '(Chain, Empty)'))
+            result = run_cli('check', '--source-dir', directory, str(main), timeout=120)
+            self.assertNotEqual(result.returncode, 0)
+
+    def test_library_inventory_recursive_self_call_navigation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'src/Lib').mkdir(parents=True)
+            (root / 'fibril.yaml').write_text('schema: 1\nname: lib\nmodule-prefix: Lib\nsource-dir: src\nfoundation: de-morgan\nmodules: [Lib.Chain]\ndependencies: {}\n')
+            source = root / 'src/Lib/Chain.fib'
+            source.write_text('module Lib.Chain\ndata Chain : Type where\n  Empty : Chain\n  More : (1 rest : Chain) -> Chain\nmarks : (1 chain : Chain) -> String\nmarks chain = case chain of\n  Empty => ""\n  More rest => appendString "!" (marks rest)\n')
+            result = run_cli('definition', '--package', str(root / 'fibril.yaml'), '8', '35', str(source), timeout=120)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            target = json.loads(result.stdout)['definition']
+            self.assertIsNotNone(target, result.stdout)
+            self.assertEqual(Path(target['path']), source.resolve())
+            self.assertEqual(target['range']['start']['line'], 6)
+
+
+class ImportQualifierAliasTests(unittest.TestCase):
+    def test_values_implicit_navigation_and_visibility(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'A.fib').write_text('module A\nexport\nkeep : {0 T : Type} -> (1 x : T) -> T\nkeep T x = x\nsecret : String\nsecret = "no"\n')
+            main = root / 'Main.fib'
+            source = 'module Main\nimport A as X\nmain : IO Unit\nmain = putStrLn (X.keep {String} (A.keep "ok"))\n'
+            main.write_text(source)
+            result = run_cli('run', '--source-dir', directory, str(main), timeout=120)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout, 'ok\n')
+            result = run_cli('definition', '--source-dir', directory, '--entry', str(main), '4', '21', str(main), timeout=120)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(Path(json.loads(result.stdout)['definition']['path']).name, 'A.fib')
+            main.write_text(source.replace('X.keep {String} (A.keep "ok")', 'X.secret'))
+            result = run_cli('check', '--source-dir', directory, str(main), timeout=120)
+            self.assertNotEqual(result.returncode, 0)
+
+    def test_patterns_and_interface_schema(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'A.fib').write_text('module A\nexport\ndata Choice : Type where\n  Yes : Choice\n  No : Choice\nexport\ninterface Ops (0 T : Type) : Type where\n  constructor MkOps\n  op : (x : T) -> T\n')
+            main = root / 'Main.fib'
+            main.write_text('module Main\nimport A as X\nimplementation chosen : X.Ops String where\n  op = \\(x : String) => x\nmain : IO Unit\nmain = putStrLn (case X.Yes return (\\(0 self : X.Choice) => String) of\n  X.Yes => "yes"\n  X.No => "no")\n')
+            result = run_cli('run', '--source-dir', directory, str(main), timeout=120)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout, 'yes\n')
+
+    def test_formatter_round_trip(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Main.fib'
+            path.write_text('module Main\nimport A   as   X\nmain : IO Unit\nmain = putStrLn X.x\n')
+            result = run_cli('format', str(path), timeout=120)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn('import A as X', result.stdout)
+            path.write_text(result.stdout)
+            again = run_cli('format', str(path), timeout=120)
+            self.assertEqual(again.stdout, result.stdout)
+
+    def test_package_alias_and_dependency_ownership(self):
+        import shutil
+        fixtures = ROOT / 'examples/packages'
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(fixtures / 'sum-library', root / 'sum-library')
+            shutil.copytree(fixtures / 'sum-client', root / 'sum-client')
+            app = root / 'sum-client'
+            manifest = app / 'fibril.yaml'
+            main = app / 'src/Main.fib'
+            source = main.read_text().replace('import Data.Sum', 'import Data.Sum as S').replace('Data.Sum.', 'S.')
+            main.write_text(source)
+            result = run_cli('run', '--package', str(manifest), timeout=120)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout, 'L: hello\nR: yes\n')
+            bridge = root / 'bridge'
+            (bridge / 'src').mkdir(parents=True)
+            (bridge / 'fibril.yaml').write_text('schema: 1\nname: bridge\nmodule-prefix: Bridge\nsource-dir: src\nfoundation: de-morgan\ndependencies:\n  sum-library:\n    path: ../sum-library\n')
+            manifest.write_text(manifest.read_text().replace('  sum-library:\n    path: ../sum-library', '  bridge:\n    path: ../bridge'))
+            self.assertNotEqual(run_cli('check', '--package', str(manifest), timeout=120).returncode, 0)
+
+    def test_named_provider_is_not_duplicated(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'A.fib').write_text('module A\nexport\ninterface C : Type where\n  constructor MkC\n  method : (1 text : String) -> String\nexport\nimplementation instance : C where\n  method = \\(1 text : String) => text\n')
+            main = root / 'Main.fib'
+            main.write_text('module Main\nimport A as X\nmain : IO Unit\nmain = putStrLn (X.method @{implementation} "ok")\n')
+            result = run_cli('run', '--source-dir', directory, str(main), timeout=120)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout, 'ok\n')
+
+    def test_erased_export_stays_erased(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'A.fib').write_text('module A\nexport\n0 hidden : String\nhidden = "no"\n')
+            main = root / 'Main.fib'
+            main.write_text('module Main\nimport A as X\nmain : IO Unit\nmain = putStrLn X.hidden\n')
+            result = run_cli('check', '--source-dir', directory, str(main), timeout=120)
+            self.assertNotEqual(result.returncode, 0)
+
+    def test_conflicts_malformed_and_transitive(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'A.fib').write_text('module A\nexport\nx : String\nx = "a"\n')
+            (root / 'B.fib').write_text('module B\nimport A\nexport\ny : String\ny = A.x\n')
+            main = root / 'Main.fib'
+            for imports in ['import A as X\nimport B as X', 'import A as B\nimport B', 'import A as Main', 'import A as A', 'import A as lower', 'import A as']:
+                main.write_text('module Main\n' + imports + '\nmain : IO Unit\nmain = putStrLn "ok"\n')
+                result = run_cli('check', '--source-dir', directory, str(main), timeout=120)
+                self.assertNotEqual(result.returncode, 0, imports)
+            main.write_text('module Main\nimport B as X\nmain : IO Unit\nmain = putStrLn X.x\n')
+            result = run_cli('check', '--source-dir', directory, str(main), timeout=120)
+            self.assertNotEqual(result.returncode, 0)
+
+
+class SelectiveImportTests(unittest.TestCase):
+    def test_visibility_validation_and_navigation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'A.fib').write_text('module A\nexport\nx : String\nx = "ok"\nexport\ny : String\ny = "no"\nsecret : String\nsecret = "private"\n')
+            main = root / 'Main.fib'
+            for reference in ['x', 'A.x', 'X.x']:
+                main.write_text('module Main\nimport A as X (x)\nmain : IO Unit\nmain = putStrLn ' + reference + '\n')
+                result = run_cli('check', '--source-dir', directory, str(main), timeout=120)
+                self.assertEqual(result.returncode, 0, result.stderr)
+            result = run_cli('definition', '--source-dir', directory, '--entry', str(main), '2', '16', str(main), timeout=120)
+            self.assertEqual(Path(json.loads(result.stdout)['definition']['path']).name, 'A.fib')
+            for reference in ['y', 'A.y', 'X.y']:
+                main.write_text('module Main\nimport A as X (x)\nmain : IO Unit\nmain = putStrLn ' + reference + '\n')
+                self.assertNotEqual(run_cli('check', '--source-dir', directory, str(main), timeout=120).returncode, 0)
+            for selection in ['secret', 'missing', 'x, x', '', 'x,', 'x y', 'A.x', 'x,\n y']:
+                main.write_text('module Main\nimport A (' + selection + ')\nmain : IO Unit\nmain = putStrLn "ok"\n')
+                self.assertNotEqual(run_cli('check', '--source-dir', directory, str(main), timeout=120).returncode, 0, selection)
+
+    def test_ambiguity_and_provider_selection(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'A.fib').write_text('module A\nexport\nx : String\nx = "a"\nexport\ninterface C : Type where\n  constructor MkC\n  method : (1 text : String) -> String\nexport\nimplementation instance : C where\n  method = \\(1 text : String) => text\n')
+            (root / 'B.fib').write_text('module B\nexport\nx : String\nx = "b"\nexport\ny : String\ny = "y"\n')
+            main = root / 'Main.fib'
+            def check(imports, expression):
+                main.write_text('module Main\n' + imports + '\nmain : IO Unit\nmain = putStrLn ' + expression + '\n')
+                return run_cli('check', '--source-dir', directory, str(main), timeout=120)
+            self.assertEqual(check('import A (x)\nimport B (y)', 'x').returncode, 0)
+            self.assertNotEqual(check('import A (x)\nimport B (x)', 'x').returncode, 0)
+            self.assertEqual(check('import A (x)\nimport B (x)', 'A.x').returncode, 0)
+            self.assertNotEqual(check('import A (method)', '(method @{implementation} "ok")').returncode, 0)
+            self.assertEqual(check('import A (method, instance)', '(method @{implementation} "ok")').returncode, 0)
+
+    def test_selective_constructor_patterns_and_erased_globals(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'A.fib').write_text('module A\nexport\ndata Choice {0 T : Type} : Type where\n  Present : (value : T) -> Choice T\n  Missing : Choice T\nexport\n0 hidden : String\nhidden = "private runtime"\n')
+            main = root / 'Main.fib'
+            source = ('module Main\nimport A as X (Choice, Present, Missing)\n'
+                      'label : Choice String -> String\n'
+                      'label x = case x return (\\(0 self : Choice String) => String) of\n'
+                      '  Present value => value\n  Missing => "missing"\n'
+                      'main : IO Unit\nmain = putStrLn (label (X.Present "ok"))\n')
+            main.write_text(source)
+            result = run_cli('run', '--source-dir', directory, str(main), timeout=120)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout, 'ok\n')
+            main.write_text(source.replace('Choice, Present, Missing', 'Choice, Present'))
+            result = run_cli('check', '--source-dir', directory, str(main), timeout=120)
+            self.assertNotEqual(result.returncode, 0)
+            main.write_text('module Main\nimport A (hidden)\nmain : IO Unit\nmain = putStrLn hidden\n')
+            result = run_cli('check', '--source-dir', directory, str(main), timeout=120)
+            self.assertNotEqual(result.returncode, 0)
+
+    def test_selected_exports_across_package_boundary(self):
+        import shutil
+        fixtures = ROOT / 'examples/packages'
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(fixtures / 'sum-library', root / 'sum-library')
+            shutil.copytree(fixtures / 'sum-client', root / 'sum-client')
+            app = root / 'sum-client'
+            main = app / 'src/Main.fib'
+            original = main.read_text()
+            source = original.replace('import Data.Sum', 'import Data.Sum as S (Sum, Left, Right)').replace('Data.Sum.', 'S.')
+            main.write_text(source)
+            result = run_cli('run', '--package', str(app / 'fibril.yaml'), timeout=120)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout, 'L: hello\nR: yes\n')
+            main.write_text(source.replace('(Sum, Left, Right)', '(Sum, Left)'))
+            result = run_cli('check', '--package', str(app / 'fibril.yaml'), timeout=120)
+            self.assertNotEqual(result.returncode, 0)
+
+    def test_omitted_exports_do_not_shadow_prelude_or_leak_transitively(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'A.fib').write_text('module A\nexport\nputStrLn : String -> IO Unit\nputStrLn x = pure Unit ()\nexport\nvalue : String\nvalue = "A"\n')
+            (root / 'B.fib').write_text('module B\nimport A (value)\nexport\ntext : String\ntext = value\n')
+            main = root / 'Main.fib'
+            main.write_text('module Main\nimport A (value)\nmain : IO Unit\nmain = putStrLn value\n')
+            result = run_cli('run', '--source-dir', directory, str(main), timeout=120)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout, 'A\n')
+            for reference in ['value', 'A.value']:
+                main.write_text('module Main\nimport B (text)\nmain : IO Unit\nmain = putStrLn ' + reference + '\n')
+                result = run_cli('check', '--source-dir', directory, str(main), timeout=120)
+                self.assertNotEqual(result.returncode, 0, reference)
+
+    def test_interface_constructor_and_format(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'A.fib').write_text('module A\nexport\ninterface Ops (0 T : Type) : Type where\n  constructor MkOps\n  op : (x : T) -> T\n')
+            main = root / 'Main.fib'
+            body = 'implementation chosen : X.Ops String where\n  op = \\(x : String) => x\nmain : IO Unit\nmain = putStrLn "ok"\n'
+            main.write_text('module Main\nimport A as X (Ops)\n' + body)
+            result = run_cli('check', '--source-dir', directory, str(main), timeout=120)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('constructor', result.stderr + result.stdout)
+            main.write_text('module Main\nimport A as X ( Ops , MkOps ) -- comment\n' + body)
+            result = run_cli('check', '--source-dir', directory, str(main), timeout=120)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            formatted = run_cli('format', str(main), timeout=120)
+            self.assertEqual(formatted.returncode, 0, formatted.stderr)
+            self.assertIn('import A as X (Ops, MkOps)', formatted.stdout)
+            main.write_text(formatted.stdout)
+            self.assertEqual(run_cli('format', str(main), timeout=120).stdout, formatted.stdout)
+
+
+class LibraryPackageDefinitionTests(unittest.TestCase):
+    def test_inventory_navigation_and_checked_boundaries(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            a = root / 'a'
+            b = root / 'b'
+            (a / 'src/A').mkdir(parents=True)
+            (b / 'src/B').mkdir(parents=True)
+            (a / 'fibril.yaml').write_text('schema: 1\nname: a\nmodule-prefix: A\nsource-dir: src\nfoundation: de-morgan\nmodules: [A.Value]\ndependencies: {}\n')
+            (b / 'fibril.yaml').write_text('schema: 1\nname: b\nmodule-prefix: B\nsource-dir: src\nfoundation: de-morgan\nmodules: [B.Facade]\ndependencies:\n  a:\n    path: ../a\n')
+            original = a / 'src/A/Value.fib'
+            facade = b / 'src/B/Facade.fib'
+            original.write_text('module A.Value\nexport\nx : String\nx = "ok"\nsecret : String\nsecret = "private"\n')
+            facade.write_text('module B.Facade\nimport public A.Value as V (x)\nexport\ny : String\ny = x\n')
+            result = run_cli('definition', '--package', str(b / 'fibril.yaml'), '5', '5', str(facade), timeout=120)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            packet = json.loads(result.stdout)
+            self.assertEqual(packet['entry'], '')
+            self.assertEqual(Path(packet['manifest']), (b / 'fibril.yaml').resolve())
+            self.assertEqual(Path(packet['definition']['path']), original.resolve())
+            self.assertEqual({Path(item['path']) for item in packet['sources']}, {original.resolve(), facade.resolve()})
+            selector = facade.read_text().splitlines()[1].rfind('x') + 1
+            result = run_cli('definition', '--package', str(b / 'fibril.yaml'), '2', str(selector), str(facade), timeout=120)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(Path(json.loads(result.stdout)['definition']['path']), original.resolve())
+            source = facade.read_text()
+            facade.write_text('module B.Facade\nimport A.Value (x)\nx : String\nx = "local"\nexport\ny : String\ny = x\n')
+            result = run_cli('definition', '--package', str(b / 'fibril.yaml'), '7', '5', str(facade), timeout=120)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            local = json.loads(result.stdout)['definition']
+            self.assertEqual(Path(local['path']), facade.resolve())
+            self.assertEqual(local['range']['start']['line'], 4)
+            facade.write_text('module B.Facade\nimport A.Value (x)\nexport\ny : String\ny = later\nlater : String\nlater = x\n')
+            result = run_cli('definition', '--package', str(b / 'fibril.yaml'), '5', '5', str(facade), timeout=120)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, '')
+            facade.write_text(source)
+            manifest = b / 'fibril.yaml'
+            saved_manifest = manifest.read_text()
+            manifest.write_text('schema: invalid\n')
+            result = run_cli('definition', '--package', str(manifest), '5', '5', str(facade), timeout=120)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, '')
+            manifest.write_text(saved_manifest.replace('    path: ../a', '    path: ../missing'))
+            result = run_cli('definition', '--package', str(manifest), '5', '5', str(facade), timeout=120)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, '')
+            manifest.write_text(saved_manifest)
+            facade.write_text(source.replace('y = x', 'y = V.secret'))
+            result = run_cli('definition', '--package', str(b / 'fibril.yaml'), '5', '7', str(facade), timeout=120)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, '')
+
+
+class PublicImportTests(unittest.TestCase):
+    def test_public_visibility_diamonds_collisions_and_syntax(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'A.fib').write_text('module A\nexport\nx : String\nx = "ok"\nexport\ny : String\ny = "hidden"\nsecret : String\nsecret = "private"\n')
+            (root / 'B.fib').write_text('module B\nimport public A as X (x)\n')
+            (root / 'C.fib').write_text('module C\nimport public A (x)\n')
+            main = root / 'Main.fib'
+            def check(imports, expr):
+                main.write_text('module Main\n' + imports + '\nmain : IO Unit\nmain = putStrLn ' + expr + '\n')
+                return run_cli('check', '--source-dir', directory, str(main), timeout=120)
+            for ref in ['x', 'B.x', 'C.x', 'Z.x']:
+                result = check('import B as Z\nimport C', ref)
+                self.assertEqual(result.returncode, 0, result.stderr)
+            for ref in ['A.x', 'y', 'B.y', 'secret']:
+                self.assertNotEqual(check('import B', ref).returncode, 0, ref)
+            result = run_cli('definition', '--source-dir', directory, '--entry', str(main), '2', '8', str(main), timeout=120)
+            # A failed project does not provide checked navigation.
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(check('import B', 'B.x').returncode, 0)
+            result = run_cli('definition', '--source-dir', directory, '--entry', str(main), '4', '19', str(main), timeout=120)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(Path(json.loads(result.stdout)['definition']['path']).name, 'A.fib')
+            for ref in ['x', 'B.x', 'C.x', 'Z.x']:
+                self.assertEqual(check('import B as Z\nimport C', ref).returncode, 0)
+                line = main.read_text().splitlines()[4]
+                column = line.rfind(ref) + len(ref)
+                result = run_cli('definition', '--source-dir', directory, '--entry', str(main), '5', str(column), str(main), timeout=120)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(Path(json.loads(result.stdout)['definition']['path']).name, 'A.fib', ref)
+            self.assertEqual(check('import B (x)', 'x').returncode, 0)
+            result = run_cli('definition', '--source-dir', directory, '--entry', str(main), '2', '11', str(main), timeout=120)
+            self.assertEqual(Path(json.loads(result.stdout)['definition']['path']).name, 'A.fib')
+            result = run_cli('definition', '--source-dir', directory, '--entry', str(main), '2', '23', str(root / 'B.fib'), timeout=120)
+            self.assertEqual(Path(json.loads(result.stdout)['definition']['path']).name, 'A.fib')
+            for selection in ['secret', 'missing']:
+                (root / 'B.fib').write_text('module B\nimport public A (' + selection + ')\n')
+                self.assertNotEqual(check('import B', '"ok"').returncode, 0)
+            for header in ['import public A', 'import public A ()', 'import public A (x) as X']:
+                (root / 'B.fib').write_text('module B\n' + header + '\n')
+                self.assertNotEqual(check('import B', '"ok"').returncode, 0, header)
+            (root / 'B.fib').write_text('module B\nimport public A (x)\nexport\nx : String\nx = "local"\n')
+            self.assertNotEqual(check('import B', '"ok"').returncode, 0)
+            (root / 'D.fib').write_text('module D\nexport\nx : String\nx = "other"\n')
+            (root / 'B.fib').write_text('module B\nimport public A (x)\nimport public D (x)\n')
+            self.assertNotEqual(check('import B', '"ok"').returncode, 0)
+            (root / 'B.fib').write_text('module B\nimport public A as X ( x )\n')
+            formatted = run_cli('format', str(root / 'B.fib'), timeout=120)
+            self.assertEqual(formatted.returncode, 0, formatted.stderr)
+            self.assertIn('import public A as X (x)', formatted.stdout)
+
+    def test_erased_provider_interfaces_and_patterns(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'A.fib').write_text('module A\nexport\n0 hidden : String\nhidden = "no"\nexport\ninterface C : Type where\n  constructor MkC\n  method : (1 text : String) -> String\nexport\nimplementation instance : C where\n  method = \\(1 text : String) => text\nexport\ndata Choice : Type where\n  Yes : Choice\n  No : Choice\n')
+            facade = root / 'B.fib'
+            main = root / 'Main.fib'
+            facade.write_text('module B\nimport public A (hidden, method, instance, Choice, Yes, No)\n')
+            main.write_text('module Main\nimport B\nmain : IO Unit\nmain = putStrLn (method @{implementation} "ok")\n')
+            result = run_cli('run', '--source-dir', directory, str(main), timeout=120)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout, 'ok\n')
+            main.write_text('module Main\nimport B\nmain : IO Unit\nmain = putStrLn hidden\n')
+            self.assertNotEqual(run_cli('check', '--source-dir', directory, str(main), timeout=120).returncode, 0)
+            main.write_text('module Main\nimport B\nmain : IO Unit\nmain = putStrLn (case B.Yes return (\\(0 self : B.Choice) => String) of\n  B.Yes => "yes"\n  B.No => "no")\n')
+            result = run_cli('run', '--source-dir', directory, str(main), timeout=120)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            main.write_text('module Main\nimport B\nmain : IO Unit\nmain = putStrLn "independent"\n')
+            for selection in ['C', 'MkC', 'C, MkC']:
+                facade.write_text('module B\nimport public A (' + selection + ')\n')
+                result = run_cli('check', '--source-dir', directory, str(main), timeout=120)
+                self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_public_interface_constructors_require_matching_origin(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'A.fib').write_text('module A\nexport\ninterface C : Type where\n  constructor MkC\n  method : (text : String) -> String\n')
+            (root / 'D.fib').write_text('module D\nexport\ninterface Other : Type where\n  constructor MkC\n  method : (text : String) -> String\n')
+            facade = root / 'B.fib'
+            main = root / 'Main.fib'
+            main.write_text('module Main\nimport B\nimplementation chosen : B.C where\n  method = \\(text : String) => text\nmain : IO Unit\nmain = putStrLn "ok"\n')
+            for imports in ['import public A (C)', 'import public A (C)\nimport public D (MkC)']:
+                facade.write_text('module B\n' + imports + '\n')
+                result = run_cli('check', '--source-dir', directory, str(main), timeout=120)
+                self.assertNotEqual(result.returncode, 0, imports)
+                self.assertIn('constructor', result.stderr)
+            facade.write_text('module B\nimport public A (C, MkC)\n')
+            result = run_cli('check', '--source-dir', directory, str(main), timeout=120)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            selected = main.read_text().replace('import B', 'import B (C)')
+            main.write_text(selected)
+            result = run_cli('check', '--source-dir', directory, str(main), timeout=120)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('constructor', result.stderr)
+            main.write_text(selected.replace('import B (C)', 'import B (C, MkC)'))
+            result = run_cli('check', '--source-dir', directory, str(main), timeout=120)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            (root / 'E.fib').write_text('module E\nimport public B (C, MkC)\n')
+            main.write_text(main.read_text().replace('import B (C, MkC)', 'import E').replace('B.C', 'E.C'))
+            result = run_cli('check', '--source-dir', directory, str(main), timeout=120)
+            self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_public_interface_constructor_across_paths_is_order_independent(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'A.fib').write_text('module A\nexport\ninterface C : Type where\n  constructor MkC\n  method : (text : String) -> String\n')
+            (root / 'B.fib').write_text('module B\nimport public A (C)\n')
+            (root / 'D.fib').write_text('module D\nimport public A (C, MkC)\n')
+            (root / 'E.fib').write_text('module E\nimport public A (MkC)\n')
+            main = root / 'Main.fib'
+            body = 'implementation chosen : C where\n  method = \\(text : String) => text\nmain : IO Unit\nmain = putStrLn "ok"\n'
+            for imports in ['import B\nimport D', 'import D\nimport B', 'import B\nimport E', 'import E\nimport B']:
+                main.write_text('module Main\n' + imports + '\n' + body)
+                result = run_cli('check', '--source-dir', directory, str(main), timeout=120)
+                self.assertEqual(result.returncode, 0, imports + '\n' + result.stderr)
+            main.write_text('module Main\nimport B\n' + body)
+            result = run_cli('check', '--source-dir', directory, str(main), timeout=120)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('constructor', result.stderr)
+
+    def test_public_interface_diamond_with_unique_provider(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'A.fib').write_text('module A\nexport\ninterface C : Type where\n  constructor MkC\n  method : (1 text : String) -> String\nexport\nimplementation instance : C where\n  method = \\(1 text : String) => text\n')
+            for name in ['B', 'D']:
+                (root / (name + '.fib')).write_text('module ' + name + '\nimport public A (C, MkC, method, instance)\n')
+            main = root / 'Main.fib'
+            main.write_text('module Main\nimport B\nimport D\nmain : IO Unit\nmain = putStrLn (method @{implementation} "ok")\n')
+            result = run_cli('run', '--source-dir', directory, str(main), timeout=120)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout, 'ok\n')
+
+    def test_distinct_origins_own_main_changes_and_cycles(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            a = root / 'A.fib'
+            b = root / 'B.fib'
+            c = root / 'C.fib'
+            main = root / 'Main.fib'
+            a.write_text('module A\nexport\nx : String\nx = "a"\nexport\nmain : IO Unit\nmain = putStrLn "a"\n')
+            b.write_text('module B\nimport public A (x, main)\n')
+            c.write_text('module C\nexport\nx : String\nx = "c"\n')
+            def check(source):
+                main.write_text(source)
+                return run_cli('check', '--source-dir', directory, str(main), timeout=120)
+            self.assertNotEqual(check('module Main\nimport B\n').returncode, 0)
+            self.assertNotEqual(check('module Main\nimport B\nimport C\nmain : IO Unit\nmain = putStrLn x\n').returncode, 0)
+            result = check('module Main\nimport B\nimport C\nmain : IO Unit\nmain = putStrLn B.x\n')
+            self.assertEqual(result.returncode, 0, result.stderr)
+            a.write_text(a.read_text().replace('export\nx : String', 'x : String'))
+            self.assertNotEqual(check('module Main\nimport B\nmain : IO Unit\nmain = putStrLn "ok"\n').returncode, 0)
+            a.write_text('module A\nimport B\nexport\nx : String\nx = "a"\n')
+            self.assertNotEqual(check('module Main\nimport B\nmain : IO Unit\nmain = putStrLn "ok"\n').returncode, 0)
+            main.write_text('import public A (x)\nmain : IO Unit\nmain = putStrLn "ok"\n')
+            self.assertNotEqual(run_cli('check', '--source-dir', directory, str(main), timeout=120).returncode, 0)
+
+    def test_package_public_import_permissions(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            def package(name, prefix, deps, entry=False):
+                folder = root / name
+                (folder / 'src').mkdir(parents=True)
+                (folder / 'fibril.yaml').write_text(f'schema: 1\nname: {name}\nmodule-prefix: {prefix}\nsource-dir: src\nfoundation: de-morgan\n' + ('entry: Main\n' if entry else '') + 'dependencies:\n' + (''.join(f'  {key}:\n    path: ../{key}\n' for key in deps) if deps else '  {}\n'))
+                return folder
+            core = package('core', 'Core', [])
+            bridge = package('bridge', 'Bridge', ['core'])
+            app = package('app', 'App', ['bridge'], True)
+            (core / 'src/Core').mkdir()
+            (bridge / 'src/Bridge').mkdir()
+            (core / 'src/Core/Text.fib').write_text('module Core.Text\nexport\nx : String\nx = "ok"\nexport\ny : String\ny = "not selected"\nsecret : String\nsecret = "private"\n')
+            (bridge / 'src/Bridge/Facade.fib').write_text('module Bridge.Facade\nimport public Core.Text (x)\n')
+            main = app / 'src/Main.fib'
+            main.write_text('module Main\nimport Bridge.Facade\nmain : IO Unit\nmain = putStrLn Bridge.Facade.x\n')
+            result = run_cli('run', '--package', str(app / 'fibril.yaml'), timeout=120)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            manifest_path = str(app / 'fibril.yaml')
+            for reference in ['Bridge.Facade.x', 'x', 'F.x']:
+                main.write_text('module Main\nimport Bridge.Facade as F\nmain : IO Unit\nmain = putStrLn ' + reference + '\n')
+                column = main.read_text().splitlines()[3].rfind(reference) + len(reference)
+                result = run_cli('definition', '--package', manifest_path, '4', str(column), str(main), timeout=120)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                packet = json.loads(result.stdout)
+                self.assertEqual(packet['version'], 2)
+                self.assertEqual(Path(packet['definition']['path']), (core / 'src/Core/Text.fib').resolve())
+                snapshots = {Path(item['path']): item['text'] for item in packet['sources']}
+                self.assertEqual(snapshots[main.resolve()], main.read_text())
+                self.assertEqual(snapshots[(core / 'src/Core/Text.fib').resolve()], (core / 'src/Core/Text.fib').read_text())
+            result = run_cli('definition', '--package', 'app/fibril.yaml', '4', '5', 'app/src/../src/Main.fib', cwd=root, timeout=120)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIsNone(json.loads(result.stdout)['definition'])
+            for reference in ['F.y', 'F.secret']:
+                main.write_text('module Main\nimport Bridge.Facade as F\nmain : IO Unit\nmain = putStrLn ' + reference + '\n')
+                result = run_cli('definition', '--package', manifest_path, '4', '19', str(main), timeout=120)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(result.stdout, '')
+            (bridge / 'src/Bridge/Other.fib').write_text('module Bridge.Other\nexport\nx : String\nx = "distinct"\n')
+            main.write_text('module Main\nimport Bridge.Facade\nimport Bridge.Other\nmain : IO Unit\nmain = putStrLn x\n')
+            result = run_cli('definition', '--package', manifest_path, '5', '18', str(main), timeout=120)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, '')
+            (bridge / 'src/Bridge/Twin.fib').write_text('module Bridge.Twin\nimport public Core.Text (x)\n')
+            main.write_text('module Main\nimport Bridge.Facade\nimport Bridge.Twin\nmain : IO Unit\nmain = putStrLn x\n')
+            result = run_cli('definition', '--package', manifest_path, '5', '17', str(main), timeout=120)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(Path(json.loads(result.stdout)['definition']['path']), (core / 'src/Core/Text.fib').resolve())
+            main.write_text('module Main\nimport Bridge.Facade as F\nmain : IO Unit\nmain = putStrLn F.x\n')
+            facade = bridge / 'src/Bridge/Facade.fib'
+            selector = facade.read_text().splitlines()[1].rfind('x') + 1
+            result = run_cli('definition', '--package', manifest_path, '2', str(selector), str(facade), timeout=120)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(Path(json.loads(result.stdout)['definition']['path']), (core / 'src/Core/Text.fib').resolve())
+            outside = root / 'Outside.fib'
+            outside.write_text('module Outside\n')
+            result = run_cli('definition', '--package', manifest_path, '1', '1', str(outside), timeout=120)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('not in the checked project graph', result.stderr)
+            main.write_text(main.read_text().replace('import Bridge.Facade as F', 'import Bridge.Facade as F\nimport Core.Text'))
+            self.assertNotEqual(run_cli('check', '--package', str(app / 'fibril.yaml'), timeout=120).returncode, 0)
+            result = run_cli('definition', '--package', manifest_path, '5', '19', str(main), timeout=120)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, '')
+            main.write_text(main.read_text().replace('\nimport Core.Text', ''))
+            manifest = bridge / 'fibril.yaml'
+            manifest.write_text(manifest.read_text().replace('  core:\n    path: ../core\n', '  {}\n'))
+            self.assertNotEqual(run_cli('check', '--package', str(app / 'fibril.yaml'), timeout=120).returncode, 0)
 
 
 if __name__ == "__main__":

@@ -192,6 +192,10 @@
         "path": "docs/modules.md"
       },
       {
+        "title": "Import and name-resolution roadmap",
+        "path": "docs/import-resolution-plan.md"
+      },
+      {
         "title": "Experimental checked C emission",
         "path": "docs/native-c.md"
       },
