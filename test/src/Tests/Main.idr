@@ -6,6 +6,7 @@ import Fibril.Core.Usage
 import Fibril.Core.Context
 import Fibril.Core.Erased
 import Fibril.Core.Reduction
+import Fibril.Core.Runtime
 import Tests.Reduction
 import Tests.Erased
 import Tests.Pretty
@@ -414,6 +415,15 @@ checks =
           Right path => case (checkRuntimePathEndpoint 64 64 6 path False,
                               checkRuntimePathEndpoint 64 64 6 path True) of
             (Right _, Right _) => True; _ => False
+          Left _ => False
+        Left _ => False)
+  , ("runtime checked endpoint composes with ordinary linear identity",
+      case checkClosedPath 64 64 5 (CoreAbstract (CoreTerm BoolTrue)) BoolTrue BoolTrue of
+        Right path => case checkRuntimePathEndpoint 64 64 6 path False of
+          Right value =>
+            let program = Apply (Lambda Linear BoolType (Variable FZ)) (forgetRuntimeCheckedBool value) in
+            case (checkRuntime 64 64 Empty program BoolType, normalize 64 program) of
+              (Right _, Normal BoolTrue) => True; _ => False
           Left _ => False
         Left _ => False)
   , ("closed runtime endpoint propagates exhaustion",

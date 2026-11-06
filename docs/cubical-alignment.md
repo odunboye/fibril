@@ -119,8 +119,10 @@ It is **not yet the independent path judgment** described above:
    `checkPathAgainstType` checks an abstraction against that formed type, and
    `checkPathEndpoint` rechecks and seals an endpoint result. The optional
    `checkRuntimePathEndpoint` additionally checks that *ordinary closed Boolean
-   result* with `checkRuntime` in `Empty`; it does not validate the path as a
-   runtime value or establish any quantitative cubical rule.
+   result* with `checkRuntime` in `Empty`, producing a distinct opaque runtime
+   endpoint witness. Forgetting that witness exposes only the ordinary core term.
+   This does not validate the path as a runtime value or establish any
+   quantitative cubical rule.
    Distinct endpoints may form a type without yielding a path.
    `checkCorePathExpr` itself returns only a status; callers must not treat raw
    `CoreStepped` syntax as a reusable typing certificate. Witness construction

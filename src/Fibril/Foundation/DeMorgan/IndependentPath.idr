@@ -31,6 +31,12 @@ export
 data CheckedClosedBool : Type where
   MkCheckedClosedBool : Term 0 -> CheckedClosedBool
 
+||| Evidence that an endpoint's ordinary closed Boolean term also passed the
+||| runtime checker. This does not certify the path itself for runtime use.
+export
+data RuntimeCheckedClosedBool : Type where
+  MkRuntimeCheckedClosedBool : CheckedClosedBool -> RuntimeCheckedClosedBool
+
 ||| Failure cannot represent successful checking. Exhaustion is inconclusive,
 ||| while rejection covers mismatched or unsupported inputs.
 public export
@@ -116,16 +122,21 @@ checkPathEndpoint depth reduction fuel checked@(MkCheckedClosedPath path left ri
         Rejected => Left ClosedPathRejected
         Exhausted => Left ClosedPathExhausted
 
+||| Forget the witness and recover the ordinary closed core Boolean syntax.
+export
+forgetRuntimeCheckedBool : RuntimeCheckedClosedBool -> Term 0
+forgetRuntimeCheckedBool (MkRuntimeCheckedClosedBool value) = forgetCheckedClosedBool value
+
 ||| Additionally check the resulting *ordinary closed Boolean term* with the
 ||| runtime checker. This does not check a path as a runtime value or add any
 ||| quantitative cubical rule; the computational context remains empty.
 export
 checkRuntimePathEndpoint : Nat -> Nat -> Nat -> CheckedClosedPath -> Bool ->
-                           Either ClosedPathFailure CheckedClosedBool
+                           Either ClosedPathFailure RuntimeCheckedClosedBool
 checkRuntimePathEndpoint depth reduction fuel path endpoint = do
   checked <- checkPathEndpoint depth reduction fuel path endpoint
   case checkRuntime depth reduction Empty (forgetCheckedClosedBool checked) BoolType of
     Left (TypingError CheckingLimit) => Left ClosedPathExhausted
     Left (TypingError ReductionLimit) => Left ClosedPathExhausted
     Left _ => Left ClosedPathRejected
-    Right _ => Right checked
+    Right _ => Right (MkRuntimeCheckedClosedBool checked)

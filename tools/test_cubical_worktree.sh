@@ -62,6 +62,14 @@ if ! grep -q 'IndependentPath.MkCheckedClosedBool is private' "$tmp/forge-bool.l
   exit 1
 fi
 echo 'Checked endpoint opacity negative test passed.'
+"$idris" -p fibril --check ForgeRuntimeCheckedBool.idr > "$tmp/forge-runtime.log" 2>&1 || true
+if ! grep -q 'IndependentPath.MkRuntimeCheckedClosedBool is private' "$tmp/forge-runtime.log"; then
+  echo 'Negative runtime endpoint opacity check failed for an unrelated reason:' >&2
+  read -r -d '' output < "$tmp/forge-runtime.log" || true
+  printf '%s\n' "$output" >&2
+  exit 1
+fi
+echo 'Runtime checked endpoint opacity negative test passed.'
 for fixture in PathCapturesCoreVariable PathEscapesDimension; do
   "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1 || true
   if ! grep -Fq 'Mismatch between: S ?k and 0.' "$tmp/$fixture.log"; then
