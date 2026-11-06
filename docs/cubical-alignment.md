@@ -141,6 +141,51 @@ should be removed once their substitution and budget tests have equivalents.
 Do not broaden the runtime or proof fragment merely because the experiment
 accepts a term.
 
+## Proposed first independent judgment
+
+This section is an implementation contract, **not** a claim that the ordinary
+core checker implements it. It deliberately specializes CCHM Figure 2 to a
+closed, constant-base Boolean fragment. Write `I; · ⊢ t : A` for a dimension
+scope `I` and an empty computational context. The only base type is the
+existing core `Bool`; its admitted closed terms are Boolean literals and
+`BoolCase` trees over admitted terms. Every embedded core term must independently
+pass `checkErased` against `Bool` in `Empty`. No globals, variables, recursion,
+effects, universes as endpoints, or other core forms are admitted. `I` contains
+only dimensions: its entries do not add computational resources.
+
+The intended checked path type is `Path Bool a0 a1`, where both `a0` and `a1`
+are admitted checked closed core terms. For an abstraction `<i> t`, with `i`
+fresh, the checker must:
+
+1. Check `t : Bool` in `I, i; ·`, using only an explicitly specified path-body
+   grammar. Check every subterm, including branches not selected by reduction.
+2. Capture-avoidably substitute `i := 0` and `i := 1` in `t`, obtaining `t0`
+   and `t1`. Recheck or otherwise justify the type of both resulting faces.
+3. Compare `t0` with `a0` and `t1` with `a1` using bounded conversion valid for
+   this fragment. A mismatch rejects; an exhausted or unsupported comparison is
+   inconclusive and cannot yield a checked path.
+4. For an admitted application `p r`, check `p` and the scoped interval `r`;
+   beta reduction of `<i> t` is `t[i := r]`. Applications at endpoints must also
+   agree with their checked boundaries. Neutral paths and path eta are not in
+   this first judgment.
+
+Initially, body terms can be closed Boolean core terms or applications of
+syntactic paths whose bodies are recursively in the same grammar; no caller may
+supply unverified endpoint annotations for an inner path. The current helper
+collapses these inner constant paths, so its accepted examples remain constant in
+meaning even if their syntax mentions a dimension. A future extension must state
+and check genuinely dimension-dependent body forms rather than inferring them
+from this example.
+
+Admission must bound the input before substitution and conversion. The current
+prototype has per-call node/depth checks, not a shared total-work or output-size
+budget; that limitation must remain explicit until a stronger policy is
+implemented. A successful judgment belongs only to this fragment: it does not
+admit path evidence to ordinary Fibril programs, prove preservation or
+normalization, or determine erasure and linear-resource rules. A future core
+integration must define how checked judgments are represented and consumed,
+and make unsupported forms fail closed in checkers and emitters.
+
 ## Checker composition gate
 
 The experimental path helper is not an additional authority for accepting a

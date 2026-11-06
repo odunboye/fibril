@@ -361,6 +361,18 @@ checks =
                (CoreApply (CoreAbstract (CoreTerm BoolTrue)) (Var FZ))))
              BoolTrue BoolTrue of
         Accepted => True; _ => False)
+  , ("nested path both boundaries reduce to checked body",
+      let path : CorePathExpr 0
+          path = CoreAbstract (CoreApply (CoreAbstract (CoreTerm BoolTrue)) (Var FZ)) in
+      case (runCorePathExpr 64 64 5 (CoreApply path Zero) BoolTrue BoolTrue,
+            runCorePathExpr 64 64 5 (CoreApply path One) BoolTrue BoolTrue) of
+        (CoreValue BoolTrue, CoreValue BoolTrue) => True; _ => False)
+  , ("nested path face comparison exhaustion rejects checking",
+      case checkCorePathExpr 64 0 4
+             (the (CorePathExpr 0) (CoreAbstract
+               (CoreApply (CoreAbstract (CoreTerm BoolTrue)) (Var FZ))))
+             (BoolCase BoolTrue BoolTrue BoolFalse) BoolTrue of
+        Exhausted => True; _ => False)
   , ("nested constant path endpoint reduces",
       case runCorePathExpr 64 64 5
              (CoreApply (CoreAbstract
