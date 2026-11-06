@@ -77,6 +77,31 @@ data CorePathExpr : Nat -> Type where
   CoreAbstract : CorePathExpr (S n) -> CorePathExpr n
   CoreApply : CorePathExpr n -> ScopedInterval n -> CorePathExpr n
 
+||| Bound traversal of raw dimension syntax before substitution. Budgets are
+||| node counts, threaded through both branches rather than duplicated.
+intervalNodesWithin : Nat -> ScopedInterval n -> Maybe Nat
+intervalNodesWithin 0 _ = Nothing
+intervalNodesWithin (S fuel) Zero = Just fuel
+intervalNodesWithin (S fuel) One = Just fuel
+intervalNodesWithin (S fuel) (Var _) = Just fuel
+intervalNodesWithin (S fuel) (Reverse r) = intervalNodesWithin fuel r
+intervalNodesWithin (S fuel) (Meet r s) = do
+  remaining <- intervalNodesWithin fuel r
+  intervalNodesWithin remaining s
+intervalNodesWithin (S fuel) (Join r s) = do
+  remaining <- intervalNodesWithin fuel r
+  intervalNodesWithin remaining s
+
+||| Count path and interval nodes together. Core payloads are checked separately
+||| by booleanFragment, since only one closed payload is admitted per body.
+pathNodesWithin : Nat -> CorePathExpr n -> Maybe Nat
+pathNodesWithin 0 _ = Nothing
+pathNodesWithin (S fuel) (CoreTerm _) = Just fuel
+pathNodesWithin (S fuel) (CoreAbstract body) = pathNodesWithin fuel body
+pathNodesWithin (S fuel) (CoreApply path r) = do
+  remaining <- pathNodesWithin fuel path
+  intervalNodesWithin remaining r
+
 ||| Capture-avoiding substitution acts only on dimensions; embedded core
 ||| terms are closed and therefore remain unchanged under dimension binders.
 public export
@@ -116,19 +141,21 @@ collapseBody (S _) _ = BodyRejected
 public export
 checkCorePathExpr : Nat -> Nat -> Nat -> CorePathExpr n -> Term 0 -> Term 0 -> PathCheck
 checkCorePathExpr _ _ 0 _ _ _ = Exhausted
-checkCorePathExpr depth reduction (S fuel) (CoreAbstract body) left right =
-  case (collapseBody fuel body,
-        collapseBody fuel (instantiateCoreDimension Zero body),
-        collapseBody fuel (instantiateCoreDimension One body)) of
-    (BodyRejected, _, _) => Rejected
-    (_, BodyRejected, _) => Rejected
-    (_, _, BodyRejected) => Rejected
-    (BodyTerm term, BodyTerm face0, BodyTerm face1) =>
-      case checkClosedCorePath depth reduction (S fuel) term face0 left of
-        Accepted => checkClosedCorePath depth reduction (S fuel) term face1 right
-        Rejected => Rejected
-        Exhausted => Exhausted
-    _ => Exhausted
+checkCorePathExpr depth reduction (S fuel) path@(CoreAbstract body) left right =
+  case pathNodesWithin depth path of
+    Nothing => Exhausted
+    Just _ => case (collapseBody fuel body,
+                    collapseBody fuel (instantiateCoreDimension Zero body),
+                    collapseBody fuel (instantiateCoreDimension One body)) of
+      (BodyRejected, _, _) => Rejected
+      (_, BodyRejected, _) => Rejected
+      (_, _, BodyRejected) => Rejected
+      (BodyTerm term, BodyTerm face0, BodyTerm face1) =>
+        case checkClosedCorePath depth reduction (S fuel) term face0 left of
+          Accepted => checkClosedCorePath depth reduction (S fuel) term face1 right
+          Rejected => Rejected
+          Exhausted => Exhausted
+      _ => Exhausted
 checkCorePathExpr _ _ (S _) _ _ _ = Rejected
 
 ||| The checked beta step may preserve an open dimension scope. This result
@@ -146,10 +173,12 @@ public export
 applyCorePathAt : Nat -> Nat -> Nat -> CorePathExpr n -> ScopedInterval n -> Term 0 -> Term 0 -> CorePathStep n
 applyCorePathAt _ _ 0 _ _ _ _ = CoreStepExhausted
 applyCorePathAt depth reduction (S fuel) path@(CoreAbstract body) r left right =
-  case checkCorePathExpr depth reduction fuel path left right of
-    Accepted => CoreStepped (instantiateCoreDimension r body)
-    Rejected => CoreStepRejected
-    Exhausted => CoreStepExhausted
+  case intervalNodesWithin depth r of
+    Nothing => CoreStepExhausted
+    Just _ => case checkCorePathExpr depth reduction fuel path left right of
+      Accepted => CoreStepped (instantiateCoreDimension r body)
+      Rejected => CoreStepRejected
+      Exhausted => CoreStepExhausted
 applyCorePathAt _ _ (S _) _ _ _ _ = CoreStepRejected
 
 ||| Result of applying the checked constant path at a literal endpoint.
@@ -195,10 +224,12 @@ public export
 runCorePathExpr : Nat -> Nat -> Nat -> CorePathExpr 0 -> Term 0 -> Term 0 -> CoreEndpoint
 runCorePathExpr _ _ 0 _ _ _ = CoreExhausted
 runCorePathExpr depth reduction (S fuel) (CoreApply (CoreAbstract body) r) left right =
-  case endpointOf fuel r of
+  case intervalNodesWithin depth r of
     Nothing => CoreExhausted
-    Just endpoint => case checkCorePathExpr depth reduction fuel (CoreAbstract body) left right of
-      Accepted => coreEndpointValue fuel (if endpoint then One else Zero) body
-      Rejected => CoreRejected
-      Exhausted => CoreExhausted
+    Just _ => case endpointOf fuel r of
+      Nothing => CoreExhausted
+      Just endpoint => case checkCorePathExpr depth reduction fuel (CoreAbstract body) left right of
+        Accepted => coreEndpointValue fuel (if endpoint then One else Zero) body
+        Rejected => CoreRejected
+        Exhausted => CoreExhausted
 runCorePathExpr _ _ (S _) _ _ _ = CoreRejected

@@ -332,6 +332,17 @@ checks =
                equivalent (forgetInterval a) (forgetInterval b)
             _ => False
         _ => False)
+  , ("open application interval node budget exhaustion",
+      case applyCorePathAt 4 64 5
+             (the (CorePathExpr 1) (CoreAbstract (CoreTerm BoolTrue)))
+             (Meet (Meet (Var FZ) One) (Join (Var FZ) Zero)) BoolTrue BoolTrue of
+        CoreStepExhausted => True; _ => False)
+  , ("path and interval nodes share admission budget",
+      case checkCorePathExpr 4 64 8
+             (the (CorePathExpr 0) (CoreAbstract
+               (CoreApply (CoreAbstract (CoreTerm BoolTrue)) (Meet (Var FZ) One))))
+             BoolTrue BoolTrue of
+        Exhausted => True; _ => False)
   , ("nested beta preserves open dimension",
       case applyCorePathAt 64 64 5
              (the (CorePathExpr 1) (CoreAbstract
