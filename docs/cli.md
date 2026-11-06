@@ -25,6 +25,7 @@ Build with `pack build fibril`, then invoke `./build/exec/fibril`.
 | eval --source-dir ROOT ENTRY | Check modules, normalize entry, and recheck without performing effects |
 | eval --source-dir ROOT --fuel N ENTRY | Project reference evaluation with fuel 0..4096 |
 | check --source-dir ROOT ENTRY | Check bounded POSIX dependency graph and closed qualified module interfaces; no execution |
+| check --json --package PATH | Version-2 source-backed application or library-inventory checking report; no effects |
 | check --json --source-dir ROOT ENTRY | Version-2 project report with source paths/snapshots; JSON on represented rejection |
 | check --json PATH | Structured runtime-check report; JSON on stdout even on represented rejection, with nonzero status |
 | check --erased PATH | Parse/resolve/check the erased ordinary fragment only |
@@ -63,6 +64,12 @@ forms; check --erased grants no runtime permission. Only run executes a complete
 checked IO Unit output plan. It reserves stdout for program output and sends
 failures to stderr. Hosted execution is not generated C/JS or a completed effect
 calculus. Ordinary helpers and flat do sequencing are supported.
+
+## Language server
+
+The [Fibril LSP server](lsp.md) runs as `python3 tools/fibril_lsp.py`, backed by
+this compiler. It supports dirty buffers and standard editor requests; Neovim's
+new client uses LSP instead of custom compiler-command adapters.
 
 ## Source diagnostics
 

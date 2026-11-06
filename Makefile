@@ -1,7 +1,7 @@
 PACK ?= pack
 IDRIS2 ?= idris2
 
-.PHONY: prelude prelude-check build test io-test io-hosted-test io-runtime-test io-resource-runtime-test io-resource-emitter-test io-emitter-test io-interactive-test io-cli-test native-test editor-test examples bench bench-smoke python-embed-test docs handbook serve-docs clean
+.PHONY: prelude prelude-check build test io-test io-hosted-test io-runtime-test io-resource-runtime-test io-resource-emitter-test io-emitter-test io-interactive-test io-cli-test native-test editor-test lsp-test examples bench bench-smoke python-embed-test docs handbook serve-docs clean
 prelude:
 	python3 tools/embed_prelude.py
 
@@ -16,6 +16,7 @@ test: build
 	python3 tools/test_cli.py
 	CC="$(CC)" python3 tools/test_native.py
 	CC="$(CC)" python3 tools/test_io_cli.py
+	python3 tools/test_lsp.py
 
 # Each suite builds in its own temporary directory, safe with make -j8.
 io-test: io-hosted-test io-runtime-test io-resource-runtime-test io-resource-emitter-test io-emitter-test io-interactive-test
@@ -138,6 +139,9 @@ bench:
 bench-smoke:
 	python3 tools/benchmark.py --quick
 	python3 tools/test_benchmark.py
+
+lsp-test: build
+	python3 tools/test_lsp.py
 
 # Editor integration invokes the CLI; do not race its linker under make -j8.
 editor-test: build

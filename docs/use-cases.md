@@ -98,6 +98,7 @@ Runnable progression: [explicit dictionaries](../examples/modules/interfaces/Mai
 | [Unicode source validation](unicode-source.md) | Reject malformed UTF-8/control characters before parsing or applying source-aware edits. | Valid encoding does not imply a valid or checked program. |
 | [Resource admission](safety-performance.md) | Reject inputs/expansions beyond explicit compiler work policies before expensive construction. | Limits are not timing, stack, allocation or sandbox guarantees. |
 | [Diagnostics](diagnostics.md) | Find a source-backed failure location and checking stage; consume JSON from tools. | A declaration anchor is not an exact failing-subexpression location. |
+| [LSP server](lsp.md) | Use standard editor diagnostics/navigation on unsaved buffers, including checked imports and packages. | Current references/rename are same-file, hover is documentation/excerpts, and completion is not implemented. |
 | [Definitions, references and rename](editor-highlighting.md) | Explore authored names and preview supported lexical edits. | Inspect manually when project-wide references/rename are required; those are not implemented. |
 | [Source formatting](formatting.md) | Make layout consistent, including unsaved editor buffers, while retaining guarded syntax/trivia. | It is not a rewrite/refactoring tool, automatic save or universal line-width guarantee. |
 | [Offline handbook](handbook.md) | Read language contracts, examples and source links without a network connection. | API reference alone is better for looking up an exact host declaration. |

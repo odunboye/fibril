@@ -68,6 +68,7 @@ Usage:
   fibril module-graph          Inspect ./fibril.yaml source graph (syntax only)
   fibril check --package PATH   Check explicit local fibril.yaml dependency closure (POSIX)
   fibril run --package PATH     Check local packages, then execute the complete IO plan
+  fibril check --json --package PATH  Version-2 application/library package report
   fibril check --json --source-dir ROOT ENTRY  Version-2 project report with source snapshots
   fibril check --json PATH      JSON runtime-check report (no effect execution)
   fibril check --erased PATH    Check only the erased ordinary fragment
@@ -225,6 +226,10 @@ main = do
         Left err => do
           _ <- fPutStrLn stderr err
           exitFailure
+    ["check", "--json", "--package", manifest] => do
+      (accepted, report) <- packageCheckReport manifest
+      putStrLn report
+      if accepted then pure () else exitFailure
     ["check", "--json", "--source-dir", root, entry] => do
       outcome <- prepareProject root entry
       putStrLn (renderProjectReport entry outcome)
