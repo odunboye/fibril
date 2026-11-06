@@ -102,6 +102,14 @@ pathNodesWithin (S fuel) (CoreApply path r) = do
   remaining <- pathNodesWithin fuel path
   intervalNodesWithin remaining r
 
+||| Check the input path/interval node count before a caller traverses it.
+||| Embedded core payloads are accounted for separately by the checker.
+public export
+pathWithinBudget : Nat -> CorePathExpr n -> Bool
+pathWithinBudget fuel path = case pathNodesWithin fuel path of
+  Just _ => True
+  Nothing => False
+
 ||| Capture-avoiding substitution acts only on dimensions; embedded core
 ||| terms are closed and therefore remain unchanged under dimension binders.
 public export

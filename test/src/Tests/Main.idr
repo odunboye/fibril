@@ -413,6 +413,12 @@ checks =
           CoreStepped (CoreApply (CoreAbstract (CoreTerm BoolTrue)) (Reverse (Var FZ))) => True
           _ => False
         Left _ => False)
+  , ("checked path weakening respects new syntax budget",
+      case checkClosedPath 64 64 4
+             (CoreAbstract (CoreApply (CoreAbstract (CoreTerm BoolTrue)) (Var FZ))) BoolTrue BoolTrue of
+        Right path => case applyCheckedPathAt 2 64 5 path (the (ScopedInterval 1) (Var FZ)) of
+          CoreStepExhausted => True; _ => False
+        Left _ => False)
   , ("checked path open application can exhaust",
       case checkClosedPath 64 64 4 (CoreAbstract (CoreTerm BoolTrue)) BoolTrue BoolTrue of
         Right path => case applyCheckedPathAt 64 64 1 path (the (ScopedInterval 1) (Var FZ)) of

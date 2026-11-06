@@ -43,7 +43,9 @@ weakenClosedPath = substituteCoreDimensions (\i => absurd i)
 export
 applyCheckedPathAt : Nat -> Nat -> Nat -> CheckedClosedPath -> ScopedInterval n -> CorePathStep n
 applyCheckedPathAt depth reduction fuel (MkCheckedClosedPath path left right) r =
-  applyCorePathAt depth reduction fuel (weakenClosedPath path) r left right
+  if pathWithinBudget depth path
+    then applyCorePathAt depth reduction fuel (weakenClosedPath path) r left right
+    else CoreStepExhausted
 
 ||| Apply a checked path at a closed interval. The experimental runner rechecks
 ||| its recorded inputs with the supplied budgets; exhaustion still fails closed.
