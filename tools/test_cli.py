@@ -5666,6 +5666,60 @@ class SelectiveImportTests(unittest.TestCase):
             self.assertEqual(run_cli('format', str(main), timeout=120).stdout, formatted.stdout)
 
 
+class LibraryPackageDefinitionTests(unittest.TestCase):
+    def test_inventory_navigation_and_checked_boundaries(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            a = root / 'a'
+            b = root / 'b'
+            (a / 'src/A').mkdir(parents=True)
+            (b / 'src/B').mkdir(parents=True)
+            (a / 'fibril.yaml').write_text('schema: 1\nname: a\nmodule-prefix: A\nsource-dir: src\nfoundation: de-morgan\nmodules: [A.Value]\ndependencies: {}\n')
+            (b / 'fibril.yaml').write_text('schema: 1\nname: b\nmodule-prefix: B\nsource-dir: src\nfoundation: de-morgan\nmodules: [B.Facade]\ndependencies:\n  a:\n    path: ../a\n')
+            original = a / 'src/A/Value.fib'
+            facade = b / 'src/B/Facade.fib'
+            original.write_text('module A.Value\nexport\nx : String\nx = "ok"\nsecret : String\nsecret = "private"\n')
+            facade.write_text('module B.Facade\nimport public A.Value as V (x)\nexport\ny : String\ny = x\n')
+            result = run_cli('definition', '--package', str(b / 'fibril.yaml'), '5', '5', str(facade), timeout=120)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            packet = json.loads(result.stdout)
+            self.assertEqual(packet['entry'], '')
+            self.assertEqual(Path(packet['manifest']), (b / 'fibril.yaml').resolve())
+            self.assertEqual(Path(packet['definition']['path']), original.resolve())
+            self.assertEqual({Path(item['path']) for item in packet['sources']}, {original.resolve(), facade.resolve()})
+            selector = facade.read_text().splitlines()[1].rfind('x') + 1
+            result = run_cli('definition', '--package', str(b / 'fibril.yaml'), '2', str(selector), str(facade), timeout=120)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(Path(json.loads(result.stdout)['definition']['path']), original.resolve())
+            source = facade.read_text()
+            facade.write_text('module B.Facade\nimport A.Value (x)\nx : String\nx = "local"\nexport\ny : String\ny = x\n')
+            result = run_cli('definition', '--package', str(b / 'fibril.yaml'), '7', '5', str(facade), timeout=120)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            local = json.loads(result.stdout)['definition']
+            self.assertEqual(Path(local['path']), facade.resolve())
+            self.assertEqual(local['range']['start']['line'], 4)
+            facade.write_text('module B.Facade\nimport A.Value (x)\nexport\ny : String\ny = later\nlater : String\nlater = x\n')
+            result = run_cli('definition', '--package', str(b / 'fibril.yaml'), '5', '5', str(facade), timeout=120)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, '')
+            facade.write_text(source)
+            manifest = b / 'fibril.yaml'
+            saved_manifest = manifest.read_text()
+            manifest.write_text('schema: invalid\n')
+            result = run_cli('definition', '--package', str(manifest), '5', '5', str(facade), timeout=120)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, '')
+            manifest.write_text(saved_manifest.replace('    path: ../a', '    path: ../missing'))
+            result = run_cli('definition', '--package', str(manifest), '5', '5', str(facade), timeout=120)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, '')
+            manifest.write_text(saved_manifest)
+            facade.write_text(source.replace('y = x', 'y = V.secret'))
+            result = run_cli('definition', '--package', str(b / 'fibril.yaml'), '5', '7', str(facade), timeout=120)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, '')
+
+
 class PublicImportTests(unittest.TestCase):
     def test_public_visibility_diamonds_collisions_and_syntax(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -27,13 +27,14 @@ Public imports require explicit selections. Re-exported interface schemas retain
 constructor origins; method-block construction requires the matching constructor
 to be selected. Single-root project definition navigation uses checked canonical
 identities for public exports and returns no target when an origin cannot be
-located. The package CLI supports checked application graphs; standalone library
-inventory navigation and package-aware editor integration remain unimplemented.
-Qualified-only imports and project-wide references/rename also remain future work.
+located. The package CLI and optional editor client support checked application
+and standalone library-inventory graphs. The editor client validates saved source
+and manifest snapshots. Qualified-only imports and project-wide references/rename
+remain future work.
 
-Evidence: after the interface-origin fix, the isolated `make -j8 test` passed
-compiler/property checks, 140 CLI tests and 9 native tests; 32 focused import
-checks, 5 editor tests and 16 handbook tests also passed. A prior full CLI run
+Evidence: after package editor and inventory navigation changes, the isolated
+`make -j8 test` passed compiler/property checks, 141 CLI tests and 9 native tests;
+7 editor tests and 16 handbook tests also passed. A prior full CLI run
 timed out after 91 tests before the successful retry. Build-dependent tests are
 serialized after a parallel build/test attempt left an incomplete executable.
 An earlier intermittent primitive-check failure did not recur; its cause remains
@@ -82,8 +83,8 @@ fully qualified spelling for every imported name.
 
 A bounded selected-public-import prototype exists, including interface schemas
 and checked definition navigation to original declarations in single-root and
-application-package graphs. Remaining work includes standalone library inventory
-and editor integration, references, rename and wider validation.
+package graphs. Remaining work includes project-wide references, rename and wider
+validation.
 Further design must address visibility and the distinction between
 re-exporting a name and revealing its definition for conversion. Track original
 canonical identity and provenance through direct imports and multiple re-export
@@ -104,8 +105,8 @@ candidates, shadowing and source locations. Reuse one resolution policy between
 checking and editor services rather than recomputing an approximate policy.
 Design an `explain-name`/hover interface and clear ambiguity diagnostics. Keep
 syntax-only navigation explicitly separate from checked project navigation.
-Extend package-aware definition navigation and design project-wide references
-and rename with snapshot identity and capture/conflict checks. Do not claim
+Extend package-aware project-wide references and rename with snapshot identity
+and capture/conflict checks. Do not claim
 safe cross-file rename before those checks exist.
 
 ## Phase 4 — optional bounded type-directed disambiguation

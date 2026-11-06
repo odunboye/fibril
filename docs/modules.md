@@ -62,8 +62,9 @@ and from the first component of every direct import and the current module name,
 including its own imported module. This preserves unambiguous original qualifiers;
 it is not a claim of Idris syntax or semantics. Formatting retains aliases and
 checked project definition navigation resolves their exported names in single-root
-and application-package graphs. Package-aware editor integration and project-wide
-rename remain unsupported.
+and checked application or library-inventory package graphs. The optional
+package-aware editor client validates source and manifest snapshots before jumping.
+Project-wide rename remains unsupported.
 
 ## Qualified references and declared signatures
 

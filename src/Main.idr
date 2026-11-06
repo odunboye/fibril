@@ -47,7 +47,7 @@ Usage:
   fibril reference LINE COLUMN PATH  Built-in documentation or bundled Prelude source
   fibril references LINE COLUMN PATH  Same-file lexical occurrences, including declarations
   fibril definition --source-dir ROOT --entry ENTRY LINE COLUMN PATH  Checked project target
-  fibril definition --package MANIFEST LINE COLUMN PATH  Checked package application target
+  fibril definition --package MANIFEST LINE COLUMN PATH  Checked application or library package target
   fibril definition LINE COLUMN PATH  Same-file lexical target (scalar coordinates)
   fibril symbols PATH           JSON declaration ranges (syntax only, not checking)
   fibril lex-source PATH        Print source tokens/spans (not parsing/checking)

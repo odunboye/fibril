@@ -477,9 +477,16 @@ now provides:
 ./build/exec/fibril definition --package MANIFEST LINE COLUMN PATH
 ~~~
 
-The package form checks the application entry and its loaded dependency graph;
-standalone library inventory navigation is not supported by this command. The
-editor integration below currently invokes the source-dir form only.
+The package form checks the application or standalone library inventory and its
+loaded dependency graph without fabricating a library entry. Configure
+`b:fibril_package_manifest` (or `g:fibril_package_manifest`) and use
+`:FibrilDefinitionPackage` or `<Plug>(FibrilDefinitionPackage)` for the same
+checked lookup in Vim or Neovim. The package client validates every returned
+source and manifest snapshot against disk and loaded buffers, independently
+inspects manifest metadata, and re-resolves declared source, dependency and
+module paths both before jumping and after buffer hooks. It refuses stale,
+modified, or unsupported snapshots. These checks are not an atomic filesystem
+transaction or sandbox. It does not search parent directories for a manifest.
 
 ENTRY selects the checked program; PATH selects any reachable source file to
 query, including a library without its own main. Paths are relative to the

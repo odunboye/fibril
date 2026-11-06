@@ -672,6 +672,199 @@ def inspect_formatting(name, executable, ending, final_newline):
 
 
 class EditorTests(unittest.TestCase):
+    def test_package_definition_in_installed_editors(self):
+        import shlex
+        binary = ROOT / 'build/exec/fibril'
+        if not binary.exists():
+            self.skipTest('build Fibril first')
+        for name, executable in EDITORS:
+            for application in (False, True):
+                with self.subTest(editor=name, application=application), tempfile.TemporaryDirectory(prefix='fibril package editor ') as directory:
+                    root = Path(directory)
+                    a, b = root / 'a', root / 'b'
+                    (a / 'src/A').mkdir(parents=True)
+                    (b / 'src/B').mkdir(parents=True)
+                    (a / 'fibril.yaml').write_text('schema: 1\nname: a\nmodule-prefix: A\nsource-dir: src\nfoundation: de-morgan\nmodules: [A.Value]\ndependencies: {}\n')
+                    manifest = b / 'fibril.yaml'
+                    manifest.write_text('schema: 1\nname: b\nmodule-prefix: B\nsource-dir: src\nfoundation: de-morgan\n' + ('entry: Main\n' if application else '') + 'modules: [B.Facade]\ndependencies:\n  a:\n    path: ../a\n')
+                    target = a / 'src/A/Value.fib'
+                    target.write_text('module A.Value\nexport\nx : String\nx = "ok"\n')
+                    facade = b / 'src/B/Facade.fib'
+                    facade.write_text('module B.Facade\nimport A.Value (x)\nexport\ny : String\ny = x\n')
+                    source = b / 'src/Main.fib' if application else facade
+                    if application:
+                        source.write_text('module Main\nimport A.Value\nmain : IO Unit\nmain = putStrLn A.Value.x\n')
+                    row, column = (4, 25) if application else (5, 5)
+                    result = subprocess.run([str(binary), 'definition', '--package', str(manifest), str(row), str(column), str(source)], capture_output=True, text=True, timeout=120)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    forged = json.loads(result.stdout)
+                    sibling_packet = json.loads(result.stdout)
+                    sibling = a / 'sibling'
+                    sibling.mkdir()
+                    sibling_target = sibling / 'Value.fib'
+                    sibling_target.write_text(target.read_text())
+                    for item in sibling_packet['package_scope']['inventory']:
+                        if item['name'] == 'a':
+                            item['source_root'] = str(sibling.resolve())
+                    for item in sibling_packet['sources']:
+                        if item['path'] == str(target.resolve()):
+                            item['path'] = str(sibling_target.resolve())
+                    sibling_packet['definition']['path'] = str(sibling_target.resolve())
+                    bad_sibling = root / 'bad-sibling-compiler'
+                    bad_sibling.write_text('#!/bin/sh\nprintf "%s\\n" ' + shlex.quote(json.dumps(sibling_packet)) + '\n')
+                    bad_sibling.chmod(0o755)
+                    forged_directory = json.loads(json.dumps(sibling_packet))
+                    for item in forged_directory['manifests']:
+                        if item['name'] == 'a':
+                            item['source_dir'] = 'sibling'
+                    bad_directory = root / 'bad-directory-compiler'
+                    bad_directory.write_text('#!/bin/sh\nif [ "$1" = manifest ]; then exec ' + shlex.quote(str(binary)) + ' "$@"; fi\nprintf "%s\\n" ' + shlex.quote(json.dumps(forged_directory)) + '\n')
+                    bad_directory.chmod(0o755)
+                    outside = root / 'outside'
+                    outside.mkdir()
+                    forged_target = outside / 'Value.fib'
+                    forged_target.write_text(target.read_text())
+                    for item in forged['package_scope']['inventory']:
+                        if item['name'] == 'a':
+                            item['source_root'] = str(outside.resolve())
+                    for item in forged['sources']:
+                        if item['path'] == str(target.resolve()):
+                            item['path'] = str(forged_target.resolve())
+                    forged['definition']['path'] = str(forged_target.resolve())
+                    bad = root / 'bad-compiler'
+                    bad.write_text('#!/bin/sh\nprintf "%s\\n" ' + shlex.quote(json.dumps(forged)) + '\n')
+                    bad.chmod(0o755)
+                    fake = root / 'fake-compiler'
+                    fake.write_text('#!/bin/sh\n' + shlex.quote(str(binary)) + ' "$@"\nstatus=$?\nprintf " " >> ' + shlex.quote(str(a / 'fibril.yaml')) + '\nexit "$status"\n')
+                    fake.chmod(0o755)
+                    report_path = root / 'result.json'
+                    commands = [
+                        'set nocompatible', 'set encoding=utf-8', 'set nomore', 'set hidden',
+                        f"execute 'set runtimepath^=' . fnameescape({vim_literal(RUNTIME)})", 'filetype plugin on',
+                        f'let g:fibril_executable = {vim_literal(binary)}',
+                        f'let g:fibril_package_manifest = {vim_literal(manifest)}',
+                        f"execute 'edit ' . fnameescape({vim_literal(source)})", 'let source_buffer = bufnr(\'%\')',
+                        f'call cursor({row}, {column})', 'let report = {}',
+                        'let report.handled = fibril#definition_package(g:fibril_package_manifest)',
+                        f"let report.target = resolve(expand('%:p')) ==# resolve({vim_literal(target)}) && line('.') == 4 && col('.') == 1",
+                        "let target_buffer = bufnr('%')", 'execute "buffer " . source_buffer',
+                        "call setbufline(target_buffer, 4, getbufline(target_buffer, 4)[0] . ' ')",
+                        f'call cursor({row}, {column})',
+                        'let report.modified_target = fibril#definition_package(g:fibril_package_manifest)',
+                        'execute "buffer! " . target_buffer', 'edit!', 'execute "buffer " . source_buffer',
+                        f"execute 'edit ' . fnameescape({vim_literal(a / 'fibril.yaml')})", 'let manifest_buffer = bufnr(\'%\')',
+                        "call setline(1, getline(1) . ' ')", 'execute "buffer " . source_buffer',
+                        f'call cursor({row}, {column})',
+                        'let report.modified_manifest = fibril#definition_package(g:fibril_package_manifest)',
+                        'execute "buffer! " . manifest_buffer', 'edit!', 'execute "buffer " . source_buffer',
+                        f'let g:fibril_executable = {vim_literal(bad)}', f'call cursor({row}, {column})',
+                        'let report.bad_root = fibril#definition_package(g:fibril_package_manifest)',
+                        f'let g:fibril_executable = {vim_literal(bad_sibling)}', f'call cursor({row}, {column})',
+                        'let report.bad_sibling = fibril#definition_package(g:fibril_package_manifest)',
+                        f'let g:fibril_executable = {vim_literal(bad_directory)}', f'call cursor({row}, {column})',
+                        'let report.bad_directory = fibril#definition_package(g:fibril_package_manifest)',
+                        f'let g:fibril_executable = {vim_literal(fake)}', f'call cursor({row}, {column})',
+                        'let report.changed_manifest = fibril#definition_package(g:fibril_package_manifest)',
+                        "let report.preserved = resolve(expand('%:p')) ==# resolve(" + vim_literal(source) + ')',
+                        "let report.plug = !empty(maparg('<Plug>(FibrilDefinitionPackage)', 'n'))",
+                        "let report.messages = execute('messages')", 'execute b:undo_ftplugin',
+                        "let report.undo_command = exists(':FibrilDefinitionPackage')",
+                        "let report.undo_plug = maparg('<Plug>(FibrilDefinitionPackage)', 'n')",
+                        f'call writefile([json_encode(report)], {vim_literal(report_path)})', 'qa!',
+                    ]
+                    script = root / 'test.vim'
+                    script.write_text('\n'.join(commands) + '\n')
+                    flags = ['--headless', '-u', 'NONE', '-i', 'NONE', '-n'] if name == 'nvim' else ['-Nu', 'NONE', '-i', 'NONE', '-n', '-es']
+                    result = subprocess.run([executable, *flags, '-S', str(script)], capture_output=True, text=True, timeout=120, cwd=ROOT)
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    report = json.loads(report_path.read_text())
+                    self.assertEqual(report['handled'], 1, report['messages'])
+                    self.assertTrue(report['target'], report['messages'])
+                    self.assertEqual(report['modified_target'], 0, report['messages'])
+                    self.assertEqual(report['modified_manifest'], 0, report['messages'])
+                    self.assertEqual(report['changed_manifest'], 0, report['messages'])
+                    self.assertEqual(report['bad_root'], 0, report['messages'])
+                    self.assertEqual(report['bad_sibling'], 0, report['messages'])
+                    self.assertEqual(report['bad_directory'], 0, report['messages'])
+                    self.assertIn('outside its manifest directory', report['messages'])
+                    self.assertIn('no longer resolves to its checked root', report['messages'])
+                    self.assertIn('manifest inspection disagrees', report['messages'])
+                    self.assertTrue(report['preserved'], report['messages'])
+                    self.assertTrue(report['plug'])
+                    self.assertEqual(report['undo_command'], 0)
+                    self.assertEqual(report['undo_plug'], '')
+
+    def test_package_definition_rejects_retargeted_paths(self):
+        import shlex
+        binary = ROOT / 'build/exec/fibril'
+        if not binary.exists():
+            self.skipTest('build Fibril first')
+        for name, executable in EDITORS:
+            for mode in ('source', 'dependency', 'module', 'intermediate', 'hook-source', 'hook-dependency', 'hook-module', 'hook-intermediate'):
+                with self.subTest(editor=name, mode=mode), tempfile.TemporaryDirectory(prefix='fibril package symlink ') as directory:
+                    root = Path(directory)
+                    a, b = root / 'a', root / 'b'
+                    (b / 'src/B').mkdir(parents=True)
+                    (a / 'old/A').mkdir(parents=True)
+                    (a / 'new/A').mkdir(parents=True)
+                    value = 'module A.Value\nexport\nx : String\nx = "ok"\n'
+                    kind = mode.removeprefix('hook-')
+                    if kind == 'module':
+                        (a / 'old/A/old.fib').write_text(value)
+                        (a / 'old/A/new.fib').write_text(value)
+                        (a / 'old/A/Value.fib').symlink_to('old.fib')
+                    else:
+                        (a / 'old/A/Value.fib').write_text(value)
+                    (a / 'new/A/Value.fib').write_text(value)
+                    if kind == 'intermediate':
+                        (a / 'old/A').rename(a / 'old/inside')
+                        (a / 'old/A').symlink_to('inside', target_is_directory=True)
+                        escaped = root / 'escaped'
+                        escaped.mkdir()
+                        (escaped / 'Value.fib').symlink_to(a / 'old/inside/Value.fib')
+                    (a / 'fibril.yaml').write_text('schema: 1\nname: a\nmodule-prefix: A\nsource-dir: src\nfoundation: de-morgan\nmodules: [A.Value]\ndependencies: {}\n')
+                    (a / 'src').symlink_to('old', target_is_directory=True)
+                    (root / 'link-a').symlink_to('a', target_is_directory=True)
+                    other = root / 'a2'
+                    shutil.copytree(a, other, symlinks=True)
+                    manifest = b / 'fibril.yaml'
+                    manifest.write_text('schema: 1\nname: b\nmodule-prefix: B\nsource-dir: src\nfoundation: de-morgan\nmodules: [B.Facade]\ndependencies:\n  a:\n    path: ../link-a\n')
+                    source = b / 'src/B/Facade.fib'
+                    source.write_text('module B.Facade\nimport A.Value (x)\nexport\ny : String\ny = x\n')
+                    link = (a / 'src') if kind == 'source' else ((a / 'old/A/Value.fib') if kind == 'module' else ((a / 'old/A') if kind == 'intermediate' else (root / 'link-a')))
+                    replacement = 'new' if kind == 'source' else ('new.fib' if kind == 'module' else (str(escaped) if kind == 'intermediate' else 'a2'))
+                    fake = root / 'retarget-compiler'
+                    fake.write_text('#!/bin/sh\n' + shlex.quote(str(binary)) + ' "$@"\nstatus=$?\nln -sfn ' + shlex.quote(replacement) + ' ' + shlex.quote(str(link)) + '\nexit "$status"\n')
+                    fake.chmod(0o755)
+                    report_path = root / 'result.json'
+                    commands = ['set nocompatible', 'set encoding=utf-8', 'set nomore', 'set hidden',
+                        f"execute 'set runtimepath^=' . fnameescape({vim_literal(RUNTIME)})", 'filetype plugin on',
+                        f'let g:fibril_executable = {vim_literal(fake)}',
+                        f'let g:fibril_package_manifest = {vim_literal(manifest)}',
+                        f"execute 'edit ' . fnameescape({vim_literal(source)})", 'call cursor(5, 5)',
+                        'let report = {}', 'let report.handled = fibril#definition_package(g:fibril_package_manifest)',
+                        "let report.preserved = resolve(expand('%:p')) ==# resolve(" + vim_literal(source) + ')',
+                        "let report.messages = execute('messages')",
+                        f'call writefile([json_encode(report)], {vim_literal(report_path)})', 'qa!']
+                    if mode.startswith('hook-'):
+                        commands[commands.index(f'let g:fibril_executable = {vim_literal(fake)}')] = f'let g:fibril_executable = {vim_literal(binary)}'
+                        hook = 'ln -sfn ' + shlex.quote(replacement) + ' ' + shlex.quote(str(link))
+                        position = commands.index('call cursor(5, 5)')
+                        pattern = '*/A/old.fib' if kind == 'module' else ('*/inside/Value.fib' if kind == 'intermediate' else '*/A/Value.fib')
+                        commands[position:position] = [f'let g:retarget_command = {vim_literal(hook)}',
+                            'augroup FibrilTestRetarget', 'autocmd!',
+                            'autocmd BufReadPost ' + pattern + ' call system(g:retarget_command)', 'augroup END']
+                    script = root / 'test.vim'
+                    script.write_text('\n'.join(commands) + '\n')
+                    flags = ['--headless', '-u', 'NONE', '-i', 'NONE', '-n'] if name == 'nvim' else ['-Nu', 'NONE', '-i', 'NONE', '-n', '-es']
+                    result = subprocess.run([executable, *flags, '-S', str(script)], capture_output=True, text=True, timeout=120, cwd=ROOT)
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    report = json.loads(report_path.read_text())
+                    self.assertEqual(report['handled'], 0, report['messages'])
+                    if not mode.startswith('hook-'):
+                        self.assertTrue(report['preserved'], report['messages'])
+                    self.assertIn('no longer resolves', report['messages'])
+
     def test_formatting_in_installed_editors(self):
         if not (ROOT / "build/exec/fibril").exists():
             self.skipTest("build Fibril first")

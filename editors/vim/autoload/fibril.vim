@@ -180,13 +180,14 @@ function! s:request(query, ...) abort
     endif
     let scalar_column = strchars(strpart(getline('.'), 0, col('.') - 1)) + 1
     let checking = index(['check', 'check-project'], a:query) >= 0
-    let protocol_version = index(['check-project', 'definition-project'], a:query) >= 0 ? 2 : 1
+    let protocol_version = index(['check-project', 'definition-project', 'definition-package'], a:query) >= 0 ? 2 : 1
     let args = a:query ==# 'definition-project' ?
           \ [binary, 'definition', '--source-dir', a:1, '--entry', a:2, string(line('.')), string(scalar_column), path] :
+          \ a:query ==# 'definition-package' ? [binary, 'definition', '--package', a:1, string(line('.')), string(scalar_column), path] :
           \ a:query ==# 'check-project' ? [binary, 'check', '--json', '--source-dir', a:1, path] :
           \ a:query ==# 'check' ? [binary, 'check', '--json', path] :
           \ [binary, a:query, string(line('.')), string(scalar_column)] + a:000 + [path]
-    let field = a:query ==# 'definition-project' ? 'definition' : checking ? 'diagnostics' :
+    let field = index(['definition-project', 'definition-package'], a:query) >= 0 ? 'definition' : checking ? 'diagnostics' :
           \ (a:query ==# 'rename-preview' ? 'edits' : a:query)
     " String-form system() is portable across Vim and Neovim. Quote each argument;
     " the configuration is an executable path, never a shell command fragment.
@@ -439,11 +440,183 @@ function! s:source_context(text) abort
   return context
 endfunction
 
+" Decode manifest metadata independently instead of trusting report fields alone.
+function! s:validate_manifest_report(manifest, module_prefix) abort
+  let binary = get(g:, 'fibril_executable', 'fibril')
+  let output = system(join(map([binary, 'manifest', a:manifest.path], 'shellescape(v:val)'), ' '))
+  if v:shell_error
+    throw 'Package manifest inspection failed'
+  endif
+  let report = json_decode(output)
+  if type(report) != v:t_dict || get(report, 'version', 0) != 1 ||
+        \ get(report, 'kind', '') !=# 'manifest-inspection' ||
+        \ type(get(report, 'path', 0)) != v:t_string || s:canonical(report.path) !=# a:manifest.path ||
+        \ get(report, 'name', '') !=# a:manifest.name ||
+        \ get(report, 'module_prefix', '') !=# a:module_prefix ||
+        \ get(report, 'source_dir', '') !=# a:manifest.source_dir ||
+        \ get(report, 'dependencies', 0) !=# a:manifest.dependencies ||
+        \ s:snapshot(a:manifest.path) !=# a:manifest.text
+    throw 'Package manifest inspection disagrees with checked metadata'
+  endif
+endfunction
+
+" Validate all checked package manifests as well as the source-root inventory.
+function! s:package_roots(result, manifest) abort
+  let scope = get(a:result, 'package_scope', 0)
+  let manifests = get(a:result, 'manifests', 0)
+  if type(get(a:result, 'manifest', 0)) != v:t_string ||
+        \ a:result.manifest !=# s:canonical(a:manifest) ||
+        \ type(scope) != v:t_dict || type(get(scope, 'entry_package', 0)) != v:t_string ||
+        \ type(get(scope, 'inventory', 0)) != v:t_list || empty(scope.inventory) ||
+        \ len(scope.inventory) > 64 || type(manifests) != v:t_list ||
+        \ len(manifests) != len(scope.inventory)
+    throw 'Invalid package identity or inventory'
+  endif
+  let roots = {}
+  let dependency_names = {}
+  let module_prefixes = {}
+  for item in scope.inventory
+    if type(item) != v:t_dict || type(get(item, 'name', 0)) != v:t_string ||
+          \ empty(item.name) || has_key(roots, item.name) ||
+          \ type(get(item, 'source_root', 0)) != v:t_string ||
+          \ item.source_root !=# s:canonical(item.source_root) || !isdirectory(item.source_root) ||
+          \ type(get(item, 'module_prefix', 0)) != v:t_string || empty(item.module_prefix) ||
+          \ type(get(item, 'dependencies', 0)) != v:t_list
+      throw 'Invalid package source root'
+    endif
+    for dependency in item.dependencies
+      if type(dependency) != v:t_string || empty(dependency)
+        throw 'Invalid package dependency identity'
+      endif
+    endfor
+    let roots[item.name] = item.source_root
+    let dependency_names[item.name] = item.dependencies
+    let module_prefixes[item.name] = item.module_prefix
+  endfor
+  if !has_key(roots, scope.entry_package) || get(a:result, 'root', '') !=# roots[scope.entry_package]
+    throw 'Package root disagrees with checked inventory'
+  endif
+  let seen = {}
+  let paths = {}
+  let edges = {}
+  let parents = {}
+  for manifest in manifests
+    if type(manifest) != v:t_dict || type(get(manifest, 'name', 0)) != v:t_string ||
+          \ !has_key(roots, manifest.name) || has_key(seen, manifest.name) ||
+          \ type(get(manifest, 'path', 0)) != v:t_string || has_key(paths, manifest.path) ||
+          \ manifest.path !=# s:canonical(manifest.path) ||
+          \ type(get(manifest, 'text', 0)) != v:t_string || strlen(manifest.text) > 8192 ||
+          \ type(get(manifest, 'source_dir', 0)) != v:t_string || empty(manifest.source_dir) ||
+          \ manifest.source_dir =~# '^/' || type(get(manifest, 'dependencies', 0)) != v:t_list ||
+          \ !filereadable(manifest.path) || getfsize(manifest.path) > 8192 ||
+          \ s:snapshot(manifest.path) !=# manifest.text
+      throw 'Package manifest changed or is invalid'
+    endif
+    let package_root = s:canonical(fnamemodify(manifest.path, ':h'))
+    let package_prefix = package_root ==# '/' ? '/' : package_root . '/'
+    if fnamemodify(manifest.path, ':t') !=# 'fibril.yaml' ||
+          \ (roots[manifest.name] !=# package_root && stridx(roots[manifest.name], package_prefix) != 0)
+      throw 'Package source root is outside its manifest directory'
+    endif
+    let declared_root = package_root . '/' . manifest.source_dir
+    if !isdirectory(declared_root) || s:canonical(declared_root) !=# roots[manifest.name]
+      throw 'Package source directory no longer resolves to its checked root'
+    endif
+    let dep_names = []
+    for dependency in manifest.dependencies
+      if type(dependency) != v:t_dict || type(get(dependency, 'name', 0)) != v:t_string ||
+            \ empty(dependency.name) || index(dep_names, dependency.name) >= 0 ||
+            \ type(get(dependency, 'path', 0)) != v:t_string || empty(dependency.path) ||
+            \ dependency.path =~# '^/'
+        throw 'Invalid package dependency path'
+      endif
+      call add(dep_names, dependency.name)
+    endfor
+    if sort(copy(dep_names)) !=# sort(copy(dependency_names[manifest.name]))
+      throw 'Package dependency metadata disagrees with checked inventory'
+    endif
+    call s:validate_manifest_report(manifest, module_prefixes[manifest.name])
+    for buffer in getbufinfo({'bufloaded': 1})
+      if !empty(buffer.name) && s:canonical(buffer.name) ==# manifest.path &&
+            \ (getbufvar(buffer.bufnr, '&modified') || s:buffer_snapshot(buffer.bufnr) !=# manifest.text)
+        throw 'Package manifest buffer is modified or differs from disk'
+      endif
+    endfor
+    let seen[manifest.name] = manifest.path
+    let paths[manifest.path] = 1
+    let edges[manifest.name] = manifest.dependencies
+    let parents[manifest.name] = package_root
+  endfor
+  for [name, dependencies] in items(edges)
+    for dependency in dependencies
+      let target = parents[name] . '/' . dependency.path . '/fibril.yaml'
+      if !filereadable(target) || !has_key(seen, dependency.name) ||
+            \ s:canonical(target) !=# seen[dependency.name]
+        throw 'Package dependency path no longer resolves to its checked manifest'
+      endif
+    endfor
+  endfor
+  if get(seen, scope.entry_package, '') !=# s:canonical(a:manifest)
+    throw 'Package manifest does not own the checked entry'
+  endif
+  return roots
+endfunction
+
+" Re-resolve and check every component, as the checked module loader does.
+function! s:package_module_path(root, module) abort
+  if !exists('*readdir')
+    throw 'Package navigation requires directory inspection support'
+  endif
+  let pieces = split(a:module, '\.')
+  let directory = a:root
+  let prefix = a:root ==# '/' ? '/' : a:root . '/'
+  for index in range(len(pieces))
+    let component = pieces[index] . (index == len(pieces) - 1 ? '.fib' : '')
+    if index(readdir(directory), component) < 0
+      throw 'Package module path no longer resolves with its checked spelling'
+    endif
+    let candidate = directory . '/' . component
+    if index == len(pieces) - 1 ? !filereadable(candidate) : !isdirectory(candidate)
+      throw 'Package module path no longer resolves to its checked source'
+    endif
+    let directory = s:canonical(candidate)
+    if directory !=# a:root && stridx(directory, prefix) != 0
+      throw 'Package module path no longer resolves within its checked root'
+    endif
+  endfor
+  return directory
+endfunction
+
+" Re-resolve module names as well as canonical snapshots: a path symlink can
+" change while the previously resolved source file itself remains unchanged.
+function! s:package_module_paths(result, roots, contexts) abort
+  let modules = get(a:result, 'module_resolutions', 0)
+  if type(modules) != v:t_list || len(modules) != len(a:contexts)
+    throw 'Invalid package module resolutions'
+  endif
+  let seen = {}
+  for module in modules
+    if type(module) != v:t_dict || type(get(module, 'path', 0)) != v:t_string ||
+          \ !has_key(a:contexts, module.path) || has_key(seen, module.path) ||
+          \ type(get(module, 'source_root', 0)) != v:t_string ||
+          \ index(values(a:roots), module.source_root) < 0 ||
+          \ type(get(module, 'module', 0)) != v:t_string ||
+          \ module.module !~# '^[A-Z][A-Za-z0-9_]*\(\.[A-Z][A-Za-z0-9_]*\)*$' ||
+          \ len(split(module.module, '\.')) > 16
+      throw 'Invalid package module identity'
+    endif
+    if s:package_module_path(module.source_root, module.module) !=# module.path
+      throw 'Package module path no longer resolves to its checked source'
+    endif
+    let seen[module.path] = 1
+  endfor
+endfunction
+
 " Never load a dependency buffer just to obtain coordinates. Validate every
 " available snapshot against disk and all aliases of already-loaded buffers.
-function! s:project_contexts(result, root, entry) abort
+function! s:project_contexts(result, root, entry, ...) abort
+  let manifest = a:0 ? a:1 : ''
   if type(get(a:result, 'entry', 0)) != v:t_string ||
-        \ s:canonical(a:result.entry) !=# s:canonical(a:entry) ||
         \ !has_key(a:result, 'root') || type(get(a:result, 'sources', 0)) != v:t_list ||
         \ len(a:result.sources) > 32
     throw 'Invalid project identity or sources'
@@ -451,12 +624,19 @@ function! s:project_contexts(result, root, entry) abort
   if a:result.accepted && a:result.root is v:null
     throw 'Accepted project report omitted its canonical root'
   endif
-  let root = s:canonical(a:root)
-  if a:result.root isnot v:null &&
-        \ (type(a:result.root) != v:t_string || a:result.root !=# root)
-    throw 'Project root disagrees with the request'
+  if empty(manifest)
+    if s:canonical(a:result.entry) !=# s:canonical(a:entry)
+      throw 'Project entry disagrees with the request'
+    endif
+    let root = s:canonical(a:root)
+    if a:result.root isnot v:null &&
+          \ (type(a:result.root) != v:t_string || a:result.root !=# root)
+      throw 'Project root disagrees with the request'
+    endif
+    let roots = {'single': root}
+  else
+    let roots = s:package_roots(a:result, manifest)
   endif
-  let prefix = root ==# '/' ? '/' : root . '/'
   let contexts = {}
   let bytes = 0
   let buffers = getbufinfo({'bufloaded': 1})
@@ -464,8 +644,18 @@ function! s:project_contexts(result, root, entry) abort
     if type(source) != v:t_dict || type(get(source, 'path', 0)) != v:t_string ||
           \ type(get(source, 'text', 0)) != v:t_string ||
           \ has_key(contexts, source.path) || source.path !=# s:canonical(source.path) ||
-          \ stridx(source.path, prefix) != 0 || strlen(source.text) > 65536
+          \ strlen(source.text) > 65536
       throw 'Invalid project source snapshot'
+    endif
+    let matches = 0
+    for root in values(roots)
+      let prefix = root ==# '/' ? '/' : root . '/'
+      if stridx(source.path, prefix) == 0
+        let matches += 1
+      endif
+    endfor
+    if matches != 1
+      throw 'Project source is outside or ambiguously within checked roots'
     endif
     let bytes += strlen(source.text)
     if bytes > 524288 || !filereadable(source.path) || getfsize(source.path) > 65536 ||
@@ -487,8 +677,12 @@ function! s:project_contexts(result, root, entry) abort
     endfor
     let contexts[source.path] = context
   endfor
-  if (a:result.accepted || a:result.root isnot v:null) &&
-        \ !has_key(contexts, s:canonical(a:entry))
+  if !empty(manifest)
+    call s:package_module_paths(a:result, roots, contexts)
+  endif
+  let expected_entry = empty(manifest) ? a:entry : a:result.entry
+  if !empty(expected_entry) && (a:result.accepted || a:result.root isnot v:null) &&
+        \ !has_key(contexts, s:canonical(expected_entry))
     throw 'Complete project report omitted its entry snapshot'
   endif
   return contexts
@@ -520,12 +714,9 @@ function! s:definition_position(point, context) abort
   return [row, byteidxcomp(a:context.lines[row - 1], column - 1) + 1]
 endfunction
 
-function! fibril#definition_project(root, entry) abort
-  if type(a:root) != v:t_string || empty(a:root) ||
-        \ type(a:entry) != v:t_string || empty(a:entry)
-    return s:warn('configure a source root and project entry before project navigation')
-  endif
-  let response = s:request('definition-project', a:root, a:entry)
+function! s:project_definition(query, root, entry, manifest) abort
+  let response = a:query ==# 'definition-package' ?
+        \ s:request(a:query, a:manifest) : s:request(a:query, a:root, a:entry)
   if empty(response)
     return 0
   endif
@@ -536,7 +727,7 @@ function! fibril#definition_project(root, entry) abort
           \ result.query !=# s:canonical(response.path)
       throw 'Invalid project definition identity'
     endif
-    let contexts = s:project_contexts(extend(copy(result), {'accepted': v:true}), a:root, a:entry)
+    let contexts = s:project_contexts(extend(copy(result), {'accepted': v:true}), a:root, a:entry, a:manifest)
     if !has_key(contexts, result.query)
       throw 'Query source snapshot omitted'
     endif
@@ -573,12 +764,27 @@ function! fibril#definition_project(root, entry) abort
       return s:warn('target changed while entering its buffer; retry after saving')
     endif
     " Revalidate the whole project after read/enter hooks, not only the target.
-    call s:project_contexts(extend(copy(result), {'accepted': v:true}), a:root, a:entry)
+    call s:project_contexts(extend(copy(result), {'accepted': v:true}), a:root, a:entry, a:manifest)
     call cursor(start[0], start[1])
     return 1
   catch
     return s:warn('project definition refused: ' . v:exception)
   endtry
+endfunction
+
+function! fibril#definition_project(root, entry) abort
+  if type(a:root) != v:t_string || empty(a:root) ||
+        \ type(a:entry) != v:t_string || empty(a:entry)
+    return s:warn('configure a source root and project entry before project navigation')
+  endif
+  return s:project_definition('definition-project', a:root, a:entry, '')
+endfunction
+
+function! fibril#definition_package(manifest) abort
+  if type(a:manifest) != v:t_string || empty(a:manifest) || !filereadable(a:manifest)
+    return s:warn('configure a readable package manifest before package navigation')
+  endif
+  return s:project_definition('definition-package', '', '', a:manifest)
 endfunction
 
 " Display compiled reference data, never a guessed filesystem definition.

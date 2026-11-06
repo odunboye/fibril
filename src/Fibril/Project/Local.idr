@@ -16,6 +16,7 @@ public export
 record LocalRoot where
   constructor AdmittedRoot
   manifestPath : String
+  manifestText : String
   packageRoot : String
   sourceRoot : String
   manifest : PackageManifest
@@ -62,7 +63,7 @@ loadRoot path = do
   Right sourceRoot <- exactCanonical (joinPath packageRoot manifest.sourceDirectory) | Left err => failure err
   if not (inside packageRoot sourceRoot) then failure "Source root escapes canonical package directory" else do
     Right () <- ensureDirectory sourceRoot | Left err => failure err
-    pure (Right (AdmittedRoot manifestPath packageRoot sourceRoot manifest))
+    pure (Right (AdmittedRoot manifestPath source packageRoot sourceRoot manifest))
 
 asSpec : LocalRoot -> PackageSpec
 asSpec root = LocalPackage root.manifest.name root.sourceRoot root.manifest.modulePrefix root.manifest.foundation (map name root.manifest.dependencies)

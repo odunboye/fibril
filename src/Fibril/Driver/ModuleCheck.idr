@@ -469,9 +469,10 @@ anonymous snapshot schemas globals remaining = do
           else Right term
 
 compileGraph : Bool -> ModuleGraph -> List Weighted -> List Interface -> Nat -> List ModuleSnapshot ->
-               Either GraphError (Maybe CheckedProject)
+               Either GraphError (Maybe CheckedProject, List (List String, List (String, String)))
 compileGraph requireEntry graph prelude interfaces remaining [] =
-  if requireEntry then Left (GraphFailure graph.entry "" Nothing "No entry snapshot in graph") else Right Nothing
+  if requireEntry then Left (GraphFailure graph.entry "" Nothing "No entry snapshot in graph")
+    else Right (Nothing, exportIndex interfaces)
 compileGraph requireEntry graph prelude interfaces remaining (snapshot :: rest) = do
   if requireEntry && snapshot.path == graph.entry && not (null rest)
      then Left (problem snapshot Nothing "Entry snapshot must be last in dependency order")
@@ -491,7 +492,7 @@ compileGraph requireEntry graph prelude interfaces remaining (snapshot :: rest) 
       term <- anonymous snapshot schemas globals remaining
       case inferRuntime checkingDepth typeReductionFuel Empty term of
         Left err => Left ({ stage := "runtime-checking" } (problem snapshot Nothing ("Entry checking: " ++ show err)))
-        Right checked => Right (Just (Project graph term checked.inferredType (exportIndex interfaces)))
+        Right checked => Right (Just (Project graph term checked.inferredType (exportIndex interfaces)), exportIndex interfaces)
     Just header => do
       if any (\entry => entry.name == header.components) interfaces
          then Left (problem snapshot (Just header.nameSpan.start) "Duplicate checked module identity")
@@ -506,7 +507,7 @@ compileGraph requireEntry graph prelude interfaces remaining (snapshot :: rest) 
         then Left (problem snapshot Nothing "Export binding budget exhausted (4096)") else Right ()
       let rebased = map (\entry => { global := { name := moduleText header.components ++ "." ++ shortName entry.global.name } entry.global } entry) published
       case graph.scope of
-        PackageRoots _ _ => if header.components == ["Main"] then do
+        PackageRoots _ _ _ => if header.components == ["Main"] then do
           main <- case find (\entry => entry.global.name == "main") compiled.locals of
             Nothing => Left (problem snapshot Nothing "Application entry requires its own main definition")
             Just main => Right main
@@ -529,7 +530,7 @@ compileGraph requireEntry graph prelude interfaces remaining (snapshot :: rest) 
               Just term => Right term
             case inferRuntime checkingDepth typeReductionFuel Empty term of
               Left err => Left ({ stage := "runtime-checking" } (problem snapshot Nothing ("Entry checking: " ++ show err)))
-              Right checked => Right (Just (Project graph term checked.inferredType (exportIndex interfaces)))
+              Right checked => Right (Just (Project graph term checked.inferredType (exportIndex interfaces)), exportIndex interfaces)
          else let visible = case snapshot.document.body of
                     DeclarationDocument authored => exportedSchemas (moduleText header.components) authored
                     _ => []
@@ -548,19 +549,25 @@ checkModuleGraph graph = do
   prelude <- case preludeGlobals of
     Left err => Left ({ stage := "prelude" } (GraphFailure graph.entry "" Nothing ("Bundled prelude: " ++ err)))
     Right globals => Right (map weighted globals)
-  checked <- compileGraph True graph prelude [] 200000 graph.modules
+  (checked, _) <- compileGraph True graph prelude [] 200000 graph.modules
   case checked of
     Just project => Right project
     Nothing => Left (GraphFailure graph.entry "" Nothing "Missing checked entry")
 
+||| Inventory-only checking exposes checked export identities without inventing
+||| an application entry term.
 public export
-checkInventoryGraph : ModuleGraph -> Either GraphError ()
-checkInventoryGraph graph = do
+checkInventoryExports : ModuleGraph -> Either GraphError (List (List String, List (String, String)))
+checkInventoryExports graph = do
   prelude <- case preludeGlobals of
     Left err => Left (GraphFailure graph.root "" Nothing (show err))
     Right globals => Right (map weighted globals)
-  _ <- compileGraph False graph prelude [] 200000 graph.modules
-  Right ()
+  (_, exports) <- compileGraph False graph prelude [] 200000 graph.modules
+  Right exports
+
+public export
+checkInventoryGraph : ModuleGraph -> Either GraphError ()
+checkInventoryGraph graph = map (const ()) (checkInventoryExports graph)
 
 public export
 data ProjectOutcome

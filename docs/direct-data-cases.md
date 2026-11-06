@@ -87,7 +87,8 @@ ordinary source-ordered checking. Direct-imported declarations must be exported
 and their module must check fully first. Local branch binders and authored
 constructor references participate in same-file navigation/rename; existing
 single-root project definition can jump from an imported qualified pattern to
-its real declaration. Package-aware editor navigation is not yet implemented.
+its real declaration. The package-aware editor command supports checked package
+graphs and validates source and manifest snapshots.
 Formatting reparses and compares branch syntax before returning output, and
 retains branch alignment.
 
