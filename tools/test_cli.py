@@ -2015,6 +2015,62 @@ class CLITests(unittest.TestCase):
                 checked = run('check', '--source-dir', str(root), str(path))
                 self.assertEqual(checked.returncode == 0, succeeds, checked.stdout + checked.stderr)
 
+    def test_linear_accumulator_checked_general_updates(self):
+        fixture = ROOT / 'examples/modules/linear-accumulator'
+        source = (fixture / 'Main.fib').read_text()
+        example = run('run', '--source-dir', str(fixture), str(fixture / 'Decorated.fib'))
+        self.assertEqual(example.returncode, 0, example.stdout + example.stderr)
+        self.assertEqual(example.stdout, 'b!a!c\n')
+        original = 'reverseOnto tail (Data.Items.Prepend head acc)'
+        self.assertIn(original, source)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(fixture / 'Data', root / 'Data')
+            path = root / 'Main.fib'
+            def project(program):
+                path.write_text(program)
+                return run('run', '--source-dir', str(root), str(path))
+            decorated = source.replace(original, 'reverseOnto tail (Data.Items.Prepend (appendString head "!") acc)')
+            result = project(decorated)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'b!a!c\n')
+            conditional = source.replace(original,
+                'reverseOnto tail (if True then Data.Items.Prepend (appendString head "!") acc else Data.Items.Prepend head acc)')
+            short = lambda program: program[:program.index('join :')] + 'main : IO Unit\nmain = putStrLn "checked"\n'
+            result = project(short(conditional))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            global_tail = ('tail : Data.Items.Items String\ntail = Data.Items.Empty {String}\n'
+                           'items : Data.Items.Items String\nitems = Data.Items.Empty {String}\n')
+            with_globals = short(source).replace('reverseOnto :', global_tail + 'reverseOnto :')
+            self.assertEqual(project(with_globals).returncode, 0)
+            helpers = (global_tail + 'other : Data.Items.Items String\nother = Data.Items.Empty {String}\n'
+                       'consume : (1 xs : Data.Items.Items String) -> String\nconsume xs = case xs of\n'
+                       '  Data.Items.Empty => ""\n'
+                       '  Data.Items.Prepend h t => appendString h (consume t)\n'
+                       'stamp : {0 tag : Data.Items.Items String} -> (1 h : String) -> (1 xs : Data.Items.Items String) -> Data.Items.Items String\n'
+                       'stamp tag h xs = Data.Items.Prepend h xs\n')
+            scoped = short(source).replace('reverseOnto :', helpers + 'reverseOnto :')
+            safe_global = scoped.replace(original, 'reverseOnto tail (Data.Items.Prepend (appendString head (consume other)) acc)')
+            safe_implicit = scoped.replace(original, 'reverseOnto tail (stamp {other} head acc)')
+            for valid in [safe_global, safe_global.replace('consume other', 'consume Main.other'), safe_implicit]:
+                checked = project(valid)
+                self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
+                self.assertEqual(checked.stdout, 'checked\n')
+            invalid = [safe_global.replace('consume other', 'consume tail'),
+                       safe_global.replace('consume other', 'consume items'),
+                       safe_global.replace('consume other', 'consume Main.tail'),
+                       safe_implicit.replace('stamp {other}', 'stamp {tail}'),
+                       with_globals.replace(original, 'reverseOnto tail (Data.Items.Prepend head tail)'),
+                       with_globals.replace(original, 'reverseOnto tail (Data.Items.Prepend head items)'),
+                       short(source).replace(original, 'reverseOnto tail (Data.Items.Prepend head (reverseOnto tail acc))'),
+                       short(source).replace(original, 'reverseOnto tail (Data.Items.Prepend head (reverseOnto items acc))'),
+                       short(source).replace(original, 'reverseOnto tail (Data.Items.Prepend (appendString head head) acc)'),
+                       short(source).replace(original, 'reverseOnto tail (let (1 x : String) = head in Data.Items.Prepend x acc)')]
+            for program in invalid:
+                rejected = project(program)
+                self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
+                self.assertNotIn('Expanded core construction budget exhausted', rejected.stderr)
+
     def test_structural_sequence_recursive_equations(self):
         source = ('module Main\ndata Items {0 A : Type} : Type where\n  Empty : Items A\n'
                   '  Prepend : (1 head : A) -> (1 tail : Items A) -> Items A\n'

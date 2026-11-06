@@ -251,20 +251,30 @@ The [runnable example](../examples/modules/linear-accumulator/Main.fib) uses
 qualified imported constructors. The signature has exactly two linear inputs
 and a result, all the same checked fixed list family. The case scrutinizes the
 first input; the empty branch is exactly the accumulator, and the cons branch
-is exactly the direct self-call on the immediate tail and that family's checked
-cons constructor applied to the head and accumulator. Branch order may be
-reversed. Binder collisions, other arguments, computed updates, duplicate or
-omitted linear values, implicit prefixes, indirect calls and other recursive
-forms are not admitted by this rule.
+is exactly a direct self-call on the immediate tail and an update. Branch order
+may be reversed. The [computed-update example](../examples/modules/linear-accumulator/Decorated.fib)
+transforms each head before adding it to the accumulator.
+
+The update may use the head, accumulator, and visible globals in a bounded
+binder-free expression of ordinary or braced applications, `if`, references,
+and supported literals. It must not refer to the original input, tail, or
+recursive function; qualified references whose final name collides with these
+are conservatively rejected too. Cases, lambdas, lets, do blocks and other
+unlisted forms are rejected. The authored update is elaborated and checked in a
+context with a linear head and linear accumulator, so it cannot duplicate or
+discard them. Implicit prefixes on the recursive function, indirect calls,
+other recursive arguments and additional function parameters remain unsupported.
 
 The compiler lowers this shape to a `SeqFold` returning a linear
 accumulator-to-list function. Its base is the identity; each step builds a
-function that applies the linear induction result to the head consed onto its
-accumulator. The original accumulator is not captured by the repeatedly invoked
+function that applies the linear induction result to the independently checked
+update. The original accumulator is not captured by the repeatedly invoked
 step. The whole generated core is independently checked for types and usage.
 This is syntax over an expressible fold, **not general recursion or use of the
-experimental size-change checker**. Constructor identity is checked, not
-inferred from spelling. Experimental native emission remains unverified.
+experimental size-change checker**. Case-constructor identity is checked, not
+inferred from spelling; authored update applications must satisfy their own
+ordinary types and implicit-argument rules. Experimental native emission remains
+unverified.
 
 ## Bounds, tooling and evidence
 

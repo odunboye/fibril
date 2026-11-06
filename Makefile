@@ -115,6 +115,7 @@ examples: build
 	./build/exec/fibril run --source-dir examples/modules/recursive-data examples/modules/recursive-data/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/recursive-list examples/modules/recursive-list/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/linear-accumulator examples/modules/linear-accumulator/Main.fib
+	./build/exec/fibril run --source-dir examples/modules/linear-accumulator examples/modules/linear-accumulator/Decorated.fib
 	./build/exec/fibril run --source-dir examples/modules/polymorphic-recursion examples/modules/polymorphic-recursion/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/polymorphic-map examples/modules/polymorphic-map/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/uniform-recursion examples/modules/uniform-recursion/Main.fib

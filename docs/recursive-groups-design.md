@@ -25,13 +25,15 @@ reverseOnto items acc = case items of
 ~~~
 
 The recursive call decreases the first list while changing the linear
-accumulator. Fibril accepts exactly this restricted cons-onto-accumulator shape
-by lowering it to an independently checked function-valued `SeqFold`. Its fold
-result is a linear accumulator transformer: the accumulator is supplied to
-that transformer, not captured by the repeatedly invoked fold step. The runnable
+accumulator. Fibril accepts this shape, as well as a bounded class of checked
+updates using the linear head and accumulator, by lowering it to an
+independently checked function-valued `SeqFold`. Its fold result is a linear
+accumulator transformer: the accumulator is supplied to that transformer, not
+captured by the repeatedly invoked fold step. The runnable
 [linear accumulator example](../examples/modules/linear-accumulator/Main.fib)
-uses strings; tests observe empty, singleton and multi-element inputs, including
-a nonempty accumulator. This is direct-style convenience, **not new
+uses strings; the [computed-update example](../examples/modules/linear-accumulator/Decorated.fib)
+transforms each head. Tests observe empty, singleton and multi-element inputs,
+including a nonempty accumulator. This is direct-style convenience, **not new
 expressive power or general termination checking**. It does not use the
 experimental size-change checker. Reference/native agreement is sampled
 behavior, not a backend correctness proof.

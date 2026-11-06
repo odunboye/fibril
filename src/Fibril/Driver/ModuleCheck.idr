@@ -673,19 +673,43 @@ polymorphicSequenceEquation globals name inferred ty (NEquationLambda _ [param, 
         _ => Right Nothing
 polymorphicSequenceEquation _ _ _ _ _ = Right Nothing
 
--- A deliberately narrow accumulator form. It elaborates to an ordinary
--- function-valued fold; no size-change graph or recursive core call is trusted.
+-- A deliberately bounded accumulator form. It elaborates the authored update
+-- into an ordinary function-valued fold; no termination graph is trusted.
 private
-accumulatorCall : String -> String -> String -> String -> Expr -> Maybe (Token, Expr)
-accumulatorCall name tail head acc
-  (NApply _ (NApply _ (NRef _ function) (NRef _ suppliedTail))
-    update@(NApply _ (NApply _ constructor (NRef _ suppliedHead)) (NRef _ suppliedAcc))) =
-  if function /= name || suppliedTail /= tail || suppliedHead /= head || suppliedAcc /= acc
-    then Nothing else case constructor of
-      NRef span value => Just (Located Name value span, update)
-      NQualifiedRef span value => Just (Located Name value span, update)
-      _ => Nothing
-accumulatorCall _ _ _ _ _ = Nothing
+accumulatorCall : String -> String -> Expr -> Maybe Expr
+accumulatorCall name tail (NApply _ (NApply _ (NRef _ function) (NRef _ suppliedTail)) update) =
+  if function == name && suppliedTail == tail then Just update else Nothing
+accumulatorCall _ _ _ = Nothing
+
+-- Do not let a removed input/tail/self binder resolve to a same-named global.
+-- Binder-containing or otherwise unsupported source forms fail closed.
+private
+accumulatorUpdateSafe : List String -> Expr -> Bool
+accumulatorUpdateSafe forbidden (NRef _ ref) = not (elem ref forbidden)
+accumulatorUpdateSafe forbidden (NQualifiedRef _ ref) = case reverse (forget (Data.String.split (== '.') ref)) of
+  short :: _ => not (elem short forbidden)
+  [] => False
+accumulatorUpdateSafe forbidden (NApply _ function argument) =
+  accumulatorUpdateSafe forbidden function && accumulatorUpdateSafe forbidden argument
+accumulatorUpdateSafe forbidden (NImplicitApply _ function argument) =
+  accumulatorUpdateSafe forbidden function && accumulatorUpdateSafe forbidden argument
+accumulatorUpdateSafe forbidden (NIf _ condition yes no) =
+  accumulatorUpdateSafe forbidden condition && accumulatorUpdateSafe forbidden yes && accumulatorUpdateSafe forbidden no
+accumulatorUpdateSafe _ (NSort _ _) = True
+accumulatorUpdateSafe _ (NUnitType _) = True
+accumulatorUpdateSafe _ (NUnitValue _) = True
+accumulatorUpdateSafe _ (NStringType _) = True
+accumulatorUpdateSafe _ (NStringValue _ _) = True
+accumulatorUpdateSafe _ (NBoolType _) = True
+accumulatorUpdateSafe _ (NBoolValue _ _) = True
+accumulatorUpdateSafe _ _ = False
+
+-- The two original update locals are [accumulator, head]. In the generated
+-- step they are [accumulator, induction result, erased tail, head].
+private
+accumulatorScope : Fin 2 -> Fin 4
+accumulatorScope FZ = FZ
+accumulatorScope (FS FZ) = FS (FS (FS FZ))
 
 private
 accumulatorSequenceEquation : List Weighted -> String -> Term 0 -> Expr -> Either ResolveError (Maybe (Term 0))
@@ -714,19 +738,19 @@ accumulatorSequenceEquation globals name ty (NEquationLambda _ [argument, accumu
       if any (== "_") names || length (nub names) /= length names ||
          any (\entry => entry == first.spelling || entry == second.spelling) names
         then Right Nothing else do
-      case (base, accumulatorCall name tail.spelling head.spelling accumulator.spelling body) of
-        (NRef _ baseName, Just (constructor, update)) =>
-          if baseName /= accumulator.spelling || elem constructor.spelling names ||
-             sequenceConstructorTag globals Empty family element constructor /= Just 1
+      case (base, accumulatorCall name tail.spelling body) of
+        (NRef _ baseName, Just update) =>
+          if baseName /= accumulator.spelling ||
+             not (accumulatorUpdateSafe [name, argument.spelling, tail.spelling, recursiveResultName] update)
             then Right Nothing else do
-              -- Validate the authored application itself, not only the global's
-              -- canonical value: explicit erased arguments must not be inferred.
+              -- Elaborate the exact authored update, including implicit
+              -- metadata, then check its linear uses independently.
               let updateContext = Extend (Extend Empty Linear element) Linear (weaken family)
               updateTerm <- elaborateExpected (map global globals) updateContext [accumulator.spelling, head.spelling]
                               (weaken (weaken family)) update
               case checkRuntime checkingDepth typeReductionFuel updateContext updateTerm (weaken (weaken family)) of
-                Left (TypingError CheckingLimit) => Left (CannotElaborate constructor.span.start "Accumulator update checking budget exhausted")
-                Left (TypingError ReductionLimit) => Left (CannotElaborate constructor.span.start "Accumulator update reduction budget exhausted")
+                Left (TypingError CheckingLimit) => Left (CannotElaborate (extent update).start "Accumulator update checking budget exhausted")
+                Left (TypingError ReductionLimit) => Left (CannotElaborate (extent update).start "Accumulator update reduction budget exhausted")
                 Left _ => Right Nothing
                 Right _ => do
                   let continuation : Term 0 = Pi Linear family (weaken family)
@@ -734,9 +758,7 @@ accumulatorSequenceEquation globals name ty (NEquationLambda _ [argument, accumu
                   let stepTerm : Term 0 = Lambda Linear element (Lambda Erased (weaken family)
                         (Lambda Linear (weaken (weaken continuation))
                           (Lambda Linear (weaken (weaken (weaken family)))
-                            (Apply (Variable (FS FZ))
-                              (SeqCons (weaken (weaken (weaken (weaken family))))
-                                (Variable (FS (FS (FS FZ)))) (Variable FZ))))))
+                            (Apply (Variable (FS FZ)) (rename accumulatorScope updateTerm)))))
                   let motive : Term 1 = Lambda Erased (weaken family) (weaken (weaken continuation))
                   Right (Just (Lambda Linear family (SeqFold motive (weaken baseTerm) (weaken stepTerm) (Variable FZ))))
         _ => Right Nothing
@@ -908,8 +930,8 @@ recursiveEquationReserve name expression =
     accumulatorReserve : String -> Expr -> Nat
     accumulatorReserve name (NEquationLambda _ [argument, accumulator] _ (NDataCase _ _ Nothing [(first, firstBinder, firstBody), (second, secondBinder, secondBody)])) =
       let shape = case (firstBinder, secondBinder) of
-            ([], [head, tail]) => isJust (accumulatorCall name tail.spelling head.spelling accumulator.spelling secondBody)
-            ([head, tail], []) => isJust (accumulatorCall name tail.spelling head.spelling accumulator.spelling firstBody)
+            ([], [head, tail]) => isJust (accumulatorCall name tail.spelling secondBody)
+            ([head, tail], []) => isJust (accumulatorCall name tail.spelling firstBody)
             _ => False in
         if shape then 64 + 20 * 513 else 0
     accumulatorReserve _ _ = 0

@@ -1,0 +1,17 @@
+module Decorated
+
+import Data.Items
+
+-- This update changes each head before adding it to the linear accumulator.
+reverseMarked : (1 items : Data.Items.Items String) -> (1 acc : Data.Items.Items String) -> Data.Items.Items String
+reverseMarked items acc = case items of
+  Data.Items.Empty => acc
+  Data.Items.Prepend head tail => reverseMarked tail (Data.Items.Prepend (appendString head "!") acc)
+
+join : (1 items : Data.Items.Items String) -> String
+join items = case items of
+  Data.Items.Empty => ""
+  Data.Items.Prepend head tail => appendString head (join tail)
+
+main : IO Unit
+main = putStrLn (join (reverseMarked (Data.Items.Prepend "a" (Data.Items.Prepend "b" (Data.Items.Empty {String}))) (Data.Items.Prepend "c" (Data.Items.Empty {String}))))
