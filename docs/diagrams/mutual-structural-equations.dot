@@ -1,0 +1,12 @@
+digraph MutualStructuralEquations {
+  rankdir=LR;
+  node [shape=box];
+  source [label="Authored mutual where\nexactly two Nat -> Bool workers"];
+  plan [label="Admit both equations\nbase literals + predecessor targets"];
+  core [label="Two closed NatRec workers\nlinear selector + induction result"];
+  check [label="Independently check both\ntypes + quantitative usage"];
+  publish [label="Publish both atomically\nauthored exports + navigation"];
+  run [label="Existing conversion / reference\nexperimental native emission"];
+  source -> plan -> core -> check -> publish -> run;
+  sct [label="SCT experiment\nnot involved", style=dashed];
+}

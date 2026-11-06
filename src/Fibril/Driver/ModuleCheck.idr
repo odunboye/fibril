@@ -22,6 +22,7 @@ import Fibril.Source.Lexer
 import Fibril.Source.Syntax
 import Fibril.Source.Document
 import Fibril.Source.Declaration
+import Fibril.Elaboration.MutualNat
 import Fibril.Elaboration.Declaration
 import Fibril.Elaboration.Interface
 import Fibril.Elaboration.DataSchema
@@ -1029,10 +1030,103 @@ structuralSites snapshot decl = case decl.value of
         then StructuralSite snapshot.path token.span decl.definitionNameSpan :: collect fuel rest later
         else collect fuel spans later
 
-compileDeclarations : ModuleSnapshot -> List String -> List Weighted -> List Declaration -> Nat ->
+-- A fixed source plan: two bases, two selector targets and authored call sites.
+planMutualMember : ModuleSnapshot -> List Weighted -> List String -> Declaration -> Either GraphError (Bool, Bool, SourceSpan)
+planMutualMember snapshot globals members decl = do
+  if decl.quantity /= Unrestricted || decl.dictionary || decl.generated ||
+     elem decl.name (the (List String) ["_", "Nat", "Zero", "Succ"])
+    then Left (problem snapshot (Just decl.nameSpan.start) "Mutual workers require unrestricted ordinary names") else Right ()
+  case decl.expected of
+    NPi _ Linear binder (NRef _ "Nat") (NBoolType _) =>
+      if elem binder (decl.name :: members ++ ["_", "Nat", "Zero", "Succ"])
+        then Left (problem snapshot (Just decl.nameSpan.start) "Invalid mutual signature binder") else Right ()
+    _ => Left (problem snapshot (Just decl.nameSpan.start) "Mutual workers require an explicit linear Nat parameter and Bool result")
+  case decl.value of
+    NEquationLambda _ [argument] _ (NDataCase span (NRef _ scrutinee) Nothing [(first, firstBinders, firstBody), (second, secondBinders, secondBody)]) => do
+      if argument.spelling /= scrutinee || elem argument.spelling (members ++ ["_", "Nat", "Zero", "Succ"])
+        then Left (problem snapshot (Just argument.span.start) "Invalid mutual equation argument") else Right ()
+      (base, predecessor, successor) <- case (first.spelling, firstBinders, second.spelling, secondBinders) of
+        ("Zero", [], "Succ", [predecessor]) => Right (firstBody, predecessor, secondBody)
+        ("Succ", [predecessor], "Zero", []) => Right (secondBody, predecessor, firstBody)
+        _ => Left (problem snapshot (Just span.start) "Mutual equations require exhaustive Zero and Succ predecessor arms")
+      if elem predecessor.spelling (argument.spelling :: members ++ ["_", "Nat", "Zero", "Succ"])
+        then Left (problem snapshot (Just predecessor.span.start) "Invalid mutual predecessor binder") else Right ()
+      baseValue <- the (Either GraphError Bool) $ case base of
+        NBoolValue _ value => Right value
+        _ => Left (problem snapshot (Just (extent base).start) "Mutual zero arms require Bool literals")
+      case successor of
+        NApply _ (NRef callSpan target) (NRef _ actual) =>
+          if actual == predecessor.spelling && elem target members
+            then Right (baseValue, target == declName, callSpan)
+            else Left (problem snapshot (Just (extent successor).start) "Mutual successor calls must target a group member on the immediate predecessor")
+        _ => Left (problem snapshot (Just (extent successor).start) "Mutual successor arms require one saturated predecessor call")
+    _ => Left (problem snapshot (Just decl.definitionNameSpan.start) "Mutual workers require one parameter and a direct exhaustive Nat case")
+  where
+    declName : String
+    declName = case members of first :: _ => first; [] => ""
+
+compileMutual : ModuleSnapshot -> List String -> List Weighted -> MutualDeclaration -> Nat -> Either GraphError Compiled
+compileMutual snapshot moduleName globals group remaining = do
+  if remaining < 128 then Left (problem snapshot (Just group.span.start) "Expanded core construction budget exhausted (200000)") else Right ()
+  let members = [group.first.name, group.second.name]
+  if group.first.name == group.second.name || not (natBuiltinsVisible globals) ||
+     any (\name => isJust (find (\entry => entry.global.name == name) globals) ||
+       not (null (qualifiedCandidates name (map global globals)))) members
+    then Left (problem snapshot (Just group.span.start) "Mutual names and Nat constructors must be unshadowed and distinct") else Right ()
+  if any (\decl => cost remaining globals [] decl.expected > 32) (the (List Declaration) [group.first, group.second])
+    then Left (problem snapshot (Just group.span.start) "Mutual signature expansion admission exhausted (32)") else Right ()
+  (base0, target0, site0) <- planMutualMember snapshot globals members group.first
+  (base1, target1, site1) <- planMutualMember snapshot globals members group.second
+  -- Canonical admitted signatures cannot clone imported aliases or expand globals.
+  ty0 <- signature group.first
+  ty1 <- signature group.second
+  let value0 = worker base0 base1 target0 target1 True
+  let value1 = worker base0 base1 target0 target1 False
+  if nodes ty0 + nodes ty1 + nodes value0 + nodes value1 > 128
+    then Left (problem snapshot Nothing "Internal mutual construction reservation was insufficient") else Right ()
+  checked group.first value0 ty0
+  checked group.second value1 ty1
+  let one = definition group.first ty0 value0
+  let two = definition group.second ty1 value1
+  let sites = [StructuralSite snapshot.path (callToken site0) (if target0 then group.first.definitionNameSpan else group.second.definitionNameSpan),
+               StructuralSite snapshot.path (callToken site1) (if target1 then group.first.definitionNameSpan else group.second.definitionNameSpan)]
+  Right (Definitions [one, two] (if group.exported then [qualify one, qualify two] else []) sites (minus remaining 128))
+  where
+    signature : Declaration -> Either GraphError (Term 0)
+    signature decl = case elaborateSignatureWith False (map global globals) (Just Empty) [] decl.expected of
+      Left err => Left (problem snapshot (Just err.position) (show err))
+      Right ty => case guardedNormal typeReductionFuel ty of
+        Just normalized => if sameSyntax normalized (Pi Linear NatType BoolType) then Right normalized
+          else Left (problem snapshot (Just decl.nameSpan.start) "Mutual signature must resolve to literal Nat -> Bool")
+        Nothing => Left (problem snapshot (Just decl.nameSpan.start) "Mutual signature normalization admission exhausted")
+
+    checked : Declaration -> Term 0 -> Term 0 -> Either GraphError ()
+    checked decl value ty = case checkRuntime checkingDepth typeReductionFuel Empty value ty of
+      Left err => Left (declarationFailure snapshot decl "runtime-checking" "Mutual worker checking:" (show err))
+      Right _ => Right ()
+
+    definition : Declaration -> Term 0 -> Term 0 -> Weighted
+    definition decl ty value = weighted (GlobalEntry Nothing (Just (moduleText moduleName ++ "." ++ decl.name)) 0 Unrestricted decl.name ty value)
+
+    qualify : Weighted -> Weighted
+    qualify entry = { global := { name := moduleText moduleName ++ "." ++ entry.global.name } entry.global } entry
+
+    callToken : SourceSpan -> SourceSpan
+    callToken span = case find (\token => token.kind == Name && elem token.spelling (the (List String) [group.first.name, group.second.name]) &&
+      token.span.start.offset >= span.start.offset && token.span.finish.offset <= span.finish.offset) snapshot.document.tokens of
+        Just token => token.span
+        Nothing => span
+
+compileDeclarations : ModuleSnapshot -> List String -> List Weighted -> List LoweredItem -> Nat ->
                       Either GraphError Compiled
 compileDeclarations snapshot name globals [] remaining = Right (Definitions [] [] [] remaining)
-compileDeclarations snapshot name globals (decl :: rest) remaining = do
+compileDeclarations snapshot name globals (MutualNatBool group :: rest) remaining = do
+  own <- compileMutual snapshot name globals group remaining
+  let qualified = map (\entry => { global := { name := moduleText name ++ "." ++ entry.global.name } entry.global } entry) own.locals
+  following <- compileDeclarations snapshot name (own.locals ++ qualified ++ globals) rest own.remaining
+  Right (Definitions (own.locals ++ following.locals) (own.exports ++ following.exports)
+    (own.sites ++ following.sites) following.remaining)
+compileDeclarations snapshot name globals (Single decl :: rest) remaining = do
   if decl.quantity == Linear || decl.name == "_"
      then Left (problem snapshot (Just decl.nameSpan.start)
                 "Module globals require erased/unrestricted quantities and referenceable names")
@@ -1316,7 +1410,9 @@ compileGraph requireEntry graph prelude interfaces remaining sites (snapshot :: 
          then Left (problem snapshot (Just header.nameSpan.start) "Duplicate checked module identity")
          else Right ()
       declarations <- case snapshot.document.body of
-        DeclarationDocument authored => elaborateAt snapshot schemas (map (\entry => entry.global.name) imported) authored
+        DeclarationDocument authored => case elaborateModuleItemsInWithImports (Just (moduleText header.components)) schemas (map (\entry => entry.global.name) imported) 64 authored of
+          Left err => Left ({ stage := "elaboration" } (problem snapshot (Just err.position) err.message))
+          Right items => Right items
         EmptyDocument => Right []
         _ => Left (problem snapshot Nothing "Named modules require declarations")
       compiled <- compileDeclarations snapshot header.components globals declarations remaining

@@ -188,6 +188,15 @@ dataFields context env (field :: rest) =
 
 declarations : Walker destination -> Environment destination -> List AuthoredDeclaration -> List (ReferenceTo destination)
 declarations context env [] = []
+declarations context env (MutualItem group :: rest) =
+  let members = [group.first, group.second]
+      scope = foldl (\scope, decl => (decl.name, Just (context.localTarget decl.definitionNameSpan)) :: scope) env members
+      refs = concatMap (\decl =>
+        [RefersTo decl.nameSpan (context.localTarget decl.definitionNameSpan),
+         RefersTo decl.definitionNameSpan (context.localTarget decl.definitionNameSpan)] ++
+        walk context env decl.expected ++ walk context scope decl.value) members
+   in refs ++ declarations context scope rest
+
 declarations context env (Ordinary decl :: rest) =
   (if decl.name == "_" then [] else if decl.generated then
     [RefersTo decl.nameSpan (context.localTarget decl.definitionNameSpan)] else

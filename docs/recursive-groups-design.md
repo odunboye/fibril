@@ -15,7 +15,10 @@ or source termination checking. The existing
 [size-change experiment](size-change-certificates.md) checks synthetic bodies,
 not Fibril programs. Isolated experiments also check and run a tightly
 restricted open ordinary-core body under a hypothetical self variable. None of
-these group experiments changes what the compiler accepts.
+these group experiments changes what the compiler accepts. Separately,
+[bounded mutual structural equations](mutual-structural-equations.md) compile
+two Nat/Bool workers to existing ordinary Nat recursors; that source sugar does
+not use this group representation or its SCT verdict.
 
 ## A concrete goal
 

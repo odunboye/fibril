@@ -40,6 +40,151 @@ def run(*args, cwd=ROOT):
 
 
 class CLITests(unittest.TestCase):
+    def test_mutual_nat_selector_tables(self):
+        # Every base/transition table, not just the even/odd cross-call case.
+        for bits in range(16):
+            b0, b1, t0, t1 = [bool(bits & (1 << bit)) for bit in range(4)]
+            target = lambda bit: 'first' if bit else 'second'
+            boolean = lambda bit: 'True' if bit else 'False'
+            with self.subTest(bits=bits), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                path = root / 'Main.fib'
+                observations, expected = [], []
+                for entry, name in enumerate(['first', 'second']):
+                    for count in range(4):
+                        nat = 'Zero'
+                        for _ in range(count):
+                            nat = f'(Succ {nat})'
+                        observations.append(f'  putStrLn (if {name} {nat} then "T" else "F")')
+                        state = entry
+                        for _ in range(count):
+                            state = 0 if [t0, t1][state] else 1
+                        expected.append('T' if [b0, b1][state] else 'F')
+                path.write_text(f'''module Main
+mutual where
+  first : (1 n : Nat) -> Bool
+  first n = case n of
+    Zero => {boolean(b0)}
+    Succ previous => {target(t0)} previous
+  second : (1 n : Nat) -> Bool
+  second n = case n of
+    Succ previous => {target(t1)} previous
+    Zero => {boolean(b1)}
+main : IO Unit
+main = do
+''' + '\n'.join(observations) + '\n')
+                result = run('run', '--source-dir', directory, str(path))
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(result.stdout, '\n'.join(expected) + '\n')
+
+    def test_mutual_nat_fail_closed_source_boundary(self):
+        source = '''module Main
+mutual where
+  first : (1 n : Nat) -> Bool
+  first n = case n of
+    Zero => True
+    Succ previous => second previous
+  second : (1 n : Nat) -> Bool
+  second n = case n of
+    Zero => False
+    Succ previous => first previous
+main : Bool
+main = first Zero
+'''
+        mutations = [
+            ('second previous', 'second n'),
+            ('second previous', 'second (Succ previous)'),
+            ('second previous', 'first'),
+            ('second previous', 'second previous previous'),
+            ('second previous', 'Main.second previous'),
+            ('second previous', 'if True then second previous else first previous'),
+            ('Zero => False', 'Zero => missing'),
+            ('Zero => False', 'Succ other => False'),
+            ('(1 n : Nat)', '(0 n : Nat)'),
+            ('(1 n : Nat)', '(n : Nat)'),
+            ('second : (1 n : Nat) -> Bool', 'second : (1 n : Bool) -> Bool'),
+            ('  second n = case n of', '  second n = case Zero of'),
+            ('    Succ previous => first previous', '    Succ first => first first'),
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Main.fib'
+            for old, new in mutations:
+                with self.subTest(new=new):
+                    path.write_text(source.replace(old, new))
+                    result = run('check', '--json', '--source-dir', directory, str(path))
+                    self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+            # Neither source order nor group placement enables ordinary forward refs.
+            path.write_text(source.replace('mutual where', 'earlier : Bool\nearlier = first Zero\nmutual where'))
+            self.assertNotEqual(run('check', '--source-dir', directory, str(path)).returncode, 0)
+            # A headerless adapter must not silently flatten/drop the group.
+            path.write_text(source.replace('module Main\n', ''))
+            self.assertNotEqual(run('check', str(path)).returncode, 0)
+
+    def test_mutual_nat_group_framing_and_shadowing(self):
+        fixture = (ROOT / 'examples/modules/mutual-parity/Main.fib').read_text()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Main.fib'
+            invalid = [
+                fixture.replace('  even :', '  export\n  even :'),
+                fixture[:fixture.index('  odd :')],
+                fixture.replace('main : IO Unit', '  third : Bool\n  third = True\nmain : IO Unit'),
+                fixture.replace('  odd :', '  mutual where\n  odd :'),
+                fixture.replace('  odd :', '  even :'),
+                fixture.replace('mutual where', 'Zero : Nat\nZero = Succ Zero\nmutual where'),
+                fixture.replace('mutual where', 'Nat : Type\nNat = Bool\nmutual where'),
+                fixture.replace('mutual where', 'mutual'),
+            ]
+            for number, source in enumerate(invalid):
+                with self.subTest(number=number):
+                    path.write_text(source)
+                    result = run('check', '--source-dir', directory, str(path))
+                    self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_mutual_nat_import_format_and_navigation(self):
+        fixture = (ROOT / 'examples/modules/mutual-parity/Main.fib').read_text()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            parity = root / 'Parity.fib'
+            parity.write_text(fixture.split('main : IO Unit')[0].replace('module Main', 'module Parity'))
+            main = root / 'Main.fib'
+            main.write_text('module Main\nimport Parity (odd)\nmain : IO Unit\nmain = putStrLn (if odd (Succ Zero) then "yes" else "no")\n')
+            args = ['--source-dir', directory, str(main)]
+            result = run('run', *args)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'yes\n')
+            formatted = run('format', str(parity))
+            self.assertEqual(formatted.returncode, 0, formatted.stderr)
+            parity.write_text(formatted.stdout)
+            self.assertEqual(run('format', '--check', str(parity)).returncode, 0)
+            self.assertEqual(run('check', *args).returncode, 0)
+            lines = parity.read_text().splitlines()
+            call_line = next(i for i, line in enumerate(lines, 1) if '=> odd predecessor' in line)
+            column = lines[call_line - 1].index('odd') + 1
+            definition = run('definition', '--source-dir', directory, '--entry', str(main),
+                             str(call_line), str(column), str(parity))
+            self.assertEqual(definition.returncode, 0, definition.stdout + definition.stderr)
+            report = json.loads(definition.stdout)
+            self.assertTrue(report['checked'])
+            target_line = next(i for i, line in enumerate(lines, 1) if line.startswith('  odd n ='))
+            self.assertEqual(report['definition']['range']['start']['line'], target_line)
+            self.assertEqual(report['definition']['range']['start']['column'], 3)
+            symbols = json.loads(run('symbols', str(parity)).stdout)['symbols']
+            self.assertEqual([symbol['name'] for symbol in symbols], ['even', 'odd'])
+            self.assertTrue(all(symbol['exported'] for symbol in symbols))
+            self.assertNotEqual(run('elaborate', str(parity)).returncode, 0)
+            # An invalid unselected member prevents the whole interface publishing.
+            valid = parity.read_text()
+            parity.write_text(valid.replace('Zero => True', 'Zero => missing'))
+            self.assertNotEqual(run('check', *args).returncode, 0)
+            parity.write_bytes(valid.replace('\n', '\r\n').encode())
+            formatted_crlf = run_cli('format', str(parity), text=False)
+            self.assertEqual(formatted_crlf.returncode, 0, formatted_crlf.stderr)
+            self.assertIn(b'\r\n', formatted_crlf.stdout)
+            parity.write_text(valid)
+            parity.write_text(parity.read_text().replace('export\n', ''))
+            self.assertNotEqual(run('check', *args).returncode, 0)
+
+
     def test_timeout_cleans_up_wrapper_children_with_open_pipes(self):
         with tempfile.TemporaryDirectory() as directory:
             wrapper = Path(directory) / 'wrapper'

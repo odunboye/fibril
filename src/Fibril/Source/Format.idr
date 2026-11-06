@@ -212,6 +212,7 @@ breakpoints document = case document.body of
             (planExpression document.tokens (indentation + length (unpack method.name.spelling) + 3) method.value)) block.methods
     ImplementationItem decl => planExpression document.tokens (length (unpack decl.name) + 20) decl.expected ++
                                planExpression document.tokens (length (unpack decl.name) + 3) decl.value
+    MutualItem _ => []
     DataItem _ => []
     RecordItem _ => []
     InterfaceItem _ => []) authored

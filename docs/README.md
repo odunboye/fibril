@@ -26,6 +26,7 @@ The generated homepage separates teaching chapters, references, and project reco
 
 - [Data-case motive inference](data-motive-inference.md): omit `return` for supported constant and expected-dependent results.
 
+- [Bounded mutual structural equations](mutual-structural-equations.md): two Nat/Bool workers lowered to existing checked recursors, not SCT admission.
 - [Named function equations](function-equations.md): inherit parameter domains and quantities from explicit signatures.
 
 - [Bare Type](bare-type.md): notation for Type 0, with explicit higher universes unchanged.

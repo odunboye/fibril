@@ -4,6 +4,9 @@ import Data.Fin
 import Data.List
 import Data.Vect
 import Fibril.Core.Context
+import Fibril.Core.Reduction
+import Fibril.Core.Renaming
+import Fibril.Elaboration.MutualNat
 import Fibril.Core.Quantity
 import Fibril.Core.Runtime
 import Fibril.Core.RecursiveGroup
@@ -296,10 +299,33 @@ rejectedCertificate group = case Fibril.Termination.GroupCalls.extract group of
       _ => False
     _ => False
 
+-- For every finite dispatch table, constructor equations hold on an OPEN
+-- predecessor by existing beta/iota reduction, not merely sampled evaluation.
+openEquation : Term 0 -> Term 0 -> Bool
+openEquation entry target =
+  case betaCompare 128 (the (Term 1) (Apply (weaken entry) (NatSucc (Variable FZ))))
+                       (Apply (weaken target) (Variable FZ)) of
+    EqualNormalForms => True
+    _ => False
+
+mutualEquations : Bool -> Bool -> Bool -> Bool -> Bool
+mutualEquations base0 base1 target0 target1 =
+  let first = worker base0 base1 target0 target1 True
+      second = worker base0 base1 target0 target1 False
+      ty = Pi Linear NatType BoolType
+   in accepted (checkRuntime 256 256 Empty first ty) &&
+      accepted (checkRuntime 256 256 Empty second ty) &&
+      openEquation first (if target0 then first else second) &&
+      openEquation second (if target1 then first else second)
+
 public export
 checks : List (String, Bool)
 checks =
-  [ ("recursive group stores separately scoped mutual call targets",
+  [ ("mutual structural lowering checks and satisfies open successor equations for all tables",
+      all (\base0 => all (\base1 => all (\target0 => all (mutualEquations base0 base1 target0)
+        (the (List Bool) [False, True])) (the (List Bool) [False, True]))
+        (the (List Bool) [False, True])) (the (List Bool) [False, True]))
+  , ("recursive group stores separately scoped mutual call targets",
       case (memberAt parity FZ, memberAt parity (FS FZ)) of
         (MkMember evenType (CaseNat (Variable FZ) (Return BoolTrue) (Call (FS FZ) [Variable FZ])),
          MkMember oddType (CaseNat (Variable FZ) (Return BoolFalse) (Call FZ [Variable FZ]))) =>
