@@ -162,7 +162,9 @@ boundedInstantiationCorpus = all checkPair
   [(value, body) | value <- values, body <- bodies]
   where
     values : List (ScopedInterval 0)
-    values = [Zero, One, Reverse Zero, Meet One (Reverse Zero), Join Zero One]
+    values =
+      let atoms = the (List (ScopedInterval 0)) [Zero, One, Reverse Zero] in
+      atoms ++ [f x y | x <- atoms, y <- atoms, f <- [Meet, Join]]
 
     bodies : List (CorePathExpr 1)
     bodies =
@@ -179,8 +181,11 @@ boundedInstantiationCorpus = all checkPair
       let expected = instantiateCoreDimension value body
           exact = pathNodeCount expected in
       case (instantiateCoreWithin exact value body,
-            instantiateCoreWithin (pred exact) value body) of
-        (Just result, Nothing) => sameCorePath result expected
+            instantiateCoreWithin (pred exact) value body,
+            instantiateCoreWithin (S exact) value body) of
+        (Just result, Nothing, Just larger) =>
+          sameCorePath result expected && sameCorePath larger expected &&
+          pathWithinBudget exact result && not (pathWithinBudget (pred exact) result)
         _ => False
 
 boundedOpenInstantiationCorpus : Bool
@@ -188,7 +193,9 @@ boundedOpenInstantiationCorpus = all checkPair
   [(value, body) | value <- values, body <- bodies]
   where
     values : List (ScopedInterval 1)
-    values = [Var FZ, Reverse (Var FZ), Meet (Var FZ) One, Join (Var FZ) (Reverse (Var FZ))]
+    values =
+      let atoms = the (List (ScopedInterval 1)) [Zero, One, Var FZ, Reverse (Var FZ)] in
+      atoms ++ [f x y | x <- atoms, y <- atoms, f <- [Meet, Join]]
 
     bodies : List (CorePathExpr 2)
     bodies =
@@ -204,8 +211,11 @@ boundedOpenInstantiationCorpus = all checkPair
       let expected = instantiateCoreDimension value body
           exact = pathNodeCount expected in
       case (instantiateCoreWithin exact value body,
-            instantiateCoreWithin (pred exact) value body) of
-        (Just result, Nothing) => sameCorePath result expected
+            instantiateCoreWithin (pred exact) value body,
+            instantiateCoreWithin (S exact) value body) of
+        (Just result, Nothing, Just larger) =>
+          sameCorePath result expected && sameCorePath larger expected &&
+          pathWithinBudget exact result && not (pathWithinBudget (pred exact) result)
         _ => False
 
 checks : List (String, Bool)
