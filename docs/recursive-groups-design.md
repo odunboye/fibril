@@ -6,9 +6,9 @@
 recursive-call core node, or general source termination checking. The existing
 [structural equations](function-equations.md) lower to checked recursors. The
 [size-change experiment](size-change-certificates.md) checks synthetic bodies,
-not Fibril programs. A new isolated experiment checks ordinary typing of an
-actual open core body under a hypothetical self variable, as described below.
-None of this changes what the compiler accepts.
+not Fibril programs. Isolated experiments also check and run a tightly
+restricted actual open core body under a hypothetical self variable, as described
+below. None of this changes what the compiler accepts.
 
 ## A concrete goal
 
@@ -106,7 +106,31 @@ reordered and missing calls, stale graphs and invalid closures.
 Even `GraphAccepted` is **not authority to admit recursion**. There is no
 recursive core representation or semantics, no proof that this restricted
 walk is complete or preserves typing, and no connection to source acceptance,
-evaluation, conversion or a backend.
+ordinary evaluation, conversion or a backend.
+
+## Isolated core-body reference experiment
+
+`Fibril.Termination.CoreReference.evaluate` exercises this restricted actual
+body without adding a recursive core construct. Every invocation reruns
+`verifyCore` on the candidate and supplied calls and closure. It accepts only
+two bounded, closed, canonical lists of natural numbers with the exact list
+key. It applies the open body to those inputs and follows existing
+`Core.Reduction.step` contractions, except that a root saturated self-call
+unfolds to the same body applied to its arguments. The checked fragment admits
+no nested self calls; an unexpected neutral or noncanonical final term is not
+success. It returns only a canonical closed list and rechecks its ordinary type
+and runtime usage.
+
+Each ordinary contraction and self-unfold costs fuel. Zero fuel does not invoke
+a speculative reduction step. Input admission, a conservative transition
+node/key growth estimate before each step, a 64-character candidate key limit
+and a 4,096-step maximum are separate policies; exhaustion is a failure, not a
+partial result. They are not hard limits on host time, stack or allocation.
+The reference strategy and ordinary checking have no proved preservation,
+normalization, or equivalence theorem. Running this isolated experiment does
+not expose recursion to Fibril source, ordinary conversion, the evaluator or
+backends. Tests observe actual reverse order, including a nonempty accumulator,
+and reject invalid inputs, stale or forged graphs and insufficient fuel.
 
 ## Candidate first core fragment
 
@@ -217,9 +241,11 @@ bound, no external IO termination, and no backend correctness.
 2. **Checked reference slice:** independently check actual core/group bodies,
    their types, coverage and quantities; authenticate all call sites; verify
    their certificate; and evaluate the same checked bodies under explicit fuel.
-   The target is the `reverseOnto` example, not a hand-authored graph or
-   precomputed result. Keep it isolated from dependent conversion and source
-   acceptance until their contracts are implemented.
+   The isolated reference experiment above is an initial piece of this stage,
+   not its completion: the target is the `reverseOnto` example with a checked
+   recursive representation, not a hand-authored graph or precomputed result.
+   Keep it isolated from dependent conversion and source acceptance until their
+   contracts are implemented.
 3. **Source and integration:** elaborate a narrowly supported source form into
    that checked representation, preserve authored diagnostics, recheck the
    finished artifact, and make unsupported source and backends fail closed.

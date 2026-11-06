@@ -105,8 +105,8 @@ check depth reduction candidate proposed = do
     _ => Left (BodyOrGraphMismatch "extra call site")
 
 ||| Verify a closure only after separately checking the exact core call sites.
-||| Even GraphAccepted cannot admit recursion: this fragment has no recursive
-||| core semantics or proof of extraction/typing preservation.
+||| Even GraphAccepted cannot admit general recursion: this fragment has no
+||| recursive core semantics or proof of extraction/typing preservation.
 public export
 verifyCore : (depth : Nat) -> (reduction : Nat) -> Candidate -> List Call -> List Call -> Either CoreCheckProblem Verdict
 verifyCore depth reduction candidate proposed certificate = do

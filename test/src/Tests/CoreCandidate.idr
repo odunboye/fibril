@@ -10,6 +10,7 @@ import Fibril.Termination.CoreCandidate
 import Fibril.Termination.SizeChange
 import Fibril.Termination.CoreCalls
 import Fibril.Termination.CoreCheck
+import Fibril.Termination.CoreReference
 
 %default total
 
@@ -102,6 +103,21 @@ largeBody : Nat -> Term (S n)
 largeBody Z = Variable FZ
 largeBody (S n) = NatSucc (largeBody n)
 
+natValue : Nat -> Term 0
+natValue Z = NatZero
+natValue (S value) = NatSucc (natValue value)
+
+listValue : List Nat -> Term 0
+listValue [] = SeqNil listTy
+listValue (value :: rest) = SeqCons listTy (natValue value) (listValue rest)
+
+reverseEdge : Call
+reverseEdge = Edge 0 0 [[Decreases, Unknown], [Unknown, Unknown]]
+
+referenceReverse : Nat -> List Nat -> List Nat -> Either ReferenceProblem (Term 0)
+referenceReverse fuel first second =
+  evaluate 512 128 fuel reverseCandidate [reverseEdge] [reverseEdge] (listValue first) (listValue second)
+
 public export
 checks : List (String, Bool)
 checks =
@@ -144,6 +160,51 @@ checks =
               _ => False
             _ => False
         _ => False)
+  , ("core reference evaluates actual reverse body and preserves accumulator order",
+      case (referenceReverse 128 [] [2], referenceReverse 128 [0] [], referenceReverse 128 [0, 1] [2]) of
+        (Right empty, Right singleton, Right multiple) =>
+          sameSyntax empty (listValue [2]) && sameSyntax singleton (listValue [0]) &&
+          sameSyntax multiple (listValue [1, 0, 2])
+        _ => False)
+  , ("core reference charges each ordinary contraction and self unfold",
+      case (referenceReverse 15 [0, 1] [], referenceReverse 14 [0, 1] []) of
+        (Right result, Left ReferenceFuelExhausted) => sameSyntax result (listValue [1, 0])
+        _ => False)
+  , ("core reference handles a case on the second argument",
+      let edge = Edge 0 0 [[Unknown, Unknown], [Unknown, Decreases]] in
+      case (evaluate 512 128 15 secondScrutinee [edge] [edge] (listValue [2]) (listValue [0, 1]),
+            evaluate 512 128 14 secondScrutinee [edge] [edge] (listValue [2]) (listValue [0, 1])) of
+        (Right result, Left ReferenceFuelExhausted) => sameSyntax result (listValue [1, 0, 2])
+        _ => False)
+  , ("core reference distinguishes zero fuel and forged certificates",
+      case (referenceReverse 0 [0] [],
+            evaluate 512 128 128 reverseCandidate [reverseEdge] [] (listValue [0]) (listValue []),
+            evaluate 512 128 128 reconstructed [reverseEdge] [reverseEdge] (listValue [0]) (listValue []),
+            evaluate 512 128 128 reverseCandidate [reverseEdge] (replicate 33 reverseEdge) (listValue [0]) (listValue [])) of
+        (Left ReferenceFuelExhausted, Left (CertificateRejected _), Left (VerificationFailure _), Left (CertificateInconclusive _)) => True
+        _ => False)
+  , ("core reference rejects a correctly described nondecreasing cycle",
+      let edge = Edge 0 0 [[Unknown, Unknown], [Unknown, NonIncreasing]] in
+      case evaluate 512 128 128 reconstructed [edge] [edge] (listValue [0]) (listValue []) of
+        Left (CertificateRejected _) => True
+        _ => False)
+  , ("core reference rejects wrong list keys and noncanonical inputs",
+      case (evaluate 512 128 128 reverseCandidate [reverseEdge] [reverseEdge] (SeqNil (SeqType "Wrong" NatType)) (listValue []),
+            evaluate 512 128 128 reverseCandidate [reverseEdge] [reverseEdge] (SeqCons listTy BoolTrue (listValue [])) (listValue []),
+            evaluate 512 128 128 reverseCandidate [reverseEdge] [reverseEdge] (listValue []) (NatSucc NatZero),
+            evaluate 512 128 128 reverseCandidate [reverseEdge] [reverseEdge] (SeqCons listTy NatZero (SeqNil (SeqType "Wrong" NatType))) (listValue [])) of
+        (Left (InvalidInput _), Left (InvalidInput _), Left (InvalidInput _), Left (InvalidInput _)) => True
+        _ => False)
+  , ("core reference rejects exceeded input and transition admissions",
+      (case (referenceReverse 128 (replicate 31 0) [], referenceReverse 128 (replicate 30 0) []) of
+        (Left (ReferenceAdmission input), Left (ReferenceAdmission growth)) =>
+          input == "input-node admission exhausted (128)" && growth == "reference transition growth admission exhausted"
+        _ => False) &&
+      (case (referenceReverse 512 (replicate 5 0) [], referenceReverse 4096 [] [], referenceReverse 4097 [] []) of
+        (Right small, Right empty, Left (ReferenceAdmission fuel)) =>
+          fuel == "reference fuel admission exhausted (4096)" &&
+          sameSyntax small (listValue (replicate 5 0)) && sameSyntax empty (listValue [])
+        _ => False))
   , ("core certificate admission exhaustion is inconclusive",
       let edge = Edge 0 0 [[Decreases, Unknown], [Unknown, Unknown]] in
       case Fibril.Termination.CoreCheck.verifyCore 512 128 reverseCandidate [edge] (replicate 33 edge) of
