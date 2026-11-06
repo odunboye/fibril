@@ -5,6 +5,8 @@ import Data.Fin
 import Fibril.Core.Quantity
 import Fibril.Core.Term
 import Fibril.Source.Global
+import Fibril.Source.Primitive.Input
+import Fibril.Source.Primitive.Resource
 
 %default total
 
@@ -74,6 +76,7 @@ natRecWithValue = Lambda Erased natMotive
 public export
 primitiveGlobals : List GlobalDefinition
 primitiveGlobals =
+  resourcePrimitiveGlobals ++ inputPrimitiveGlobals ++
   [ GlobalWithQuantity Erased "Nat" (Universe 0) NatType
   , Global "Zero" NatType NatZero
   , Global "Succ" (Pi Linear NatType NatType) (Lambda Linear NatType (NatSucc (Variable FZ)))

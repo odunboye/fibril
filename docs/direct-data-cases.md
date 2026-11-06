@@ -78,8 +78,9 @@ family indexed by a finite choice and returns a different value type per branch.
 - This slice runs through named-module project checking (`--source-dir` or
   `--package`); standalone declaration-file checking does not publish the
   checked globals required by these patterns. Local patterns use unqualified
-  names; imported patterns can use qualified names or unique short names from an
-  explicit direct source-module import. Package-level direct-dependency permissions and private
+  names; exported constructors from direct imports may be qualified or, if their
+  short name is unique, unqualified. Ambiguous names require qualification.
+  Package-level direct-dependency permissions and private
   exports still apply. An unqualified local shadow is rejected; qualified names
   are not captured by local binders.
 - A pattern name is accepted when its checked global value is definitionally
@@ -93,7 +94,8 @@ ordinary source-ordered checking. Direct-imported declarations must be exported
 and their module must check fully first. Local branch binders and authored
 constructor references participate in same-file navigation/rename; existing
 single-root project definition can jump from an imported qualified pattern to
-its real declaration. Package-aware editor navigation is not yet implemented.
+its real declaration. The package-aware editor command supports checked package
+graphs and validates source and manifest snapshots.
 Formatting reparses and compares branch syntax before returning output, and
 retains branch alignment.
 

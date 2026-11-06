@@ -24,6 +24,14 @@ public export
 Show ElaborationError where
   show err = show err.position ++ ": " ++ err.message
 
+qualifiedMatches : String -> List String -> List String
+qualifiedMatches target [] = []
+qualifiedMatches target (name :: rest) =
+  let following = qualifiedMatches target rest in
+  case reverse (forget (Data.String.split (== '.') name)) of
+    short :: _ :: _ => if short == target then name :: following else following
+    _ => following
+
 mutual
   fieldPis : SourceSpan -> List RecordField -> Expr -> Expr
   fieldPis region [] body = body
@@ -459,16 +467,23 @@ mutual
        then Left (ElaborationFailure method.name.span.start ("Unknown implementation method " ++ method.name.spelling)) else Right ()
     validateMethods allowed (method.name.spelling :: seen) rest
 
-  lowerImplementation : List InterfaceSchema -> Nat -> ImplementationDefinition -> Either ElaborationError (Nat, List Declaration)
-  lowerImplementation schemas budget block = do
+  lowerImplementation : List InterfaceSchema -> List String -> List String -> Nat -> ImplementationDefinition -> Either ElaborationError (Nat, List Declaration)
+  lowerImplementation schemas imported seen budget block = do
     let (params, result) = implementationTelescope block.target
     (target, args) <- case dictionaryTarget result [] of
       Nothing => Left (ElaborationFailure (extent result).start "Implementation block result must name a visible interface")
       Just result => Right result
     schema <- case find (\schema => schema.name == target) schemas of
-      Nothing => Left (ElaborationFailure (extent result).start
-        "Interface schema unavailable for method block; use a visible interface or an explicit dictionary expression")
+      Nothing =>
+        let matches = qualifiedMatches target imported in
+        if not (elem target seen) && length matches > 1
+          then Left (ElaborationFailure (extent result).start
+            ("Ambiguous imported interface " ++ target ++ "; candidates: " ++ concat (intersperse ", " matches) ++ "; use a qualified name"))
+          else Left (ElaborationFailure (extent result).start
+            "Interface schema unavailable for method block; use a visible interface or an explicit dictionary expression")
       Just schema => Right schema
+    if not schema.constructorVisible
+       then Left (ElaborationFailure (extent result).start "Implementation block requires the interface constructor to be imported") else Right ()
     if length args /= schema.parameterCount
        then Left (ElaborationFailure (extent result).start "Implementation block interface parameters must be explicit") else Right ()
     validateMethods schema.methods [] block.methods
@@ -489,13 +504,13 @@ mutual
        then Left (ElaborationFailure block.name.span.start "Internal implementation construction estimate was insufficient") else Right ()
     Right (cost, [generated])
 
-  lowerItem : Maybe String -> List InterfaceSchema -> Nat -> AuthoredDeclaration -> Either ElaborationError (Nat, List Declaration)
-  lowerItem moduleName schemas nodes (DataItem sourceData) = case moduleName of
+  lowerItem : Maybe String -> List InterfaceSchema -> List String -> List String -> Nat -> AuthoredDeclaration -> Either ElaborationError (Nat, List Declaration)
+  lowerItem moduleName schemas imported seen nodes (DataItem sourceData) = case moduleName of
     Nothing => Left (ElaborationFailure sourceData.name.span.start "Data declarations require a named module")
     Just qualifier => lowerData qualifier nodes sourceData
-  lowerItem moduleName schemas nodes (Ordinary decl) = Right (0, [decl])
-  lowerItem moduleName schemas nodes (RecordItem sourceRecord) = lowerRecord nodes sourceRecord
-  lowerItem moduleName schemas nodes (InterfaceItem sourceRecord) = do
+  lowerItem moduleName schemas imported seen nodes (Ordinary decl) = Right (0, [decl])
+  lowerItem moduleName schemas imported seen nodes (RecordItem sourceRecord) = lowerRecord nodes sourceRecord
+  lowerItem moduleName schemas imported seen nodes (InterfaceItem sourceRecord) = do
     if not (null sourceRecord.projections)
        then Left (ElaborationFailure sourceRecord.span.start "Interface methods generate getters; explicit projections are not allowed") else Right ()
     traverse_ (\field => if field.quantity /= Unrestricted
@@ -503,12 +518,12 @@ mutual
       else Right ()) sourceRecord.fields
     let methods = map (\field => Projected field.token field.token field.token) sourceRecord.fields
     lowerRecord nodes ({ projections := methods } sourceRecord)
-  lowerItem moduleName schemas nodes (ImplementationItem decl) =
+  lowerItem moduleName schemas imported seen nodes (ImplementationItem decl) =
     if decl.quantity /= Unrestricted
        then Left (ElaborationFailure decl.nameSpan.start "Implementations require unrestricted named dictionary values")
        else Right (0, [{ dictionary := True } decl])
 
-  lowerItem moduleName schemas nodes (ImplementationBlock block) = lowerImplementation schemas nodes block
+  lowerItem moduleName schemas imported seen nodes (ImplementationBlock block) = lowerImplementation schemas imported seen nodes block
 
   authoredPosition : AuthoredDeclaration -> Position
   authoredPosition (DataItem sourceData) = sourceData.name.span.start
@@ -518,31 +533,35 @@ mutual
   authoredPosition (RecordItem sourceRecord) = sourceRecord.name.span.start
   authoredPosition (InterfaceItem sourceRecord) = sourceRecord.name.span.start
 
-  lower : Maybe String -> List InterfaceSchema -> Nat -> Nat -> List String -> List AuthoredDeclaration -> Either ElaborationError (List Declaration)
-  lower moduleName schemas nodes slots seen [] = Right []
-  lower moduleName schemas nodes slots seen (item :: rest) = do
+  lower : Maybe String -> List InterfaceSchema -> List String -> Nat -> Nat -> List String -> List AuthoredDeclaration -> Either ElaborationError (List Declaration)
+  lower moduleName schemas imported nodes slots seen [] = Right []
+  lower moduleName schemas imported nodes slots seen (item :: rest) = do
     if length (bindingSites item) > slots
        then Left (ElaborationFailure (authoredPosition item) "Elaborated declaration budget exhausted") else Right ()
-    (used, declarations) <- lowerItem moduleName schemas nodes item
+    (used, declarations) <- lowerItem moduleName schemas imported seen nodes item
     (remaining, names) <- admit slots seen declarations
-    -- Source-order local bindings shadow short imported schema aliases, but
-    -- never remove their qualified names.
-    let shadowed = map (\site => site.name) (bindingSites item)
-    let remainingSchemas = filter (\schema => not (elem schema.name shadowed)) schemas
-    let visible = case item of InterfaceItem authored => localSchemas moduleName authored ++ remainingSchemas; _ => remainingSchemas
-    following <- lower moduleName visible (minus nodes used) remaining names rest
+    -- A newly declared local name shadows an imported short schema just as it
+    -- shadows an imported value. Qualified imported schemas remain available.
+    let retained = filter (\schema => not (elem schema.name (map name (bindingSites item)))) schemas
+    let visible = case item of InterfaceItem authored => localSchemas moduleName authored ++ retained; _ => retained
+    following <- lower moduleName visible imported (minus nodes used) remaining names rest
     Right (declarations ++ following)
 
   ||| Imported schemas are supplied only from checked direct dependencies by drivers.
   public export
   elaborateDeclarationsIn : Maybe String -> List InterfaceSchema -> Nat -> List AuthoredDeclaration -> Either ElaborationError (List Declaration)
-  elaborateDeclarationsIn moduleName schemas slots = lower moduleName schemas defaultConstructionBudget slots []
+  elaborateDeclarationsIn moduleName schemas slots = lower moduleName schemas [] defaultConstructionBudget slots []
+
+  ||| Imported names only inform ambiguity diagnostics, never checking authority.
+  public export
+  elaborateDeclarationsInWithImports : Maybe String -> List InterfaceSchema -> List String -> Nat -> List AuthoredDeclaration -> Either ElaborationError (List Declaration)
+  elaborateDeclarationsInWithImports moduleName schemas imported slots = lower moduleName schemas imported defaultConstructionBudget slots []
 
   ||| Override the construction admission for named-module lowering; resulting
   ||| declarations remain untrusted and require independent core checking.
   public export
   elaborateDeclarationsInWithBudget : Maybe String -> List InterfaceSchema -> Nat -> Nat -> List AuthoredDeclaration -> Either ElaborationError (List Declaration)
-  elaborateDeclarationsInWithBudget moduleName schemas nodes slots = lower moduleName schemas (min nodes defaultConstructionBudget) slots []
+  elaborateDeclarationsInWithBudget moduleName schemas nodes slots = lower moduleName schemas [] (min nodes defaultConstructionBudget) slots []
 
   ||| Ordinary headerless declarations retain their nonrecursive typed-let lowering.
   public export
@@ -555,13 +574,13 @@ mutual
   ||| Pure, bounded lowering. This validates declaration policy, not core typing.
   public export
   elaborateDeclarations : Nat -> List AuthoredDeclaration -> Either ElaborationError (List Declaration)
-  elaborateDeclarations budget = lower Nothing [] defaultConstructionBudget budget []
+  elaborateDeclarations budget = lower Nothing [] [] defaultConstructionBudget budget []
 
   ||| Override the generated-IR budget (up to the default safety ceiling).
   ||| Source and expanded-core/checker limits remain independent.
   public export
   elaborateDeclarationsWithBudget : Nat -> Nat -> List AuthoredDeclaration -> Either ElaborationError (List Declaration)
-  elaborateDeclarationsWithBudget nodes slots = lower Nothing [] (min nodes defaultConstructionBudget) slots []
+  elaborateDeclarationsWithBudget nodes slots = lower Nothing [] [] (min nodes defaultConstructionBudget) slots []
 
 
   mentionsDataArms : String -> List (Token, List Token, Expr) -> Bool

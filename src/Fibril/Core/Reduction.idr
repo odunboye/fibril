@@ -100,6 +100,9 @@ mutual
       Nothing => case step next of
         Just s => Just (SeqFold motive base s value)
         Nothing => SeqFold motive base next <$> step value
+  step ReadLine = Nothing
+  step (FileHandleValue _ _) = Nothing
+  step (ReadInputFile handle) = map ReadInputFile (step handle)
   step StringType = Nothing
   step (StringValue _) = Nothing
   step (StringAppend (StringValue left) (StringValue right)) = Just (StringValue (left ++ right))
@@ -144,7 +147,13 @@ mutual
     Nothing => case step value of
       Just next => Just (BoxCase motive next branch)
       Nothing => map (BoxCase motive value) (step branch)
+  step (WithInputFile result path body) = case step result of
+    Just next => Just (WithInputFile next path body)
+    Nothing => case step path of
+      Just next => Just (WithInputFile result next body)
+      Nothing => map (WithInputFile result path) (step body)
   step (IOType ty) = map IOType (step ty)
+  step (FileHandleType region) = map FileHandleType (step region)
   step (IOPure value) = map IOPure (step value)
   step (WriteLine text) = map WriteLine (step text)
   step (IOBind a b (IOPure value) next) = Just (Apply next value)

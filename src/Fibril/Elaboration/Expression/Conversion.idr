@@ -37,6 +37,9 @@ mutual
   admit (S budget) (SeqNil ty) = admit budget ty
   admit (S budget) (SeqCons ty h t) = do a <- admit budget ty; b <- admit a h; admit b t
   admit (S budget) (SeqFold p z s x) = do a <- admit budget p; b <- admit a z; c <- admit b s; admit c x
+  admit (S budget) ReadLine = Just budget
+  admit (S budget) (FileHandleValue _ _) = Just budget
+  admit (S budget) (ReadInputFile handle) = admit budget handle
   admit (S budget) StringType = Just budget
   admit (S budget) (StringValue _) = Just budget
   admit (S budget) (StringAppend a b) = do x <- admit budget a; admit x b
@@ -51,7 +54,12 @@ mutual
   admit (S budget) (BoxType _ a) = admit budget a
   admit (S budget) (BoxValue a b) = do x <- admit budget a; admit x b
   admit (S budget) (BoxCase a b c) = do x <- admit budget a; y <- admit x b; admit y c
+  admit (S budget) (WithInputFile result path body) = do
+    first <- admit budget result
+    second <- admit first path
+    admit second body
   admit (S budget) (IOType a) = admit budget a
+  admit (S budget) (FileHandleType region) = admit budget region
   admit (S budget) (IOPure a) = admit budget a
   admit (S budget) (WriteLine a) = admit budget a
   admit (S budget) (IOBind a b c d) = do w <- admit budget a; x <- admit w b; y <- admit x c; admit y d
@@ -129,6 +137,9 @@ mutual
     safeRedexes size payload ty && safeRedexes size payload h && safeRedexes size payload t
   safeRedexes size payload (SeqFold p z s x) =
     safeRedexes size payload p && safeRedexes size payload z && safeRedexes size payload s && safeRedexes size payload x
+  safeRedexes size payload ReadLine = True
+  safeRedexes size payload (FileHandleValue _ _) = True
+  safeRedexes size payload (ReadInputFile handle) = safeRedexes size payload handle
   safeRedexes size payload StringType = True
   safeRedexes size payload (StringValue _) = True
   safeRedexes size payload (StringAppend a b) = safeRedexes size payload a && safeRedexes size payload b
@@ -143,7 +154,9 @@ mutual
   safeRedexes size payload (BoxType _ a) = safeRedexes size payload a
   safeRedexes size payload (BoxValue a b) = safeRedexes size payload a && safeRedexes size payload b
   safeRedexes size payload (BoxCase a b c) = safeRedexes size payload a && safeRedexes size payload b && safeRedexes size payload c
+  safeRedexes size payload (WithInputFile result path body) = safeRedexes size payload result && safeRedexes size payload path && safeRedexes size payload body
   safeRedexes size payload (IOType a) = safeRedexes size payload a
+  safeRedexes size payload (FileHandleType region) = safeRedexes size payload region
   safeRedexes size payload (IOPure a) = safeRedexes size payload a
   safeRedexes size payload (WriteLine a) = safeRedexes size payload a
   safeRedexes size payload (IOBind a b c d) = safeRedexes size payload a && safeRedexes size payload b && safeRedexes size payload c && safeRedexes size payload d

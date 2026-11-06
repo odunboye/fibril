@@ -78,7 +78,7 @@ record ModuleSnapshot where
   document : ParsedDocument
 
 public export
-data GraphScope = SingleRoot | PackageRoots WorkspacePlan String
+data GraphScope = SingleRoot | PackageRoots WorkspacePlan String (List LocalRoot)
 
 public export
 record ModuleGraph where
@@ -100,7 +100,7 @@ record Selection where
 
 selectImport : GraphScope -> Selection -> List String -> Either String Selection
 selectImport SingleRoot current components = Right current
-selectImport (PackageRoots plan _) current components = do
+selectImport (PackageRoots plan _ _) current components = do
   owner <- case current.owner of Nothing => Left "Missing package owner"; Just owner => Right owner
   spec <- case moduleOwner plan owner components of Left err => Left (show err); Right spec => Right spec
   Right (SelectedRoot spec.sourceRoot (Just spec.name))
@@ -250,7 +250,7 @@ loadLocalPackageGraph purpose manifest = do
     | Left err => pure (Left (GraphFailure manifest "" Nothing err))
   let package = inventory.entryPackage
   let selected = SelectedRoot package.sourceRoot (Just package.manifest.name)
-  let scope = PackageRoots inventory.plan package.manifest.name
+  let scope = PackageRoots inventory.plan package.manifest.name inventory.packages
   selectedEntry <- pure (the (Either GraphError (Maybe (List String))) (case purpose of
     TestPackage => if package.manifest.entry == Nothing && null package.manifest.listedModules
       then Left (GraphFailure manifest "" Nothing "Library testing requires a nonempty modules inventory") else case package.manifest.testModule of
@@ -294,10 +294,11 @@ public export
 loadPackageModuleGraph : String -> IO (Either GraphError ModuleGraph)
 loadPackageModuleGraph = loadLocalPackageGraph RunApplication
 
+public export
 scopeFields : ModuleGraph -> List (String, String)
 scopeFields graph = case graph.scope of
   SingleRoot => []
-  PackageRoots plan entryOwner =>
+  PackageRoots plan entryOwner _ =>
     [("package_scope", jsonObject
       [("entry_package", jsonString entryOwner),
        ("inventory", jsonArray (map (\spec => jsonObject

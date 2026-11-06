@@ -11,6 +11,9 @@ record InterfaceSchema where
   constructor Schema
   name : String
   constructorName : String
+  ||| Checked origin is retained when a public facade changes the visible name.
+  constructorOrigin : String
+  constructorVisible : Bool
   parameterCount : Nat
   methods : List String
 
@@ -18,7 +21,7 @@ public export
 schemaFor : String -> RecordDeclaration -> InterfaceSchema
 schemaFor qualifier authored =
   Schema (qualifier ++ authored.name.spelling) (qualifier ++ authored.constructorName.spelling)
-    (length authored.params) (map (\field => field.token.spelling) authored.fields)
+    (qualifier ++ authored.constructorName.spelling) True (length authored.params) (map (\field => field.token.spelling) authored.fields)
 
 public export
 localSchemas : Maybe String -> RecordDeclaration -> List InterfaceSchema

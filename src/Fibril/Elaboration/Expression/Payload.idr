@@ -45,6 +45,9 @@ mutual
   payloadWeight env (SeqNil ty) = payloadWeight env ty
   payloadWeight env (SeqCons ty h t) = cap (payloadWeight env ty + payloadWeight env h + payloadWeight env t)
   payloadWeight env (SeqFold p z s x) = cap (payloadWeight env p + payloadWeight env z + payloadWeight env s + payloadWeight env x)
+  payloadWeight env ReadLine = 0
+  payloadWeight env (FileHandleValue _ _) = 0
+  payloadWeight env (ReadInputFile handle) = payloadWeight env handle
   payloadWeight env StringType = 0
   payloadWeight env (StringValue value) = cap (length value)
   payloadWeight env (StringAppend a b) = cap (payloadWeight env a + payloadWeight env b)
@@ -59,7 +62,9 @@ mutual
   payloadWeight env (BoxType _ a) = payloadWeight env a
   payloadWeight env (BoxValue a b) = cap (payloadWeight env a + payloadWeight env b)
   payloadWeight env (BoxCase a b c) = cap (payloadWeight env a + payloadWeight env b + payloadWeight env c)
+  payloadWeight env (WithInputFile result path body) = cap (payloadWeight env result + payloadWeight env path + payloadWeight env body)
   payloadWeight env (IOType a) = payloadWeight env a
+  payloadWeight env (FileHandleType region) = payloadWeight env region
   payloadWeight env (IOPure a) = payloadWeight env a
   payloadWeight env (WriteLine a) = payloadWeight env a
   payloadWeight env (IOBind a b c d) = cap (payloadWeight env a + payloadWeight env b + payloadWeight env c + payloadWeight env d)

@@ -67,9 +67,19 @@ data Term : Nat -> Type where
   BoxCase : Term n -> Term n -> Term n -> Term n
   ||| Pure descriptions of effects; only the external runner performs writes.
   IOType : Term n -> Term n
+  ||| Opaque file ownership indexed by an erased small region type. No value constructor.
+  FileHandleType : Term n -> Term n
+  ||| Trusted runtime reference only; no source constructor or raw file pointer.
+  FileHandleValue : Nat -> Nat -> Term n
+  ||| Consume ownership and return its successor alongside a line/EOF/error result.
+  ReadInputFile : Term n -> Term n
+  ||| Inert scope: result type, path and region-polymorphic ownership-returning body.
+  WithInputFile : Term n -> Term n -> Term n -> Term n
   IOPure : Term n -> Term n
   IOBind : Term n -> Term n -> Term n -> Term n -> Term n
   WriteLine : Term n -> Term n
+  ||| Inert input request. EOF/line/error are positional alternatives in readResultType.
+  ReadLine : Term n
   ||| Nondependent branches; runtime checking joins their resource permissions.
   BoolCase : Term n -> Term n -> Term n -> Term n
   Sigma : Quantity -> Quantity -> Term n -> Term (S n) -> Term n
@@ -87,6 +97,30 @@ variantAt : Nat -> List a -> Maybe a
 variantAt _ [] = Nothing
 variantAt Z (x :: _) = Just x
 variantAt (S tag) (_ :: rest) = variantAt tag rest
+
+||| Internal input result: tag 0 EOF, tag 1 line, tag 2 represented error.
+||| String payloads must be consumed linearly; no host execution happens here.
+public export
+readResultType : Term n
+readResultType = VariantType [Nothing, Just (Linear, StringType), Just (Linear, StringType)]
+
+||| Internal nominal region identity, fresh within one resource-runner session.
+||| The reserved key cannot be named by source identifiers; raw core remains trusted.
+public export
+runtimeFileRegion : Nat -> Term n
+runtimeFileRegion identity = NominalType ("$fibril.file-region." ++ show identity) [] (VariantType [Nothing])
+
+||| A successful read operation always returns ownership, including EOF/read errors.
+public export
+fileReadResultType : Term n -> Term n
+fileReadResultType region = Sigma Linear Linear (FileHandleType region) readResultType
+
+||| Scope result: open failure, success, or result plus cleanup failure.
+public export
+fileScopeResultType : Term n -> Term n
+fileScopeResultType result = VariantType
+  [Just (Linear, StringType), Just (Linear, result),
+   Just (Linear, Sigma Linear Linear result StringType)]
 
 mutual
   ||| Extend a renaming under one binder, preserving the newly bound variable.
@@ -120,12 +154,17 @@ mutual
   rename env (SeqCons ty head tail) = SeqCons (rename env ty) (rename env head) (rename env tail)
   rename env (SeqFold motive base step value) = SeqFold (rename env motive) (rename env base) (rename env step) (rename env value)
   rename env (SeqCase motive value base cons) = SeqCase (rename env motive) (rename env value) (rename env base) (rename env cons)
+  rename env ReadLine = ReadLine
+  rename env (FileHandleValue identity generation) = FileHandleValue identity generation
+  rename env (ReadInputFile handle) = ReadInputFile (rename env handle)
   rename env StringType = StringType
   rename env (StringValue value) = StringValue value
   rename env (StringAppend left right) = StringAppend (rename env left) (rename env right)
   rename env (BoxValue left right) = BoxValue (rename env left) (rename env right)
   rename env (StringEqual left right) = StringEqual (rename env left) (rename env right)
   rename env (IOType ty) = IOType (rename env ty)
+  rename env (WithInputFile result path body) = WithInputFile (rename env result) (rename env path) (rename env body)
+  rename env (FileHandleType region) = FileHandleType (rename env region)
   rename env (NominalType key indices shape) = NominalType key (renameTerms env indices) (rename env shape)
   rename env (NominalValue ty value) = NominalValue (rename env ty) (rename env value)
   rename env (NominalCase motive value branch) = NominalCase (rename env motive) (rename env value) (rename env branch)
@@ -191,6 +230,9 @@ mutual
   substituteTerm env (SeqCons ty head tail) = SeqCons (substituteTerm env ty) (substituteTerm env head) (substituteTerm env tail)
   substituteTerm env (SeqFold motive base step value) = SeqFold (substituteTerm env motive) (substituteTerm env base) (substituteTerm env step) (substituteTerm env value)
   substituteTerm env (SeqCase motive value base cons) = SeqCase (substituteTerm env motive) (substituteTerm env value) (substituteTerm env base) (substituteTerm env cons)
+  substituteTerm env ReadLine = ReadLine
+  substituteTerm env (FileHandleValue identity generation) = FileHandleValue identity generation
+  substituteTerm env (ReadInputFile handle) = ReadInputFile (substituteTerm env handle)
   substituteTerm env StringType = StringType
   substituteTerm env (StringValue value) = StringValue value
   substituteTerm env (StringAppend left right) =
@@ -200,6 +242,8 @@ mutual
   substituteTerm env (StringEqual left right) =
     StringEqual (substituteTerm env left) (substituteTerm env right)
   substituteTerm env (IOType ty) = IOType (substituteTerm env ty)
+  substituteTerm env (WithInputFile result path body) = WithInputFile (substituteTerm env result) (substituteTerm env path) (substituteTerm env body)
+  substituteTerm env (FileHandleType region) = FileHandleType (substituteTerm env region)
   substituteTerm env (NominalType key indices shape) = NominalType key (substituteTerms env indices) (substituteTerm env shape)
   substituteTerm env (NominalValue ty value) = NominalValue (substituteTerm env ty) (substituteTerm env value)
   substituteTerm env (NominalCase motive value branch) = NominalCase (substituteTerm env motive) (substituteTerm env value) (substituteTerm env branch)
@@ -269,6 +313,9 @@ mutual
   sameSyntax (SeqCons a h t) (SeqCons b x y) = sameSyntax a b && sameSyntax h x && sameSyntax t y
   sameSyntax (SeqFold p z s x) (SeqFold q w t y) = sameSyntax p q && sameSyntax z w && sameSyntax s t && sameSyntax x y
   sameSyntax (SeqCase p x z s) (SeqCase q y w t) = sameSyntax p q && sameSyntax x y && sameSyntax z w && sameSyntax s t
+  sameSyntax ReadLine ReadLine = True
+  sameSyntax (FileHandleValue left first) (FileHandleValue right second) = left == right && first == second
+  sameSyntax (ReadInputFile left) (ReadInputFile right) = sameSyntax left right
   sameSyntax StringType StringType = True
   sameSyntax (StringValue left) (StringValue right) = left == right
   sameSyntax (StringAppend a b) (StringAppend c d) = sameSyntax a c && sameSyntax b d
@@ -283,6 +330,8 @@ mutual
   sameSyntax (VariantCase p x fs) (VariantCase q y gs) = sameSyntax p q && sameSyntax x y && sameTerms fs gs
   sameSyntax (BoxType q a) (BoxType r b) = q == r && sameSyntax a b
   sameSyntax (IOType a) (IOType b) = sameSyntax a b
+  sameSyntax (WithInputFile a p f) (WithInputFile b q g) = sameSyntax a b && sameSyntax p q && sameSyntax f g
+  sameSyntax (FileHandleType a) (FileHandleType b) = sameSyntax a b
   sameSyntax (IOPure a) (IOPure b) = sameSyntax a b
   sameSyntax (WriteLine a) (WriteLine b) = sameSyntax a b
   sameSyntax (IOBind a b c d) (IOBind e f g h) =
@@ -340,3 +389,11 @@ variantBranchType : Term n -> Term n -> Nat -> Maybe (Quantity, Term n) -> Term 
 variantBranchType motive ty tag Nothing = Apply motive (VariantValue ty tag Nothing)
 variantBranchType motive ty tag (Just (q, domain)) =
   Pi q domain (Apply (weaken motive) (VariantValue (weaken ty) tag (Just (Variable FZ))))
+
+||| Callback must return ownership under its abstract region, on every result path.
+public export
+scopedInputBodyType : Term n -> Term n
+scopedInputBodyType result = Pi Erased (Universe 0)
+  (Pi Linear (FileHandleType (Variable FZ))
+    (IOType (Sigma Linear Linear (FileHandleType (Variable (FS FZ)))
+      (weaken (weaken (weaken result))))))

@@ -1,4 +1,4 @@
--- Ordinary Fibril definitions. Only prim* and the IO type constructor are primitive.
+-- Ordinary Fibril definitions. prim*, IO and ReadResult form the primitive boundary.
 -- This initial interface is restricted to Type0 and linear bind results.
 putStrLn : (1 text : String) -> IO Unit
 putStrLn = \(1 text : String) => primWriteLine text
@@ -8,6 +8,15 @@ pure = \(0 A : Type 0) => \(1 value : A) => primPure A value
 
 bind : (0 A : Type 0) -> (0 B : Type 0) -> (1 action : IO A) -> (1 next : (1 value : A) -> IO B) -> IO B
 bind = \(0 A : Type 0) => \(0 B : Type 0) => \(1 action : IO A) => \(1 next : (1 value : A) -> IO B) => primBind A B action next
+
+-- Input is available only through explicitly selected interactive execution.
+readLine : IO ReadResult
+readLine = primReadLine
+
+-- Branches are unrestricted; line/error payloads are linear. Branch callbacks
+-- cannot capture linear ambient resources through this initial interface.
+readCase : (0 A : Type 0) -> (1 result : ReadResult) -> (eof : A) -> (line : (1 text : String) -> A) -> (error : (1 message : String) -> A) -> A
+readCase = \(0 A : Type 0) => \(1 result : ReadResult) => \(eof : A) => \(line : (1 text : String) -> A) => \(error : (1 message : String) -> A) => primReadCase A result eof line error
 
 -- Transform a returned value without extracting it from IO or adding a primitive.
 map : (0 A : Type 0) -> (0 B : Type 0) -> (1 transform : (1 value : A) -> B) -> (1 action : IO A) -> IO B

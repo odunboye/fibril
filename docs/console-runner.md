@@ -252,8 +252,14 @@ cancellation, and interactive bind execution need a different explicitly designe
 runtime boundary. There is no shell evaluation, general FFI, or sandbox.
 
 run reserves stdout for program output and reports failures on stderr. Represented
-host-write errors stop the sequence; buffering/flush failures, signals, crashes,
-and OS blocking are not a complete structured-error guarantee.
+host-write errors stop the sequence. After successful sequencing (including an
+empty plan), the hosted adapter explicitly flushes stdout and reports a nonzero
+flush status as an error. A write failure skips this final flush; it does not
+roll back earlier writes or prevent later process-level buffer handling.
+The checked flush adapter uses C `fflush`, validated here with the Chez backend;
+it is not a portable Node implementation. Flush success is not durable storage.
+Signals, crashes and OS blocking remain outside a complete structured-error
+guarantee.
 
 ## Bundling and global resolution
 

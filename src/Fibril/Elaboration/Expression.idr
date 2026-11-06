@@ -34,6 +34,10 @@ lookupName name [] = Nothing
 lookupName name (bound :: rest) =
   if name == bound then Just FZ else map FS (lookupName name rest)
 
+ambiguityMessage : String -> List String -> String
+ambiguityMessage name candidates =
+  "Ambiguous imported name " ++ name ++ "; candidates: " ++ concat (intersperse ", " candidates) ++ "; use a qualified name"
+
 boundedResult : Position -> Term n -> Either ResolveError (Term n)
 boundedResult position result = do
   if typeNodes result > inferredResultNodes then Left (CannotElaborate position "Inferred motive result type exceeds 512 nodes; use an explicit return motive") else Right ()
@@ -159,6 +163,20 @@ implicitHead globals env (NQualifiedRef _ name) = case find (\entry => entry.nam
   Nothing => Nothing
 implicitHead globals env _ = Nothing
 
+implicitHeadFailure : List GlobalDefinition -> Vect n String -> Expr -> ResolveError
+implicitHeadFailure globals env head = case head of
+  NRef span name => case lookupName name env of
+    Just _ => fallback
+    Nothing => case find (\entry => entry.name == name) globals of
+      Just _ => fallback
+      Nothing => case qualifiedCandidates name globals of
+        candidates@(_ :: _ :: _) => CannotElaborate span.start (ambiguityMessage name candidates)
+        _ => fallback
+  _ => fallback
+  where
+    fallback : ResolveError
+    fallback = CannotElaborate (extent head).start "Explicit {arguments} require a direct global with an implicit prefix"
+
 hasImplicitCall : List GlobalDefinition -> Vect n String -> Expr -> Bool
 hasImplicitCall globals env source =
   let (head, arguments) = applicationSpine source in
@@ -246,7 +264,7 @@ mutual
         Nothing => Right ()
     definition <- case find (\entry => entry.name == name.spelling) globals of
       Nothing => case qualifiedCandidates name.spelling globals of
-        _ :: _ :: _ => Left (CannotElaborate name.span.start ("Ambiguous imported name " ++ name.spelling ++ "; use a qualified name"))
+        candidates@(_ :: _ :: _) => Left (CannotElaborate name.span.start (ambiguityMessage name.spelling candidates))
         _ => Left (Unbound name.span.start name.spelling)
       Just entry => Right entry
     if definition.quantity /= Unrestricted then Left (CannotElaborate name.span.start "Data-case constructor must be an unrestricted checked global") else Right ()
@@ -629,7 +647,7 @@ mutual
        else case lookupName name env of
          Nothing => case lookupGlobal name globals of
            Nothing => case qualifiedCandidates name globals of
-             _ :: _ :: _ => Left (CannotElaborate span.start ("Ambiguous imported name " ++ name ++ "; use a qualified name"))
+             candidates@(_ :: _ :: _) => Left (CannotElaborate span.start (ambiguityMessage name candidates))
              _ => Left (Unbound span.start name)
            Just value => Right (rename absurd value)
          Just index => Right (Variable index)
@@ -831,7 +849,7 @@ mutual
             else Right ({ ordinary := values, solver := Just state } pending)
   collectImplicitCall globals context env head = do
     entry <- case implicitHead globals env head of
-      Nothing => Left (CannotElaborate (extent head).start "Explicit {arguments} require a direct global with an implicit prefix")
+      Nothing => Left (implicitHeadFailure globals env head)
       Just entry => Right entry
     value <- case lookupGlobal entry.name globals of
       Nothing => Left (CannotElaborate (extent head).start "Implicit global is unavailable")
@@ -842,7 +860,7 @@ mutual
   elaborateImplicitCall globals context env expected source = do
     let (head, args) = applicationSpine source
     entry <- case implicitHead globals env head of
-      Nothing => Left (CannotElaborate (extent source).start "Explicit {arguments} require a direct global with an implicit prefix")
+      Nothing => Left (implicitHeadFailure globals env head)
       Just entry => Right entry
     if entry.implicitPrefix > implicitTelescopeLimit
       then Left (CannotElaborate (extent source).start "Implicit telescope admission exhausted (64)") else Right ()

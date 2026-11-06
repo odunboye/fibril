@@ -33,6 +33,9 @@ mutual
   coreNodes (SeqNil ty) = 1 + coreNodes ty
   coreNodes (SeqCons ty h t) = 1 + coreNodes ty + coreNodes h + coreNodes t
   coreNodes (SeqFold p z s x) = 1 + coreNodes p + coreNodes z + coreNodes s + coreNodes x
+  coreNodes ReadLine = 1
+  coreNodes (FileHandleValue _ _) = 1
+  coreNodes (ReadInputFile handle) = 1 + coreNodes handle
   coreNodes StringType = 1
   coreNodes (StringValue _) = 1
   coreNodes (StringAppend a b) = 1 + coreNodes a + coreNodes b
@@ -47,7 +50,9 @@ mutual
   coreNodes (BoxType _ a) = 1 + coreNodes a
   coreNodes (BoxValue a b) = 1 + coreNodes a + coreNodes b
   coreNodes (BoxCase a b c) = 1 + coreNodes a + coreNodes b + coreNodes c
+  coreNodes (WithInputFile result path body) = 1 + coreNodes result + coreNodes path + coreNodes body
   coreNodes (IOType a) = 1 + coreNodes a
+  coreNodes (FileHandleType region) = 1 + coreNodes region
   coreNodes (IOPure a) = 1 + coreNodes a
   coreNodes (WriteLine a) = 1 + coreNodes a
   coreNodes (IOBind a b c d) = 1 + coreNodes a + coreNodes b + coreNodes c + coreNodes d
@@ -97,6 +102,9 @@ mutual
   mentionsNominal key (SeqNil ty) = mentionsNominal key ty
   mentionsNominal key (SeqCons ty h t) = mentionsNominal key ty || mentionsNominal key h || mentionsNominal key t
   mentionsNominal key (SeqFold p z s x) = mentionsNominal key p || mentionsNominal key z || mentionsNominal key s || mentionsNominal key x
+  mentionsNominal key ReadLine = False
+  mentionsNominal key (FileHandleValue _ _) = False
+  mentionsNominal key (ReadInputFile handle) = mentionsNominal key handle
   mentionsNominal key StringType = False
   mentionsNominal key (StringValue _) = False
   mentionsNominal key (StringAppend a b) = mentionsNominal key a || mentionsNominal key b
@@ -111,7 +119,9 @@ mutual
   mentionsNominal key (BoxType _ a) = mentionsNominal key a
   mentionsNominal key (BoxValue a b) = mentionsNominal key a || mentionsNominal key b
   mentionsNominal key (BoxCase a b c) = mentionsNominal key a || mentionsNominal key b || mentionsNominal key c
+  mentionsNominal key (WithInputFile result path body) = mentionsNominal key result || mentionsNominal key path || mentionsNominal key body
   mentionsNominal key (IOType a) = mentionsNominal key a
+  mentionsNominal key (FileHandleType region) = mentionsNominal key region
   mentionsNominal key (IOPure a) = mentionsNominal key a
   mentionsNominal key (WriteLine a) = mentionsNominal key a
   mentionsNominal key (IOBind a b c d) = mentionsNominal key a || mentionsNominal key b || mentionsNominal key c || mentionsNominal key d

@@ -8,6 +8,7 @@ import Fibril.Core.Runtime
 import Fibril.Core.Reduction
 import Fibril.Core.WeakHead
 import Fibril.Effect.Console
+import Fibril.Effect.ConsoleProgram
 
 import Fibril.Driver.Limits
 
@@ -37,6 +38,7 @@ record Planned where
   constructor Result
   value : Term 0
   actions : List ConsoleAction
+  remaining : Nat
 
 validate : Term 0 -> Term 0 -> Either IOPlanError ()
 validate term ty = case checkRuntime checkingDepth typeReductionFuel Empty term ty of
@@ -48,9 +50,11 @@ normal fuel term = case normalize fuel term of
   OutOfFuel _ => Left PlanReductionLimit
   Normal result => Right result
 
-plan : Nat -> Nat -> Term 0 -> Either IOPlanError Planned
-plan Z fuel term = Left PlanDepthLimit
-plan (S depth) fuel term = do
+-- Thread one action allowance through both sides of bind; do not reset it
+-- for recursive subplans. Reduction fuel remains local to each reduction call.
+plan : Nat -> Nat -> Nat -> Term 0 -> Either IOPlanError Planned
+plan Z fuel remaining term = Left PlanDepthLimit
+plan (S depth) fuel remaining term = do
   head <- case weakHead fuel term of
     HeadLimit _ => Left PlanReductionLimit
     HeadForm head => Right head
@@ -58,22 +62,24 @@ plan (S depth) fuel term = do
     Left err => Left (PlanTyping err)
     Right checked => Right checked
   case head of
-    IOPure value => Right (Result value [])
+    IOPure value => Right (Result value [] remaining)
     WriteLine text => do
+      available <- case remaining of
+        Z => Left PlanActionLimit
+        S available => Right available
       validate text StringType
       literal <- normal fuel text
       validate literal StringType
       case literal of
-        StringValue value => Right (Result UnitValue [PrintLine value])
+        StringValue value => Right (Result UnitValue [PrintLine value] available)
         _ => Left PlanExpectedString
     IOBind a b action next => do
-      first <- plan depth fuel action
+      first <- plan depth fuel remaining action
       validate first.value a
-      following <- plan depth fuel (Apply next first.value)
+      following <- plan depth fuel first.remaining (Apply next first.value)
       validate following.value b
-      let actions = first.actions ++ following.actions
-      if length actions <= 64 then Right (Result following.value actions)
-         else Left PlanActionLimit
+      Right (Result following.value (first.actions ++ following.actions)
+                    following.remaining)
     _ => Left (PlanUnsupported head)
 
 ||| Validate main : IO Unit, plan every effect, and validate the final Unit value.
@@ -83,9 +89,16 @@ public export
 prepareIO : Nat -> Nat -> Term 0 -> Either IOPlanError (List ConsoleAction)
 prepareIO depth fuel term = do
   validate term (IOType UnitType)
-  result <- plan depth fuel term
+  result <- plan depth fuel consoleActionLimit term
   value <- normal fuel result.value
   validate value UnitType
   case value of
     UnitValue => Right result.actions
     _ => Left PlanExpectedUnit
+
+||| Convert only a successfully checked and fully prepared stdout plan into a
+||| host protocol program. This does not interpret source-level input or run IO.
+public export
+prepareConsoleProgram : Nat -> Nat -> Term 0 ->
+                        Either IOPlanError (ConsoleProgram (Either String ()))
+prepareConsoleProgram depth fuel term = outputProgram <$> prepareIO depth fuel term

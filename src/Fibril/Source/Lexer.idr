@@ -9,7 +9,7 @@ import Fibril.Source.StringLiteral
 
 ||| Token categories for the initial explicitly annotated expression grammar.
 public export
-data TokenKind = Name | Number | StringToken | StringKeyword | TypeKeyword | UnitKeyword | BoolKeyword | TrueKeyword | FalseKeyword | IfKeyword | ThenKeyword | ElseKeyword | DoKeyword | CaseKeyword | OfKeyword | LetKeyword | InKeyword | ProjectionKeyword | ReturnKeyword | DataKeyword | RecordKeyword | InterfaceKeyword | ImplementationKeyword | ConstructorKeyword | EliminatorKeyword | WhereKeyword | ModuleKeyword | ImportKeyword | ExportKeyword | Dot | Equals | OpenParen | CloseParen | OpenBrace | DictionaryOpen | CloseBrace | Backtick | Colon | Arrow | BindArrow | BodyArrow | Lambda
+data TokenKind = Name | Number | StringToken | StringKeyword | TypeKeyword | UnitKeyword | BoolKeyword | TrueKeyword | FalseKeyword | IfKeyword | ThenKeyword | ElseKeyword | DoKeyword | CaseKeyword | OfKeyword | LetKeyword | InKeyword | ProjectionKeyword | ReturnKeyword | DataKeyword | RecordKeyword | InterfaceKeyword | ImplementationKeyword | ConstructorKeyword | EliminatorKeyword | WhereKeyword | ModuleKeyword | ImportKeyword | ExportKeyword | Dot | Comma | Equals | OpenParen | CloseParen | OpenBrace | DictionaryOpen | CloseBrace | Backtick | Colon | Arrow | BindArrow | BodyArrow | Lambda
 
 public export
 Show TokenKind where
@@ -43,6 +43,7 @@ Show TokenKind where
   show ImportKeyword = "import"
   show ExportKeyword = "export"
   show Dot = "."
+  show Comma = ","
   show Equals = "="
   show Backtick = "`"
   show OpenBrace = "{"
@@ -88,6 +89,7 @@ Eq TokenKind where
   ImportKeyword == ImportKeyword = True
   ExportKeyword == ExportKeyword = True
   Dot == Dot = True
+  Comma == Comma = True
   Equals == Equals = True
   Backtick == Backtick = True
   OpenBrace == OpenBrace = True
@@ -242,6 +244,7 @@ scan (S fuel) at (c :: rest) =
     kind <- case c of
       '`' => Right Backtick
       '.' => Right Dot
+      ',' => Right Comma
       '(' => Right OpenParen
       ')' => Right CloseParen
       '{' => Right OpenBrace

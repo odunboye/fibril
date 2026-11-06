@@ -15,6 +15,8 @@ Build with `pack build fibril`, then invoke `./build/exec/fibril`.
 | test [--package PATH] | Check inventories/imports before bounded pure Bool suite evaluation; True passes, False fails, exhaustion errors; no source IO |
 | check / run / module-graph | Use ./fibril.yaml only; no parent search or malformed-manifest fallback. --package PATH remains an explicit override. |
 | run PATH | Runtime-check main : IO Unit, prepare all output requests, then execute through the host adapter |
+| run-interactive PATH | Standalone incremental stdin/stdout execution; 64 requests, 8192 characters per line; earlier output may precede a later failure; see [input](io-input.md) |
+| emit-c-interactive PATH | Check a standalone IO Unit entry and emit incremental C with input; no effects during emission |
 | eval PATH | Check then reference-normalize an expression or declaration program (default fuel 128) |
 | eval --fuel N PATH | Same with evaluation fuel 0..4096; not compiled execution |
 | check PATH | Parse/resolve an expression or declaration file with main, then check typing/runtime usage |
@@ -34,6 +36,7 @@ Build with `pack build fibril`, then invoke `./build/exec/fibril`.
 | reference LINE COLUMN PATH | Tagged built-in documentation or bundled Prelude declaration snapshot; syntax/lexical lookup |
 | references LINE COLUMN PATH | Same-file lexical occurrences, including declaration sites, as JSON |
 | definition --source-dir ROOT --entry ENTRY LINE COLUMN PATH | Checked project definition; version-2 file/range target and source snapshots |
+| definition --package MANIFEST LINE COLUMN PATH | Checked application or library-inventory definition; version-2 packet across its loaded package graph |
 | definition LINE COLUMN PATH | Same-file lexical target as JSON, using one-based scalar coordinates; errors on stderr |
 | symbols PATH | JSON declaration ranges, syntax only; errors on stderr |
 | demo | Run built-in ordinary checking and cubical algebra examples |
