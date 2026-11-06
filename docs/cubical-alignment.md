@@ -143,9 +143,11 @@ It is **not yet the independent path judgment** described above:
    separate calls, not accounted against a shared budget. In particular,
    Boolean-fragment recognition now threads one shared node budget across the
    body and both endpoints (using the checking-depth value as its limit). Path
-   syntax and interval arguments still receive separate
-   pre-substitution node checks using that same limit. Substitution can expand
-   syntax, and reduction still has no shared node or allocation budget. Fuel is not a real-time
+   syntax and interval arguments still receive separate pre-substitution node
+   checks using that same limit. Open checked application also preflights its
+   substituted path/interval output, charging repeated replacements in full.
+   This is not a bound on core payloads, all intermediate weakening, or total
+   allocation; reduction still has no shared node or allocation budget. Fuel is not a real-time
    bound and does not protect against every oversized input.
 4. Scope indices rule out out-of-scope dimension references in constructed Idris
    values; there is no raw-input decoder here, nor testing of a source parser or

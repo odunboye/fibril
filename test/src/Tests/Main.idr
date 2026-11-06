@@ -336,6 +336,21 @@ checks =
                equivalent (forgetInterval a) (forgetInterval b)
             _ => False
         _ => False)
+  , ("dimension substitution output admits exact node budget",
+      case instantiateCoreWithin 3 (the (ScopedInterval 1) (Var FZ))
+             (CoreApply (CoreTerm BoolTrue) (Var FZ)) of
+        Just (CoreApply (CoreTerm BoolTrue) (Var FZ)) => True; _ => False)
+  , ("dimension substitution output charges duplicated interval",
+      case instantiateCoreWithin 8
+             (the (ScopedInterval 1) (Meet (Var FZ) (Join One Zero)))
+             (CoreApply (CoreTerm BoolTrue) (Join (Var FZ) (Var FZ))) of
+        Nothing => True; _ => False)
+  , ("checked open application rejects oversized substituted result",
+      case applyCorePathAt 8 64 6
+             (the (CorePathExpr 1) (CoreAbstract
+               (CoreApply (CoreAbstract (CoreTerm BoolTrue)) (Join (Var FZ) (Var FZ)))))
+             (Meet (Var FZ) (Join One Zero)) BoolTrue BoolTrue of
+        CoreStepExhausted => True; _ => False)
   , ("open application interval node budget exhaustion",
       case applyCorePathAt 4 64 5
              (the (CorePathExpr 1) (CoreAbstract (CoreTerm BoolTrue)))

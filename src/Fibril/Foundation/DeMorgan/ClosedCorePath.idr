@@ -141,6 +141,44 @@ collapseBody (S _) (CoreTerm term) = BodyTerm term
 collapseBody (S fuel) (CoreApply (CoreAbstract body) r) = collapseBody fuel body
 collapseBody (S _) _ = BodyRejected
 
+||| Count the output of a dimension substitution before constructing it.
+||| Each replacement is charged in full, so repeated variable occurrences
+||| cannot silently bypass the output node budget.
+substitutedIntervalWithin : Nat -> (Fin n -> ScopedInterval m) -> ScopedInterval n -> Maybe Nat
+substitutedIntervalWithin 0 _ _ = Nothing
+substitutedIntervalWithin fuel env (Var i) = intervalNodesWithin fuel (env i)
+substitutedIntervalWithin (S fuel) env Zero = Just fuel
+substitutedIntervalWithin (S fuel) env One = Just fuel
+substitutedIntervalWithin (S fuel) env (Reverse r) = substitutedIntervalWithin fuel env r
+substitutedIntervalWithin (S fuel) env (Meet r s) = do
+  remaining <- substitutedIntervalWithin fuel env r
+  substitutedIntervalWithin remaining env s
+substitutedIntervalWithin (S fuel) env (Join r s) = do
+  remaining <- substitutedIntervalWithin fuel env r
+  substitutedIntervalWithin remaining env s
+
+substitutedPathWithin : Nat -> (Fin n -> ScopedInterval m) -> CorePathExpr n -> Maybe Nat
+substitutedPathWithin 0 _ _ = Nothing
+substitutedPathWithin (S fuel) env (CoreTerm _) = Just fuel
+substitutedPathWithin (S fuel) env (CoreAbstract body) =
+  substitutedPathWithin fuel (liftDimensions env) body
+substitutedPathWithin (S fuel) env (CoreApply path r) = do
+  remaining <- substitutedPathWithin fuel env path
+  substitutedIntervalWithin remaining env r
+
+||| Fail before constructing a dimension-instantiated path whose path/interval
+||| syntax would exceed the output node budget. Core payloads are not counted.
+public export
+instantiateCoreWithin : Nat -> ScopedInterval n -> CorePathExpr (S n) -> Maybe (CorePathExpr n)
+instantiateCoreWithin budget value body =
+  case substitutedPathWithin budget replace body of
+    Nothing => Nothing
+    Just _ => Just (substituteCoreDimensions replace body)
+  where
+    replace : Fin (S n) -> ScopedInterval n
+    replace FZ = value
+    replace (FS i) = Var i
+
 ||| Check a raw path expression against explicit closed core boundaries, in
 ||| any dimension scope. Body traversal and core/path checking each use fuel
 ||| as an independent depth limit. Both faces are explicitly instantiated,
@@ -184,7 +222,9 @@ applyCorePathAt depth reduction (S fuel) path@(CoreAbstract body) r left right =
   case intervalNodesWithin depth r of
     Nothing => CoreStepExhausted
     Just _ => case checkCorePathExpr depth reduction fuel path left right of
-      Accepted => CoreStepped (instantiateCoreDimension r body)
+      Accepted => case instantiateCoreWithin depth r body of
+        Just result => CoreStepped result
+        Nothing => CoreStepExhausted
       Rejected => CoreStepRejected
       Exhausted => CoreStepExhausted
 applyCorePathAt _ _ (S _) _ _ _ _ = CoreStepRejected
