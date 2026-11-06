@@ -1,6 +1,7 @@
 -- Experimental closed-path judgment, separate from the Fibril core checker.
 module Fibril.Foundation.DeMorgan.IndependentPath
 
+import Data.Fin
 import Fibril.Core.Term
 import Fibril.Foundation.DeMorgan.ClosedPath
 import Fibril.Foundation.DeMorgan.ClosedCorePath
@@ -30,6 +31,19 @@ checkClosedPath depth reduction fuel path left right =
     Accepted => Right (MkCheckedClosedPath path left right)
     Rejected => Left ClosedPathRejected
     Exhausted => Left ClosedPathExhausted
+
+||| Weaken only dimension scope. The underlying closed computational terms
+||| and their checked endpoints are unchanged.
+weakenClosedPath : CorePathExpr 0 -> CorePathExpr n
+weakenClosedPath = substituteCoreDimensions (\i => absurd i)
+
+||| Apply a checked closed path at any scoped interval. This returns raw
+||| experimental syntax, not a checked Fibril term, and rechecks the stored path
+||| under the supplied budgets before performing capture-avoiding substitution.
+export
+applyCheckedPathAt : Nat -> Nat -> Nat -> CheckedClosedPath -> ScopedInterval n -> CorePathStep n
+applyCheckedPathAt depth reduction fuel (MkCheckedClosedPath path left right) r =
+  applyCorePathAt depth reduction fuel (weakenClosedPath path) r left right
 
 ||| Apply a checked path at a closed interval. The experimental runner rechecks
 ||| its recorded inputs with the supplied budgets; exhaustion still fails closed.

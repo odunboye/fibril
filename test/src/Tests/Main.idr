@@ -401,6 +401,23 @@ checks =
           (CoreValue BoolTrue, CoreValue BoolTrue) => True
           _ => False
         Left _ => False)
+  , ("checked closed path applies at open dimension",
+      case checkClosedPath 64 64 4 (CoreAbstract (CoreTerm BoolTrue)) BoolTrue BoolTrue of
+        Right path => case applyCheckedPathAt 64 64 5 path (the (ScopedInterval 1) (Var FZ)) of
+          CoreStepped (CoreTerm BoolTrue) => True; _ => False
+        Left _ => False)
+  , ("checked nested path substitutes an open dimension",
+      case checkClosedPath 64 64 4
+             (CoreAbstract (CoreApply (CoreAbstract (CoreTerm BoolTrue)) (Var FZ))) BoolTrue BoolTrue of
+        Right path => case applyCheckedPathAt 64 64 5 path (the (ScopedInterval 1) (Reverse (Var FZ))) of
+          CoreStepped (CoreApply (CoreAbstract (CoreTerm BoolTrue)) (Reverse (Var FZ))) => True
+          _ => False
+        Left _ => False)
+  , ("checked path open application can exhaust",
+      case checkClosedPath 64 64 4 (CoreAbstract (CoreTerm BoolTrue)) BoolTrue BoolTrue of
+        Right path => case applyCheckedPathAt 64 64 1 path (the (ScopedInterval 1) (Var FZ)) of
+          CoreStepExhausted => True; _ => False
+        Left _ => False)
   , ("independent path endpoint result remains core typed and converts to boundary",
       let body = BoolCase BoolTrue BoolFalse BoolTrue in
       case checkClosedPath 64 64 4 (CoreAbstract (CoreTerm body)) BoolFalse BoolFalse of

@@ -118,7 +118,10 @@ It is **not yet the independent path judgment** described above:
    `CoreStepped` syntax as a reusable typing certificate. Witness construction
    distinguishes rejection from exhaustion with `ClosedPathFailure`, whose
    constructors cannot express success. Applying a witness rechecks its recorded
-   inputs under the supplied budgets.
+   inputs under the supplied budgets. `applyCheckedPathAt` first weakens a
+   checked closed path into an open dimension scope and returns raw substituted
+   syntax; that result is not itself a checked witness. Weakening traverses the
+   previously admitted path before the new application budget is checked.
 2. `collapseBody` accepts nested syntactic constant paths by inferring identical
    endpoints, then discards their dimension applications. This is a deliberately
    narrow shortcut, not general path inference, face checking, or conversion.
