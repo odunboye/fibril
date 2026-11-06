@@ -22,6 +22,12 @@ export
 data CheckedClosedPath : Type where
   MkCheckedClosedPath : CorePathExpr 0 -> Term 0 -> Term 0 -> CheckedClosedPath
 
+||| Opaque evidence that a closed core Boolean passed this restricted checker.
+||| It is not a runtime resource judgment.
+export
+data CheckedClosedBool : Type where
+  MkCheckedClosedBool : Term 0 -> CheckedClosedBool
+
 ||| Failure cannot represent successful checking. Exhaustion is inconclusive,
 ||| while rejection covers mismatched or unsupported inputs.
 public export
@@ -85,3 +91,26 @@ export
 applyCheckedClosedPath : Nat -> Nat -> Nat -> CheckedClosedPath -> ScopedInterval 0 -> CoreEndpoint
 applyCheckedClosedPath depth reduction fuel (MkCheckedClosedPath path left right) r =
   runCorePathExpr depth reduction fuel (CoreApply path r) left right
+
+||| Return the core syntax carried by a checked Boolean. The syntax by itself
+||| is not a reusable witness; callers must keep the opaque value for evidence.
+export
+forgetCheckedClosedBool : CheckedClosedBool -> Term 0
+forgetCheckedClosedBool (MkCheckedClosedBool value) = value
+
+||| Check and reduce a checked path at a literal endpoint. Independently recheck
+||| the result and compare it to the selected declared boundary before sealing it.
+||| All component calls reuse the given budgets independently, not globally.
+export
+checkPathEndpoint : Nat -> Nat -> Nat -> CheckedClosedPath -> Bool ->
+                    Either ClosedPathFailure CheckedClosedBool
+checkPathEndpoint depth reduction fuel checked@(MkCheckedClosedPath path left right) endpoint =
+  case applyCheckedClosedPath depth reduction fuel checked (if endpoint then One else Zero) of
+    CoreRejected => Left ClosedPathRejected
+    CoreExhausted => Left ClosedPathExhausted
+    CoreValue value =>
+      let expected = if endpoint then right else left in
+      case checkClosedCorePath depth reduction fuel value expected expected of
+        Accepted => Right (MkCheckedClosedBool value)
+        Rejected => Left ClosedPathRejected
+        Exhausted => Left ClosedPathExhausted

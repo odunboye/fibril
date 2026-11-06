@@ -116,7 +116,8 @@ It is **not yet the independent path judgment** described above:
    `IndependentPath` module exposes an opaque `CheckedClosedPath` witness only
    after the fragment checker accepts, but this is not a core typing derivation.
    `formClosedBoolPath` separately checks and seals the two endpoint terms;
-   `checkPathAgainstType` checks an abstraction against that formed type.
+   `checkPathAgainstType` checks an abstraction against that formed type, and
+   `checkPathEndpoint` rechecks and seals an endpoint result.
    Distinct endpoints may form a type without yielding a path.
    `checkCorePathExpr` itself returns only a status; callers must not treat raw
    `CoreStepped` syntax as a reusable typing certificate. Witness construction
@@ -154,6 +155,24 @@ whether the duplicate toy `PathSyntax` and Boolean-only `ClosedPath` helpers
 should be removed once their substitution and budget tests have equivalents.
 Do not broaden the runtime or proof fragment merely because the experiment
 accepts a term.
+
+## Internal checked-path demonstrator
+
+The test `checked path milestone forms checks and checks both endpoint results`
+in `test/src/Tests/Main.idr` now performs the narrow internal sequence: form
+`Path Bool False False`, check a constant abstraction whose body reduces to
+`False`, apply it at both endpoints, independently recheck each result against
+its boundary, and compare both results to `False`. `IndependentPath.idr`
+provides opaque experimental witnesses for the formed type, checked path and
+checked endpoint results. Negative tests cover forged witnesses, scope, mismatched
+boundaries, unsupported core syntax and exhausted budgets.
+
+This demonstrates the endpoint objective only for the isolated closed Boolean
+fragment. It is not a path constructor in `Fibril.Core.Term`, is not connected
+to the ordinary core acceptance boundary or backends, and does not settle the
+remaining quantitative, general conversion, or soundness obligations. In
+particular it is not HoTT support. The broader milestone's independent core
+integration and resource tests remain open.
 
 ## Proposed first independent judgment
 

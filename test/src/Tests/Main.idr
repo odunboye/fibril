@@ -394,6 +394,27 @@ checks =
                (CoreApply (CoreAbstract (CoreTerm BoolTrue)) (Var FZ))) (Var FZ))))
              BoolTrue BoolTrue of
         Exhausted => True; _ => False)
+  , ("checked path milestone forms checks and checks both endpoint results",
+      let body = BoolCase BoolTrue BoolFalse BoolTrue in
+      case formClosedBoolPath 64 64 5 BoolFalse BoolFalse of
+        Right ty => case checkPathAgainstType 64 64 5 (CoreAbstract (CoreTerm body)) ty of
+          Right path => case (checkPathEndpoint 64 64 6 path False,
+                              checkPathEndpoint 64 64 6 path True) of
+            (Right zero, Right one) =>
+              case (betaCompare 64 (forgetCheckedClosedBool zero) BoolFalse,
+                    betaCompare 64 (forgetCheckedClosedBool one) BoolFalse) of
+                (EqualNormalForms, EqualNormalForms) => True
+                _ => False
+            _ => False
+          Left _ => False
+        Left _ => False)
+  , ("checked endpoint rejects budget exhaustion",
+      case formClosedBoolPath 64 64 5 BoolTrue BoolTrue of
+        Right ty => case checkPathAgainstType 64 64 5 (CoreAbstract (CoreTerm BoolTrue)) ty of
+          Right path => case checkPathEndpoint 64 64 1 path False of
+            Left ClosedPathExhausted => True; _ => False
+          Left _ => False
+        Left _ => False)
   , ("closed Bool path type forms and checks before application",
       case formClosedBoolPath 64 64 4 BoolTrue BoolTrue of
         Right ty => case checkPathAgainstType 64 64 4 (CoreAbstract (CoreTerm BoolTrue)) ty of
