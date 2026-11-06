@@ -42,6 +42,8 @@ mutual
   renderTerm (ReadInputFile handle) = "(ReadInputFile " ++ renderTerm handle ++ ")"
   renderTerm (BytesIndex a b) = "(BytesIndex " ++ renderTerm a ++ " " ++ renderTerm b ++ ")"
   renderTerm (BytesSlice a b c) = "(BytesSlice " ++ renderTerm a ++ " " ++ renderTerm b ++ " " ++ renderTerm c ++ ")"
+  renderTerm (UTF8Encode x) = "(UTF8Encode " ++ renderTerm x ++ ")"
+  renderTerm (UTF8Decode x) = "(UTF8Decode " ++ renderTerm x ++ ")"
   renderTerm BytesType = "Bytes"
   renderTerm (BytesValue value) = "(BytesValue " ++ show (toList value) ++ ")"
   renderTerm (BytesLength x) = "(BytesLength " ++ renderTerm x ++ ")"

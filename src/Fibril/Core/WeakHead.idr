@@ -52,6 +52,10 @@ stepHead (PairCase motive (PairValue ty first second) branch) = Just (Apply (App
 stepHead (PairCase motive scrutinee branch) = map (\next => PairCase motive next branch) (stepHead scrutinee)
 stepHead (IOBind a b (IOPure value) next) = Just (Apply next value)
 stepHead (IOBind a b action next) = map (\result => IOBind a b result next) (stepHead action)
+stepHead (UTF8Encode (StringValue text)) = Just (encodeUTF8Value text)
+stepHead (UTF8Encode x) = map UTF8Encode (stepHead x)
+stepHead (UTF8Decode (BytesValue bytes)) = Just (decodeUTF8Value bytes)
+stepHead (UTF8Decode x) = map UTF8Decode (stepHead x)
 stepHead (BytesIndex a b) = case contractBytesIndex a b of
   Just result => Just result
   Nothing => case step a of

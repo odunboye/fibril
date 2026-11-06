@@ -47,6 +47,8 @@ data Term : Nat -> Type where
   ||| One-step list matching exposes linear head and tail without recursion.
   SeqCase : Term n -> Term n -> Term n -> Term n -> Term n
   ||| Pure immutable octets, separate from text and from binary execution.
+  UTF8Encode : Term n -> Term n
+  UTF8Decode : Term n -> Term n
   BytesType : Term n
   BytesValue : Bytes -> Term n
   BytesAppend : Term n -> Term n -> Term n
@@ -114,6 +116,10 @@ canonicalNatural (NatSucc n) = map S (canonicalNatural n)
 canonicalNatural _ = Nothing
 
 ||| Missing or found octet (as a natural 0..255), never a sentinel byte.
+public export
+utf8ResultType : Term n -> Term n
+utf8ResultType payload = VariantType [Nothing, Just (Linear, payload)]
+
 public export
 byteIndexResultType : Term n
 byteIndexResultType = VariantType [Nothing, Just (Linear, NatType)]
@@ -210,6 +216,8 @@ mutual
   rename env ReadLine = ReadLine
   rename env (FileHandleValue identity generation) = FileHandleValue identity generation
   rename env (ReadInputFile handle) = ReadInputFile (rename env handle)
+  rename env (UTF8Encode x) = UTF8Encode (rename env x)
+  rename env (UTF8Decode x) = UTF8Decode (rename env x)
   rename env BytesType = BytesType
   rename env (BytesValue value) = BytesValue value
   rename env (BytesAppend a b) = BytesAppend (rename env a) (rename env b)
@@ -293,6 +301,8 @@ mutual
   substituteTerm env ReadLine = ReadLine
   substituteTerm env (FileHandleValue identity generation) = FileHandleValue identity generation
   substituteTerm env (ReadInputFile handle) = ReadInputFile (substituteTerm env handle)
+  substituteTerm env (UTF8Encode x) = UTF8Encode (substituteTerm env x)
+  substituteTerm env (UTF8Decode x) = UTF8Decode (substituteTerm env x)
   substituteTerm env BytesType = BytesType
   substituteTerm env (BytesValue value) = BytesValue value
   substituteTerm env (BytesAppend a b) = BytesAppend (substituteTerm env a) (substituteTerm env b)
@@ -383,6 +393,8 @@ mutual
   sameSyntax ReadLine ReadLine = True
   sameSyntax (FileHandleValue left first) (FileHandleValue right second) = left == right && first == second
   sameSyntax (ReadInputFile left) (ReadInputFile right) = sameSyntax left right
+  sameSyntax (UTF8Encode a) (UTF8Encode b) = sameSyntax a b
+  sameSyntax (UTF8Decode a) (UTF8Decode b) = sameSyntax a b
   sameSyntax BytesType BytesType = True
   sameSyntax (BytesValue a) (BytesValue b) = a == b
   sameSyntax (BytesAppend a b) (BytesAppend c d) = sameSyntax a c && sameSyntax b d

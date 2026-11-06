@@ -51,6 +51,8 @@ mutual
   payloadWeight env (ReadInputFile handle) = payloadWeight env handle
   payloadWeight env (BytesIndex a b) = cap (payloadWeight env a + payloadWeight env b)
   payloadWeight env (BytesSlice a b c) = cap (payloadWeight env a + payloadWeight env b + payloadWeight env c)
+  payloadWeight env (UTF8Encode x) = payloadWeight env x
+  payloadWeight env (UTF8Decode x) = payloadWeight env x
   payloadWeight env BytesType = 0
   payloadWeight env (BytesValue value) = cap (byteLength value)
   payloadWeight env (BytesLength x) = payloadWeight env x

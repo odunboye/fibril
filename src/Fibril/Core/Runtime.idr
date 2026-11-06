@@ -102,6 +102,8 @@ mutual
     y <- analyze depth reduction context b
     z <- analyze depth reduction context c
     Right (combineUsage x (combineUsage y z))
+  analyze (S depth) reduction context (UTF8Encode x) = analyze depth reduction context x
+  analyze (S depth) reduction context (UTF8Decode x) = analyze depth reduction context x
   analyze (S depth) reduction context BytesType = Left RuntimeTypeExpression
   analyze (S depth) reduction context (BytesValue _) = Right zeroUsage
   analyze (S depth) reduction context (BytesLength x) = analyze depth reduction context x

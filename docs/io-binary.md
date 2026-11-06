@@ -11,8 +11,8 @@ Existing text IO retains strict UTF-8 decoding and NUL rejection.
 `Fibril.Data.Bytes` exports an opaque immutable value with `fromList`, `toList`,
 `empty`, `byteLength`, `append`, `slice` and equality. Lists contain Bits8 octets,
 not characters. Slices truncate at the end; out-of-range slices are empty. No
-mutable array or pointer is exposed through these byte values. UTF-8 conversion is separate
-work: this layer neither decodes nor normalizes data.
+mutable array or pointer is exposed through these byte values. [UTF-8 conversion](utf8-values.md) is a separate checked operation: the byte
+value layer itself neither decodes nor normalizes data.
 
 The native pilot represents read payloads as const slices in session-owned
 allocations. Earlier reads survive subsequent reads. Native slices/session
@@ -171,15 +171,16 @@ the reference adapter while expanding source/runtime coverage.
 The initial pure byte types, append/length/modulo operations and structural
 proof extensions are implemented; `examples/core/bytes-pure.fib` checks/evaluates.
 
-1. Add explicit UTF-8 conversion; pure index/slice and their hosted/native
-   comparisons are now implemented.
-2. Add checked binary descriptions and source operations with explicit hosted/
+Pure index/slice and [explicit UTF-8 conversion](utf8-values.md), with native
+coverage, are now implemented.
+
+1. Add checked binary descriptions and source operations with explicit hosted/
    native execution admission; compare actual compiled `.fib` programs. Preserve
    all existing runner gates.
-3. Implement bounded Content-Length framing in Fibril: first one frame, then a
+2. Implement bounded Content-Length framing in Fibril: first one frame, then a
    bounded sequence. Test fragmentation, Unicode byte counts and truncation.
-4. Add JSON/document state and a narrow compiler-service bridge.
-5. Design task cancellation and ownership before concurrent source execution.
+3. Add JSON/document state and a narrow compiler-service bridge.
+4. Design task cancellation and ownership before concurrent source execution.
 
 Reusable descriptions remain allowed. This is not world-token IO, a binary-file
 ownership library, general exception safety or a verified runtime.

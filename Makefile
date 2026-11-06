@@ -72,6 +72,7 @@ examples: build
 	./build/exec/fibril run --package examples/packages/sum-client/fibril.yaml
 	./build/exec/fibril check --package examples/packages/request-api/fibril.yaml
 	./build/exec/fibril test --package examples/packages/request-api/fibril.yaml
+	./build/exec/fibril run examples/core/utf8-bytes.fib
 	./build/exec/fibril run examples/core/bytes-ranges.fib
 	./build/exec/fibril run examples/core/bytes-native.fib
 	./build/exec/fibril check examples/core/bytes-pure.fib

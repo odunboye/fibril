@@ -135,7 +135,7 @@ make -j8 bytes-native-test CC='cc -fsanitize=address,undefined -fno-omit-frame-p
 
 The suite compares hosted execution and compiled checked source in both emission
 modes, checks that generated C retains byte operations (not just a precomputed
-result), and exercises nineteen raw ABI cases: all octets, null empty storage,
+result), and exercises nineteen byte-operation raw ABI cases (plus UTF-8 checks): all octets, null empty storage,
 modulo values 0..513, type errors, overflow, missing callbacks, cyclic naturals,
 evaluation/allocation exhaustion, all index positions 0..257, and an exhaustive
 small range matrix with retained views. A separate raw case rejects Bytes as text
@@ -145,9 +145,9 @@ emission without character conversion.
 
 ## Validation
 
-The unit/property phase (including 28 initial core-byte and 29 range checks), 163 CLI,
-19 native-emitter, 4 pure-byte native, 9 interactive CLI, 7 editor and 16 handbook
-tests passed. Focused IO subtargets passed in split runs: 294 hosted checks, 29 checked
+The unit/property phase (including 28 initial core-byte, 29 range and 17 UTF-8 checks), 163 CLI,
+19 native-emitter, 6 pure-byte/UTF-8 native, 9 interactive CLI, 7 editor and 16 handbook
+tests passed. Focused IO subtargets passed in split runs: 298 hosted checks, 29 checked
 resource differentials, console/interactive emission comparisons, and 19 binary
 transport tests. Native console/resource/binary suites passed ASan/UBSan.
 
@@ -166,7 +166,7 @@ No timed-out invocation is counted as a successful test.
 
 ## Remaining work
 
-- Explicit fallible UTF-8 conversions.
+- [Explicit fallible UTF-8 conversion](utf8-values.md) is now implemented; binary source IO is the next boundary.
 - Checked binary descriptions, explicit hosted/native runners and source
   admission. The [transport pilot](io-binary.md) remains internal.
 - A real Fibril-written bounded Content-Length parser and echo program.

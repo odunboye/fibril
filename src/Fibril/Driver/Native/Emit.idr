@@ -68,6 +68,8 @@ constant n expr = Output n (S n) [function n ("(void)e; return " ++ expr ++ ";")
 mutual
   generate : NativeMode -> Nat -> Term n -> Either String Generated
   generate mode n (Variable index) = Right (Output n (S n) [function n ("return f_variable(r, e, " ++ show (finToNat index) ++ ");")])
+  generate mode n (UTF8Encode x) = unary mode n "f_utf8_encode" x
+  generate mode n (UTF8Decode x) = unary mode n "f_utf8_decode" x
   generate mode n BytesType = Right (constant n "f_erased(r)")
   generate mode n (BytesValue value) = Right (Output n (S n) [byteLiteral n value])
   generate mode n (BytesAppend a b) = binary mode n "f_bytes_append" a b

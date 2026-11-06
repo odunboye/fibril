@@ -1,5 +1,8 @@
 # Examples
 
+The [UTF-8 bytes example](core/utf8-bytes.fib) explicitly handles encoding and
+decoding outcomes, with hosted/native text output. It does not grant binary IO.
+
 The [pure bytes example](core/bytes-pure.fib) constructs a NUL octet, appends
 another byte and computes length. It performs no binary IO; use `fibril eval`.
 The [native pure bytes example](core/bytes-native.fib) feeds a byte-derived length

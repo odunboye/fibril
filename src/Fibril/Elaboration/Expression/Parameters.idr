@@ -105,6 +105,8 @@ mutual
   match position mapping prune (ReadInputFile left) (ReadInputFile right) solutions = match position mapping prune left right solutions
   match position mapping prune (BytesIndex a b) (BytesIndex c d) solutions = pair position mapping prune a b c d solutions
   match position mapping prune (BytesSlice a b c) (BytesSlice d e f) solutions = triple position mapping prune a b c d e f solutions
+  match position mapping prune (UTF8Encode x) (UTF8Encode y) solutions = match position mapping prune x y solutions
+  match position mapping prune (UTF8Decode x) (UTF8Decode y) solutions = match position mapping prune x y solutions
   match position mapping prune BytesType BytesType solutions = Right solutions
   match position mapping prune (BytesValue x) (BytesValue y) solutions = if x == y then Right solutions else failure position
   match position mapping prune (BytesLength x) (BytesLength y) solutions = match position mapping prune x y solutions
@@ -300,6 +302,8 @@ implicitArgumentType position (S fuel) context (Variable index) = Just <$> looku
 implicitArgumentType position (S fuel) context (BytesValue _) = Right (Just BytesType)
 implicitArgumentType position (S fuel) context (BytesIndex _ _) = Right (Just byteIndexResultType)
 implicitArgumentType position (S fuel) context (BytesSlice _ _ _) = Right (Just BytesType)
+implicitArgumentType position (S fuel) context (UTF8Encode _) = Right (Just (utf8ResultType BytesType))
+implicitArgumentType position (S fuel) context (UTF8Decode _) = Right (Just (utf8ResultType StringType))
 implicitArgumentType position (S fuel) context BytesType = Right (Just (Universe 0))
 implicitArgumentType position (S fuel) context (BytesAppend _ _) = Right (Just BytesType)
 implicitArgumentType position (S fuel) context (BytesOctet _) = Right (Just BytesType)

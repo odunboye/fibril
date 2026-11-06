@@ -473,6 +473,31 @@ static FValue *read_result(FRuntime *r, size_t tag, FValue *payload) {
   if (payload) { v->as.variant.payload = ready(r, payload); if (!v->as.variant.payload) return NULL; }
   return v;
 }
+static FValue *convert_utf8(FRuntime *r, FEnv *env, FEval expression, int encode) {
+  if (!expression) { fail(r, "missing native UTF8 operand"); return NULL; }
+  FValue *input = evaluate(r, expression, env);
+  if (!input || input->tag != (encode ? V_STRING : V_BYTES)) {
+    fail(r, "native UTF8 conversion operand type mismatch"); return NULL;
+  }
+  const unsigned char *data = encode ? input->as.string.bytes : input->as.bytes.data;
+  size_t length = encode ? input->as.string.length : input->as.bytes.length;
+  if ((length && !data) || length > F_MAX_BYTES) { fail(r, "invalid native UTF8 payload or byte budget"); return NULL; }
+  /* Reserve validation work even for malformed sequences; no refund on an
+     early error. This is evaluator work, not the binary transport quota. */
+  if (r->steps > F_MAX_STEPS || length > F_MAX_STEPS - r->steps) {
+    fail(r, "native UTF8 evaluation budget exhausted"); return NULL;
+  }
+  r->steps += length;
+  /* Existing String consumers expect addressable storage even when empty. */
+  static const unsigned char empty[] = {0};
+  if (!data) data = empty;
+  size_t characters;
+  if (!utf8_count(data, length, &characters)) return read_result(r, 0, NULL);
+  FValue *payload = encode ? f_bytes_literal(r, data, length) : f_literal(r, data, length);
+  return payload ? read_result(r, 1, payload) : NULL;
+}
+FValue *f_utf8_encode(FRuntime *r, FEnv *env, FEval expression) { return convert_utf8(r, env, expression, 1); }
+FValue *f_utf8_decode(FRuntime *r, FEnv *env, FEval expression) { return convert_utf8(r, env, expression, 0); }
 static FValue *input_error(FRuntime *r, const char *message) {
   FValue *text = f_literal(r, (const unsigned char *)message, strlen(message));
   return text ? read_result(r, 2, text) : NULL;

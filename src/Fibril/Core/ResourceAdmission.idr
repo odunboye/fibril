@@ -36,6 +36,8 @@ mutual
   containsFileReference (SeqCase p x z s) = containsFileReference p || containsFileReference x || containsFileReference z || containsFileReference s
   containsFileReference (BytesIndex a b) = containsFileReference a || containsFileReference b
   containsFileReference (BytesSlice a b c) = containsFileReference a || containsFileReference b || containsFileReference c
+  containsFileReference (UTF8Encode x) = containsFileReference x
+  containsFileReference (UTF8Decode x) = containsFileReference x
   containsFileReference BytesType = False
   containsFileReference (BytesValue _) = False
   containsFileReference (BytesLength x) = containsFileReference x

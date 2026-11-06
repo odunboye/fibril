@@ -4,9 +4,22 @@ module Fibril.Core.Reduction
 
 import Fibril.Core.Term
 import Fibril.Data.Bytes
+import Fibril.Source.UTF8
 import Fibril.Core.Quantity
 
 %default total
+
+public export
+encodeUTF8Value : String -> Term n
+encodeUTF8Value text = case encodeUTF8 text of
+  Left _ => VariantValue (utf8ResultType BytesType) 0 Nothing
+  Right bytes => VariantValue (utf8ResultType BytesType) 1 (Just (BytesValue (fromList bytes)))
+
+public export
+decodeUTF8Value : Bytes -> Term n
+decodeUTF8Value bytes = case decodeUTF8 (toList bytes) of
+  Left _ => VariantValue (utf8ResultType StringType) 0 Nothing
+  Right text => VariantValue (utf8ResultType StringType) 1 (Just (StringValue text))
 
 ||| Shared root selection, total even on malformed raw tags.
 public export
@@ -116,6 +129,10 @@ mutual
       Nothing => case step b of
         Just next => Just (BytesSlice a next c)
         Nothing => map (BytesSlice a b) (step c)
+  step (UTF8Encode (StringValue text)) = Just (encodeUTF8Value text)
+  step (UTF8Encode x) = map UTF8Encode (step x)
+  step (UTF8Decode (BytesValue bytes)) = Just (decodeUTF8Value bytes)
+  step (UTF8Decode x) = map UTF8Decode (step x)
   step BytesType = Nothing
   step (BytesValue _) = Nothing
   step (BytesAppend (BytesValue a) (BytesValue b)) = Just (BytesValue (append a b))

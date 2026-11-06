@@ -38,6 +38,8 @@ mutual
   coreNodes (ReadInputFile handle) = 1 + coreNodes handle
   coreNodes (BytesIndex a b) = 1 + coreNodes a + coreNodes b
   coreNodes (BytesSlice a b c) = 1 + coreNodes a + coreNodes b + coreNodes c
+  coreNodes (UTF8Encode x) = 1 + coreNodes x
+  coreNodes (UTF8Decode x) = 1 + coreNodes x
   coreNodes BytesType = 1
   coreNodes (BytesValue _) = 1
   coreNodes (BytesLength x) = 1 + coreNodes x
@@ -114,6 +116,8 @@ mutual
   mentionsNominal key (ReadInputFile handle) = mentionsNominal key handle
   mentionsNominal key (BytesIndex a b) = mentionsNominal key a || mentionsNominal key b
   mentionsNominal key (BytesSlice a b c) = mentionsNominal key a || mentionsNominal key b || mentionsNominal key c
+  mentionsNominal key (UTF8Encode x) = mentionsNominal key x
+  mentionsNominal key (UTF8Decode x) = mentionsNominal key x
   mentionsNominal key BytesType = False
   mentionsNominal key (BytesValue _) = False
   mentionsNominal key (BytesLength x) = mentionsNominal key x

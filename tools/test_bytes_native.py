@@ -5,6 +5,7 @@ The C fixture inspects private runtime state deliberately; it is not evidence
 of source checking. Source tests independently invoke the built compiler.
 """
 import os
+import random
 from pathlib import Path
 import shlex
 import subprocess
@@ -154,6 +155,55 @@ int main(int argc, char **argv) {
     left_value=number(&r,1); left_value->as.recursive.tail->value=left_value;
     right_value=f_bytes_literal(&r,octets,4); r.steps=F_MAX_STEPS-10;
     assert(!f_bytes_index(&r,NULL,left,right) && r.error);
+  } else if(mode==20) {
+    int length;
+    while((length=fgetc(stdin))!=EOF) {
+      unsigned char data[64];
+      if(length>64 || fread(data,1,(size_t)length,stdin)!=(size_t)length) return 2;
+      left_value=f_bytes_literal(&r,data,(size_t)length);
+      FValue *decoded=f_utf8_decode(&r,NULL,left);
+      assert(decoded && decoded->tag==V_VARIANT && !r.error);
+      int valid=decoded->as.variant.tag==1;
+      if(valid) {
+        left_value=force(&r,decoded->as.variant.payload);
+        assert(left_value && left_value->tag==V_STRING && left_value->as.string.length==(size_t)length);
+        assert(!memcmp(left_value->as.string.bytes,data,(size_t)length));
+        FValue *encoded=f_utf8_encode(&r,NULL,left);
+        assert(encoded && encoded->tag==V_VARIANT && encoded->as.variant.tag==1);
+        FValue *bytes=force(&r,encoded->as.variant.payload);
+        assert(bytes && bytes->tag==V_BYTES && bytes->as.bytes.length==(size_t)length);
+        assert(!length || !memcmp(bytes->as.bytes.data,data,(size_t)length));
+      } else assert(!decoded->as.variant.payload);
+      putchar(valid?'1':'0'); release(&r); memset(&r,0,sizeof(r));
+    }
+  } else if(mode==21) {
+    static const unsigned char bad[]={237,160,128};
+    left_value=f_literal(&r,bad,sizeof(bad));
+    FValue *failed=f_utf8_encode(&r,NULL,left);
+    assert(failed && failed->tag==V_VARIANT && failed->as.variant.tag==0 && !r.error);
+    left_value=f_literal(&r,octets,1);
+    FValue *nul=f_utf8_encode(&r,NULL,left);
+    assert(nul && nul->as.variant.tag==1 && !r.error);
+    left_value=f_bytes_literal(&r,NULL,0);
+    FValue *empty=f_utf8_decode(&r,NULL,left);
+    assert(empty && empty->as.variant.tag==1);
+    left_value=force(&r,empty->as.variant.payload);
+    assert(left_value && left_value->tag==V_STRING && left_value->as.string.bytes && left_value->as.string.length==0);
+    right_value=f_literal(&r,octets,0);
+    assert(f_append(&r,NULL,left,right) && !r.error);
+    left_value=f_unit(&r); assert(!f_utf8_decode(&r,NULL,left) && r.error);
+    r.error=NULL; left_value=f_bytes_literal(&r,octets,1);
+    assert(!f_utf8_encode(&r,NULL,left) && r.error);
+  } else if(mode==22) {
+    assert(!f_utf8_encode(&r,NULL,NULL) && r.error);
+    r.error=NULL; left_value=f_literal(&r,NULL,1);
+    assert(!f_utf8_encode(&r,NULL,left) && r.error);
+    r.error=NULL; left_value=f_literal(&r,octets,1); r.bytes=F_MAX_BYTES;
+    assert(!f_utf8_encode(&r,NULL,left) && r.error);
+  } else if(mode==23) {
+    static const unsigned char valid[]={239,191,189};
+    left_value=f_bytes_literal(&r,valid,sizeof(valid)); r.steps=F_MAX_STEPS-2;
+    assert(!f_utf8_decode(&r,NULL,left) && r.error);
   } else return 2;
   release(&r);
   return 0;
@@ -177,16 +227,78 @@ class NativeBytes(unittest.TestCase):
             raise AssertionError(compiled.stderr.decode(errors='replace'))
 
     def test_raw_native_byte_facts(self):
-        for mode in list(range(13)) + list(range(14,20)):
+        for mode in list(range(13)) + list(range(14,20)) + [21,22,23]:
             with self.subTest(mode=mode):
                 result = subprocess.run([str(self.raw), str(mode)], capture_output=True, timeout=20)
                 self.assertEqual((result.returncode, result.stdout, result.stderr), (0, b'', b''))
+
+    def test_utf8_native_matches_python_strict_decoder(self):
+        vectors = [b'', *[bytes([a]) for a in range(256)],
+            *[bytes([a,b]) for a in range(256) for b in range(256)]]
+        vectors += [text.encode('utf-8') for text in ('λ', '🌍', '�', '\ufeff', '\uffff', '\U0010ffff', '\0x')]
+        vectors += [bytes.fromhex(text) for text in ('e08080', 'eda080', 'ed9fbf', 'ee8080', 'efbfbf', 'f0908080', 'f0808080', 'f4908080', 'f48fbfbf', 'f5808080', 'e2', 'e282', 'f09f8c')]
+        rng = random.Random(7381)
+        vectors += [bytes(rng.randrange(256) for _ in range(rng.randrange(9))) for _ in range(1024)]
+        expected = bytearray()
+        for data in vectors:
+            try:
+                data.decode('utf-8', errors='strict')
+                expected += b'1'
+            except UnicodeDecodeError:
+                expected += b'0'
+        framed = b''.join(bytes([len(data)]) + data for data in vectors)
+        result = subprocess.run([str(self.raw), '20'], input=framed, capture_output=True, timeout=30)
+        self.assertEqual((result.returncode, result.stdout, result.stderr), (0, bytes(expected), b''))
 
     def test_native_byte_value_is_not_text_output(self):
         result = subprocess.run([str(self.raw), '13'], capture_output=True, timeout=20)
         self.assertEqual(result.returncode, 1)
         self.assertEqual(result.stdout, b'')
         self.assertIn(b'write expects a string', result.stderr)
+
+    def test_checked_utf8_source_and_console_boundary(self):
+        decode = 'decode : (1 b : Bytes) -> IO Unit\ndecode = \\(1 b : Bytes) => primUTF8Case String (IO Unit) (primUTF8Decode b) (putStrLn "invalid") (\\(1 s : String) => putStrLn s)\n'
+        truncated = decode.replace('primUTF8Decode b', 'primUTF8Decode (primBytesSlice Zero (Succ Zero) b)')
+        cases = [
+            ('unicode', (ROOT / 'examples/core/utf8-bytes.fib').read_text(), 'λ 🌍\n'),
+            ('empty', decode + 'main : IO Unit\nmain = primUTF8Case Bytes (IO Unit) (primUTF8Encode "") (putStrLn "bad") decode\n', '\n'),
+            ('replacement', decode + 'main : IO Unit\nmain = primUTF8Case Bytes (IO Unit) (primUTF8Encode "�") (putStrLn "bad") decode\n', '�\n'),
+            ('truncated', truncated + 'main : IO Unit\nmain = primUTF8Case Bytes (IO Unit) (primUTF8Encode "λ") (putStrLn "bad") decode\n', 'invalid\n'),
+            ('nul', decode + 'main : IO Unit\nmain = decode (primBytesOctetMod256 Zero)\n', None),
+        ]
+        for label, content, expected in cases:
+            path = self.work / (label + '.fib')
+            path.write_text(content)
+            for command in ('run', 'run-interactive'):
+                with self.subTest(label=label, command=command):
+                    result = run_cli(command, str(path))
+                    if expected is None:
+                        self.assertNotEqual(result.returncode, 0)
+                        self.assertNotIn('\0', result.stdout)
+                        self.assertIn('NUL', result.stdout + result.stderr)
+                    else:
+                        self.assertEqual((result.returncode, result.stdout, result.stderr), (0, expected, ''))
+            for command in ('emit-c', 'emit-c-interactive'):
+                with self.subTest(label=label, command=command):
+                    emitted = run_cli(command, str(path))
+                    self.assertEqual(emitted.returncode, 0, emitted.stdout + emitted.stderr)
+                    self.assertIn('f_utf8_decode(', emitted.stdout)
+                    if label != 'nul':
+                        self.assertIn('f_utf8_encode(', emitted.stdout)
+                    source = self.work / (label + command + '.c')
+                    source.write_text(emitted.stdout)
+                    executable = self.work / (label + command)
+                    compiled = subprocess.run(self.cc + ['-std=c11', '-Wall', '-Wextra', '-Werror',
+                        '-I', str(RUNTIME), str(source), str(RUNTIME / 'fibril_runtime.c'), '-o', str(executable)],
+                        capture_output=True, timeout=60)
+                    self.assertEqual(compiled.returncode, 0, compiled.stderr.decode(errors='replace'))
+                    result = subprocess.run([str(executable)], capture_output=True, timeout=20)
+                    if expected is None:
+                        self.assertNotEqual(result.returncode, 0)
+                        self.assertEqual(result.stdout, b'')
+                        self.assertIn(b'NUL', result.stderr)
+                    else:
+                        self.assertEqual((result.returncode, result.stdout, result.stderr), (0, expected.encode(), b''))
 
     def test_checked_source_ranges_in_both_modes(self):
         example = 'examples/core/bytes-ranges.fib'

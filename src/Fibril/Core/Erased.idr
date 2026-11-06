@@ -280,6 +280,14 @@ mutual
     bytesType <- infer depth reduction context bytes
     requireCompatible reduction bytesType BytesType
     Right BytesType
+  infer (S depth) reduction context (UTF8Encode x) = do
+    ty <- infer depth reduction context x
+    requireCompatible reduction ty StringType
+    Right (utf8ResultType BytesType)
+  infer (S depth) reduction context (UTF8Decode x) = do
+    ty <- infer depth reduction context x
+    requireCompatible reduction ty BytesType
+    Right (utf8ResultType StringType)
   infer (S depth) reduction context BytesType = Right (Universe 0)
   infer (S depth) reduction context (BytesValue _) = Right BytesType
   infer (S depth) reduction context (BytesAppend a b) = do

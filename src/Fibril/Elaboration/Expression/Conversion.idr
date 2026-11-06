@@ -43,6 +43,8 @@ mutual
   admit (S budget) (ReadInputFile handle) = admit budget handle
   admit (S budget) (BytesIndex a b) = do x <- admit budget a; admit x b
   admit (S budget) (BytesSlice a b c) = do x <- admit budget a; y <- admit x b; admit y c
+  admit (S budget) (UTF8Encode x) = admit budget x
+  admit (S budget) (UTF8Decode x) = admit budget x
   admit (S budget) BytesType = Just budget
   admit (S budget) (BytesValue _) = Just budget
   admit (S budget) (BytesLength x) = admit budget x
@@ -156,6 +158,9 @@ mutual
         Just octet => size + cast octet + 4 <= inferredResultNodes
   safeRedexes size payload (BytesIndex a b) = safeRedexes size payload a && safeRedexes size payload b
   safeRedexes size payload (BytesSlice a b c) = safeRedexes size payload a && safeRedexes size payload b && safeRedexes size payload c
+  safeRedexes size payload (UTF8Encode (StringValue text)) = size + 6 <= inferredResultNodes && payload + 3 * length text <= payloadLimit
+  safeRedexes size payload (UTF8Encode x) = safeRedexes size payload x
+  safeRedexes size payload (UTF8Decode x) = size + 6 <= inferredResultNodes && safeRedexes size payload x
   safeRedexes size payload BytesType = True
   safeRedexes size payload (BytesValue _) = True
   -- Length expands one literal into a unary natural; admit that allocation
