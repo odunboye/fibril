@@ -46,6 +46,14 @@ if ! grep -q 'IndependentPath.MkCheckedClosedPath is private' "$tmp/forge.log"; 
   exit 1
 fi
 echo 'Checked path opacity negative test passed.'
+"$idris" -p fibril --check ForgeBoolPathType.idr > "$tmp/forge-type.log" 2>&1 || true
+if ! grep -q 'IndependentPath.MkCheckedBoolPathType is private' "$tmp/forge-type.log"; then
+  echo 'Negative path-type opacity check failed for an unrelated reason:' >&2
+  read -r -d '' output < "$tmp/forge-type.log" || true
+  printf '%s\n' "$output" >&2
+  exit 1
+fi
+echo 'Checked path type opacity negative test passed.'
 for fixture in PathCapturesCoreVariable PathEscapesDimension; do
   "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1 || true
   if ! grep -Fq 'Mismatch between: S ?k and 0.' "$tmp/$fixture.log"; then
