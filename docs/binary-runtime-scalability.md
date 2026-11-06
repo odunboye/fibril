@@ -1,7 +1,7 @@
 # Native binary continuation stack
 
 Status: the native binary IO walker is iterative. A separately measured framing
-policy now admits canonical 0..99-byte bodies; this milestone does **not** make
+policy now admits canonical 0..4096-byte bodies; this milestone does **not** make
 framing general/LSP-sized or change hosted reduction policy.
 
 ## Change and bounds
@@ -44,8 +44,9 @@ this same stress fixture. That is a separate observed limit, not a failure that
 this native change fixes, and tests do not freeze that failure as required
 behavior. Larger practical frames still need reduced unary-Nat/reduction work
 before admitting substantially larger messages. The [framing library](binary-framing.md)
-now reads each body in bulk and checks its length without a unary result, but
-that does not remove the remaining numeric/reduction limits.
+now reads each body in bulk and checks its length without a unary result, and
+[measured source-level numeric handling](binary-numbers.md) now admits 4 KiB.
+General Nat/reduction limits remain.
 
 Separately, a temporary 99-byte framing variant succeeded on hosted execution,
 the recursive native baseline and the iterative native runtime. The wire cap
@@ -74,7 +75,7 @@ exact private arena accounting showing one recycled control node for the tail
 sequence.
 
 Validation passed the unit/property phase, 163 CLI, 19 native-emitter, 7 pure-
-byte/codec native, 13 binary-source, 14 raw bridge scenarios, 9 scalability, 12
+byte/codec native, 13 binary-source, 14 raw bridge scenarios, 9 scalability, 14
 framing, 9 interactive CLI, 7 editor and 16 handbook tests. Native scalability,
 framing, source binary, bridge, console/resource and binary-transport sanitizer
 runs passed. No timing sample or observed hosted budget failure is counted as a

@@ -5,7 +5,7 @@ binary continuation stack. Its compiled native execution succeeds; the hosted
 default currently exhausts reduction fuel. See [runtime scalability](../docs/binary-runtime-scalability.md).
 
 The [binary frame library/client](modules/binary-frame/Main.fib) parses and echoes
-one canonical Content-Length frame with a 0..99-byte body, entirely in Fibril.
+one canonical Content-Length frame with a 0..4096-byte body, entirely in Fibril.
 Use explicit binary `--source-dir` execution/emission; see [framing](../docs/binary-framing.md).
 
 The [binary chunk echo](core/binary-echo.fib) and [bounded sequence echo](core/binary-echo-loop.fib)

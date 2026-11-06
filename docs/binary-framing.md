@@ -13,8 +13,8 @@ The accepted wire format is exactly:
 Content-Length: N\r\n\r\n<body of N bytes>
 ```
 
-- `N` is canonical decimal **0..99**, one or two digits, no leading zeros except
-  the single digit `0`. A third digit or a value above 99 is rejected before body
+- `N` is canonical decimal **0..4096**, one to four digits, no leading zeros except
+  the single digit `0`. A fifth digit or a value above 4096 is rejected before body
   consumption. Arithmetic is bounded; there is no unbounded decimal accumulator.
 - Header spelling/case, one space and CRLF terminators are exact. No additional,
   duplicate or optional headers, LF-only lines, whitespace variants, signs or
@@ -84,7 +84,12 @@ Fibril program; it does not implement the parser.
 lengths without building a unary `Nat` result. It is a pure data operation, not
 an exact-read effect or a refinement type. Native input-Nat traversal still
 charges evaluator work and lazy operands can still allocate; there is no
-constant-time or total-allocation claim. Protocol limits remain 0..99 bytes.
+constant-time or total-allocation claim. Protocol limits are 0..4096 bytes.
+
+Decimal accumulation now uses bounded force-shared byte buffers, avoiding the
+Nat-fold work that exhausted both backends at 4096. The source checks the four-
+digit boundary before constructing the final accumulator. No runtime budgets
+were increased. See [numeric probes and 4 KiB framing](binary-numbers.md).
 
 ## Supporting operations
 
@@ -128,19 +133,19 @@ make -j8 framing-test CC='cc -fsanitize=address,undefined -fno-omit-frame-pointe
 ```
 
 `tools/test_framing.py` is only a process client. It compiles the actual module
-entry, then compares hosted/native behavior for all admitted lengths, all 256
+entry, then compares hosted/native behavior for all lengths 0..99, larger boundaries and 4000..4096, all 256
 body octets, Unicode byte counts, every truncation offset of a sample and every short-body length below 99, malformed/
 over-limit lengths, strict header syntax, trailing data and fragmented writes.
 Its open-input test keeps stdin open after sending a complete frame and requires
 the echoed frame and successful exit, proving the program does not wait for EOF.
 Two-frame tests compare different bodies, check non-rollback on later rejection,
-and wait for each echo before sending the next frame. The suite has twelve test
+and wait for each echo before sending the next frame. The suite has fourteen test
 methods over these hosted/native matrices.
 Native tests run under ASan/UBSan; this does not verify the hosted compiler/FFI,
 source preservation, arbitrary exceptions, signals or concurrent mutation.
 
 Validation passed the unit/property phase, 163 CLI, 19 native-emitter, 7 pure-
-byte/codec native, 13 binary-source, 14 raw bridge scenarios, 12 framing, 9 binary-scalability, 9
+byte/codec native, 13 binary-source, 14 raw bridge scenarios, 14 framing, 6 numeric-probe tests, 9 binary-scalability, 9
 interactive CLI, 7 editor and 16 handbook tests. All focused IO subtargets passed
 in split runs, including 306 hosted checks and 29 resource differentials. Native
 framing/byte/codec/console/resource/binary suites passed ASan/UBSan. The hosted
@@ -150,7 +155,9 @@ increase.
 The body cap was extended from 32 to 99 only after testing both backends and
 the recursive native baseline at 99. The separate [binary continuation stack](binary-runtime-scalability.md)
 improves deeper IO workloads; it is not credited with making 99-byte frames
-possible. All admitted lengths 0..99 and two maximum-sized frames are tested.
+possible. The subsequent 4 KiB extension uses measured source-level numeric
+handling, not larger evaluator budgets. Tests include two maximum-sized frames,
+large fragmented input and oversize rejection without waiting for body/EOF.
 
 The existing evaluator, allocation and transport limits still apply. This is a
 single-frame building block toward an LSP application, not that application.

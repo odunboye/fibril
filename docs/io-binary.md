@@ -180,7 +180,7 @@ Hosted/native checked binary execution and chunk/sequence examples are now
 implemented, with separate gates from the legacy runners.
 
 1. Extend the implemented [Fibril framing library](binary-framing.md) beyond
-   its one-/two-frame canonical 0..99-byte body clients to broader header/size
+   its one-/two-frame canonical 0..4096-byte body clients to broader header/size
    policy. Hosted/native fragmentation/truncation tests cover the bounded cases.
 2. Add JSON/document state and a narrow compiler-service bridge.
 3. Design task cancellation and ownership before concurrent source execution.

@@ -101,12 +101,13 @@ class Framing(unittest.TestCase):
             self.assertEqual(out,b'',(command,data,err))
             self.assertIn(b'Binary program rejected input',err)
 
-    def test_every_admitted_length(self):
-        for n in range(100):
-            with self.subTest(n=n):self.accept(frame(bytes(range(n))))
+    def test_small_lengths_and_large_boundaries(self):
+        lengths=list(range(100))+[100,101,127,128,255,256,511,512,999,1000,1001,1023,1024,2047,2048,3071,3072,3999]+list(range(4000,4097))
+        for n in lengths:
+            with self.subTest(n=n):self.accept(frame(bytes(i%256 for i in range(n))))
 
     def test_bulk_body_request_and_capacity_accounting(self):
-        for n,requests in [(0,6),(1,7),(9,7),(10,8),(99,8)]:
+        for n,requests in [(0,6),(1,7),(9,7),(10,8),(99,8),(100,9),(999,9),(1000,10),(4096,10)]:
             packet=frame(b'x'*n)
             self.assertEqual(run(self.accounted,packet),(0,packet,f'ACCOUNT {requests} {2*len(packet)}\n'.encode()))
         status,out,err=run(self.accounted,b'Content-Length: 99\r\n\r\n'+b'x')
@@ -114,6 +115,12 @@ class Framing(unittest.TestCase):
         self.assertEqual(out,b'')
         self.assertIn(b'ACCOUNT 6 121\n',err)
         self.assertIn(b'Binary program rejected input',err)
+        status,out,err=run(self.accounted,b'Content-Length: 4096\r\n\r\n'+b'x')
+        self.assertNotEqual(status,0);self.assertEqual(out,b'')
+        self.assertIn(b'ACCOUNT 8 4120\n',err)
+        status,out,err=run(self.accounted,b'Content-Length: 4097\r\n\r\n')
+        self.assertNotEqual(status,0);self.assertEqual(out,b'')
+        self.assertIn(b'ACCOUNT 5 20\n',err)
 
     def test_all_octets_in_body(self):
         for offset in range(0,256,32):self.accept(frame(bytes(range(offset,offset+32))))
@@ -129,10 +136,28 @@ class Framing(unittest.TestCase):
             with self.subTest(n=n):self.reject(packet[:n])
 
     def test_malformed_and_over_limit_lengths(self):
-        for number in (b'',b'-1',b'+1',b'00',b'01',b'09',b'100',b'101',b'999',b'9999999999999999999',b'1 ',b' 1',b'1x',b'\xff',b'\0'):
+        for number in (b'',b'-1',b'+1',b'00',b'01',b'09',b'0000',b'0100',b'4097',b'4098',b'4099',b'4100',b'4999',b'5000',b'9999',b'10000',b'9999999999999999999',b'1 ',b' 1',b'1x',b'\xff',b'\0'):
             with self.subTest(number=number):self.reject(b'Content-Length: '+number+b'\r\n\r\n'+b'x'*100)
 
-    def test_maximum_body_truncated(self):
+    def test_short_large_bodies(self):
+        for n in (0,1,2,99,100,255,256,999,1000,1024,2048,4095):
+            with self.subTest(n=n):self.reject(b'Content-Length: 4096\r\n\r\n'+b'x'*n)
+
+    def test_oversize_rejection_does_not_wait_for_body_or_eof(self):
+        for number in (4097,4099,4100,5000,9999,10000):
+            for command in (self.host,self.native):
+                process=subprocess.Popen(command,cwd=ROOT,stdin=subprocess.PIPE,stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,start_new_session=True)
+                try:
+                    process.stdin.write(b'Content-Length: '+str(number).encode()+b'\r\n\r\n');process.stdin.flush()
+                    self.assertNotEqual(process.wait(timeout=15),0)
+                    self.assertEqual(process.stdout.read(),b'')
+                    self.assertIn(b'Binary program rejected input',process.stderr.read())
+                finally:
+                    if process.poll() is None:os.killpg(process.pid,signal.SIGKILL);process.wait()
+                    for stream in (process.stdin,process.stdout,process.stderr):stream.close()
+
+    def test_short_99_byte_body_at_every_offset(self):
         for n in range(99):
             with self.subTest(n=n):self.reject(b'Content-Length: 99\r\n\r\n'+b'x'*n)
 
@@ -151,15 +176,15 @@ class Framing(unittest.TestCase):
         second=frame('λ 🌍'.encode())
         for command in (self.hostTwo,self.nativeTwo):
             self.assertEqual(run(command,first+second),(0,first+second,b''))
-            maximum=frame(b'\xff'*99)
+            maximum=frame(b'\xff'*4096)
             self.assertEqual(run(command,maximum+maximum),(0,maximum+maximum,b''))
-            status,out,err=run(command,first+b'Content-Length: 100\r\n\r\n')
+            status,out,err=run(command,first+b'Content-Length: 4097\r\n\r\n')
             self.assertNotEqual(status,0)
             self.assertEqual(out,first)
             self.assertIn(b'Binary program rejected input',err)
 
     def test_two_frames_flush_each_before_next_input(self):
-        packets=(frame(b'A'),frame(b'\0\xff'))
+        packets=(frame(b'A'),frame(bytes(range(256))*16))
         for command in (self.hostTwo,self.nativeTwo):
             process=subprocess.Popen(command,cwd=ROOT,stdin=subprocess.PIPE,stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,start_new_session=True)
@@ -182,7 +207,7 @@ class Framing(unittest.TestCase):
                 for stream in (process.stdin,process.stdout,process.stderr):stream.close()
 
     def test_fragmented_open_input_completes_without_eof(self):
-        packet=frame(b'\0\xff\xce\xbb')
+        packet=frame(bytes(range(256))*16)
         for command in (self.host,self.native):
             process=subprocess.Popen(command,cwd=ROOT,stdin=subprocess.PIPE,stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,start_new_session=True)

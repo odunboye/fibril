@@ -20,7 +20,7 @@ and preserves valid NUL without relaxing console output policy.
 An internal [binary transport pilot](docs/io-binary.md) preserves arbitrary bytes
 through hosted/native stdio, with explicit budgets and checked flush. It is not
 a self-hosted LSP runtime. A first [Fibril-written frame echo](docs/binary-framing.md)
-now accepts canonical Content-Length frames with 0..99-byte bodies, with one-
+now accepts canonical Content-Length frames with 0..4096-byte bodies, with one-
 and two-frame clients. General headers, server lifecycle, JSON and compiler-
 service work remain.
 See [checker scope and limits](docs/erased-checker.md). The [local module/import work](docs/modules.md) now has shared metadata parsing and read-only POSIX dependency discovery;

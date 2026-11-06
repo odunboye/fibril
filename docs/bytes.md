@@ -171,7 +171,7 @@ No timed-out invocation is counted as a successful test.
 
 - [Explicit fallible UTF-8 conversion](utf8-values.md) and [hosted/native binary IO](io-binary-source.md) are implemented.
 - Extend the existing [bounded framing library](binary-framing.md) beyond
-  canonical 0..99-byte bodies, using the [transport](io-binary.md) behind
+  canonical 0..4096-byte bodies, using the [transport](io-binary.md) behind
   explicit conservative admission.
 - Extend the implemented [Fibril-written bounded frame echo](binary-framing.md)
-  beyond canonical 0..99-byte body frames and the two-frame client.
+  beyond canonical 0..4096-byte body frames and the two-frame client.
