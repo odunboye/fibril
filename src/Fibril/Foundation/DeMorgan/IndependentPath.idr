@@ -17,7 +17,7 @@ data CheckedClosedPath : Type where
 
 ||| Reject unsupported inputs and propagate exhausted checks without producing
 ||| a witness. The witness records exactly the checked expression and endpoints.
-public export
+export
 checkClosedPath : Nat -> Nat -> Nat -> CorePathExpr 0 -> Term 0 -> Term 0 ->
                   Either PathCheck CheckedClosedPath
 checkClosedPath depth reduction fuel path left right =

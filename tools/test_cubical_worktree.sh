@@ -35,3 +35,14 @@ export IDRIS2_PACKAGE_PATH="$tmp:$other_paths"
 cd test
 "$idris" --build tests.ipkg
 ./build/exec/fibril-tests
+cd negative
+# Idris --check may return zero even when it reports a type error. Inspect the
+# diagnostic as well as the status, and load the temporary package explicitly.
+"$idris" -p fibril --check ForgeClosedPath.idr > "$tmp/forge.log" 2>&1 || true
+if ! grep -q 'IndependentPath.MkCheckedClosedPath is private' "$tmp/forge.log"; then
+  echo 'Negative opacity check failed for an unrelated reason:' >&2
+  read -r -d '' output < "$tmp/forge.log" || true
+  printf '%s\n' "$output" >&2
+  exit 1
+fi
+echo 'Checked path opacity negative test passed.'
