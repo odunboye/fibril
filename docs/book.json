@@ -12,6 +12,28 @@
     ]
   },
   {
+    "title": "IO and resource ownership",
+    "pages": [
+      { "title": "IO roadmap", "path": "docs/io-roadmap.md" },
+      { "title": "Console execution contract", "path": "docs/io-execution-contract.md" },
+      { "title": "Interactive input", "path": "docs/io-input.md" },
+      { "title": "Core input requests", "path": "docs/io-core-input.md" },
+      { "title": "Scripted console protocol", "path": "docs/io-scripted.md" },
+      { "title": "Native interactive input", "path": "docs/io-native-input.md" },
+      { "title": "IO ownership contract", "path": "docs/io-ownership.md" },
+      { "title": "Region-indexed handles", "path": "docs/io-static-handles.md" },
+      { "title": "Scoped file ownership", "path": "docs/io-scoped-files.md" },
+      { "title": "Checked scoped ownership", "path": "docs/io-core-scope.md" },
+      { "title": "Ownership-returning file reads", "path": "docs/io-owned-file-reads.md" },
+      { "title": "Resource sessions and failures", "path": "docs/io-resource-session.md" },
+      { "title": "Hosted resource execution", "path": "docs/io-resource-execution.md" },
+      { "title": "Native scoped resources", "path": "docs/io-native-resources.md" },
+      { "title": "Checked resource C emission", "path": "docs/io-resource-emission.md" },
+      { "title": "IO build validation", "path": "docs/io-build-validation.md" },
+      { "title": "QTT integration validation", "path": "docs/io-merge-validation.md" }
+    ]
+  },
+  {
     "title": "Part I · Read the implementation",
     "pages": [
       {
