@@ -1,0 +1,17 @@
+-- Run with: fibril run-interactive examples/core/greet-input.fib
+
+greet : (1 result : ReadResult) -> IO Unit
+greet = \(1 result : ReadResult) =>
+  readCase
+    (IO Unit) result
+    (putStrLn "No name supplied. Goodbye!")
+    (\(1 name : String) =>
+      putStrLn (appendString "Hello, " (appendString name "!")))
+    (\(1 message : String) =>
+      putStrLn (appendString "Input error: " message))
+
+main : IO Unit
+main = do
+  putStrLn "What is your name?"
+  (1 result : ReadResult) <- readLine
+  greet result
