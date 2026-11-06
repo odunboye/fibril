@@ -24,7 +24,9 @@ data Argument = Local Nat | Unrelated | UnrelatedList
 
 ||| Explicit calls and exhaustive control flow. CaseNat introduces its Nat
 ||| predecessor as local 0. CaseList introduces its tail as local 0 and Nat
-||| head as local 1. Existing locals shift accordingly. No hidden calls exist.
+||| head as local 1. LetLocal aliases a scoped value as local 0; LetOpaque
+||| binds an unrelated value as local 0. Existing locals shift accordingly.
+||| Neither binding contains an expression or a hidden call.
 public export
 data Body = End
           | Direct Nat (List Argument)
@@ -32,6 +34,8 @@ data Body = End
           | Choice Body Body
           | CaseNat Nat Body Body
           | CaseList Nat Body Body
+          | LetLocal Nat Body
+          | LetOpaque Sort Body
 
 ||| Definition is the original Nat-only shorthand. TypedDefinition gives the
 ||| exact parameter sorts. No result types or quantity judgments are represented.
@@ -84,6 +88,8 @@ admitBody (S nodes) calls (CaseNat _ zero successor) = do
 admitBody (S nodes) calls (CaseList _ nil cons) = do
   (nodes, calls) <- admitBody nodes calls nil
   admitBody nodes calls cons
+admitBody (S nodes) calls (LetLocal _ body) = admitBody nodes calls body
+admitBody (S nodes) calls (LetOpaque _ body) = admitBody nodes calls body
 
 admitFunctions : Nat -> Nat -> List Function -> Either Problem ()
 admitFunctions nodes calls [] = Right ()
@@ -169,6 +175,15 @@ extractBody definitions caller width env (CaseList local nil cons) edges = do
   let tail = Track NatList (map strictlySmaller value.relations)
   let head = Track Natural (replicate width Unknown)
   extractBody definitions caller width (tail :: head :: env) cons edges
+extractBody definitions caller width env (LetLocal local body) edges = do
+  value <- case at local env of
+    Nothing => Left (InvalidBody "local alias references an out-of-scope local")
+    Just value => Right value
+  if within 15 env then Right () else Left (AdmissionExhausted "local-scope admission exhausted (16)")
+  extractBody definitions caller width (value :: env) body edges
+extractBody definitions caller width env (LetOpaque sort body) edges = do
+  if within 15 env then Right () else Left (AdmissionExhausted "local-scope admission exhausted (16)")
+  extractBody definitions caller width (Track sort (replicate width Unknown) :: env) body edges
 
 extractFunctions : List Function -> Nat -> List Function -> List Call -> Either Problem (List Call)
 extractFunctions definitions caller [] edges = Right (reverse edges)
@@ -248,6 +263,15 @@ checkBody definitions caller width env (CaseList local nil cons) edges = do
   if within 14 env then Right () else Left (AdmissionExhausted "local-scope admission exhausted (16)")
   edges <- checkBody definitions caller width env nil edges
   checkBody definitions caller width (descendant origin :: NoOrigin Natural :: env) cons edges
+checkBody definitions caller width env (LetLocal local body) edges = do
+  origin <- case at local env of
+    Nothing => Left (InvalidBody "local alias references an out-of-scope local")
+    Just origin => Right origin
+  if within 15 env then Right () else Left (AdmissionExhausted "local-scope admission exhausted (16)")
+  checkBody definitions caller width (origin :: env) body edges
+checkBody definitions caller width env (LetOpaque sort body) edges = do
+  if within 15 env then Right () else Left (AdmissionExhausted "local-scope admission exhausted (16)")
+  checkBody definitions caller width (NoOrigin sort :: env) body edges
 
 checkFunctions : List Function -> Nat -> List Function -> List Call -> Either Problem (List Call)
 checkFunctions definitions caller [] edges = Right edges
@@ -269,3 +293,13 @@ check definitions proposed = do
     then Right () else Left (InvalidBody "proposed call matrix exceeds shape admission")
   remaining <- checkFunctions definitions 0 definitions proposed
   if null remaining then Right () else Left (InvalidBody "proposed graph contains extra call sites")
+
+||| Bind the graph and closure checks to the exact same synthetic bodies. A
+||| Right verdict is still only about this fragment, not a Fibril program.
+||| InvalidBody and AdmissionExhausted remain distinct from graph verdicts.
+public export
+verifyBody : List Function -> List Call -> List Call -> Either Problem Verdict
+verifyBody definitions proposed certificate = do
+  check definitions proposed
+  sizes <- admittedArities definitions
+  Right (verify sizes proposed certificate)

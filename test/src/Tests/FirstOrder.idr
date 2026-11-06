@@ -35,6 +35,15 @@ abstractAccepted program = case extract program of
       _ => False
     _ => False
 
+boundProduction : List Function -> Bool
+boundProduction program = case (extract program, admittedArities program) of
+  (Right graph, Right sizes) => case produce sizes graph of
+    ClosureProduced certificate GraphAccepted => case verifyBody program graph certificate of
+      Right GraphAccepted => True
+      _ => False
+    _ => False
+  _ => False
+
 abstractRejected : List Function -> Bool
 abstractRejected program = case extract program of
   Left _ => False
@@ -56,6 +65,10 @@ nested (S count) = CaseNat 0 End (nested count)
 nestedLists : Nat -> Body
 nestedLists Z = End
 nestedLists (S count) = CaseList 0 End (nestedLists count)
+
+aliases : Nat -> Body
+aliases Z = End
+aliases (S count) = LetLocal 0 (aliases count)
 
 strictBody : List Function
 strictBody = [Definition 1 (CaseNat 0 End (Direct 0 [Local 0]))]
@@ -200,6 +213,78 @@ checks =
       let program = [TypedDefinition [NatList] (Direct 0 [UnrelatedList])]
           graph = [Edge 0 0 [[Unknown]]] in
       matches program graph && abstractRejected program && isInvalid (check program [Edge 0 0 [[Decreases]]]))
+  , ("first-order aliases preserve root provenance without inventing descent",
+      let program = [Definition 1 (LetLocal 0 (Direct 0 [Local 0]))]
+          graph = [Edge 0 0 [[NonIncreasing]]] in
+      matches program graph && abstractRejected program && isInvalid (check program [Edge 0 0 [[Decreases]]]))
+  , ("first-order aliases preserve actual predecessor and tail descent",
+      let nat = [Definition 1 (CaseNat 0 End (LetLocal 0 (Direct 0 [Local 0])))]
+          list = [TypedDefinition [NatList] (CaseList 0 End (LetLocal 0 (Direct 0 [Local 0])))]
+          graph = [Edge 0 0 [[Decreases]]] in
+      matches nat graph && abstractAccepted nat && boundProduction nat &&
+      matches list graph && abstractAccepted list && boundProduction list)
+  , ("first-order alias chains shift scopes without losing the original root",
+      let program = [Definition 2 (CaseNat 1 End (LetLocal 0 (LetLocal 1 (Direct 0 [Local 0, Local 4]))))]
+          graph = [Edge 0 0 [[Unknown, Decreases], [Unknown, NonIncreasing]]] in
+      matches program graph && isInvalid (check program [Edge 0 0 [[Decreases, Unknown], [Unknown, NonIncreasing]]]))
+  , ("first-order alias of an untracked list head remains unrelated",
+      let program = [TypedDefinition [Natural, NatList] (CaseList 1 End (LetLocal 1 (Direct 0 [Local 0, Local 1])))]
+          graph = [Edge 0 0 [[Unknown, Unknown], [Unknown, Decreases]]] in
+      matches program graph && abstractAccepted program && isInvalid (check program [Edge 0 0 [[Decreases, Unknown], [Unknown, Decreases]]]))
+  , ("first-order calls inside bindings cannot be omitted or added",
+      let program = [Definition 1 (LetLocal 0 (Direct 0 [Local 0]))]
+          edge = Edge 0 0 [[NonIncreasing]] in
+      matches program [edge] && isInvalid (check program []) && isInvalid (check program [edge, edge]))
+  , ("first-order body-bound certificates reject omitted or forged calls",
+      let edge = Edge 0 0 [[Decreases]] in
+      case verifyBody strictBody [edge] [edge] of
+        Right GraphAccepted => isInvalid (verifyBody weakBody [edge] [edge]) &&
+                               isInvalid (verifyBody strictBody [] [edge]) &&
+                               isInvalid (verifyBody strictBody [edge, edge] [edge]) &&
+                               isInvalid (verifyBody weakBody [edge] (replicate 33 edge))
+        _ => False)
+  , ("first-order body-bound certificate checks every duplicate call site",
+      let program = [Definition 1 (CaseNat 0 End (Both (Direct 0 [Local 0]) (Direct 0 [Local 0])))]
+          edge = Edge 0 0 [[Decreases]] in
+      case verifyBody program [edge, edge] [edge] of
+        Right GraphAccepted => isInvalid (verifyBody program [edge] [edge])
+        _ => False)
+  , ("first-order body-bound certificates retain rejection and exhaustion",
+      let edge = Edge 0 0 [[Decreases]] in
+      case verifyBody strictBody [edge] [] of
+        Right (GraphRejected _) => isExhausted (verifyBody (replicate 17 (Definition 0 End)) [] []) &&
+                                   case verifyBody strictBody [edge] (replicate 33 edge) of
+                                     Right (GraphInconclusive _) => case verifyBody strictBody [edge] [edge, Edge 0 0 [[NonIncreasing]]] of
+                                       Right (GraphRejected _) => True
+                                       _ => False
+                                     _ => False
+        _ => False)
+  , ("first-order alias scope is local to its body and preserves its sort",
+      let leaked = [Definition 1 (Both (LetLocal 0 End) (Direct 0 [Local 1]))]
+          wrongSort = [TypedDefinition [NatList] (LetLocal 0 (CaseNat 0 End End))]
+          badAlias = [Definition 1 (LetLocal 1 End)] in
+      isInvalid (extract leaked) && isInvalid (check leaked [Edge 0 0 [[Unknown]]]) &&
+      isInvalid (extract wrongSort) && isInvalid (check wrongSort []) &&
+      isInvalid (extract badAlias) && isInvalid (check badAlias []))
+  , ("first-order opaque Nat predecessor and list tail remain unrelated",
+      let nat = [Definition 1 (LetOpaque Natural (CaseNat 0 End (Direct 0 [Local 0])))]
+          list = [TypedDefinition [NatList] (LetOpaque NatList (CaseList 0 End (Direct 0 [Local 0])))]
+          unknown = [Edge 0 0 [[Unknown]]]
+          forged = [Edge 0 0 [[Decreases]]] in
+      matches nat unknown && abstractRejected nat && isInvalid (check nat forged) &&
+      matches list unknown && abstractRejected list && isInvalid (check list forged))
+  , ("first-order local alias and opaque binding honor scope admission",
+      let exact = [Definition 8 (aliases 8)]
+          over = [Definition 8 (aliases 9)]
+          opaqueOver = [Definition 8 (LetOpaque Natural (aliases 8))] in
+      case extract exact of
+        Right graph => case check exact graph of
+          Right () => exhaustedWith "local-scope admission exhausted (16)" (extract over) &&
+                      exhaustedWith "local-scope admission exhausted (16)" (check over []) &&
+                      exhaustedWith "local-scope admission exhausted (16)" (extract opaqueOver) &&
+                      exhaustedWith "local-scope admission exhausted (16)" (check opaqueOver [])
+          _ => False
+        _ => False)
   , ("first-order typed sort and two-binder scope admissions are bounded",
       let scope15 = [TypedDefinition (replicate 8 NatList)
                       (CaseList 0 End (CaseList 0 End (CaseList 0 End (CaseNat 1 End (CaseList 1 End End)))))] in

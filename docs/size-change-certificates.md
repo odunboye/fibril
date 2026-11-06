@@ -67,23 +67,27 @@ limit returns `GraphInconclusive`, never acceptance.
 `Fibril.Termination.FirstOrder` is **not Fibril source or core**. Its deliberately
 small, non-executable representation has an ordered group of functions with
 Nat and `List Nat` argument sorts, and bodies made only of explicit saturated
-direct calls, sequential/alternative composition, and exhaustive Nat or list
-cases. The original `Definition` is shorthand for a Nat-only signature;
+direct calls, sequential/alternative composition, scoped value bindings, and
+exhaustive Nat or list cases. The original `Definition` is shorthand for a Nat-only signature;
 `TypedDefinition` supplies explicit argument sorts. Calls take locals or an
 unrelated value of the appropriate sort: such a value is not an expression which
 can hide a call. The checker validates call-argument and case-scrutinee sorts.
 A Nat successor branch introduces its predecessor as local `0`; a list cons
 branch introduces its tail as local `0` and head as local `1`, shifting existing
-locals. There are no indirect calls, function values, partial applications,
-result types, effects, or quantity judgments.
+locals. `LetLocal` aliases an existing local and preserves its sort and
+provenance; `LetOpaque` introduces an unrelated value of an explicit sort.
+Both introduce local `0` only in their own body and cannot hide a call. There
+are no indirect calls, function values, partial applications, computed binding
+expressions, result types, effects, or quantity judgments.
 
 `extract` traverses all bodies and branches in order and emits one matrix per
 syntactic call site, including duplicate matrices. It tracks a row of relations
 from each local to the caller's original arguments. Only a Nat predecessor or
 list tail introduced in the corresponding successor branch can establish strict
-decrease. A list head is unrelated to *every* original argument, including the
-list; even a predecessor of that head stays unrelated. Unknown values produce
-unknown rows. An out-of-scope local, wrong sort, target or arity mismatch is rejected.
+decrease. Aliasing preserves known provenance but cannot create it; predecessors
+and tails of unrelated values remain unrelated. A list head is unrelated to
+*every* original argument, including the list; even a predecessor of that head
+stays unrelated. Unknown values produce unknown rows. An out-of-scope local, wrong sort, target or arity mismatch is rejected.
 For this experiment, Nat value and list length are the intended natural-number
 measures; no known relation crosses sorts. The prototype does not prove that a
 future Fibril representation or adapter preserves these measures.
@@ -95,7 +99,11 @@ the producer's relation rows. `admittedArities` obtains graph arities only after
 the same bounded body admission, rather than traversing an unchecked signature.
 The two implementations are distinct walks, but
 this is not a formal independence or soundness proof. A checked synthetic graph
-can be passed to `produce` and `verify` for experiments. An accepted result
+can be passed to `produce` and `verify` for experiments. `verifyBody` enforces
+that order for the same body values: it first checks the proposed call-site
+list, obtains admitted arities, then runs `verify` on that exact graph and a
+supplied closure. Body errors/exhaustion remain distinct from the graph verdict;
+body checking happens before closure admission. An accepted result
 still **cannot authorize a Fibril definition**: no adapter connects this
 fragment to checked bodies or proves call completeness in the language.
 
@@ -116,8 +124,9 @@ The finite tests are sampled implementation evidence. They include exhaustive
 three-relation algebra, rectangular composition orientation, alternating and
 mutual descent, missing or non-closed certificates, conflicting alternative
 calls, producer/verifier agreement on a small corpus, exact synthetic call-site
-checking, forged decreases, mixed-sort calls, list-head non-descent, scope shifts,
-branch and mutual calls, round and capacity boundaries, malformed shapes,
+checking, body-bound certificates, forged decreases, mixed-sort calls,
+list-head non-descent, aliases and opaque bindings, scope shifts, branch and
+mutual calls, round and capacity boundaries, malformed shapes,
 zero-argument cycles and admission failures. They are
 not a mechanized proof of the size-change theorem, termination of Fibril terms,
 whole-language soundness or compiler correctness.
