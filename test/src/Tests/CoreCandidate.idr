@@ -7,6 +7,8 @@ import Fibril.Core.Quantity
 import Fibril.Core.Runtime
 import Fibril.Core.Term
 import Fibril.Termination.CoreCandidate
+import Fibril.Termination.SizeChange
+import Fibril.Termination.CoreCalls
 
 %default total
 
@@ -30,6 +32,48 @@ reverseBody = Lambda Linear listTy (Lambda Linear listTy
 
 reverseCandidate : Candidate
 reverseCandidate = MkCandidate signature reverseBody
+
+withCons : Term 5 -> Term 1
+withCons body = Lambda Linear listTy (Lambda Linear listTy
+  (SeqCase (Lambda Erased listTy listTy) (Variable (FS FZ)) (Variable FZ)
+    (Lambda Linear NatType (Lambda Linear listTy body))))
+
+selfCall : Term 5 -> Term 5 -> Term 5
+selfCall first second = Apply (Apply (Variable (FS (FS (FS (FS FZ))))) first) second
+
+-- Reconstructing the scrutinee is not a decrease.
+reconstructed : Candidate
+reconstructed = MkCandidate signature (withCons
+  (selfCall (SeqCons listTy (Variable (FS FZ)) (Variable FZ)) (Variable (FS (FS FZ)))))
+
+-- The recursive call nested in an argument must not be overlooked.
+nestedCall : Candidate
+nestedCall = MkCandidate signature (withCons
+  (selfCall (selfCall (Variable FZ) (Variable (FS (FS FZ))))
+            (SeqCons listTy (Variable (FS FZ)) (SeqNil listTy))))
+
+-- A let-like application passes self as a value instead of a direct target.
+indirectCall : Candidate
+indirectCall = MkCandidate signature (withCons
+  (Apply
+    (Lambda Unrestricted (Pi Linear listTy (Pi Linear listTy listTy))
+      (Apply (Apply (Variable FZ) (Variable (FS FZ)))
+             (SeqCons listTy (Variable (FS (FS FZ))) (Variable (FS (FS (FS FZ)))))))
+    (Variable (FS (FS (FS (FS FZ)))))))
+
+secondScrutinee : Candidate
+secondScrutinee = MkCandidate signature
+  (Lambda Linear listTy (Lambda Linear listTy
+    (SeqCase (Lambda Erased listTy listTy) (Variable FZ) (Variable (FS FZ))
+      (Lambda Linear NatType (Lambda Linear listTy
+        (selfCall (SeqCons listTy (Variable (FS FZ)) (Variable (FS (FS (FS FZ))))) (Variable FZ)))))))
+
+nilCall : Candidate
+nilCall = MkCandidate signature (Lambda Linear listTy (Lambda Linear listTy
+  (SeqCase (Lambda Erased listTy listTy) (Variable (FS FZ))
+    (Apply (Apply (Variable (FS (FS FZ))) (SeqNil listTy)) (Variable FZ))
+    (Lambda Linear NatType (Lambda Linear listTy
+      (selfCall (Variable FZ) (SeqCons listTy (Variable (FS FZ)) (Variable (FS (FS FZ))))))))))
 
 -- The cons branch fails to consume the linear list head.
 droppedHead : Term 1
@@ -55,6 +99,37 @@ checks : List (String, Bool)
 checks =
   [ ("core candidate checks a real scoped reverse accumulator body under hypothetical self",
       accepts (checkHypothesis 512 128 reverseCandidate))
+  , ("core call extraction tracks tail and constructed accumulator",
+      case Fibril.Termination.CoreCalls.extract 512 128 reverseCandidate of
+        Right graph => graph == [Edge 0 0 [[Decreases, Unknown], [Unknown, Unknown]]]
+        _ => False)
+  , ("core call extraction follows the matched parameter rather than its position",
+      case Fibril.Termination.CoreCalls.extract 512 128 secondScrutinee of
+        Right graph => graph == [Edge 0 0 [[Unknown, Unknown], [Unknown, Decreases]]]
+        _ => False)
+  , ("core call extraction retains both branches in order, without nil descent",
+      case Fibril.Termination.CoreCalls.extract 512 128 nilCall of
+        Right graph => graph == [Edge 0 0 [[Unknown, Unknown], [Unknown, NonIncreasing]],
+                                 Edge 0 0 [[Decreases, Unknown], [Unknown, Unknown]]]
+        _ => False)
+  , ("core call extraction does not claim a reconstructed list decreases",
+      case Fibril.Termination.CoreCalls.extract 512 128 reconstructed of
+        Right graph => graph == [Edge 0 0 [[Unknown, Unknown], [Unknown, NonIncreasing]]]
+        _ => False)
+  , ("core call extraction rejects a nested call even when ordinary typing succeeds",
+      accepts (checkHypothesis 512 128 nestedCall) &&
+      case Fibril.Termination.CoreCalls.extract 512 128 nestedCall of
+        Left (UnsupportedCore _) => True
+        _ => False)
+  , ("core call extraction rejects self passed indirectly as a value",
+      accepts (checkHypothesis 512 128 indirectCall) &&
+      case Fibril.Termination.CoreCalls.extract 512 128 indirectCall of
+        Left (UnsupportedCore _) => True
+        _ => False)
+  , ("core call extraction retains ordinary typing failures",
+      case Fibril.Termination.CoreCalls.extract 512 128 (MkCandidate signature droppedHead) of
+        Left (HypothesisFailure _) => True
+        _ => False)
   , ("core candidate independently rejects a dropped linear list head",
       case checkHypothesis 512 128 (MkCandidate signature droppedHead) of
         Left (OrdinaryFailure (BoundUsage Linear Erased)) => True

@@ -72,6 +72,32 @@ policies are not hard time, stack or memory limits. Checking and reduction
 budgets are supplied separately. The existing ordinary checker remains experimental and no new
 soundness or quantitative-preservation proof follows from its use here.
 
+## Implemented experiment: extracting calls from a core body
+
+`Fibril.Termination.CoreCalls.extract` is an experimental **producer** for a
+narrow slice of actual `Term` bodies. After `checkHypothesis`, it requires two
+linear `Items Nat`-shaped arguments and the same list result; two literal linear
+lambdas; and a top-level `SeqCase` directly on either argument. The motive and
+constructor annotations must be literal and have the same list key. Each case
+branch must be either a call-free value or one saturated direct self-call whose
+arguments are call-free locals or supported constructors. Everything else,
+including recursive calls nested in arguments, is rejected—not silently ignored.
+The 256-node and key admissions from `checkHypothesis` apply before extraction;
+this particular shape has two arguments, at most two calls and fixed local scopes.
+
+The producer uses the actual scoped case binders: in the cons body the locals
+are tail, head, second argument, first argument and self. The tail gets a strict
+relation to the matched argument; the head is unrelated. Constructor expressions
+are unknown, even when they reconstruct the input. The nil and cons calls remain
+in order. Tests extract the expected matrix from the actual reverse accumulator
+body, switch the scrutinized argument, reconstruct the list and reject a
+well-typed nested call.
+
+**There is not yet an independent checker for this core extraction.** Its graph
+is untrusted; feeding it to the abstract size-change verifier does not establish
+that the graph faithfully describes the core body. No source/core recursion,
+evaluation, conversion or backend behavior is authorized by this API.
+
 ## Candidate first core fragment
 
 The smallest useful direction is a **closed, immutable group** of explicitly
