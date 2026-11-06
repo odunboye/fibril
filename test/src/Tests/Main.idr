@@ -426,6 +426,16 @@ checks =
         Rejected => True; _ => False)
   , ("core path rejects wrong type", case checkClosedCorePath 64 64 3 UnitValue BoolTrue BoolTrue of
         Rejected => True; _ => False)
+  , ("core path compares both reducible boundaries",
+      case checkClosedCorePath 64 64 3
+             (BoolCase BoolTrue BoolFalse BoolTrue)
+             (BoolCase BoolFalse BoolTrue BoolFalse)
+             (BoolCase BoolTrue BoolFalse BoolTrue) of
+        Accepted => True; _ => False)
+  , ("core path rejects different reducible boundary",
+      case checkClosedCorePath 64 64 3 BoolTrue BoolTrue
+             (BoolCase BoolFalse BoolTrue BoolFalse) of
+        Rejected => True; _ => False)
   , ("core path compares reduced boolean expressions",
       case checkClosedCorePath 64 64 3 (BoolCase BoolTrue BoolFalse BoolTrue) BoolFalse BoolFalse of
         Accepted => True; _ => False)

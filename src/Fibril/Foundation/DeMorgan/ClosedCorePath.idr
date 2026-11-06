@@ -27,19 +27,9 @@ booleanFragment (S fuel) (BoolCase c t e) = do
   booleanFragment afterTrue e
 booleanFragment (S _) _ = Left Rejected
 
-||| Reduction is separately bounded for each core expression.
-data BooleanResult = BooleanValue Bool | BooleanInvalid | BooleanExhausted
-
-coreBoolean : Nat -> Term 0 -> BooleanResult
-coreBoolean fuel term = case normalize fuel term of
-  OutOfFuel _ => BooleanExhausted
-  Normal BoolTrue => BooleanValue True
-  Normal BoolFalse => BooleanValue False
-  Normal _ => BooleanInvalid
-
 ||| Independently check all three closed core terms, then check the constant path.
-||| PathExpr is built here rather than accepted from the caller. The body is
-||| dimension-independent and restricted to the closed Boolean fragment.
+||| All terms are independently checked before bounded ordinary beta conversion.
+||| This remains a closed Boolean fragment, not a general cubical conversion.
 public export
 checkClosedCorePath : Nat -> Nat -> Nat -> Term 0 -> Term 0 -> Term 0 -> PathCheck
 checkClosedCorePath depth reduction fuel body left right =
@@ -59,13 +49,17 @@ checkClosedCorePath depth reduction fuel body left right =
             Left CheckingLimit => Exhausted
             Left ReductionLimit => Exhausted
             Left _ => Rejected
-            Right _ => case (coreBoolean reduction body, coreBoolean reduction left, coreBoolean reduction right) of
-              (BooleanExhausted, _, _) => Exhausted
-              (_, BooleanExhausted, _) => Exhausted
-              (_, _, BooleanExhausted) => Exhausted
-              (BooleanValue b, BooleanValue l, BooleanValue r) =>
-                checkConstantPath fuel (Abstract (Literal b)) l r
-              _ => Rejected
+            Right _ => case fuel of
+              0 => Exhausted
+              1 => Exhausted
+              2 => Exhausted
+              S (S (S _)) => case betaCompare reduction body left of
+                Inconclusive => Exhausted
+                DifferentNormalForms => Rejected
+                EqualNormalForms => case betaCompare reduction body right of
+                  Inconclusive => Exhausted
+                  DifferentNormalForms => Rejected
+                  EqualNormalForms => Accepted
     _ => Exhausted
 
 ||| Raw experimental syntax with separate dimension scope. Embedded core terms

@@ -60,8 +60,9 @@ is not yet the milestone's independently checked Fibril path.
 `ClosedCorePath.idr` additionally bridges a closed core Boolean fragment to that
 experiment: literals and `BoolCase` expressions composed entirely from that
 fragment. It independently checks the body and endpoints with `checkErased`,
-normalizes each with a bounded reduction, compares their Boolean normal forms,
-and returns the checked body for either endpoint. Unsupported syntax is rejected
+compares them with bounded ordinary beta conversion, and returns the checked
+body for either endpoint. Conversion is restricted to the admitted Boolean
+grammar; it is not general cubical conversion. Unsupported syntax is rejected
 even in dead branches. This is a narrow helper, not a path constructor or
 judgment in the core checker; checker depth, reduction and toy-path budgets are
 per-call limits, with the reduction budget reused independently for each core
@@ -115,9 +116,9 @@ It is **not yet the independent path judgment** described above:
 2. `collapseBody` accepts nested syntactic constant paths by inferring identical
    endpoints, then discards their dimension applications. This is a deliberately
    narrow shortcut, not general path inference, face checking, or conversion.
-   The current checker explicitly substitutes both endpoints, but compares
-   their Boolean normal forms, not arbitrary core definitional equality; both
-   faces remain constant by construction.
+   The current checker explicitly substitutes both endpoints, then uses the
+   ordinary bounded beta comparison on admitted Boolean expressions, not
+   general cubical conversion; both faces remain constant by construction.
 3. Checking depth, reduction fuel, path depth, and interval depth are reused in
    separate calls, not accounted against a shared budget. In particular,
    Boolean-fragment recognition now consumes a shared node budget within each
