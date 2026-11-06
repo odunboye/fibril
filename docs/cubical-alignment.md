@@ -127,9 +127,9 @@ It is **not yet the independent path judgment** described above:
    general cubical conversion; both faces remain constant by construction.
 3. Checking depth, reduction fuel, path depth, and interval depth are reused in
    separate calls, not accounted against a shared budget. In particular,
-   Boolean-fragment recognition now consumes a shared node budget within each
-   core expression (the checking-depth value is reused independently for body
-   and each endpoint). Path syntax and interval arguments now receive separate
+   Boolean-fragment recognition now threads one shared node budget across the
+   body and both endpoints (using the checking-depth value as its limit). Path
+   syntax and interval arguments still receive separate
    pre-substitution node checks using that same limit. Substitution can expand
    syntax, and reduction still has no shared node or allocation budget. Fuel is not a real-time
    bound and does not protect against every oversized input.

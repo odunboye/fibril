@@ -27,17 +27,23 @@ booleanFragment (S fuel) (BoolCase c t e) = do
   booleanFragment afterTrue e
 booleanFragment (S _) _ = Left Rejected
 
+||| Thread one admission budget through the body and both endpoint terms.
+||| The caller reuses its checker-depth value as this separate node limit.
+booleanInputs : Nat -> Term 0 -> Term 0 -> Term 0 -> Either PathCheck Nat
+booleanInputs budget body left right = do
+  afterBody <- booleanFragment budget body
+  afterLeft <- booleanFragment afterBody left
+  booleanFragment afterLeft right
+
 ||| Independently check all three closed core terms, then check the constant path.
 ||| All terms are independently checked before bounded ordinary beta conversion.
 ||| This remains a closed Boolean fragment, not a general cubical conversion.
 public export
 checkClosedCorePath : Nat -> Nat -> Nat -> Term 0 -> Term 0 -> Term 0 -> PathCheck
 checkClosedCorePath depth reduction fuel body left right =
-  case (booleanFragment depth body, booleanFragment depth left, booleanFragment depth right) of
-    (Left Rejected, _, _) => Rejected
-    (_, Left Rejected, _) => Rejected
-    (_, _, Left Rejected) => Rejected
-    (Right _, Right _, Right _) => case checkErased depth reduction Empty body BoolType of
+  case booleanInputs depth body left right of
+    Left Rejected => Rejected
+    Right _ => case checkErased depth reduction Empty body BoolType of
         Left CheckingLimit => Exhausted
         Left ReductionLimit => Exhausted
         Left _ => Rejected

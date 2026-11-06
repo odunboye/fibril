@@ -489,6 +489,14 @@ checks =
   , ("core path rejects unsupported dead branch",
       case checkClosedCorePath 64 64 3 (BoolCase BoolTrue BoolTrue UnitValue) BoolTrue BoolTrue of
         Rejected => True; _ => False)
+  , ("core Boolean admission budget spans all three inputs",
+      case checkClosedCorePath 5 64 3
+             (BoolCase BoolTrue BoolTrue BoolFalse) BoolTrue BoolTrue of
+        Exhausted => True; _ => False)
+  , ("core Boolean admission accepts exact node budget",
+      case checkClosedCorePath 6 64 3
+             (BoolCase BoolTrue BoolTrue BoolFalse) BoolTrue BoolTrue of
+        Accepted => True; _ => False)
   , ("core Boolean grammar shares node budget across branches",
       case checkClosedCorePath 4 64 3
              (BoolCase BoolTrue (BoolCase BoolTrue BoolTrue BoolFalse) BoolTrue)
