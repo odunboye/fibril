@@ -676,12 +676,12 @@ polymorphicSequenceEquation _ _ _ _ _ = Right Nothing
 -- A deliberately bounded accumulator form. It elaborates the authored update
 -- into an ordinary function-valued fold; no termination graph is trusted.
 private
-accumulatorCall : Bool -> String -> String -> Expr -> Maybe Expr
-accumulatorCall True name tail (NApply _ (NApply _ (NRef _ function) (NRef _ suppliedTail)) update) =
-  if function == name && suppliedTail == tail then Just update else Nothing
-accumulatorCall False name tail (NApply _ (NApply _ (NRef _ function) update) (NRef _ suppliedTail)) =
-  if function == name && suppliedTail == tail then Just update else Nothing
-accumulatorCall _ _ _ _ = Nothing
+accumulatorCall : Bool -> String -> List (Bool, String) -> String -> Expr -> Maybe Expr
+accumulatorCall True name reversed tail (NApply _ (NApply _ function (NRef _ suppliedTail)) update) =
+  if suppliedTail == tail && isJust (peelUniformCall name reversed function) then Just update else Nothing
+accumulatorCall False name reversed tail (NApply _ (NApply _ function update) (NRef _ suppliedTail)) =
+  if suppliedTail == tail && isJust (peelUniformCall name reversed function) then Just update else Nothing
+accumulatorCall _ _ _ _ _ = Nothing
 
 -- Do not let a removed input/tail/self binder resolve to a same-named global.
 -- Binder-containing or otherwise unsupported source forms fail closed.
@@ -706,69 +706,69 @@ accumulatorUpdateSafe _ (NBoolType _) = True
 accumulatorUpdateSafe _ (NBoolValue _ _) = True
 accumulatorUpdateSafe _ _ = False
 
--- The two original update locals are [accumulator, head]. In the generated
--- step they are [accumulator, induction result, erased tail, head].
+-- Original update locals are [accumulator, head, prefix...]. In the step
+-- they are [accumulator, induction result, erased tail, head, prefix...].
 private
-accumulatorScope : Fin 2 -> Fin 4
+accumulatorScope : Fin (S (S n)) -> Fin (S (S (S (S n))))
 accumulatorScope FZ = FZ
 accumulatorScope (FS FZ) = FS (FS (FS FZ))
+accumulatorScope (FS (FS index)) = FS (FS (FS (FS index)))
 
 private
-accumulatorSequenceEquation : List Weighted -> String -> Term 0 -> Expr -> Either ResolveError (Maybe (Term 0))
-accumulatorSequenceEquation globals name ty (NEquationLambda _ [firstArg, secondArg] _
-  (NDataCase _ (NRef _ scrutinee) Nothing [(first, firstBinder, firstBody), (second, secondBinder, secondBody)])) = do
-  let initial : List String = [name, firstArg.spelling, secondArg.spelling]
-  if any (== "_") initial || length (nub initial) /= length initial ||
-     isJust (find (\entry => entry.global.name == name) globals) ||
-     not (null (qualifiedCandidates name (map global globals))) then Right Nothing else
-    case guardedNormal typeReductionFuel ty of
-      Just (Pi Linear firstType (Pi Linear secondType result)) =>
-        case (dropNewest secondType, dropNewest result >>= dropNewest) of
-          (Just closedSecond, Just resultType) =>
-            if scrutinee == firstArg.spelling then
-              select True firstArg secondArg firstType closedSecond resultType
-            else if scrutinee == secondArg.spelling then
-              select False secondArg firstArg closedSecond firstType resultType
-            else Right Nothing
-          _ => Right Nothing
-      _ => Right Nothing
+accumulatorSequenceEquation : List Weighted -> String -> Nat -> Term 0 -> Expr -> Either ResolveError (Maybe (Term 0))
+accumulatorSequenceEquation globals name implicitCount ty (NEquationLambda _ names _
+  (NDataCase _ (NRef _ scrutinee) Nothing [(first, firstBinder, firstBody), (second, secondBinder, secondBody)])) =
+  case reverse names of
+    secondArg :: firstArg :: reversedParams =>
+      let params = reverse reversedParams
+          initial : List String = name :: map spelling names in
+      if length params > 64 || implicitCount > length params ||
+         any (== "_") initial || length (nub initial) /= length initial ||
+         isJust (find (\entry => entry.global.name == name) globals) ||
+         not (null (qualifiedCandidates name (map global globals))) then Right Nothing else
+        case guardedNormal typeReductionFuel ty of
+          Just exposed => walk firstArg secondArg params Empty [] params (prefixModes implicitCount params) exposed
+          Nothing => Right Nothing
+    _ => Right Nothing
   where
-    lower : Bool -> Token -> Token -> Term 0 -> Term 0 -> Term 0 -> Term 0 -> Expr -> Token -> Token -> Expr -> Either ResolveError (Maybe (Term 0))
-    lower listFirst argument accumulator family element accType resultType base head tail body = do
-      let names : List String = [name, argument.spelling, accumulator.spelling, head.spelling, tail.spelling]
+    lower : {n : Nat} -> Bool -> Token -> Token -> List Token -> Context n -> Vect n String ->
+            Term n -> Term n -> Term n -> Term n -> Expr -> Token -> Token -> Expr -> Either ResolveError (Maybe (Term n))
+    lower listFirst argument accumulator params context env family element accType resultType base head tail body = do
+      let names : List String = name :: map spelling params ++ [argument.spelling, accumulator.spelling, head.spelling, tail.spelling]
+      let reversed = reverse (prefixModes implicitCount params)
       if any (== "_") names || length (nub names) /= length names ||
          any (\entry => entry == first.spelling || entry == second.spelling) names
         then Right Nothing else do
-      case accumulatorCall listFirst name tail.spelling body of
+      case accumulatorCall listFirst name reversed tail.spelling body of
         Just update =>
           if not (accumulatorUpdateSafe [name, argument.spelling, recursiveResultName] base) ||
              not (accumulatorUpdateSafe [name, argument.spelling, tail.spelling, recursiveResultName] update)
             then Right Nothing else do
               -- Elaborate both authored expressions under exactly the locals
               -- available to their generated continuations, then check usage.
-              let baseContext = Extend Empty Linear accType
-              baseBody <- elaborateExpected (map global globals) baseContext [accumulator.spelling]
+              let baseContext = Extend context Linear accType
+              baseBody <- elaborateExpected (map global globals) baseContext (accumulator.spelling :: env)
                             (weaken resultType) base
               case checkRuntime checkingDepth typeReductionFuel baseContext baseBody (weaken resultType) of
                 Left (TypingError CheckingLimit) => Left (CannotElaborate (extent base).start "Accumulator base checking budget exhausted")
                 Left (TypingError ReductionLimit) => Left (CannotElaborate (extent base).start "Accumulator base reduction budget exhausted")
                 Left _ => Right Nothing
                 Right _ => do
-                  let updateContext = Extend (Extend Empty Linear element) Linear (weaken accType)
-                  updateTerm <- elaborateExpected (map global globals) updateContext [accumulator.spelling, head.spelling]
+                  let updateContext = Extend (Extend context Linear element) Linear (weaken accType)
+                  updateTerm <- elaborateExpected (map global globals) updateContext (accumulator.spelling :: head.spelling :: env)
                                   (weaken (weaken accType)) update
                   case checkRuntime checkingDepth typeReductionFuel updateContext updateTerm (weaken (weaken accType)) of
                     Left (TypingError CheckingLimit) => Left (CannotElaborate (extent update).start "Accumulator update checking budget exhausted")
                     Left (TypingError ReductionLimit) => Left (CannotElaborate (extent update).start "Accumulator update reduction budget exhausted")
                     Left _ => Right Nothing
                     Right _ => do
-                      let continuation : Term 0 = Pi Linear accType (weaken resultType)
-                      let baseTerm : Term 0 = Lambda Linear accType baseBody
-                      let stepTerm : Term 0 = Lambda Linear element (Lambda Erased (weaken family)
+                      let continuation = Pi Linear accType (weaken resultType)
+                      let baseTerm = Lambda Linear accType baseBody
+                      let stepTerm = Lambda Linear element (Lambda Erased (weaken family)
                             (Lambda Linear (weaken (weaken continuation))
                               (Lambda Linear (weaken (weaken (weaken accType)))
                                 (Apply (Variable (FS FZ)) (rename accumulatorScope updateTerm)))))
-                      let motive : Term 2 = Lambda Erased (weaken (weaken family)) (weaken (weaken (weaken continuation)))
+                      let motive = Lambda Erased (weaken (weaken family)) (weaken (weaken (weaken continuation)))
                       let folded = SeqFold motive (weaken (weaken baseTerm)) (weaken (weaken stepTerm))
                       if listFirst
                         then Right (Just (Lambda Linear family (Lambda Linear (weaken accType)
@@ -777,15 +777,33 @@ accumulatorSequenceEquation globals name ty (NEquationLambda _ [firstArg, second
                                (Apply (folded (Variable FZ)) (Variable (FS FZ))))))
         _ => Right Nothing
 
-    select : Bool -> Token -> Token -> Term 0 -> Term 0 -> Term 0 -> Either ResolveError (Maybe (Term 0))
-    select listFirst argument accumulator family@(SeqType _ element) accType resultType =
-      case (sequenceConstructorTag globals Empty family element first, firstBinder,
-            sequenceConstructorTag globals Empty family element second, secondBinder) of
-        (Just 0, [], Just 1, [head, tail]) => lower listFirst argument accumulator family element accType resultType firstBody head tail secondBody
-        (Just 1, [head, tail], Just 0, []) => lower listFirst argument accumulator family element accType resultType secondBody head tail firstBody
+    select : {n : Nat} -> Bool -> Token -> Token -> List Token -> Context n -> Vect n String -> Term n -> Term n -> Term n -> Either ResolveError (Maybe (Term n))
+    select listFirst argument accumulator params context env family@(SeqType _ element) accType resultType =
+      case (sequenceConstructorTag globals context family element first, firstBinder,
+            sequenceConstructorTag globals context family element second, secondBinder) of
+        (Just 0, [], Just 1, [head, tail]) => lower listFirst argument accumulator params context env family element accType resultType firstBody head tail secondBody
+        (Just 1, [head, tail], Just 0, []) => lower listFirst argument accumulator params context env family element accType resultType secondBody head tail firstBody
         _ => Right Nothing
-    select _ _ _ _ _ _ = Right Nothing
-accumulatorSequenceEquation _ _ _ _ = Right Nothing
+    select _ _ _ _ _ _ _ _ _ = Right Nothing
+
+    walk : {n : Nat} -> Token -> Token -> List Token -> Context n -> Vect n String -> List Token -> List (Bool, String) -> Term n -> Either ResolveError (Maybe (Term n))
+    walk firstArg secondArg params context env [] [] (Pi Linear firstType (Pi Linear secondType result)) =
+      case (dropNewest secondType, dropNewest result >>= dropNewest) of
+        (Just closedSecond, Just resultType) =>
+          if scrutinee == firstArg.spelling then
+            select True firstArg secondArg params context env firstType closedSecond resultType
+          else if scrutinee == secondArg.spelling then
+            select False secondArg firstArg params context env closedSecond firstType resultType
+          else Right Nothing
+        _ => Right Nothing
+    walk firstArg secondArg params context env (token :: rest) ((_, _) :: modes) (Pi Erased domain result) = do
+      following <- walk firstArg secondArg params (Extend context Erased domain) (token.spelling :: env) rest modes result
+      Right (map (Lambda Erased domain) following)
+    walk firstArg secondArg params context env (token :: rest) ((False, _) :: modes) (Pi Unrestricted domain result) = do
+      following <- walk firstArg secondArg params (Extend context Unrestricted domain) (token.spelling :: env) rest modes result
+      Right (map (Lambda Unrestricted domain) following)
+    walk _ _ _ _ _ _ _ _ = Right Nothing
+accumulatorSequenceEquation _ _ _ _ _ = Right Nothing
 
 -- Scope-indexed prefix peeling. Erased and unrestricted parameters are held
 -- fixed across each recursive call; the final linear input is a checked
@@ -950,18 +968,25 @@ recursiveEquationReserve : String -> Expr -> Nat
 recursiveEquationReserve name expression =
   max (accumulatorReserve name expression) (max (legacyRecursiveEquationReserve name expression) (uniformEquationReserve name expression))
   where
-    -- Reserve up to 20 guarded 513-node copies for the family, element,
-    -- distinct accumulator, result, continuation and annotations. Authored
-    -- base/update expansion is included separately in the source cost.
+    -- Reserve guarded copies for family, element, accumulator, result,
+    -- continuation, annotations and prefix binders. Authored base/update
+    -- expansion is included separately in the source cost.
     accumulatorReserve : String -> Expr -> Nat
-    accumulatorReserve name (NEquationLambda _ [argument, accumulator] _ (NDataCase _ _ Nothing [(first, firstBinder, firstBody), (second, secondBinder, secondBody)])) =
-      let shape = case (firstBinder, secondBinder) of
-            ([], [head, tail]) => isJust (accumulatorCall True name tail.spelling secondBody) ||
-                                  isJust (accumulatorCall False name tail.spelling secondBody)
-            ([head, tail], []) => isJust (accumulatorCall True name tail.spelling firstBody) ||
-                                  isJust (accumulatorCall False name tail.spelling firstBody)
-            _ => False in
-        if shape then 64 + 20 * 513 else 0
+    accumulatorReserve name (NEquationLambda _ names signature (NDataCase _ _ Nothing [(first, firstBinder, firstBody), (second, secondBinder, secondBody)])) =
+      case reverse names of
+        _ :: _ :: reversedParams =>
+          let params = reverse reversedParams
+              count = implicitPrefixCount signature
+              reversed = reverse (prefixModes count params)
+              shape = case (firstBinder, secondBinder) of
+                ([], [head, tail]) => isJust (accumulatorCall True name reversed tail.spelling secondBody) ||
+                                      isJust (accumulatorCall False name reversed tail.spelling secondBody)
+                ([head, tail], []) => isJust (accumulatorCall True name reversed tail.spelling firstBody) ||
+                                      isJust (accumulatorCall False name reversed tail.spelling firstBody)
+                _ => False in
+            if length params <= 64 && count <= length params && shape
+              then 64 + (20 + length params) * 513 else 0
+        _ => 0
     accumulatorReserve _ _ = 0
 
 -- Recover only authored Name tokens for the successfully admitted occurrences.
@@ -1041,7 +1066,7 @@ compileDeclarations snapshot name globals (decl :: rest) remaining = do
       Right candidate => Right candidate
   recursive <- the (Either GraphError (Maybe (Term 0))) $ case recursive of
     Just result => Right (Just result)
-    Nothing => case accumulatorSequenceEquation globals decl.name ty decl.value of
+    Nothing => case accumulatorSequenceEquation globals decl.name implicitPrefix ty decl.value of
       Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
       Right candidate => Right candidate
   recursive <- the (Either GraphError (Maybe (Term 0))) $ case recursive of

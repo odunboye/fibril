@@ -35,8 +35,10 @@ uses strings; the [computed-update example](../examples/modules/linear-accumulat
 transforms each head. The [String-accumulator example](../examples/modules/linear-accumulator/StringAccumulator.fib)
 uses a different closed accumulator type, while the [computed-base example](../examples/modules/linear-accumulator/Matches.fib)
 returns a distinct `Bool` result; an [accumulator-first example](../examples/modules/linear-accumulator/AccumulatorFirst.fib)
-uses the opposite argument order. Tests observe empty, singleton and
-multi-element inputs, including a nonempty accumulator. This is direct-style convenience, **not new
+uses the opposite argument order. [Uniform-prefix examples](../examples/modules/linear-accumulator/UniformPrefix.fib)
+show erased types and reusable functions held unchanged in recursive calls,
+including the [accumulator-first version](../examples/modules/linear-accumulator/UniformPrefixFirst.fib).
+Tests observe empty, singleton and multi-element inputs, including a nonempty accumulator. This is direct-style convenience, **not new
 expressive power or general termination checking**. It does not use the
 experimental size-change checker. Reference/native agreement is sampled
 behavior, not a backend correctness proof.

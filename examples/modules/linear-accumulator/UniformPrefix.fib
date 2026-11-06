@@ -1,0 +1,20 @@
+module UniformPrefix
+
+import Data.Items
+
+-- Both erased element types and the unrestricted transformer remain unchanged.
+reverseMappedOnto : {0 A : Type} -> {0 B : Type} -> (transform : (1 value : A) -> B) -> (1 items : Data.Items.Items A) -> (1 acc : Data.Items.Items B) -> Data.Items.Items B
+reverseMappedOnto Input Output transform items acc = case items of
+  Data.Items.Empty => acc
+  Data.Items.Prepend head tail => reverseMappedOnto {Input} {Output} transform tail (Data.Items.Prepend (transform head) acc)
+
+mark : (1 value : String) -> String
+mark value = appendString value "!"
+
+join : (1 items : Data.Items.Items String) -> String
+join items = case items of
+  Data.Items.Empty => ""
+  Data.Items.Prepend head tail => appendString head (join tail)
+
+main : IO Unit
+main = putStrLn (join (reverseMappedOnto {String} {String} mark (Data.Items.Prepend "a" (Data.Items.Prepend "b" (Data.Items.Empty {String}))) (Data.Items.Prepend "c" (Data.Items.Empty {String}))))

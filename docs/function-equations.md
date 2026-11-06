@@ -259,11 +259,12 @@ matchesFrom acc items = case items of
 ~~~
 
 The [runnable example](../examples/modules/linear-accumulator/Main.fib) uses
-qualified imported constructors. The signature has exactly two linear inputs:
-a checked fixed list family and a closed accumulator type. Its closed result
-type may differ from the accumulator; neither may depend on the inputs. The
-list family must also be independent of the accumulator. The case scrutinizes
-the list input. Its empty branch computes the result from the accumulator, and
+qualified imported constructors. After an optional uniform prefix, the
+signature has exactly two linear inputs: a checked fixed list family and an
+accumulator type. Its result type may differ from the accumulator; neither may
+depend on the two linear inputs. The list family must also be independent of
+the accumulator. These types may depend on earlier prefix parameters. The case
+scrutinizes the list input. Its empty branch computes the result from the accumulator, and
 the cons branch is exactly a direct self-call on the immediate tail and an
 update, in the function's authored argument order. Branch order may be reversed. The
 [computed-update example](../examples/modules/linear-accumulator/Decorated.fib)
@@ -273,7 +274,9 @@ uses a different accumulator type from the input list. The
 [computed-base example](../examples/modules/linear-accumulator/Matches.fib)
 returns a `Bool` from a `String` accumulator; the
 [accumulator-first example](../examples/modules/linear-accumulator/AccumulatorFirst.fib)
-uses the other argument order.
+uses the other argument order. The [uniform-prefix examples](../examples/modules/linear-accumulator/UniformPrefix.fib)
+show erased types and a reusable transformer, including the
+[accumulator-first form](../examples/modules/linear-accumulator/UniformPrefixFirst.fib).
 
 The base may use the accumulator and visible globals; the update may also use
 the head. Both are bounded binder-free expressions of ordinary or braced
@@ -285,8 +288,16 @@ branch, so same-named globals there retain their ordinary meaning. Cases,
 lambdas, lets, do blocks and other unlisted forms are rejected. Both authored
 expressions are elaborated and independently checked: the base must consume
 the linear accumulator, and the update must consume both linear head and
-accumulator. Implicit prefixes on the recursive function, indirect calls, other
-recursive arguments and additional function parameters remain unsupported.
+accumulator.
+
+Up to 64 erased or unrestricted prefix parameters may precede the two linear
+inputs. Leading implicit prefix parameters must be erased. Each recursive call
+must explicitly repeat every prefix binder unchanged, in the authored order and
+with its authored implicit or explicit visibility; omitted, reordered or
+computed prefixes are not guessed equal. Prefix values captured by the repeated
+step must satisfy the existing erased/unrestricted usage rules. Linear prefixes,
+indirect calls, other recursive arguments and additional trailing parameters
+remain unsupported.
 
 The compiler lowers this shape to a `SeqFold` returning a linear
 accumulator-to-result function. Its base computes the checked empty branch;

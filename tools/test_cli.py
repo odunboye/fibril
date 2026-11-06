@@ -2247,6 +2247,130 @@ class CLITests(unittest.TestCase):
                 self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
                 self.assertNotIn('Expanded core construction budget exhausted', rejected.stderr)
 
+    def test_accumulator_equations_with_uniform_prefixes(self):
+        fixture = ROOT / 'examples/modules/linear-accumulator'
+        sources = [(fixture / 'UniformPrefix.fib', 'b!a!c\n'),
+                   (fixture / 'UniformPrefixFirst.fib', 'ca!b!?\n')]
+        for path, expected in sources:
+            result = run('run', '--source-dir', str(fixture), str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, expected)
+        source = sources[0][0].read_text()
+        recursive = 'reverseMappedOnto {Input} {Output} transform tail'
+        self.assertIn(recursive, source)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(fixture / 'Data', root / 'Data')
+            path = root / 'UniformPrefix.fib'
+            def project(program, command='run'):
+                path.write_text(program)
+                return run(command, '--source-dir', str(root), str(path))
+            lines = source.splitlines()
+            call_line = next(i for i, line in enumerate(lines, 1) if recursive in line)
+            call_column = lines[call_line - 1].index(recursive) + 1
+            target_line = next(i for i, line in enumerate(lines, 1) if line.startswith('reverseMappedOnto Input Output transform items acc ='))
+            path.write_text(source)
+            navigation = run('definition', '--source-dir', str(root), '--entry', str(path), str(call_line), str(call_column), str(path))
+            self.assertEqual(navigation.returncode, 0, navigation.stderr)
+            self.assertEqual(json.loads(navigation.stdout)['definition']['range']['start']['line'], target_line)
+            formatted = run('format', str(path))
+            self.assertEqual(formatted.returncode, 0, formatted.stderr)
+            path.write_text(formatted.stdout)
+            self.assertEqual(run('format', '--check', str(path)).returncode, 0)
+            formatted_run = run('run', '--source-dir', str(root), str(path))
+            self.assertEqual(formatted_run.returncode, 0, formatted_run.stdout + formatted_run.stderr)
+            self.assertEqual(formatted_run.stdout, 'b!a!c\n')
+            short = source[:source.index('mark :')] + 'main : IO Unit\nmain = putStrLn "checked"\n'
+            baseline = project(short)
+            self.assertEqual(baseline.returncode, 0, baseline.stdout + baseline.stderr)
+            explicit = source.replace('{0 A : Type}', '(0 A : Type)').replace('{0 B : Type}', '(0 B : Type)')
+            explicit = explicit.replace('{Input} {Output} transform tail', 'Input Output transform tail')
+            explicit = explicit.replace('{String} {String} mark', 'String String mark')
+            observed = project(explicit)
+            self.assertEqual(observed.returncode, 0, observed.stdout + observed.stderr)
+            self.assertEqual(observed.stdout, 'b!a!c\n')
+            input_list = 'Data.Items.Prepend "a" (Data.Items.Prepend "b" (Data.Items.Empty {String}))'
+            self.assertIn(input_list, source)
+            for value, expected in [('Data.Items.Empty {String}', 'c\n'),
+                                    ('Data.Items.Prepend "a" (Data.Items.Empty {String})', 'a!c\n')]:
+                observed = project(source.replace(input_list, value))
+                self.assertEqual(observed.returncode, 0, observed.stdout + observed.stderr)
+                self.assertEqual(observed.stdout, expected)
+            invalid = [short.replace(recursive, 'reverseMappedOnto {Input} {Input} transform tail'),
+                       short.replace(recursive, 'reverseMappedOnto {Input} {Output} tail'),
+                       short.replace(recursive, 'reverseMappedOnto {Input} {Output} transform items'),
+                       short.replace(recursive, 'reverseMappedOnto {Input} {Output} transform (Data.Items.Prepend head tail)'),
+                       short.replace('(transform : (1 value : A) -> B)', '(1 transform : (1 value : A) -> B)'),
+                       short.replace(recursive, 'reverseMappedOnto {Input} {Output} (\\(1 x : Input) => transform x) tail'),
+                       short.replace('transform', 'head'),
+                       short.replace('(Data.Items.Prepend (transform head) acc)',
+                                     '(Data.Items.Prepend (transform head) (reverseMappedOnto {Input} {Output} transform tail acc))')]
+            for program in invalid:
+                self.assertNotEqual(program, short)
+                rejected = project(program)
+                self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
+                self.assertNotIn('Expanded core construction budget exhausted', rejected.stderr)
+            first_source = sources[1][0].read_text()
+            first_short = first_source[:first_source.index('mark :')] + 'main : IO Unit\nmain = putStrLn "checked"\n'
+            path = root / 'UniformPrefixFirst.fib'
+            baseline = project(first_short)
+            self.assertEqual(baseline.returncode, 0, baseline.stdout + baseline.stderr)
+            first_call = 'appendMappedFrom {Element} render suffix (appendString acc (render head)) tail'
+            self.assertIn(first_call, first_short)
+            for replacement in ['appendMappedFrom {Element} render "?" (appendString acc (render head)) tail',
+                                'appendMappedFrom {Element} render suffix (appendString acc (render head)) items',
+                                'appendMappedFrom render suffix (appendString acc (render head)) tail']:
+                rejected = project(first_short.replace(first_call, replacement))
+                self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
+                self.assertNotIn('Expanded core construction budget exhausted', rejected.stderr)
+
+    def test_accumulator_uniform_prefix_rejects_type_correct_changes(self):
+        fixture = ROOT / 'examples/modules/linear-accumulator'
+        source = ('module Main\nimport Data.Items\n'
+                  'other : (1 value : String) -> String\nother value = value\n'
+                  'fold : {0 Tag : Type} -> (transform : (1 value : String) -> String) -> '
+                  '(1 items : Data.Items.Items String) -> (1 acc : String) -> String\n'
+                  'fold Tag transform items acc = case items of\n'
+                  '  Data.Items.Empty => acc\n'
+                  '  Data.Items.Prepend head tail => fold {Tag} transform tail (appendString acc (transform head))\n'
+                  'main : IO Unit\nmain = putStrLn "checked"\n')
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(fixture / 'Data', root / 'Data')
+            path = root / 'Main.fib'
+            path.write_text(source)
+            baseline = run('check', '--source-dir', str(root), str(path))
+            self.assertEqual(baseline.returncode, 0, baseline.stdout + baseline.stderr)
+            for changed in [source.replace('fold {Tag} transform tail', 'fold {String} transform tail'),
+                            source.replace('fold {Tag} transform tail', 'fold {Tag} other tail')]:
+                self.assertNotEqual(changed, source)
+                path.write_text(changed)
+                rejected = run('check', '--source-dir', str(root), str(path))
+                self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
+                self.assertNotIn('Expanded core construction budget exhausted', rejected.stderr)
+
+    def test_accumulator_uniform_prefix_admission_boundary(self):
+        fixture = ROOT / 'examples/modules/linear-accumulator'
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(fixture / 'Data', root / 'Data')
+            path = root / 'Main.fib'
+            def program(count):
+                names = ' '.join(f'p{i}' for i in range(count))
+                prefix = ' -> '.join(f'(0 p{i} : Type)' for i in range(count))
+                return ('module Main\nimport Data.Items\n'
+                        f'fold : {prefix} -> (1 items : Data.Items.Items String) -> (1 acc : String) -> String\n'
+                        f'fold {names} items acc = case items of\n'
+                        '  Data.Items.Empty => acc\n'
+                        f'  Data.Items.Prepend head tail => fold {names} tail (appendString acc head)\n'
+                        'main : IO Unit\nmain = putStrLn "checked"\n')
+            path.write_text(program(64))
+            admitted = run_cli('check', '--source-dir', str(root), str(path), timeout=120)
+            self.assertEqual(admitted.returncode, 0, admitted.stdout + admitted.stderr)
+            path.write_text(program(65))
+            rejected = run_cli('check', '--source-dir', str(root), str(path), timeout=120)
+            self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
+
     def test_accumulator_first_rejects_dependent_types(self):
         fixture = ROOT / 'examples/modules/linear-accumulator'
         examples = [
