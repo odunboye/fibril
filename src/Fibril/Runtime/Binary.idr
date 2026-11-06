@@ -4,7 +4,9 @@ module Fibril.Runtime.Binary
 import Data.IORef
 import Data.List
 import Data.Maybe
+import Data.Buffer
 import System.File
+import System.File.Buffer
 import Fibril.Data.Bytes
 
 %default total
@@ -212,12 +214,127 @@ put count handle@(FHandle file) (byte :: rest) = do
 ||| Trusted borrowed C FILE adapters; same buffering family as text IO, never
 ||| raw descriptor read/write. No C-string marshalling of payload data.
 export
-stdioBinary : File -> File -> BinaryAdapters
-stdioBinary input output@(FHandle file) = BinaryHost
+stdioBinaryReference : File -> File -> BinaryAdapters
+stdioBinaryReference input output@(FHandle file) = BinaryHost
   (\size => collect size input [])
   (\bytes => put 0 output (toList bytes))
   (do status <- primIO (primFlush file)
       pure (if status == 0 then Right () else Left BinaryFlushFailed))
+
+||| Raw block facts: counts are retained even when an operation reports error.
+||| Trusted test seam only; buffers must not be accessed outside their bounds.
+public export
+record BufferRead where
+  constructor ReadBlock
+  readCount : Int
+  readFailed : Bool
+  eof : Bool
+
+public export
+record BufferWrite where
+  constructor WroteBlock
+  writeCount : Int
+  writeFailed : Bool
+
+public export
+record BufferAdapters where
+  constructor BufferHost
+  read : Buffer -> Int -> Int -> IO BufferRead
+  write : Buffer -> Int -> Int -> IO BufferWrite
+  flush : IO (Either BinaryError ())
+
+unpackBuffer : Nat -> Int -> Buffer -> List Bits8 -> IO Bytes
+unpackBuffer Z offset buffer reversed = pure (fromList (reverse reversed))
+unpackBuffer (S rest) offset buffer reversed = do
+  byte <- getBits8 buffer offset
+  unpackBuffer rest (offset + 1) buffer (byte :: reversed)
+
+packBuffer : Int -> Buffer -> List Bits8 -> IO ()
+packBuffer offset buffer [] = pure ()
+packBuffer offset buffer (byte :: rest) = do
+  setBits8 buffer offset byte
+  packBuffer (offset + 1) buffer rest
+
+-- Call count is bounded by capacity: every successful nonterminal call must
+-- make positive progress. Validate counts before inspecting buffer contents.
+readBlocks : Nat -> Nat -> Nat -> BufferAdapters -> Buffer -> IO (Either BinaryError (Maybe Bytes))
+readBlocks Z used remaining host buffer = pure (Left BinaryAdapterViolation)
+readBlocks (S fuel) used remaining host buffer = do
+  result <- host.read buffer (cast used) (cast remaining)
+  if result.readCount < 0 || result.readCount > cast remaining then pure (Left BinaryAdapterViolation) else do
+    let accepted : Nat = cast result.readCount
+    let completed = used + accepted
+    case (result.readFailed, accepted == remaining || result.eof, accepted == 0) of
+      (True, _, _) => do
+        captured <- unpackBuffer completed 0 buffer []
+        pure (Left (BinaryReadFailed captured))
+      (_, True, _) => if completed == 0 then pure (Right Nothing) else do
+        bytes <- unpackBuffer completed 0 buffer []
+        pure (Right (Just bytes))
+      (_, _, True) => pure (Left BinaryAdapterViolation)
+      _ => readBlocks fuel completed (remaining `minus` accepted) host buffer
+
+writeBlocks : Nat -> Nat -> Nat -> BufferAdapters -> Buffer -> IO (Either BinaryError ())
+writeBlocks Z used remaining host buffer = pure (Left BinaryAdapterViolation)
+writeBlocks (S fuel) used remaining host buffer = do
+  result <- host.write buffer (cast used) (cast remaining)
+  if result.writeCount < 0 || result.writeCount > cast remaining then pure (Left BinaryAdapterViolation) else do
+    let accepted : Nat = cast result.writeCount
+    let completed = used + accepted
+    case (result.writeFailed, accepted == remaining, accepted == 0) of
+      (True, _, _) => pure (Left (BinaryWriteFailed completed))
+      (_, True, _) => pure (Right ())
+      (_, _, True) => pure (Left BinaryAdapterViolation)
+      _ => writeBlocks fuel completed (remaining `minus` accepted) host buffer
+
+||| Fresh scratch buffers are converted to immutable values before returning;
+||| retaining/reusing a test adapter's buffer cannot mutate a prior Bytes value.
+||| No pointer/string conversion, and no original buffer escapes through Bytes.
+export
+bufferedBinary : BufferAdapters -> BinaryAdapters
+bufferedBinary host = BinaryHost
+  (\size => if size == 0 || size > 65536 then pure (Left BinaryAdapterViolation) else do
+    Just buffer <- newBuffer (cast size) | Nothing => pure (Left BinaryAdapterViolation)
+    readBlocks size 0 size host buffer)
+  (\bytes => let size = byteLength bytes in
+    if size > 65536 then pure (Left BinaryAdapterViolation)
+    else if size == 0 then pure (Right ()) else do
+      Just buffer <- newBuffer (cast size) | Nothing => pure (Left BinaryAdapterViolation)
+      packBuffer 0 buffer (toList bytes)
+      writeBlocks size 0 size host buffer)
+  host.flush
+
+readBlockFile : File -> Buffer -> Int -> Int -> IO BufferRead
+readBlockFile input buffer offset capacity = do
+  before <- fileError input
+  if before then pure (ReadBlock 0 True False) else do
+    response <- readBufferData input buffer offset capacity
+    failed <- fileError input
+    eof <- fEOF input
+    -- The C support function returns fread's count, including error prefixes;
+    -- inspect ferror separately instead of conflating a short read with EOF.
+    pure $ case response of
+      Left _ => ReadBlock 0 True eof
+      Right count => ReadBlock count failed eof
+
+writeBlockFile : File -> Buffer -> Int -> Int -> IO BufferWrite
+writeBlockFile output buffer offset size = do
+  before <- fileError output
+  if before then pure (WroteBlock 0 True) else do
+    response <- writeBufferData output buffer offset size
+    failed <- fileError output
+    pure $ case response of
+      Left (_, accepted) => WroteBlock accepted True
+      Right () => WroteBlock size failed
+
+||| C-compatible block IO with the same FILE buffering as the reference path.
+||| All unsafe Buffer offsets/counts are bounded internally by admitted capacity.
+export
+stdioBinary : File -> File -> BinaryAdapters
+stdioBinary input output@(FHandle file) = bufferedBinary (BufferHost
+  (readBlockFile input) (writeBlockFile output)
+  (do status <- primIO (primFlush file)
+      pure (if status == 0 then Right () else Left BinaryFlushFailed)))
 
 export
 withBinaryTransport : Nat -> Nat -> File -> File ->

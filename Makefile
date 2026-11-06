@@ -1,7 +1,7 @@
 PACK ?= pack
 IDRIS2 ?= idris2
 
-.PHONY: prelude prelude-check build unit-test test io-test io-hosted-test io-runtime-test io-resource-runtime-test io-resource-emitter-test io-emitter-test io-interactive-test io-binary-test io-cli-test native-test editor-test examples bench bench-smoke python-embed-test docs handbook serve-docs clean
+.PHONY: prelude prelude-check build unit-test test io-test io-hosted-test io-runtime-test io-resource-runtime-test io-resource-emitter-test io-emitter-test io-interactive-test io-binary-test io-binary-bench io-cli-test native-test editor-test examples bench bench-smoke python-embed-test docs handbook serve-docs clean
 prelude:
 	python3 tools/embed_prelude.py
 
@@ -25,6 +25,10 @@ io-test: io-hosted-test io-runtime-test io-resource-runtime-test io-resource-emi
 
 io-binary-test:
 	IDRIS2="$(IDRIS2)" CC="$(CC)" python3 tools/test_io_binary.py
+
+# Measurement only: validates output but never asserts timing thresholds.
+io-binary-bench:
+	IDRIS2="$(IDRIS2)" CC="$(CC)" python3 tools/bench_binary.py
 
 io-hosted-test:
 	IDRIS2="$(IDRIS2)" python3 tools/test_io_hosted.py
@@ -152,7 +156,10 @@ editor-test: unit-test
 python-embed-test:
 	python3 tools/test_python_embed.py
 
-docs: build
+docs: unit-test
+	IDRIS2_PACKAGE_PATH="$$( $(PACK) --log-level=silence package-path )" \
+	IDRIS2_LIBS="$$( $(PACK) --log-level=silence libs-path )" \
+	IDRIS2_DATA="$$( $(PACK) --log-level=silence data-path )" \
 	$(IDRIS2) --mkdoc fibril.ipkg
 
 handbook: docs

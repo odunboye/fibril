@@ -15,6 +15,7 @@ import Data.List
 import System
 import System.File
 import Tests.Binary
+import Tests.BinaryBuffer
 import Fibril.Data.Bytes
 import Fibril.Runtime.Binary
 import Fibril.Runtime.ConsoleInput
@@ -53,8 +54,21 @@ one size transport = do
     Right Nothing => pure (Right ())
     Right (Just bytes) => writeBytes bytes transport
 
+bench : Nat -> BinaryTransport -> IO (Either BinaryError ())
+bench Z transport = pure (Right ())
+bench (S fuel) transport = do
+  result <- readBytes 65536 transport
+  case result of
+    Right (Just bytes) => if byteLength bytes /= 65536 then pure (Left BinaryAdapterViolation) else do
+      written <- writeBytes bytes transport
+      case written of
+        Left err => pure (Left err)
+        Right () => bench fuel transport
+    _ => pure (Left BinaryAdapterViolation)
+
 body : String -> BinaryTransport -> IO (Either BinaryError ())
 body "echo" transport = echo 128 transport
+body "bench" transport = bench 64 transport
 body "one" transport = one 65536 transport
 body "prompt" transport = do
   written <- writeBytes (fromList [0,255]) transport
@@ -109,6 +123,7 @@ body "short-charge" transport = do
 body _ transport = pure (Left BinaryAdapterViolation)
 
 limits : String -> (Nat, Nat)
+limits "bench" = (128, 8388608)
 limits "empty" = (0, 0)
 limits "write-empty" = (1, 0)
 limits "one" = (2, 131072)
@@ -129,12 +144,15 @@ main = do
   case selected of
     Just "checks" => do
       hosted <- runChecks
-      let results = checks ++ hosted
+      blocks <- runBufferChecks
+      let results = checks ++ hosted ++ blocks
       traverse_ (\(label, ok) => putStrLn ((if ok then "PASS: " else "FAIL: ") ++ label)) results
       if all snd results then putStrLn "BINARY_HOSTED_OK" else exitFailure
     Just mode => do
       let (requests, capacity) = limits mode
-      result <- withBinaryTransport requests capacity stdin stdout (body mode)
+      adapter <- getEnv "FIBRIL_BINARY_ADAPTER"
+      let host = if adapter == Just "reference" then stdioBinaryReference stdin stdout else stdioBinary stdin stdout
+      result <- withBinaryAdapters requests capacity host (body mode)
       case result of
         Right () => do _ <- fPutStrLn stderr "ok"; pure ()
         Left err => do _ <- fPutStrLn stderr (code err); exitFailure
@@ -156,6 +174,15 @@ static FByteStatus body(FByteSession *s, void *unused) {
   if (!strcmp(mode,"empty")) return FB_OK;
   if (!strcmp(mode,"write-empty")) return fibril_bytes_write(s,NULL,0,NULL);
   if (!strcmp(mode,"one")) return one(s,65536);
+  if (!strcmp(mode,"bench")) {
+    for(size_t i=0;i<64;i++) {
+      FByteRead input=fibril_bytes_read(s,65536);
+      if(input.status!=FB_OK || input.length!=65536) return FB_ADAPTER_VIOLATION;
+      FByteStatus result=fibril_bytes_write(s,input.data,input.length,NULL);
+      if(result!=FB_OK) return result;
+    }
+    return FB_OK;
+  }
   if (!strcmp(mode,"prompt")) {
     static const unsigned char prompt[]={0,255};
     FByteStatus status=fibril_bytes_write(s,prompt,sizeof(prompt),NULL);
@@ -197,6 +224,7 @@ static FByteStatus body(FByteSession *s, void *unused) {
 int main(void) {
   mode=getenv("FIBRIL_BINARY_MODE"); if(!mode) return 2;
   size_t requests=256, capacity=262144;
+  if(!strcmp(mode,"bench")) { requests=128; capacity=8388608; }
   if(!strcmp(mode,"empty") || !strcmp(mode,"flush")) { requests=0; capacity=0; }
   if(!strcmp(mode,"write-empty")) { requests=1; capacity=0; }
   if(!strcmp(mode,"one")) { requests=2; capacity=131072; }
@@ -348,8 +376,8 @@ class BinaryTransport(unittest.TestCase):
         if linked.returncode:
             raise AssertionError(linked.stdout + linked.stderr)
 
-    def run_mode(self, executable, mode, supplied=b"", **kwargs):
-        return subprocess.run([str(executable)], env={**os.environ, "FIBRIL_BINARY_MODE": mode}, input=supplied, capture_output=True, timeout=30, **kwargs)
+    def run_mode(self, executable, mode, supplied=b"", adapter="block", timeout=30, **kwargs):
+        return subprocess.run([str(executable)], env={**os.environ, "FIBRIL_BINARY_MODE": mode, "FIBRIL_BINARY_ADAPTER": adapter}, input=supplied, capture_output=True, timeout=timeout, **kwargs)
 
     def compare(self, mode, supplied, expected, code=0, error=b"ok\n"):
         for executable in (self.host, self.native):
@@ -369,6 +397,13 @@ class BinaryTransport(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn(b"BINARY_HOSTED_OK", result.stdout)
         self.assertNotIn(b"FAIL:", result.stdout)
+
+    def test_block_and_reference_host_adapters_agree(self):
+        for mode, data in [('echo', bytes(range(256)) * 5), ('one', bytes(range(256)) * 256), ('eof-charge', b''), ('short-charge', b'xx'), ('quota', b'ab'), ('mixed', b'header\n\0\xff\n')]:
+            with self.subTest(mode=mode):
+                block = self.run_mode(self.host, mode, data)
+                reference = self.run_mode(self.host, mode, data, adapter='reference')
+                self.assertEqual((block.returncode, block.stdout, block.stderr), (reference.returncode, reference.stdout, reference.stderr))
 
     def test_roundtrip_all_octets(self):
         data = bytes(range(256))

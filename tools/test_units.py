@@ -49,6 +49,8 @@ def main():
     env["IDRIS2_PREFIX"] = str(stage)
     env["IDRIS2_PACKAGE_PATH"] = os.pathsep.join(external)
     env["IDRIS2_LIBS"] = run(pack + ["--log-level=silence", "libs-path"], env=env, capture=True)
+    # Direct compiler paths do not supply the curated shim's support data path.
+    env["IDRIS2_DATA"] = run(pack + ["--log-level=silence", "data-path"], env=env, capture=True)
     env.setdefault("CHEZ", shutil.which("chez") or shutil.which("scheme") or "chez")
     installed = Path(run(compiler + ["--dump-installdir", "fibril.ipkg"], env=env, capture=True))
     if not installed.resolve().is_relative_to(stage.resolve()):
