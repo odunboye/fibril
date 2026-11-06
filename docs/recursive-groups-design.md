@@ -6,7 +6,9 @@
 recursive-call core node, or general source termination checking. The existing
 [structural equations](function-equations.md) lower to checked recursors. The
 [size-change experiment](size-change-certificates.md) checks synthetic bodies,
-not Fibril programs. None of the design below changes what the compiler accepts.
+not Fibril programs. A new isolated experiment checks ordinary typing of an
+actual open core body under a hypothetical self variable, as described below.
+None of this changes what the compiler accepts.
 
 ## A concrete goal
 
@@ -45,6 +47,30 @@ smaller, and the list head is not smaller than its list. A graph verdict alone
 cannot authorize this program.
 
 ![Proposed recursive-group checking boundary](diagrams/recursive-groups-design.svg)
+
+## Implemented experiment: typing under hypothetical self
+
+`Fibril.Termination.CoreCandidate` stores a closed signature `Term 0` and a
+body `Term 1`, whose only possible free variable is a hypothetical unrestricted
+self. Its `checkHypothesis` first admits a bounded subset of real core syntax,
+requires a literal nondependent first-order function signature and lambda body,
+then uses the existing `checkRuntime` against the weakened signature in that
+one-variable context. Tests check the actual scoped `SeqCase`/`SeqCons` body
+for the proposed reverse accumulator, including its linear arguments. They also
+show that the directly looping `self x` passes this check: **typing under an
+assumption is not termination checking**. No source, evaluator, conversion or
+backend accepts a recursive definition because of this API.
+
+This experiment does not authenticate recursive call sites, enforce their
+saturation, verify a graph, construct a self-referential value, or evaluate the
+candidate. It accepts some well-typed uses of self that a future recursion
+fragment must reject. Ordinary checker failures retain their original errors,
+including checking/reduction exhaustion. Shared admissions cover 256 nodes and
+4,096 sequence-key characters across the signature and body, including
+annotations. Measuring an already supplied string may itself cost work; these
+policies are not hard time, stack or memory limits. Checking and reduction
+budgets are supplied separately. The existing ordinary checker remains experimental and no new
+soundness or quantitative-preservation proof follows from its use here.
 
 ## Candidate first core fragment
 
