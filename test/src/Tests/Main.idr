@@ -4,6 +4,8 @@ import Fibril.Core.Quantity
 import Fibril.Core.Term
 import Fibril.Core.Usage
 import Fibril.Core.Context
+import Fibril.Core.Erased
+import Fibril.Core.Reduction
 import Tests.Reduction
 import Tests.Erased
 import Tests.Pretty
@@ -399,6 +401,20 @@ checks =
           (CoreValue BoolTrue, CoreValue BoolTrue) => True
           _ => False
         Left _ => False)
+  , ("independent path endpoint result remains core typed and converts to boundary",
+      let body = BoolCase BoolTrue BoolFalse BoolTrue in
+      case checkClosedPath 64 64 4 (CoreAbstract (CoreTerm body)) BoolFalse BoolFalse of
+        Right path => case applyCheckedClosedPath 64 64 5 path One of
+          CoreValue result => case (checkErased 64 64 Empty result BoolType,
+                                    betaCompare 64 result BoolFalse) of
+            (Right _, EqualNormalForms) => True
+            _ => False
+          _ => False
+        Left _ => False)
+  , ("independent path never accepts unsupported core syntax in dead branch",
+      case checkClosedPath 64 64 4
+             (CoreAbstract (CoreTerm (BoolCase BoolTrue BoolTrue UnitValue))) BoolTrue BoolTrue of
+        Left Rejected => True; _ => False)
   , ("independent closed path rejects boundary mismatch",
       case checkClosedPath 64 64 4 (CoreAbstract (CoreTerm BoolTrue)) BoolTrue BoolFalse of
         Left Rejected => True; _ => False)
