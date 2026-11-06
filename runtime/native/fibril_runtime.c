@@ -145,12 +145,9 @@ static int byte_work(FRuntime *r) {
   if (!enter(r)) return 0;
   r->depth--; return 1;
 }
-FValue *f_bytes_length(FRuntime *r, FEnv *env, FEval expression) {
-  if (!expression) { fail(r, "missing native byte length operand"); return NULL; }
-  FValue *bytes = evaluate(r, expression, env);
-  if (!bytes || bytes->tag != V_BYTES) { fail(r, "native byte length expects Bytes"); return NULL; }
+static FValue *byte_natural(FRuntime *r, size_t count) {
   FValue *result = f_nat_zero(r);
-  for (size_t n = 0; result && n < bytes->as.bytes.length; n++) {
+  for (size_t n = 0; result && n < count; n++) {
     if (!byte_work(r)) return NULL;
     FThunk *tail = ready(r, result);
     if (!tail) return NULL;
@@ -158,6 +155,53 @@ FValue *f_bytes_length(FRuntime *r, FEnv *env, FEval expression) {
     if (result) result->as.recursive.tail = tail;
   }
   return result;
+}
+FValue *f_bytes_length(FRuntime *r, FEnv *env, FEval expression) {
+  if (!expression) { fail(r, "missing native byte length operand"); return NULL; }
+  FValue *bytes = evaluate(r, expression, env);
+  if (!bytes || bytes->tag != V_BYTES) { fail(r, "native byte length expects Bytes"); return NULL; }
+  return byte_natural(r, bytes->as.bytes.length);
+}
+/* Saturate instead of wrapping. Still validate/charge every successor tail. */
+static int byte_position(FRuntime *r, FEnv *env, FEval expression, size_t *position) {
+  if (!expression) { fail(r, "missing native byte position"); return 0; }
+  FValue *value = evaluate(r, expression, env);
+  size_t n = 0;
+  while (value && value->tag == V_NAT_SUCC) {
+    if (!byte_work(r)) return 0;
+    if (n < SIZE_MAX) n++;
+    value = force(r, value->as.recursive.tail);
+  }
+  if (!value || value->tag != V_NAT_ZERO) { fail(r, "native byte position expects Nat"); return 0; }
+  *position = n; return 1;
+}
+FValue *f_bytes_index(FRuntime *r, FEnv *env, FEval index, FEval expression) {
+  if (!expression) { fail(r, "missing native byte index operand"); return NULL; }
+  size_t offset;
+  if (!byte_position(r, env, index, &offset)) return NULL;
+  FValue *bytes = evaluate(r, expression, env);
+  if (!bytes || bytes->tag != V_BYTES) { fail(r, "native byte index expects Bytes"); return NULL; }
+  FValue *result = new_value(r, V_VARIANT);
+  if (!result) return NULL;
+  if (offset < bytes->as.bytes.length) {
+    result->as.variant.tag = 1;
+    result->as.variant.payload = ready(r, byte_natural(r, bytes->as.bytes.data[offset]));
+    if (!result->as.variant.payload) return NULL;
+  }
+  return result;
+}
+FValue *f_bytes_slice(FRuntime *r, FEnv *env, FEval start, FEval count, FEval expression) {
+  if (!expression) { fail(r, "missing native byte slice operand"); return NULL; }
+  size_t offset, length;
+  if (!byte_position(r, env, start, &offset) || !byte_position(r, env, count, &length)) return NULL;
+  FValue *bytes = evaluate(r, expression, env);
+  if (!bytes || bytes->tag != V_BYTES) { fail(r, "native byte slice expects Bytes"); return NULL; }
+  if (offset > bytes->as.bytes.length) offset = bytes->as.bytes.length;
+  size_t remaining = bytes->as.bytes.length - offset;
+  if (length > remaining) length = remaining;
+  /* Views are immutable; their arena/static storage lives through the run. */
+  const unsigned char *data = length ? bytes->as.bytes.data + offset : NULL;
+  return f_bytes_literal(r, data, length);
 }
 FValue *f_bytes_octet(FRuntime *r, FEnv *env, FEval expression) {
   if (!expression) { fail(r, "missing native byte octet operand"); return NULL; }

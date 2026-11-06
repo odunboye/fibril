@@ -34,6 +34,16 @@ export
 slice : Nat -> Nat -> Bytes -> Bytes
 slice start count (Packed bytes) = Packed (take count (drop start bytes))
 
+||| Missing indices are explicit, including every index into empty bytes.
+export
+byteAt : Nat -> Bytes -> Maybe Bits8
+byteAt index (Packed bytes) = at index bytes
+  where
+    at : Nat -> List Bits8 -> Maybe Bits8
+    at _ [] = Nothing
+    at Z (byte :: _) = Just byte
+    at (S n) (_ :: rest) = at n rest
+
 export
 Eq Bytes where
   Packed left == Packed right = left == right

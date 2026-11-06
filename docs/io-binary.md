@@ -171,8 +171,8 @@ the reference adapter while expanding source/runtime coverage.
 The initial pure byte types, append/length/modulo operations and structural
 proof extensions are implemented; `examples/core/bytes-pure.fib` checks/evaluates.
 
-1. Extend pure bytes with bounded index/slice and explicit UTF-8 conversion;
-   retain hosted/native comparisons for each new operation.
+1. Add explicit UTF-8 conversion; pure index/slice and their hosted/native
+   comparisons are now implemented.
 2. Add checked binary descriptions and source operations with explicit hosted/
    native execution admission; compare actual compiled `.fib` programs. Preserve
    all existing runner gates.

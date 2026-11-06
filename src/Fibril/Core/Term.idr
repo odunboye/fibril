@@ -51,6 +51,8 @@ data Term : Nat -> Type where
   BytesValue : Bytes -> Term n
   BytesAppend : Term n -> Term n -> Term n
   BytesLength : Term n -> Term n
+  BytesIndex : Term n -> Term n -> Term n
+  BytesSlice : Term n -> Term n -> Term n -> Term n
   ||| Low eight bits of a canonical natural, explicitly modulo 256.
   BytesOctet : Term n -> Term n
   ||| Primitive String : Type0, literal data, pure concatenation/comparison.
@@ -104,6 +106,36 @@ public export
 naturalTerm : Nat -> Term n
 naturalTerm Z = NatZero
 naturalTerm (S n) = NatSucc (naturalTerm n)
+
+public export
+canonicalNatural : Term n -> Maybe Nat
+canonicalNatural NatZero = Just Z
+canonicalNatural (NatSucc n) = map S (canonicalNatural n)
+canonicalNatural _ = Nothing
+
+||| Missing or found octet (as a natural 0..255), never a sentinel byte.
+public export
+byteIndexResultType : Term n
+byteIndexResultType = VariantType [Nothing, Just (Linear, NatType)]
+
+public export
+indexBytesValue : Nat -> Bytes -> Term n
+indexBytesValue index bytes = case byteAt index bytes of
+  Nothing => VariantValue byteIndexResultType 0 Nothing
+  Just octet => VariantValue byteIndexResultType 1 (Just (naturalTerm (cast octet)))
+
+public export
+contractBytesIndex : Term n -> Term n -> Maybe (Term n)
+contractBytesIndex index (BytesValue bytes) = map (\n => indexBytesValue n bytes) (canonicalNatural index)
+contractBytesIndex _ _ = Nothing
+
+public export
+contractBytesSlice : Term n -> Term n -> Term n -> Maybe (Term n)
+contractBytesSlice start count (BytesValue bytes) = do
+  offset <- canonicalNatural start
+  capacity <- canonicalNatural count
+  Just (BytesValue (slice offset capacity bytes))
+contractBytesSlice _ _ _ = Nothing
 
 ||| Only canonical naturals contract; Bits8 addition deliberately wraps.
 public export
@@ -181,6 +213,8 @@ mutual
   rename env BytesType = BytesType
   rename env (BytesValue value) = BytesValue value
   rename env (BytesAppend a b) = BytesAppend (rename env a) (rename env b)
+  rename env (BytesIndex a b) = BytesIndex (rename env a) (rename env b)
+  rename env (BytesSlice a b c) = BytesSlice (rename env a) (rename env b) (rename env c)
   rename env (BytesLength a) = BytesLength (rename env a)
   rename env (BytesOctet a) = BytesOctet (rename env a)
   rename env StringType = StringType
@@ -262,6 +296,8 @@ mutual
   substituteTerm env BytesType = BytesType
   substituteTerm env (BytesValue value) = BytesValue value
   substituteTerm env (BytesAppend a b) = BytesAppend (substituteTerm env a) (substituteTerm env b)
+  substituteTerm env (BytesIndex a b) = BytesIndex (substituteTerm env a) (substituteTerm env b)
+  substituteTerm env (BytesSlice a b c) = BytesSlice (substituteTerm env a) (substituteTerm env b) (substituteTerm env c)
   substituteTerm env (BytesLength a) = BytesLength (substituteTerm env a)
   substituteTerm env (BytesOctet a) = BytesOctet (substituteTerm env a)
   substituteTerm env StringType = StringType
@@ -350,6 +386,8 @@ mutual
   sameSyntax BytesType BytesType = True
   sameSyntax (BytesValue a) (BytesValue b) = a == b
   sameSyntax (BytesAppend a b) (BytesAppend c d) = sameSyntax a c && sameSyntax b d
+  sameSyntax (BytesIndex a b) (BytesIndex c d) = sameSyntax a c && sameSyntax b d
+  sameSyntax (BytesSlice a b c) (BytesSlice d e f) = sameSyntax a d && sameSyntax b e && sameSyntax c f
   sameSyntax (BytesLength a) (BytesLength b) = sameSyntax a b
   sameSyntax (BytesOctet a) (BytesOctet b) = sameSyntax a b
   sameSyntax StringType StringType = True

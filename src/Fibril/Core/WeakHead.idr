@@ -8,7 +8,9 @@ import Fibril.Core.Reduction
 
 %default total
 
-||| One head beta/data-case step. Do not inspect binder bodies or annotations; force primitive operands as needed.
+||| One head beta/data-case step; force primitive operands as needed.
+||| Numeric byte primitives require canonical Nat payloads, including successor
+||| tails; those operands use full reduction. Other heads do not enter binders.
 ||| A variable-headed application is stuck and needs no head step.
 public export
 stepHead : Term n -> Maybe (Term n)
@@ -50,6 +52,18 @@ stepHead (PairCase motive (PairValue ty first second) branch) = Just (Apply (App
 stepHead (PairCase motive scrutinee branch) = map (\next => PairCase motive next branch) (stepHead scrutinee)
 stepHead (IOBind a b (IOPure value) next) = Just (Apply next value)
 stepHead (IOBind a b action next) = map (\result => IOBind a b result next) (stepHead action)
+stepHead (BytesIndex a b) = case contractBytesIndex a b of
+  Just result => Just result
+  Nothing => case step a of
+    Just next => Just (BytesIndex next b)
+    Nothing => map (BytesIndex a) (stepHead b)
+stepHead (BytesSlice a b c) = case contractBytesSlice a b c of
+  Just result => Just result
+  Nothing => case step a of
+    Just next => Just (BytesSlice next b c)
+    Nothing => case step b of
+      Just next => Just (BytesSlice a next c)
+      Nothing => map (BytesSlice a b) (stepHead c)
 stepHead (BytesAppend (BytesValue a) (BytesValue b)) = Just (BytesValue (append a b))
 stepHead (BytesAppend a b) = case stepHead a of
   Just next => Just (BytesAppend next b)
@@ -58,7 +72,7 @@ stepHead (BytesLength (BytesValue value)) = Just (naturalTerm (byteLength value)
 stepHead (BytesLength x) = map BytesLength (stepHead x)
 stepHead (BytesOctet x) = case canonicalOctet x of
   Just byte => Just (BytesValue (fromList [byte]))
-  Nothing => map BytesOctet (stepHead x)
+  Nothing => map BytesOctet (step x)
 stepHead (StringAppend (StringValue left) (StringValue right)) = Just (StringValue (left ++ right))
 stepHead (StringAppend left right) = case stepHead left of
   Just next => Just (StringAppend next right)

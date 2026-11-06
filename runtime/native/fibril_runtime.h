@@ -39,6 +39,8 @@ FValue *f_bytes_literal(FRuntime *r, const unsigned char *bytes, size_t length);
 FValue *f_bytes_append(FRuntime *r, FEnv *env, FEval left, FEval right);
 FValue *f_bytes_length(FRuntime *r, FEnv *env, FEval value);
 FValue *f_bytes_octet(FRuntime *r, FEnv *env, FEval value);
+FValue *f_bytes_index(FRuntime *r, FEnv *env, FEval index, FEval bytes);
+FValue *f_bytes_slice(FRuntime *r, FEnv *env, FEval start, FEval count, FEval bytes);
 FValue *f_unit_case(FRuntime *r, FEnv *env, FEval scrutinee, FEval body);
 FValue *f_pair(FRuntime *r, FEnv *env, int first_erased, int second_erased, FEval first, FEval second);
 FValue *f_pair_case(FRuntime *r, FEnv *env, FEval scrutinee, FEval branch);

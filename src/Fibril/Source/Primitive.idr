@@ -7,6 +7,7 @@ import Fibril.Core.Term
 import Fibril.Data.Bytes
 import Fibril.Source.Global
 import Fibril.Source.Primitive.Input
+import Fibril.Source.Primitive.Bytes
 import Fibril.Source.Primitive.Resource
 
 %default total
@@ -77,7 +78,7 @@ natRecWithValue = Lambda Erased natMotive
 public export
 primitiveGlobals : List GlobalDefinition
 primitiveGlobals =
-  resourcePrimitiveGlobals ++ inputPrimitiveGlobals ++
+  bytePrimitiveGlobals ++ resourcePrimitiveGlobals ++ inputPrimitiveGlobals ++
   [ GlobalWithQuantity Erased "Bytes" (Universe 0) BytesType
   , Global "primBytesEmpty" BytesType (BytesValue empty)
   , Global "primBytesOctetMod256" (Pi Linear NatType BytesType)

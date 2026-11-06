@@ -1,0 +1,7 @@
+-- Pure range inspection, not binary IO. Slice skips NUL and truncates at the end;
+-- index returns a found Nat 1, rendered as "x" (not a sentinel byte).
+render : (1 count : Nat) -> String
+render = \(1 count : Nat) => natRec (\(0 n : Nat) => String) "" (\(0 n : Nat) => \(1 rest : String) => appendString "x" rest) count
+
+main : IO Unit
+main = putStrLn (primBytesIndexCase String (primBytesIndex Zero (primBytesSlice (Succ Zero) (Succ (Succ Zero)) (primBytesAppend (primBytesOctetMod256 Zero) (primBytesOctetMod256 (Succ Zero))))) "missing" render)

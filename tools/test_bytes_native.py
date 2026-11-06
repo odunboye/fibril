@@ -18,9 +18,15 @@ RUNTIME = ROOT / 'runtime/native'
 RAW = r'''
 #include "fibril_runtime.c"
 #include <assert.h>
-static FValue *left_value, *right_value;
+static FValue *left_value, *right_value, *third_value;
 static FValue *left(FRuntime *r, FEnv *e) { (void)r; (void)e; return left_value; }
 static FValue *right(FRuntime *r, FEnv *e) { (void)r; (void)e; return right_value; }
+static FValue *third(FRuntime *r, FEnv *e) { (void)r; (void)e; return third_value; }
+static size_t read_number(FRuntime *r, FValue *value) {
+  size_t n=0;
+  while(value && value->tag==V_NAT_SUCC && n<1024) { n++; value=force(r,value->as.recursive.tail); }
+  assert(value && value->tag==V_NAT_ZERO); return n;
+}
 static FValue *bad_write(FRuntime *r, FEnv *e) { return f_write(r,e,left); }
 static void release(FRuntime *r) {
   while(r->allocations) { FAllocation *next=r->allocations->next; free(r->allocations); r->allocations=next; }
@@ -107,6 +113,47 @@ int main(int argc, char **argv) {
     left_value=f_bytes_literal(&r,octets,256);
     int status=fibril_native_run(bad_write);
     release(&r); return status;
+  } else if(mode==14) {
+    for(size_t n=0;n<258;n++) {
+      left_value=number(&r,n); right_value=f_bytes_literal(&r,octets,256);
+      FValue *result=f_bytes_index(&r,NULL,left,right);
+      assert(result && result->tag==V_VARIANT);
+      if(n<256) {
+        assert(result->as.variant.tag==1 && result->as.variant.payload);
+        assert(read_number(&r,force(&r,result->as.variant.payload))==n);
+      } else assert(result->as.variant.tag==0 && !result->as.variant.payload);
+      assert(!r.error); release(&r); memset(&r,0,sizeof(r));
+    }
+  } else if(mode==15) {
+    for(size_t start=0;start<8;start++) for(size_t count=0;count<8;count++) {
+      left_value=number(&r,start); right_value=number(&r,count);
+      third_value=f_bytes_literal(&r,octets,4);
+      FValue *view=f_bytes_slice(&r,NULL,left,right,third);
+      size_t offset=start>4?4:start, length=count<4-offset?count:4-offset;
+      assert(view && view->tag==V_BYTES && view->as.bytes.length==length);
+      if(length) assert(!memcmp(view->as.bytes.data,octets+offset,length));
+      left_value=view; right_value=f_bytes_literal(&r,octets,256);
+      FValue *copy=f_bytes_append(&r,NULL,left,right);
+      assert(copy && copy->as.bytes.length==length+256);
+      if(length) assert(!memcmp(view->as.bytes.data,copy->as.bytes.data,length));
+      assert(!r.error); release(&r); memset(&r,0,sizeof(r));
+    }
+  } else if(mode==16) {
+    left_value=number(&r,0); right_value=f_unit(&r);
+    assert(!f_bytes_index(&r,NULL,left,right) && r.error);
+    r.error=NULL; third_value=f_bytes_literal(&r,octets,4);
+    assert(!f_bytes_slice(&r,NULL,left,right,third) && r.error);
+  } else if(mode==17) {
+    left_value=number(&r,0); right_value=f_bytes_literal(&r,octets+255,1);
+    r.steps=F_MAX_STEPS-2;
+    assert(!f_bytes_index(&r,NULL,left,right) && r.error);
+  } else if(mode==18) {
+    assert(!f_bytes_index(&r,NULL,NULL,right) && r.error);
+    r.error=NULL; assert(!f_bytes_slice(&r,NULL,left,right,NULL) && r.error);
+  } else if(mode==19) {
+    left_value=number(&r,1); left_value->as.recursive.tail->value=left_value;
+    right_value=f_bytes_literal(&r,octets,4); r.steps=F_MAX_STEPS-10;
+    assert(!f_bytes_index(&r,NULL,left,right) && r.error);
   } else return 2;
   release(&r);
   return 0;
@@ -130,7 +177,7 @@ class NativeBytes(unittest.TestCase):
             raise AssertionError(compiled.stderr.decode(errors='replace'))
 
     def test_raw_native_byte_facts(self):
-        for mode in range(13):
+        for mode in list(range(13)) + list(range(14,20)):
             with self.subTest(mode=mode):
                 result = subprocess.run([str(self.raw), str(mode)], capture_output=True, timeout=20)
                 self.assertEqual((result.returncode, result.stdout, result.stderr), (0, b'', b''))
@@ -140,6 +187,27 @@ class NativeBytes(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertEqual(result.stdout, b'')
         self.assertIn(b'write expects a string', result.stderr)
+
+    def test_checked_source_ranges_in_both_modes(self):
+        example = 'examples/core/bytes-ranges.fib'
+        for command in ('run', 'run-interactive'):
+            result = run_cli(command, example)
+            self.assertEqual((result.returncode, result.stdout, result.stderr), (0, 'x\n', ''))
+        for command in ('emit-c', 'emit-c-interactive'):
+            with self.subTest(command=command):
+                emitted = run_cli(command, example)
+                self.assertEqual(emitted.returncode, 0, emitted.stdout + emitted.stderr)
+                self.assertIn('f_bytes_index(', emitted.stdout)
+                self.assertIn('f_bytes_slice(', emitted.stdout)
+                source = self.work / ('ranges-' + command + '.c')
+                source.write_text(emitted.stdout)
+                executable = self.work / ('ranges-' + command)
+                compiled = subprocess.run(self.cc + ['-std=c11', '-Wall', '-Wextra', '-Werror',
+                    '-I', str(RUNTIME), str(source), str(RUNTIME / 'fibril_runtime.c'), '-o', str(executable)],
+                    capture_output=True, timeout=60)
+                self.assertEqual(compiled.returncode, 0, compiled.stderr.decode(errors='replace'))
+                result = subprocess.run([str(executable)], capture_output=True, timeout=20)
+                self.assertEqual((result.returncode, result.stdout, result.stderr), (0, b'x\n', b''))
 
     def test_checked_source_uses_byte_lowering_in_both_modes(self):
         example = 'examples/core/bytes-native.fib'

@@ -71,6 +71,8 @@ mutual
   generate mode n BytesType = Right (constant n "f_erased(r)")
   generate mode n (BytesValue value) = Right (Output n (S n) [byteLiteral n value])
   generate mode n (BytesAppend a b) = binary mode n "f_bytes_append" a b
+  generate mode n (BytesIndex a b) = binary mode n "f_bytes_index" a b
+  generate mode n (BytesSlice a b c) = ternary mode n "f_bytes_slice" a b c
   generate mode n (BytesLength x) = unary mode n "f_bytes_length" x
   generate mode n (BytesOctet x) = unary mode n "f_bytes_octet" x
   generate mode n (StringValue value) = Right (Output n (S n) [literal n value])

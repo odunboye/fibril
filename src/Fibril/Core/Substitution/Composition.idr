@@ -49,6 +49,8 @@ mutual
   renameAfterSubstitution env sigma ReadLine = Refl
   renameAfterSubstitution env sigma (FileHandleValue _ _) = Refl
   renameAfterSubstitution env sigma (ReadInputFile handle) = cong ReadInputFile (renameAfterSubstitution env sigma handle)
+  renameAfterSubstitution env sigma (BytesIndex x y) = rewrite renameAfterSubstitution env sigma x in rewrite renameAfterSubstitution env sigma y in Refl
+  renameAfterSubstitution env sigma (BytesSlice x y z) = rewrite renameAfterSubstitution env sigma x in rewrite renameAfterSubstitution env sigma y in rewrite renameAfterSubstitution env sigma z in Refl
   renameAfterSubstitution env sigma BytesType = Refl
   renameAfterSubstitution env sigma (BytesValue _) = Refl
   renameAfterSubstitution env sigma (BytesLength x) = cong BytesLength (renameAfterSubstitution env sigma x)
@@ -162,6 +164,8 @@ mutual
   substituteAfterRenaming env sigma ReadLine = Refl
   substituteAfterRenaming env sigma (FileHandleValue _ _) = Refl
   substituteAfterRenaming env sigma (ReadInputFile handle) = cong ReadInputFile (substituteAfterRenaming env sigma handle)
+  substituteAfterRenaming env sigma (BytesIndex x y) = rewrite substituteAfterRenaming env sigma x in rewrite substituteAfterRenaming env sigma y in Refl
+  substituteAfterRenaming env sigma (BytesSlice x y z) = rewrite substituteAfterRenaming env sigma x in rewrite substituteAfterRenaming env sigma y in rewrite substituteAfterRenaming env sigma z in Refl
   substituteAfterRenaming env sigma BytesType = Refl
   substituteAfterRenaming env sigma (BytesValue _) = Refl
   substituteAfterRenaming env sigma (BytesLength x) = cong BytesLength (substituteAfterRenaming env sigma x)
@@ -285,6 +289,8 @@ mutual
   substituteComposition first second ReadLine = Refl
   substituteComposition first second (FileHandleValue _ _) = Refl
   substituteComposition first second (ReadInputFile handle) = cong ReadInputFile (substituteComposition first second handle)
+  substituteComposition first second (BytesIndex x y) = rewrite substituteComposition first second x in rewrite substituteComposition first second y in Refl
+  substituteComposition first second (BytesSlice x y z) = rewrite substituteComposition first second x in rewrite substituteComposition first second y in rewrite substituteComposition first second z in Refl
   substituteComposition first second BytesType = Refl
   substituteComposition first second (BytesValue _) = Refl
   substituteComposition first second (BytesLength x) = cong BytesLength (substituteComposition first second x)
