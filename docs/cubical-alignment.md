@@ -251,6 +251,23 @@ The [Cubical Agda linearity discussion](https://github.com/agda/agda/issues/4642
 records these examples and explicitly labels its proposed restrictions as
 unverified; it is motivation, not an adopted specification.
 
+Two further references help separate possible approaches, without closing this
+gap:
+
+- Atkey, [*Syntax and Semantics of Quantitative Type Theory*](https://doi.org/10.1145/3209108.3209189),
+  §2.2–2.3, proves substitution for its QTT and gives a counterexample for an
+  earlier system with arbitrary result usages. Its `0/1/ω` resource algebra is
+  relevant, but its calculus does not provide CCHM path or composition rules.
+  A Fibril integration would need to establish that its existing judgments and
+  proposed cubical extension satisfy the corresponding substitution premises;
+  citing QTT alone does not establish that.
+- Doré, [*Linear Types inside Dependent Type Theory*](https://msp.cis.strath.ac.uk/types2025/abstracts/TYPES2025_paper91.pdf)
+  (TYPES 2025), §1–2, describes a deep embedding of linear entailment in
+  Cubical Agda and proposes additional structure for dependent linear function
+  types. This is a different architecture from Fibril's built-in usage checker:
+  its Cubical Agda embedding is not a preservation or erasure theorem for
+  Fibril's runtime and cannot be transplanted as a path-typing rule.
+
 Until a published compatible calculus or a justified conservative design is
 selected and its preservation/substitution/erasure obligations are addressed,
 the independent closed fragment must not be promoted to a core path constructor
