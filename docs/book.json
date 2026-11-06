@@ -312,6 +312,10 @@
         "path": "docs/cubical-alignment.md"
       },
       {
+        "title": "Quantitative cubical rules",
+        "path": "docs/quantitative-cubical-rules.md"
+      },
+      {
         "title": "Theory bibliography",
         "path": "docs/references.md"
       },

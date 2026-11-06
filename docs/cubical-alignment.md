@@ -13,7 +13,16 @@ features remain to be specified. The existing interval/face implementation is
 useful infrastructure, not a certificate that the complete calculus or its
 quantitative extension is sound.
 
-## Next vertical slice
+## General-path continuation
+
+The [quantitative cubical rule sheet](quantitative-cubical-rules.md) now specifies
+proposed checking authorities, the runtime conversion firewall, open logical
+path examples, and ordered proof/implementation gates. It supersedes the
+closed-only next-step scope below. It is a proposed contract, not implemented
+support or a completed soundness argument. The existing closed-Boolean API
+remains a regression baseline; general logical paths are the next target.
+
+## Original next vertical slice (historical roadmap)
 
 The next foundation milestone is **a checked, computational path example**:
 the implementation should construct a simple path, apply it at both interval

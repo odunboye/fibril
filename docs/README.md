@@ -17,6 +17,7 @@ The generated homepage separates teaching chapters, references, and project reco
 ## Reference index
 
 - [Cubical alignment](cubical-alignment.md): first checked-path milestone and quantitative safeguards.
+- [Quantitative cubical rules](quantitative-cubical-rules.md): proposed general-path judgments, runtime firewall and execution gates.
 
 - [Implicit arguments](implicit-arguments.md): infer erased prefixes on direct checked global calls.
 
