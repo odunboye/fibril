@@ -6,10 +6,10 @@
 `Fibril.Termination.SizeChange.produce` constructs a bounded closure for a
 caller-supplied abstract call graph, and `verify` checks the resulting candidate
 against the original graph. `Fibril.Termination.FirstOrder` also experiments
-with extraction and a separate graph check over a small synthetic Nat-only body
+with extraction and a separate graph check over a small synthetic Nat/list body
 representation, described below. These are useful for exercising the finite
 graph criterion and a future producer/checker boundary. No Fibril parser,
-elaborator, recursive core term, evaluator, CLI or backend calls them. **It does
+elaborator, recursive core term, evaluator, CLI or backend calls them. **They do
 not authorize any new recursive Fibril program.** Existing structural equations
 continue to lower to independently checked recursors.
 
@@ -65,24 +65,35 @@ limit returns `GraphInconclusive`, never acceptance.
 ## Synthetic first-order body experiment
 
 `Fibril.Termination.FirstOrder` is **not Fibril source or core**. Its deliberately
-small, non-executable representation has an ordered group of functions whose
-arguments are all Nat, and bodies made only of explicit saturated direct calls,
-sequential/alternative composition, and exhaustive Nat cases. Calls take local
-Nat variables or an unrelated Nat *value*: that value is not an expression
-which can hide a call. A successor branch introduces its predecessor as local
-`0`, shifting existing local indices. There are no indirect calls, function
-values, partial applications, result types, effects, or quantity judgments.
+small, non-executable representation has an ordered group of functions with
+Nat and `List Nat` argument sorts, and bodies made only of explicit saturated
+direct calls, sequential/alternative composition, and exhaustive Nat or list
+cases. The original `Definition` is shorthand for a Nat-only signature;
+`TypedDefinition` supplies explicit argument sorts. Calls take locals or an
+unrelated value of the appropriate sort: such a value is not an expression which
+can hide a call. The checker validates call-argument and case-scrutinee sorts.
+A Nat successor branch introduces its predecessor as local `0`; a list cons
+branch introduces its tail as local `0` and head as local `1`, shifting existing
+locals. There are no indirect calls, function values, partial applications,
+result types, effects, or quantity judgments.
 
 `extract` traverses all bodies and branches in order and emits one matrix per
 syntactic call site, including duplicate matrices. It tracks a row of relations
-from each local to the caller's original arguments. Only the predecessor
-introduced in a successor branch can establish strict decrease. Unknown values
-produce unknown rows; an out-of-scope local, target or arity mismatch is rejected.
+from each local to the caller's original arguments. Only a Nat predecessor or
+list tail introduced in the corresponding successor branch can establish strict
+decrease. A list head is unrelated to *every* original argument, including the
+list; even a predecessor of that head stays unrelated. Unknown values produce
+unknown rows. An out-of-scope local, wrong sort, target or arity mismatch is rejected.
+For this experiment, Nat value and list length are the intended natural-number
+measures; no known relation crosses sorts. The prototype does not prove that a
+future Fibril representation or adapter preserves these measures.
 
 `check` separately rewalks the same synthetic bodies against a proposed
 ordered call-site list. It checks endpoints, arities, multiplicity and every
 matrix cell; its local provenance uses root/descendant identities rather than
-the producer's relation rows. The two implementations are distinct walks, but
+the producer's relation rows. `admittedArities` obtains graph arities only after
+the same bounded body admission, rather than traversing an unchecked signature.
+The two implementations are distinct walks, but
 this is not a formal independence or soundness proof. A checked synthetic graph
 can be passed to `produce` and `verify` for experiments. An accepted result
 still **cannot authorize a Fibril definition**: no adapter connects this
@@ -105,8 +116,9 @@ The finite tests are sampled implementation evidence. They include exhaustive
 three-relation algebra, rectangular composition orientation, alternating and
 mutual descent, missing or non-closed certificates, conflicting alternative
 calls, producer/verifier agreement on a small corpus, exact synthetic call-site
-checking, forged decreases, scope shifts, branch and mutual calls, round and
-capacity boundaries, malformed shapes, zero-argument cycles and admission failures. They are
+checking, forged decreases, mixed-sort calls, list-head non-descent, scope shifts,
+branch and mutual calls, round and capacity boundaries, malformed shapes,
+zero-argument cycles and admission failures. They are
 not a mechanized proof of the size-change theorem, termination of Fibril terms,
 whole-language soundness or compiler correctness.
 

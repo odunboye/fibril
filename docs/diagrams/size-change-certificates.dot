@@ -1,7 +1,7 @@
 digraph SizeChangeCertificates {
   rankdir=LR;
   node [shape=box];
-  body [label="Synthetic first-order Nat body\nnot Fibril source or core"];
+  body [label="Synthetic first-order Nat/list body\nnot Fibril source or core"];
   extraction [label="Extract all call-site matrices"];
   crosscheck [label="Rewalk body with separate provenance\nreject forged or missing call sites"];
   callGraph [label="Abstract call graph\nrelations are untrusted assertions"];
