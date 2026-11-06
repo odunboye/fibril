@@ -1,0 +1,6 @@
+module Main
+
+-- NON-PRODUCTION diagnostic checkpoint; see docs/header-parser-blockers.md.
+import Protocol.Frame
+main : IO Unit
+main = Protocol.Frame.echoFrame
