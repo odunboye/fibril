@@ -276,6 +276,52 @@ rule that all path data erase is not enough. The existing empty computational
 context and restricted Boolean grammar avoid captures for the experiment only;
 they are not rules for weakening into arbitrary linear contexts or for transport.
 
+## Candidate closed-Boolean core boundary (specification, not implemented)
+
+A conservative first integration can compile an endpoint observation to an
+**ordinary** `Term 0`, rather than introducing a runtime path representation.
+The proposed entry point accepts a closed raw path and closed Boolean endpoints,
+checks formation and both boundaries using the restricted judgment above, and
+accepts only a literal endpoint `0` or `1`. It then independently checks the
+result as `Bool` with the ordinary runtime checker in `Empty`. Any unsupported
+form, mismatch, or exhausted component check must prevent emission. The output
+is the checked ordinary Boolean expression, not a path or a proof that can be
+used as a core type. Its erasure and execution are therefore exactly those of
+that existing core expression. This describes a compile-time lowering boundary,
+not general path support and not yet a new `Fibril.Core.Term` constructor.
+
+The integration is acceptable only if all of these obligations are met:
+
+1. The boundary is invoked before ordinary checking and code generation; raw
+   path syntax or annotations must not bypass it. The emitted term is rechecked
+   by the ordinary pipeline rather than treating an experimental witness as a
+   transferable typing derivation.
+2. The input's embedded ordinary terms have computational scope zero by
+   construction, and the accepted Boolean grammar excludes variables,
+   definitions, effects and recursion. Dimension scope and substitution remain
+   separate from computational scope. An enclosing program may consume the
+   resulting closed Boolean as an ordinary expression, but this does not allow
+   the original path to capture its variables.
+3. Both boundaries are independently checked, even when only one is observed;
+   the selected result is checked against its declared endpoint. Tests must
+   cover the opposite boundary being wrong, non-Boolean payloads, open captures,
+   unsupported observations and exhaustion at every stage.
+4. The metatheoretic target is a conservative elaboration argument: every
+   accepted observation elaborates to the exact closed core term independently
+   checked and emitted, and no path-specific reduction or typing rule is added
+   to the core. This argument depends on correctness of the restricted path
+   checker and the existing core pipeline; finite tests are not a proof.
+5. Current budgets remain independent per call and do not bound total work or
+   allocation. A production-facing boundary requires a separately specified
+   resource policy and tests for it before admitting untrusted input.
+
+If first-class paths in `Fibril.Core.Term` are required instead, this lowering is
+insufficient: constructor handling must be specified and audited across renaming,
+substitution, equality, both checkers, reduction, evaluation, serialization and
+all backends. In particular, a closed payload embedded in an open term must not
+be mistaken for a proof that arbitrary paths are closed or erased. No such
+constructor is authorized by this candidate alone.
+
 ## Checker composition gate
 
 The experimental path helper is not an additional authority for accepting a
