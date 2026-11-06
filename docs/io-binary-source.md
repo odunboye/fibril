@@ -127,7 +127,10 @@ source physical errors remain fatal. The typed hosted API retains the full read
 prefix; the native process interface returns status/diagnostics, not that payload.
 Callback failure skips final flush, successful Unit completion checks it without
 request fuel. Native evaluator depth/steps/arena bounds differ from hosted
-reduction policy and can reject larger computations earlier. No verified
+reduction policy. Binary bind traversal now uses a [bounded continuation
+stack](binary-runtime-scalability.md) (4096 pending binds, recycled arena nodes)
+rather than retaining C/evaluator depth. Pure evaluation still has the existing
+512-depth limit. Either backend can reject larger computations earlier. No verified
 preservation, general exception/signal/cancellation safety or total heap bound
 is claimed.
 

@@ -13,8 +13,8 @@ The accepted wire format is exactly:
 Content-Length: N\r\n\r\n<body of N bytes>
 ```
 
-- `N` is canonical decimal **0..32**, one or two digits, no leading zeros except
-  the single digit `0`. A third digit or a value above 32 is rejected before body
+- `N` is canonical decimal **0..99**, one or two digits, no leading zeros except
+  the single digit `0`. A third digit or a value above 99 is rejected before body
   consumption. Arithmetic is bounded; there is no unbounded decimal accumulator.
 - Header spelling/case, one space and CRLF terminators are exact. No additional,
   duplicate or optional headers, LF-only lines, whitespace variants, signs or
@@ -109,18 +109,23 @@ over-limit lengths, strict header syntax, trailing data and fragmented writes.
 Its open-input test keeps stdin open after sending a complete frame and requires
 the echoed frame and successful exit, proving the program does not wait for EOF.
 Two-frame tests compare different bodies, check non-rollback on later rejection,
-and wait for each echo before sending the next frame. The suite has ten test
+and wait for each echo before sending the next frame. The suite has eleven test
 methods over these hosted/native matrices.
 Native tests run under ASan/UBSan; this does not verify the hosted compiler/FFI,
 source preservation, arbitrary exceptions, signals or concurrent mutation.
 
 Validation passed the unit/property phase, 163 CLI, 19 native-emitter, 6 pure-
-byte/codec native, 13 binary-source, 14 raw bridge scenarios, 10 framing, 9
+byte/codec native, 13 binary-source, 14 raw bridge scenarios, 11 framing, 9 binary-scalability, 9
 interactive CLI, 7 editor and 16 handbook tests. All focused IO subtargets passed
 in split runs, including 305 hosted checks and 29 resource differentials. Native
 framing/byte/codec/console/resource/binary suites passed ASan/UBSan. The hosted
 fixture used the existing explicit 450-second test deadline, not a runner-budget
 increase.
+
+The body cap was extended from 32 to 99 only after testing both backends and
+the recursive native baseline at 99. The separate [binary continuation stack](binary-runtime-scalability.md)
+improves deeper IO workloads; it is not credited with making 99-byte frames
+possible. All admitted lengths 0..99 and two maximum-sized frames are tested.
 
 The existing evaluator, allocation and transport limits still apply. This is a
 single-frame building block toward an LSP application, not that application.

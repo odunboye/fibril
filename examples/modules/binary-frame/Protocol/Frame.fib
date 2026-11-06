@@ -1,6 +1,6 @@
 module Protocol.Frame
 
--- One canonical Content-Length frame, decimal 0..32, no extra headers/JSON.
+-- One canonical Content-Length frame, decimal 0..99, no extra headers/JSON.
 record SharedBytes : Type where
   constructor Shared
   bytes : Bytes
@@ -23,7 +23,7 @@ echoFrame =
   let (finish : (count : Nat) -> (header : String) -> IO Unit) = \(count : Nat) => \(header : String) => bind ByteReadResult Unit (primReadBytes three) (\(1 r : ByteReadResult) => primByteReadCase (IO Unit) r primRejectBytes (\(1 b : Bytes) => if sameText "\n\r\n" b then encodedBody count header else primRejectBytes)) in
   let (add : (1 a : Nat) -> (1 b : Nat) -> Nat) = \(1 a : Nat) => \(1 b : Nat) => natRec (\(0 n : Nat) => Nat) b (\(0 n : Nat) => \(1 old : Nat) => Succ old) a in
   let (tens : (value : Nat) -> Nat) = \(value : Nat) => natRec (\(0 n : Nat) => Nat) Zero (\(0 n : Nat) => \(1 old : Nat) => add value old) ten in
-  let (allowed : (first : String) -> (second : String) -> Bool) = \(first : String) => \(second : String) => if equalString first "1" then True else if equalString first "2" then True else if equalString first "3" then orBool (equalString second "0") (orBool (equalString second "1") (equalString second "2")) else False in
+  let (allowed : (first : String) -> (second : String) -> Bool) = \(first : String) => \(second : String) => if equalString first "0" then False else True in
   let (second : (value : Nat) -> (spelling : String) -> IO Unit) = \(value : Nat) => \(spelling : String) => readCode (finish value (appendString "Content-Length: " (appendString spelling "\r\n\r\n"))) (\(value2 : Nat) => \(spelling2 : String) => if allowed spelling spelling2 then readCode (finish (add (tens value) value2) (appendString "Content-Length: " (appendString spelling (appendString spelling2 "\r\n\r\n")))) (\(n : Nat) => \(s : String) => primRejectBytes) else primRejectBytes) in
   let (first : IO Unit) = readCode primRejectBytes (\(value : Nat) => \(spelling : String) => second value spelling) in
   bind ByteReadResult Unit (primReadBytes sixteen) (\(1 r : ByteReadResult) => primByteReadCase (IO Unit) r primRejectBytes (\(1 b : Bytes) => if sameText "Content-Length: " b then first else primRejectBytes))

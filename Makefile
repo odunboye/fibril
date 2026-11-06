@@ -1,7 +1,7 @@
 PACK ?= pack
 IDRIS2 ?= idris2
 
-.PHONY: prelude prelude-check build unit-test test io-test io-hosted-test io-runtime-test io-resource-runtime-test io-resource-emitter-test io-emitter-test io-interactive-test io-binary-test io-binary-bench io-cli-test native-test bytes-native-test binary-source-test binary-runtime-test framing-test editor-test examples bench bench-smoke python-embed-test docs handbook serve-docs clean
+.PHONY: prelude prelude-check build unit-test test io-test io-hosted-test io-runtime-test io-resource-runtime-test io-resource-emitter-test io-emitter-test io-interactive-test io-binary-test io-binary-bench io-cli-test native-test bytes-native-test binary-source-test binary-runtime-test binary-scale-test framing-test editor-test examples bench bench-smoke python-embed-test docs handbook serve-docs clean
 prelude:
 	python3 tools/embed_prelude.py
 
@@ -21,6 +21,7 @@ test: unit-test
 	CC="$(CC)" python3 tools/test_bytes_native.py
 	CC="$(CC)" python3 tools/test_binary_source.py
 	CC="$(CC)" python3 tools/test_binary_native.py
+	CC="$(CC)" python3 tools/test_binary_scalability.py
 	CC="$(CC)" python3 tools/test_framing.py
 	CC="$(CC)" python3 tools/test_io_cli.py
 
@@ -58,6 +59,9 @@ io-cli-test: unit-test
 native-test: unit-test
 	CC="$(CC)" python3 tools/test_native.py
 	CC="$(CC)" python3 tools/test_bytes_native.py
+
+binary-scale-test: unit-test
+	CC="$(CC)" python3 tools/test_binary_scalability.py
 
 framing-test: unit-test
 	CC="$(CC)" python3 tools/test_framing.py

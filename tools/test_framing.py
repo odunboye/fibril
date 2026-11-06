@@ -76,7 +76,7 @@ class Framing(unittest.TestCase):
             self.assertIn(b'Binary program rejected input',err)
 
     def test_every_admitted_length(self):
-        for n in range(33):
+        for n in range(100):
             with self.subTest(n=n):self.accept(frame(bytes(range(n))))
 
     def test_all_octets_in_body(self):
@@ -93,8 +93,11 @@ class Framing(unittest.TestCase):
             with self.subTest(n=n):self.reject(packet[:n])
 
     def test_malformed_and_over_limit_lengths(self):
-        for number in (b'',b'-1',b'+1',b'00',b'01',b'09',b'33',b'99',b'100',b'9999999999999999999',b'1 ',b' 1',b'1x',b'\xff',b'\0'):
-            with self.subTest(number=number):self.reject(b'Content-Length: '+number+b'\r\n\r\n'+b'x'*33)
+        for number in (b'',b'-1',b'+1',b'00',b'01',b'09',b'100',b'101',b'999',b'9999999999999999999',b'1 ',b' 1',b'1x',b'\xff',b'\0'):
+            with self.subTest(number=number):self.reject(b'Content-Length: '+number+b'\r\n\r\n'+b'x'*100)
+
+    def test_maximum_body_truncated(self):
+        self.reject(b'Content-Length: 99\r\n\r\n'+b'x'*98)
 
     def test_header_contract_is_strict(self):
         for prefix in (b'content-length: ',b'Content-length: ',b'Content-Length:',b'Content-Length:  ',b'Other-Length:   '):
@@ -111,7 +114,9 @@ class Framing(unittest.TestCase):
         second=frame('λ 🌍'.encode())
         for command in (self.hostTwo,self.nativeTwo):
             self.assertEqual(run(command,first+second),(0,first+second,b''))
-            status,out,err=run(command,first+b'Content-Length: 99\r\n\r\n')
+            maximum=frame(b'\xff'*99)
+            self.assertEqual(run(command,maximum+maximum),(0,maximum+maximum,b''))
+            status,out,err=run(command,first+b'Content-Length: 100\r\n\r\n')
             self.assertNotEqual(status,0)
             self.assertEqual(out,first)
             self.assertIn(b'Binary program rejected input',err)

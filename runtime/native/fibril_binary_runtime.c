@@ -23,48 +23,73 @@ static int binary_capacity(FRuntime *r, FThunk *input, size_t *out) {
   *out = count; return 1;
 }
 
+/* IO nesting is not pure evaluator/C-stack depth. Pending continuations have
+   an explicit bound and use the existing arena; popped nodes are reused. */
+#define F_MAX_BINARY_PENDING ((size_t)4096)
+typedef struct FBinaryPending {
+  FThunk *next;
+  struct FBinaryPending *tail;
+} FBinaryPending;
+
 static FThunk *interact_binary(FBinaryContext *context, FByteSession *session, FValue *io) {
   FRuntime *r = context->runtime;
-  if (!enter(r)) return NULL;
-  FThunk *result = NULL;
-  if (!io) fail(r, "missing native binary description");
-  else if (io->tag == V_PURE) result = io->as.io.first;
-  else if (io->tag == V_READ_BYTES) {
-    size_t capacity;
-    if (binary_capacity(r, io->as.io.first, &capacity)) {
-      FByteRead read = fibril_bytes_read(session, capacity);
-      if (read.status == FB_EOF) result = ready(r, read_result(r, 0, NULL));
-      else if (read.status == FB_OK) {
-        FValue *bytes = f_bytes_literal(r, read.data, read.length);
-        if (bytes) result = ready(r, read_result(r, 1, bytes));
-      } else {
-        context->fault = read.status;
-        context->read_prefix = read.length;
-      }
+  FBinaryPending *pending = NULL, *available = NULL;
+  size_t count = 0;
+  for (;;) {
+    /* Charge every visited description, including memoized/cyclic fixtures.
+       Do not retain a depth entry across the next IO iteration. */
+    if (!enter(r)) return NULL;
+    r->depth--;
+    if (!io) { fail(r, "missing native binary description"); return NULL; }
+    if (io->tag == V_BIND) {
+      if (count >= F_MAX_BINARY_PENDING) { fail(r, "native binary continuation budget exhausted"); return NULL; }
+      FBinaryPending *node;
+      if (available) { node = available; available = node->tail; }
+      else node = allocate(r, sizeof(*node));
+      if (!node) return NULL;
+      node->next = io->as.io.second; node->tail = pending;
+      pending = node; count++;
+      io = force(r, io->as.io.first);
+      if (!io) return NULL;
+      continue;
     }
-  } else if (io->tag == V_WRITE_BYTES) {
-    FValue *bytes = force(r, io->as.io.first);
-    if (!bytes || bytes->tag != V_BYTES) fail(r, "native binary write expects Bytes");
-    else {
-      FByteStatus status = fibril_bytes_write(session, bytes->as.bytes.data,
-                                             bytes->as.bytes.length, &context->write_prefix);
+    FThunk *result = NULL;
+    if (io->tag == V_PURE) result = io->as.io.first;
+    else if (io->tag == V_READ_BYTES) {
+      size_t capacity;
+      if (binary_capacity(r, io->as.io.first, &capacity)) {
+        FByteRead read = fibril_bytes_read(session, capacity);
+        if (read.status == FB_EOF) result = ready(r, read_result(r, 0, NULL));
+        else if (read.status == FB_OK) {
+          FValue *bytes = f_bytes_literal(r, read.data, read.length);
+          if (bytes) result = ready(r, read_result(r, 1, bytes));
+        } else { context->fault = read.status; context->read_prefix = read.length; }
+      }
+    } else if (io->tag == V_WRITE_BYTES) {
+      FValue *bytes = force(r, io->as.io.first);
+      if (!bytes || bytes->tag != V_BYTES) fail(r, "native binary write expects Bytes");
+      else {
+        FByteStatus status = fibril_bytes_write(session, bytes->as.bytes.data,
+                                               bytes->as.bytes.length, &context->write_prefix);
+        if (status == FB_OK) result = ready(r, f_unit(r));
+        else context->fault = status;
+      }
+    } else if (io->tag == V_REJECT_BYTES) fail(r, "Binary program rejected input");
+    else if (io->tag == V_FLUSH_BYTES) {
+      FByteStatus status = fibril_bytes_flush(session);
       if (status == FB_OK) result = ready(r, f_unit(r));
       else context->fault = status;
-    }
-  } else if (io->tag == V_REJECT_BYTES) {
-    fail(r, "Binary program rejected input");
-  } else if (io->tag == V_FLUSH_BYTES) {
-    FByteStatus status = fibril_bytes_flush(session);
-    if (status == FB_OK) result = ready(r, f_unit(r));
-    else context->fault = status;
-  } else if (io->tag == V_BIND) {
-    FValue *first = force(r, io->as.io.first);
-    FThunk *value = first ? interact_binary(context, session, first) : NULL;
-    FValue *next = value ? force(r, io->as.io.second) : NULL;
-    FValue *following = next ? apply_thunk(r, next, value) : NULL;
-    if (following) result = interact_binary(context, session, following);
-  } else fail(r, "native binary runner rejects non-binary IO");
-  r->depth--; return result;
+    } else fail(r, "native binary runner rejects non-binary IO");
+    if (!result || r->error || context->fault != FB_OK) return NULL;
+    if (!pending) return result;
+    FBinaryPending *node = pending;
+    FThunk *continuation = node->next;
+    pending = node->tail; count--;
+    node->tail = available; available = node;
+    FValue *next = force(r, continuation);
+    io = next ? apply_thunk(r, next, result) : NULL;
+    if (!io) return NULL;
+  }
 }
 
 static FByteStatus binary_body(FByteSession *session, void *opaque) {

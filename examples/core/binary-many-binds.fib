@@ -1,0 +1,14 @@
+-- Native scalability fixture: 512 nested binary flush descriptions, no output.
+-- The hosted default currently exhausts reduction fuel on this stress case.
+-- A byte-count constant avoids an additional unary-Nat doubling workload.
+doubleText : (text : String) -> String
+doubleText text = appendString text text
+
+count : Nat
+count = primUTF8Case Bytes Nat (primUTF8Encode (doubleText (doubleText (doubleText (doubleText (doubleText "0123456789abcdef")))))) Zero (\(1 bytes : Bytes) => primBytesLength bytes)
+
+step : (0 n : Nat) -> (1 rest : IO Unit) -> IO Unit
+step = \(0 n : Nat) => \(1 rest : IO Unit) => bind Unit Unit rest (\(1 done : Unit) => case done of () => primFlushBytes)
+
+main : IO Unit
+main = natRec (\(0 n : Nat) => IO Unit) (pure Unit ()) step count
