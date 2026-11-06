@@ -330,6 +330,29 @@
     ]
   },
   {
+    "title": "IO execution and resource ownership",
+    "pages": [
+      { "title": "IO roadmap", "path": "docs/io-roadmap.md" },
+      { "title": "Console execution contract", "path": "docs/io-execution-contract.md" },
+      { "title": "Interactive source input", "path": "docs/io-input.md" },
+      { "title": "Scripted console protocol", "path": "docs/io-scripted.md" },
+      { "title": "Core input requests", "path": "docs/io-core-input.md" },
+      { "title": "Native interactive input", "path": "docs/io-native-input.md" },
+      { "title": "IO ownership contract", "path": "docs/io-ownership.md" },
+      { "title": "Scoped file protocol", "path": "docs/io-scoped-files.md" },
+      { "title": "Abstract file handles", "path": "docs/io-static-handles.md" },
+      { "title": "Core scoped ownership", "path": "docs/io-core-scope.md" },
+      { "title": "Resource session cleanup", "path": "docs/io-resource-session.md" },
+      { "title": "Hosted resource execution", "path": "docs/io-resource-execution.md" },
+      { "title": "Ownership-returning reads", "path": "docs/io-owned-file-reads.md" },
+      { "title": "Native resource runtime", "path": "docs/io-native-resources.md" },
+      { "title": "Checked resource emission", "path": "docs/io-resource-emission.md" },
+      { "title": "Binary transport pilot", "path": "docs/io-binary.md" },
+      { "title": "IO build validation", "path": "docs/io-build-validation.md" },
+      { "title": "QTT merge validation", "path": "docs/io-merge-validation.md" }
+    ]
+  },
+  {
     "title": "Part III · Project records",
     "pages": [
       {

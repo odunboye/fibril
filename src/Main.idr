@@ -13,6 +13,8 @@ import Fibril.Driver.Interactive.Run
 -- Keep the experimental resource library in the application package's build
 -- closure so installed test dependencies include it; no CLI command exposes it.
 import Fibril.Driver.Resource
+-- Internal byte transport is built/installed, not exposed as a source primitive.
+import Fibril.Runtime.Binary
 import Fibril.Driver.Native
 import Fibril.Driver.Test
 import Fibril.Driver.ModuleGraph

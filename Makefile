@@ -1,7 +1,7 @@
 PACK ?= pack
 IDRIS2 ?= idris2
 
-.PHONY: prelude prelude-check build test io-test io-hosted-test io-runtime-test io-resource-runtime-test io-resource-emitter-test io-emitter-test io-interactive-test io-cli-test native-test editor-test examples bench bench-smoke python-embed-test docs handbook serve-docs clean
+.PHONY: prelude prelude-check build unit-test test io-test io-hosted-test io-runtime-test io-resource-runtime-test io-resource-emitter-test io-emitter-test io-interactive-test io-binary-test io-cli-test native-test editor-test examples bench bench-smoke python-embed-test docs handbook serve-docs clean
 prelude:
 	python3 tools/embed_prelude.py
 
@@ -11,14 +11,20 @@ prelude-check:
 build: prelude-check
 	$(PACK) build fibril
 
-test: build
-	$(PACK) test fibril
+# A private package prefix avoids stale/shared Fibril installs across worktrees.
+unit-test: build
+	PACK="$(PACK)" IDRIS2="$(IDRIS2)" python3 tools/test_units.py
+
+test: unit-test
 	python3 tools/test_cli.py
 	CC="$(CC)" python3 tools/test_native.py
 	CC="$(CC)" python3 tools/test_io_cli.py
 
 # Each suite builds in its own temporary directory, safe with make -j8.
-io-test: io-hosted-test io-runtime-test io-resource-runtime-test io-resource-emitter-test io-emitter-test io-interactive-test
+io-test: io-hosted-test io-runtime-test io-resource-runtime-test io-resource-emitter-test io-emitter-test io-interactive-test io-binary-test
+
+io-binary-test:
+	IDRIS2="$(IDRIS2)" CC="$(CC)" python3 tools/test_io_binary.py
 
 io-hosted-test:
 	IDRIS2="$(IDRIS2)" python3 tools/test_io_hosted.py
@@ -38,10 +44,10 @@ io-emitter-test:
 io-interactive-test:
 	IDRIS2="$(IDRIS2)" CC="$(CC)" python3 tools/test_io_interactive.py
 
-io-cli-test: build
+io-cli-test: unit-test
 	CC="$(CC)" python3 tools/test_io_cli.py
 
-native-test: build
+native-test: unit-test
 	CC="$(CC)" python3 tools/test_native.py
 
 examples: build
@@ -139,8 +145,8 @@ bench-smoke:
 	python3 tools/benchmark.py --quick
 	python3 tools/test_benchmark.py
 
-# Editor integration invokes the CLI; do not race its linker under make -j8.
-editor-test: build
+# Wait for all compiler build/installation work before invoking editor clients.
+editor-test: unit-test
 	python3 tools/test_editor.py
 
 python-embed-test:

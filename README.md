@@ -12,6 +12,9 @@ compiler backends, and real-time guarantees are not implemented.
 [Checked Fibril prelude functions](docs/console-runner.md) provide putStrLn,
 pure, and bind over experimental IO descriptions. A hosted runner executes stdout
 plans; a complete effect calculus and compiler backends remain future work.
+An internal [binary transport pilot](docs/io-binary.md) preserves arbitrary bytes
+through hosted/native stdio, with explicit budgets and checked flush. It is not
+yet a Fibril source API or a self-hosted LSP runtime.
 See [checker scope and limits](docs/erased-checker.md). The [local module/import work](docs/modules.md) now has shared metadata parsing and read-only POSIX dependency discovery;
 check/eval/run --source-dir now support checked closed qualified imports and
 hosted execution. Version-2 project JSON retains source identity/snapshots; FibrilCheckProject validates project snapshots with conservative loaded-buffer

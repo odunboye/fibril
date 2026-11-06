@@ -33,6 +33,7 @@ The generated homepage separates teaching chapters, references, and project reco
 - [Neovim/Vim highlighting](editor-highlighting.md): local runtime setup, lexical scope, and optional tests.
 
 - [Hello world / hosted console](console-runner.md): first run command and its explicit effect boundary.
+- [Binary transport pilot](io-binary.md): internal byte-preserving hosted/native IO, accounting contracts and source API gates.
 
 - [Source-ordered declarations](declarations.md): explicit headers lowered to typed lets, not transparent globals.
 
