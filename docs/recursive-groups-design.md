@@ -2,13 +2,14 @@
 
 ## Status
 
-**Raw representation and a restricted typing/usage checker are implemented;
-termination and execution remain proposed.** `Fibril.Core.RecursiveGroup`
-defines separate scoped group-body syntax with explicit saturated member calls.
-`Fibril.Core.RecursiveGroupCheck` checks a narrow Nat/Bool subset. The syntax is
-not an ordinary `Term` constructor and is not evaluated or accepted from source.
-Fibril does not yet support general recursive definitions or source termination
-checking. The existing
+**Raw representation, restricted typing/usage checking and an experimental
+size-change check are implemented; recursive execution remains proposed.**
+`Fibril.Core.RecursiveGroup` defines separate scoped group-body syntax with
+explicit saturated member calls. `Fibril.Core.RecursiveGroupCheck` checks a
+narrow Nat/Bool subset, and a separate rewalk can verify a size-change graph and
+closure for those same groups. The syntax is not an ordinary `Term` constructor
+and is not evaluated or accepted from source. Fibril does not yet support
+general recursive definitions or source termination checking. The existing
 [structural equations](function-equations.md) lower to checked recursors. The
 [size-change experiment](size-change-certificates.md) checks synthetic bodies,
 not Fibril programs. Isolated experiments also check and run a tightly
@@ -230,13 +231,45 @@ unrestricted calls, duplicated arguments, case-scrutinee reuse, branch joins,
 predecessor consumption, unsupported syntax and admission boundaries. These
 are implementation evidence, not a metatheoretic proof.
 
+## Experimental termination checks on actual groups
+
+`Fibril.Termination.GroupCalls.extract` traverses an actual group only after the
+restricted group type/usage check succeeds. It emits one matrix per explicit
+call site in member and branch order, including duplicates. Rows are callee
+arguments and columns are caller parameters in signature order; local-variable
+indices are newest-first. Unchanged locals retain their own non-increasing
+relation. A predecessor exposed in a Nat successor branch strictly decreases
+only from a known Nat origin. Constructed `NatZero`/`NatSucc` and Bool literals
+remain unknown; in particular the checker does not assume a successor of a
+predecessor decreases. The supported Nat/Bool typing prevents known relations
+from crossing incompatible sorts. For the intended common natural-number measure,
+Nat uses its value and Bool can use a constant measure; no Bool strict descent
+is generated.
+
+`Fibril.Termination.GroupCheck.check` independently rewalks the **same group**,
+using root/descendant identities instead of producer relation rows, and compares
+all ordered sites and cells. `verifyGroup` runs that recheck before validating
+the supplied closure against the group's arities. The mutual even/odd example
+has a decreasing graph; a well-typed unchanged self-loop and an unknown-value
+cycle are rejected by the graph criterion. Tests also cover unequal arities,
+reordered and duplicate sites, stale graphs, forged descent, mixed Nat/Bool
+arguments and exhausted certificates.
+
+This is an isolated experiment, **not authorization to execute or admit a
+recursive definition**. The two walks share the group type/usage checker and
+syntax assumptions; producer and verifier share matrix algebra. There is no
+formal proof of extraction completeness, the size-change theorem, recursive
+reduction or quantitative preservation. Unsupported groups and exhausted
+admissions do not succeed. No Fibril source, ordinary conversion, evaluator or
+backend uses this result.
+
 ## Candidate first checked core fragment
 
 The smallest useful checking direction is a **closed, immutable group** of
 explicitly signed functions with nondependent, first-order argument and result
-types. The restricted checker now handles mutually recursive Nat/Bool groups,
-but does not establish termination or admit members for execution. Extending it
-to the existing fixed `Items Nat` shape is future work. Do not broaden data positivity. No ambient variables or linear
+types. The restricted checker and experimental graph recheck now handle mutual
+Nat/Bool groups, but do not admit members for execution. Extending this to the
+existing fixed `Items Nat` shape is future work. Do not broaden data positivity. No ambient variables or linear
 resources may be captured by a group body. Recursive functions are not values:
 only explicit saturated calls to a member of the current group are permitted.
 

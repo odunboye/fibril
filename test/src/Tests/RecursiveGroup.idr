@@ -1,6 +1,7 @@
 module Tests.RecursiveGroup
 
 import Data.Fin
+import Data.List
 import Data.Vect
 import Fibril.Core.Context
 import Fibril.Core.Quantity
@@ -8,6 +9,9 @@ import Fibril.Core.Runtime
 import Fibril.Core.RecursiveGroup
 import Fibril.Core.RecursiveGroupCheck
 import Fibril.Core.Term
+import Fibril.Termination.GroupCalls
+import Fibril.Termination.GroupCheck
+import Fibril.Termination.SizeChange
 
 %default total
 
@@ -169,6 +173,62 @@ scopedCases : Nat -> Group 1
 scopedCases depth = MkGroup [8] (MoreMembers (MkMember eightSignature
   (CaseNat (Variable (FS (FS (FS (FS (FS (FS (FS FZ)))))))) (Return BoolTrue) (nestedNatCases depth))) NoMembers)
 
+alternativeCalls : Group 1
+alternativeCalls = MkGroup [1] (MoreMembers (MkMember (Pi Linear NatType BoolType)
+  (CaseNat (Variable FZ) (Call FZ [NatZero]) (Call FZ [Variable FZ]))) NoMembers)
+
+nestedPredecessor : Group 1
+nestedPredecessor = MkGroup [1] (MoreMembers (MkMember (Pi Linear NatType BoolType)
+  (CaseNat (Variable FZ) (Return BoolTrue)
+    (CaseNat (Variable FZ) (Return BoolFalse) (Call FZ [Variable FZ])))) NoMembers)
+
+constructedScrutinee : Group 1
+constructedScrutinee = MkGroup [1] (MoreMembers (MkMember (Pi Linear NatType BoolType)
+  (CaseNat (NatSucc (Variable FZ)) (Return BoolTrue) (Call FZ [Variable FZ]))) NoMembers)
+
+constructedArgument : Group 1
+constructedArgument = MkGroup [1] (MoreMembers (MkMember (Pi Linear NatType BoolType)
+  (CaseNat (Variable FZ) (Return BoolTrue) (Call FZ [NatSucc (Variable FZ)]))) NoMembers)
+
+mixedArguments : Group 1
+mixedArguments = MkGroup [2] (MoreMembers (MkMember (Pi Linear NatType (Pi Linear BoolType BoolType))
+  (CaseNat (Variable (FS FZ)) (Return (Variable FZ))
+    (Call FZ [Variable FZ, Variable (FS FZ)]))) NoMembers)
+
+rectangular : Group 2
+rectangular = MkGroup [1, 2]
+  (MoreMembers (MkMember (Pi Linear NatType BoolType)
+    (CaseNat (Variable FZ) (Return BoolTrue) (Call (FS FZ) [Variable FZ, BoolTrue])))
+    (MoreMembers (MkMember (Pi Linear NatType (Pi Erased BoolType BoolType))
+      (Call FZ [Variable (FS FZ)])) NoMembers))
+
+duplicateSites : Group 1
+duplicateSites = MkGroup [2] (MoreMembers (MkMember (Pi Unrestricted BoolType (Pi Linear NatType NatType))
+  (CaseBool (Variable (FS FZ)) (Call FZ [BoolTrue, Variable FZ]) (Call FZ [BoolTrue, Variable FZ]))) NoMembers)
+
+matchesGraph : (group : Group size) -> List Call -> Bool
+matchesGraph group expected = case Fibril.Termination.GroupCalls.extract group of
+  Right actual => actual == expected && accepted (Fibril.Termination.GroupCheck.check group expected)
+  _ => False
+
+acceptedCertificate : (group : Group size) -> Bool
+acceptedCertificate group = case Fibril.Termination.GroupCalls.extract group of
+  Left _ => False
+  Right graph => case produce (toList group.arities) graph of
+    ClosureProduced certificate GraphAccepted => case Fibril.Termination.GroupCheck.verifyGroup group graph certificate of
+      Right GraphAccepted => True
+      _ => False
+    _ => False
+
+rejectedCertificate : (group : Group size) -> Bool
+rejectedCertificate group = case Fibril.Termination.GroupCalls.extract group of
+  Left _ => False
+  Right graph => case produce (toList group.arities) graph of
+    ClosureProduced certificate (GraphRejected _) => case Fibril.Termination.GroupCheck.verifyGroup group graph certificate of
+      Right (GraphRejected _) => True
+      _ => False
+    _ => False
+
 public export
 checks : List (String, Bool)
 checks =
@@ -299,4 +359,65 @@ checks =
   , ("recursive group checker admits exactly sixteen scoped locals",
       accepted (Fibril.Core.RecursiveGroupCheck.check (scopedCases 7)) &&
       exhausted (Fibril.Core.RecursiveGroupCheck.check (scopedCases 8)))
+  , ("actual mutual group extracts and rechecks both decreasing calls",
+      let calls = [Edge 0 1 [[Decreases]], Edge 1 0 [[Decreases]]] in
+      matchesGraph parity calls && acceptedCertificate parity)
+  , ("actual group tracks swapped arguments across mutually recursive members",
+      let calls = [Edge 0 1 [[Unknown, NonIncreasing], [NonIncreasing, Unknown]],
+                   Edge 1 0 [[Unknown, Decreases], [NonIncreasing, Unknown]]] in
+      matchesGraph ordered calls && acceptedCertificate ordered)
+  , ("actual group tracks rectangular calls across different arities",
+      let calls = [Edge 0 1 [[Decreases], [Unknown]], Edge 1 0 [[NonIncreasing, Unknown]]] in
+      matchesGraph rectangular calls && acceptedCertificate rectangular)
+  , ("actual group self-loop is typed but its verified graph is rejected",
+      matchesGraph loop [Edge 0 0 [[NonIncreasing]]] && rejectedCertificate loop)
+  , ("actual group graph preserves alternative call sites and unknown constants",
+      let calls = [Edge 0 0 [[Unknown]], Edge 0 0 [[Decreases]]] in
+      matchesGraph alternativeCalls calls && rejectedCertificate alternativeCalls &&
+      not (accepted (Fibril.Termination.GroupCheck.check alternativeCalls [Edge 0 0 [[Decreases]]])) &&
+      not (accepted (Fibril.Termination.GroupCheck.check alternativeCalls (reverse calls))))
+  , ("actual group tracks nested predecessors but not constructed values",
+      matchesGraph nestedPredecessor [Edge 0 0 [[Decreases]]] && acceptedCertificate nestedPredecessor &&
+      matchesGraph constructedScrutinee [Edge 0 0 [[Unknown]]] && rejectedCertificate constructedScrutinee &&
+      matchesGraph constructedArgument [Edge 0 0 [[Unknown]]] && rejectedCertificate constructedArgument)
+  , ("actual group mixed Nat and Bool provenance does not invent cross-sort descent",
+      let edge = Edge 0 0 [[Decreases, Unknown], [Unknown, NonIncreasing]]
+          forged = Edge 0 0 [[Decreases, Decreases], [Unknown, NonIncreasing]] in
+      matchesGraph mixedArguments [edge] && acceptedCertificate mixedArguments &&
+      not (accepted (Fibril.Termination.GroupCheck.check mixedArguments [forged])))
+  , ("actual group certificate verifier rejects forged self-loop descent",
+      let forged = Edge 0 0 [[Decreases]] in
+      not (accepted (Fibril.Termination.GroupCheck.verifyGroup loop [forged] [forged])))
+  , ("actual group graph recheck preserves duplicate site multiplicity",
+      let edge = Edge 0 0 [[Unknown, Unknown], [Unknown, NonIncreasing]] in
+      matchesGraph duplicateSites [edge, edge] &&
+      not (accepted (Fibril.Termination.GroupCheck.check duplicateSites [edge])))
+  , ("actual group graph recheck rejects omitted, extra, stale and malformed edges",
+      let calls = [Edge 0 1 [[Decreases]], Edge 1 0 [[Decreases]]]
+          bad = [Edge 0 1 [[Decreases, Unknown]], Edge 1 0 [[Decreases]]]
+          extra = calls ++ [Edge 0 1 [[Decreases]]] in
+      not (accepted (Fibril.Termination.GroupCheck.check parity [])) &&
+      not (accepted (Fibril.Termination.GroupCheck.check parity extra)) &&
+      not (accepted (Fibril.Termination.GroupCheck.check parity bad)) &&
+      not (accepted (Fibril.Termination.GroupCheck.check loop calls)) &&
+      not (accepted (Fibril.Termination.GroupCheck.check parity [Edge 0 1 [[NonIncreasing]], Edge 1 0 [[Decreases]]])))
+  , ("actual group certificate verification retains rejection and exhaustion",
+      let calls = [Edge 0 1 [[Decreases]], Edge 1 0 [[Decreases]]] in
+      case (Fibril.Termination.GroupCheck.verifyGroup parity calls [],
+            Fibril.Termination.GroupCheck.verifyGroup parity calls (Data.List.replicate 33 (Edge 0 1 [[Decreases]])),
+            Fibril.Termination.GroupCheck.check parity (Data.List.replicate 129 (Edge 0 1 [[Decreases]]))) of
+        (Right (GraphRejected _), Right (GraphInconclusive _), Left (GraphAdmission _)) => True
+        _ => False)
+  , ("actual group graph paths preserve group admission exhaustion",
+      case (Fibril.Termination.GroupCalls.extract (scopedCases 8),
+            Fibril.Termination.GroupCheck.check (scopedCases 8) []) of
+        (Left (Fibril.Termination.GroupCalls.GroupProblem (Inconclusive _)),
+         Left (Fibril.Termination.GroupCheck.GroupProblem (Inconclusive _))) => True
+        _ => False)
+  , ("actual group extraction refuses malformed and unsupported groups",
+      not (accepted (Fibril.Termination.GroupCalls.extract malformedSignature)) &&
+      not (accepted (Fibril.Termination.GroupCheck.check malformedSignature [])) &&
+      not (accepted (Fibril.Termination.GroupCalls.extract
+        (MkGroup [1] (MoreMembers (MkMember (Pi Linear NatType BoolType)
+          (CaseList (Variable FZ) (Return BoolTrue) (Return BoolFalse))) NoMembers)))))
   ]

@@ -7,11 +7,14 @@
 caller-supplied abstract call graph, and `verify` checks the resulting candidate
 against the original graph. `Fibril.Termination.FirstOrder` also experiments
 with extraction and a separate graph check over a small synthetic Nat/list body
-representation, described below. These are useful for exercising the finite
-graph criterion and a future producer/checker boundary. No Fibril parser,
-elaborator, recursive core term, evaluator, CLI or backend calls them. **They do
-not authorize any new recursive Fibril program.** Existing structural equations
-continue to lower to independently checked recursors.
+representation, described below. `Fibril.Termination.GroupCalls` and
+`GroupCheck` additionally extract and recheck calls from the restricted actual
+Nat/Bool recursive-group representation; see the [group design](recursive-groups-design.md).
+These are useful for exercising the graph criterion and a future boundary. No
+Fibril parser, elaborator, ordinary recursive term, evaluator, CLI or backend
+uses them to accept recursion. **They do not authorize any new recursive Fibril
+program.** Existing structural equations continue to lower to independently
+checked recursors.
 
 ![Abstract size-change trust boundary](diagrams/size-change-certificates.svg)
 
@@ -153,11 +156,12 @@ The [recursive groups design](recursive-groups-design.md) proposes a concrete
 source goal and the additional core, usage and evaluation boundaries; it is
 not implemented.
 
-The checker cannot establish that the supplied direct graph contains every real
-call, that its edges describe the actual arguments, or that a strict cell is
-true. To use this criterion for programs, future work must independently tie
+The abstract graph checker alone cannot establish that a supplied graph contains
+every real call, that its edges describe actual arguments, or that a strict cell
+is true. The separate group rewalk checks those claims only for its restricted
+raw Nat/Bool grammar. To use this criterion for programs, future work must tie
 complete call extraction and each relation to the **exact checked recursive
-bodies**, account for higher-order and mutual calls, and establish suitable
+bodies and their operational semantics**, account for higher-order and mutual calls, and establish suitable
 well-founded orders and compatibility of the strict/non-increasing relations
 across every composed argument. Recursive definitions, positivity, dependent
 conversion, quantitative use, execution and backend support also need explicit
