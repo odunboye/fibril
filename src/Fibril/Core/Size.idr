@@ -36,6 +36,11 @@ mutual
   coreNodes ReadLine = 1
   coreNodes (FileHandleValue _ _) = 1
   coreNodes (ReadInputFile handle) = 1 + coreNodes handle
+  coreNodes BytesType = 1
+  coreNodes (BytesValue _) = 1
+  coreNodes (BytesLength x) = 1 + coreNodes x
+  coreNodes (BytesOctet x) = 1 + coreNodes x
+  coreNodes (BytesAppend a b) = 1 + coreNodes a + coreNodes b
   coreNodes StringType = 1
   coreNodes (StringValue _) = 1
   coreNodes (StringAppend a b) = 1 + coreNodes a + coreNodes b
@@ -105,6 +110,11 @@ mutual
   mentionsNominal key ReadLine = False
   mentionsNominal key (FileHandleValue _ _) = False
   mentionsNominal key (ReadInputFile handle) = mentionsNominal key handle
+  mentionsNominal key BytesType = False
+  mentionsNominal key (BytesValue _) = False
+  mentionsNominal key (BytesLength x) = mentionsNominal key x
+  mentionsNominal key (BytesOctet x) = mentionsNominal key x
+  mentionsNominal key (BytesAppend a b) = mentionsNominal key a || mentionsNominal key b
   mentionsNominal key StringType = False
   mentionsNominal key (StringValue _) = False
   mentionsNominal key (StringAppend a b) = mentionsNominal key a || mentionsNominal key b

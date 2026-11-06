@@ -1,5 +1,8 @@
 # Examples
 
+The [pure bytes example](core/bytes-pure.fib) constructs a NUL octet, appends
+another byte and computes length. It performs no binary IO; use `fibril eval`.
+
 Strict YAML inspection fixtures live in [manifests/](manifests/README.md). They are
 not executable workspace projects or source-checking examples.
 

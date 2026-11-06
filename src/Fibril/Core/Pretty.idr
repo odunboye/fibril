@@ -5,6 +5,7 @@ module Fibril.Core.Pretty
 import Data.Fin
 import Fibril.Core.Quantity
 import Fibril.Core.Term
+import Fibril.Data.Bytes
 
 %default total
 
@@ -39,6 +40,11 @@ mutual
   renderTerm ReadLine = "ReadLine"
   renderTerm (FileHandleValue identity generation) = "(RuntimeFileHandle " ++ show identity ++ " " ++ show generation ++ ")"
   renderTerm (ReadInputFile handle) = "(ReadInputFile " ++ renderTerm handle ++ ")"
+  renderTerm BytesType = "Bytes"
+  renderTerm (BytesValue value) = "(BytesValue " ++ show (toList value) ++ ")"
+  renderTerm (BytesLength x) = "(BytesLength " ++ renderTerm x ++ ")"
+  renderTerm (BytesOctet x) = "(BytesOctet " ++ renderTerm x ++ ")"
+  renderTerm (BytesAppend a b) = "(BytesAppend " ++ renderTerm a ++ " " ++ renderTerm b ++ ")"
   renderTerm StringType = "String"
   renderTerm (StringValue value) = show value
   renderTerm (StringAppend left right) = "(StringAppend " ++ renderTerm left ++ " " ++ renderTerm right ++ ")"

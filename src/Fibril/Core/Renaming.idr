@@ -45,6 +45,11 @@ mutual
   renameCongruent left right agree ReadLine = Refl
   renameCongruent left right agree (FileHandleValue _ _) = Refl
   renameCongruent left right agree (ReadInputFile handle) = cong ReadInputFile (renameCongruent left right agree handle)
+  renameCongruent left right agree BytesType = Refl
+  renameCongruent left right agree (BytesValue _) = Refl
+  renameCongruent left right agree (BytesLength x) = cong BytesLength (renameCongruent left right agree x)
+  renameCongruent left right agree (BytesOctet x) = cong BytesOctet (renameCongruent left right agree x)
+  renameCongruent left right agree (BytesAppend x y) = rewrite renameCongruent left right agree x in rewrite renameCongruent left right agree y in Refl
   renameCongruent left right agree StringType = Refl
   renameCongruent left right agree (StringValue _) = Refl
   renameCongruent left right agree (WithInputFile result path body) = rewrite renameCongruent left right agree result in rewrite renameCongruent left right agree path in rewrite renameCongruent left right agree body in Refl
@@ -141,6 +146,11 @@ mutual
   renameIdentity ReadLine = Refl
   renameIdentity (FileHandleValue _ _) = Refl
   renameIdentity (ReadInputFile handle) = cong ReadInputFile (renameIdentity handle)
+  renameIdentity BytesType = Refl
+  renameIdentity (BytesValue _) = Refl
+  renameIdentity (BytesLength x) = cong BytesLength (renameIdentity x)
+  renameIdentity (BytesOctet x) = cong BytesOctet (renameIdentity x)
+  renameIdentity (BytesAppend x y) = rewrite renameIdentity x in rewrite renameIdentity y in Refl
   renameIdentity StringType = Refl
   renameIdentity (StringValue _) = Refl
   renameIdentity (WithInputFile result path body) = rewrite renameIdentity result in rewrite renameIdentity path in rewrite renameIdentity body in Refl
@@ -243,6 +253,11 @@ mutual
   renameComposition first second ReadLine = Refl
   renameComposition first second (FileHandleValue _ _) = Refl
   renameComposition first second (ReadInputFile handle) = cong ReadInputFile (renameComposition first second handle)
+  renameComposition first second BytesType = Refl
+  renameComposition first second (BytesValue _) = Refl
+  renameComposition first second (BytesLength x) = cong BytesLength (renameComposition first second x)
+  renameComposition first second (BytesOctet x) = cong BytesOctet (renameComposition first second x)
+  renameComposition first second (BytesAppend x y) = rewrite renameComposition first second x in rewrite renameComposition first second y in Refl
   renameComposition first second StringType = Refl
   renameComposition first second (StringValue _) = Refl
   renameComposition first second (WithInputFile result path body) = rewrite renameComposition first second result in rewrite renameComposition first second path in rewrite renameComposition first second body in Refl

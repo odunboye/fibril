@@ -6,6 +6,7 @@ import Data.Fin
 import Data.List
 import Fibril.Core.Quantity
 import Fibril.Core.Term
+import Fibril.Data.Bytes
 import Fibril.Core.Context
 import Fibril.Core.Erased
 import Fibril.Core.Reduction
@@ -102,6 +103,11 @@ mutual
   match position mapping prune (FileHandleValue left first) (FileHandleValue right second) solutions =
     if left == right && first == second then Right solutions else failure position
   match position mapping prune (ReadInputFile left) (ReadInputFile right) solutions = match position mapping prune left right solutions
+  match position mapping prune BytesType BytesType solutions = Right solutions
+  match position mapping prune (BytesValue x) (BytesValue y) solutions = if x == y then Right solutions else failure position
+  match position mapping prune (BytesLength x) (BytesLength y) solutions = match position mapping prune x y solutions
+  match position mapping prune (BytesOctet x) (BytesOctet y) solutions = match position mapping prune x y solutions
+  match position mapping prune (BytesAppend x y) (BytesAppend u v) solutions = pair position mapping prune x y u v solutions
   match position mapping prune StringType StringType solutions = Right solutions
   match position mapping prune (StringValue x) (StringValue y) solutions =
     if x == y then Right solutions else failure position
@@ -289,6 +295,11 @@ public export
 implicitArgumentType : Position -> Nat -> Context n -> Term n -> Either ResolveError (Maybe (Term n))
 implicitArgumentType position Z context _ = Left (CannotElaborate position "Implicit argument type proposal depth exhausted; use explicit {arguments}")
 implicitArgumentType position (S fuel) context (Variable index) = Just <$> lookupImplicitType position implicitTelescopeLimit id context index
+implicitArgumentType position (S fuel) context (BytesValue _) = Right (Just BytesType)
+implicitArgumentType position (S fuel) context BytesType = Right (Just (Universe 0))
+implicitArgumentType position (S fuel) context (BytesAppend _ _) = Right (Just BytesType)
+implicitArgumentType position (S fuel) context (BytesOctet _) = Right (Just BytesType)
+implicitArgumentType position (S fuel) context (BytesLength _) = Right (Just NatType)
 implicitArgumentType position (S fuel) context (StringValue _) = Right (Just StringType)
 implicitArgumentType position (S fuel) context BoolTrue = Right (Just BoolType)
 implicitArgumentType position (S fuel) context BoolFalse = Right (Just BoolType)

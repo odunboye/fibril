@@ -266,6 +266,22 @@ mutual
     case exposed of
       FileHandleType region => Right (IOType (fileReadResultType region))
       _ => Left (ExpectedFileHandle exposed)
+  infer (S depth) reduction context BytesType = Right (Universe 0)
+  infer (S depth) reduction context (BytesValue _) = Right BytesType
+  infer (S depth) reduction context (BytesAppend a b) = do
+    aType <- infer depth reduction context a
+    requireCompatible reduction aType BytesType
+    bType <- infer depth reduction context b
+    requireCompatible reduction bType BytesType
+    Right BytesType
+  infer (S depth) reduction context (BytesLength x) = do
+    ty <- infer depth reduction context x
+    requireCompatible reduction ty BytesType
+    Right NatType
+  infer (S depth) reduction context (BytesOctet x) = do
+    ty <- infer depth reduction context x
+    requireCompatible reduction ty NatType
+    Right BytesType
   infer (S depth) reduction context StringType = Right (Universe 0)
   infer (S depth) reduction context (StringValue _) = Right StringType
   infer (S depth) reduction context (StringAppend left right) = do

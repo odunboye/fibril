@@ -5,6 +5,8 @@ Requires idris2 and its Chez backend. Builds only in a temporary directory.
 This is not a replacement for the full Idris, CLI or native suites.
 """
 import os
+import math
+import signal
 from pathlib import Path
 import shutil
 import shlex
@@ -96,8 +98,27 @@ main = case prepareInteractive 128 128 program of
 '''
 
 
+def run_fixture(command, *, input=None, timeout, capture_output=True, **kwargs):
+    """Bound the compiler wrapper and its Chez descendants as one process group."""
+    process = subprocess.Popen(command, stdin=subprocess.PIPE if input is not None else None,
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True, **kwargs)
+    try:
+        stdout, stderr = process.communicate(input=input, timeout=timeout)
+    except BaseException:
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        process.communicate()
+        raise
+    return subprocess.CompletedProcess(command, process.returncode, stdout, stderr)
+
+
 def main():
     env = os.environ.copy()
+    timeout = float(env.get("FIBRIL_IO_TIMEOUT", "180"))
+    if not math.isfinite(timeout) or not 1 <= timeout <= 900:
+        raise SystemExit("FIBRIL_IO_TIMEOUT must be 1..900 seconds")
     if not env.get("CHEZ"):
         chez = shutil.which("chez") or shutil.which("scheme")
         if chez:
@@ -115,10 +136,10 @@ def main():
         (work / "input.txt.invalid").write_bytes(b"\xff\nnext\n")
         (work / "input.txt.overflow").write_bytes(b"x" * 40000 + b"\nnext\n")
         env["FIBRIL_IO_INPUT_FIXTURE"] = str(fixture)
-        result = subprocess.run(
+        result = run_fixture(
             shlex.split(env.get("IDRIS2", "idris2")) +
             ["--source-dir", ".", "Main.idr", "--exec", "main"],
-            cwd=work, env=env, capture_output=True, text=True, timeout=180,
+            cwd=work, env=env, capture_output=True, text=True, timeout=timeout,
         )
         print(result.stdout, end="")
         print(result.stderr, end="", file=sys.stderr)
@@ -136,7 +157,7 @@ def main():
                 f"module {module}\nimport Fibril.Runtime.ScopedInput\nimport Fibril.Runtime.InputOwnership\n"
                 f"bad : {exported_type}\nbad = {constructor}\n", encoding="utf-8",
             )
-            rejected = subprocess.run(
+            rejected = run_fixture(
                 shlex.split(env.get("IDRIS2", "idris2")) +
                 ["--source-dir", ".", "--check", f"{module}.idr"],
                 cwd=work, env=env, capture_output=True, text=True, timeout=60,
@@ -156,11 +177,11 @@ def main():
             ("line length failure", "x" * 33 + "\n",
              "error:Console input line length limit exceeded"),
         ]:
-            interactive = subprocess.run(
+            interactive = run_fixture(
                 shlex.split(env.get("IDRIS2", "idris2")) +
                 ["--source-dir", ".", "Interactive.idr", "--exec", "main"],
                 cwd=work, env=env, input=supplied, capture_output=True,
-                text=True, encoding="utf-8", timeout=180,
+                text=True, encoding="utf-8", timeout=timeout,
             )
             suffix = f"prompt\n{expected}\nHOSTED_INTERACTIVE_OK\n"
             if interactive.returncode or not interactive.stdout.endswith(suffix):

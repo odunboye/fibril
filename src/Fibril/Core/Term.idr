@@ -6,6 +6,7 @@ module Fibril.Core.Term
 
 import Data.Fin
 import Fibril.Core.Quantity
+import Fibril.Data.Bytes
 
 %default total
 
@@ -45,6 +46,13 @@ data Term : Nat -> Type where
   SeqFold : Term n -> Term n -> Term n -> Term n -> Term n
   ||| One-step list matching exposes linear head and tail without recursion.
   SeqCase : Term n -> Term n -> Term n -> Term n -> Term n
+  ||| Pure immutable octets, separate from text and from binary execution.
+  BytesType : Term n
+  BytesValue : Bytes -> Term n
+  BytesAppend : Term n -> Term n -> Term n
+  BytesLength : Term n -> Term n
+  ||| Low eight bits of a canonical natural, explicitly modulo 256.
+  BytesOctet : Term n -> Term n
   ||| Primitive String : Type0, literal data, pure concatenation/comparison.
   StringType : Term n
   StringValue : String -> Term n
@@ -90,6 +98,19 @@ data Term : Nat -> Type where
   Apply : Term n -> Term n -> Term n
   ||| Consume a Unit scrutinee, then return a body with no new pattern binders.
   UnitCase : Term n -> Term n -> Term n
+
+||| Canonical unary natural; construction itself performs no external effect.
+public export
+naturalTerm : Nat -> Term n
+naturalTerm Z = NatZero
+naturalTerm (S n) = NatSucc (naturalTerm n)
+
+||| Only canonical naturals contract; Bits8 addition deliberately wraps.
+public export
+canonicalOctet : Term n -> Maybe Bits8
+canonicalOctet NatZero = Just 0
+canonicalOctet (NatSucc n) = map (+ 1) (canonicalOctet n)
+canonicalOctet _ = Nothing
 
 ||| Total list selection for raw constructor tags; out-of-range is not an exception.
 public export
@@ -157,6 +178,11 @@ mutual
   rename env ReadLine = ReadLine
   rename env (FileHandleValue identity generation) = FileHandleValue identity generation
   rename env (ReadInputFile handle) = ReadInputFile (rename env handle)
+  rename env BytesType = BytesType
+  rename env (BytesValue value) = BytesValue value
+  rename env (BytesAppend a b) = BytesAppend (rename env a) (rename env b)
+  rename env (BytesLength a) = BytesLength (rename env a)
+  rename env (BytesOctet a) = BytesOctet (rename env a)
   rename env StringType = StringType
   rename env (StringValue value) = StringValue value
   rename env (StringAppend left right) = StringAppend (rename env left) (rename env right)
@@ -233,6 +259,11 @@ mutual
   substituteTerm env ReadLine = ReadLine
   substituteTerm env (FileHandleValue identity generation) = FileHandleValue identity generation
   substituteTerm env (ReadInputFile handle) = ReadInputFile (substituteTerm env handle)
+  substituteTerm env BytesType = BytesType
+  substituteTerm env (BytesValue value) = BytesValue value
+  substituteTerm env (BytesAppend a b) = BytesAppend (substituteTerm env a) (substituteTerm env b)
+  substituteTerm env (BytesLength a) = BytesLength (substituteTerm env a)
+  substituteTerm env (BytesOctet a) = BytesOctet (substituteTerm env a)
   substituteTerm env StringType = StringType
   substituteTerm env (StringValue value) = StringValue value
   substituteTerm env (StringAppend left right) =
@@ -316,6 +347,11 @@ mutual
   sameSyntax ReadLine ReadLine = True
   sameSyntax (FileHandleValue left first) (FileHandleValue right second) = left == right && first == second
   sameSyntax (ReadInputFile left) (ReadInputFile right) = sameSyntax left right
+  sameSyntax BytesType BytesType = True
+  sameSyntax (BytesValue a) (BytesValue b) = a == b
+  sameSyntax (BytesAppend a b) (BytesAppend c d) = sameSyntax a c && sameSyntax b d
+  sameSyntax (BytesLength a) (BytesLength b) = sameSyntax a b
+  sameSyntax (BytesOctet a) (BytesOctet b) = sameSyntax a b
   sameSyntax StringType StringType = True
   sameSyntax (StringValue left) (StringValue right) = left == right
   sameSyntax (StringAppend a b) (StringAppend c d) = sameSyntax a c && sameSyntax b d

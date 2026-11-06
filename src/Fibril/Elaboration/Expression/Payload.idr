@@ -3,6 +3,7 @@ module Fibril.Elaboration.Expression.Payload
 
 import Data.Fin
 import Fibril.Core.Term
+import Fibril.Data.Bytes
 import Fibril.Core.Quantity
 
 %default total
@@ -48,6 +49,11 @@ mutual
   payloadWeight env ReadLine = 0
   payloadWeight env (FileHandleValue _ _) = 0
   payloadWeight env (ReadInputFile handle) = payloadWeight env handle
+  payloadWeight env BytesType = 0
+  payloadWeight env (BytesValue value) = cap (byteLength value)
+  payloadWeight env (BytesLength x) = payloadWeight env x
+  payloadWeight env (BytesOctet x) = payloadWeight env x
+  payloadWeight env (BytesAppend a b) = cap (payloadWeight env a + payloadWeight env b)
   payloadWeight env StringType = 0
   payloadWeight env (StringValue value) = cap (length value)
   payloadWeight env (StringAppend a b) = cap (payloadWeight env a + payloadWeight env b)

@@ -3,6 +3,7 @@
 module Fibril.Core.WeakHead
 
 import Fibril.Core.Term
+import Fibril.Data.Bytes
 import Fibril.Core.Reduction
 
 %default total
@@ -49,6 +50,15 @@ stepHead (PairCase motive (PairValue ty first second) branch) = Just (Apply (App
 stepHead (PairCase motive scrutinee branch) = map (\next => PairCase motive next branch) (stepHead scrutinee)
 stepHead (IOBind a b (IOPure value) next) = Just (Apply next value)
 stepHead (IOBind a b action next) = map (\result => IOBind a b result next) (stepHead action)
+stepHead (BytesAppend (BytesValue a) (BytesValue b)) = Just (BytesValue (append a b))
+stepHead (BytesAppend a b) = case stepHead a of
+  Just next => Just (BytesAppend next b)
+  Nothing => map (BytesAppend a) (stepHead b)
+stepHead (BytesLength (BytesValue value)) = Just (naturalTerm (byteLength value))
+stepHead (BytesLength x) = map BytesLength (stepHead x)
+stepHead (BytesOctet x) = case canonicalOctet x of
+  Just byte => Just (BytesValue (fromList [byte]))
+  Nothing => map BytesOctet (stepHead x)
 stepHead (StringAppend (StringValue left) (StringValue right)) = Just (StringValue (left ++ right))
 stepHead (StringAppend left right) = case stepHead left of
   Just next => Just (StringAppend next right)

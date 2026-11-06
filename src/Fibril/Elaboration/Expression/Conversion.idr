@@ -4,6 +4,7 @@ module Fibril.Elaboration.Expression.Conversion
 
 import Data.Fin
 import Fibril.Core.Term
+import Fibril.Data.Bytes
 import Fibril.Core.Quantity
 import Fibril.Core.Reduction
 import Fibril.Elaboration.Expression.Scope
@@ -40,6 +41,11 @@ mutual
   admit (S budget) ReadLine = Just budget
   admit (S budget) (FileHandleValue _ _) = Just budget
   admit (S budget) (ReadInputFile handle) = admit budget handle
+  admit (S budget) BytesType = Just budget
+  admit (S budget) (BytesValue _) = Just budget
+  admit (S budget) (BytesLength x) = admit budget x
+  admit (S budget) (BytesOctet x) = admit budget x
+  admit (S budget) (BytesAppend a b) = do x <- admit budget a; admit x b
   admit (S budget) StringType = Just budget
   admit (S budget) (StringValue _) = Just budget
   admit (S budget) (StringAppend a b) = do x <- admit budget a; admit x b
@@ -140,6 +146,14 @@ mutual
   safeRedexes size payload ReadLine = True
   safeRedexes size payload (FileHandleValue _ _) = True
   safeRedexes size payload (ReadInputFile handle) = safeRedexes size payload handle
+  safeRedexes size payload BytesType = True
+  safeRedexes size payload (BytesValue _) = True
+  -- Length expands one literal into a unary natural; admit that allocation
+  -- before contracting rather than relying on the following step's node check.
+  safeRedexes size payload (BytesLength (BytesValue value)) = size + byteLength value <= inferredResultNodes
+  safeRedexes size payload (BytesLength x) = safeRedexes size payload x
+  safeRedexes size payload (BytesOctet x) = payload + 1 <= payloadLimit && safeRedexes size payload x
+  safeRedexes size payload (BytesAppend a b) = safeRedexes size payload a && safeRedexes size payload b
   safeRedexes size payload StringType = True
   safeRedexes size payload (StringValue _) = True
   safeRedexes size payload (StringAppend a b) = safeRedexes size payload a && safeRedexes size payload b

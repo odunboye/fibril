@@ -39,6 +39,11 @@ mutual
   thin env ReadLine = Just ReadLine
   thin env (FileHandleValue identity generation) = Just (FileHandleValue identity generation)
   thin env (ReadInputFile handle) = ReadInputFile <$> thin env handle
+  thin env BytesType = Just BytesType
+  thin env (BytesValue value) = Just (BytesValue value)
+  thin env (BytesLength x) = map BytesLength (thin env x)
+  thin env (BytesOctet x) = map BytesOctet (thin env x)
+  thin env (BytesAppend a b) = [| BytesAppend (thin env a) (thin env b) |]
   thin env StringType = Just StringType
   thin env (StringValue value) = Just (StringValue value)
   thin env (StringAppend a b) = [| StringAppend (thin env a) (thin env b) |]
@@ -109,6 +114,11 @@ mutual
   substitutionNodes env ReadLine = 1
   substitutionNodes env (FileHandleValue _ _) = 1
   substitutionNodes env (ReadInputFile handle) = min (S inferredResultNodes) (1 + substitutionNodes env handle)
+  substitutionNodes env BytesType = 1
+  substitutionNodes env (BytesValue _) = 1
+  substitutionNodes env (BytesLength x) = min (S inferredResultNodes) (1 + substitutionNodes env x)
+  substitutionNodes env (BytesOctet x) = min (S inferredResultNodes) (1 + substitutionNodes env x)
+  substitutionNodes env (BytesAppend a b) = min (S inferredResultNodes) (1 + substitutionNodes env a + substitutionNodes env b)
   substitutionNodes env StringType = 1
   substitutionNodes env (StringValue _) = 1
   substitutionNodes env (StringAppend a b) = min (S inferredResultNodes) (1 + substitutionNodes env a + substitutionNodes env b)

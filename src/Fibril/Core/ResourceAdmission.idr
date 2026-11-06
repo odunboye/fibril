@@ -34,6 +34,11 @@ mutual
   containsFileReference (SeqCons ty head tail) = containsFileReference ty || containsFileReference head || containsFileReference tail
   containsFileReference (SeqFold p z s x) = containsFileReference p || containsFileReference z || containsFileReference s || containsFileReference x
   containsFileReference (SeqCase p x z s) = containsFileReference p || containsFileReference x || containsFileReference z || containsFileReference s
+  containsFileReference BytesType = False
+  containsFileReference (BytesValue _) = False
+  containsFileReference (BytesLength x) = containsFileReference x
+  containsFileReference (BytesOctet x) = containsFileReference x
+  containsFileReference (BytesAppend a b) = containsFileReference a || containsFileReference b
   containsFileReference StringType = False
   containsFileReference (StringValue _) = False
   containsFileReference (StringAppend a b) = containsFileReference a || containsFileReference b

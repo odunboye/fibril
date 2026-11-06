@@ -240,6 +240,10 @@
         "path": "docs/data.md"
       },
       {
+        "title": "Pure byte values",
+        "path": "docs/bytes.md"
+      },
+      {
         "title": "Finite-variant kernel",
         "path": "docs/finite-variants.md"
       },

@@ -3,6 +3,7 @@
 module Fibril.Core.Reduction
 
 import Fibril.Core.Term
+import Fibril.Data.Bytes
 import Fibril.Core.Quantity
 
 %default total
@@ -103,6 +104,17 @@ mutual
   step ReadLine = Nothing
   step (FileHandleValue _ _) = Nothing
   step (ReadInputFile handle) = map ReadInputFile (step handle)
+  step BytesType = Nothing
+  step (BytesValue _) = Nothing
+  step (BytesAppend (BytesValue a) (BytesValue b)) = Just (BytesValue (append a b))
+  step (BytesAppend a b) = case step a of
+    Just next => Just (BytesAppend next b)
+    Nothing => map (BytesAppend a) (step b)
+  step (BytesLength (BytesValue value)) = Just (naturalTerm (byteLength value))
+  step (BytesLength x) = map BytesLength (step x)
+  step (BytesOctet x) = case canonicalOctet x of
+    Just byte => Just (BytesValue (fromList [byte]))
+    Nothing => map BytesOctet (step x)
   step StringType = Nothing
   step (StringValue _) = Nothing
   step (StringAppend (StringValue left) (StringValue right)) = Just (StringValue (left ++ right))

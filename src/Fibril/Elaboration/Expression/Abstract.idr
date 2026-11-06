@@ -38,6 +38,11 @@ mutual
   descend env hole target ReadLine = ReadLine
   descend env hole target (FileHandleValue identity generation) = FileHandleValue identity generation
   descend env hole target (ReadInputFile handle) = ReadInputFile (abstractWith env hole target handle)
+  descend env hole target BytesType = BytesType
+  descend env hole target (BytesValue value) = BytesValue value
+  descend env hole target (BytesLength x) = BytesLength (abstractWith env hole target x)
+  descend env hole target (BytesOctet x) = BytesOctet (abstractWith env hole target x)
+  descend env hole target (BytesAppend a b) = BytesAppend (abstractWith env hole target a) (abstractWith env hole target b)
   descend env hole target StringType = StringType
   descend env hole target (StringValue value) = StringValue value
   descend env hole target (StringAppend a b) = StringAppend (abstractWith env hole target a) (abstractWith env hole target b)

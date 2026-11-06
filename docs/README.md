@@ -28,6 +28,7 @@ The generated homepage separates teaching chapters, references, and project reco
 
 - [Bare Type](bare-type.md): notation for Type 0, with explicit higher universes unchanged.
 
+- [Pure byte values](bytes.md): checked immutable octets, append, length and explicit modulo construction; not source binary IO.
 - [Pure String values](strings.md): ordinary typing/data and the separate console effect boundary.
 
 - [Neovim/Vim highlighting](editor-highlighting.md): local runtime setup, lexical scope, and optional tests.

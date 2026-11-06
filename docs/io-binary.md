@@ -1,8 +1,9 @@
 # Binary transport pilot
 
-Status: immutable **host-side** byte values and trusted hosted/native transport
-APIs with differential tests. These are not yet Fibril core constructors, source
-primitives, checked C emission or an LSP implementation written in Fibril.
+Status: immutable byte values now have a first [pure core/source slice](bytes.md).
+Trusted hosted/native **transport** APIs have differential tests but remain
+internal: no source binary effects, native byte-value lowering or LSP
+implementation written in Fibril yet.
 Existing text IO retains strict UTF-8 decoding and NUL rejection.
 
 ## Byte values
@@ -167,9 +168,14 @@ is counted as a pass; all focused subtargets subsequently passed in split runs.
 Block-buffer measurement and the first hosted optimization are complete; retain
 the reference adapter while expanding source/runtime coverage.
 
-1. Add checked core byte types/operations, exhaustive traversals and explicit
-   binary execution admission; preserve existing runner gates.
-2. Expose a small checked source API and compare actual compiled `.fib` programs.
+The initial pure byte types, append/length/modulo operations and structural
+proof extensions are implemented; `examples/core/bytes-pure.fib` checks/evaluates.
+
+1. Extend pure bytes with bounded index/slice, explicit UTF-8 conversion and native
+   value/lowering coverage.
+2. Add checked binary descriptions and source operations with explicit hosted/
+   native execution admission; compare actual compiled `.fib` programs. Preserve
+   all existing runner gates.
 3. Implement bounded Content-Length framing in Fibril: first one frame, then a
    bounded sequence. Test fragmentation, Unicode byte counts and truncation.
 4. Add JSON/document state and a narrow compiler-service bridge.

@@ -4,6 +4,7 @@ module Fibril.Source.Primitive
 import Data.Fin
 import Fibril.Core.Quantity
 import Fibril.Core.Term
+import Fibril.Data.Bytes
 import Fibril.Source.Global
 import Fibril.Source.Primitive.Input
 import Fibril.Source.Primitive.Resource
@@ -77,7 +78,16 @@ public export
 primitiveGlobals : List GlobalDefinition
 primitiveGlobals =
   resourcePrimitiveGlobals ++ inputPrimitiveGlobals ++
-  [ GlobalWithQuantity Erased "Nat" (Universe 0) NatType
+  [ GlobalWithQuantity Erased "Bytes" (Universe 0) BytesType
+  , Global "primBytesEmpty" BytesType (BytesValue empty)
+  , Global "primBytesOctetMod256" (Pi Linear NatType BytesType)
+      (Lambda Linear NatType (BytesOctet (Variable FZ)))
+  , Global "primBytesLength" (Pi Linear BytesType NatType)
+      (Lambda Linear BytesType (BytesLength (Variable FZ)))
+  , Global "primBytesAppend" (Pi Linear BytesType (Pi Linear BytesType BytesType))
+      (Lambda Linear BytesType (Lambda Linear BytesType
+        (BytesAppend (Variable (FS FZ)) (Variable FZ))))
+  , GlobalWithQuantity Erased "Nat" (Universe 0) NatType
   , Global "Zero" NatType NatZero
   , Global "Succ" (Pi Linear NatType NatType) (Lambda Linear NatType (NatSucc (Variable FZ)))
   , Global "natRec" natRecType natRecValue
