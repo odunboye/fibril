@@ -251,6 +251,32 @@ The [Cubical Agda linearity discussion](https://github.com/agda/agda/issues/4642
 records these examples and explicitly labels its proposed restrictions as
 unverified; it is motivation, not an adopted specification.
 
+### A concrete obstruction to naive quantitative endpoint rules
+
+Consider a hypothetical runtime path value `p : Path A a b` whose endpoints are
+used only in erased type annotations. Suppose a proposed application rule
+charges one runtime use of `p`, and also adopts CCHM's typed endpoint conversion
+`p 0 ≡ a : A` for a neutral `p`. In a linear context, `p 0` appears to consume
+`p` once, whereas `a` need not consume `p` at all; if `a` mentions an erased
+variable it may not even be a legal runtime expression. Thus that conversion is
+not by itself a usage-preserving runtime rewrite. This is a counterexample to
+that **combination of proposed rules**, not a claim that CCHM or any particular
+quantitative calculus is unsound. Treating the equality only as erased
+conversion does not automatically solve the problem: type conversion and any
+optimization using it must still be shown not to change observable resource
+use.
+
+A candidate design must decide separately whether paths themselves can be
+runtime values, whether application at endpoints is allowed in runtime
+judgments, what quantities endpoints have, and whether endpoint equations are
+runtime reductions, erased conversion, or both. For every chosen equation it
+must prove typing and usage preservation (or a precisely stated simulation that
+preserves resource observations), including neutral paths and endpoints that
+mention erased or linear variables. Merely charging the path operand once is
+insufficient. Restricting observations to erased judgments is one candidate to
+investigate, not a proven solution: dependent transport and interaction with
+ordinary conversion would still require a theorem.
+
 Two further references help separate possible approaches, without closing this
 gap:
 
