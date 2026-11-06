@@ -2,11 +2,13 @@
 
 ## Status
 
-**Raw representation implemented; checking and execution are proposed.**
-`Fibril.Core.RecursiveGroup` defines a separate scoped group-body syntax with
-explicit saturated member calls. It is not an ordinary `Term` constructor and
-is not checked, evaluated or accepted from source. Fibril does not yet support
-general recursive definitions or source termination checking. The existing
+**Raw representation and a restricted typing/usage checker are implemented;
+termination and execution remain proposed.** `Fibril.Core.RecursiveGroup`
+defines separate scoped group-body syntax with explicit saturated member calls.
+`Fibril.Core.RecursiveGroupCheck` checks a narrow Nat/Bool subset. The syntax is
+not an ordinary `Term` constructor and is not evaluated or accepted from source.
+Fibril does not yet support general recursive definitions or source termination
+checking. The existing
 [structural equations](function-equations.md) lower to checked recursors. The
 [size-change experiment](size-change-certificates.md) checks synthetic bodies,
 not Fibril programs. Isolated experiments also check and run a tightly
@@ -181,27 +183,60 @@ nested calls and recursive results inside expressions are not represented.
 `renameBody` and `substituteBody` transform ordinary locals, lifting under case
 binders, while preserving member targets. They do not unfold or evaluate calls.
 
-These are raw constructors, not evidence of well-formedness. The arity table is
-not yet checked against each signature's Pi telescope; terms, signatures and
-branch types can be malformed, effects or higher-order values can occur in
+These are raw constructors, not evidence of well-formedness. Terms, signatures
+and branch types can be malformed, effects or higher-order values can occur in
 embedded terms, and a nonterminating group is representable. Even an empty raw
-group can be constructed. No admission, signature/body checking, coverage,
-quantitative use, positivity, termination, source elaboration, evaluation,
-conversion, serialization trust, or backend support follows. In particular,
-local or external function values could conceal behavior outside this syntax;
-a later checker must reject or account for them. The tests include a scoped
+group can be constructed. No admission, typing, usage, positivity, termination,
+source elaboration, evaluation, conversion, serialization trust, or backend
+support follows from constructing one. In particular, local or external function
+values could conceal behavior outside this syntax; the restricted checker below
+rejects them. The tests include a scoped
 mutual even/odd representation, heterogeneous and zero arities, compile-time
 negative target/saturation/scope examples, and binder-aware transformations;
 they are not a soundness proof.
+
+## Implemented restricted group checking
+
+`Fibril.Core.RecursiveGroupCheck.check` separately checks the **actual raw
+group** without using a proposed call graph. After bounded admission, it
+validates all member signatures against their declared arities before checking
+any body. The admitted signatures are literal,
+nondependent Pi telescopes over `Nat` and `Bool`, ending in literal `Nat` or
+`Bool`; each parameter retains its declared `0`, `1` or unrestricted quantity.
+Aliases, dependent and higher-order types, and all other types fail closed.
+Empty groups are rejected; zero-argument members are supported.
+
+The admitted ordinary terms are locals, Nat zero/successor, and Bool literals.
+The body checker supports direct member calls, exhaustive `CaseNat` and
+`CaseBool` branches, and returns. List cases, applications, lambdas, recursors,
+effects and all other embedded syntax are rejected, **including inside erased
+call arguments**. Calls are checked against the selected member's exact
+signature, with argument usages scaled by parameter quantity. Branch usages
+are joined rather than added; the scrutinee usage is then combined with the
+join. A Nat successor branch introduces a linear predecessor, which must be
+consumed exactly once. Original parameters are validated only after the whole
+body's usage has been combined. This is an experimental local quantitative
+policy, not a proof of preservation or of a future recursive-case semantics.
+
+The checker admits at most 16 members, 8 parameters/member, 256 aggregate body
+and embedded-term nodes, 128 calls and 16 simultaneous locals. Exhaustion is
+`Inconclusive`, not success; unsupported forms are distinct from invalid typing
+or usage. These are admission policies, not hard time, stack or memory bounds.
+The mutual even/odd raw group passes. So does a saturated self-loop: **success
+is not termination evidence**, and is not permission to admit or execute a
+recursive definition. The checker is not connected to source, conversion,
+evaluation, or a backend. Tests include arity/type errors, erased and
+unrestricted calls, duplicated arguments, case-scrutinee reuse, branch joins,
+predecessor consumption, unsupported syntax and admission boundaries. These
+are implementation evidence, not a metatheoretic proof.
 
 ## Candidate first checked core fragment
 
 The smallest useful checking direction is a **closed, immutable group** of
 explicitly signed functions with nondependent, first-order argument and result
-types. The raw syntax can already represent multiple members, but no member is
-admitted. Start checking with one self-recursive function over `Nat` and the
-existing fixed `Items Nat` shape; add checked mutual groups only after the
-single-member boundary is working. Do not broaden data positivity. No ambient variables or linear
+types. The restricted checker now handles mutually recursive Nat/Bool groups,
+but does not establish termination or admit members for execution. Extending it
+to the existing fixed `Items Nat` shape is future work. Do not broaden data positivity. No ambient variables or linear
 resources may be captured by a group body. Recursive functions are not values:
 only explicit saturated calls to a member of the current group are permitted.
 
@@ -299,9 +334,9 @@ bound, no external IO termination, and no backend correctness.
 ## Stages and acceptance tests
 
 1. **Core design and representation:** raw group scoping, signatures and direct
-   call syntax are implemented as described above. A closed checked-body
-   contract, admitted expression grammar and operational rules remain to be
-   settled before source acceptance.
+   call syntax are implemented as described above. The first Nat/Bool typing
+   and usage judgment is implemented, but a broader checked-body contract and
+   operational rules remain to be settled before source acceptance.
 2. **Checked reference slice:** independently check actual core/group bodies,
    their types, coverage and quantities; authenticate all call sites; verify
    their certificate; and evaluate the same checked bodies under explicit fuel.

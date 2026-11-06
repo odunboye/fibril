@@ -3,14 +3,14 @@ digraph RecursiveGroupsDesign {
   node [shape=box];
   source [label="General recursive source groups\nnot currently accepted"];
   group [label="Raw scoped group syntax\nindices + signatures + bodies"];
-  typing [label="Check types, coverage\nand quantitative usage"];
+  typing [label="Restricted Nat/Bool group check\ntypes, cases + quantitative usage"];
   calls [label="Rewalk all permitted call sites\nand justify relation cells"];
   cert [label="Verify untrusted closure\nagainst authenticated calls"];
   artifact [label="Same checked group\nno forged checked flag"];
   evaluate [label="Specified bounded evaluation\nconversion boundary unresolved"];
   backend [label="Backends: reject until supported", style=dashed];
   source -> group [style=dashed];
-  group -> typing [style=dashed];
+  group -> typing;
   typing -> artifact [style=dashed];
   group -> calls [style=dashed];
   calls -> cert [style=dashed];
