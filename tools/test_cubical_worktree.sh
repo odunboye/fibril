@@ -46,3 +46,13 @@ if ! grep -q 'IndependentPath.MkCheckedClosedPath is private' "$tmp/forge.log"; 
   exit 1
 fi
 echo 'Checked path opacity negative test passed.'
+for fixture in PathCapturesCoreVariable PathEscapesDimension; do
+  "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1 || true
+  if ! grep -Fq 'Mismatch between: S ?k and 0.' "$tmp/$fixture.log"; then
+    echo "Negative scope test $fixture failed for an unrelated reason:" >&2
+    read -r -d '' output < "$tmp/$fixture.log" || true
+    printf '%s\n' "$output" >&2
+    exit 1
+  fi
+done
+echo 'Checked path scope negative tests passed.'

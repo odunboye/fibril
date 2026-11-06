@@ -98,7 +98,8 @@ Run `tools/test_cubical_worktree.sh` from the repository root to build this
 worktree and run the Idris test suite against a temporary package containing
 its compiled modules. The script does not overwrite Pack's shared package
 cache; it also verifies that an external module cannot construct the opaque
-checked-path witness. It does not run the CLI or native test suites. Avoid concurrent builds
+checked-path witness, embed an open computational variable, or reference an
+out-of-scope dimension. It does not run the CLI or native test suites. Avoid concurrent builds
 that write to the same worktree. This is a worktree-testing workaround, not a
 fix to Pack's cache selection.
 
