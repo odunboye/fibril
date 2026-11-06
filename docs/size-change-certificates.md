@@ -5,9 +5,11 @@
 **Experimental foundation, not language termination checking.**
 `Fibril.Termination.SizeChange.produce` constructs a bounded closure for a
 caller-supplied abstract call graph, and `verify` checks the resulting candidate
-against the original graph. It is useful for exercising the finite graph
-criterion and a future producer/checker boundary. No parser,
-elaborator, recursive core term, evaluator, CLI or backend calls it. **It does
+against the original graph. `Fibril.Termination.FirstOrder` also experiments
+with extraction and a separate graph check over a small synthetic Nat-only body
+representation, described below. These are useful for exercising the finite
+graph criterion and a future producer/checker boundary. No Fibril parser,
+elaborator, recursive core term, evaluator, CLI or backend calls them. **It does
 not authorize any new recursive Fibril program.** Existing structural equations
 continue to lower to independently checked recursors.
 
@@ -60,6 +62,32 @@ graph and certificate. `GraphRejected` means the supplied certificate or graph
 criterion failed; it does **not** prove that a program diverges. An admission
 limit returns `GraphInconclusive`, never acceptance.
 
+## Synthetic first-order body experiment
+
+`Fibril.Termination.FirstOrder` is **not Fibril source or core**. Its deliberately
+small, non-executable representation has an ordered group of functions whose
+arguments are all Nat, and bodies made only of explicit saturated direct calls,
+sequential/alternative composition, and exhaustive Nat cases. Calls take local
+Nat variables or an unrelated Nat *value*: that value is not an expression
+which can hide a call. A successor branch introduces its predecessor as local
+`0`, shifting existing local indices. There are no indirect calls, function
+values, partial applications, result types, effects, or quantity judgments.
+
+`extract` traverses all bodies and branches in order and emits one matrix per
+syntactic call site, including duplicate matrices. It tracks a row of relations
+from each local to the caller's original arguments. Only the predecessor
+introduced in a successor branch can establish strict decrease. Unknown values
+produce unknown rows; an out-of-scope local, target or arity mismatch is rejected.
+
+`check` separately rewalks the same synthetic bodies against a proposed
+ordered call-site list. It checks endpoints, arities, multiplicity and every
+matrix cell; its local provenance uses root/descendant identities rather than
+the producer's relation rows. The two implementations are distinct walks, but
+this is not a formal independence or soundness proof. A checked synthetic graph
+can be passed to `produce` and `verify` for experiments. An accepted result
+still **cannot authorize a Fibril definition**: no adapter connects this
+fragment to checked bodies or proves call completeness in the language.
+
 ## Trust and future integration
 
 The checker cannot establish that the supplied direct graph contains every real
@@ -76,8 +104,9 @@ those obligations.
 The finite tests are sampled implementation evidence. They include exhaustive
 three-relation algebra, rectangular composition orientation, alternating and
 mutual descent, missing or non-closed certificates, conflicting alternative
-calls, producer/verifier agreement on a small corpus, round and capacity
-boundaries, malformed shapes, zero-argument cycles and admission failures. They are
+calls, producer/verifier agreement on a small corpus, exact synthetic call-site
+checking, forged decreases, scope shifts, branch and mutual calls, round and
+capacity boundaries, malformed shapes, zero-argument cycles and admission failures. They are
 not a mechanized proof of the size-change theorem, termination of Fibril terms,
 whole-language soundness or compiler correctness.
 
@@ -88,5 +117,11 @@ direct edges and 32 certificate edges. The producer admits at most 33 rounds:
 each non-stable round adds a distinct edge, and one final round detects
 stability. `produceWithFuel` accepts a smaller explicit round budget; exhaustion
 is inconclusive. Each candidate matrix is bounded by the admitted dimensions
-before it can be retained. These are explicit admission policies; they do not
-prove a hard bound on host memory, stack, elapsed time or allocation.
+before it can be retained. The synthetic first-order experiment separately
+admits at most 16 functions, 8 arguments per function and call, 256 aggregate
+body nodes, 128 call sites, and 16 simultaneously scoped locals. Function,
+argument, node and call counts are admitted before graph construction or
+proposed-graph checking; the local-scope limit is checked as each successor
+branch is entered. Exhaustion returns no partial graph. These are explicit
+admission policies; they do not prove a hard bound on host memory, stack,
+elapsed time or allocation.
