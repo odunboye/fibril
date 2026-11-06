@@ -41,6 +41,7 @@ FValue *f_bytes_length(FRuntime *r, FEnv *env, FEval value);
 FValue *f_utf8_encode(FRuntime *r, FEnv *env, FEval value);
 FValue *f_utf8_decode(FRuntime *r, FEnv *env, FEval value);
 FValue *f_bytes_octet(FRuntime *r, FEnv *env, FEval value);
+FValue *f_bytes_length_is(FRuntime *, FEnv *, FEval, FEval);
 FValue *f_bytes_index(FRuntime *r, FEnv *env, FEval index, FEval bytes);
 FValue *f_bytes_slice(FRuntime *r, FEnv *env, FEval start, FEval count, FEval bytes);
 FValue *f_unit_case(FRuntime *r, FEnv *env, FEval scrutinee, FEval body);

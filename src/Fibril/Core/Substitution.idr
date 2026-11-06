@@ -52,6 +52,7 @@ mutual
   substituteCongruent left right agree ReadLine = Refl
   substituteCongruent left right agree (FileHandleValue _ _) = Refl
   substituteCongruent left right agree (ReadInputFile handle) = cong ReadInputFile (substituteCongruent left right agree handle)
+  substituteCongruent left right agree (BytesLengthIs x y) = rewrite substituteCongruent left right agree x in rewrite substituteCongruent left right agree y in Refl
   substituteCongruent left right agree (BytesIndex x y) = rewrite substituteCongruent left right agree x in rewrite substituteCongruent left right agree y in Refl
   substituteCongruent left right agree (BytesSlice x y z) = rewrite substituteCongruent left right agree x in rewrite substituteCongruent left right agree y in rewrite substituteCongruent left right agree z in Refl
   substituteCongruent left right agree (UTF8Encode x) = cong UTF8Encode (substituteCongruent left right agree x)
@@ -165,6 +166,7 @@ mutual
   renameAsSubstitution env ReadLine = Refl
   renameAsSubstitution env (FileHandleValue _ _) = Refl
   renameAsSubstitution env (ReadInputFile handle) = cong ReadInputFile (renameAsSubstitution env handle)
+  renameAsSubstitution env (BytesLengthIs x y) = rewrite renameAsSubstitution env x in rewrite renameAsSubstitution env y in Refl
   renameAsSubstitution env (BytesIndex x y) = rewrite renameAsSubstitution env x in rewrite renameAsSubstitution env y in Refl
   renameAsSubstitution env (BytesSlice x y z) = rewrite renameAsSubstitution env x in rewrite renameAsSubstitution env y in rewrite renameAsSubstitution env z in Refl
   renameAsSubstitution env (UTF8Encode x) = cong UTF8Encode (renameAsSubstitution env x)

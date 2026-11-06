@@ -204,6 +204,30 @@ int main(int argc, char **argv) {
     static const unsigned char valid[]={239,191,189};
     left_value=f_bytes_literal(&r,valid,sizeof(valid)); r.steps=F_MAX_STEPS-2;
     assert(!f_utf8_decode(&r,NULL,left) && r.error);
+  } else if(mode==24) {
+    size_t lengths[]={0,1,2,4,16,99,256};
+    for(size_t i=0;i<sizeof(lengths)/sizeof(lengths[0]);i++) for(size_t n=0;n<259;n++) {
+      left_value=number(&r,n);right_value=f_bytes_literal(&r,octets,lengths[i]);
+      size_t before=r.bytes;
+      FValue *result=f_bytes_length_is(&r,NULL,left,right);
+      assert(result && result->tag==V_BOOL && result->as.boolean==(n==lengths[i]) && !r.error);
+      assert(r.bytes-before==sizeof(FValue)); /* No unary Nat result allocation. */
+      release(&r);memset(&r,0,sizeof(r));
+    }
+  } else if(mode==25) {
+    left_value=f_unit(&r);right_value=f_bytes_literal(&r,NULL,0);
+    assert(!f_bytes_length_is(&r,NULL,left,right) && r.error);
+    r.error=NULL;left_value=number(&r,0);right_value=f_unit(&r);
+    assert(!f_bytes_length_is(&r,NULL,left,right) && r.error);
+    r.error=NULL;assert(!f_bytes_length_is(&r,NULL,NULL,right) && r.error);
+    r.error=NULL;assert(!f_bytes_length_is(&r,NULL,left,NULL) && r.error);
+  } else if(mode==26) {
+    left_value=number(&r,1);left_value->as.recursive.tail->value=left_value;
+    right_value=f_bytes_literal(&r,NULL,0);r.steps=F_MAX_STEPS-10;
+    assert(!f_bytes_length_is(&r,NULL,left,right) && r.error);
+  } else if(mode==27) {
+    left_value=number(&r,0);right_value=f_bytes_literal(&r,NULL,0);r.bytes=F_MAX_BYTES;
+    assert(!f_bytes_length_is(&r,NULL,left,right) && r.error);
   } else return 2;
   release(&r);
   return 0;
@@ -227,10 +251,28 @@ class NativeBytes(unittest.TestCase):
             raise AssertionError(compiled.stderr.decode(errors='replace'))
 
     def test_raw_native_byte_facts(self):
-        for mode in list(range(13)) + list(range(14,20)) + [21,22,23]:
+        for mode in list(range(13)) + list(range(14,20)) + [21,22,23,24,25,26,27]:
             with self.subTest(mode=mode):
                 result = subprocess.run([str(self.raw), str(mode)], capture_output=True, timeout=20)
                 self.assertEqual((result.returncode, result.stdout, result.stderr), (0, b'', b''))
+
+    def test_checked_source_length_predicate(self):
+        for n,text,expected in [(0,'','yes'),(1,'','no'),(2,'abc','no'),(3,'abc','yes'),(4,'abc','no')]:
+            natural='Zero'
+            for _ in range(n):natural='(Succ '+natural+')'
+            content=('check : (1 b : Bytes) -> IO Unit\ncheck = \\(1 b : Bytes) => if primBytesLengthIs '+natural+' b then putStrLn "yes" else putStrLn "no"\n'
+                'main : IO Unit\nmain = primUTF8Case Bytes (IO Unit) (primUTF8Encode "'+text+'") (putStrLn "invalid") check\n')
+            source=self.work/'length.fib';source.write_text(content)
+            hosted=run_cli('run',str(source))
+            self.assertEqual((hosted.returncode,hosted.stdout,hosted.stderr),(0,expected+'\n',''))
+            emitted=run_cli('emit-c',str(source))
+            self.assertEqual(emitted.returncode,0,emitted.stderr)
+            c=self.work/'length.c';c.write_text(emitted.stdout)
+            executable=self.work/'length'
+            built=subprocess.run(self.cc+['-std=c11','-Wall','-Wextra','-Werror','-I',str(RUNTIME),str(c),str(RUNTIME/'fibril_runtime.c'),'-o',str(executable)],capture_output=True,timeout=60)
+            self.assertEqual(built.returncode,0,built.stderr)
+            result=subprocess.run([str(executable)],capture_output=True,timeout=20)
+            self.assertEqual((result.returncode,result.stdout,result.stderr),(0,(expected+'\n').encode(),b''))
 
     def test_utf8_native_matches_python_strict_decoder(self):
         vectors = [b'', *[bytes([a]) for a in range(256)],

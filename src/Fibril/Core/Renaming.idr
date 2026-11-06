@@ -49,6 +49,7 @@ mutual
   renameCongruent left right agree ReadLine = Refl
   renameCongruent left right agree (FileHandleValue _ _) = Refl
   renameCongruent left right agree (ReadInputFile handle) = cong ReadInputFile (renameCongruent left right agree handle)
+  renameCongruent left right agree (BytesLengthIs x y) = rewrite renameCongruent left right agree x in rewrite renameCongruent left right agree y in Refl
   renameCongruent left right agree (BytesIndex x y) = rewrite renameCongruent left right agree x in rewrite renameCongruent left right agree y in Refl
   renameCongruent left right agree (BytesSlice x y z) = rewrite renameCongruent left right agree x in rewrite renameCongruent left right agree y in rewrite renameCongruent left right agree z in Refl
   renameCongruent left right agree (UTF8Encode x) = cong UTF8Encode (renameCongruent left right agree x)
@@ -159,6 +160,7 @@ mutual
   renameIdentity ReadLine = Refl
   renameIdentity (FileHandleValue _ _) = Refl
   renameIdentity (ReadInputFile handle) = cong ReadInputFile (renameIdentity handle)
+  renameIdentity (BytesLengthIs x y) = rewrite renameIdentity x in rewrite renameIdentity y in Refl
   renameIdentity (BytesIndex x y) = rewrite renameIdentity x in rewrite renameIdentity y in Refl
   renameIdentity (BytesSlice x y z) = rewrite renameIdentity x in rewrite renameIdentity y in rewrite renameIdentity z in Refl
   renameIdentity (UTF8Encode x) = cong UTF8Encode (renameIdentity x)
@@ -275,6 +277,7 @@ mutual
   renameComposition first second ReadLine = Refl
   renameComposition first second (FileHandleValue _ _) = Refl
   renameComposition first second (ReadInputFile handle) = cong ReadInputFile (renameComposition first second handle)
+  renameComposition first second (BytesLengthIs x y) = rewrite renameComposition first second x in rewrite renameComposition first second y in Refl
   renameComposition first second (BytesIndex x y) = rewrite renameComposition first second x in rewrite renameComposition first second y in Refl
   renameComposition first second (BytesSlice x y z) = rewrite renameComposition first second x in rewrite renameComposition first second y in rewrite renameComposition first second z in Refl
   renameComposition first second (UTF8Encode x) = cong UTF8Encode (renameComposition first second x)

@@ -27,6 +27,9 @@ public export
 bytePrimitiveGlobals : List GlobalDefinition
 bytePrimitiveGlobals =
   [ GlobalWithQuantity Erased "ByteIndexResult" (Universe 0) byteIndexResultType
+  , Global "primBytesLengthIs" (Pi Linear NatType (Pi Linear BytesType BoolType))
+      (Lambda Linear NatType (Lambda Linear BytesType
+        (BytesLengthIs (Variable (FS FZ)) (Variable FZ))))
   , Global "primBytesIndex" (Pi Linear NatType (Pi Linear BytesType byteIndexResultType))
       (Lambda Linear NatType (Lambda Linear BytesType
         (BytesIndex (Variable (FS FZ)) (Variable FZ))))

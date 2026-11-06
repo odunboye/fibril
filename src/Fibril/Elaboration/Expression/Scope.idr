@@ -43,6 +43,7 @@ mutual
   thin env ReadLine = Just ReadLine
   thin env (FileHandleValue identity generation) = Just (FileHandleValue identity generation)
   thin env (ReadInputFile handle) = ReadInputFile <$> thin env handle
+  thin env (BytesLengthIs a b) = [| BytesLengthIs (thin env a) (thin env b) |]
   thin env (BytesIndex a b) = [| BytesIndex (thin env a) (thin env b) |]
   thin env (BytesSlice a b c) = [| BytesSlice (thin env a) (thin env b) (thin env c) |]
   thin env (UTF8Encode x) = map UTF8Encode (thin env x)
@@ -127,6 +128,7 @@ mutual
   substitutionNodes env ReadLine = 1
   substitutionNodes env (FileHandleValue _ _) = 1
   substitutionNodes env (ReadInputFile handle) = min (S inferredResultNodes) (1 + substitutionNodes env handle)
+  substitutionNodes env (BytesLengthIs a b) = min (S inferredResultNodes) (1 + substitutionNodes env a + substitutionNodes env b)
   substitutionNodes env (BytesIndex a b) = min (S inferredResultNodes) (1 + substitutionNodes env a + substitutionNodes env b)
   substitutionNodes env (BytesSlice a b c) = min (S inferredResultNodes) (1 + substitutionNodes env a + substitutionNodes env b + substitutionNodes env c)
   substitutionNodes env (UTF8Encode x) = min (S inferredResultNodes) (1 + substitutionNodes env x)

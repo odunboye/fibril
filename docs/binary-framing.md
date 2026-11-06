@@ -61,6 +61,31 @@ A failure in frame two leaves frame one's already-flushed output intact. EOF
 before the second frame is a rejection. This is a bounded sequence, not a
 cancellation-safe or concurrently scheduled server.
 
+## Bulk body reads
+
+After validating the header, a positive body length causes exactly one
+`primReadBytes count` request. The transport fills that capacity or stops at
+EOF/error; fragmented writes do not require a source-level per-byte loop.
+`primBytesLengthIs count body` verifies the returned length before assembling
+and echoing the frame. EOF or a short body rejects without output. Zero-length
+bodies skip the read entirely, preserving the prohibition on zero-capacity reads.
+
+This removes the per-byte append loop: the complete body is appended to the
+header once. A 99-byte frame uses **8 requests instead of 106**, with the same
+**242 bytes of reserved capacity** (121 read, 121 written). A zero-byte frame
+uses 6 requests/42 capacity; a short 99-byte body still reserves its full read
+capacity. The successful-session final flush does not spend a request.
+The per-byte baseline at `91a1899` was independently compiled and instrumented
+to confirm 106/242, rather than inferring the count from elapsed time.
+An instrumented native runner checks these counts around the actual generated
+Fibril program; it does not implement the parser.
+
+`primBytesLengthIs : (1 count : Nat) -> (1 bytes : Bytes) -> Bool` compares byte
+lengths without building a unary `Nat` result. It is a pure data operation, not
+an exact-read effect or a refinement type. Native input-Nat traversal still
+charges evaluator work and lazy operands can still allocate; there is no
+constant-time or total-allocation claim. Protocol limits remain 0..99 bytes.
+
 ## Supporting operations
 
 `primRejectBytes : IO Unit` is an inert **binary-only** represented rejection.
@@ -104,20 +129,20 @@ make -j8 framing-test CC='cc -fsanitize=address,undefined -fno-omit-frame-pointe
 
 `tools/test_framing.py` is only a process client. It compiles the actual module
 entry, then compares hosted/native behavior for all admitted lengths, all 256
-body octets, Unicode byte counts, every truncation offset of a sample, malformed/
+body octets, Unicode byte counts, every truncation offset of a sample and every short-body length below 99, malformed/
 over-limit lengths, strict header syntax, trailing data and fragmented writes.
 Its open-input test keeps stdin open after sending a complete frame and requires
 the echoed frame and successful exit, proving the program does not wait for EOF.
 Two-frame tests compare different bodies, check non-rollback on later rejection,
-and wait for each echo before sending the next frame. The suite has eleven test
+and wait for each echo before sending the next frame. The suite has twelve test
 methods over these hosted/native matrices.
 Native tests run under ASan/UBSan; this does not verify the hosted compiler/FFI,
 source preservation, arbitrary exceptions, signals or concurrent mutation.
 
-Validation passed the unit/property phase, 163 CLI, 19 native-emitter, 6 pure-
-byte/codec native, 13 binary-source, 14 raw bridge scenarios, 11 framing, 9 binary-scalability, 9
+Validation passed the unit/property phase, 163 CLI, 19 native-emitter, 7 pure-
+byte/codec native, 13 binary-source, 14 raw bridge scenarios, 12 framing, 9 binary-scalability, 9
 interactive CLI, 7 editor and 16 handbook tests. All focused IO subtargets passed
-in split runs, including 305 hosted checks and 29 resource differentials. Native
+in split runs, including 306 hosted checks and 29 resource differentials. Native
 framing/byte/codec/console/resource/binary suites passed ASan/UBSan. The hosted
 fixture used the existing explicit 450-second test deadline, not a runner-budget
 increase.

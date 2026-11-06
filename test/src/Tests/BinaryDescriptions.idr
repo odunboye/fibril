@@ -52,7 +52,8 @@ wrappers = [RejectBytes, FlushBytes, ReadBytes NatZero, WriteBytes (BytesValue e
   VariantType [Just (Erased, FlushBytes)],
   RecFold FlushBytes UnitValue UnitValue UnitValue,
   SeqFold UnitValue UnitValue FlushBytes UnitValue,
-  UTF8Encode FlushBytes, BytesSlice NatZero FlushBytes (BytesValue empty)]
+  UTF8Encode FlushBytes, BytesSlice NatZero FlushBytes (BytesValue empty),
+  BytesLengthIs FlushBytes (BytesValue empty), BytesLengthIs NatZero FlushBytes]
 
 public export
 checks : List (String, Bool)

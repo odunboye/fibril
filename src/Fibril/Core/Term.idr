@@ -55,6 +55,8 @@ data Term : Nat -> Type where
   ||| Data-specific copyability: consume immutable bytes into an unrestricted box.
   BytesShare : Term n -> Term n
   BytesLength : Term n -> Term n
+  ||| Compare length without constructing a unary natural result.
+  BytesLengthIs : Term n -> Term n -> Term n
   BytesIndex : Term n -> Term n -> Term n
   BytesSlice : Term n -> Term n -> Term n -> Term n
   ||| Low eight bits of a canonical natural, explicitly modulo 256.
@@ -141,6 +143,13 @@ indexBytesValue : Nat -> Bytes -> Term n
 indexBytesValue index bytes = case byteAt index bytes of
   Nothing => VariantValue byteIndexResultType 0 Nothing
   Just octet => VariantValue byteIndexResultType 1 (Just (naturalTerm (cast octet)))
+
+public export
+contractBytesLengthIs : Term n -> Term n -> Maybe (Term n)
+contractBytesLengthIs count (BytesValue bytes) = do
+  value <- canonicalNatural count
+  Just (if value == byteLength bytes then BoolTrue else BoolFalse)
+contractBytesLengthIs _ _ = Nothing
 
 public export
 contractBytesIndex : Term n -> Term n -> Maybe (Term n)
@@ -240,6 +249,7 @@ mutual
   rename env (BytesIndex a b) = BytesIndex (rename env a) (rename env b)
   rename env (BytesSlice a b c) = BytesSlice (rename env a) (rename env b) (rename env c)
   rename env (BytesShare a) = BytesShare (rename env a)
+  rename env (BytesLengthIs a b) = BytesLengthIs (rename env a) (rename env b)
   rename env (BytesLength a) = BytesLength (rename env a)
   rename env (BytesOctet a) = BytesOctet (rename env a)
   rename env StringType = StringType
@@ -330,6 +340,7 @@ mutual
   substituteTerm env (BytesIndex a b) = BytesIndex (substituteTerm env a) (substituteTerm env b)
   substituteTerm env (BytesSlice a b c) = BytesSlice (substituteTerm env a) (substituteTerm env b) (substituteTerm env c)
   substituteTerm env (BytesShare a) = BytesShare (substituteTerm env a)
+  substituteTerm env (BytesLengthIs a b) = BytesLengthIs (substituteTerm env a) (substituteTerm env b)
   substituteTerm env (BytesLength a) = BytesLength (substituteTerm env a)
   substituteTerm env (BytesOctet a) = BytesOctet (substituteTerm env a)
   substituteTerm env StringType = StringType
@@ -427,6 +438,7 @@ mutual
   sameSyntax (BytesIndex a b) (BytesIndex c d) = sameSyntax a c && sameSyntax b d
   sameSyntax (BytesSlice a b c) (BytesSlice d e f) = sameSyntax a d && sameSyntax b e && sameSyntax c f
   sameSyntax (BytesShare a) (BytesShare b) = sameSyntax a b
+  sameSyntax (BytesLengthIs a b) (BytesLengthIs c d) = sameSyntax a c && sameSyntax b d
   sameSyntax (BytesLength a) (BytesLength b) = sameSyntax a b
   sameSyntax (BytesOctet a) (BytesOctet b) = sameSyntax a b
   sameSyntax StringType StringType = True

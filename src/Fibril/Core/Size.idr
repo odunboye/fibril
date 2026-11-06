@@ -40,6 +40,7 @@ mutual
   coreNodes ReadLine = 1
   coreNodes (FileHandleValue _ _) = 1
   coreNodes (ReadInputFile handle) = 1 + coreNodes handle
+  coreNodes (BytesLengthIs a b) = 1 + coreNodes a + coreNodes b
   coreNodes (BytesIndex a b) = 1 + coreNodes a + coreNodes b
   coreNodes (BytesSlice a b c) = 1 + coreNodes a + coreNodes b + coreNodes c
   coreNodes (UTF8Encode x) = 1 + coreNodes x
@@ -123,6 +124,7 @@ mutual
   mentionsNominal key ReadLine = False
   mentionsNominal key (FileHandleValue _ _) = False
   mentionsNominal key (ReadInputFile handle) = mentionsNominal key handle
+  mentionsNominal key (BytesLengthIs a b) = mentionsNominal key a || mentionsNominal key b
   mentionsNominal key (BytesIndex a b) = mentionsNominal key a || mentionsNominal key b
   mentionsNominal key (BytesSlice a b c) = mentionsNominal key a || mentionsNominal key b || mentionsNominal key c
   mentionsNominal key (UTF8Encode x) = mentionsNominal key x

@@ -45,6 +45,7 @@ mutual
   admit (S budget) ReadLine = Just budget
   admit (S budget) (FileHandleValue _ _) = Just budget
   admit (S budget) (ReadInputFile handle) = admit budget handle
+  admit (S budget) (BytesLengthIs a b) = do x <- admit budget a; admit x b
   admit (S budget) (BytesIndex a b) = do x <- admit budget a; admit x b
   admit (S budget) (BytesSlice a b c) = do x <- admit budget a; y <- admit x b; admit y c
   admit (S budget) (UTF8Encode x) = admit budget x
@@ -165,6 +166,7 @@ mutual
       Just n => case byteAt n bytes of
         Nothing => True
         Just octet => size + cast octet + 4 <= inferredResultNodes
+  safeRedexes size payload (BytesLengthIs a b) = safeRedexes size payload a && safeRedexes size payload b
   safeRedexes size payload (BytesIndex a b) = safeRedexes size payload a && safeRedexes size payload b
   safeRedexes size payload (BytesSlice a b c) = safeRedexes size payload a && safeRedexes size payload b && safeRedexes size payload c
   safeRedexes size payload (UTF8Encode (StringValue text)) = size + 6 <= inferredResultNodes && payload + 3 * length text <= payloadLimit

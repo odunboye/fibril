@@ -53,6 +53,7 @@ mutual
   payloadWeight env ReadLine = 0
   payloadWeight env (FileHandleValue _ _) = 0
   payloadWeight env (ReadInputFile handle) = payloadWeight env handle
+  payloadWeight env (BytesLengthIs a b) = cap (payloadWeight env a + payloadWeight env b)
   payloadWeight env (BytesIndex a b) = cap (payloadWeight env a + payloadWeight env b)
   payloadWeight env (BytesSlice a b c) = cap (payloadWeight env a + payloadWeight env b + payloadWeight env c)
   payloadWeight env (UTF8Encode x) = payloadWeight env x

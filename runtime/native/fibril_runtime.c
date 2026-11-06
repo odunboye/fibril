@@ -175,6 +175,14 @@ static int byte_position(FRuntime *r, FEnv *env, FEval expression, size_t *posit
   if (!value || value->tag != V_NAT_ZERO) { fail(r, "native byte position expects Nat"); return 0; }
   *position = n; return 1;
 }
+FValue *f_bytes_length_is(FRuntime *r, FEnv *env, FEval count, FEval expression) {
+  if (!expression) { fail(r, "missing native byte length predicate operand"); return NULL; }
+  size_t expected;
+  if (!byte_position(r, env, count, &expected)) return NULL;
+  FValue *bytes = evaluate(r, expression, env);
+  if (!bytes || bytes->tag != V_BYTES) { fail(r, "native byte length predicate expects Bytes"); return NULL; }
+  return f_bool(r, expected == bytes->as.bytes.length);
+}
 FValue *f_bytes_index(FRuntime *r, FEnv *env, FEval index, FEval expression) {
   if (!expression) { fail(r, "missing native byte index operand"); return NULL; }
   size_t offset;

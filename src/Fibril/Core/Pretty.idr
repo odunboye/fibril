@@ -44,6 +44,7 @@ mutual
   renderTerm ReadLine = "ReadLine"
   renderTerm (FileHandleValue identity generation) = "(RuntimeFileHandle " ++ show identity ++ " " ++ show generation ++ ")"
   renderTerm (ReadInputFile handle) = "(ReadInputFile " ++ renderTerm handle ++ ")"
+  renderTerm (BytesLengthIs a b) = "(BytesLengthIs " ++ renderTerm a ++ " " ++ renderTerm b ++ ")"
   renderTerm (BytesIndex a b) = "(BytesIndex " ++ renderTerm a ++ " " ++ renderTerm b ++ ")"
   renderTerm (BytesSlice a b c) = "(BytesSlice " ++ renderTerm a ++ " " ++ renderTerm b ++ " " ++ renderTerm c ++ ")"
   renderTerm (UTF8Encode x) = "(UTF8Encode " ++ renderTerm x ++ ")"

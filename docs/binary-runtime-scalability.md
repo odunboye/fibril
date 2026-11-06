@@ -43,7 +43,9 @@ The hosted default currently returns `Binary reduction budget exhausted` for
 this same stress fixture. That is a separate observed limit, not a failure that
 this native change fixes, and tests do not freeze that failure as required
 behavior. Larger practical frames still need reduced unary-Nat/reduction work
-and bulk body handling before admitting substantially larger messages.
+before admitting substantially larger messages. The [framing library](binary-framing.md)
+now reads each body in bulk and checks its length without a unary result, but
+that does not remove the remaining numeric/reduction limits.
 
 Separately, a temporary 99-byte framing variant succeeded on hosted execution,
 the recursive native baseline and the iterative native runtime. The wire cap
@@ -71,8 +73,8 @@ exact flush counts, no final flush on failure, restored evaluator depth and
 exact private arena accounting showing one recycled control node for the tail
 sequence.
 
-Validation passed the unit/property phase, 163 CLI, 19 native-emitter, 6 pure-
-byte/codec native, 13 binary-source, 14 raw bridge scenarios, 9 scalability, 11
+Validation passed the unit/property phase, 163 CLI, 19 native-emitter, 7 pure-
+byte/codec native, 13 binary-source, 14 raw bridge scenarios, 9 scalability, 12
 framing, 9 interactive CLI, 7 editor and 16 handbook tests. Native scalability,
 framing, source binary, bridge, console/resource and binary-transport sanitizer
 runs passed. No timing sample or observed hosted budget failure is counted as a

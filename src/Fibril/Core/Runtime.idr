@@ -97,6 +97,10 @@ mutual
   analyze (S depth) reduction context ReadLine = Right zeroUsage
   analyze (S depth) reduction context (FileHandleValue _ _) = Right zeroUsage
   analyze (S depth) reduction context (ReadInputFile handle) = analyze depth reduction context handle
+  analyze (S depth) reduction context (BytesLengthIs a b) = do
+    x <- analyze depth reduction context a
+    y <- analyze depth reduction context b
+    Right (combineUsage x y)
   analyze (S depth) reduction context (BytesIndex a b) = do
     x <- analyze depth reduction context a
     y <- analyze depth reduction context b

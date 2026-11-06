@@ -14,6 +14,25 @@ EXE=ROOT/'build/exec/fibril'
 SOURCE=ROOT/'examples/modules/binary-frame'
 ENTRY=SOURCE/'Main.fib'
 
+# Instrument only the runner, not the Fibril parser or generated program.
+ACCOUNTING=r'''
+#define fibril_native_binary_run uninstrumented_binary_run
+#include "fibril_binary_runtime.c"
+#undef fibril_native_binary_run
+static FByteStatus counted(FByteSession *session,void *context) {
+  size_t requests=session->requests,capacity=session->capacity;
+  FByteStatus status=binary_body(session,context);
+  fprintf(stderr,"ACCOUNT %zu %zu\n",requests-session->requests,capacity-session->capacity);
+  return status;
+}
+int fibril_native_binary_run(FEval entry,size_t requests,size_t capacity) {
+  FRuntime runtime={0};
+  FBinaryContext context={&runtime,entry,FB_OK,0,0};
+  FByteStatus status=fibril_bytes_run(requests,capacity,stdin,stdout,counted,&context);
+  return binary_finish(&runtime,&context,status);
+}
+'''
+
 
 def run(command,data=b''):
     process=subprocess.Popen(command,cwd=ROOT,stdin=subprocess.PIPE,stdout=subprocess.PIPE,
@@ -40,7 +59,7 @@ class Framing(unittest.TestCase):
         cls.host=[str(EXE),'run-binary','--source-dir',str(SOURCE),str(ENTRY)]
         status,code,err=run([str(EXE),'emit-c-binary','--source-dir',str(SOURCE),str(ENTRY)])
         if status:raise AssertionError(err)
-        for name in (b'f_read_bytes(',b'f_write_bytes(',b'f_reject_bytes(',b'f_nominal_case('):
+        for name in (b'f_read_bytes(',b'f_write_bytes(',b'f_reject_bytes(',b'f_nominal_case(',b'f_bytes_length_is('):
             if name not in code:raise AssertionError('Missing generated operation '+repr(name))
         source=work/'frame.c';source.write_bytes(code)
         executable=work/'frame'
@@ -50,6 +69,13 @@ class Framing(unittest.TestCase):
             capture_output=True,timeout=90)
         if built.returncode:raise AssertionError(built.stderr)
         cls.native=[str(executable)]
+        instrumented=work/'accounting.c';instrumented.write_text(ACCOUNTING)
+        executable=work/'accounted'
+        built=subprocess.run(shlex.split(os.environ.get('CC','cc'))+['-std=c11','-Wall','-Wextra',
+            '-Werror','-I',str(runtime),str(source),str(instrumented),'-o',str(executable)],
+            capture_output=True,timeout=90)
+        if built.returncode:raise AssertionError(built.stderr)
+        cls.accounted=[str(executable)]
         second=SOURCE/'Two.fib'
         cls.hostTwo=[str(EXE),'run-binary','--source-dir',str(SOURCE),str(second)]
         status,code,err=run([str(EXE),'emit-c-binary','--source-dir',str(SOURCE),str(second)])
@@ -79,6 +105,16 @@ class Framing(unittest.TestCase):
         for n in range(100):
             with self.subTest(n=n):self.accept(frame(bytes(range(n))))
 
+    def test_bulk_body_request_and_capacity_accounting(self):
+        for n,requests in [(0,6),(1,7),(9,7),(10,8),(99,8)]:
+            packet=frame(b'x'*n)
+            self.assertEqual(run(self.accounted,packet),(0,packet,f'ACCOUNT {requests} {2*len(packet)}\n'.encode()))
+        status,out,err=run(self.accounted,b'Content-Length: 99\r\n\r\n'+b'x')
+        self.assertNotEqual(status,0)
+        self.assertEqual(out,b'')
+        self.assertIn(b'ACCOUNT 6 121\n',err)
+        self.assertIn(b'Binary program rejected input',err)
+
     def test_all_octets_in_body(self):
         for offset in range(0,256,32):self.accept(frame(bytes(range(offset,offset+32))))
 
@@ -97,7 +133,8 @@ class Framing(unittest.TestCase):
             with self.subTest(number=number):self.reject(b'Content-Length: '+number+b'\r\n\r\n'+b'x'*100)
 
     def test_maximum_body_truncated(self):
-        self.reject(b'Content-Length: 99\r\n\r\n'+b'x'*98)
+        for n in range(99):
+            with self.subTest(n=n):self.reject(b'Content-Length: 99\r\n\r\n'+b'x'*n)
 
     def test_header_contract_is_strict(self):
         for prefix in (b'content-length: ',b'Content-length: ',b'Content-Length:',b'Content-Length:  ',b'Other-Length:   '):

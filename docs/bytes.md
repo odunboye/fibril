@@ -16,6 +16,7 @@ host/native transport and remaining gates.
 | `primBytesAppend` | Two linear `Bytes` arguments, immutable concatenation |
 | `primBytesShare` | Linear `Bytes` input to an unrestricted immutable byte box; source view uses a one-field unrestricted record |
 | `primBytesLength` | Linear `Bytes -> Nat`; counts octets, not characters |
+| `primBytesLengthIs` | Linear `Nat -> Bytes -> Bool`; exact byte-length comparison without constructing a unary Nat result |
 | `ByteIndexResult` | Missing or found octet (`Nat` in 0..255), never a sentinel |
 | `primBytesIndex` | Linear `Nat -> Bytes -> ByteIndexResult`, zero-based |
 | `primBytesIndexCase` | Erased result type, linear result, unrestricted missing/found branches; found consumes one linear `Nat` |
@@ -147,9 +148,9 @@ emission without character conversion.
 
 ## Validation
 
-The unit/property phase (including 38 core-byte/sharing, 29 range and 17 UTF-8 checks), 163 CLI,
-19 native-emitter, 6 pure-byte/UTF-8 native, 9 interactive CLI, 7 editor and 16 handbook
-tests passed. Focused IO subtargets passed in split runs: 305 hosted checks, 29 checked
+The unit/property phase (including 38 core-byte/sharing, 38 range/length-predicate and 17 UTF-8 checks), 163 CLI,
+19 native-emitter, 7 pure-byte/UTF-8 native, 9 interactive CLI, 7 editor and 16 handbook
+tests passed. Focused IO subtargets passed in split runs: 306 hosted checks, 29 checked
 resource differentials, console/interactive emission comparisons, and 19 binary
 transport tests. Native console/resource/binary suites passed ASan/UBSan.
 

@@ -157,9 +157,9 @@ through slice/UTF-8 conversion and back to binary output. These trusted C
 fixtures are not source-typing evidence.
 
 Validation passed the unit/property phase (33 binary description/interpreter
-checks), 163 CLI, 19 native-emitter, 6 pure-byte/codec native, 13 binary-source,
+checks), 163 CLI, 19 native-emitter, 7 pure-byte/codec native, 13 binary-source,
 9 interactive CLI, 7 editor and 16 handbook tests. Focused IO subtargets passed
-in split runs, including 305 hosted checks and 29 resource differentials. Native
+in split runs, including 306 hosted checks and 29 resource differentials. Native
 console/resource/byte/codec/binary suites passed ASan/UBSan; the hosted compiler
 and its foreign library are not thereby sanitizer-verified. The hosted fixture
 used the existing explicit 450-second test deadline; no old runner budget was

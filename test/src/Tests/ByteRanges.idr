@@ -56,12 +56,12 @@ indexAgrees n = both (BytesIndex (naturalTerm n) (BytesValue allOctets))
   (if n < 256 then found n else missing)
 
 openTerms : List (Term 1)
-openTerms = [BytesIndex (Variable FZ) sample, BytesIndex NatZero (Variable FZ),
+openTerms = [BytesLengthIs (Variable FZ) sample, BytesLengthIs NatZero (Variable FZ), BytesIndex (Variable FZ) sample, BytesIndex NatZero (Variable FZ),
   BytesSlice (Variable FZ) NatZero sample, BytesSlice NatZero (Variable FZ) sample,
   BytesSlice NatZero NatZero (Variable FZ)]
 
 forged : List (Term 0)
-forged = [BytesIndex (FileHandleValue 1 0) sample,
+forged = [BytesLengthIs (FileHandleValue 1 0) sample, BytesLengthIs NatZero (FileHandleValue 1 0), BytesIndex (FileHandleValue 1 0) sample,
   BytesIndex NatZero (FileHandleValue 1 0),
   BytesSlice (FileHandleValue 1 0) NatZero sample,
   BytesSlice NatZero (FileHandleValue 1 0) sample,
@@ -79,7 +79,16 @@ nest (S n) term = Lambda Erased UnitType (weaken (nest n term))
 public export
 checks : List (String, Bool)
 checks =
-  [("index preserves every octet and rejects both end indices", all indexAgrees (the (List Nat) [0..257])),
+  [("length predicate compares without a unary result", all (\n => both (BytesLengthIs (naturalTerm n) sample) (if n == 5 then BoolTrue else BoolFalse)) (the (List Nat) [0..257])),
+   ("length predicate handles empty", both (BytesLengthIs NatZero (BytesValue empty)) BoolTrue && both (BytesLengthIs (naturalTerm 1) (BytesValue empty)) BoolFalse),
+   ("length predicate returns checked Bool", accepted (BytesLengthIs (naturalTerm 5) sample) BoolType && not (accepted (BytesLengthIs NatZero sample) NatType)),
+   ("length predicate rejects wrong operands", not (accepted (BytesLengthIs UnitValue sample) BoolType) && not (accepted (BytesLengthIs NatZero UnitValue) BoolType)),
+   ("length predicate reduces successor tails", both (BytesLengthIs betaOne (BytesValue (fromList [255]))) BoolTrue),
+   ("length predicate does not grow nodes", guardedStepAdmitted (nest 200 (the (Term 0) (BytesLengthIs (naturalTerm 5) sample)))),
+   ("source length predicate consumes linear bytes", sourceAccepted "check : (1 b : Bytes) -> Bool\ncheck = \\(1 b : Bytes) => primBytesLengthIs Zero b\nmain : Bool\nmain = check primBytesEmpty"),
+   ("length predicate rejects linear reuse", not (sourceAccepted "check : (1 b : Bytes) -> Bool\ncheck = \\(1 b : Bytes) => if primBytesLengthIs Zero b then primBytesLengthIs Zero b else False\nmain : Bool\nmain = check primBytesEmpty")),
+   ("length predicate payload estimate scans bytes", payloadSize (the (Term 0) (BytesLengthIs NatZero sample)) == 5),
+   ("index preserves every octet and rejects both end indices", all indexAgrees (the (List Nat) [0..257])),
    ("empty bytes index is missing", both (BytesIndex NatZero (BytesValue empty)) missing),
    ("index NUL is found, not missing", both (BytesIndex NatZero sample) (found 0)),
    ("index FF is found, not a sentinel", both (BytesIndex (naturalTerm 1) sample) (found 255)),

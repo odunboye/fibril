@@ -46,6 +46,7 @@ mutual
   scan b (BytesShare x) = scan b x
   scan b (BytesLength x) = scan b x
   scan b (BytesOctet x) = scan b x
+  scan b (BytesLengthIs x y) = scan b x || scan b y
   scan b (BytesIndex x y) = scan b x || scan b y
   scan b (BytesSlice x y z) = scan b x || scan b y || scan b z
   scan b (UTF8Encode x) = scan b x

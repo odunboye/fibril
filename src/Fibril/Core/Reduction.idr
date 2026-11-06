@@ -121,6 +121,11 @@ mutual
   step ReadLine = Nothing
   step (FileHandleValue _ _) = Nothing
   step (ReadInputFile handle) = map ReadInputFile (step handle)
+  step (BytesLengthIs a b) = case contractBytesLengthIs a b of
+    Just result => Just result
+    Nothing => case step a of
+      Just next => Just (BytesLengthIs next b)
+      Nothing => map (BytesLengthIs a) (step b)
   step (BytesIndex a b) = case contractBytesIndex a b of
     Just result => Just result
     Nothing => case step a of

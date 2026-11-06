@@ -266,6 +266,12 @@ mutual
     case exposed of
       FileHandleType region => Right (IOType (fileReadResultType region))
       _ => Left (ExpectedFileHandle exposed)
+  infer (S depth) reduction context (BytesLengthIs count bytes) = do
+    countType <- infer depth reduction context count
+    requireCompatible reduction countType NatType
+    bytesType <- infer depth reduction context bytes
+    requireCompatible reduction bytesType BytesType
+    Right BoolType
   infer (S depth) reduction context (BytesIndex index bytes) = do
     indexType <- infer depth reduction context index
     requireCompatible reduction indexType NatType
