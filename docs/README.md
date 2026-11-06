@@ -16,6 +16,8 @@ The generated homepage separates teaching chapters, references, and project reco
 
 ## Reference index
 
+- [Cubical alignment](cubical-alignment.md): first checked-path milestone and quantitative safeguards.
+
 - [Implicit arguments](implicit-arguments.md): infer erased prefixes on direct checked global calls.
 
 - [Experimental checked C emission](native-c.md): compile a supported console subset without precomputing output.

@@ -64,6 +64,9 @@ import Fibril.Foundation.DeMorgan.Interval
 import Fibril.Foundation.DeMorgan.NormalForm
 import Fibril.Foundation.DeMorgan.Face
 import Fibril.Foundation.DeMorgan.Scope
+import Fibril.Foundation.DeMorgan.PathSyntax
+import Fibril.Foundation.DeMorgan.ClosedPath
+import Fibril.Foundation.DeMorgan.ClosedCorePath
 import Fibril.Foundation.DeMorgan.Restriction
 import Data.Fin
 import Data.Maybe
@@ -258,6 +261,223 @@ checks =
       (forgetInterval (instantiate (the (ScopedInterval 1) One) (Var FZ))) One)
   , ("instantiate retains older dimension", equivalent
       (forgetInterval (instantiate (the (ScopedInterval 1) One) (Var (FS FZ)))) (Var 0))
+  , ("core path dimension substitution composes through binders",
+      let expr : CorePathExpr 1
+          expr = CoreAbstract (CoreApply (CoreTerm BoolTrue) (Meet (Var FZ) (Var (FS FZ))))
+          first : Fin 1 -> ScopedInterval 1
+          first _ = Reverse (Var FZ)
+          second : Fin 1 -> ScopedInterval 0
+          second _ = One
+          sequential = substituteCoreDimensions second (substituteCoreDimensions first expr)
+          combined = substituteCoreDimensions (\i => substituteScoped second (first i)) expr in
+      case (sequential, combined) of
+        (CoreAbstract (CoreApply (CoreTerm BoolTrue) a),
+         CoreAbstract (CoreApply (CoreTerm BoolTrue) b)) =>
+           equivalent (forgetInterval a) (forgetInterval b)
+        _ => False)
+  , ("core path substitution avoids dimension capture",
+      case instantiateCoreDimension (the (ScopedInterval 1) (Var FZ))
+             (CoreAbstract (CoreApply (CoreTerm BoolTrue) (Var (FS FZ)))) of
+        CoreAbstract (CoreApply (CoreTerm BoolTrue) (Var (FS FZ))) => True
+        _ => False)
+  , ("core path substitution preserves bound dimension",
+      case instantiateCoreDimension (the (ScopedInterval 0) One)
+             (CoreAbstract (CoreApply (CoreTerm BoolTrue) (Var FZ))) of
+        CoreAbstract (CoreApply (CoreTerm BoolTrue) (Var FZ)) => True
+        _ => False)
+  , ("core path substitution replaces free dimension",
+      case instantiateCoreDimension (the (ScopedInterval 0) One)
+             (CoreApply (CoreTerm BoolTrue) (Var FZ)) of
+        CoreApply (CoreTerm BoolTrue) One => True
+        _ => False)
+  , ("closed core path checks after dimension weakening",
+      case checkCorePathExpr 64 64 3
+             (substituteCoreDimensions (Var . FS)
+               (the (CorePathExpr 0) (CoreAbstract (CoreTerm BoolTrue))))
+             BoolTrue BoolTrue of
+        Accepted => True; _ => False)
+  , ("open core path rejects unsupported dimension-dependent body",
+      case checkCorePathExpr 64 64 3
+             (the (CorePathExpr 1) (CoreAbstract (CoreApply (CoreTerm BoolTrue) (Var FZ))))
+             BoolTrue BoolTrue of
+        Rejected => True; _ => False)
+  , ("constant core path applies at open dimension",
+      case applyCorePathAt 64 64 4 (the (CorePathExpr 1) (CoreAbstract (CoreTerm BoolTrue)))
+             (Var FZ) BoolTrue BoolTrue of
+        CoreStepped (CoreTerm BoolTrue) => True; _ => False)
+  , ("constant core path applies at open compound interval",
+      case applyCorePathAt 64 64 4 (the (CorePathExpr 1) (CoreAbstract (CoreTerm BoolFalse)))
+             (Meet (Var FZ) (Reverse (Var FZ))) BoolFalse BoolFalse of
+        CoreStepped (CoreTerm BoolFalse) => True; _ => False)
+  , ("open path application rejects bad boundary",
+      case applyCorePathAt 64 64 4 (the (CorePathExpr 1) (CoreAbstract (CoreTerm BoolTrue)))
+             (Var FZ) BoolTrue BoolFalse of
+        CoreStepRejected => True; _ => False)
+  , ("open path application budget exhaustion",
+      case applyCorePathAt 64 64 3 (the (CorePathExpr 1) (CoreAbstract (CoreTerm BoolTrue)))
+             (Var FZ) BoolTrue BoolTrue of
+        CoreStepExhausted => True; _ => False)
+  , ("nested beta commutes with endpoint substitution",
+      let path : CorePathExpr 1
+          path = CoreAbstract (CoreApply (CoreAbstract (CoreTerm BoolTrue)) (Var FZ))
+          closed : Fin 1 -> ScopedInterval 0
+          closed _ = One in
+      case (applyCorePathAt 64 64 5 path (Reverse (Var FZ)) BoolTrue BoolTrue,
+            applyCorePathAt 64 64 5 (substituteCoreDimensions closed path)
+              (substituteScoped closed (Reverse (Var FZ))) BoolTrue BoolTrue) of
+        (CoreStepped result, CoreStepped expected) =>
+          case (substituteCoreDimensions closed result, expected) of
+            (CoreApply (CoreAbstract (CoreTerm BoolTrue)) a,
+             CoreApply (CoreAbstract (CoreTerm BoolTrue)) b) =>
+               equivalent (forgetInterval a) (forgetInterval b)
+            _ => False
+        _ => False)
+  , ("nested beta preserves open dimension",
+      case applyCorePathAt 64 64 5
+             (the (CorePathExpr 1) (CoreAbstract
+               (CoreApply (CoreAbstract (CoreTerm BoolTrue)) (Var FZ))))
+             (Reverse (Var FZ)) BoolTrue BoolTrue of
+        CoreStepped (CoreApply (CoreAbstract (CoreTerm BoolTrue)) (Reverse (Var FZ))) => True
+        _ => False)
+  , ("nested beta rejects malformed inner path",
+      case applyCorePathAt 64 64 5
+             (the (CorePathExpr 1) (CoreAbstract (CoreApply (CoreTerm BoolTrue) (Var FZ))))
+             (Var FZ) BoolTrue BoolTrue of
+        CoreStepRejected => True; _ => False)
+  , ("nested constant path checks with bound dimension",
+      case checkCorePathExpr 64 64 4
+             (the (CorePathExpr 0) (CoreAbstract
+               (CoreApply (CoreAbstract (CoreTerm BoolTrue)) (Var FZ))))
+             BoolTrue BoolTrue of
+        Accepted => True; _ => False)
+  , ("nested constant path endpoint reduces",
+      case runCorePathExpr 64 64 5
+             (CoreApply (CoreAbstract
+               (CoreApply (CoreAbstract (CoreTerm BoolTrue)) (Var FZ))) One)
+             BoolTrue BoolTrue of
+        CoreValue BoolTrue => True; _ => False)
+  , ("nested constant path rejects mismatched boundary",
+      case checkCorePathExpr 64 64 4
+             (the (CorePathExpr 0) (CoreAbstract
+               (CoreApply (CoreAbstract (CoreTerm BoolTrue)) (Var FZ))))
+             BoolTrue BoolFalse of
+        Rejected => True; _ => False)
+  , ("nested path body traversal exhausts independently",
+      case checkCorePathExpr 64 64 3
+             (the (CorePathExpr 0) (CoreAbstract (CoreApply (CoreAbstract
+               (CoreApply (CoreAbstract (CoreTerm BoolTrue)) (Var FZ))) (Var FZ))))
+             BoolTrue BoolTrue of
+        Exhausted => True; _ => False)
+  , ("raw core path abstraction checks",
+      case checkCorePathExpr 64 64 3 (the (CorePathExpr 0) (CoreAbstract (CoreTerm BoolTrue))) BoolTrue BoolTrue of
+        Accepted => True; _ => False)
+  , ("raw core path endpoints reduce",
+      case (runCorePathExpr 64 64 4 (CoreApply (CoreAbstract (CoreTerm BoolTrue)) Zero) BoolTrue BoolTrue,
+            runCorePathExpr 64 64 4 (CoreApply (CoreAbstract (CoreTerm BoolTrue)) One) BoolTrue BoolTrue) of
+        (CoreValue BoolTrue, CoreValue BoolTrue) => True; _ => False)
+  , ("raw core path rejects wrong left face",
+      case checkCorePathExpr 64 64 4
+             (the (CorePathExpr 0) (CoreAbstract (CoreTerm BoolTrue))) BoolFalse BoolTrue of
+        Rejected => True; _ => False)
+  , ("raw core path rejects wrong right face",
+      case checkCorePathExpr 64 64 4
+             (the (CorePathExpr 0) (CoreAbstract (CoreTerm BoolTrue))) BoolTrue BoolFalse of
+        Rejected => True; _ => False)
+  , ("raw core path checks convertible endpoint terms",
+      case checkCorePathExpr 64 64 4
+             (the (CorePathExpr 0) (CoreAbstract (CoreTerm BoolTrue)))
+             (BoolCase BoolTrue BoolTrue BoolFalse) BoolTrue of
+        Accepted => True; _ => False)
+  , ("raw core path rejects boundary mismatch",
+      case runCorePathExpr 64 64 4 (CoreApply (CoreAbstract (CoreTerm BoolTrue)) One) BoolTrue BoolFalse of
+        CoreRejected => True; _ => False)
+  , ("raw core path reduces compound closed interval",
+      case runCorePathExpr 64 64 5 (CoreApply (CoreAbstract (CoreTerm BoolTrue)) (Reverse (Meet One Zero))) BoolTrue BoolTrue of
+        CoreValue BoolTrue => True; _ => False)
+  , ("raw core path closed interval depth exhaustion",
+      case runCorePathExpr 64 64 4 (CoreApply (CoreAbstract (CoreTerm BoolTrue)) (Reverse (Reverse (Reverse Zero)))) BoolTrue BoolTrue of
+        CoreExhausted => True; _ => False)
+  , ("raw core path rejects non-path application",
+      case runCorePathExpr 64 64 4 (CoreApply (CoreTerm BoolTrue) Zero) BoolTrue BoolTrue of
+        CoreRejected => True; _ => False)
+  , ("raw core endpoint propagates exhaustion",
+      case runCorePathExpr 64 64 3 (CoreApply (CoreAbstract (CoreTerm BoolTrue)) Zero) BoolTrue BoolTrue of
+        CoreExhausted => True; _ => False)
+  , ("core literal constant path checks", case checkClosedCorePath 64 64 3 BoolTrue BoolTrue BoolTrue of
+        Accepted => True; _ => False)
+  , ("core constant path both endpoints compute",
+      case (applyClosedCoreEndpoint 64 64 3 False BoolTrue BoolTrue BoolTrue,
+            applyClosedCoreEndpoint 64 64 3 True BoolTrue BoolTrue BoolTrue) of
+        (CoreValue BoolTrue, CoreValue BoolTrue) => True; _ => False)
+  , ("core endpoint rejects mismatch", case applyClosedCoreEndpoint 64 64 3 False BoolTrue BoolTrue BoolFalse of
+        CoreRejected => True; _ => False)
+  , ("core literal path rejects mismatch", case checkClosedCorePath 64 64 3 BoolTrue BoolTrue BoolFalse of
+        Rejected => True; _ => False)
+  , ("core path rejects wrong type", case checkClosedCorePath 64 64 3 UnitValue BoolTrue BoolTrue of
+        Rejected => True; _ => False)
+  , ("core path compares reduced boolean expressions",
+      case checkClosedCorePath 64 64 3 (BoolCase BoolTrue BoolFalse BoolTrue) BoolFalse BoolFalse of
+        Accepted => True; _ => False)
+  , ("core path rejects unsupported dead branch",
+      case checkClosedCorePath 64 64 3 (BoolCase BoolTrue BoolTrue UnitValue) BoolTrue BoolTrue of
+        Rejected => True; _ => False)
+  , ("core Boolean grammar shares node budget across branches",
+      case checkClosedCorePath 4 64 3
+             (BoolCase BoolTrue (BoolCase BoolTrue BoolTrue BoolFalse) BoolTrue)
+             BoolTrue BoolTrue of
+        Exhausted => True; _ => False)
+  , ("core Boolean grammar depth exhaustion",
+      case checkClosedCorePath 2 64 3
+             (BoolCase BoolTrue (BoolCase BoolTrue BoolTrue BoolFalse) BoolTrue)
+             BoolTrue BoolTrue of
+        Exhausted => True; _ => False)
+  , ("core Boolean grammar rejects unsupported deep dead branch",
+      case checkClosedCorePath 64 64 3
+             (BoolCase BoolTrue BoolTrue (BoolCase BoolTrue BoolTrue UnitValue))
+             BoolTrue BoolTrue of
+        Rejected => True; _ => False)
+  , ("core boolean reduction budget exhaustion",
+      case checkClosedCorePath 64 0 3 (BoolCase BoolTrue BoolTrue BoolFalse) BoolTrue BoolTrue of
+        Exhausted => True; _ => False)
+  , ("core path rejects nonliteral", case checkClosedCorePath 64 64 3 BoolType BoolTrue BoolTrue of
+        Rejected => True; _ => False)
+  , ("core path propagates checker exhaustion", case checkClosedCorePath 0 64 3 BoolTrue BoolTrue BoolTrue of
+        Exhausted => True; _ => False)
+  , ("core path propagates path exhaustion", case checkClosedCorePath 64 64 2 BoolTrue BoolTrue BoolTrue of
+        Exhausted => True; _ => False)
+  , ("closed constant path checks", case checkConstantPath 3 (Abstract (Literal True)) True True of
+        Accepted => True; _ => False)
+  , ("closed path rejects mismatched endpoint", case checkConstantPath 3 (Abstract (Literal True)) True False of
+        Rejected => True; _ => False)
+  , ("closed path rejects non-boolean body", case checkConstantPath 3 (Abstract (Abstract (Literal True))) True True of
+        Rejected => True; _ => False)
+  , ("closed path budget exhaustion", case checkConstantPath 2 (Abstract (Literal True)) True True of
+        Exhausted => True; _ => False)
+  , ("closed path zero endpoint", case runEndpoint 4 (Apply (Abstract (Literal True)) Zero) True True of
+        EndpointValue True => True; _ => False)
+  , ("closed path one endpoint", case runEndpoint 4 (Apply (Abstract (Literal False)) One) False False of
+        EndpointValue False => True; _ => False)
+  , ("endpoint rejects mismatched boundary", case runEndpoint 4 (Apply (Abstract (Literal True)) One) True False of
+        InvalidEndpoint => True; _ => False)
+  , ("endpoint budget exhaustion", case runEndpoint 3 (Apply (Abstract (Literal True)) Zero) True True of
+        EndpointExhausted => True; _ => False)
+  , ("endpoint rejects unsupported interval", case runEndpoint 4 (Apply (Abstract (Literal True)) (Reverse Zero)) True True of
+        InvalidEndpoint => True; _ => False)
+  , ("path dimension substitution avoids capture",
+      case instantiateDimension (the (ScopedInterval 1) (Var FZ))
+             (Abstract (Apply (Literal True) (Var (FS FZ)))) of
+        Abstract (Apply (Literal True) (Var (FS FZ))) => True
+        _ => False)
+  , ("path dimension substitution preserves bound dimension",
+      case instantiateDimension (the (ScopedInterval 0) One)
+             (Abstract (Apply (Literal True) (Var FZ))) of
+        Abstract (Apply (Literal True) (Var FZ)) => True
+        _ => False)
+  , ("path dimension substitution replaces free dimension",
+      case instantiateDimension (the (ScopedInterval 0) One)
+             (Apply (Literal True) (Var FZ)) of
+        Apply (Literal True) One => True
+        _ => False)
   , ("scoped face entailment", entailsScoped
       (SConjunction (the (ScopedFace 1) (SEndpoint FZ False)) STop)
       (SEndpoint FZ False))

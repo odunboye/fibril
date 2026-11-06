@@ -16,6 +16,9 @@ This document captures the conversation's decisions, recommendations, and open q
 
 ## 2. Foundations — decisions
 
+The [cubical alignment milestone](cubical-alignment.md) identifies the next
+checked-path vertical slice and its prerequisites; this remains planned work.
+
 - Use **cubical type theory**, initially a **De Morgan** foundation in the CCHM tradition.
 - Goal: computational univalence, paths, transport, and eventually selected higher inductive types.
 - Choose a specific published calculus before fixing kernel rules. Cubical Agda is a practical reference, not a specification to mix freely with other calculi.

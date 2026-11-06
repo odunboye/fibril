@@ -3,11 +3,16 @@
 An experimental Idris-like language implemented in Idris 2, targeting a
 quantitative De Morgan cubical core, C/JavaScript backends, and embedded profiles.
 
-**Status:** an annotated expression frontend and small nonrecursive declaration
-files, with erased typing and an ordinary runtime-usage prototype. Full modules,
-transparent global definitions, cubical term checking,
-compiler backends, and real-time guarantees are not implemented.
-[Experimental C emission](docs/native-c.md) produces a real native executable for a checked console subset; it is not yet an application backend.
+**Status:** an experimental frontend, checked local modules, an ordinary
+quantity-aware core, and restricted recursive data/functions. Cubical term
+checking, general recursion, complete compiler backends, and real-time guarantees
+are not implemented. [Experimental C emission](docs/native-c.md) produces native
+executables for a checked subset; it is not yet a general application backend.
+
+Fibril's HoTT direction remains a goal, not a present capability. The
+[cubical alignment milestone](docs/cubical-alignment.md) sets out the first
+checked path example and the quantitative obligations that must be resolved
+before it enters the trusted core.
 
 [Checked Fibril prelude functions](docs/console-runner.md) provide putStrLn,
 pure, and bind over experimental IO descriptions. A hosted runner executes stdout
@@ -47,8 +52,9 @@ and generates independently checked closed families/constructors with exact admi
 [Non-recursive source data](docs/data.md) now declares nominal constructors and
 optional consuming eliminators, including dependent multi-field payloads and imports.
 [Direct data cases](docs/direct-data-cases.md) now match nullary/unary
-alternatives with explicit or inferred motives and linear branch joins, including qualified
-direct imports. Wider patterns, recursive inductives and structural recursion remain future work.
+alternatives with explicit or inferred motives and linear branch joins, including
+imports and restricted recursive shapes. Wider patterns, general recursive
+types and general termination checking remain future work.
 
 The first [application target is a transactional-email service](docs/applications/transactional-email.md),
 with a checked relay-submission model. Network/TLS/storage, C deployment and the

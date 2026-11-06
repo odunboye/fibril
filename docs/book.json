@@ -308,6 +308,10 @@
         "path": "docs/foundation-baseline.md"
       },
       {
+        "title": "Cubical alignment milestone",
+        "path": "docs/cubical-alignment.md"
+      },
+      {
         "title": "Theory bibliography",
         "path": "docs/references.md"
       },
