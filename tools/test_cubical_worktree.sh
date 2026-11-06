@@ -32,7 +32,12 @@ printf 'package fibril\nversion = 0.1.0\ndepends = yaml\n' > "$tmp/fibril-0.1.0/
 cp -R "${ttc_dirs[0]}/." "$tmp/fibril-0.1.0/$format/"
 other_paths=$(printf '%s' "$paths" | tr ':' '\n' | grep -v '/fibril/' | paste -sd ':' -)
 export IDRIS2_PACKAGE_PATH="$tmp:$other_paths"
-cd test
+# Build tests in a fresh directory as well: test/build may contain TTCs linked
+# against a different installed fibril package or be used by another run.
+mkdir -p "$tmp/tests"
+cp test/tests.ipkg "$tmp/tests/"
+cp -R test/src test/negative "$tmp/tests/"
+cd "$tmp/tests"
 "$idris" --build tests.ipkg
 ./build/exec/fibril-tests
 cd negative
