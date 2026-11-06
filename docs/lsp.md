@@ -28,8 +28,8 @@ this checkout's `build/exec/fibril`, never a workspace-supplied executable.
 | Document open/change/save/close | Full or ordered incremental changes; monotonic versions |
 | Positions | LSP UTF-16, converted to/from compiler Unicode-scalar offsets; CRLF and non-BMP text supported |
 | Push diagnostics | Dirty buffers, imported dependencies, applications and entry-free library inventories |
-| Definition | Same-file lexical navigation; checked project/package navigation through aliases and re-exports |
-| References | **Same file only**, with includeDeclaration handling |
+| Definition | Same-file lexical navigation; checked symbol and module/file navigation on import names, aliases, qualified prefixes and re-export selectors; LocationLinks when supported |
+| References | Canonical symbol/module occurrences across the **checked application graph or library inventory**, with declaration filtering and duplicate suppression; standalone files retain lexical references |
 | Document symbols | Authored declarations reported by the compiler |
 | Hover | Builtin/Prelude documentation or an authored-definition excerpt; **not general inferred types** |
 | Formatting | Compiler formatting returned as edits, never written by the server; compiler layout policy, not configurable tab/width formatting |
@@ -37,7 +37,7 @@ this checkout's `build/exec/fibril`, never a workspace-supplied executable.
 | Workspace folders and disk changes | Multiple workspace roots; polling of observed sources/directories; explicit watched-file notifications also accepted |
 
 Rename is advertised only when the client supports versioned documentChanges.
-Completion, signature help, project-wide references/rename, semantic tokens,
+Completion, signature help, project-wide rename, semantic tokens,
 code actions and workspace symbols are not advertised or implemented yet.
 
 ## Neovim: standard LSP instead of custom commands
@@ -56,7 +56,7 @@ vim.cmd('syntax enable')
 Open a `.fib` file. Standard diagnostics and language-server requests provide:
 
 - `gd`: definition;
-- `gr`: same-file references;
+- `gr`: references across the checked scope;
 - `K`: documentation/declaration excerpt;
 - `<leader>rn`: guarded standalone rename;
 - `<leader>f`: formatting.
@@ -92,9 +92,31 @@ Library packages need their normal explicit `modules` inventory, not a fake main
 An open named module outside the checked entry/inventory receives a scope warning
 rather than being silently represented as checked.
 
-Local symbols, formatting, references and rename do not require a valid project
-manifest or a successfully checked import graph. They remain available while
-project metadata is broken; checked cross-file definition still requires checking.
+Local symbols, formatting and standalone rename do not require a valid project
+manifest or a successfully checked import graph. Checked project definitions and
+references require the graph to check; they never fall back to name-text matches.
+
+## Navigation scope and identity
+
+The compiler builds a shared navigation index from the successfully checked
+graph, checked export origins, lexical AST scopes and checker-produced recursive
+self-call sites. A symbol's identity is its defining file and declaration span,
+not its spelling. Module identities point at module headers. Imported names,
+aliases and qualified module prefixes link to the imported module file; a
+re-exported symbol still links to its original declaration. Import selectors
+count as symbol occurrences, while imports/aliases/qualifiers count as module
+uses. includeDeclaration excludes authored definition/signature sites and module
+headers, not re-export selectors or alias mentions.
+
+References are limited to the loaded application closure or explicit library
+inventory. Inventory-only modules are included; unrelated workspace files and
+reverse package dependants are not guessed or automatically discovered. Same
+spelled local binders/private names remain separate. Ambiguous or invalid graphs
+produce checking failures rather than guessed results. Project-wide rename is
+still separate work: collision checks and versioned multi-file edits are needed.
+
+CLI access is also available through `references --source-dir ROOT --entry ENTRY
+LINE COLUMN PATH` and `references --package MANIFEST LINE COLUMN PATH`.
 
 The compiler also exposes `fibril check --json --package MANIFEST`: version-2
 source-backed diagnostics for applications and library inventories.
@@ -132,16 +154,24 @@ make -j8 lsp-test
 make -j8 test editor-test
 ```
 
-The 22-test dedicated suite covers framing, UTF-16/CRLF, unsaved changes, imports and
+The 29-test dedicated suite covers framing, UTF-16/CRLF, unsaved changes, imports and
 re-exports, package libraries, dependent invalidation, external disk edits,
 rename/format safety, cancellation, stale responses, deadlines, URI/path escapes,
 malformed JSON and an actual headless Neovim LSP connection. Neovim-specific
 coverage is skipped when Neovim is unavailable; protocol/compiler tests remain.
 
 Validation on this branch passed the unit/property phase, 161 CLI tests, 19 native
-emitter tests, 9 interactive CLI tests, all 22 dedicated LSP tests and 7 legacy
+emitter tests, 9 interactive CLI tests, all 29 dedicated LSP tests and 7 legacy
 editor tests. The focused IO suites also passed (285 hosted checks plus runtime
 and differential suites). The real Neovim test used Neovim 0.12.5; the client
 uses APIs available in 0.10+, but older versions were not exercised here.
+Navigation coverage includes an actual Neovim import-to-file jump, cross-file
+reference results, re-export diamonds, shadowing, private/ambiguous-name rejection,
+recursive self calls and application versus library-inventory scope.
+
+CLI-consuming Make suites now depend on `unit-test`: package testing can reinstall
+or relink the compiler even after `build`. An initial parallel regression run hit
+that race and the old intentional no-module-navigation assertions; the dependency
+ordering and expectations were corrected, and the complete rerun passed.
 `make -j8 handbook` also passed all 16 handbook tests after registering the
 previously unindexed IO pages alongside this LSP reference.

@@ -4249,8 +4249,9 @@ class CLITests(unittest.TestCase):
                 self.assertEqual(local["range"]["start"],
                                  point(sources[entry], sources[entry].index("Text :")))
                 for token, skip in (("Text.Greeting.greet", 0), ("Text.Greeting.greet", len("Text")),
-                                    ('"local"', 1), ("import Text", 7)):
-                    self.assertIsNone(query(entry, sources[entry], token, skip))
+                                    ("import Text", 7)):
+                    expect(query(entry, sources[entry], token, skip), library, "Text.Greeting")
+                self.assertIsNone(query(entry, sources[entry], '"local"', 1))
                 self.assertIsNone(query(library, sources[library], "putStrLn"))
                 outside = root / "Unreachable.fib"
                 outside.write_text("module Unreachable\n", encoding="utf-8")

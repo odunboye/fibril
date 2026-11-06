@@ -50,6 +50,8 @@ Usage:
   fibril elaborate PATH         Inspect expanded named IR (unchecked; no effects)
   fibril reference LINE COLUMN PATH  Built-in documentation or bundled Prelude source
   fibril references LINE COLUMN PATH  Same-file lexical occurrences, including declarations
+  fibril references --source-dir ROOT --entry ENTRY LINE COLUMN PATH  Checked project occurrences
+  fibril references --package MANIFEST LINE COLUMN PATH  Checked package/inventory occurrences
   fibril definition --source-dir ROOT --entry ENTRY LINE COLUMN PATH  Checked project target
   fibril definition --package MANIFEST LINE COLUMN PATH  Checked application or library package target
   fibril definition LINE COLUMN PATH  Same-file lexical target (scalar coordinates)
@@ -200,6 +202,10 @@ main = do
           putStrLn "Fuel must be decimal 0..4096."
           exitFailure
     ["rename-preview", line, column, name, path] => runLocationQuery (\row, col, file => renameFile row col name file) line column path
+    ["references", "--source-dir", root, "--entry", entry, line, column, path] =>
+      runLocationQuery (projectReferencesFile root entry) line column path
+    ["references", "--package", manifest, line, column, path] =>
+      runLocationQuery (packageReferencesFile manifest) line column path
     ["definition", "--source-dir", root, "--entry", entry, line, column, path] =>
       runLocationQuery (projectDefinitionFile root entry) line column path
     ["definition", "--package", manifest, line, column, path] =>

@@ -8,8 +8,9 @@ existing configurations. New Neovim setups should use `editors/nvim` instead.
 
 Use editor commands to check a project, follow definitions, inspect references and preview supported lexical renames without guessing where an authored name came from.
 
-Project-wide references and rename remain unsupported. The separate LSP server
-provides standard editor integration; formatting and checking do not silently save buffers.
+These legacy reference commands remain same-file. The separate LSP server adds
+checked cross-file/module definitions and references; project-wide rename remains
+unsupported. Formatting and checking do not silently save buffers.
 
 Status: implemented optional Vim-runtime package for the current Fibril subsets.
 Includes optional compiler-backed runtime checking and same-file navigation. No Tree-sitter grammar,

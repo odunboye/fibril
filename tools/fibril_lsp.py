@@ -227,6 +227,7 @@ class Snapshot:
             elif (self.source_root / "Main.fib").is_file() or any(d.path == self.source_root / "Main.fib" for d in view.documents.values()):
                 self.entry = self.source_root / "Main.fib"
         self.data = {}
+        self.texts, self.position_maps = {}, {}
         self.observed = {}
         if self.manifest or self.source_root:
             self.copy_tree()
@@ -262,7 +263,14 @@ class Snapshot:
         return original
 
     def text(self, original):
-        return self.data[original].decode("utf-8", errors="replace")
+        if original not in self.texts:
+            self.texts[original] = self.data[original].decode("utf-8", errors="replace")
+        return self.texts[original]
+
+    def positions(self, original):
+        if original not in self.position_maps:
+            self.position_maps[original] = Positions(self.text(original))
+        return self.position_maps[original]
 
     def add(self, path, data):
         if self.cancel.is_set():
@@ -275,6 +283,8 @@ class Snapshot:
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(data)
         self.data[path] = data
+        self.texts.pop(path, None)
+        self.position_maps.pop(path, None)
 
     def copy_tree(self):
         directories = 0
@@ -342,22 +352,59 @@ class Snapshot:
             return self.call(["check", "--json", "--source-dir", self.mapped(self.source_root), self.mapped(self.entry)], True)
         return self.call(["check", "--json", self.mapped(self.document.path)], True)
 
-    def definition(self, line, column):
+    def navigation(self, method, line, column):
         query = self.mapped(self.document.path)
         if self.manifest:
-            packet = self.call(["definition", "--package", self.mapped(self.manifest), line, column, query])
+            packet = self.call([method, "--package", self.mapped(self.manifest), line, column, query])
         elif self.source_root:
-            packet = self.call(["definition", "--source-dir", self.mapped(self.source_root), "--entry", self.mapped(self.entry), line, column, query])
+            packet = self.call([method, "--source-dir", self.mapped(self.source_root), "--entry", self.mapped(self.entry), line, column, query])
         else:
-            packet = self.call(["definition", line, column, query])
+            packet = self.call([method, line, column, query])
         if (self.manifest or self.source_root) and (packet.get("checked") is not True or packet.get("query") != str(query)):
             raise LSPError(-32803, "Navigation response is not checked for this query")
+        packet["_lsp_locations"] = {source["path"]: self.original(source["path"]) for source in packet.get("sources", [])}
+        return packet
+
+    def location(self, target, packet):
+        path = packet["_lsp_locations"].get(target["path"])
+        if path is None:
+            self.original(target["path"])  # Reject escapes before reporting an absent graph member.
+            raise LSPError(-32803, "Navigation location is not in the checked source graph")
+        return {"uri": self.view.uri(path), "range": self.positions(path).compiler_range(target["range"])}
+
+    def definition(self, line, column, links=False):
+        packet = self.navigation("definition", line, column)
         target = packet.get("definition")
         if target is None:
             return None
-        path = self.original(target["path"]) if "path" in target else self.document.path
-        span = target["range"] if "path" in target else target
-        return {"uri": self.view.uri(path), "range": Positions(self.text(path)).compiler_range(span)}
+        if "path" not in target:
+            return {"uri": self.document.uri, "range": Positions(self.document.text).compiler_range(target)}
+        location = self.location(target, packet)
+        if not links:
+            return location
+        origin = packet.get("origin")
+        if origin is None or self.original(origin["path"]) != self.document.path:
+            raise LSPError(-32803, "Definition response lacks a valid query origin")
+        return [{"originSelectionRange": Positions(self.document.text).compiler_range(origin["range"]),
+                 "targetUri": location["uri"], "targetRange": location["range"], "targetSelectionRange": location["range"]}]
+
+    def references(self, line, column, include_declaration):
+        packet = self.navigation("references", line, column)
+        references = packet.get("references")
+        if not isinstance(references, list):
+            raise LSPError(-32803, "Invalid compiler reference index")
+        result, seen = [], set()
+        for reference in references:
+            if not isinstance(reference.get("declaration"), bool):
+                raise LSPError(-32803, "Reference index lacks declaration classification")
+            if include_declaration or not reference["declaration"]:
+                location = self.location(reference, packet)
+                span = location["range"]
+                key = (location["uri"], span["start"]["line"], span["start"]["character"], span["end"]["line"], span["end"]["character"])
+                if key not in seen:
+                    seen.add(key)
+                    result.append(location)
+        return result
 
 
 def unique_object(pairs):
@@ -414,6 +461,7 @@ class Server:
         self.epoch = 0
         self.initialized = self.shutdown = False
         self.versioned_edits = False
+        self.definition_links = False
         self.diagnostic_future = None
         self.diagnostic_cancel = Cancellation()
         self.published = set()
@@ -568,7 +616,7 @@ class Server:
             invalid("Open the document before requesting language services")
         mapper = Positions(doc.text)
         with tempfile.TemporaryDirectory(prefix="fibril-lsp-") as directory:
-            local_only = method in {"textDocument/documentSymbol", "textDocument/formatting", "textDocument/references", "textDocument/rename"}
+            local_only = method in {"textDocument/documentSymbol", "textDocument/formatting", "textDocument/rename"}
             snapshot = Snapshot(view, doc, directory, self.backend, cancel, local_only)
             # Keep the immutable snapshot for the final disk-freshness check.
             self.work_context.snapshot = snapshot
@@ -587,7 +635,7 @@ class Server:
             position = params.get("position")
             line, column = mapper.location(position)
             if method == "textDocument/definition":
-                return snapshot.definition(line, column)
+                return snapshot.definition(line, column, self.definition_links)
             if method == "textDocument/hover":
                 packet = snapshot.call(["reference", line, column, path])
                 reference = packet.get("reference")
@@ -607,9 +655,15 @@ class Server:
                 index = Positions(text).offset(target["range"]["start"])
                 return {"contents": {"kind": "plaintext", "value": text[index:].splitlines()[0][:512]}}
             if method == "textDocument/references":
+                context = params.get("context", {})
+                if not isinstance(context, dict) or not isinstance(context.get("includeDeclaration", False), bool):
+                    invalid("References require a boolean includeDeclaration")
+                include_declaration = context.get("includeDeclaration", False)
+                if snapshot.manifest or snapshot.source_root:
+                    return snapshot.references(line, column, include_declaration)
                 packet = snapshot.call(["references", line, column, path])
                 ranges = [mapper.compiler_range(span) for span in packet["references"]]
-                if not params.get("context", {}).get("includeDeclaration", False):
+                if not include_declaration:
                     definition = snapshot.call(["definition", line, column, path]).get("definition")
                     declarations = [mapper.compiler_range(definition)] if definition else []
                     for symbol in snapshot.call(["symbols", path])["symbols"]:
@@ -682,6 +736,7 @@ class Server:
                 invalid("Project options must be nonempty paths")
             self.options = options
             self.versioned_edits = params.get("capabilities", {}).get("workspace", {}).get("workspaceEdit", {}).get("documentChanges") is True
+            self.definition_links = params.get("capabilities", {}).get("textDocument", {}).get("definition", {}).get("linkSupport") is True
             self.initialized = True
             self.send({"id": ident, "result": {"serverInfo": {"name": "fibril-lsp", "version": "0.1.0"}, "capabilities": {
                 "positionEncoding": "utf-16", "textDocumentSync": {"openClose": True, "change": 2, "save": {"includeText": False}},

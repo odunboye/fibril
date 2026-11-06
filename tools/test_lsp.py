@@ -22,7 +22,7 @@ SOURCE = 'greet : (1 name : String) -> String\ngreet = \\(1 name : String) => na
 
 
 class Client:
-    def __init__(self, root, binary=BINARY, options=None, timeout=15):
+    def __init__(self, root, binary=BINARY, options=None, timeout=15, links=False):
         self.process = subprocess.Popen([sys.executable, str(SERVER), "--fibril", str(binary), "--timeout", str(timeout)],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         self.queue, self.saved, self.ident = queue.Queue(), [], 0
@@ -38,7 +38,8 @@ class Client:
         self.reader = threading.Thread(target=reader, daemon=True)
         self.reader.start()
         self.capabilities = self.request("initialize", {"rootUri": root.as_uri(), "capabilities": {
-            "workspace": {"workspaceEdit": {"documentChanges": True}}}, "initializationOptions": options or {}})["result"]["capabilities"]
+            "workspace": {"workspaceEdit": {"documentChanges": True}},
+            "textDocument": {"definition": {"linkSupport": links}}}, "initializationOptions": options or {}})["result"]["capabilities"]
         self.notify("initialized", {})
 
     def send(self, packet):
@@ -267,16 +268,152 @@ class Integration(unittest.TestCase):
         a.write_text(good)
         self.assertEqual(client.diagnostics(self.path, 1, False)['diagnostics'], [])
 
+    def navigation_project(self):
+        a = self.root / 'A.fib'
+        left = self.root / 'Left.fib'
+        right = self.root / 'Right.fib'
+        main = self.root / 'Main.fib'
+        texts = {
+            a: 'module A\nsecret : String\nsecret = "private"\nexport\ngreeting : String\ngreeting = secret\n',
+            left: 'module Left\nimport public A (greeting)\n',
+            right: 'module Right\nimport public A (greeting)\n',
+            main: 'module Main\nimport Left as L\nimport Right as R\necho : (1 greeting : String) -> String\necho = \\(1 greeting : String) => greeting\nmain : IO Unit\nmain = putStrLn (appendString "greeting 🌍 " (appendString greeting (appendString L.greeting R.greeting)))\n-- greeting is not a reference here\n',
+        }
+        for path, text in texts.items():
+            path.write_text(text)
+        (self.root / 'Unreachable.fib').write_text('module Unreachable\nexport\ngreeting : String\ngreeting = "unrelated"\n')
+        return a, left, right, main, texts
+
+    def at(self, path, text, index):
+        return {"textDocument": {"uri": path.as_uri()}, "position": Positions(text).point(index)}
+
+    def refs(self, client, path, text, index, declarations=False):
+        response = client.request('textDocument/references', {**self.at(path, text, index),
+            'context': {'includeDeclaration': declarations}})
+        self.assertIn('result', response, response)
+        return response['result']
+
+    def test_checked_module_import_alias_and_qualifier_definition_links(self):
+        a, left, right, main, texts = self.navigation_project()
+        client = self.client(links=True)
+        client.open(main, texts[main])
+        client.diagnostics(main, 1, False)
+        text = texts[main]
+        for index, expected in [(text.index('Left'), left), (text.index('L\n'), left),
+                (text.index('L.greeting'), left), (text.index('L.greeting') + 2, a)]:
+            with self.subTest(index=index):
+                response = client.request('textDocument/definition', self.at(main, text, index))
+                self.assertIn('result', response, response)
+                link = response['result'][0]
+                self.assertEqual(link['targetUri'], expected.as_uri())
+                self.assertEqual(link['originSelectionRange']['start'], Positions(text).point(index))
+                self.assertEqual(link['targetRange'], link['targetSelectionRange'])
+        client.open(left, texts[left])
+        client.diagnostics(left, 1, False)
+        selected = client.request('textDocument/definition', self.at(left, texts[left], texts[left].index('greeting')))['result'][0]
+        self.assertEqual(selected['targetUri'], a.as_uri())
+        imported = client.request('textDocument/definition', self.at(left, texts[left], texts[left].index('A (')))['result'][0]
+        self.assertEqual(imported['targetUri'], a.as_uri())
+        self.assertEqual(imported['targetSelectionRange']['start'], {'line': 0, 'character': 7})
+
+    def test_checked_references_canonicalize_diamond_and_exclude_shadowed_names(self):
+        a, left, right, main, texts = self.navigation_project()
+        client = self.client()
+        client.open(main, texts[main])
+        client.diagnostics(main, 1, False)
+        index = texts[main].index('greeting (appendString')
+        refs = self.refs(client, main, texts[main], index)
+        self.assertEqual(len(refs), 5, refs)
+        self.assertEqual({ref['uri'] for ref in refs}, {left.as_uri(), right.as_uri(), main.as_uri()})
+        self.assertEqual(len(self.refs(client, main, texts[main], index, True)), 7)
+        self.assertEqual(len({json.dumps(ref, sort_keys=True) for ref in refs}), 5)
+        self.assertEqual(self.refs(client, main, texts[main], texts[main].index('greeting 🌍')), [])
+        self.assertEqual(self.refs(client, main, texts[main], texts[main].rindex('greeting')), [])
+        binder = texts[main].index('=> greeting') + 3
+        local = self.refs(client, main, texts[main], binder)
+        self.assertEqual(len(local), 1)
+        self.assertEqual(local[0]['range']['start'], Positions(texts[main]).point(binder))
+        client.open(a, texts[a])
+        client.diagnostics(a, 1, False)
+        private = self.refs(client, a, texts[a], texts[a].index('secret :'))
+        self.assertEqual(len(private), 1)
+        self.assertEqual(private[0]['uri'], a.as_uri())
+
+    def test_checked_module_references_have_separate_module_identity(self):
+        a, left, right, main, texts = self.navigation_project()
+        client = self.client()
+        client.open(main, texts[main])
+        client.diagnostics(main, 1, False)
+        refs = self.refs(client, main, texts[main], texts[main].index('Left'))
+        self.assertEqual(len(refs), 3, refs)  # import name, alias binding, qualifier use
+        self.assertTrue(all(ref['uri'] == main.as_uri() for ref in refs))
+        with_declaration = self.refs(client, main, texts[main], texts[main].index('Left'), True)
+        self.assertEqual(len(with_declaration), 4)
+        self.assertEqual(sum(ref['uri'] == left.as_uri() for ref in with_declaration), 1)
+        client.open(a, texts[a])
+        client.diagnostics(a, 1, False)
+        imported_a = self.refs(client, a, texts[a], texts[a].index('A\n'))
+        self.assertEqual({ref['uri'] for ref in imported_a}, {left.as_uri(), right.as_uri()})
+        self.assertEqual(len(imported_a), 2)
+
+    def test_checked_references_track_dirty_buffers_and_reject_invalid_graphs(self):
+        a, left, right, main, texts = self.navigation_project()
+        client = self.client()
+        client.open(main, texts[main])
+        client.diagnostics(main, 1, False)
+        changed = texts[main].replace('R.greeting', '(appendString R.greeting greeting)')
+        client.change(main, changed, 2)
+        client.diagnostics(main, 2, False)
+        refs = self.refs(client, main, changed, changed.index('greeting (appendString'))
+        self.assertEqual(len(refs), 6)
+        self.assertEqual(main.read_text(), texts[main])
+        client.open(a, texts[a])
+        client.diagnostics(a, 1, False)
+        broken = texts[a].replace('greeting : String', 'greeting : Bool').replace('greeting = secret', 'greeting = True')
+        client.change(a, broken, 2)
+        client.diagnostics(main, 2, True)
+        rejected = client.request('textDocument/references', {**self.at(main, changed, changed.index('greeting (appendString')), 'context': {'includeDeclaration': True}})
+        self.assertEqual(rejected['error']['code'], -32803)
+        self.assertEqual(a.read_text(), texts[a])
+
+    def test_checked_navigation_rejects_ambiguous_or_private_names(self):
+        a, left, right, main, texts = self.navigation_project()
+        right.write_text('module Right\nexport\ngreeting : String\ngreeting = "different origin"\n')
+        client = self.client()
+        client.open(main, texts[main])
+        client.diagnostics(main, 1, True)
+        response = client.request('textDocument/references', {**self.at(main, texts[main], texts[main].index('greeting (appendString')), 'context': {'includeDeclaration': True}})
+        self.assertEqual(response['error']['code'], -32803)
+        right.write_text(texts[right])
+        private = texts[main].replace('L.greeting', 'L.secret')
+        client.change(main, private, 2)
+        client.diagnostics(main, 2, True)
+        response = client.request('textDocument/definition', self.at(main, private, private.index('L.secret') + 2))
+        self.assertEqual(response['error']['code'], -32803)
+
+    def test_checked_references_include_structural_self_calls(self):
+        main = self.root / 'Main.fib'
+        text = 'module Main\nmarks : (1 count : Nat) -> String\nmarks count = case count of\n  Zero => ""\n  Succ previous => appendString "x" (marks previous)\nmain : IO Unit\nmain = putStrLn (marks (Succ Zero))\n'
+        main.write_text(text)
+        client = self.client()
+        client.open(main, text)
+        client.diagnostics(main, 1, False)
+        refs = self.refs(client, main, text, text.index('marks :'))
+        self.assertEqual(len(refs), 2, refs)
+        self.assertEqual({ref['range']['start']['line'] for ref in refs}, {4, 6})
+        self.assertEqual(len(self.refs(client, main, text, text.index('marks previous'), True)), 4)
+
     def test_packages_and_entry_free_library_json(self):
         library = self.root / "lib"
         app = self.root / "app"
         (library / "src/Lib").mkdir(parents=True)
         (app / "src").mkdir(parents=True)
-        (library / "fibril.yaml").write_text('schema: 1\nname: lib\nmodule-prefix: Lib\nsource-dir: src\nfoundation: de-morgan\nmodules:\n  - Lib.Text\n')
+        (library / "fibril.yaml").write_text('schema: 1\nname: lib\nmodule-prefix: Lib\nsource-dir: src\nfoundation: de-morgan\nmodules:\n  - Lib.Text\n  - Lib.Usage\n')
         (app / "fibril.yaml").write_text('schema: 1\nname: app\nmodule-prefix: App\nsource-dir: src\nfoundation: de-morgan\nentry: Main\ndependencies:\n  lib:\n    path: ../lib\n')
         lib = library / "src/Lib/Text.fib"
         lib_text = 'module Lib.Text\nexport\ngreeting : String\ngreeting = "hello"\n'
         lib.write_text(lib_text)
+        (library / 'src/Lib/Usage.fib').write_text('module Lib.Usage\nimport Lib.Text as T\nexport\nlabel : String\nlabel = T.greeting\n')
         main = app / "src/Main.fib"
         text = 'module Main\nimport Lib.Text\nmain : IO Unit\nmain = putStrLn Lib.Text.greeting\n'
         main.write_text(text)
@@ -290,8 +427,14 @@ class Integration(unittest.TestCase):
         self.assertEqual(client.diagnostics(lib, 1, False)["diagnostics"], [])
         target = client.request("textDocument/definition", {"textDocument": {"uri": main.as_uri()}, "position": Positions(text).point(text.index("greeting"))})["result"]
         self.assertEqual(target["uri"], lib.as_uri())
+        self.assertEqual(len(self.refs(client, main, text, text.index('greeting'))), 2)
+        # Inventory-only modules are indexed, but reverse dependants are not.
+        library_refs = self.refs(client, lib, lib_text, lib_text.index('greeting :'))
+        self.assertEqual(len(library_refs), 1)
+        self.assertTrue(library_refs[0]['uri'].endswith('/Lib/Usage.fib'))
         client.change(lib, lib_text.replace('String', 'Bool').replace('"hello"', 'True'), 2)
-        self.assertTrue(client.diagnostics(main, 1, True)["diagnostics"])
+        # Inventory validation fails in Usage before checking the application.
+        self.assertTrue(client.diagnostics(library / 'src/Lib/Usage.fib', errors=True)["diagnostics"])
         self.assertEqual(lib.read_text(), lib_text)
 
     def test_local_syntax_services_survive_invalid_project_metadata(self):
@@ -384,6 +527,50 @@ vim.cmd('qa!')
         result = subprocess.run([shutil.which('nvim'), '--headless', '-u', 'NONE', '-l', str(script)], capture_output=True, timeout=45)
         self.assertEqual(result.returncode, 0, result.stdout.decode() + result.stderr.decode())
         self.assertEqual(self.path.read_text(), source)
+
+    @unittest.skipUnless(shutil.which('nvim'), 'Neovim is not installed')
+    def test_real_neovim_module_goto_and_cross_file_references(self):
+        a, left, right, main, texts = self.navigation_project()
+        script = self.root / 'navigation.lua'
+        quoted = lambda value: json.dumps(str(value), ensure_ascii=False)
+        selector = Positions(texts[left]).point(texts[left].index('greeting'))
+        script.write_text(f'''vim.opt.runtimepath:append({quoted(ROOT / 'editors/nvim')})
+require('fibril').setup({{ keymaps = false }})
+vim.cmd('filetype plugin on')
+vim.cmd('edit ' .. vim.fn.fnameescape({quoted(main)}))
+vim.bo.filetype = 'fibril'
+assert(vim.wait(15000, function()
+  local clients = vim.lsp.get_clients({{ bufnr = 0, name = 'fibril_lsp' }})
+  return #clients == 1 and clients[1].initialized
+end, 20), 'LSP did not attach')
+vim.api.nvim_win_set_cursor(0, {{2, 7}})
+vim.lsp.buf.definition()
+assert(vim.wait(15000, function()
+  return vim.api.nvim_buf_get_name(0) == {quoted(left)}
+end, 20), 'gd on import did not open module file')
+assert(vim.wait(10000, function()
+  return #vim.lsp.get_clients({{bufnr=0}}) == 1
+end, 20), 'target module was not attached')
+local responses = vim.lsp.buf_request_sync(0, 'textDocument/references', {{
+  textDocument={{uri=vim.uri_from_bufnr(0)}}, position={{line={selector['line']},character={selector['character']}}},
+  context={{includeDeclaration=false}},
+}}, 15000)
+assert(responses, 'no references response')
+for _, response in pairs(responses) do
+  assert(not response.err, vim.inspect(response.err))
+  assert(#response.result == 5, vim.inspect(response))
+  local files = {{}}
+  for _, occurrence in ipairs(response.result) do files[vim.uri_to_fname(occurrence.uri)] = true end
+  assert(files[{quoted(main)}], 'references omitted the application')
+  assert(files[{quoted(right)}], 'references omitted the other facade')
+end
+vim.lsp.stop_client(vim.lsp.get_clients())
+vim.wait(5000, function() return #vim.lsp.get_clients() == 0 end, 20)
+vim.cmd('qa!')
+''', encoding='utf-8')
+        result = subprocess.run([shutil.which('nvim'), '--headless', '-u', 'NONE', '-l', str(script)], capture_output=True, timeout=50)
+        self.assertEqual(result.returncode, 0, result.stdout.decode() + result.stderr.decode())
+        self.assertEqual(main.read_text(), texts[main])
 
     def fake(self):
         script = self.root / "fake-compiler"

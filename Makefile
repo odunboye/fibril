@@ -1,7 +1,7 @@
 PACK ?= pack
 IDRIS2 ?= idris2
 
-.PHONY: prelude prelude-check build test io-test io-hosted-test io-runtime-test io-resource-runtime-test io-resource-emitter-test io-emitter-test io-interactive-test io-cli-test native-test editor-test lsp-test examples bench bench-smoke python-embed-test docs handbook serve-docs clean
+.PHONY: prelude prelude-check build unit-test test io-test io-hosted-test io-runtime-test io-resource-runtime-test io-resource-emitter-test io-emitter-test io-interactive-test io-cli-test native-test editor-test lsp-test examples bench bench-smoke python-embed-test docs handbook serve-docs clean
 prelude:
 	python3 tools/embed_prelude.py
 
@@ -11,8 +11,12 @@ prelude-check:
 build: prelude-check
 	$(PACK) build fibril
 
-test: build
+# pack test may reinstall/relink the compiler, even after build completes.
+# All CLI-consuming test suites must wait for this mutating phase.
+unit-test: build
 	$(PACK) test fibril
+
+test: unit-test
 	python3 tools/test_cli.py
 	CC="$(CC)" python3 tools/test_native.py
 	CC="$(CC)" python3 tools/test_io_cli.py
@@ -39,10 +43,10 @@ io-emitter-test:
 io-interactive-test:
 	IDRIS2="$(IDRIS2)" CC="$(CC)" python3 tools/test_io_interactive.py
 
-io-cli-test: build
+io-cli-test: unit-test
 	CC="$(CC)" python3 tools/test_io_cli.py
 
-native-test: build
+native-test: unit-test
 	CC="$(CC)" python3 tools/test_native.py
 
 examples: build
@@ -140,11 +144,11 @@ bench-smoke:
 	python3 tools/benchmark.py --quick
 	python3 tools/test_benchmark.py
 
-lsp-test: build
+lsp-test: unit-test
 	python3 tools/test_lsp.py
 
-# Editor integration invokes the CLI; do not race its linker under make -j8.
-editor-test: build
+# Editor integration invokes the CLI; do not race package installation/linking.
+editor-test: unit-test
 	python3 tools/test_editor.py
 
 python-embed-test:

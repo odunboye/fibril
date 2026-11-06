@@ -36,7 +36,7 @@ function M.start(bufnr)
       if settings.keymaps ~= false then
         local maps = {
           gd = { vim.lsp.buf.definition, 'Fibril definition' },
-          gr = { vim.lsp.buf.references, 'Fibril references (same file)' },
+          gr = { vim.lsp.buf.references, 'Fibril references (checked scope)' },
           K = { vim.lsp.buf.hover, 'Fibril documentation' },
           ['<leader>rn'] = { vim.lsp.buf.rename, 'Fibril guarded rename (standalone)' },
           ['<leader>f'] = { function() vim.lsp.buf.format({ bufnr = buffer }) end, 'Fibril format' },
