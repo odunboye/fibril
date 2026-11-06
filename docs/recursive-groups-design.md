@@ -6,7 +6,7 @@
 size-change check and isolated reference execution are implemented.**
 `Fibril.Core.RecursiveGroup` defines separate scoped group-body syntax with
 explicit saturated member calls. A restricted Nat/Bool subset is checked, its
-calls and closure are rechecked against the same group, and a narrower linear
+calls and closure are rechecked against the same group, and the non-erased
 subset can run in a separate fuelled reference machine. This syntax is not an
 ordinary `Term` constructor and is not accepted from source or integrated into
 ordinary evaluation. Fibril does not yet support general recursive definitions
@@ -271,15 +271,20 @@ runs the actual restricted group bodies on closed host-side `Natural` and
 `Boolean` values. It rechecks the exact group, proposed graph and closure on
 every invocation, and proceeds only on `GraphAccepted`. Graph mismatch,
 certificate rejection and certificate inconclusiveness remain distinct
-failures. It independently requires **every member** to have only linear
-Nat/Bool parameters, even if a member is unreachable; erased and unrestricted
+failures. It independently requires **every member** to have only linear or
+unrestricted Nat/Bool parameters, even if a member is unreachable; erased
 calling conventions are not implemented here. Entry arguments are checked
 against the selected signature, and call arguments are checked again at every
-member boundary.
+member boundary. Unrestricted locals may be read or forwarded repeatedly;
+static quantitative checking still rejects a linear local passed to an
+unrestricted parameter.
 
 Arguments arrive in signature order and are reversed into newest-first local
-environments. A `Call` evaluates its pure arguments and replaces the caller's
-local environment with the callee's arguments. Nat successor branches prepend
+environments. A `Call` evaluates its pure arguments strictly in signature
+order, including unused unrestricted arguments, and replaces the caller's
+local environment with the callee's arguments. An unused argument can still
+exhaust the Nat bound; this is not a general lazy or effectful calling contract.
+Nat successor branches prepend
 the predecessor; Bool branches add no local. `Return` computes a canonical
 host-side value, whose Nat/Bool sort is rechecked against the entry result.
 Only variables, Nat zero/successor and Bool literals are evaluated; unexpected
@@ -298,7 +303,9 @@ not establish divergence.
 
 Tests execute the actual mutual parity group, both Bool branches, swapped and
 unequal arities, exact fuel boundaries and Nat growth; they also reject forged
-graphs, incomplete certificates, non-linear signatures and wrong input sorts.
+graphs, incomplete certificates, erased signatures and wrong input sorts. They
+also cover unrestricted duplication, forwarding, strict unused arguments and
+rejection of a linear capture by an unrestricted parameter.
 The machine shares syntax and typing assumptions with the graph boundary and
 has no proved preservation or equivalence to a future recursive-core semantics.
 It cannot admit source, unfold recursive calls in dependent conversion, or run

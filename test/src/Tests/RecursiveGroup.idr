@@ -234,6 +234,27 @@ uncalledOmega : Group 2
 uncalledOmega = MkGroup [0, 1] (MoreMembers (MkMember BoolType (Return BoolTrue))
   (MoreMembers (MkMember (Pi Unrestricted BoolType BoolType) (Return BoolTrue)) NoMembers))
 
+omegaForward : Group 2
+omegaForward = MkGroup [1, 1]
+  (MoreMembers (MkMember (Pi Unrestricted BoolType BoolType) (Call (FS FZ) [Variable FZ]))
+    (MoreMembers (MkMember (Pi Unrestricted BoolType BoolType)
+      (CaseBool (Variable FZ) (Return (Variable FZ)) (Return (Variable FZ)))) NoMembers))
+
+omegaStrict : Group 2
+omegaStrict = MkGroup [1, 1]
+  (MoreMembers (MkMember (Pi Unrestricted NatType BoolType) (Call (FS FZ) [NatSucc (Variable FZ)]))
+    (MoreMembers (MkMember (Pi Unrestricted NatType BoolType) (Return BoolTrue)) NoMembers))
+
+omegaRecursive : Group 1
+omegaRecursive = MkGroup [2] (MoreMembers (MkMember (Pi Unrestricted BoolType (Pi Linear NatType BoolType))
+  (CaseNat (Variable FZ) (Return (Variable (FS FZ)))
+    (Call FZ [Variable (FS (FS FZ)), Variable FZ]))) NoMembers)
+
+mixedUsage : Group 1
+mixedUsage = MkGroup [2] (MoreMembers (MkMember (Pi Unrestricted BoolType (Pi Linear BoolType BoolType))
+  (CaseBool (Variable (FS FZ)) (Return (Variable FZ))
+    (CaseBool (Variable (FS FZ)) (Return (Variable FZ)) (Return (Variable FZ))))) NoMembers)
+
 reference : Nat -> (group : Group size) -> (target : Fin size) ->
             Vect (index target group.arities) Value -> Maybe (Either Fibril.Core.RecursiveGroupReference.Problem Value)
 reference fuel group target values = case Fibril.Termination.GroupCalls.extract group of
@@ -500,10 +521,27 @@ checks =
         (Just (Left (InvalidInput _)), Just (Left (AdmissionExhausted _)),
          Just (Left (AdmissionExhausted _))) => True
         _ => False)
-  , ("group reference rejects erased and unrestricted parameters in any member",
-      case (reference 4 rectangular FZ [Natural 0], reference 4 uncalledOmega FZ []) of
-        (Just (Left (Fibril.Core.RecursiveGroupReference.Unsupported _)),
-         Just (Left (Fibril.Core.RecursiveGroupReference.Unsupported _))) => True
+  , ("group reference supports unrestricted values, forwarding and repeated reads",
+      referenceIs 4 uncalledOmega FZ [] (Boolean True) &&
+      referenceIs 4 uncalledOmega (FS FZ) [Boolean False] (Boolean True) &&
+      referenceIs 4 omegaForward FZ [Boolean True] (Boolean True) &&
+      referenceIs 4 omegaForward FZ [Boolean False] (Boolean False) &&
+      referenceIs 4 omegaStrict FZ [Natural 255] (Boolean True) &&
+      referenceIs 12 omegaRecursive FZ [Boolean False, Natural 3] (Boolean False) &&
+      referenceIs 12 omegaRecursive FZ [Boolean True, Natural 3] (Boolean True) &&
+      referenceIs 4 mixedUsage FZ [Boolean False, Boolean True] (Boolean True) &&
+      referenceIs 4 mixedUsage FZ [Boolean True, Boolean False] (Boolean False))
+  , ("group reference evaluates even unused unrestricted arguments strictly",
+      case reference 4 omegaStrict FZ [Natural 256] of
+        Just (Left (AdmissionExhausted _)) => True
+        _ => False)
+  , ("group reference still rejects erased parameters in any member",
+      case reference 4 rectangular FZ [Natural 0] of
+        Just (Left (Fibril.Core.RecursiveGroupReference.Unsupported _)) => True
+        _ => False)
+  , ("group reference rejects unrestricted calls that capture linear inputs",
+      case evaluate 4 unrestrictedCall FZ [Natural 1] [] [] of
+        Left (GraphFailure (Fibril.Termination.GroupCheck.GroupProblem (Invalid _))) => True
         _ => False)
   , ("group reference fuel policy has an explicit upper bound",
       referenceIs 4096 constantBool FZ [] (Boolean True) &&

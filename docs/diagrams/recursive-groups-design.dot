@@ -6,7 +6,7 @@ digraph RecursiveGroupsDesign {
   typing [label="Restricted Nat/Bool group check\ntypes, cases + quantitative usage"];
   calls [label="Restricted Nat/Bool rewalk\ncall sites + relation cells"];
   cert [label="Verify untrusted closure\nagainst rechecked calls"];
-  reference [label="Isolated fuelled reference\nlinear Nat/Bool groups only"];
+  reference [label="Isolated fuelled reference\nnon-erased Nat/Bool only"];
   artifact [label="Future integrated checked group\nno forged checked flag"];
   evaluate [label="Ordinary evaluation + conversion\nnot integrated"];
   backend [label="Backends: reject until supported", style=dashed];

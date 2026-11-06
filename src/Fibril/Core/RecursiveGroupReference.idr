@@ -43,22 +43,23 @@ withinNat Z (S _) = False
 withinNat (S _) Z = True
 withinNat (S fuel) (S value) = withinNat fuel value
 
--- All group signatures are checked afresh and must have only linear Pi
--- parameters. This experiment does not implement erased/runtime argument
--- erasure or unrestricted-argument calling semantics.
-linearSignature : Nat -> Term n -> Either Problem ()
-linearSignature Z NatType = Right ()
-linearSignature Z BoolType = Right ()
-linearSignature Z _ = Left (Unsupported "expected a literal Nat or Bool result")
-linearSignature (S rest) (Pi Linear NatType result) = linearSignature rest result
-linearSignature (S rest) (Pi Linear BoolType result) = linearSignature rest result
-linearSignature (S _) _ = Left (Unsupported "reference groups require literal linear parameters")
+-- All signatures are checked afresh. Pure Nat/Bool values may be read once or
+-- unrestrictedly; erased argument calling conventions remain unsupported.
+referenceSignature : Nat -> Term n -> Either Problem ()
+referenceSignature Z NatType = Right ()
+referenceSignature Z BoolType = Right ()
+referenceSignature Z _ = Left (Unsupported "expected a literal Nat or Bool result")
+referenceSignature (S rest) (Pi Linear NatType result) = referenceSignature rest result
+referenceSignature (S rest) (Pi Linear BoolType result) = referenceSignature rest result
+referenceSignature (S rest) (Pi Unrestricted NatType result) = referenceSignature rest result
+referenceSignature (S rest) (Pi Unrestricted BoolType result) = referenceSignature rest result
+referenceSignature (S _) _ = Left (Unsupported "reference groups require non-erased literal Nat/Bool parameters")
 
-linearMembers : (remaining : Vect n Nat) -> Members groupShape remaining -> Either Problem ()
-linearMembers [] NoMembers = Right ()
-linearMembers (arity :: rest) (MoreMembers member following) = do
-  linearSignature arity member.signature
-  linearMembers rest following
+referenceMembers : (remaining : Vect n Nat) -> Members groupShape remaining -> Either Problem ()
+referenceMembers [] NoMembers = Right ()
+referenceMembers (arity :: rest) (MoreMembers member following) = do
+  referenceSignature arity member.signature
+  referenceMembers rest following
 
 -- Values are bounded before execution or construction of a successor.
 checkValue : Term n -> Value -> Either Problem ()
@@ -71,6 +72,9 @@ checkArguments : Vect arity Value -> Term n -> Either Problem Sort
 checkArguments [] NatType = Right NatSort
 checkArguments [] BoolType = Right BoolSort
 checkArguments (value :: values) (Pi Linear domain result) = do
+  checkValue domain value
+  checkArguments values result
+checkArguments (value :: values) (Pi Unrestricted domain result) = do
   checkValue domain value
   checkArguments values result
 checkArguments _ _ = Left (Unsupported "member signature is outside the reference fragment")
@@ -139,7 +143,7 @@ evaluate fuel group target values calls certificate = do
     Right (GraphRejected message) => Left (CertificateRejected message)
     Right (GraphInconclusive message) => Left (CertificateInconclusive message)
   if fuel <= 4096 then Right () else Left (AdmissionExhausted "reference fuel admission exhausted (4096)")
-  linearMembers group.arities group.definitions
+  referenceMembers group.arities group.definitions
   let member = memberAt group target
   resultType <- checkArguments values member.signature
   result <- run fuel group member.body (reverse values)
