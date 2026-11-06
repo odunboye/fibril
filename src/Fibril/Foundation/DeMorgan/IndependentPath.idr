@@ -64,11 +64,9 @@ checkPathAgainstType depth reduction fuel path (MkCheckedBoolPathType left right
 export
 checkClosedPath : Nat -> Nat -> Nat -> CorePathExpr 0 -> Term 0 -> Term 0 ->
                   Either ClosedPathFailure CheckedClosedPath
-checkClosedPath depth reduction fuel path left right =
-  case checkCorePathExpr depth reduction fuel path left right of
-    Accepted => Right (MkCheckedClosedPath path left right)
-    Rejected => Left ClosedPathRejected
-    Exhausted => Left ClosedPathExhausted
+checkClosedPath depth reduction fuel path left right = do
+  pathType <- formClosedBoolPath depth reduction fuel left right
+  checkPathAgainstType depth reduction fuel path pathType
 
 ||| Weaken only dimension scope. The underlying closed computational terms
 ||| and their checked endpoints are unchanged.
