@@ -219,6 +219,39 @@ normalization, or determine erasure and linear-resource rules. A future core
 integration must define how checked judgments are represented and consumed,
 and make unsupported forms fail closed in checkers and emitters.
 
+## Quantitative integration: research blocker
+
+CCHM Figure 2 does not specify Fibril's `0/1/ω` usage judgment. One relevant
+reference is Abel, Danielsson and Vezzosi, [*Compiling Programs with Erased
+Univalence*](https://www.cse.chalmers.se/~nad/publications/abel-danielsson-vezzosi-erased-univalence.pdf),
+§4.1.4 and Figure 4. Their CTT0 gives path and cubical rules with erasure, and
+§3 demonstrates why seemingly harmless combinations of erasure and equality
+can produce observably incorrect compiled results. **CTT0 explicitly supports
+only erasure, not linearity** (§7); it cannot be adopted as a justification for
+Fibril's `1` quantity. Its compilation result also relies on stated assumptions
+(§4.3). It is a candidate reference for investigating an erased fragment, not
+an adopted Fibril calculus or a proof about this implementation.
+
+A concrete unresolved obligation is resource preservation for dependent
+transport: a reduction for a dependent pair may place the transported first
+component both in the first projection and inside the type family used for the
+second. Whether those occurrences are erased or consume a linear value depends
+on the exact typing and erasure rules. More broadly, converting a type along an
+ordinary univalent equivalence must not silently turn an unrestricted function
+into a resource-preserving linear one. These problems are not resolved by
+counting occurrences in the initial syntax or by passing existing runtime tests.
+The [Cubical Agda linearity discussion](https://github.com/agda/agda/issues/4642)
+records these examples and explicitly labels its proposed restrictions as
+unverified; it is motivation, not an adopted specification.
+
+Until a published compatible calculus or a justified conservative design is
+selected and its preservation/substitution/erasure obligations are addressed,
+the independent closed fragment must not be promoted to a core path constructor
+accepted in linear contexts. In particular, a proof-only annotation or a blanket
+rule that all path data erase is not enough. The existing empty computational
+context and restricted Boolean grammar avoid captures for the experiment only;
+they are not rules for weakening into arbitrary linear contexts or for transport.
+
 ## Checker composition gate
 
 The experimental path helper is not an additional authority for accepting a
