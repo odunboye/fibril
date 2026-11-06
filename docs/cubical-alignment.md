@@ -117,7 +117,10 @@ It is **not yet the independent path judgment** described above:
    after the fragment checker accepts, but this is not a core typing derivation.
    `formClosedBoolPath` separately checks and seals the two endpoint terms;
    `checkPathAgainstType` checks an abstraction against that formed type, and
-   `checkPathEndpoint` rechecks and seals an endpoint result.
+   `checkPathEndpoint` rechecks and seals an endpoint result. The optional
+   `checkRuntimePathEndpoint` additionally checks that *ordinary closed Boolean
+   result* with `checkRuntime` in `Empty`; it does not validate the path as a
+   runtime value or establish any quantitative cubical rule.
    Distinct endpoints may form a type without yielding a path.
    `checkCorePathExpr` itself returns only a status; callers must not treat raw
    `CoreStepped` syntax as a reusable typing certificate. Witness construction

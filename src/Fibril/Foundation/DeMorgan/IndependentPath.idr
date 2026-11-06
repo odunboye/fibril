@@ -3,6 +3,9 @@ module Fibril.Foundation.DeMorgan.IndependentPath
 
 import Data.Fin
 import Fibril.Core.Term
+import Fibril.Core.Context
+import Fibril.Core.Erased
+import Fibril.Core.Runtime
 import Fibril.Foundation.DeMorgan.ClosedPath
 import Fibril.Foundation.DeMorgan.ClosedCorePath
 import Fibril.Foundation.DeMorgan.Interval
@@ -112,3 +115,17 @@ checkPathEndpoint depth reduction fuel checked@(MkCheckedClosedPath path left ri
         Accepted => Right (MkCheckedClosedBool value)
         Rejected => Left ClosedPathRejected
         Exhausted => Left ClosedPathExhausted
+
+||| Additionally check the resulting *ordinary closed Boolean term* with the
+||| runtime checker. This does not check a path as a runtime value or add any
+||| quantitative cubical rule; the computational context remains empty.
+export
+checkRuntimePathEndpoint : Nat -> Nat -> Nat -> CheckedClosedPath -> Bool ->
+                           Either ClosedPathFailure CheckedClosedBool
+checkRuntimePathEndpoint depth reduction fuel path endpoint = do
+  checked <- checkPathEndpoint depth reduction fuel path endpoint
+  case checkRuntime depth reduction Empty (forgetCheckedClosedBool checked) BoolType of
+    Left (TypingError CheckingLimit) => Left ClosedPathExhausted
+    Left (TypingError ReductionLimit) => Left ClosedPathExhausted
+    Left _ => Left ClosedPathRejected
+    Right _ => Right checked

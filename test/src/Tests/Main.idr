@@ -408,6 +408,21 @@ checks =
             _ => False
           Left _ => False
         Left _ => False)
+  , ("closed path endpoint also passes ordinary runtime checking",
+      case formClosedBoolPath 64 64 5 BoolTrue BoolTrue of
+        Right ty => case checkPathAgainstType 64 64 5 (CoreAbstract (CoreTerm BoolTrue)) ty of
+          Right path => case (checkRuntimePathEndpoint 64 64 6 path False,
+                              checkRuntimePathEndpoint 64 64 6 path True) of
+            (Right _, Right _) => True; _ => False
+          Left _ => False
+        Left _ => False)
+  , ("closed runtime endpoint propagates exhaustion",
+      case formClosedBoolPath 64 64 5 BoolTrue BoolTrue of
+        Right ty => case checkPathAgainstType 64 64 5 (CoreAbstract (CoreTerm BoolTrue)) ty of
+          Right path => case checkRuntimePathEndpoint 0 64 6 path False of
+            Left ClosedPathExhausted => True; _ => False
+          Left _ => False
+        Left _ => False)
   , ("checked endpoint rejects budget exhaustion",
       case formClosedBoolPath 64 64 5 BoolTrue BoolTrue of
         Right ty => case checkPathAgainstType 64 64 5 (CoreAbstract (CoreTerm BoolTrue)) ty of
