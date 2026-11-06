@@ -13,7 +13,8 @@ compiler backends, and real-time guarantees are not implemented.
 pure, and bind over experimental IO descriptions. A hosted runner executes stdout
 plans; a complete effect calculus and compiler backends remain future work.
 [Pure byte operations](docs/bytes.md) now check and normalize separately from
-text; source binary effects and native byte-value lowering remain future work.
+text and have native lowering for the initial pure subset; source binary effects
+remain future work.
 An internal [binary transport pilot](docs/io-binary.md) preserves arbitrary bytes
 through hosted/native stdio, with explicit budgets and checked flush. It is not
 yet a Fibril source API or a self-hosted LSP runtime.

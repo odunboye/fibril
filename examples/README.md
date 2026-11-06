@@ -2,6 +2,8 @@
 
 The [pure bytes example](core/bytes-pure.fib) constructs a NUL octet, appends
 another byte and computes length. It performs no binary IO; use `fibril eval`.
+The [native pure bytes example](core/bytes-native.fib) feeds a byte-derived length
+into text output and supports checked C emission; it is not binary transport.
 
 Strict YAML inspection fixtures live in [manifests/](manifests/README.md). They are
 not executable workspace projects or source-checking examples.

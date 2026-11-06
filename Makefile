@@ -1,7 +1,7 @@
 PACK ?= pack
 IDRIS2 ?= idris2
 
-.PHONY: prelude prelude-check build unit-test test io-test io-hosted-test io-runtime-test io-resource-runtime-test io-resource-emitter-test io-emitter-test io-interactive-test io-binary-test io-binary-bench io-cli-test native-test editor-test examples bench bench-smoke python-embed-test docs handbook serve-docs clean
+.PHONY: prelude prelude-check build unit-test test io-test io-hosted-test io-runtime-test io-resource-runtime-test io-resource-emitter-test io-emitter-test io-interactive-test io-binary-test io-binary-bench io-cli-test native-test bytes-native-test editor-test examples bench bench-smoke python-embed-test docs handbook serve-docs clean
 prelude:
 	python3 tools/embed_prelude.py
 
@@ -18,6 +18,7 @@ unit-test: build
 test: unit-test
 	python3 tools/test_cli.py
 	CC="$(CC)" python3 tools/test_native.py
+	CC="$(CC)" python3 tools/test_bytes_native.py
 	CC="$(CC)" python3 tools/test_io_cli.py
 
 # Each suite builds in its own temporary directory, safe with make -j8.
@@ -53,6 +54,10 @@ io-cli-test: unit-test
 
 native-test: unit-test
 	CC="$(CC)" python3 tools/test_native.py
+	CC="$(CC)" python3 tools/test_bytes_native.py
+
+bytes-native-test: unit-test
+	CC="$(CC)" python3 tools/test_bytes_native.py
 
 examples: build
 	$(PACK) run fibril-examples
@@ -67,6 +72,7 @@ examples: build
 	./build/exec/fibril run --package examples/packages/sum-client/fibril.yaml
 	./build/exec/fibril check --package examples/packages/request-api/fibril.yaml
 	./build/exec/fibril test --package examples/packages/request-api/fibril.yaml
+	./build/exec/fibril run examples/core/bytes-native.fib
 	./build/exec/fibril check examples/core/bytes-pure.fib
 	./build/exec/fibril eval examples/core/bytes-pure.fib
 	./build/exec/fibril check examples/core/identity.fib

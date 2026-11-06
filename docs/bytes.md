@@ -1,8 +1,8 @@
 # Pure byte values
 
 Status: a first checked **pure** core/source slice. This does not expose binary
-transport to `.fib` programs, implement packed native byte values or make an LSP
-server available in Fibril. See [binary transport](io-binary.md) for the trusted
+transport to `.fib` programs or make an LSP server available in Fibril.
+The five existing pure core constructs now have checked C lowering. See [binary transport](io-binary.md) for the trusted
 host/native transport and remaining gates.
 
 ## Source primitives
@@ -67,9 +67,54 @@ full/head reduction, modulo wrapping, scope transport, size/payload admission,
 resource scans and source linear use. CLI regressions check the actual example
 and reject byte payloads through every existing text execution/emission command.
 
+## Native pure byte values
+
+`runtime/native/fibril_runtime.c` now gives byte values a separate `V_BYTES` tag,
+not a string alias. Payloads are explicit pointer/length pairs with no terminator
+or decoding. Generated literal arrays are static immutable decimal octets;
+append and singleton payloads live in the existing run-owned allocation arena.
+Raw C literal callers must keep storage immutable/alive through the run. Empty
+literal storage may be null, but nonempty null literals are rejected.
+
+Append checks operand tags, addition overflow and the existing allocation budget.
+Length constructs the existing unary native Nat representation. Length expansion
+and modulo traversal charge native evaluation steps even for memoized nodes;
+malformed cyclic trusted naturals cannot bypass that bound. Native depth,
+allocation and step limits remain distinct from hosted reduction budgets, so
+large inputs can exhaust one backend earlier. No preservation or heap-bound
+proof is claimed.
+
+`examples/core/bytes-native.fib` computes a byte length and renders it as text:
+
+```sh
+./build/exec/fibril run examples/core/bytes-native.fib
+./build/exec/fibril emit-c-interactive examples/core/bytes-native.fib > /tmp/bytes.c
+cc -std=c11 -I runtime/native /tmp/bytes.c runtime/native/fibril_runtime.c -o /tmp/bytes
+/tmp/bytes
+# xx
+```
+
+This is real checked source emission/execution, but the output remains text. It
+neither reads nor writes binary streams. The existing output-only, interactive
+and resource entry points gain no new IO permission.
+
+```sh
+make -j8 bytes-native-test
+make -j8 bytes-native-test CC='cc -fsanitize=address,undefined -fno-omit-frame-pointer'
+```
+
+The suite compares hosted execution and compiled checked source in both emission
+modes, checks that generated C retains byte operations (not just a precomputed
+result), and exercises thirteen raw ABI cases: all octets, null empty storage,
+modulo values 0..513, type errors, overflow, missing callbacks, cyclic naturals
+and evaluation/allocation exhaustion. A separate raw case rejects Bytes as text
+output. These raw cases intentionally inspect runtime internals, not source
+checking. Two checked-core fixtures verify literal NUL/FF/invalid-UTF-8 decimal
+emission without character conversion.
+
 ## Validation
 
-The unit/property phase (including 26 deterministic core-byte checks), 163 CLI,
+The unit/property phase (including 28 deterministic core-byte checks), 163 CLI,
 19 native-emitter, 9 interactive CLI, 7 editor and 16 handbook tests passed.
 Focused IO subtargets passed in split runs: 290 hosted checks, 29 checked
 resource differentials, console/interactive emission comparisons, and 19 binary
@@ -91,8 +136,6 @@ No timed-out invocation is counted as a successful test.
 ## Remaining work
 
 - Bounded indexing/slicing and explicit fallible UTF-8 conversions.
-- Native immutable byte values and lowering; the existing backend rejects
-  unsupported computational byte constructs rather than emitting C strings.
 - Checked binary descriptions, explicit hosted/native runners and source
   admission. The [transport pilot](io-binary.md) remains internal.
 - A real Fibril-written bounded Content-Length parser and echo program.

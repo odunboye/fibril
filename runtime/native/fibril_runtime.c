@@ -17,7 +17,7 @@ typedef struct FAction { const unsigned char *bytes; size_t length; struct FActi
 typedef struct FInput { size_t identity, generation; FILE *file; const char *close_error; struct FInput *next; } FInput;
 struct FRuntime { FAllocation *allocations; size_t bytes, steps, depth, actions; const char *error; FAction *head, *tail; FInput *inputs; size_t next_input; };
 struct FEnv { FThunk *value; FEnv *tail; };
-typedef enum { V_UNIT, V_ERASED, V_BOOL, V_STRING, V_CLOSURE, V_NOMINAL, V_VARIANT,
+typedef enum { V_UNIT, V_ERASED, V_BOOL, V_STRING, V_BYTES, V_CLOSURE, V_NOMINAL, V_VARIANT,
                V_NAT_ZERO, V_NAT_SUCC, V_REC_END, V_REC_MORE, V_SEQ_NIL, V_SEQ_CONS,
                V_PURE, V_BIND, V_WRITE, V_READ, V_PAIR, V_INPUT_HANDLE,
                V_WITH_INPUT, V_READ_INPUT } FTag;
@@ -26,6 +26,7 @@ struct FValue {
   FTag tag;
   union {
     struct { const unsigned char *bytes; size_t length; } string;
+    struct { const unsigned char *data; size_t length; } bytes;
     int boolean;
     FThunk *nominal;
     struct { size_t tag; FThunk *payload; } variant;
@@ -112,6 +113,66 @@ FValue *f_literal(FRuntime *r, const unsigned char *bytes, size_t length) {
   FValue *v = new_value(r, V_STRING);
   if (v) { v->as.string.bytes = bytes; v->as.string.length = length; }
   return v;
+}
+FValue *f_bytes_literal(FRuntime *r, const unsigned char *bytes, size_t length) {
+  if ((length && !bytes) || length > F_MAX_BYTES) {
+    fail(r, "invalid native byte literal"); return NULL;
+  }
+  FValue *value = new_value(r, V_BYTES);
+  if (value) { value->as.bytes.data = bytes; value->as.bytes.length = length; }
+  return value;
+}
+FValue *f_bytes_append(FRuntime *r, FEnv *env, FEval left, FEval right) {
+  if (!left || !right) { fail(r, "missing native byte append operand"); return NULL; }
+  FValue *a = evaluate(r, left, env);
+  FValue *b = a ? evaluate(r, right, env) : NULL;
+  if (!a || !b || a->tag != V_BYTES || b->tag != V_BYTES) {
+    fail(r, "native byte append expects Bytes"); return NULL;
+  }
+  if (a->as.bytes.length > SIZE_MAX - b->as.bytes.length) {
+    fail(r, "native byte length overflow"); return NULL;
+  }
+  size_t length = a->as.bytes.length + b->as.bytes.length;
+  unsigned char *data = allocate(r, length ? length : 1);
+  if (!data) return NULL;
+  if (a->as.bytes.length) memcpy(data, a->as.bytes.data, a->as.bytes.length);
+  if (b->as.bytes.length) memcpy(data + a->as.bytes.length, b->as.bytes.data, b->as.bytes.length);
+  return f_bytes_literal(r, data, length);
+}
+/* Charge even memoized natural traversals, which otherwise could cycle forever
+   in a malformed trusted fixture. Arena allocation has its separate bound. */
+static int byte_work(FRuntime *r) {
+  if (!enter(r)) return 0;
+  r->depth--; return 1;
+}
+FValue *f_bytes_length(FRuntime *r, FEnv *env, FEval expression) {
+  if (!expression) { fail(r, "missing native byte length operand"); return NULL; }
+  FValue *bytes = evaluate(r, expression, env);
+  if (!bytes || bytes->tag != V_BYTES) { fail(r, "native byte length expects Bytes"); return NULL; }
+  FValue *result = f_nat_zero(r);
+  for (size_t n = 0; result && n < bytes->as.bytes.length; n++) {
+    if (!byte_work(r)) return NULL;
+    FThunk *tail = ready(r, result);
+    if (!tail) return NULL;
+    result = new_value(r, V_NAT_SUCC);
+    if (result) result->as.recursive.tail = tail;
+  }
+  return result;
+}
+FValue *f_bytes_octet(FRuntime *r, FEnv *env, FEval expression) {
+  if (!expression) { fail(r, "missing native byte octet operand"); return NULL; }
+  FValue *value = evaluate(r, expression, env);
+  unsigned char octet = 0;
+  while (value && value->tag == V_NAT_SUCC) {
+    if (!byte_work(r)) return NULL;
+    octet = (unsigned char)(octet + 1u);
+    value = force(r, value->as.recursive.tail);
+  }
+  if (!value || value->tag != V_NAT_ZERO) { fail(r, "native byte octet expects Nat"); return NULL; }
+  unsigned char *data = allocate(r, 1);
+  if (!data) return NULL;
+  *data = octet;
+  return f_bytes_literal(r, data, 1);
 }
 FValue *f_variable(FRuntime *r, FEnv *env, size_t index) {
   while (env && index) { env = env->tail; index--; }

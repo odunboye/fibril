@@ -4,6 +4,7 @@ module Fibril.Driver.Native.Emit
 import Data.List
 import Data.Fin
 import Fibril.Core.Term
+import Fibril.Data.Bytes
 import Fibril.Core.Quantity
 import Fibril.Core.Context
 import Fibril.Core.Runtime
@@ -54,12 +55,24 @@ literal n text =
     "static const unsigned char fibril_literal_" ++ show n ++ "[] = {" ++ contents ++ "};\n" ++
     function n ("(void)e; return f_literal(r, fibril_literal_" ++ show n ++ ", " ++ show (length bytes) ++ ");")
 
+byteLiteral : Nat -> Bytes -> String
+byteLiteral n value =
+  let bytes : List Bits8 = Fibril.Data.Bytes.toList value
+      contents = if null bytes then "0" else concat (intersperse "," (map show bytes)) in
+    "static const unsigned char fibril_bytes_" ++ show n ++ "[] = {" ++ contents ++ "};\n" ++
+    function n ("(void)e; return f_bytes_literal(r, fibril_bytes_" ++ show n ++ ", " ++ show (length bytes) ++ ");")
+
 constant : Nat -> String -> Generated
 constant n expr = Output n (S n) [function n ("(void)e; return " ++ expr ++ ";")]
 
 mutual
   generate : NativeMode -> Nat -> Term n -> Either String Generated
   generate mode n (Variable index) = Right (Output n (S n) [function n ("return f_variable(r, e, " ++ show (finToNat index) ++ ");")])
+  generate mode n BytesType = Right (constant n "f_erased(r)")
+  generate mode n (BytesValue value) = Right (Output n (S n) [byteLiteral n value])
+  generate mode n (BytesAppend a b) = binary mode n "f_bytes_append" a b
+  generate mode n (BytesLength x) = unary mode n "f_bytes_length" x
+  generate mode n (BytesOctet x) = unary mode n "f_bytes_octet" x
   generate mode n (StringValue value) = Right (Output n (S n) [literal n value])
   generate mode n UnitValue = Right (constant n "f_unit(r)")
   generate mode n (Universe _) = Right (constant n "f_erased(r)")

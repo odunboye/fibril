@@ -2,6 +2,7 @@ module Tests.CoreBytes
 
 import Data.Fin
 import Data.List
+import Data.String
 import Fibril.Data.Bytes
 import Fibril.Core.Term
 import Fibril.Core.Quantity
@@ -42,6 +43,15 @@ head term expected = case weakHead 32 term of
 sample : Term 0
 sample = BytesAppend (BytesOctet NatZero) (BytesValue (fromList [255,13,10,128]))
 
+literalOutput : Term 0
+literalOutput = WriteLine (NatRec (Lambda Erased NatType StringType) (StringValue "")
+  (Lambda Erased NatType (Lambda Linear StringType (StringAppend (StringValue "x") (Variable FZ))))
+  (BytesLength (BytesValue (fromList [0,255,128,13,10]))))
+
+literalEmission : Either String String -> Bool
+literalEmission (Left _) = False
+literalEmission (Right code) = isInfixOf "0,255,128,13,10" code && isInfixOf "f_bytes_literal(" code && isInfixOf "f_bytes_length(" code
+
 openTerms : List (Term 1)
 openTerms = [BytesType, BytesValue (fromList [0,255]), BytesLength (Variable FZ),
              BytesOctet (Variable FZ), BytesAppend (Variable FZ) (BytesValue empty)]
@@ -49,7 +59,9 @@ openTerms = [BytesType, BytesValue (fromList [0,255]), BytesLength (Variable FZ)
 public export
 checks : List (String, Bool)
 checks =
-  [("Bytes literals check separately from String", accepted (BytesValue (fromList [0,255,128])) BytesType),
+  [("checked native byte literals preserve decimal octets", literalEmission (emitCheckedC literalOutput)),
+   ("checked interactive native byte literals preserve decimal octets", literalEmission (emitCheckedInteractiveC 512 128 literalOutput)),
+   ("Bytes literals check separately from String", accepted (BytesValue (fromList [0,255,128])) BytesType),
    ("Bytes cannot be used as text", not (accepted (BytesValue empty) StringType)),
    ("String cannot be used as Bytes", not (accepted (StringValue "") BytesType)),
    ("Bytes append is checked", accepted sample BytesType),

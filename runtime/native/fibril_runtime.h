@@ -34,6 +34,11 @@ FValue *f_variable(FRuntime *r, FEnv *env, size_t index);
 FValue *f_lambda(FRuntime *r, FEnv *env, int erased, FEval body);
 FValue *f_apply(FRuntime *r, FEnv *env, FEval function, FEval argument);
 FValue *f_append(FRuntime *r, FEnv *env, FEval left, FEval right);
+/* Trusted literal storage must remain immutable/alive through the run. */
+FValue *f_bytes_literal(FRuntime *r, const unsigned char *bytes, size_t length);
+FValue *f_bytes_append(FRuntime *r, FEnv *env, FEval left, FEval right);
+FValue *f_bytes_length(FRuntime *r, FEnv *env, FEval value);
+FValue *f_bytes_octet(FRuntime *r, FEnv *env, FEval value);
 FValue *f_unit_case(FRuntime *r, FEnv *env, FEval scrutinee, FEval body);
 FValue *f_pair(FRuntime *r, FEnv *env, int first_erased, int second_erased, FEval first, FEval second);
 FValue *f_pair_case(FRuntime *r, FEnv *env, FEval scrutinee, FEval branch);

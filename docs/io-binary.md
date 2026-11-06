@@ -2,8 +2,8 @@
 
 Status: immutable byte values now have a first [pure core/source slice](bytes.md).
 Trusted hosted/native **transport** APIs have differential tests but remain
-internal: no source binary effects, native byte-value lowering or LSP
-implementation written in Fibril yet.
+internal: no source binary effects or LSP implementation written in Fibril yet.
+The existing pure byte constructs now have native value/lowering coverage.
 Existing text IO retains strict UTF-8 decoding and NUL rejection.
 
 ## Byte values
@@ -171,8 +171,8 @@ the reference adapter while expanding source/runtime coverage.
 The initial pure byte types, append/length/modulo operations and structural
 proof extensions are implemented; `examples/core/bytes-pure.fib` checks/evaluates.
 
-1. Extend pure bytes with bounded index/slice, explicit UTF-8 conversion and native
-   value/lowering coverage.
+1. Extend pure bytes with bounded index/slice and explicit UTF-8 conversion;
+   retain hosted/native comparisons for each new operation.
 2. Add checked binary descriptions and source operations with explicit hosted/
    native execution admission; compare actual compiled `.fib` programs. Preserve
    all existing runner gates.
