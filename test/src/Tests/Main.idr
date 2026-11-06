@@ -394,6 +394,26 @@ checks =
                (CoreApply (CoreAbstract (CoreTerm BoolTrue)) (Var FZ))) (Var FZ))))
              BoolTrue BoolTrue of
         Exhausted => True; _ => False)
+  , ("closed Bool path type forms and checks before application",
+      case formClosedBoolPath 64 64 4 BoolTrue BoolTrue of
+        Right ty => case checkPathAgainstType 64 64 4 (CoreAbstract (CoreTerm BoolTrue)) ty of
+          Right path => case (applyCheckedClosedPath 64 64 5 path Zero,
+                              applyCheckedClosedPath 64 64 5 path One) of
+            (CoreValue BoolTrue, CoreValue BoolTrue) => True
+            _ => False
+          Left _ => False
+        Left _ => False)
+  , ("distinct Bool endpoints form but do not invent a path",
+      case formClosedBoolPath 64 64 4 BoolTrue BoolFalse of
+        Right ty => case checkPathAgainstType 64 64 4 (CoreAbstract (CoreTerm BoolTrue)) ty of
+          Left ClosedPathRejected => True; _ => False
+        Left _ => False)
+  , ("closed Bool path formation rejects non-Boolean endpoints",
+      case formClosedBoolPath 64 64 4 BoolTrue UnitValue of
+        Left ClosedPathRejected => True; _ => False)
+  , ("closed Bool path formation propagates exhaustion",
+      case formClosedBoolPath 64 64 2 BoolTrue BoolTrue of
+        Left ClosedPathExhausted => True; _ => False)
   , ("independent closed path witness applies at both endpoints",
       case checkClosedPath 64 64 4 (CoreAbstract (CoreTerm BoolTrue)) BoolTrue BoolTrue of
         Right path => case (applyCheckedClosedPath 64 64 5 path Zero,

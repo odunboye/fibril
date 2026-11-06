@@ -115,6 +115,9 @@ It is **not yet the independent path judgment** described above:
 1. `CorePathExpr` is separate raw syntax, not a core type former. The isolated
    `IndependentPath` module exposes an opaque `CheckedClosedPath` witness only
    after the fragment checker accepts, but this is not a core typing derivation.
+   `formClosedBoolPath` separately checks and seals the two endpoint terms;
+   `checkPathAgainstType` checks an abstraction against that formed type.
+   Distinct endpoints may form a type without yielding a path.
    `checkCorePathExpr` itself returns only a status; callers must not treat raw
    `CoreStepped` syntax as a reusable typing certificate. Witness construction
    distinguishes rejection from exhaustion with `ClosedPathFailure`, whose

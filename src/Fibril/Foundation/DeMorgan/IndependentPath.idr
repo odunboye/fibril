@@ -10,6 +10,12 @@ import Fibril.Foundation.DeMorgan.Scope
 
 %default total
 
+||| A checked closed `Path Bool left right` formation, with opaque endpoints.
+||| This is an experimental judgment, not a Fibril core type.
+export
+data CheckedBoolPathType : Type where
+  MkCheckedBoolPathType : Term 0 -> Term 0 -> CheckedBoolPathType
+
 ||| Opaque evidence of acceptance by the restricted experimental path checker.
 ||| It is not a Fibril core term or evidence of resource-safe runtime use.
 export
@@ -20,6 +26,32 @@ data CheckedClosedPath : Type where
 ||| while rejection covers mismatched or unsupported inputs.
 public export
 data ClosedPathFailure = ClosedPathRejected | ClosedPathExhausted
+
+||| Form `Path Bool left right` only when both closed endpoints are independently
+||| accepted as Boolean terms in the restricted fragment. Different endpoints are
+||| permitted: formation does not assert that a path between them exists.
+export
+formClosedBoolPath : Nat -> Nat -> Nat -> Term 0 -> Term 0 ->
+                     Either ClosedPathFailure CheckedBoolPathType
+formClosedBoolPath depth reduction fuel left right =
+  case checkClosedCorePath depth reduction fuel left left left of
+    Rejected => Left ClosedPathRejected
+    Exhausted => Left ClosedPathExhausted
+    Accepted => case checkClosedCorePath depth reduction fuel right right right of
+      Rejected => Left ClosedPathRejected
+      Exhausted => Left ClosedPathExhausted
+      Accepted => Right (MkCheckedBoolPathType left right)
+
+||| Check a path against an already-formed type. The checker repeats all
+||| relevant checks under the caller's budgets, rather than trusting annotations.
+export
+checkPathAgainstType : Nat -> Nat -> Nat -> CorePathExpr 0 -> CheckedBoolPathType ->
+                       Either ClosedPathFailure CheckedClosedPath
+checkPathAgainstType depth reduction fuel path (MkCheckedBoolPathType left right) =
+  case checkCorePathExpr depth reduction fuel path left right of
+    Accepted => Right (MkCheckedClosedPath path left right)
+    Rejected => Left ClosedPathRejected
+    Exhausted => Left ClosedPathExhausted
 
 ||| Reject unsupported inputs and propagate exhausted checks without producing
 ||| a witness. The witness records exactly the checked expression and endpoints.
