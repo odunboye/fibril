@@ -118,6 +118,7 @@ examples: build
 	./build/exec/fibril run --source-dir examples/modules/linear-accumulator examples/modules/linear-accumulator/Decorated.fib
 	./build/exec/fibril run --source-dir examples/modules/linear-accumulator examples/modules/linear-accumulator/StringAccumulator.fib
 	./build/exec/fibril run --source-dir examples/modules/linear-accumulator examples/modules/linear-accumulator/Matches.fib
+	./build/exec/fibril run --source-dir examples/modules/linear-accumulator examples/modules/linear-accumulator/AccumulatorFirst.fib
 	./build/exec/fibril run --source-dir examples/modules/polymorphic-recursion examples/modules/polymorphic-recursion/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/polymorphic-map examples/modules/polymorphic-map/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/uniform-recursion examples/modules/uniform-recursion/Main.fib

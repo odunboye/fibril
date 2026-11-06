@@ -676,10 +676,12 @@ polymorphicSequenceEquation _ _ _ _ _ = Right Nothing
 -- A deliberately bounded accumulator form. It elaborates the authored update
 -- into an ordinary function-valued fold; no termination graph is trusted.
 private
-accumulatorCall : String -> String -> Expr -> Maybe Expr
-accumulatorCall name tail (NApply _ (NApply _ (NRef _ function) (NRef _ suppliedTail)) update) =
+accumulatorCall : Bool -> String -> String -> Expr -> Maybe Expr
+accumulatorCall True name tail (NApply _ (NApply _ (NRef _ function) (NRef _ suppliedTail)) update) =
   if function == name && suppliedTail == tail then Just update else Nothing
-accumulatorCall _ _ _ = Nothing
+accumulatorCall False name tail (NApply _ (NApply _ (NRef _ function) update) (NRef _ suppliedTail)) =
+  if function == name && suppliedTail == tail then Just update else Nothing
+accumulatorCall _ _ _ _ = Nothing
 
 -- Do not let a removed input/tail/self binder resolve to a same-named global.
 -- Binder-containing or otherwise unsupported source forms fail closed.
@@ -713,31 +715,31 @@ accumulatorScope (FS FZ) = FS (FS (FS FZ))
 
 private
 accumulatorSequenceEquation : List Weighted -> String -> Term 0 -> Expr -> Either ResolveError (Maybe (Term 0))
-accumulatorSequenceEquation globals name ty (NEquationLambda _ [argument, accumulator] _
+accumulatorSequenceEquation globals name ty (NEquationLambda _ [firstArg, secondArg] _
   (NDataCase _ (NRef _ scrutinee) Nothing [(first, firstBinder, firstBody), (second, secondBinder, secondBody)])) = do
-  let initial : List String = [name, argument.spelling, accumulator.spelling]
-  if any (== "_") initial || length (nub initial) /= length initial || scrutinee /= argument.spelling ||
+  let initial : List String = [name, firstArg.spelling, secondArg.spelling]
+  if any (== "_") initial || length (nub initial) /= length initial ||
      isJust (find (\entry => entry.global.name == name) globals) ||
      not (null (qualifiedCandidates name (map global globals))) then Right Nothing else
     case guardedNormal typeReductionFuel ty of
-      Just (Pi Linear family@(SeqType _ element) (Pi Linear accumulatorType result)) =>
-        case (dropNewest accumulatorType, dropNewest result >>= dropNewest) of
-          (Just accType, Just resultType) =>
-            case (sequenceConstructorTag globals Empty family element first, firstBinder,
-                  sequenceConstructorTag globals Empty family element second, secondBinder) of
-              (Just 0, [], Just 1, [head, tail]) => lower family element accType resultType firstBody head tail secondBody
-              (Just 1, [head, tail], Just 0, []) => lower family element accType resultType secondBody head tail firstBody
-              _ => Right Nothing
+      Just (Pi Linear firstType (Pi Linear secondType result)) =>
+        case (dropNewest secondType, dropNewest result >>= dropNewest) of
+          (Just closedSecond, Just resultType) =>
+            if scrutinee == firstArg.spelling then
+              select True firstArg secondArg firstType closedSecond resultType
+            else if scrutinee == secondArg.spelling then
+              select False secondArg firstArg closedSecond firstType resultType
+            else Right Nothing
           _ => Right Nothing
       _ => Right Nothing
   where
-    lower : Term 0 -> Term 0 -> Term 0 -> Term 0 -> Expr -> Token -> Token -> Expr -> Either ResolveError (Maybe (Term 0))
-    lower family element accType resultType base head tail body = do
+    lower : Bool -> Token -> Token -> Term 0 -> Term 0 -> Term 0 -> Term 0 -> Expr -> Token -> Token -> Expr -> Either ResolveError (Maybe (Term 0))
+    lower listFirst argument accumulator family element accType resultType base head tail body = do
       let names : List String = [name, argument.spelling, accumulator.spelling, head.spelling, tail.spelling]
       if any (== "_") names || length (nub names) /= length names ||
          any (\entry => entry == first.spelling || entry == second.spelling) names
         then Right Nothing else do
-      case accumulatorCall name tail.spelling body of
+      case accumulatorCall listFirst name tail.spelling body of
         Just update =>
           if not (accumulatorUpdateSafe [name, argument.spelling, recursiveResultName] base) ||
              not (accumulatorUpdateSafe [name, argument.spelling, tail.spelling, recursiveResultName] update)
@@ -767,10 +769,22 @@ accumulatorSequenceEquation globals name ty (NEquationLambda _ [argument, accumu
                               (Lambda Linear (weaken (weaken (weaken accType)))
                                 (Apply (Variable (FS FZ)) (rename accumulatorScope updateTerm)))))
                       let motive : Term 2 = Lambda Erased (weaken (weaken family)) (weaken (weaken (weaken continuation)))
-                      Right (Just (Lambda Linear family (Lambda Linear (weaken accType)
-                        (Apply (SeqFold motive (weaken (weaken baseTerm)) (weaken (weaken stepTerm))
-                                        (Variable (FS FZ))) (Variable FZ)))))
+                      let folded = SeqFold motive (weaken (weaken baseTerm)) (weaken (weaken stepTerm))
+                      if listFirst
+                        then Right (Just (Lambda Linear family (Lambda Linear (weaken accType)
+                               (Apply (folded (Variable (FS FZ))) (Variable FZ)))))
+                        else Right (Just (Lambda Linear accType (Lambda Linear (weaken family)
+                               (Apply (folded (Variable FZ)) (Variable (FS FZ))))))
         _ => Right Nothing
+
+    select : Bool -> Token -> Token -> Term 0 -> Term 0 -> Term 0 -> Either ResolveError (Maybe (Term 0))
+    select listFirst argument accumulator family@(SeqType _ element) accType resultType =
+      case (sequenceConstructorTag globals Empty family element first, firstBinder,
+            sequenceConstructorTag globals Empty family element second, secondBinder) of
+        (Just 0, [], Just 1, [head, tail]) => lower listFirst argument accumulator family element accType resultType firstBody head tail secondBody
+        (Just 1, [head, tail], Just 0, []) => lower listFirst argument accumulator family element accType resultType secondBody head tail firstBody
+        _ => Right Nothing
+    select _ _ _ _ _ _ = Right Nothing
 accumulatorSequenceEquation _ _ _ _ = Right Nothing
 
 -- Scope-indexed prefix peeling. Erased and unrestricted parameters are held
@@ -942,8 +956,10 @@ recursiveEquationReserve name expression =
     accumulatorReserve : String -> Expr -> Nat
     accumulatorReserve name (NEquationLambda _ [argument, accumulator] _ (NDataCase _ _ Nothing [(first, firstBinder, firstBody), (second, secondBinder, secondBody)])) =
       let shape = case (firstBinder, secondBinder) of
-            ([], [head, tail]) => isJust (accumulatorCall name tail.spelling secondBody)
-            ([head, tail], []) => isJust (accumulatorCall name tail.spelling firstBody)
+            ([], [head, tail]) => isJust (accumulatorCall True name tail.spelling secondBody) ||
+                                  isJust (accumulatorCall False name tail.spelling secondBody)
+            ([head, tail], []) => isJust (accumulatorCall True name tail.spelling firstBody) ||
+                                  isJust (accumulatorCall False name tail.spelling firstBody)
             _ => False in
         if shape then 64 + 20 * 513 else 0
     accumulatorReserve _ _ = 0

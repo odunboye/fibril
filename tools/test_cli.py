@@ -2178,6 +2178,101 @@ class CLITests(unittest.TestCase):
                 self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
                 self.assertNotIn('Expanded core construction budget exhausted', rejected.stderr)
 
+    def test_accumulator_first_structural_equations(self):
+        fixture = ROOT / 'examples/modules/linear-accumulator'
+        source = (fixture / 'AccumulatorFirst.fib').read_text()
+        initial = 'Data.Items.Prepend "a" (Data.Items.Prepend "b" (Data.Items.Empty {String}))'
+        recursive = 'matchesFrom (appendString acc head) tail'
+        self.assertIn(initial, source)
+        self.assertIn(recursive, source)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(fixture / 'Data', root / 'Data')
+            path = root / 'AccumulatorFirst.fib'
+            def project(program, command='run'):
+                path.write_text(program)
+                return run(command, '--source-dir', str(root), str(path))
+            for program, expected in [(source, 'matched\n'),
+                                      (source.replace(initial, 'Data.Items.Empty {String}').replace('matchesFrom "c"', 'matchesFrom "cab"'), 'matched\n'),
+                                      (source.replace(initial, 'Data.Items.Prepend "a" (Data.Items.Empty {String})'), 'different\n')]:
+                result = project(program)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(result.stdout, expected)
+            arms = ('  Data.Items.Empty => equalString acc "cab"\n'
+                    '  Data.Items.Prepend head tail => matchesFrom (appendString acc head) tail')
+            self.assertIn(arms, source)
+            result = project(source.replace(arms, '\n'.join(reversed(arms.splitlines()))))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'matched\n')
+            path.write_text(source)
+            lines = source.splitlines()
+            call_line = next(i for i, line in enumerate(lines, 1) if '=> matchesFrom (appendString' in line)
+            call_column = lines[call_line - 1].index('matchesFrom (appendString') + 1
+            target_line = next(i for i, line in enumerate(lines, 1) if line.startswith('matchesFrom acc items ='))
+            navigation = run('definition', '--source-dir', str(root), '--entry', str(path), str(call_line), str(call_column), str(path))
+            self.assertEqual(navigation.returncode, 0, navigation.stderr)
+            self.assertEqual(json.loads(navigation.stdout)['definition']['range']['start']['line'], target_line)
+            formatted = run('format', str(path))
+            self.assertEqual(formatted.returncode, 0, formatted.stderr)
+            path.write_text(formatted.stdout)
+            self.assertEqual(run('format', '--check', str(path)).returncode, 0)
+            formatted_run = run('run', '--source-dir', str(root), str(path))
+            self.assertEqual(formatted_run.returncode, 0, formatted_run.stdout + formatted_run.stderr)
+            self.assertEqual(formatted_run.stdout, 'matched\n')
+            helpers = ('items : Data.Items.Items String\nitems = Data.Items.Empty {String}\n'
+                       'tail : Data.Items.Items String\ntail = Data.Items.Empty {String}\n'
+                       'other : Data.Items.Items String\nother = Data.Items.Empty {String}\n'
+                       'consume : (1 xs : Data.Items.Items String) -> String\nconsume xs = case xs of\n'
+                       '  Data.Items.Empty => ""\n'
+                       '  Data.Items.Prepend h t => appendString h (consume t)\n')
+            short = source[:source.index('main : IO Unit')].replace('matchesFrom :', helpers + 'matchesFrom :')
+            short += 'main : IO Unit\nmain = putStrLn "checked"\n'
+            safe = short.replace(recursive, 'matchesFrom (appendString acc (appendString head (consume other))) tail')
+            checked = project(safe)
+            self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
+            for collision in ['items', 'tail', 'AccumulatorFirst.tail']:
+                rejected = project(safe.replace('consume other', 'consume ' + collision))
+                self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
+                self.assertNotIn('Expanded core construction budget exhausted', rejected.stderr)
+            invalid = [source.replace(recursive, 'matchesFrom (appendString acc head) items'),
+                       source.replace(recursive, 'matchesFrom tail (appendString acc head)'),
+                       source.replace(recursive, 'matchesFrom (appendString acc acc) tail'),
+                       source.replace(recursive, 'matchesFrom (appendString acc head) (Data.Items.Prepend head tail)'),
+                       source.replace(recursive, 'matchesFrom acc tail'),
+                       source.replace('(1 acc : String)', '(acc : String)'),
+                       source.replace('(1 items : Data.Items.Items String)', '(items : Data.Items.Items String)')]
+            for program in invalid:
+                self.assertNotEqual(program, source)
+                rejected = project(program)
+                self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
+                self.assertNotIn('Expanded core construction budget exhausted', rejected.stderr)
+
+    def test_accumulator_first_rejects_dependent_types(self):
+        fixture = ROOT / 'examples/modules/linear-accumulator'
+        examples = [
+            ('data Indexed (0 key : String) : Type where\n  MkIndexed : Indexed key\n',
+             '(1 acc : String) -> (1 items : Data.Items.Items (Indexed acc)) -> String',
+             'acc', 'bad acc tail'),
+            ('data Indexed (0 key : String) : Type where\n  MkIndexed : Indexed key\n',
+             '(1 acc : String) -> (1 items : Data.Items.Items String) -> Indexed acc',
+             'MkIndexed acc', 'bad acc tail')]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(fixture / 'Data', root / 'Data')
+            path = root / 'Dependent.fib'
+            for declaration, signature, base, call in examples:
+                preamble = 'module Dependent\nimport Data.Items\n' + declaration + '0 bad : ' + signature + '\n'
+                main = 'main : IO Unit\nmain = putStrLn "checked"\n'
+                path.write_text(preamble + 'bad acc items = ' + base + '\n' + main)
+                baseline = run('check', '--source-dir', str(root), str(path))
+                self.assertEqual(baseline.returncode, 0, baseline.stdout + baseline.stderr)
+                path.write_text(preamble + 'bad acc items = case items of\n'
+                                '  Data.Items.Empty => ' + base + '\n'
+                                '  Data.Items.Prepend head tail => ' + call + '\n' + main)
+                rejected = run('check', '--source-dir', str(root), str(path))
+                self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
+                self.assertIn('Unbound', rejected.stderr)
+
     def test_accumulator_equations_reject_dependent_types(self):
         fixture = ROOT / 'examples/modules/linear-accumulator'
         examples = [

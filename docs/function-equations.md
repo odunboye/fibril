@@ -238,7 +238,8 @@ supports the checked fixed-shape fold subject to native limits.
 
 ## Linear list accumulator
 
-A narrow direct-style reverse-onto equation is also supported:
+A narrow direct-style reverse-onto equation is also supported, with the list
+first:
 
 ~~~fibril
 reverseOnto : (1 items : Items String) -> (1 acc : Items String) -> Items String
@@ -247,19 +248,32 @@ reverseOnto items acc = case items of
   Prepend head tail => reverseOnto tail (Prepend head acc)
 ~~~
 
+The accumulator may instead come first, provided the recursive call preserves
+that order:
+
+~~~fibril
+matchesFrom : (1 acc : String) -> (1 items : Items String) -> Bool
+matchesFrom acc items = case items of
+  Empty => equalString acc "cab"
+  Prepend head tail => matchesFrom (appendString acc head) tail
+~~~
+
 The [runnable example](../examples/modules/linear-accumulator/Main.fib) uses
 qualified imported constructors. The signature has exactly two linear inputs:
 a checked fixed list family and a closed accumulator type. Its closed result
 type may differ from the accumulator; neither may depend on the inputs. The
-case scrutinizes the first input. Its empty branch computes the result from the
-accumulator, and the cons branch is exactly a direct self-call on the immediate
-tail and an update. Branch order may be reversed. The
+list family must also be independent of the accumulator. The case scrutinizes
+the list input. Its empty branch computes the result from the accumulator, and
+the cons branch is exactly a direct self-call on the immediate tail and an
+update, in the function's authored argument order. Branch order may be reversed. The
 [computed-update example](../examples/modules/linear-accumulator/Decorated.fib)
 transforms each head before adding it to a list accumulator; the
 [String-accumulator example](../examples/modules/linear-accumulator/StringAccumulator.fib)
 uses a different accumulator type from the input list. The
 [computed-base example](../examples/modules/linear-accumulator/Matches.fib)
-returns a `Bool` from a `String` accumulator.
+returns a `Bool` from a `String` accumulator; the
+[accumulator-first example](../examples/modules/linear-accumulator/AccumulatorFirst.fib)
+uses the other argument order.
 
 The base may use the accumulator and visible globals; the update may also use
 the head. Both are bounded binder-free expressions of ordinary or braced
