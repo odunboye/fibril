@@ -56,6 +56,33 @@ weakSwap = Edge 0 0 [[Unknown, NonIncreasing], [NonIncreasing, Unknown]]
 weakDiagonal2 : Call
 weakDiagonal2 = Edge 0 0 [[NonIncreasing, Unknown], [Unknown, NonIncreasing]]
 
+sameVerdict : Verdict -> Verdict -> Bool
+sameVerdict GraphAccepted GraphAccepted = True
+sameVerdict (GraphRejected a) (GraphRejected b) = a == b
+sameVerdict (GraphInconclusive a) (GraphInconclusive b) = a == b
+sameVerdict _ _ = False
+
+producedAccepted : Production -> Bool
+producedAccepted (ClosureProduced _ GraphAccepted) = True
+producedAccepted _ = False
+
+producedRejected : Production -> Bool
+producedRejected (ClosureProduced _ (GraphRejected _)) = True
+producedRejected _ = False
+
+producerInconclusive : Production -> Bool
+producerInconclusive (ProductionInconclusive _) = True
+producerInconclusive _ = False
+
+producerInvalid : Production -> Bool
+producerInvalid (ProductionInvalid _) = True
+producerInvalid _ = False
+
+verifiedProduction : List Nat -> List Call -> Bool
+verifiedProduction arities direct = case produce arities direct of
+  ClosureProduced certificate verdict => sameVerdict verdict (verify arities direct certificate)
+  _ => False
+
 public export
 checks : List (String, Bool)
 checks =
@@ -120,4 +147,60 @@ checks =
       inconclusive (verify [9] [] []) &&
       inconclusive (verify [1] (replicate 129 strict) []) &&
       inconclusive (verify [1] [] (replicate 33 strict)))
+  , ("producer accepts an empty graph after a stable round",
+      case produceWithFuel 1 [] [] of
+        ClosureProduced [] GraphAccepted => True
+        _ => False)
+  , ("producer deduplicates direct calls in deterministic order",
+      case produce [1] [strict, strict] of
+        ClosureProduced [edge] GraphAccepted => edge == strict
+        _ => False)
+  , ("producer carries the verifier's rejected cycle verdict",
+      producedRejected (produce [1] [weak]) && producedRejected (produce [1] [unknown]) &&
+      producedRejected (produce [0] [Edge 0 0 []]))
+  , ("producer retains distinct alternative call matrices",
+      case produce [1] [strict, weak] of
+        ClosureProduced [first, second] (GraphRejected _) => first == strict && second == weak
+        _ => False)
+  , ("producer saturates alternating descent in three snapshot rounds",
+      producerInconclusive (produceWithFuel 2 [2] [swapDescending]) &&
+      producedAccepted (produceWithFuel 3 [2] [swapDescending]) &&
+      case produce [2] [swapDescending] of
+        ClosureProduced [first, second, third] GraphAccepted =>
+          first == swapDescending && second == strictDiagonal2 && third == strictSwap
+        _ => False)
+  , ("producer composes mutual calls in both operand positions",
+      let forward = Edge 0 1 [[Decreases]]
+          back = Edge 1 0 [[NonIncreasing]]
+          backStrict = Edge 1 0 [[Decreases]] in
+      case produce [1, 1] [forward, back] of
+        ClosureProduced certificate GraphAccepted =>
+          elem backStrict certificate && elem (Edge 0 0 [[Decreases]]) certificate &&
+          elem (Edge 1 1 [[Decreases]]) certificate && verifiedProduction [1, 1] [forward, back]
+        _ => False)
+  , ("producer handles rectangular composition and stronger witnesses",
+      let first = Edge 0 1 [[NonIncreasing], [Decreases]]
+          second = Edge 1 2 [[NonIncreasing, NonIncreasing]] in
+      case produce [1, 2, 1] [first, second] of
+        ClosureProduced certificate GraphAccepted => elem (Edge 0 2 [[Decreases]]) certificate
+        _ => False)
+  , ("every completed small one-argument graph has the verifier's verdict",
+      all (\a => all (\b => verifiedProduction [1] [Edge 0 0 [[a]], Edge 0 0 [[b]]]) relations) relations)
+  , ("producer admission and fuel fail closed",
+      producerInvalid (produce [1] [Edge 0 1 [[Decreases]]]) &&
+      producerInvalid (produce [1] [Edge 0 0 [[Unknown, Unknown]]]) &&
+      producerInconclusive (produce (replicate 17 0) []) &&
+      producerInconclusive (produce [9] []) &&
+      producerInconclusive (produce [1] (replicate 129 strict)) &&
+      producerInconclusive (produceWithFuel 0 [1] [strict]) &&
+      producerInconclusive (produceWithFuel 34 [] []) &&
+      producedAccepted (produceWithFuel 1 [1] [strict]))
+  , ("producer accepts a full closed certificate but not a required 33rd edge",
+      let acyclic : List Call = concatMap (\caller => map (\callee => Edge caller callee []) [4, 5, 6, 7, 8, 9, 10, 11]) [0, 1, 2, 3]
+          fillers : List Call = take 30 (concatMap (\caller => map (\callee => Edge caller callee []) [7, 8, 9, 10, 11, 12, 13, 14]) [3, 4, 5, 6])
+          needsExtra = Edge 0 1 [] :: Edge 1 2 [] :: fillers in
+      producedAccepted (produce (replicate 12 0) acyclic) &&
+      producerInconclusive (produce (replicate 15 0) needsExtra) &&
+      producerInconclusive (produce (replicate 13 0)
+        (take 33 (concatMap (\caller => map (\callee => Edge caller callee []) [4, 5, 6, 7, 8, 9, 10, 11, 12]) [0, 1, 2, 3]))))
   ]

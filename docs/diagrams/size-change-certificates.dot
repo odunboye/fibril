@@ -2,11 +2,13 @@ digraph SizeChangeCertificates {
   rankdir=LR;
   node [shape=box];
   callGraph [label="Caller-supplied abstract call graph\nrelations are untrusted assertions"];
+  producer [label="Bounded deterministic producer\nor caller-supplied certificate"];
   cert [label="Proposed finite closure\nuntrusted certificate"];
   admission [label="Bounded shape + membership\n+ composition closure"];
   cycle [label="Every idempotent self-cycle\nhas a strict diagonal"];
   result [label="Abstract graph verdict only\nno source/core acceptance"];
   future [label="Future: checked call extraction,\nwell-founded orders and recursive core", style=dashed];
+  callGraph -> producer -> cert;
   callGraph -> admission;
   cert -> admission;
   admission -> cycle -> result;

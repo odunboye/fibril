@@ -3,9 +3,10 @@
 ## Status and use case
 
 **Experimental foundation, not language termination checking.**
-`Fibril.Termination.SizeChange.verify` independently checks a proposed closure
-for a caller-supplied abstract call graph. It is useful for exercising the
-finite graph criterion and a future producer/checker boundary. No parser,
+`Fibril.Termination.SizeChange.produce` constructs a bounded closure for a
+caller-supplied abstract call graph, and `verify` checks the resulting candidate
+against the original graph. It is useful for exercising the finite graph
+criterion and a future producer/checker boundary. No parser,
 elaborator, recursive core term, evaluator, CLI or backend calls it. **It does
 not authorize any new recursive Fibril program.** Existing structural equations
 continue to lower to independently checked recursors.
@@ -44,6 +45,16 @@ closure and cycle checks. This is the finite idempotent form of the size-change
 criterion; see Lee, Jones and Ben-Amram, *The Size-Change Principle for Program
 Termination* (POPL 2001).
 
+The producer deduplicates direct calls in first-occurrence order and repeatedly
+composes ordered pairs from a snapshot of the current set. New matrices enter
+later rounds in both operand positions. A stable round returns the candidate
+and the result of running `verify` on it; exhausting fuel or needing a 33rd
+distinct matrix returns `ProductionInconclusive`, never a partial acceptance.
+Malformed input returns `ProductionInvalid`. The producer and verifier share
+the same composition operation and input-admission helper, so this is a
+separate check of the candidate, **not an independent implementation of the
+matrix algebra**.
+
 `GraphAccepted` means only that these checks succeeded for the supplied abstract
 graph and certificate. `GraphRejected` means the supplied certificate or graph
 criterion failed; it does **not** prove that a program diverges. An admission
@@ -65,14 +76,17 @@ those obligations.
 The finite tests are sampled implementation evidence. They include exhaustive
 three-relation algebra, rectangular composition orientation, alternating and
 mutual descent, missing or non-closed certificates, conflicting alternative
-calls, malformed shapes, zero-argument cycles and admission failures. They are
+calls, producer/verifier agreement on a small corpus, round and capacity
+boundaries, malformed shapes, zero-argument cycles and admission failures. They are
 not a mechanized proof of the size-change theorem, termination of Fibril terms,
 whole-language soundness or compiler correctness.
 
 ## Admission
 
 This first checker admits at most 16 functions, 8 arguments per function, 128
-direct edges and 32 certificate edges. Matrices are checked against those arities
-before composition. These are explicit admission policies; they do not prove a
-hard bound on host memory, stack, elapsed time or allocation. The certificate
-producer and any closure-generation algorithm are not implemented yet.
+direct edges and 32 certificate edges. The producer admits at most 33 rounds:
+each non-stable round adds a distinct edge, and one final round detects
+stability. `produceWithFuel` accepts a smaller explicit round budget; exhaustion
+is inconclusive. Each candidate matrix is bounded by the admitted dimensions
+before it can be retained. These are explicit admission policies; they do not
+prove a hard bound on host memory, stack, elapsed time or allocation.
