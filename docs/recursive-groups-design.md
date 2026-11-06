@@ -93,10 +93,20 @@ in order. Tests extract the expected matrix from the actual reverse accumulator
 body, switch the scrutinized argument, reconstruct the list and reject a
 well-typed nested call.
 
-**There is not yet an independent checker for this core extraction.** Its graph
-is untrusted; feeding it to the abstract size-change verifier does not establish
-that the graph faithfully describes the core body. No source/core recursion,
-evaluation, conversion or backend behavior is authorized by this API.
+`Fibril.Termination.CoreCheck.check` separately rewalks the same candidate using
+root/descendant identities rather than the producer's relation rows. It
+compares every proposed call site in order, including endpoints, matrix cells
+and multiplicity, and rejects unsupported body forms, missing or extra calls,
+and malformed edges. `verifyCore` first performs that rewalk and then checks
+the supplied closure against that exact call list. The two walks share the
+ordinary typing/usage checker, syntax definitions and assumptions, so this is
+not a formal independence or soundness proof. Tests reject forged decreases,
+reordered and missing calls, stale graphs and invalid closures.
+
+Even `GraphAccepted` is **not authority to admit recursion**. There is no
+recursive core representation or semantics, no proof that this restricted
+walk is complete or preserves typing, and no connection to source acceptance,
+evaluation, conversion or a backend.
 
 ## Candidate first core fragment
 

@@ -9,6 +9,7 @@ import Fibril.Core.Term
 import Fibril.Termination.CoreCandidate
 import Fibril.Termination.SizeChange
 import Fibril.Termination.CoreCalls
+import Fibril.Termination.CoreCheck
 
 %default total
 
@@ -75,6 +76,13 @@ nilCall = MkCandidate signature (Lambda Linear listTy (Lambda Linear listTy
     (Lambda Linear NatType (Lambda Linear listTy
       (selfCall (Variable FZ) (SeqCons listTy (Variable (FS FZ)) (Variable (FS (FS FZ))))))))))
 
+duplicateCalls : Candidate
+duplicateCalls = MkCandidate signature (Lambda Linear listTy (Lambda Linear listTy
+  (SeqCase (Lambda Erased listTy listTy) (Variable (FS FZ))
+    (Apply (Apply (Variable (FS (FS FZ))) (SeqNil listTy)) (Variable FZ))
+    (Lambda Linear NatType (Lambda Linear listTy
+      (selfCall (SeqCons listTy (Variable (FS FZ)) (Variable FZ)) (Variable (FS (FS FZ)))))))))
+
 -- The cons branch fails to consume the linear list head.
 droppedHead : Term 1
 droppedHead = Lambda Linear listTy (Lambda Linear listTy
@@ -101,7 +109,8 @@ checks =
       accepts (checkHypothesis 512 128 reverseCandidate))
   , ("core call extraction tracks tail and constructed accumulator",
       case Fibril.Termination.CoreCalls.extract 512 128 reverseCandidate of
-        Right graph => graph == [Edge 0 0 [[Decreases, Unknown], [Unknown, Unknown]]]
+        Right graph => graph == [Edge 0 0 [[Decreases, Unknown], [Unknown, Unknown]]] &&
+                       accepts (Fibril.Termination.CoreCheck.check 512 128 reverseCandidate graph)
         _ => False)
   , ("core call extraction follows the matched parameter rather than its position",
       case Fibril.Termination.CoreCalls.extract 512 128 secondScrutinee of
@@ -112,6 +121,55 @@ checks =
         Right graph => graph == [Edge 0 0 [[Unknown, Unknown], [Unknown, NonIncreasing]],
                                  Edge 0 0 [[Decreases, Unknown], [Unknown, Unknown]]]
         _ => False)
+  , ("core graph checker rejects forged, missing, extra and stale calls",
+      let edge = Edge 0 0 [[Decreases, Unknown], [Unknown, Unknown]]
+          forged = Edge 0 0 [[Decreases, Unknown], [Unknown, Decreases]] in
+      accepts (Fibril.Termination.CoreCheck.check 512 128 reverseCandidate [edge]) &&
+      not (accepts (Fibril.Termination.CoreCheck.check 512 128 reverseCandidate [forged])) &&
+      not (accepts (Fibril.Termination.CoreCheck.check 512 128 reverseCandidate [])) &&
+      not (accepts (Fibril.Termination.CoreCheck.check 512 128 reverseCandidate [edge, edge])) &&
+      not (accepts (Fibril.Termination.CoreCheck.check 512 128 reconstructed [edge])) &&
+      case Fibril.Termination.CoreCheck.check 512 128 reverseCandidate [edge, edge, edge] of
+        Left ProposedCallsExhausted => True
+        _ => False)
+  , ("core certificate check binds a closure to the same actual body and calls",
+      let decreasing = Edge 0 0 [[Decreases, Unknown], [Unknown, Unknown]]
+          reconstructedEdge = Edge 0 0 [[Unknown, Unknown], [Unknown, NonIncreasing]] in
+      case Fibril.Termination.CoreCheck.verifyCore 512 128 reverseCandidate [decreasing] [decreasing] of
+        Right GraphAccepted =>
+          not (accepts (Fibril.Termination.CoreCheck.verifyCore 512 128 reconstructed [decreasing] [decreasing])) &&
+          case Fibril.Termination.CoreCheck.verifyCore 512 128 reconstructed [reconstructedEdge] [reconstructedEdge] of
+            Right (GraphRejected _) => case Fibril.Termination.CoreCheck.verifyCore 512 128 reverseCandidate [decreasing] [] of
+              Right (GraphRejected _) => True
+              _ => False
+            _ => False
+        _ => False)
+  , ("core certificate admission exhaustion is inconclusive",
+      let edge = Edge 0 0 [[Decreases, Unknown], [Unknown, Unknown]] in
+      case Fibril.Termination.CoreCheck.verifyCore 512 128 reverseCandidate [edge] (replicate 33 edge) of
+        Right (GraphInconclusive _) => True
+        _ => False)
+  , ("core graph checker validates branch ordering and matrix shape",
+      let nil = Edge 0 0 [[Unknown, Unknown], [Unknown, NonIncreasing]]
+          cons = Edge 0 0 [[Decreases, Unknown], [Unknown, Unknown]]
+          malformed = Edge 0 0 [[Decreases], [Unknown, Unknown]] in
+      accepts (Fibril.Termination.CoreCheck.check 512 128 nilCall [nil, cons]) &&
+      not (accepts (Fibril.Termination.CoreCheck.check 512 128 nilCall [cons, nil])) &&
+      not (accepts (Fibril.Termination.CoreCheck.check 512 128 nilCall [nil])) &&
+      not (accepts (Fibril.Termination.CoreCheck.check 512 128 reverseCandidate [malformed])) &&
+      not (accepts (Fibril.Termination.CoreCheck.check 512 128 reverseCandidate [Edge 0 1 [[Decreases, Unknown], [Unknown, Unknown]]])))
+  , ("core graph checker preserves duplicate call-site multiplicity",
+      let edge = Edge 0 0 [[Unknown, Unknown], [Unknown, NonIncreasing]] in
+      case Fibril.Termination.CoreCalls.extract 512 128 duplicateCalls of
+        Right calls => calls == [edge, edge] &&
+                       accepts (Fibril.Termination.CoreCheck.check 512 128 duplicateCalls calls) &&
+                       not (accepts (Fibril.Termination.CoreCheck.check 512 128 duplicateCalls [edge]))
+        _ => False)
+  , ("core graph checker handles second scrutinee and rejects unsupported nested calls",
+      let edge = Edge 0 0 [[Unknown, Unknown], [Unknown, Decreases]] in
+      accepts (Fibril.Termination.CoreCheck.check 512 128 secondScrutinee [edge]) &&
+      not (accepts (Fibril.Termination.CoreCheck.check 512 128 nestedCall [])) &&
+      not (accepts (Fibril.Termination.CoreCheck.check 512 128 indirectCall [])))
   , ("core call extraction does not claim a reconstructed list decreases",
       case Fibril.Termination.CoreCalls.extract 512 128 reconstructed of
         Right graph => graph == [Edge 0 0 [[Unknown, Unknown], [Unknown, NonIncreasing]]]
