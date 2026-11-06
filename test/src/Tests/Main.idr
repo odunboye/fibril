@@ -128,9 +128,91 @@ termSamples =
 dependentContext : Context 2
 dependentContext = Extend (Extend Empty Erased (Universe 0)) Linear (Variable FZ)
 
+intervalNodeCount : ScopedInterval n -> Nat
+intervalNodeCount Zero = 1
+intervalNodeCount One = 1
+intervalNodeCount (Var _) = 1
+intervalNodeCount (Reverse r) = 1 + intervalNodeCount r
+intervalNodeCount (Meet r s) = 1 + intervalNodeCount r + intervalNodeCount s
+intervalNodeCount (Join r s) = 1 + intervalNodeCount r + intervalNodeCount s
+
+pathNodeCount : CorePathExpr n -> Nat
+pathNodeCount (CoreTerm _) = 1
+pathNodeCount (CoreAbstract body) = 1 + pathNodeCount body
+pathNodeCount (CoreApply path r) = 1 + pathNodeCount path + intervalNodeCount r
+
+sameScopedInterval : ScopedInterval n -> ScopedInterval n -> Bool
+sameScopedInterval Zero Zero = True
+sameScopedInterval One One = True
+sameScopedInterval (Var i) (Var j) = i == j
+sameScopedInterval (Reverse x) (Reverse y) = sameScopedInterval x y
+sameScopedInterval (Meet x y) (Meet z w) = sameScopedInterval x z && sameScopedInterval y w
+sameScopedInterval (Join x y) (Join z w) = sameScopedInterval x z && sameScopedInterval y w
+sameScopedInterval _ _ = False
+
+sameCorePath : CorePathExpr n -> CorePathExpr n -> Bool
+sameCorePath (CoreTerm x) (CoreTerm y) = sameSyntax x y
+sameCorePath (CoreAbstract x) (CoreAbstract y) = sameCorePath x y
+sameCorePath (CoreApply p r) (CoreApply q s) =
+  sameCorePath p q && sameScopedInterval r s
+sameCorePath _ _ = False
+
+boundedInstantiationCorpus : Bool
+boundedInstantiationCorpus = all checkPair
+  [(value, body) | value <- values, body <- bodies]
+  where
+    values : List (ScopedInterval 0)
+    values = [Zero, One, Reverse Zero, Meet One (Reverse Zero), Join Zero One]
+
+    bodies : List (CorePathExpr 1)
+    bodies =
+      [ CoreTerm BoolTrue
+      , CoreApply (CoreTerm BoolFalse) (Var FZ)
+      , CoreApply (CoreTerm BoolTrue) (Join (Var FZ) (Var FZ))
+      , CoreAbstract (CoreApply (CoreTerm BoolTrue) (Meet (Var FZ) (Var (FS FZ))))
+      , CoreAbstract (CoreAbstract
+          (CoreApply (CoreTerm BoolFalse) (Join (Var FZ) (Var (FS (FS FZ))))))
+      ]
+
+    checkPair : (ScopedInterval 0, CorePathExpr 1) -> Bool
+    checkPair (value, body) =
+      let expected = instantiateCoreDimension value body
+          exact = pathNodeCount expected in
+      case (instantiateCoreWithin exact value body,
+            instantiateCoreWithin (pred exact) value body) of
+        (Just result, Nothing) => sameCorePath result expected
+        _ => False
+
+boundedOpenInstantiationCorpus : Bool
+boundedOpenInstantiationCorpus = all checkPair
+  [(value, body) | value <- values, body <- bodies]
+  where
+    values : List (ScopedInterval 1)
+    values = [Var FZ, Reverse (Var FZ), Meet (Var FZ) One, Join (Var FZ) (Reverse (Var FZ))]
+
+    bodies : List (CorePathExpr 2)
+    bodies =
+      [ CoreApply (CoreTerm BoolTrue) (Join (Var FZ) (Var (FS FZ)))
+      , CoreAbstract (CoreApply (CoreTerm BoolFalse)
+          (Join (Var (FS FZ)) (Meet (Var FZ) (Var (FS (FS FZ))))))
+      , CoreAbstract (CoreAbstract (CoreApply (CoreTerm BoolTrue)
+          (Join (Var (FS (FS FZ))) (Var (FS (FS (FS FZ)))))))
+      ]
+
+    checkPair : (ScopedInterval 1, CorePathExpr 2) -> Bool
+    checkPair (value, body) =
+      let expected = instantiateCoreDimension value body
+          exact = pathNodeCount expected in
+      case (instantiateCoreWithin exact value body,
+            instantiateCoreWithin (pred exact) value body) of
+        (Just result, Nothing) => sameCorePath result expected
+        _ => False
+
 checks : List (String, Bool)
 checks =
-  [ ("context dependent lookup shifts domain",
+  [ ("bounded dimension instantiation corpus matches exact substitution and budget", boundedInstantiationCorpus)
+  , ("bounded open instantiation corpus matches exact substitution and budget", boundedOpenInstantiationCorpus)
+  , ("context dependent lookup shifts domain",
       sameSyntax (lookupType FZ dependentContext) (Variable (FS FZ)))
   , ("context older lookup shifts through entries",
       sameSyntax (lookupType (FS FZ) dependentContext) (Universe 0))
