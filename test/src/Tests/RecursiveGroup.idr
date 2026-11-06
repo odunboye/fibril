@@ -8,6 +8,7 @@ import Fibril.Core.Quantity
 import Fibril.Core.Runtime
 import Fibril.Core.RecursiveGroup
 import Fibril.Core.RecursiveGroupCheck
+import Fibril.Core.RecursiveGroupReference
 import Fibril.Core.Term
 import Fibril.Termination.GroupCalls
 import Fibril.Termination.GroupCheck
@@ -26,6 +27,11 @@ oddBody = CaseNat (Variable FZ) (Return BoolFalse) (Call FZ [Variable FZ])
 parity : Group 2
 parity = MkGroup [1, 1]
   (MoreMembers (MkMember (Pi Linear NatType BoolType) evenBody)
+    (MoreMembers (MkMember (Pi Linear NatType BoolType) oddBody) NoMembers))
+
+mutatedParity : Group 2
+mutatedParity = MkGroup [1, 1]
+  (MoreMembers (MkMember (Pi Linear NatType BoolType) (Call (FS FZ) [Variable FZ]))
     (MoreMembers (MkMember (Pi Linear NatType BoolType) oddBody) NoMembers))
 
 -- A selected target determines the vector length, even when arities differ.
@@ -78,15 +84,15 @@ accepted : Either e a -> Bool
 accepted (Right _) = True
 accepted _ = False
 
-invalid : Either Problem a -> Bool
+invalid : Either Fibril.Core.RecursiveGroupCheck.Problem a -> Bool
 invalid (Left (Invalid _)) = True
 invalid _ = False
 
-unsupported : Either Problem a -> Bool
-unsupported (Left (Unsupported _)) = True
+unsupported : Either Fibril.Core.RecursiveGroupCheck.Problem a -> Bool
+unsupported (Left (Fibril.Core.RecursiveGroupCheck.Unsupported _)) = True
 unsupported _ = False
 
-exhausted : Either Problem a -> Bool
+exhausted : Either Fibril.Core.RecursiveGroupCheck.Problem a -> Bool
 exhausted (Left (Inconclusive _)) = True
 exhausted _ = False
 
@@ -201,6 +207,46 @@ rectangular = MkGroup [1, 2]
     (CaseNat (Variable FZ) (Return BoolTrue) (Call (FS FZ) [Variable FZ, BoolTrue])))
     (MoreMembers (MkMember (Pi Linear NatType (Pi Erased BoolType BoolType))
       (Call FZ [Variable (FS FZ)])) NoMembers))
+
+rectangularLinear : Group 2
+rectangularLinear = MkGroup [1, 2]
+  (MoreMembers (MkMember (Pi Linear NatType BoolType)
+    (CaseNat (Variable FZ) (Return BoolTrue) (Call (FS FZ) [Variable FZ, BoolTrue])))
+    (MoreMembers (MkMember (Pi Linear NatType (Pi Linear BoolType BoolType))
+      (CaseBool (Variable FZ) (Call FZ [Variable (FS FZ)]) (Call FZ [Variable (FS FZ)]))) NoMembers))
+
+branchNot : Group 1
+branchNot = MkGroup [1] (MoreMembers (MkMember (Pi Linear BoolType BoolType)
+  (CaseBool (Variable FZ) (Return BoolFalse) (Return BoolTrue))) NoMembers)
+
+constantBool : Group 1
+constantBool = MkGroup [0] (MoreMembers (MkMember BoolType (Return BoolTrue)) NoMembers)
+
+natIdentity : Group 1
+natIdentity = MkGroup [1] (MoreMembers (MkMember (Pi Linear NatType NatType)
+  (Return (Variable FZ))) NoMembers)
+
+natGrowth : Group 1
+natGrowth = MkGroup [1] (MoreMembers (MkMember (Pi Linear NatType NatType)
+  (Return (NatSucc (Variable FZ)))) NoMembers)
+
+uncalledOmega : Group 2
+uncalledOmega = MkGroup [0, 1] (MoreMembers (MkMember BoolType (Return BoolTrue))
+  (MoreMembers (MkMember (Pi Unrestricted BoolType BoolType) (Return BoolTrue)) NoMembers))
+
+reference : Nat -> (group : Group size) -> (target : Fin size) ->
+            Vect (index target group.arities) Value -> Maybe (Either Fibril.Core.RecursiveGroupReference.Problem Value)
+reference fuel group target values = case Fibril.Termination.GroupCalls.extract group of
+  Left _ => Nothing
+  Right graph => case produce (toList group.arities) graph of
+    ClosureProduced certificate GraphAccepted => Just (evaluate fuel group target values graph certificate)
+    _ => Nothing
+
+referenceIs : Nat -> (group : Group size) -> (target : Fin size) ->
+              Vect (index target group.arities) Value -> Value -> Bool
+referenceIs fuel group target values expected = case reference fuel group target values of
+  Just (Right actual) => actual == expected
+  _ => False
 
 duplicateSites : Group 1
 duplicateSites = MkGroup [2] (MoreMembers (MkMember (Pi Unrestricted BoolType (Pi Linear NatType NatType))
@@ -420,4 +466,69 @@ checks =
       not (accepted (Fibril.Termination.GroupCalls.extract
         (MkGroup [1] (MoreMembers (MkMember (Pi Linear NatType BoolType)
           (CaseList (Variable FZ) (Return BoolTrue) (Return BoolFalse))) NoMembers)))))
+  , ("group reference executes actual mutual parity for both members",
+      referenceIs 20 parity FZ [Natural 0] (Boolean True) &&
+      referenceIs 20 parity FZ [Natural 1] (Boolean False) &&
+      referenceIs 20 parity FZ [Natural 2] (Boolean True) &&
+      referenceIs 20 parity FZ [Natural 3] (Boolean False) &&
+      referenceIs 20 parity (FS FZ) [Natural 0] (Boolean False) &&
+      referenceIs 20 parity (FS FZ) [Natural 1] (Boolean True) &&
+      referenceIs 20 parity (FS FZ) [Natural 2] (Boolean False) &&
+      referenceIs 20 parity (FS FZ) [Natural 3] (Boolean True))
+  , ("group reference respects swapped, rectangular and Bool-branch arguments",
+      referenceIs 30 ordered FZ [Natural 2, Boolean False] (Boolean False) &&
+      referenceIs 30 ordered (FS FZ) [Boolean True, Natural 2] (Boolean True) &&
+      referenceIs 30 rectangularLinear FZ [Natural 2] (Boolean True) &&
+      referenceIs 30 rectangularLinear (FS FZ) [Natural 2, Boolean False] (Boolean True) &&
+      referenceIs 2 branchNot FZ [Boolean True] (Boolean False) &&
+      referenceIs 2 branchNot FZ [Boolean False] (Boolean True) &&
+      referenceIs 4 singleValidCallee FZ [Boolean True, Boolean False] (Boolean True) &&
+      referenceIs 4 singleValidCallee FZ [Boolean False, Boolean True] (Boolean False))
+  , ("group reference charges each actual body node exactly once",
+      referenceIs 1 constantBool FZ [] (Boolean True) &&
+      referenceIs 2 parity FZ [Natural 0] (Boolean True) &&
+      referenceIs 4 parity FZ [Natural 1] (Boolean False) &&
+      case (reference 0 constantBool FZ [], reference 1 parity FZ [Natural 0],
+            reference 3 parity FZ [Natural 1]) of
+        (Just (Left OutOfFuel), Just (Left OutOfFuel), Just (Left OutOfFuel)) => True
+        _ => False)
+  , ("group reference rejects wrong input types and caps Nat growth",
+      referenceIs 2 natIdentity FZ [Natural 256] (Natural 256) &&
+      referenceIs 2 natGrowth FZ [Natural 255] (Natural 256) &&
+      case (reference 2 parity FZ [Boolean True], reference 2 natGrowth FZ [Natural 256],
+            reference 2 parity FZ [Natural 257]) of
+        (Just (Left (InvalidInput _)), Just (Left (AdmissionExhausted _)),
+         Just (Left (AdmissionExhausted _))) => True
+        _ => False)
+  , ("group reference rejects erased and unrestricted parameters in any member",
+      case (reference 4 rectangular FZ [Natural 0], reference 4 uncalledOmega FZ []) of
+        (Just (Left (Fibril.Core.RecursiveGroupReference.Unsupported _)),
+         Just (Left (Fibril.Core.RecursiveGroupReference.Unsupported _))) => True
+        _ => False)
+  , ("group reference fuel policy has an explicit upper bound",
+      referenceIs 4096 constantBool FZ [] (Boolean True) &&
+      case reference 4097 constantBool FZ [] of
+        Just (Left (AdmissionExhausted _)) => True
+        _ => False)
+  , ("group reference rejects evidence for a changed body with the same signatures",
+      case Fibril.Termination.GroupCalls.extract parity of
+        Right calls => case produce (toList parity.arities) calls of
+          ClosureProduced certificate GraphAccepted =>
+            case evaluate 20 mutatedParity FZ [Natural 2] calls certificate of
+              Left (GraphFailure _) => True
+              _ => False
+          _ => False
+        _ => False)
+  , ("group reference authenticates calls and certificates before executing",
+      let strict = Edge 0 0 [[Decreases]]
+          calls = [Edge 0 1 [[Decreases]], Edge 1 0 [[Decreases]]] in
+      (case (evaluate 0 loop FZ [Natural 0] [strict] [strict],
+             evaluate 0 parity FZ [Natural 0] [] [],
+             evaluate 0 parity FZ [Natural 0] calls []) of
+        (Left (GraphFailure _), Left (GraphFailure _), Left (CertificateRejected _)) => True
+        _ => False) &&
+      (case (evaluate 0 parity FZ [Natural 0] calls (Data.List.replicate 33 strict),
+             evaluate 0 loop FZ [Natural 0] [Edge 0 0 [[NonIncreasing]]] [Edge 0 0 [[NonIncreasing]]]) of
+        (Left (CertificateInconclusive _), Left (CertificateRejected _)) => True
+        _ => False))
   ]

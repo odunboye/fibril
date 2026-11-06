@@ -2,14 +2,15 @@
 
 ## Status
 
-**Raw representation, restricted typing/usage checking and an experimental
-size-change check are implemented; recursive execution remains proposed.**
+**Raw representation, restricted typing/usage checking, an experimental
+size-change check and isolated reference execution are implemented.**
 `Fibril.Core.RecursiveGroup` defines separate scoped group-body syntax with
-explicit saturated member calls. `Fibril.Core.RecursiveGroupCheck` checks a
-narrow Nat/Bool subset, and a separate rewalk can verify a size-change graph and
-closure for those same groups. The syntax is not an ordinary `Term` constructor
-and is not evaluated or accepted from source. Fibril does not yet support
-general recursive definitions or source termination checking. The existing
+explicit saturated member calls. A restricted Nat/Bool subset is checked, its
+calls and closure are rechecked against the same group, and a narrower linear
+subset can run in a separate fuelled reference machine. This syntax is not an
+ordinary `Term` constructor and is not accepted from source or integrated into
+ordinary evaluation. Fibril does not yet support general recursive definitions
+or source termination checking. The existing
 [structural equations](function-equations.md) lower to checked recursors. The
 [size-change experiment](size-change-certificates.md) checks synthetic bodies,
 not Fibril programs. Isolated experiments also check and run a tightly
@@ -172,7 +173,7 @@ oddBody = CaseNat (Variable FZ) (Return BoolFalse)
                   (Call FZ [Variable FZ])
 ~~~
 
-These are construction examples, not Fibril source or executable definitions.
+These are construction examples, not Fibril source or ordinary executable definitions.
 
 Bodies contain `Return` of an ordinary scoped term, direct `Call`, and explicit
 Nat, list and Bool cases. A Nat successor adds the predecessor at local `0`;
@@ -225,7 +226,7 @@ and embedded-term nodes, 128 calls and 16 simultaneous locals. Exhaustion is
 or usage. These are admission policies, not hard time, stack or memory bounds.
 The mutual even/odd raw group passes. So does a saturated self-loop: **success
 is not termination evidence**, and is not permission to admit or execute a
-recursive definition. The checker is not connected to source, conversion,
+recursive definition. The checker is not connected to source, conversion, ordinary
 evaluation, or a backend. Tests include arity/type errors, erased and
 unrestricted calls, duplicated arguments, case-scrutinee reuse, branch joins,
 predecessor consumption, unsupported syntax and admission boundaries. These
@@ -255,20 +256,60 @@ cycle are rejected by the graph criterion. Tests also cover unequal arities,
 reordered and duplicate sites, stale graphs, forged descent, mixed Nat/Bool
 arguments and exhausted certificates.
 
-This is an isolated experiment, **not authorization to execute or admit a
-recursive definition**. The two walks share the group type/usage checker and
+This is an isolated experiment, **not authorization to admit or ordinarily
+execute a recursive definition**. The two walks share the group type/usage checker and
 syntax assumptions; producer and verifier share matrix algebra. There is no
 formal proof of extraction completeness, the size-change theorem, recursive
 reduction or quantitative preservation. Unsupported groups and exhausted
-admissions do not succeed. No Fibril source, ordinary conversion, evaluator or
-backend uses this result.
+admissions do not succeed. No Fibril source, ordinary conversion, ordinary
+evaluator or backend uses this result.
+
+## Isolated fuelled group reference machine
+
+`Fibril.Core.RecursiveGroupReference.evaluate` is a separate experiment that
+runs the actual restricted group bodies on closed host-side `Natural` and
+`Boolean` values. It rechecks the exact group, proposed graph and closure on
+every invocation, and proceeds only on `GraphAccepted`. Graph mismatch,
+certificate rejection and certificate inconclusiveness remain distinct
+failures. It independently requires **every member** to have only linear
+Nat/Bool parameters, even if a member is unreachable; erased and unrestricted
+calling conventions are not implemented here. Entry arguments are checked
+against the selected signature, and call arguments are checked again at every
+member boundary.
+
+Arguments arrive in signature order and are reversed into newest-first local
+environments. A `Call` evaluates its pure arguments and replaces the caller's
+local environment with the callee's arguments. Nat successor branches prepend
+the predecessor; Bool branches add no local. `Return` computes a canonical
+host-side value, whose Nat/Bool sort is rechecked against the entry result.
+Only variables, Nat zero/successor and Bool literals are evaluated; unexpected
+forms and type mismatches fail closed. This is not evaluation of arbitrary
+ordinary `Term` values or a result checked by the ordinary core checker.
+
+One fuel unit is spent for each reached body node, including `Return`, `Call`
+and each case; zero fuel returns `OutOfFuel`. Term traversal, certificate
+checking and result checks are **not** charged to this fuel, but the existing
+group admissions separately bound syntax, calls, arity and locals. A Nat value
+is capped at 256 before entry and before constructing each successor, and fuel
+is capped at 4096. The checker admits at most eight input arguments and sixteen
+locals per environment; this is not a bound on host live storage. These policies
+are not hard time, stack or allocation guarantees. Fuel exhaustion does
+not establish divergence.
+
+Tests execute the actual mutual parity group, both Bool branches, swapped and
+unequal arities, exact fuel boundaries and Nat growth; they also reject forged
+graphs, incomplete certificates, non-linear signatures and wrong input sorts.
+The machine shares syntax and typing assumptions with the graph boundary and
+has no proved preservation or equivalence to a future recursive-core semantics.
+It cannot admit source, unfold recursive calls in dependent conversion, or run
+in a backend.
 
 ## Candidate first checked core fragment
 
 The smallest useful checking direction is a **closed, immutable group** of
 explicitly signed functions with nondependent, first-order argument and result
 types. The restricted checker and experimental graph recheck now handle mutual
-Nat/Bool groups, but do not admit members for execution. Extending this to the
+Nat/Bool groups, but do not admit members for ordinary execution. Extending this to the
 existing fixed `Items Nat` shape is future work. Do not broaden data positivity. No ambient variables or linear
 resources may be captured by a group body. Recursive functions are not values:
 only explicit saturated calls to a member of the current group are permitted.
@@ -373,8 +414,8 @@ bound, no external IO termination, and no backend correctness.
 2. **Checked reference slice:** independently check actual core/group bodies,
    their types, coverage and quantities; authenticate all call sites; verify
    their certificate; and evaluate the same checked bodies under explicit fuel.
-   The isolated reference experiment above is an initial piece of this stage,
-   not its completion: the target is the `reverseOnto` example with a checked
+   The isolated Nat/Bool group reference machine is an initial piece of this
+   stage, not its completion: the target is the `reverseOnto` example with a checked
    recursive representation, not a hand-authored graph or precomputed result.
    Keep it isolated from dependent conversion and source acceptance until their
    contracts are implemented.
