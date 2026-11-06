@@ -2090,6 +2090,10 @@ class CLITests(unittest.TestCase):
                 result = project(source.replace(initial, value))
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                 self.assertEqual(result.stdout, expected)
+            computed_base = source.replace('Data.Items.Empty => acc', 'Data.Items.Empty => appendString acc "!"')
+            result = project(computed_base)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'cab!\n')
             arms = ('  Data.Items.Empty => acc\n'
                     '  Data.Items.Prepend head tail => appendOnto tail (appendString acc head)')
             self.assertIn(arms, source)
@@ -2111,6 +2115,63 @@ class CLITests(unittest.TestCase):
                        source.replace(update, 'appendOnto tail (appendString acc acc)'),
                        source.replace(update, 'appendOnto tail acc'),
                        source.replace('Data.Items.Empty => acc', 'Data.Items.Empty => "bad"')]
+            for program in invalid:
+                self.assertNotEqual(program, source)
+                rejected = project(program)
+                self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
+                self.assertNotIn('Expanded core construction budget exhausted', rejected.stderr)
+
+    def test_structural_accumulator_computed_base_and_distinct_result(self):
+        fixture = ROOT / 'examples/modules/linear-accumulator'
+        source = (fixture / 'Matches.fib').read_text()
+        items = 'Data.Items.Prepend "a" (Data.Items.Prepend "b" (Data.Items.Empty {String}))'
+        base = 'Data.Items.Empty => equalString acc "cab"'
+        self.assertIn(items, source)
+        self.assertIn(base, source)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(fixture / 'Data', root / 'Data')
+            path = root / 'Matches.fib'
+            def project(program):
+                path.write_text(program)
+                return run('run', '--source-dir', str(root), str(path))
+            for program, expected in [(source, 'matched\n'),
+                                      (source.replace(items, 'Data.Items.Empty {String}').replace('"c"\n  then', '"cab"\n  then'), 'matched\n'),
+                                      (source.replace(items, 'Data.Items.Prepend "a" (Data.Items.Empty {String})'), 'different\n')]:
+                result = project(program)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(result.stdout, expected)
+            conditional = source.replace(base, 'Data.Items.Empty => if True then equalString acc "cab" else equalString acc "other"')
+            result = project(conditional)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'matched\n')
+            # A cons-branch binder is not in scope in the empty branch; an
+            # unrelated global with that spelling remains a legal reference.
+            globals_ = 'head : String\nhead = "cab"\ntail : String\ntail = "cab"\n'
+            with_globals = source.replace('matchesOnto :', globals_ + 'matchesOnto :')
+            for name in ['head', 'tail']:
+                result = project(with_globals.replace(base, 'Data.Items.Empty => equalString acc ' + name))
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(result.stdout, 'matched\n')
+            helpers = ('items : Data.Items.Items String\nitems = Data.Items.Empty {String}\n'
+                       'other : Data.Items.Items String\nother = Data.Items.Empty {String}\n'
+                       'consume : (1 xs : Data.Items.Items String) -> String\nconsume xs = case xs of\n'
+                       '  Data.Items.Empty => ""\n'
+                       '  Data.Items.Prepend h t => appendString h (consume t)\n')
+            short = source[:source.index('main : IO Unit')].replace('matchesOnto :', helpers + 'matchesOnto :')
+            short += 'main : IO Unit\nmain = putStrLn "checked"\n'
+            safe = short.replace(base, 'Data.Items.Empty => equalString acc (consume other)')
+            checked = project(safe)
+            self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
+            self.assertEqual(checked.stdout, 'checked\n')
+            for collision in ['items', 'Matches.items']:
+                rejected = project(safe.replace('consume other', 'consume ' + collision))
+                self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
+                self.assertNotIn('Expanded core construction budget exhausted', rejected.stderr)
+            invalid = [source.replace(base, 'Data.Items.Empty => True'),
+                       source.replace(base, 'Data.Items.Empty => equalString acc acc'),
+                       source.replace(base, 'Data.Items.Empty => matchesOnto items acc'),
+                       source.replace(base, 'Data.Items.Empty => let (1 x : String) = acc in equalString x "cab"')]
             for program in invalid:
                 self.assertNotEqual(program, source)
                 rejected = project(program)

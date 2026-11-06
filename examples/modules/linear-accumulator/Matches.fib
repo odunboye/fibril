@@ -1,0 +1,14 @@
+module Matches
+
+import Data.Items
+
+-- The accumulator is String; the empty case computes a Bool result.
+matchesOnto : (1 items : Data.Items.Items String) -> (1 acc : String) -> Bool
+matchesOnto items acc = case items of
+  Data.Items.Empty => equalString acc "cab"
+  Data.Items.Prepend head tail => matchesOnto tail (appendString acc head)
+
+main : IO Unit
+main = if matchesOnto (Data.Items.Prepend "a" (Data.Items.Prepend "b" (Data.Items.Empty {String}))) "c"
+  then putStrLn "matched"
+  else putStrLn "different"

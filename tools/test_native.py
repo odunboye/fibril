@@ -2,6 +2,7 @@
 """End-to-end tests: emit checked C, compile it, then execute it explicitly."""
 from pathlib import Path
 import os
+import shutil
 import shlex
 import subprocess
 import tempfile
@@ -78,6 +79,39 @@ class NativeTests(unittest.TestCase):
             self.assertEqual(reference.returncode, 0, reference.stderr)
             self.assertEqual(native.returncode, 0, native.stderr)
             self.assertEqual(native.stdout, b'cab\n')
+            self.assertEqual(native.stdout, reference.stdout)
+
+    def test_accumulator_computed_base_matches_reference(self):
+        fixture = ROOT / 'examples/modules/linear-accumulator'
+        args = ['--source-dir', str(fixture), str(fixture / 'Matches.fib')]
+        with tempfile.TemporaryDirectory() as directory:
+            _, native = self.compile_and_run(args, directory)
+            reference = run_cli('run', *args, text=False, timeout=120)
+            self.assertEqual(reference.returncode, 0, reference.stderr)
+            self.assertEqual(native.returncode, 0, native.stderr)
+            self.assertEqual(native.stdout, b'matched\n')
+            self.assertEqual(native.stdout, reference.stdout)
+
+    def test_accumulator_partial_application_matches_reference(self):
+        fixture = ROOT / 'examples/modules/linear-accumulator'
+        source = (fixture / 'Matches.fib').read_text()
+        prefix = source[:source.index('main : IO Unit')]
+        source = prefix + ('''main : IO Unit
+main = let (1 remaining : (1 acc : String) -> Bool) =
+  matchesOnto (Data.Items.Prepend "a" (Data.Items.Prepend "b" (Data.Items.Empty {String}))) in
+  if remaining "c" then putStrLn "matched" else putStrLn "different"
+''')
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(fixture / 'Data', root / 'Data')
+            path = root / 'Matches.fib'
+            path.write_text(source)
+            args = ['--source-dir', str(root), str(path)]
+            _, native = self.compile_and_run(args, directory)
+            reference = run_cli('run', *args, text=False, timeout=120)
+            self.assertEqual(reference.returncode, 0, reference.stderr)
+            self.assertEqual(native.returncode, 0, native.stderr)
+            self.assertEqual(native.stdout, b'matched\n')
             self.assertEqual(native.stdout, reference.stdout)
 
     def test_native_finite_data_and_branches_match_reference(self):

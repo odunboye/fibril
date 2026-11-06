@@ -723,44 +723,53 @@ accumulatorSequenceEquation globals name ty (NEquationLambda _ [argument, accumu
       Just (Pi Linear family@(SeqType _ element) (Pi Linear accumulatorType result)) =>
         case (dropNewest accumulatorType, dropNewest result >>= dropNewest) of
           (Just accType, Just resultType) =>
-            if not (sameSyntax accType resultType) then Right Nothing else
-              case (sequenceConstructorTag globals Empty family element first, firstBinder,
-                    sequenceConstructorTag globals Empty family element second, secondBinder) of
-                (Just 0, [], Just 1, [head, tail]) => lower family element accType firstBody head tail secondBody
-                (Just 1, [head, tail], Just 0, []) => lower family element accType secondBody head tail firstBody
-                _ => Right Nothing
+            case (sequenceConstructorTag globals Empty family element first, firstBinder,
+                  sequenceConstructorTag globals Empty family element second, secondBinder) of
+              (Just 0, [], Just 1, [head, tail]) => lower family element accType resultType firstBody head tail secondBody
+              (Just 1, [head, tail], Just 0, []) => lower family element accType resultType secondBody head tail firstBody
+              _ => Right Nothing
           _ => Right Nothing
       _ => Right Nothing
   where
-    lower : Term 0 -> Term 0 -> Term 0 -> Expr -> Token -> Token -> Expr -> Either ResolveError (Maybe (Term 0))
-    lower family element accType base head tail body = do
+    lower : Term 0 -> Term 0 -> Term 0 -> Term 0 -> Expr -> Token -> Token -> Expr -> Either ResolveError (Maybe (Term 0))
+    lower family element accType resultType base head tail body = do
       let names : List String = [name, argument.spelling, accumulator.spelling, head.spelling, tail.spelling]
       if any (== "_") names || length (nub names) /= length names ||
          any (\entry => entry == first.spelling || entry == second.spelling) names
         then Right Nothing else do
-      case (base, accumulatorCall name tail.spelling body) of
-        (NRef _ baseName, Just update) =>
-          if baseName /= accumulator.spelling ||
+      case accumulatorCall name tail.spelling body of
+        Just update =>
+          if not (accumulatorUpdateSafe [name, argument.spelling, recursiveResultName] base) ||
              not (accumulatorUpdateSafe [name, argument.spelling, tail.spelling, recursiveResultName] update)
             then Right Nothing else do
-              -- Elaborate the exact authored update, including implicit
-              -- metadata, then check its linear uses independently.
-              let updateContext = Extend (Extend Empty Linear element) Linear (weaken accType)
-              updateTerm <- elaborateExpected (map global globals) updateContext [accumulator.spelling, head.spelling]
-                              (weaken (weaken accType)) update
-              case checkRuntime checkingDepth typeReductionFuel updateContext updateTerm (weaken (weaken accType)) of
-                Left (TypingError CheckingLimit) => Left (CannotElaborate (extent update).start "Accumulator update checking budget exhausted")
-                Left (TypingError ReductionLimit) => Left (CannotElaborate (extent update).start "Accumulator update reduction budget exhausted")
+              -- Elaborate both authored expressions under exactly the locals
+              -- available to their generated continuations, then check usage.
+              let baseContext = Extend Empty Linear accType
+              baseBody <- elaborateExpected (map global globals) baseContext [accumulator.spelling]
+                            (weaken resultType) base
+              case checkRuntime checkingDepth typeReductionFuel baseContext baseBody (weaken resultType) of
+                Left (TypingError CheckingLimit) => Left (CannotElaborate (extent base).start "Accumulator base checking budget exhausted")
+                Left (TypingError ReductionLimit) => Left (CannotElaborate (extent base).start "Accumulator base reduction budget exhausted")
                 Left _ => Right Nothing
                 Right _ => do
-                  let continuation : Term 0 = Pi Linear accType (weaken accType)
-                  let baseTerm : Term 0 = Lambda Linear accType (Variable FZ)
-                  let stepTerm : Term 0 = Lambda Linear element (Lambda Erased (weaken family)
-                        (Lambda Linear (weaken (weaken continuation))
-                          (Lambda Linear (weaken (weaken (weaken accType)))
-                            (Apply (Variable (FS FZ)) (rename accumulatorScope updateTerm)))))
-                  let motive : Term 1 = Lambda Erased (weaken family) (weaken (weaken continuation))
-                  Right (Just (Lambda Linear family (SeqFold motive (weaken baseTerm) (weaken stepTerm) (Variable FZ))))
+                  let updateContext = Extend (Extend Empty Linear element) Linear (weaken accType)
+                  updateTerm <- elaborateExpected (map global globals) updateContext [accumulator.spelling, head.spelling]
+                                  (weaken (weaken accType)) update
+                  case checkRuntime checkingDepth typeReductionFuel updateContext updateTerm (weaken (weaken accType)) of
+                    Left (TypingError CheckingLimit) => Left (CannotElaborate (extent update).start "Accumulator update checking budget exhausted")
+                    Left (TypingError ReductionLimit) => Left (CannotElaborate (extent update).start "Accumulator update reduction budget exhausted")
+                    Left _ => Right Nothing
+                    Right _ => do
+                      let continuation : Term 0 = Pi Linear accType (weaken resultType)
+                      let baseTerm : Term 0 = Lambda Linear accType baseBody
+                      let stepTerm : Term 0 = Lambda Linear element (Lambda Erased (weaken family)
+                            (Lambda Linear (weaken (weaken continuation))
+                              (Lambda Linear (weaken (weaken (weaken accType)))
+                                (Apply (Variable (FS FZ)) (rename accumulatorScope updateTerm)))))
+                      let motive : Term 2 = Lambda Erased (weaken (weaken family)) (weaken (weaken (weaken continuation)))
+                      Right (Just (Lambda Linear family (Lambda Linear (weaken accType)
+                        (Apply (SeqFold motive (weaken (weaken baseTerm)) (weaken (weaken stepTerm))
+                                        (Variable (FS FZ))) (Variable FZ)))))
         _ => Right Nothing
 accumulatorSequenceEquation _ _ _ _ = Right Nothing
 
@@ -928,8 +937,8 @@ recursiveEquationReserve name expression =
   max (accumulatorReserve name expression) (max (legacyRecursiveEquationReserve name expression) (uniformEquationReserve name expression))
   where
     -- Reserve up to 20 guarded 513-node copies for the family, element,
-    -- distinct accumulator, continuation and annotations. The authored
-    -- update's expansion is included separately in the source cost.
+    -- distinct accumulator, result, continuation and annotations. Authored
+    -- base/update expansion is included separately in the source cost.
     accumulatorReserve : String -> Expr -> Nat
     accumulatorReserve name (NEquationLambda _ [argument, accumulator] _ (NDataCase _ _ Nothing [(first, firstBinder, firstBody), (second, secondBinder, secondBody)])) =
       let shape = case (firstBinder, secondBinder) of

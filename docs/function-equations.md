@@ -249,30 +249,37 @@ reverseOnto items acc = case items of
 
 The [runnable example](../examples/modules/linear-accumulator/Main.fib) uses
 qualified imported constructors. The signature has exactly two linear inputs:
-a checked fixed list family and a closed accumulator type. The result must be
-the same closed type as the accumulator, independent of both inputs. The case
-scrutinizes the first input; the empty branch is exactly the accumulator, and
-the cons branch is exactly a direct self-call on the immediate tail and an
-update. Branch order may be reversed. The [computed-update example](../examples/modules/linear-accumulator/Decorated.fib)
+a checked fixed list family and a closed accumulator type. Its closed result
+type may differ from the accumulator; neither may depend on the inputs. The
+case scrutinizes the first input. Its empty branch computes the result from the
+accumulator, and the cons branch is exactly a direct self-call on the immediate
+tail and an update. Branch order may be reversed. The
+[computed-update example](../examples/modules/linear-accumulator/Decorated.fib)
 transforms each head before adding it to a list accumulator; the
 [String-accumulator example](../examples/modules/linear-accumulator/StringAccumulator.fib)
-uses a different accumulator type from the input list.
+uses a different accumulator type from the input list. The
+[computed-base example](../examples/modules/linear-accumulator/Matches.fib)
+returns a `Bool` from a `String` accumulator.
 
-The update may use the head, accumulator, and visible globals in a bounded
-binder-free expression of ordinary or braced applications, `if`, references,
-and supported literals. It must not refer to the original input, tail, or
-recursive function; qualified references whose final name collides with these
-are conservatively rejected too. Cases, lambdas, lets, do blocks and other
-unlisted forms are rejected. The authored update is elaborated and checked in a
-context with a linear head and linear accumulator, so it cannot duplicate or
-discard them. Implicit prefixes on the recursive function, indirect calls,
-other recursive arguments and additional function parameters remain unsupported.
+The base may use the accumulator and visible globals; the update may also use
+the head. Both are bounded binder-free expressions of ordinary or braced
+applications, `if`, references, and supported literals. Neither may refer to
+the original input or recursive function; the update may not refer to the tail.
+Qualified references whose final name collides with a forbidden name are also
+conservatively rejected. Head and tail binders are not in scope in the empty
+branch, so same-named globals there retain their ordinary meaning. Cases,
+lambdas, lets, do blocks and other unlisted forms are rejected. Both authored
+expressions are elaborated and independently checked: the base must consume
+the linear accumulator, and the update must consume both linear head and
+accumulator. Implicit prefixes on the recursive function, indirect calls, other
+recursive arguments and additional function parameters remain unsupported.
 
 The compiler lowers this shape to a `SeqFold` returning a linear
-accumulator-to-accumulator function. Its base is the identity; each step builds a
-function that applies the linear induction result to the independently checked
-update. The original accumulator is not captured by the repeatedly invoked
-step. The whole generated core is independently checked for types and usage.
+accumulator-to-result function. Its base computes the checked empty branch;
+each step builds a function that applies the linear induction result to the
+independently checked update. The original accumulator is not captured by the
+repeatedly invoked step. The generated outer lambdas preserve the two-argument
+shape before applying the fold. The whole generated core is independently checked for types and usage.
 This is syntax over an expressible fold, **not general recursion or use of the
 experimental size-change checker**. Case-constructor identity is checked, not
 inferred from spelling; authored update applications must satisfy their own
