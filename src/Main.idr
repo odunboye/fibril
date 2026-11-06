@@ -9,6 +9,7 @@ import Fibril.Driver.Check
 import Fibril.Driver.CheckReport
 import Fibril.Driver.Evaluate
 import Fibril.Driver.Run
+import Fibril.Driver.Binary
 import Fibril.Driver.Interactive.Run
 -- Keep the experimental resource library in the application package's build
 -- closure so installed test dependencies include it; no CLI command exposes it.
@@ -74,6 +75,7 @@ Usage:
   fibril check --json PATH      JSON runtime-check report (no effect execution)
   fibril check --erased PATH    Check only the erased ordinary fragment
   fibril run PATH              Check main : IO Unit, then execute prepared stdout requests
+  fibril run-binary PATH       Execute checked borrowed binary stdio (standalone)
   fibril run-interactive PATH  Execute incremental stdin/stdout IO (standalone)
   fibril run --source-dir ROOT ENTRY  Check modules, then execute the complete IO plan
   fibril eval --source-dir ROOT ENTRY  Checked module reference normalization
@@ -174,6 +176,7 @@ main = do
     ["emit-c", "--source-dir", root, entry] => emitCProject root entry >>= printC
     ["emit-c", path] => emitCFile path >>= printC
     ["emit-c-interactive", path] => emitInteractiveCFile path >>= printC
+    ["run-binary", path] => runBinaryFile path >>= printExecution
     ["run-interactive", path] => runInteractiveFile path >>= printExecution
     ["module-graph"] => packageGraph "fibril.yaml"
     ["module-graph", "--package", manifest] => packageGraph manifest

@@ -1,5 +1,9 @@
 # Examples
 
+The [binary chunk echo](core/binary-echo.fib) and [bounded sequence echo](core/binary-echo-loop.fib)
+require explicit `fibril run-binary`. They preserve arbitrary bytes through hosted
+stdio; native binary emission and Content-Length framing are not implemented.
+
 The [UTF-8 bytes example](core/utf8-bytes.fib) explicitly handles encoding and
 decoding outcomes, with hosted/native text output. It does not grant binary IO.
 

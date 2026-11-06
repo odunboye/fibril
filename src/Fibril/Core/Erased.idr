@@ -304,6 +304,15 @@ mutual
     ty <- infer depth reduction context x
     requireCompatible reduction ty NatType
     Right BytesType
+  infer (S depth) reduction context (ReadBytes x) = do
+    ty <- infer depth reduction context x
+    requireCompatible reduction ty NatType
+    Right (IOType byteReadResultType)
+  infer (S depth) reduction context (WriteBytes x) = do
+    ty <- infer depth reduction context x
+    requireCompatible reduction ty BytesType
+    Right (IOType UnitType)
+  infer (S depth) reduction context FlushBytes = Right (IOType UnitType)
   infer (S depth) reduction context StringType = Right (Universe 0)
   infer (S depth) reduction context (StringValue _) = Right StringType
   infer (S depth) reduction context (StringAppend left right) = do

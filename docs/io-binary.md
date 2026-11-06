@@ -1,8 +1,9 @@
 # Binary transport pilot
 
 Status: immutable byte values now have a first [pure core/source slice](bytes.md).
-Trusted hosted/native **transport** APIs have differential tests but remain
-internal: no source binary effects or LSP implementation written in Fibril yet.
+Trusted hosted/native **transport** APIs have differential tests. The first
+[checked hosted source binary runner](io-binary-source.md) is now available;
+native source binary IO and an LSP implementation written in Fibril are not.
 The existing pure byte constructs now have native value/lowering coverage.
 Existing text IO retains strict UTF-8 decoding and NUL rejection.
 
@@ -31,8 +32,9 @@ and `.c`, separate from the existing checked-expression runtime.
 - Revoke host transport wrappers on every represented callback return; escaped
   wrappers reject access. Arbitrary host exceptions/abort/cancellation are not
   bracketed by this pilot. Native C callers must respect lexical scope.
-- Do not execute IO during source conversion/checking. No source command or
-  default output/interactive runner grants access to this pilot.
+- Do not execute IO during source conversion/checking. Only explicit hosted
+  `run-binary` grants source access; default output/interactive/resource and C
+  emission modes reject binary requests.
 
 ### Reads
 
@@ -174,9 +176,9 @@ proof extensions are implemented; `examples/core/bytes-pure.fib` checks/evaluate
 Pure index/slice and [explicit UTF-8 conversion](utf8-values.md), with native
 coverage, are now implemented.
 
-1. Add checked binary descriptions and source operations with explicit hosted/
-   native execution admission; compare actual compiled `.fib` programs. Preserve
-   all existing runner gates.
+1. Add native lowering/execution for the checked binary descriptions. Hosted
+   `run-binary` and `.fib` chunk/sequence examples are implemented; all existing
+   runner gates conservatively reject binary requests.
 2. Implement bounded Content-Length framing in Fibril: first one frame, then a
    bounded sequence. Test fragmentation, Unicode byte counts and truncation.
 3. Add JSON/document state and a narrow compiler-service bridge.

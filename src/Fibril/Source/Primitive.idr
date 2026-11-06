@@ -9,6 +9,7 @@ import Fibril.Source.Global
 import Fibril.Source.Primitive.Input
 import Fibril.Source.Primitive.Bytes
 import Fibril.Source.Primitive.UTF8
+import Fibril.Source.Primitive.Binary
 import Fibril.Source.Primitive.Resource
 
 %default total
@@ -79,7 +80,7 @@ natRecWithValue = Lambda Erased natMotive
 public export
 primitiveGlobals : List GlobalDefinition
 primitiveGlobals =
-  utf8PrimitiveGlobals ++ bytePrimitiveGlobals ++ resourcePrimitiveGlobals ++ inputPrimitiveGlobals ++
+  binaryPrimitiveGlobals ++ utf8PrimitiveGlobals ++ bytePrimitiveGlobals ++ resourcePrimitiveGlobals ++ inputPrimitiveGlobals ++
   [ GlobalWithQuantity Erased "Bytes" (Universe 0) BytesType
   , Global "primBytesEmpty" BytesType (BytesValue empty)
   , Global "primBytesOctetMod256" (Pi Linear NatType BytesType)

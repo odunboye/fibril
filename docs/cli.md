@@ -15,6 +15,7 @@ Build with `pack build fibril`, then invoke `./build/exec/fibril`.
 | test [--package PATH] | Check inventories/imports before bounded pure Bool suite evaluation; True passes, False fails, exhaustion errors; no source IO |
 | check / run / module-graph | Use ./fibril.yaml only; no parent search or malformed-manifest fallback. --package PATH remains an explicit override. |
 | run PATH | Runtime-check main : IO Unit, prepare all output requests, then execute through the host adapter |
+| run-binary PATH | Explicit standalone checked borrowed binary stdio; 4096 requests, 8 MiB aggregate capacity, 65536-byte chunks; hosted only; see [binary IO](io-binary-source.md) |
 | run-interactive PATH | Standalone incremental stdin/stdout execution; 64 requests, 8192 characters per line; earlier output may precede a later failure; see [input](io-input.md) |
 | emit-c-interactive PATH | Check a standalone IO Unit entry and emit incremental C with input; no effects during emission |
 | eval PATH | Check then reference-normalize an expression or declaration program (default fuel 128) |

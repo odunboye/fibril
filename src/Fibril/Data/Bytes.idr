@@ -1,4 +1,4 @@
--- Immutable host-side byte values; not yet a Fibril source/core type.
+-- Immutable host representation for checked core/source byte values.
 module Fibril.Data.Bytes
 
 import Data.List

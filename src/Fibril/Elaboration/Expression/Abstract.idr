@@ -35,6 +35,9 @@ mutual
   descend env hole target (SeqNil ty) = SeqNil (abstractWith env hole target ty)
   descend env hole target (SeqCons ty h t) = SeqCons (abstractWith env hole target ty) (abstractWith env hole target h) (abstractWith env hole target t)
   descend env hole target (SeqFold p z s x) = SeqFold (abstractWith env hole target p) (abstractWith env hole target z) (abstractWith env hole target s) (abstractWith env hole target x)
+  descend env hole target (ReadBytes x) = ReadBytes (abstractWith env hole target x)
+  descend env hole target (WriteBytes x) = WriteBytes (abstractWith env hole target x)
+  descend env hole target FlushBytes = FlushBytes
   descend env hole target ReadLine = ReadLine
   descend env hole target (FileHandleValue identity generation) = FileHandleValue identity generation
   descend env hole target (ReadInputFile handle) = ReadInputFile (abstractWith env hole target handle)

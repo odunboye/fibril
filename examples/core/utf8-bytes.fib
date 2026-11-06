@@ -1,6 +1,16 @@
 -- Explicit conversion, not binary IO. Both cases handle conversion failure.
 decodeAndPrint : (1 bytes : Bytes) -> IO Unit
-decodeAndPrint = \(1 bytes : Bytes) => primUTF8Case String (IO Unit) (primUTF8Decode bytes) (putStrLn "invalid UTF-8") (\(1 text : String) => putStrLn text)
+decodeAndPrint = \(1 bytes : Bytes) =>
+  primUTF8Case String
+    (IO Unit)
+    (primUTF8Decode bytes)
+    (putStrLn "invalid UTF-8")
+    (\(1 text : String) =>
+      putStrLn text)
 
 main : IO Unit
-main = primUTF8Case Bytes (IO Unit) (primUTF8Encode "λ 🌍") (putStrLn "invalid scalar text") decodeAndPrint
+main = primUTF8Case Bytes
+  (IO Unit)
+  (primUTF8Encode "λ 🌍")
+  (putStrLn "invalid scalar text")
+  decodeAndPrint

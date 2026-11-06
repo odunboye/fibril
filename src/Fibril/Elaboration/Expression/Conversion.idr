@@ -38,6 +38,9 @@ mutual
   admit (S budget) (SeqNil ty) = admit budget ty
   admit (S budget) (SeqCons ty h t) = do a <- admit budget ty; b <- admit a h; admit b t
   admit (S budget) (SeqFold p z s x) = do a <- admit budget p; b <- admit a z; c <- admit b s; admit c x
+  admit (S budget) (ReadBytes x) = admit budget x
+  admit (S budget) (WriteBytes x) = admit budget x
+  admit (S budget) FlushBytes = Just budget
   admit (S budget) ReadLine = Just budget
   admit (S budget) (FileHandleValue _ _) = Just budget
   admit (S budget) (ReadInputFile handle) = admit budget handle
@@ -147,6 +150,9 @@ mutual
     safeRedexes size payload ty && safeRedexes size payload h && safeRedexes size payload t
   safeRedexes size payload (SeqFold p z s x) =
     safeRedexes size payload p && safeRedexes size payload z && safeRedexes size payload s && safeRedexes size payload x
+  safeRedexes size payload (ReadBytes x) = safeRedexes size payload x
+  safeRedexes size payload (WriteBytes x) = safeRedexes size payload x
+  safeRedexes size payload FlushBytes = True
   safeRedexes size payload ReadLine = True
   safeRedexes size payload (FileHandleValue _ _) = True
   safeRedexes size payload (ReadInputFile handle) = safeRedexes size payload handle

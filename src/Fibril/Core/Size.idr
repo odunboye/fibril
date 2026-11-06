@@ -33,6 +33,9 @@ mutual
   coreNodes (SeqNil ty) = 1 + coreNodes ty
   coreNodes (SeqCons ty h t) = 1 + coreNodes ty + coreNodes h + coreNodes t
   coreNodes (SeqFold p z s x) = 1 + coreNodes p + coreNodes z + coreNodes s + coreNodes x
+  coreNodes (ReadBytes x) = 1 + coreNodes x
+  coreNodes (WriteBytes x) = 1 + coreNodes x
+  coreNodes FlushBytes = 1
   coreNodes ReadLine = 1
   coreNodes (FileHandleValue _ _) = 1
   coreNodes (ReadInputFile handle) = 1 + coreNodes handle
@@ -111,6 +114,9 @@ mutual
   mentionsNominal key (SeqNil ty) = mentionsNominal key ty
   mentionsNominal key (SeqCons ty h t) = mentionsNominal key ty || mentionsNominal key h || mentionsNominal key t
   mentionsNominal key (SeqFold p z s x) = mentionsNominal key p || mentionsNominal key z || mentionsNominal key s || mentionsNominal key x
+  mentionsNominal key (ReadBytes x) = mentionsNominal key x
+  mentionsNominal key (WriteBytes x) = mentionsNominal key x
+  mentionsNominal key FlushBytes = False
   mentionsNominal key ReadLine = False
   mentionsNominal key (FileHandleValue _ _) = False
   mentionsNominal key (ReadInputFile handle) = mentionsNominal key handle

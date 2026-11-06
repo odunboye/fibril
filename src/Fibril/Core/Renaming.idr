@@ -42,6 +42,9 @@ mutual
   renameCongruent left right agree (SeqNil ty) = cong SeqNil (renameCongruent left right agree ty)
   renameCongruent left right agree (SeqCons ty h t) = rewrite renameCongruent left right agree ty in rewrite renameCongruent left right agree h in rewrite renameCongruent left right agree t in Refl
   renameCongruent left right agree (SeqFold p z s x) = rewrite renameCongruent left right agree p in rewrite renameCongruent left right agree z in rewrite renameCongruent left right agree s in rewrite renameCongruent left right agree x in Refl
+  renameCongruent left right agree (ReadBytes x) = cong ReadBytes (renameCongruent left right agree x)
+  renameCongruent left right agree (WriteBytes x) = cong WriteBytes (renameCongruent left right agree x)
+  renameCongruent left right agree FlushBytes = Refl
   renameCongruent left right agree ReadLine = Refl
   renameCongruent left right agree (FileHandleValue _ _) = Refl
   renameCongruent left right agree (ReadInputFile handle) = cong ReadInputFile (renameCongruent left right agree handle)
@@ -147,6 +150,9 @@ mutual
   renameIdentity (SeqNil ty) = cong SeqNil (renameIdentity ty)
   renameIdentity (SeqCons ty h t) = rewrite renameIdentity ty in rewrite renameIdentity h in rewrite renameIdentity t in Refl
   renameIdentity (SeqFold p z s x) = rewrite renameIdentity p in rewrite renameIdentity z in rewrite renameIdentity s in rewrite renameIdentity x in Refl
+  renameIdentity (ReadBytes x) = cong ReadBytes (renameIdentity x)
+  renameIdentity (WriteBytes x) = cong WriteBytes (renameIdentity x)
+  renameIdentity FlushBytes = Refl
   renameIdentity ReadLine = Refl
   renameIdentity (FileHandleValue _ _) = Refl
   renameIdentity (ReadInputFile handle) = cong ReadInputFile (renameIdentity handle)
@@ -258,6 +264,9 @@ mutual
   renameComposition first second (SeqNil ty) = cong SeqNil (renameComposition first second ty)
   renameComposition first second (SeqCons ty h t) = rewrite renameComposition first second ty in rewrite renameComposition first second h in rewrite renameComposition first second t in Refl
   renameComposition first second (SeqFold p z s x) = rewrite renameComposition first second p in rewrite renameComposition first second z in rewrite renameComposition first second s in rewrite renameComposition first second x in Refl
+  renameComposition first second (ReadBytes x) = cong ReadBytes (renameComposition first second x)
+  renameComposition first second (WriteBytes x) = cong WriteBytes (renameComposition first second x)
+  renameComposition first second FlushBytes = Refl
   renameComposition first second ReadLine = Refl
   renameComposition first second (FileHandleValue _ _) = Refl
   renameComposition first second (ReadInputFile handle) = cong ReadInputFile (renameComposition first second handle)

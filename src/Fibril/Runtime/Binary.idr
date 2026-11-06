@@ -1,4 +1,4 @@
--- Trusted C-stdio binary transport pilot. No Fibril source primitives yet.
+-- Trusted C-stdio transport. Explicit checked source execution: Driver.Binary.
 module Fibril.Runtime.Binary
 
 import Data.IORef

@@ -36,6 +36,9 @@ mutual
   thin env (SeqNil ty) = SeqNil <$> thin env ty
   thin env (SeqCons ty h t) = [| SeqCons (thin env ty) (thin env h) (thin env t) |]
   thin env (SeqFold p z s x) = [| SeqFold (thin env p) (thin env z) (thin env s) (thin env x) |]
+  thin env (ReadBytes x) = map ReadBytes (thin env x)
+  thin env (WriteBytes x) = map WriteBytes (thin env x)
+  thin env FlushBytes = Just FlushBytes
   thin env ReadLine = Just ReadLine
   thin env (FileHandleValue identity generation) = Just (FileHandleValue identity generation)
   thin env (ReadInputFile handle) = ReadInputFile <$> thin env handle
@@ -115,6 +118,9 @@ mutual
   substitutionNodes env (SeqNil ty) = min (S inferredResultNodes) (1 + substitutionNodes env ty)
   substitutionNodes env (SeqCons ty h t) = min (S inferredResultNodes) (1 + substitutionNodes env ty + substitutionNodes env h + substitutionNodes env t)
   substitutionNodes env (SeqFold p z s x) = min (S inferredResultNodes) (1 + substitutionNodes env p + substitutionNodes env z + substitutionNodes env s + substitutionNodes env x)
+  substitutionNodes env (ReadBytes x) = min (S inferredResultNodes) (1 + substitutionNodes env x)
+  substitutionNodes env (WriteBytes x) = min (S inferredResultNodes) (1 + substitutionNodes env x)
+  substitutionNodes env FlushBytes = 1
   substitutionNodes env ReadLine = 1
   substitutionNodes env (FileHandleValue _ _) = 1
   substitutionNodes env (ReadInputFile handle) = min (S inferredResultNodes) (1 + substitutionNodes env handle)

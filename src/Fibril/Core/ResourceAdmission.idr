@@ -18,6 +18,9 @@ mutual
   containsFileReference BoolType = False
   containsFileReference BoolTrue = False
   containsFileReference BoolFalse = False
+  containsFileReference (ReadBytes x) = containsFileReference x
+  containsFileReference (WriteBytes x) = containsFileReference x
+  containsFileReference FlushBytes = False
   containsFileReference ReadLine = False
   containsFileReference NatType = False
   containsFileReference NatZero = False

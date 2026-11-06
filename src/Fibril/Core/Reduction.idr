@@ -114,6 +114,9 @@ mutual
       Nothing => case step next of
         Just s => Just (SeqFold motive base s value)
         Nothing => SeqFold motive base next <$> step value
+  step (ReadBytes x) = map ReadBytes (step x)
+  step (WriteBytes x) = map WriteBytes (step x)
+  step FlushBytes = Nothing
   step ReadLine = Nothing
   step (FileHandleValue _ _) = Nothing
   step (ReadInputFile handle) = map ReadInputFile (step handle)

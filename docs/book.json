@@ -356,6 +356,7 @@
       { "title": "Native resource runtime", "path": "docs/io-native-resources.md" },
       { "title": "Checked resource emission", "path": "docs/io-resource-emission.md" },
       { "title": "Binary transport pilot", "path": "docs/io-binary.md" },
+      { "title": "Checked hosted binary IO", "path": "docs/io-binary-source.md" },
       { "title": "IO build validation", "path": "docs/io-build-validation.md" },
       { "title": "QTT merge validation", "path": "docs/io-merge-validation.md" }
     ]

@@ -90,6 +90,9 @@ mutual
     baseUsage <- analyze depth reduction context base
     consUsage <- analyze depth reduction context cons
     Right (combineUsage valueUsage (joinUsage baseUsage consUsage))
+  analyze (S depth) reduction context (ReadBytes x) = analyze depth reduction context x
+  analyze (S depth) reduction context (WriteBytes x) = analyze depth reduction context x
+  analyze (S depth) reduction context FlushBytes = Right zeroUsage
   analyze (S depth) reduction context ReadLine = Right zeroUsage
   analyze (S depth) reduction context (FileHandleValue _ _) = Right zeroUsage
   analyze (S depth) reduction context (ReadInputFile handle) = analyze depth reduction context handle

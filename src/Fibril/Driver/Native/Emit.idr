@@ -4,6 +4,7 @@ module Fibril.Driver.Native.Emit
 import Data.List
 import Data.Fin
 import Fibril.Core.Term
+import Fibril.Core.EffectAdmission
 import Fibril.Data.Bytes
 import Fibril.Core.Quantity
 import Fibril.Core.Context
@@ -188,6 +189,7 @@ prototypes start (S count) = prototype start :: prototypes (S start) count
 
 emitEntry : NativeMode -> Nat -> Nat -> Term 0 -> Either String String
 emitEntry mode requests lineLimit term = do
+  if containsBinaryRequest term then Left "Binary IO requires an explicit binary runner; native lowering is not enabled" else Right ()
   if mode == Resources && containsFileReference term
     then Left "Native resource entry rejects runtime file references" else Right ()
   case checkRuntime checkingDepth typeReductionFuel Empty term (IOType UnitType) of

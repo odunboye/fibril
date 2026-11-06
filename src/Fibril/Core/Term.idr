@@ -92,6 +92,10 @@ data Term : Nat -> Type where
   WriteLine : Term n -> Term n
   ||| Inert input request. EOF/line/error are positional alternatives in readResultType.
   ReadLine : Term n
+  ||| Inert borrowed-stdio binary requests; only an explicit binary runner acts.
+  ReadBytes : Term n -> Term n
+  WriteBytes : Term n -> Term n
+  FlushBytes : Term n
   ||| Nondependent branches; runtime checking joins their resource permissions.
   BoolCase : Term n -> Term n -> Term n -> Term n
   Sigma : Quantity -> Quantity -> Term n -> Term (S n) -> Term n
@@ -119,6 +123,10 @@ canonicalNatural _ = Nothing
 public export
 utf8ResultType : Term n -> Term n
 utf8ResultType payload = VariantType [Nothing, Just (Linear, payload)]
+
+public export
+byteReadResultType : Term n
+byteReadResultType = utf8ResultType BytesType
 
 public export
 byteIndexResultType : Term n
@@ -213,6 +221,9 @@ mutual
   rename env (SeqCons ty head tail) = SeqCons (rename env ty) (rename env head) (rename env tail)
   rename env (SeqFold motive base step value) = SeqFold (rename env motive) (rename env base) (rename env step) (rename env value)
   rename env (SeqCase motive value base cons) = SeqCase (rename env motive) (rename env value) (rename env base) (rename env cons)
+  rename env (ReadBytes x) = ReadBytes (rename env x)
+  rename env (WriteBytes x) = WriteBytes (rename env x)
+  rename env FlushBytes = FlushBytes
   rename env ReadLine = ReadLine
   rename env (FileHandleValue identity generation) = FileHandleValue identity generation
   rename env (ReadInputFile handle) = ReadInputFile (rename env handle)
@@ -298,6 +309,9 @@ mutual
   substituteTerm env (SeqCons ty head tail) = SeqCons (substituteTerm env ty) (substituteTerm env head) (substituteTerm env tail)
   substituteTerm env (SeqFold motive base step value) = SeqFold (substituteTerm env motive) (substituteTerm env base) (substituteTerm env step) (substituteTerm env value)
   substituteTerm env (SeqCase motive value base cons) = SeqCase (substituteTerm env motive) (substituteTerm env value) (substituteTerm env base) (substituteTerm env cons)
+  substituteTerm env (ReadBytes x) = ReadBytes (substituteTerm env x)
+  substituteTerm env (WriteBytes x) = WriteBytes (substituteTerm env x)
+  substituteTerm env FlushBytes = FlushBytes
   substituteTerm env ReadLine = ReadLine
   substituteTerm env (FileHandleValue identity generation) = FileHandleValue identity generation
   substituteTerm env (ReadInputFile handle) = ReadInputFile (substituteTerm env handle)
@@ -390,6 +404,9 @@ mutual
   sameSyntax (SeqCons a h t) (SeqCons b x y) = sameSyntax a b && sameSyntax h x && sameSyntax t y
   sameSyntax (SeqFold p z s x) (SeqFold q w t y) = sameSyntax p q && sameSyntax z w && sameSyntax s t && sameSyntax x y
   sameSyntax (SeqCase p x z s) (SeqCase q y w t) = sameSyntax p q && sameSyntax x y && sameSyntax z w && sameSyntax s t
+  sameSyntax (ReadBytes a) (ReadBytes b) = sameSyntax a b
+  sameSyntax (WriteBytes a) (WriteBytes b) = sameSyntax a b
+  sameSyntax FlushBytes FlushBytes = True
   sameSyntax ReadLine ReadLine = True
   sameSyntax (FileHandleValue left first) (FileHandleValue right second) = left == right && first == second
   sameSyntax (ReadInputFile left) (ReadInputFile right) = sameSyntax left right

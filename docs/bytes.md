@@ -1,7 +1,8 @@
 # Pure byte values
 
-Status: a first checked **pure** core/source slice. This does not expose binary
-transport to `.fib` programs or make an LSP server available in Fibril.
+Status: checked **pure** core/source operations. These do not themselves grant
+binary transport; see the separate [hosted binary runner](io-binary-source.md).
+No LSP server written in Fibril is available yet.
 The pure core constructs, including index/slice, have checked C lowering. See [binary transport](io-binary.md) for the trusted
 host/native transport and remaining gates.
 
@@ -147,7 +148,7 @@ emission without character conversion.
 
 The unit/property phase (including 28 initial core-byte, 29 range and 17 UTF-8 checks), 163 CLI,
 19 native-emitter, 6 pure-byte/UTF-8 native, 9 interactive CLI, 7 editor and 16 handbook
-tests passed. Focused IO subtargets passed in split runs: 298 hosted checks, 29 checked
+tests passed. Focused IO subtargets passed in split runs: 303 hosted checks, 29 checked
 resource differentials, console/interactive emission comparisons, and 19 binary
 transport tests. Native console/resource/binary suites passed ASan/UBSan.
 
@@ -166,7 +167,7 @@ No timed-out invocation is counted as a successful test.
 
 ## Remaining work
 
-- [Explicit fallible UTF-8 conversion](utf8-values.md) is now implemented; binary source IO is the next boundary.
-- Checked binary descriptions, explicit hosted/native runners and source
-  admission. The [transport pilot](io-binary.md) remains internal.
+- [Explicit fallible UTF-8 conversion](utf8-values.md) and [hosted source binary IO](io-binary-source.md) are now implemented; native binary execution remains next.
+- Native binary descriptions/lowering/runner parity. Hosted execution uses the
+  existing [transport](io-binary.md) behind explicit conservative admission.
 - A real Fibril-written bounded Content-Length parser and echo program.
