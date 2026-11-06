@@ -45,7 +45,7 @@ hidden = BoolCase BoolFalse (echo 1) (IOPure UnitValue)
 
 -- Every example is raw syntax; scan erased annotations before type checking.
 wrappers : List (Term 0)
-wrappers = [FlushBytes, ReadBytes NatZero, WriteBytes (BytesValue empty), hidden,
+wrappers = [RejectBytes, FlushBytes, ReadBytes NatZero, WriteBytes (BytesValue empty), hidden,
   Lambda Erased FlushBytes UnitValue, Pi Erased FlushBytes UnitType,
   Sigma Erased Erased FlushBytes UnitType,
   NominalType "x" [FlushBytes] UnitType,
@@ -57,7 +57,9 @@ wrappers = [FlushBytes, ReadBytes NatZero, WriteBytes (BytesValue empty), hidden
 public export
 checks : List (String, Bool)
 checks =
-  [("binary read is typed inert IO", accepted (ReadBytes (naturalTerm 2)) (IOType byteReadResultType)),
+  [("binary rejection is inert IO Unit", accepted RejectBytes (IOType UnitType)),
+   ("binary rejection remains an explicit capability", rejected (prepareIO 128 128 RejectBytes) && rejected (prepareInteractive 128 128 RejectBytes)),
+   ("binary read is typed inert IO", accepted (ReadBytes (naturalTerm 2)) (IOType byteReadResultType)),
    ("binary write requires Bytes", not (accepted (WriteBytes (StringValue "x")) (IOType UnitType))),
    ("binary flush is typed IO Unit", accepted FlushBytes (IOType UnitType)),
    ("binary read capacity requires Nat", not (accepted (ReadBytes UnitValue) (IOType byteReadResultType))),
@@ -154,6 +156,14 @@ runBinaryDescriptionChecks = do
       (Lambda Linear UnitType (UnitCase (Variable FZ) (IOPure UnitValue))))
   acceptedBeforeError <- readIORef afterWrite.writes
   afterWriteFlushes <- readIORef afterWrite.flushes
+  rejecting <- facts (Right Nothing) (Right ()) (Right ())
+  protocolFailure <- runBinaryTermWith 64 128 0 0 rejecting.host RejectBytes
+  rejectedReads <- readIORef rejecting.reads
+  rejectedWrites <- readIORef rejecting.writes
+  rejectedFlushes <- readIORef rejecting.flushes
+  let protocolRejected = case protocolFailure of
+        Left BinaryRejected => True
+        _ => False
   pure
     [("checked hosted binary echo preserves all octets", succeeded allBytes && written == [octets] && flushed == 1),
      ("short read keeps full reservation", succeeded shortResult && fault exhausted BinaryByteLimit && null deniedWrites && deniedFlushes == 0),
@@ -166,4 +176,5 @@ runBinaryDescriptionChecks = do
      ("admission failure invokes no final flush", rejected deniedResult && admissionFlushes == 0),
      ("description failure invokes no final flush", rejected reductionError && reductionFlushes == 0),
      ("resource runner rejects binary syntax before creating a session", resourceRejected),
-     ("later driver failure does not masquerade as successful flush", rejected afterWriteError && acceptedBeforeError == [captured] && afterWriteFlushes == 0)]
+     ("later driver failure does not masquerade as successful flush", rejected afterWriteError && acceptedBeforeError == [captured] && afterWriteFlushes == 0),
+     ("protocol rejection performs no transport action or final flush", protocolRejected && rejectedReads == 0 && null rejectedWrites && rejectedFlushes == 0)]

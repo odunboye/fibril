@@ -3,6 +3,7 @@
 module Fibril.Core.WeakHead
 
 import Fibril.Core.Term
+import Fibril.Core.Quantity
 import Fibril.Data.Bytes
 import Fibril.Core.Reduction
 
@@ -72,6 +73,8 @@ stepHead (BytesAppend (BytesValue a) (BytesValue b)) = Just (BytesValue (append 
 stepHead (BytesAppend a b) = case stepHead a of
   Just next => Just (BytesAppend next b)
   Nothing => map (BytesAppend a) (stepHead b)
+stepHead (BytesShare (BytesValue value)) = Just (BoxValue (BoxType Unrestricted BytesType) (BytesValue value))
+stepHead (BytesShare x) = map BytesShare (stepHead x)
 stepHead (BytesLength (BytesValue value)) = Just (naturalTerm (byteLength value))
 stepHead (BytesLength x) = map BytesLength (stepHead x)
 stepHead (BytesOctet x) = case canonicalOctet x of

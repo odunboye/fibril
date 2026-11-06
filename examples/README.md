@@ -1,8 +1,13 @@
 # Examples
 
+The [binary frame library/client](modules/binary-frame/Main.fib) parses and echoes
+one canonical Content-Length frame with a 0..32-byte body, entirely in Fibril.
+Use explicit binary `--source-dir` execution/emission; see [framing](../docs/binary-framing.md).
+
 The [binary chunk echo](core/binary-echo.fib) and [bounded sequence echo](core/binary-echo-loop.fib)
 require explicit hosted `fibril run-binary` or native `emit-c-binary`. They
-preserve arbitrary bytes through stdio; Content-Length framing is not implemented.
+preserve arbitrary bytes through stdio; the separate framing example supplies a
+small canonical Content-Length layer.
 Native binary C links `fibril_binary_runtime.c`, not the legacy runtime alone.
 
 The [UTF-8 bytes example](core/utf8-bytes.fib) explicitly handles encoding and

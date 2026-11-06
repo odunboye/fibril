@@ -92,6 +92,7 @@ mutual
     Right (combineUsage valueUsage (joinUsage baseUsage consUsage))
   analyze (S depth) reduction context (ReadBytes x) = analyze depth reduction context x
   analyze (S depth) reduction context (WriteBytes x) = analyze depth reduction context x
+  analyze (S depth) reduction context RejectBytes = Right zeroUsage
   analyze (S depth) reduction context FlushBytes = Right zeroUsage
   analyze (S depth) reduction context ReadLine = Right zeroUsage
   analyze (S depth) reduction context (FileHandleValue _ _) = Right zeroUsage
@@ -109,6 +110,7 @@ mutual
   analyze (S depth) reduction context (UTF8Decode x) = analyze depth reduction context x
   analyze (S depth) reduction context BytesType = Left RuntimeTypeExpression
   analyze (S depth) reduction context (BytesValue _) = Right zeroUsage
+  analyze (S depth) reduction context (BytesShare x) = analyze depth reduction context x
   analyze (S depth) reduction context (BytesLength x) = analyze depth reduction context x
   analyze (S depth) reduction context (BytesOctet x) = analyze depth reduction context x
   analyze (S depth) reduction context (BytesAppend a b) = do

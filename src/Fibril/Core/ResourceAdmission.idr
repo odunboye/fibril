@@ -20,6 +20,7 @@ mutual
   containsFileReference BoolFalse = False
   containsFileReference (ReadBytes x) = containsFileReference x
   containsFileReference (WriteBytes x) = containsFileReference x
+  containsFileReference RejectBytes = False
   containsFileReference FlushBytes = False
   containsFileReference ReadLine = False
   containsFileReference NatType = False
@@ -43,6 +44,7 @@ mutual
   containsFileReference (UTF8Decode x) = containsFileReference x
   containsFileReference BytesType = False
   containsFileReference (BytesValue _) = False
+  containsFileReference (BytesShare x) = containsFileReference x
   containsFileReference (BytesLength x) = containsFileReference x
   containsFileReference (BytesOctet x) = containsFileReference x
   containsFileReference (BytesAppend a b) = containsFileReference a || containsFileReference b

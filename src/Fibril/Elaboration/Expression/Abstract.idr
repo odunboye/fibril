@@ -37,6 +37,7 @@ mutual
   descend env hole target (SeqFold p z s x) = SeqFold (abstractWith env hole target p) (abstractWith env hole target z) (abstractWith env hole target s) (abstractWith env hole target x)
   descend env hole target (ReadBytes x) = ReadBytes (abstractWith env hole target x)
   descend env hole target (WriteBytes x) = WriteBytes (abstractWith env hole target x)
+  descend env hole target RejectBytes = RejectBytes
   descend env hole target FlushBytes = FlushBytes
   descend env hole target ReadLine = ReadLine
   descend env hole target (FileHandleValue identity generation) = FileHandleValue identity generation
@@ -47,6 +48,7 @@ mutual
   descend env hole target (UTF8Decode x) = UTF8Decode (abstractWith env hole target x)
   descend env hole target BytesType = BytesType
   descend env hole target (BytesValue value) = BytesValue value
+  descend env hole target (BytesShare x) = BytesShare (abstractWith env hole target x)
   descend env hole target (BytesLength x) = BytesLength (abstractWith env hole target x)
   descend env hole target (BytesOctet x) = BytesOctet (abstractWith env hole target x)
   descend env hole target (BytesAppend a b) = BytesAppend (abstractWith env hole target a) (abstractWith env hole target b)

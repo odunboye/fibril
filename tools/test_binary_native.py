@@ -44,6 +44,7 @@ static FValue *choose(FRuntime *r,FEnv *e) {
 static FValue *next(FRuntime *r,FEnv *e) { return f_lambda(r,e,0,choose); }
 static FValue *echo(FRuntime *r,FEnv *e) { return f_bind(r,e,read_normal,next); }
 static FValue *echo_alloc_fail(FRuntime *r,FEnv *e) { return f_bind(r,e,read_alloc_fail,next); }
+static FValue *reject(FRuntime *r,FEnv *e) { (void)e;return f_reject_bytes(r); }
 static FValue *flush(FRuntime *r,FEnv *e) { (void)e;return f_flush_bytes(r); }
 static FValue *zero(FRuntime *r,FEnv *e) { (void)e;return f_nat_zero(r); }
 static FValue *read_zero(FRuntime *r,FEnv *e) { return f_read_bytes(r,e,zero); }
@@ -64,6 +65,7 @@ int main(int argc,char **argv) {
   if(mode==10) entry=echo_alloc_fail;
   if(mode==11) entry=bad_later;
   if(mode==12) requests=100001;
+  if(mode==13) { entry=reject;requests=0;bytes=0; }
   FBinaryContext context={&r,entry,FB_OK,0,0};
   FByteStatus status=fibril_bytes_run_with(requests,bytes,
       (FByteAdapters){read_host,write_host,bridge_flush,&h},binary_body,&context);
@@ -84,6 +86,7 @@ int main(int argc,char **argv) {
     assert(!f_read_bytes(&r,NULL,NULL) && r.error);r.error=NULL;
     assert(!f_write_bytes(&r,NULL,NULL) && r.error);
   }
+  else if(mode==13) assert(status==FB_ADAPTER_VIOLATION && r.error && !h.reads && !h.writes && !h.flushes);
   else return 2;
   while(r.allocations) { FAllocation *next=r.allocations->next;free(r.allocations);r.allocations=next; }
   return 0;
@@ -101,7 +104,7 @@ class NativeBinaryBridge(unittest.TestCase):
             built=subprocess.run(cc+['-std=c11','-Wall','-Wextra','-Werror','-I',str(RUNTIME),
                 str(source),'-o',str(executable)],capture_output=True,timeout=60)
             self.assertEqual(built.returncode,0,built.stderr)
-            for mode in range(13):
+            for mode in range(14):
                 with self.subTest(mode=mode):
                     result=subprocess.run([str(executable),str(mode)],capture_output=True,timeout=20)
                     self.assertEqual((result.returncode,result.stdout,result.stderr),(0,b'',b''))

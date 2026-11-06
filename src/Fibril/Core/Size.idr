@@ -35,6 +35,7 @@ mutual
   coreNodes (SeqFold p z s x) = 1 + coreNodes p + coreNodes z + coreNodes s + coreNodes x
   coreNodes (ReadBytes x) = 1 + coreNodes x
   coreNodes (WriteBytes x) = 1 + coreNodes x
+  coreNodes RejectBytes = 1
   coreNodes FlushBytes = 1
   coreNodes ReadLine = 1
   coreNodes (FileHandleValue _ _) = 1
@@ -45,6 +46,7 @@ mutual
   coreNodes (UTF8Decode x) = 1 + coreNodes x
   coreNodes BytesType = 1
   coreNodes (BytesValue _) = 1
+  coreNodes (BytesShare x) = 1 + coreNodes x
   coreNodes (BytesLength x) = 1 + coreNodes x
   coreNodes (BytesOctet x) = 1 + coreNodes x
   coreNodes (BytesAppend a b) = 1 + coreNodes a + coreNodes b
@@ -116,6 +118,7 @@ mutual
   mentionsNominal key (SeqFold p z s x) = mentionsNominal key p || mentionsNominal key z || mentionsNominal key s || mentionsNominal key x
   mentionsNominal key (ReadBytes x) = mentionsNominal key x
   mentionsNominal key (WriteBytes x) = mentionsNominal key x
+  mentionsNominal key RejectBytes = False
   mentionsNominal key FlushBytes = False
   mentionsNominal key ReadLine = False
   mentionsNominal key (FileHandleValue _ _) = False
@@ -126,6 +129,7 @@ mutual
   mentionsNominal key (UTF8Decode x) = mentionsNominal key x
   mentionsNominal key BytesType = False
   mentionsNominal key (BytesValue _) = False
+  mentionsNominal key (BytesShare x) = mentionsNominal key x
   mentionsNominal key (BytesLength x) = mentionsNominal key x
   mentionsNominal key (BytesOctet x) = mentionsNominal key x
   mentionsNominal key (BytesAppend a b) = mentionsNominal key a || mentionsNominal key b

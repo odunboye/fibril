@@ -16,6 +16,8 @@ Build with `pack build fibril`, then invoke `./build/exec/fibril`.
 | check / run / module-graph | Use ./fibril.yaml only; no parent search or malformed-manifest fallback. --package PATH remains an explicit override. |
 | run PATH | Runtime-check main : IO Unit, prepare all output requests, then execute through the host adapter |
 | run-binary PATH | Explicit standalone checked hosted borrowed binary stdio; 4096 requests, 8 MiB aggregate capacity, 65536-byte chunks; see [binary IO](io-binary-source.md) |
+| run-binary --source-dir ROOT ENTRY | Check the complete module graph, then execute the closed binary entry; explicit paths, no package discovery |
+| emit-c-binary --source-dir ROOT ENTRY | Check the complete module graph, then emit binary project C |
 | emit-c-binary PATH | Emit checked binary-only C; compile with `fibril_binary_runtime.c` instead of `fibril_runtime.c`; same transport limits |
 | run-interactive PATH | Standalone incremental stdin/stdout execution; 64 requests, 8192 characters per line; earlier output may precede a later failure; see [input](io-input.md) |
 | emit-c-interactive PATH | Check a standalone IO Unit entry and emit incremental C with input; no effects during emission |

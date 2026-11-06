@@ -38,6 +38,7 @@ mutual
   thin env (SeqFold p z s x) = [| SeqFold (thin env p) (thin env z) (thin env s) (thin env x) |]
   thin env (ReadBytes x) = map ReadBytes (thin env x)
   thin env (WriteBytes x) = map WriteBytes (thin env x)
+  thin env RejectBytes = Just RejectBytes
   thin env FlushBytes = Just FlushBytes
   thin env ReadLine = Just ReadLine
   thin env (FileHandleValue identity generation) = Just (FileHandleValue identity generation)
@@ -48,6 +49,7 @@ mutual
   thin env (UTF8Decode x) = map UTF8Decode (thin env x)
   thin env BytesType = Just BytesType
   thin env (BytesValue value) = Just (BytesValue value)
+  thin env (BytesShare x) = map BytesShare (thin env x)
   thin env (BytesLength x) = map BytesLength (thin env x)
   thin env (BytesOctet x) = map BytesOctet (thin env x)
   thin env (BytesAppend a b) = [| BytesAppend (thin env a) (thin env b) |]
@@ -120,6 +122,7 @@ mutual
   substitutionNodes env (SeqFold p z s x) = min (S inferredResultNodes) (1 + substitutionNodes env p + substitutionNodes env z + substitutionNodes env s + substitutionNodes env x)
   substitutionNodes env (ReadBytes x) = min (S inferredResultNodes) (1 + substitutionNodes env x)
   substitutionNodes env (WriteBytes x) = min (S inferredResultNodes) (1 + substitutionNodes env x)
+  substitutionNodes env RejectBytes = 1
   substitutionNodes env FlushBytes = 1
   substitutionNodes env ReadLine = 1
   substitutionNodes env (FileHandleValue _ _) = 1
@@ -130,6 +133,7 @@ mutual
   substitutionNodes env (UTF8Decode x) = min (S inferredResultNodes) (1 + substitutionNodes env x)
   substitutionNodes env BytesType = 1
   substitutionNodes env (BytesValue _) = 1
+  substitutionNodes env (BytesShare x) = min (S inferredResultNodes) (1 + substitutionNodes env x)
   substitutionNodes env (BytesLength x) = min (S inferredResultNodes) (1 + substitutionNodes env x)
   substitutionNodes env (BytesOctet x) = min (S inferredResultNodes) (1 + substitutionNodes env x)
   substitutionNodes env (BytesAppend a b) = min (S inferredResultNodes) (1 + substitutionNodes env a + substitutionNodes env b)

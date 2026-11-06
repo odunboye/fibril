@@ -48,6 +48,7 @@ mutual
   payloadWeight env (SeqFold p z s x) = cap (payloadWeight env p + payloadWeight env z + payloadWeight env s + payloadWeight env x)
   payloadWeight env (ReadBytes x) = payloadWeight env x
   payloadWeight env (WriteBytes x) = payloadWeight env x
+  payloadWeight env RejectBytes = 0
   payloadWeight env FlushBytes = 0
   payloadWeight env ReadLine = 0
   payloadWeight env (FileHandleValue _ _) = 0
@@ -58,6 +59,7 @@ mutual
   payloadWeight env (UTF8Decode x) = payloadWeight env x
   payloadWeight env BytesType = 0
   payloadWeight env (BytesValue value) = cap (byteLength value)
+  payloadWeight env (BytesShare x) = payloadWeight env x
   payloadWeight env (BytesLength x) = payloadWeight env x
   payloadWeight env (BytesOctet x) = payloadWeight env x
   payloadWeight env (BytesAppend a b) = cap (payloadWeight env a + payloadWeight env b)

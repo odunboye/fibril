@@ -17,6 +17,8 @@ import Fibril.Runtime.Binary
 import Fibril.Source.File
 import Fibril.Source.Diagnostic
 import Fibril.Driver.Check
+import Fibril.Driver.ModuleCheck
+import Fibril.Driver.ModuleGraph
 
 %default total
 
@@ -29,6 +31,7 @@ data BinaryRunError
   | BinaryExpectedNat
   | BinaryExpectedBytes
   | BinaryExpectedUnit
+  | BinaryRejected
   | BinaryUnsupported
   | BinaryTransportFailure BinaryError
 
@@ -41,6 +44,7 @@ Show BinaryRunError where
   show BinaryExpectedNat = "Binary read capacity did not normalize to Nat"
   show BinaryExpectedBytes = "Binary write did not normalize to Bytes"
   show BinaryExpectedUnit = "Binary main did not normalize to Unit"
+  show BinaryRejected = "Binary program rejected input"
   show BinaryUnsupported = "Unsupported binary IO description"
   show (BinaryTransportFailure err) = show err
 
@@ -93,6 +97,7 @@ execute (S depth) fuel transport term = case weakHead fuel term of
           result <- writeBytes bytes transport
           pure (UnitValue <$ liftTransport result)
         Right _ => pure (Left BinaryExpectedBytes)
+      RejectBytes => pure (Left BinaryRejected)
       FlushBytes => do
         result <- flushBytes transport
         pure (UnitValue <$ liftTransport result)
@@ -138,6 +143,19 @@ runBinaryTermWith depth fuel requests capacity host term =
         Nothing => case result of
           Left err => Left (BinaryTransportFailure err)
           Right () => Right ()
+
+public export
+covering
+runBinaryProject : String -> String -> IO (Either String ())
+runBinaryProject root entry = do
+  checked <- checkProject root entry
+  case checked of
+    Left err => pure (Left (renderGraphError err))
+    Right project => do
+      result <- runBinaryTermWith 4096 4096 4096 8388608 (stdioBinary stdin stdout) project.term
+      pure $ case result of
+        Left err => Left (show err)
+        Right () => Right ()
 
 public export
 covering

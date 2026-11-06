@@ -85,6 +85,8 @@ primitiveGlobals =
   , Global "primBytesEmpty" BytesType (BytesValue empty)
   , Global "primBytesOctetMod256" (Pi Linear NatType BytesType)
       (Lambda Linear NatType (BytesOctet (Variable FZ)))
+  , Global "primBytesShare" (Pi Linear BytesType (BoxType Unrestricted BytesType))
+      (Lambda Linear BytesType (BytesShare (Variable FZ)))
   , Global "primBytesLength" (Pi Linear BytesType NatType)
       (Lambda Linear BytesType (BytesLength (Variable FZ)))
   , Global "primBytesAppend" (Pi Linear BytesType (Pi Linear BytesType BytesType))

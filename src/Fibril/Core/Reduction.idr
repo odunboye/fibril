@@ -116,6 +116,7 @@ mutual
         Nothing => SeqFold motive base next <$> step value
   step (ReadBytes x) = map ReadBytes (step x)
   step (WriteBytes x) = map WriteBytes (step x)
+  step RejectBytes = Nothing
   step FlushBytes = Nothing
   step ReadLine = Nothing
   step (FileHandleValue _ _) = Nothing
@@ -142,6 +143,8 @@ mutual
   step (BytesAppend a b) = case step a of
     Just next => Just (BytesAppend next b)
     Nothing => map (BytesAppend a) (step b)
+  step (BytesShare (BytesValue value)) = Just (BoxValue (BoxType Unrestricted BytesType) (BytesValue value))
+  step (BytesShare x) = map BytesShare (step x)
   step (BytesLength (BytesValue value)) = Just (naturalTerm (byteLength value))
   step (BytesLength x) = map BytesLength (step x)
   step (BytesOctet x) = case canonicalOctet x of

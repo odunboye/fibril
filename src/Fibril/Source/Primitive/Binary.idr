@@ -30,5 +30,6 @@ binaryPrimitiveGlobals =
   , Global "primWriteBytes" (Pi Linear BytesType (IOType UnitType))
       (Lambda Linear BytesType (WriteBytes (Variable FZ)))
   , Global "primFlushBytes" (IOType UnitType) FlushBytes
+  , Global "primRejectBytes" (IOType UnitType) RejectBytes
   , Global "primByteReadCase" caseType caseValue
   ]

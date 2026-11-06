@@ -32,6 +32,14 @@ emitBinaryCFile path = do
       Right term => emitCheckedBinaryC 4096 8388608 term
 
 public export
+emitBinaryCProject : String -> String -> IO (Either String String)
+emitBinaryCProject root entry = do
+  checked <- checkProject root entry
+  pure $ case checked of
+    Left err => Left (renderGraphError err)
+    Right project => emitCheckedBinaryC 4096 8388608 project.term
+
+public export
 emitCProject : String -> String -> IO (Either String String)
 emitCProject root entry = do
   checked <- checkProject root entry

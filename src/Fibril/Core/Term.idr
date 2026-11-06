@@ -52,6 +52,8 @@ data Term : Nat -> Type where
   BytesType : Term n
   BytesValue : Bytes -> Term n
   BytesAppend : Term n -> Term n -> Term n
+  ||| Data-specific copyability: consume immutable bytes into an unrestricted box.
+  BytesShare : Term n -> Term n
   BytesLength : Term n -> Term n
   BytesIndex : Term n -> Term n -> Term n
   BytesSlice : Term n -> Term n -> Term n -> Term n
@@ -96,6 +98,8 @@ data Term : Nat -> Type where
   ReadBytes : Term n -> Term n
   WriteBytes : Term n -> Term n
   FlushBytes : Term n
+  ||| Represented binary protocol rejection; no transport request is performed.
+  RejectBytes : Term n
   ||| Nondependent branches; runtime checking joins their resource permissions.
   BoolCase : Term n -> Term n -> Term n -> Term n
   Sigma : Quantity -> Quantity -> Term n -> Term (S n) -> Term n
@@ -223,6 +227,7 @@ mutual
   rename env (SeqCase motive value base cons) = SeqCase (rename env motive) (rename env value) (rename env base) (rename env cons)
   rename env (ReadBytes x) = ReadBytes (rename env x)
   rename env (WriteBytes x) = WriteBytes (rename env x)
+  rename env RejectBytes = RejectBytes
   rename env FlushBytes = FlushBytes
   rename env ReadLine = ReadLine
   rename env (FileHandleValue identity generation) = FileHandleValue identity generation
@@ -234,6 +239,7 @@ mutual
   rename env (BytesAppend a b) = BytesAppend (rename env a) (rename env b)
   rename env (BytesIndex a b) = BytesIndex (rename env a) (rename env b)
   rename env (BytesSlice a b c) = BytesSlice (rename env a) (rename env b) (rename env c)
+  rename env (BytesShare a) = BytesShare (rename env a)
   rename env (BytesLength a) = BytesLength (rename env a)
   rename env (BytesOctet a) = BytesOctet (rename env a)
   rename env StringType = StringType
@@ -311,6 +317,7 @@ mutual
   substituteTerm env (SeqCase motive value base cons) = SeqCase (substituteTerm env motive) (substituteTerm env value) (substituteTerm env base) (substituteTerm env cons)
   substituteTerm env (ReadBytes x) = ReadBytes (substituteTerm env x)
   substituteTerm env (WriteBytes x) = WriteBytes (substituteTerm env x)
+  substituteTerm env RejectBytes = RejectBytes
   substituteTerm env FlushBytes = FlushBytes
   substituteTerm env ReadLine = ReadLine
   substituteTerm env (FileHandleValue identity generation) = FileHandleValue identity generation
@@ -322,6 +329,7 @@ mutual
   substituteTerm env (BytesAppend a b) = BytesAppend (substituteTerm env a) (substituteTerm env b)
   substituteTerm env (BytesIndex a b) = BytesIndex (substituteTerm env a) (substituteTerm env b)
   substituteTerm env (BytesSlice a b c) = BytesSlice (substituteTerm env a) (substituteTerm env b) (substituteTerm env c)
+  substituteTerm env (BytesShare a) = BytesShare (substituteTerm env a)
   substituteTerm env (BytesLength a) = BytesLength (substituteTerm env a)
   substituteTerm env (BytesOctet a) = BytesOctet (substituteTerm env a)
   substituteTerm env StringType = StringType
@@ -406,6 +414,7 @@ mutual
   sameSyntax (SeqCase p x z s) (SeqCase q y w t) = sameSyntax p q && sameSyntax x y && sameSyntax z w && sameSyntax s t
   sameSyntax (ReadBytes a) (ReadBytes b) = sameSyntax a b
   sameSyntax (WriteBytes a) (WriteBytes b) = sameSyntax a b
+  sameSyntax RejectBytes RejectBytes = True
   sameSyntax FlushBytes FlushBytes = True
   sameSyntax ReadLine ReadLine = True
   sameSyntax (FileHandleValue left first) (FileHandleValue right second) = left == right && first == second
@@ -417,6 +426,7 @@ mutual
   sameSyntax (BytesAppend a b) (BytesAppend c d) = sameSyntax a c && sameSyntax b d
   sameSyntax (BytesIndex a b) (BytesIndex c d) = sameSyntax a c && sameSyntax b d
   sameSyntax (BytesSlice a b c) (BytesSlice d e f) = sameSyntax a d && sameSyntax b e && sameSyntax c f
+  sameSyntax (BytesShare a) (BytesShare b) = sameSyntax a b
   sameSyntax (BytesLength a) (BytesLength b) = sameSyntax a b
   sameSyntax (BytesOctet a) (BytesOctet b) = sameSyntax a b
   sameSyntax StringType StringType = True

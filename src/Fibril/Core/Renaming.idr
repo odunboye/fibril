@@ -44,6 +44,7 @@ mutual
   renameCongruent left right agree (SeqFold p z s x) = rewrite renameCongruent left right agree p in rewrite renameCongruent left right agree z in rewrite renameCongruent left right agree s in rewrite renameCongruent left right agree x in Refl
   renameCongruent left right agree (ReadBytes x) = cong ReadBytes (renameCongruent left right agree x)
   renameCongruent left right agree (WriteBytes x) = cong WriteBytes (renameCongruent left right agree x)
+  renameCongruent left right agree RejectBytes = Refl
   renameCongruent left right agree FlushBytes = Refl
   renameCongruent left right agree ReadLine = Refl
   renameCongruent left right agree (FileHandleValue _ _) = Refl
@@ -54,6 +55,7 @@ mutual
   renameCongruent left right agree (UTF8Decode x) = cong UTF8Decode (renameCongruent left right agree x)
   renameCongruent left right agree BytesType = Refl
   renameCongruent left right agree (BytesValue _) = Refl
+  renameCongruent left right agree (BytesShare x) = cong BytesShare (renameCongruent left right agree x)
   renameCongruent left right agree (BytesLength x) = cong BytesLength (renameCongruent left right agree x)
   renameCongruent left right agree (BytesOctet x) = cong BytesOctet (renameCongruent left right agree x)
   renameCongruent left right agree (BytesAppend x y) = rewrite renameCongruent left right agree x in rewrite renameCongruent left right agree y in Refl
@@ -152,6 +154,7 @@ mutual
   renameIdentity (SeqFold p z s x) = rewrite renameIdentity p in rewrite renameIdentity z in rewrite renameIdentity s in rewrite renameIdentity x in Refl
   renameIdentity (ReadBytes x) = cong ReadBytes (renameIdentity x)
   renameIdentity (WriteBytes x) = cong WriteBytes (renameIdentity x)
+  renameIdentity RejectBytes = Refl
   renameIdentity FlushBytes = Refl
   renameIdentity ReadLine = Refl
   renameIdentity (FileHandleValue _ _) = Refl
@@ -162,6 +165,7 @@ mutual
   renameIdentity (UTF8Decode x) = cong UTF8Decode (renameIdentity x)
   renameIdentity BytesType = Refl
   renameIdentity (BytesValue _) = Refl
+  renameIdentity (BytesShare x) = cong BytesShare (renameIdentity x)
   renameIdentity (BytesLength x) = cong BytesLength (renameIdentity x)
   renameIdentity (BytesOctet x) = cong BytesOctet (renameIdentity x)
   renameIdentity (BytesAppend x y) = rewrite renameIdentity x in rewrite renameIdentity y in Refl
@@ -266,6 +270,7 @@ mutual
   renameComposition first second (SeqFold p z s x) = rewrite renameComposition first second p in rewrite renameComposition first second z in rewrite renameComposition first second s in rewrite renameComposition first second x in Refl
   renameComposition first second (ReadBytes x) = cong ReadBytes (renameComposition first second x)
   renameComposition first second (WriteBytes x) = cong WriteBytes (renameComposition first second x)
+  renameComposition first second RejectBytes = Refl
   renameComposition first second FlushBytes = Refl
   renameComposition first second ReadLine = Refl
   renameComposition first second (FileHandleValue _ _) = Refl
@@ -276,6 +281,7 @@ mutual
   renameComposition first second (UTF8Decode x) = cong UTF8Decode (renameComposition first second x)
   renameComposition first second BytesType = Refl
   renameComposition first second (BytesValue _) = Refl
+  renameComposition first second (BytesShare x) = cong BytesShare (renameComposition first second x)
   renameComposition first second (BytesLength x) = cong BytesLength (renameComposition first second x)
   renameComposition first second (BytesOctet x) = cong BytesOctet (renameComposition first second x)
   renameComposition first second (BytesAppend x y) = rewrite renameComposition first second x in rewrite renameComposition first second y in Refl

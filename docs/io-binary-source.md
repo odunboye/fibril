@@ -3,7 +3,8 @@
 Status: working standalone `.fib` execution via explicit hosted
 `fibril run-binary PATH` and checked native `fibril emit-c-binary PATH`.
 The [trusted transport](io-binary.md) and [pure bytes](bytes.md) are separate
-layers; there is no framed-message/LSP implementation yet.
+layers. A [bounded canonical framing library](binary-framing.md) now exists;
+there is no LSP implementation yet.
 
 ## Source descriptions
 
@@ -14,6 +15,7 @@ layers; there is no framed-message/LSP implementation yet.
 | `primByteReadCase` | Erased result type, linear result, unrestricted EOF/chunk branches; chunk consumes one linear `Bytes` |
 | `primWriteBytes` | Linear `Bytes -> IO Unit`; no newline, decoding or C string |
 | `primFlushBytes` | `IO Unit`; checked explicit stdout flush |
+| `primRejectBytes` | `IO Unit`; represented binary-only program rejection, no transport request |
 
 The result is a structural variant alias, not a refined/nominal provenance type;
 nonempty chunks are a read-operation output contract, not a proof about every
@@ -52,8 +54,8 @@ printf '\000\377' | ./build/exec/fibril run-binary examples/core/binary-echo.fib
 
 `examples/core/binary-echo-loop.fib` uses ordinary Nat recursion and reusable IO
 descriptions to process at most sixteen two-byte chunks. EOF iterations still
-spend capacity. These are bounded transport demonstrations, **not** Content-
-Length framing or a server. The one-chunk example deliberately leaves any input
+spend capacity. These are bounded transport demonstrations, not the framing parser or a server;
+see the separate [Fibril framing library](binary-framing.md). The one-chunk example deliberately leaves any input
 beyond its capacity unread.
 
 ## Execution/admission
@@ -113,7 +115,7 @@ build commands still compile only the original runtime and gain no binary entry.
 
 `Binary` lowering checks the complete original term and rejects text/resource IO
 before generating code. The separate C interpreter accepts only pure, bind,
-read-bytes, write-bytes and flush descriptions. It uses the established byte
+read-bytes, write-bytes, flush and represented rejection descriptions. It uses the established byte
 session for reservations, prefix failures, poisoning and final flush. Read
 buffers and all derived byte/String views remain live through the callback;
 final Unit is forced before session storage is freed. Pure arena teardown then
@@ -145,16 +147,16 @@ mandatory flush on driver failure. `tools/test_binary_source.py` runs actual
 input, real stdout failure, zero reads and dormant cross-mode requests. It cleans
 up only its own child process groups. Native source tests compile the actual
 examples and compare all-octet/EOF/short/prompt/error behavior to hosted execution.
-`tools/test_binary_native.py` adds thirteen raw bridge scenarios for capacity,
+`tools/test_binary_native.py` adds fourteen raw bridge scenarios for capacity,
 prefixes, request/flush policy, allocation/admission failures and arena/session
 cleanup. The source integration suite also carries read-backed byte views
 through slice/UTF-8 conversion and back to binary output. These trusted C
 fixtures are not source-typing evidence.
 
-Validation passed the unit/property phase (30 binary description/interpreter
+Validation passed the unit/property phase (33 binary description/interpreter
 checks), 163 CLI, 19 native-emitter, 6 pure-byte/codec native, 13 binary-source,
 9 interactive CLI, 7 editor and 16 handbook tests. Focused IO subtargets passed
-in split runs, including 303 hosted checks and 29 resource differentials. Native
+in split runs, including 305 hosted checks and 29 resource differentials. Native
 console/resource/byte/codec/binary suites passed ASan/UBSan; the hosted compiler
 and its foreign library are not thereby sanitizer-verified. The hosted fixture
 used the existing explicit 450-second test deadline; no old runner budget was

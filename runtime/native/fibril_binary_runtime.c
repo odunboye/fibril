@@ -51,6 +51,8 @@ static FThunk *interact_binary(FBinaryContext *context, FByteSession *session, F
       if (status == FB_OK) result = ready(r, f_unit(r));
       else context->fault = status;
     }
+  } else if (io->tag == V_REJECT_BYTES) {
+    fail(r, "Binary program rejected input");
   } else if (io->tag == V_FLUSH_BYTES) {
     FByteStatus status = fibril_bytes_flush(session);
     if (status == FB_OK) result = ready(r, f_unit(r));

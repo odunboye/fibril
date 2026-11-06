@@ -47,6 +47,7 @@ mutual
   substituteCongruent left right agree (SeqFold p z s x) = rewrite substituteCongruent left right agree p in rewrite substituteCongruent left right agree z in rewrite substituteCongruent left right agree s in rewrite substituteCongruent left right agree x in Refl
   substituteCongruent left right agree (ReadBytes x) = cong ReadBytes (substituteCongruent left right agree x)
   substituteCongruent left right agree (WriteBytes x) = cong WriteBytes (substituteCongruent left right agree x)
+  substituteCongruent left right agree RejectBytes = Refl
   substituteCongruent left right agree FlushBytes = Refl
   substituteCongruent left right agree ReadLine = Refl
   substituteCongruent left right agree (FileHandleValue _ _) = Refl
@@ -57,6 +58,7 @@ mutual
   substituteCongruent left right agree (UTF8Decode x) = cong UTF8Decode (substituteCongruent left right agree x)
   substituteCongruent left right agree BytesType = Refl
   substituteCongruent left right agree (BytesValue _) = Refl
+  substituteCongruent left right agree (BytesShare x) = cong BytesShare (substituteCongruent left right agree x)
   substituteCongruent left right agree (BytesLength x) = cong BytesLength (substituteCongruent left right agree x)
   substituteCongruent left right agree (BytesOctet x) = cong BytesOctet (substituteCongruent left right agree x)
   substituteCongruent left right agree (BytesAppend x y) = rewrite substituteCongruent left right agree x in rewrite substituteCongruent left right agree y in Refl
@@ -158,6 +160,7 @@ mutual
   renameAsSubstitution env (SeqFold p z s x) = rewrite renameAsSubstitution env p in rewrite renameAsSubstitution env z in rewrite renameAsSubstitution env s in rewrite renameAsSubstitution env x in Refl
   renameAsSubstitution env (ReadBytes x) = cong ReadBytes (renameAsSubstitution env x)
   renameAsSubstitution env (WriteBytes x) = cong WriteBytes (renameAsSubstitution env x)
+  renameAsSubstitution env RejectBytes = Refl
   renameAsSubstitution env FlushBytes = Refl
   renameAsSubstitution env ReadLine = Refl
   renameAsSubstitution env (FileHandleValue _ _) = Refl
@@ -168,6 +171,7 @@ mutual
   renameAsSubstitution env (UTF8Decode x) = cong UTF8Decode (renameAsSubstitution env x)
   renameAsSubstitution env BytesType = Refl
   renameAsSubstitution env (BytesValue _) = Refl
+  renameAsSubstitution env (BytesShare x) = cong BytesShare (renameAsSubstitution env x)
   renameAsSubstitution env (BytesLength x) = cong BytesLength (renameAsSubstitution env x)
   renameAsSubstitution env (BytesOctet x) = cong BytesOctet (renameAsSubstitution env x)
   renameAsSubstitution env (BytesAppend x y) = rewrite renameAsSubstitution env x in rewrite renameAsSubstitution env y in Refl

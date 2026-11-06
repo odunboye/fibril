@@ -19,7 +19,10 @@ IO](docs/io-binary-source.md) is available through hosted `run-binary` and nativ
 and preserves valid NUL without relaxing console output policy.
 An internal [binary transport pilot](docs/io-binary.md) preserves arbitrary bytes
 through hosted/native stdio, with explicit budgets and checked flush. It is not
-a self-hosted LSP runtime; framing and compiler-service work remain.
+a self-hosted LSP runtime. A first [Fibril-written frame echo](docs/binary-framing.md)
+now accepts canonical Content-Length frames with 0..32-byte bodies, with one-
+and two-frame clients. General headers, server lifecycle, JSON and compiler-
+service work remain.
 See [checker scope and limits](docs/erased-checker.md). The [local module/import work](docs/modules.md) now has shared metadata parsing and read-only POSIX dependency discovery;
 check/eval/run --source-dir now support checked closed qualified imports and
 hosted execution. Version-2 project JSON retains source identity/snapshots; FibrilCheckProject validates project snapshots with conservative loaded-buffer

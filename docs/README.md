@@ -35,6 +35,7 @@ The generated homepage separates teaching chapters, references, and project reco
 - [Neovim/Vim highlighting](editor-highlighting.md): local runtime setup, lexical scope, and optional tests.
 
 - [Hello world / hosted console](console-runner.md): first run command and its explicit effect boundary.
+- [Fibril-written bounded framing](binary-framing.md): canonical Content-Length echo with one-/two-frame clients, checked hosted/native, strict 0..32-byte body limit; not an LSP server.
 - [Checked binary IO](io-binary-source.md): explicit hosted/native source runners, conservative mode gates and bounded echo examples.
 - [Binary transport pilot](io-binary.md): internal byte-preserving hosted/native IO, accounting contracts and source API gates.
 

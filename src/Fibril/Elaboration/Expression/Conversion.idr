@@ -40,6 +40,7 @@ mutual
   admit (S budget) (SeqFold p z s x) = do a <- admit budget p; b <- admit a z; c <- admit b s; admit c x
   admit (S budget) (ReadBytes x) = admit budget x
   admit (S budget) (WriteBytes x) = admit budget x
+  admit (S budget) RejectBytes = Just budget
   admit (S budget) FlushBytes = Just budget
   admit (S budget) ReadLine = Just budget
   admit (S budget) (FileHandleValue _ _) = Just budget
@@ -50,6 +51,7 @@ mutual
   admit (S budget) (UTF8Decode x) = admit budget x
   admit (S budget) BytesType = Just budget
   admit (S budget) (BytesValue _) = Just budget
+  admit (S budget) (BytesShare x) = admit budget x
   admit (S budget) (BytesLength x) = admit budget x
   admit (S budget) (BytesOctet x) = admit budget x
   admit (S budget) (BytesAppend a b) = do x <- admit budget a; admit x b
@@ -152,6 +154,7 @@ mutual
     safeRedexes size payload p && safeRedexes size payload z && safeRedexes size payload s && safeRedexes size payload x
   safeRedexes size payload (ReadBytes x) = safeRedexes size payload x
   safeRedexes size payload (WriteBytes x) = safeRedexes size payload x
+  safeRedexes size payload RejectBytes = True
   safeRedexes size payload FlushBytes = True
   safeRedexes size payload ReadLine = True
   safeRedexes size payload (FileHandleValue _ _) = True
@@ -172,6 +175,7 @@ mutual
   -- Length expands one literal into a unary natural; admit that allocation
   -- before contracting rather than relying on the following step's node check.
   safeRedexes size payload (BytesLength (BytesValue value)) = size + byteLength value <= inferredResultNodes
+  safeRedexes size payload (BytesShare x) = size + 4 <= inferredResultNodes && safeRedexes size payload x
   safeRedexes size payload (BytesLength x) = safeRedexes size payload x
   safeRedexes size payload (BytesOctet x) = payload + 1 <= payloadLimit && safeRedexes size payload x
   safeRedexes size payload (BytesAppend a b) = safeRedexes size payload a && safeRedexes size payload b

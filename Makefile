@@ -1,7 +1,7 @@
 PACK ?= pack
 IDRIS2 ?= idris2
 
-.PHONY: prelude prelude-check build unit-test test io-test io-hosted-test io-runtime-test io-resource-runtime-test io-resource-emitter-test io-emitter-test io-interactive-test io-binary-test io-binary-bench io-cli-test native-test bytes-native-test binary-source-test binary-runtime-test editor-test examples bench bench-smoke python-embed-test docs handbook serve-docs clean
+.PHONY: prelude prelude-check build unit-test test io-test io-hosted-test io-runtime-test io-resource-runtime-test io-resource-emitter-test io-emitter-test io-interactive-test io-binary-test io-binary-bench io-cli-test native-test bytes-native-test binary-source-test binary-runtime-test framing-test editor-test examples bench bench-smoke python-embed-test docs handbook serve-docs clean
 prelude:
 	python3 tools/embed_prelude.py
 
@@ -21,6 +21,7 @@ test: unit-test
 	CC="$(CC)" python3 tools/test_bytes_native.py
 	CC="$(CC)" python3 tools/test_binary_source.py
 	CC="$(CC)" python3 tools/test_binary_native.py
+	CC="$(CC)" python3 tools/test_framing.py
 	CC="$(CC)" python3 tools/test_io_cli.py
 
 # Each suite builds in its own temporary directory, safe with make -j8.
@@ -58,6 +59,9 @@ native-test: unit-test
 	CC="$(CC)" python3 tools/test_native.py
 	CC="$(CC)" python3 tools/test_bytes_native.py
 
+framing-test: unit-test
+	CC="$(CC)" python3 tools/test_framing.py
+
 binary-runtime-test:
 	CC="$(CC)" python3 tools/test_binary_native.py
 
@@ -81,6 +85,8 @@ examples: build
 	./build/exec/fibril run --package examples/packages/sum-client/fibril.yaml
 	./build/exec/fibril check --package examples/packages/request-api/fibril.yaml
 	./build/exec/fibril test --package examples/packages/request-api/fibril.yaml
+	./build/exec/fibril check --source-dir examples/modules/binary-frame examples/modules/binary-frame/Main.fib
+	./build/exec/fibril check --source-dir examples/modules/binary-frame examples/modules/binary-frame/Two.fib
 	./build/exec/fibril check examples/core/binary-echo.fib
 	./build/exec/fibril check examples/core/binary-echo-loop.fib
 	./build/exec/fibril run examples/core/utf8-bytes.fib

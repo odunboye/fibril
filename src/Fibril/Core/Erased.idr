@@ -296,6 +296,10 @@ mutual
     bType <- infer depth reduction context b
     requireCompatible reduction bType BytesType
     Right BytesType
+  infer (S depth) reduction context (BytesShare x) = do
+    ty <- infer depth reduction context x
+    requireCompatible reduction ty BytesType
+    Right (BoxType Unrestricted BytesType)
   infer (S depth) reduction context (BytesLength x) = do
     ty <- infer depth reduction context x
     requireCompatible reduction ty BytesType
@@ -312,6 +316,7 @@ mutual
     ty <- infer depth reduction context x
     requireCompatible reduction ty BytesType
     Right (IOType UnitType)
+  infer (S depth) reduction context RejectBytes = Right (IOType UnitType)
   infer (S depth) reduction context FlushBytes = Right (IOType UnitType)
   infer (S depth) reduction context StringType = Right (Universe 0)
   infer (S depth) reduction context (StringValue _) = Right StringType

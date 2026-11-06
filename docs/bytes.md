@@ -14,6 +14,7 @@ host/native transport and remaining gates.
 | `primBytesEmpty` | Empty `Bytes` |
 | `primBytesOctetMod256` | Linear `Nat -> Bytes`; singleton containing the low eight bits |
 | `primBytesAppend` | Two linear `Bytes` arguments, immutable concatenation |
+| `primBytesShare` | Linear `Bytes` input to an unrestricted immutable byte box; source view uses a one-field unrestricted record |
 | `primBytesLength` | Linear `Bytes -> Nat`; counts octets, not characters |
 | `ByteIndexResult` | Missing or found octet (`Nat` in 0..255), never a sentinel |
 | `primBytesIndex` | Linear `Nat -> Bytes -> ByteIndexResult`, zero-based |
@@ -146,9 +147,9 @@ emission without character conversion.
 
 ## Validation
 
-The unit/property phase (including 28 initial core-byte, 29 range and 17 UTF-8 checks), 163 CLI,
+The unit/property phase (including 38 core-byte/sharing, 29 range and 17 UTF-8 checks), 163 CLI,
 19 native-emitter, 6 pure-byte/UTF-8 native, 9 interactive CLI, 7 editor and 16 handbook
-tests passed. Focused IO subtargets passed in split runs: 303 hosted checks, 29 checked
+tests passed. Focused IO subtargets passed in split runs: 305 hosted checks, 29 checked
 resource differentials, console/interactive emission comparisons, and 19 binary
 transport tests. Native console/resource/binary suites passed ASan/UBSan.
 
@@ -168,6 +169,8 @@ No timed-out invocation is counted as a successful test.
 ## Remaining work
 
 - [Explicit fallible UTF-8 conversion](utf8-values.md) and [hosted/native binary IO](io-binary-source.md) are implemented.
-- Extend checked binary execution to bounded framing using the existing
-  [transport](io-binary.md) behind explicit conservative admission.
-- A real Fibril-written bounded Content-Length parser and echo program.
+- Extend the existing [bounded framing library](binary-framing.md) beyond
+  canonical 0..32-byte bodies, using the [transport](io-binary.md) behind
+  explicit conservative admission.
+- Extend the implemented [Fibril-written bounded frame echo](binary-framing.md)
+  beyond one canonical 0..32-byte body frame.

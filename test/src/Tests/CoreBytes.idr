@@ -11,6 +11,7 @@ import Fibril.Core.Runtime
 import Fibril.Core.Reduction
 import Fibril.Core.WeakHead
 import Fibril.Core.ResourceAdmission
+import Fibril.Core.EffectAdmission
 import Fibril.Core.Size
 import Fibril.Elaboration.Expression.Scope
 import Fibril.Elaboration.Expression.Payload
@@ -53,13 +54,29 @@ literalEmission (Left _) = False
 literalEmission (Right code) = isInfixOf "0,255,128,13,10" code && isInfixOf "f_bytes_literal(" code && isInfixOf "f_bytes_length(" code
 
 openTerms : List (Term 1)
-openTerms = [BytesType, BytesValue (fromList [0,255]), BytesLength (Variable FZ),
+openTerms = [BytesShare (Variable FZ), BytesType, BytesValue (fromList [0,255]), BytesLength (Variable FZ),
              BytesOctet (Variable FZ), BytesAppend (Variable FZ) (BytesValue empty)]
+
+shareDuplicate : Term 0
+shareDuplicate = Lambda Linear BytesType
+  (BoxCase (Lambda Erased (BoxType Unrestricted BytesType) BytesType)
+    (BytesShare (Variable FZ))
+    (Lambda Unrestricted BytesType (BytesAppend (Variable FZ) (Variable FZ))))
 
 public export
 checks : List (String, Bool)
 checks =
-  [("checked native byte literals preserve decimal octets", literalEmission (emitCheckedC literalOutput)),
+  [("byte sharing consumes immutable input into an unrestricted box", accepted (BytesShare (BytesValue (fromList [0,255]))) (BoxType Unrestricted BytesType)),
+   ("byte sharing is not a generic String promotion", not (accepted (BytesShare (StringValue "x")) (BoxType Unrestricted BytesType))),
+   ("byte sharing cannot promote IO descriptions", not (accepted (BytesShare FlushBytes) (BoxType Unrestricted BytesType))),
+   ("byte sharing cannot promote resource handles", not (accepted (BytesShare (FileHandleValue 1 0)) (BoxType Unrestricted BytesType))),
+   ("byte sharing permits explicit pure duplication", accepted shareDuplicate (Pi Linear BytesType BytesType)),
+   ("full sharing reduction preserves octets", normal (Apply shareDuplicate (BytesValue (fromList [0,255]))) (BytesValue (fromList [0,255,0,255]))),
+   ("head sharing reduction preserves octets", head (Apply shareDuplicate (BytesValue (fromList [0,255]))) (BytesValue (fromList [0,255,0,255]))),
+   ("byte sharing still scans hidden file references", containsFileReference (the (Term 0) (BytesShare (FileHandleValue 1 0)))),
+   ("byte sharing still scans hidden binary requests", containsBinaryRequest (the (Term 0) (BytesShare FlushBytes))),
+   ("byte sharing does not hide text IO", containsNonBinaryIO (the (Term 0) (BytesShare (WriteLine (StringValue "hidden"))))),
+   ("checked native byte literals preserve decimal octets", literalEmission (emitCheckedC literalOutput)),
    ("checked interactive native byte literals preserve decimal octets", literalEmission (emitCheckedInteractiveC 512 128 literalOutput)),
    ("Bytes literals check separately from String", accepted (BytesValue (fromList [0,255,128])) BytesType),
    ("Bytes cannot be used as text", not (accepted (BytesValue empty) StringType)),

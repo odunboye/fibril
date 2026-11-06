@@ -10,6 +10,7 @@ mutual
   scan : Bool -> Term n -> Bool
   scan binary (ReadBytes x) = binary || scan binary x
   scan binary (WriteBytes x) = binary || scan binary x
+  scan binary RejectBytes = binary
   scan binary FlushBytes = binary
   scan binary ReadLine = not binary
   scan binary (WriteLine x) = not binary || scan binary x
@@ -42,6 +43,7 @@ mutual
   scan _ BytesType = False
   scan _ (BytesValue _) = False
   scan b (BytesAppend x y) = scan b x || scan b y
+  scan b (BytesShare x) = scan b x
   scan b (BytesLength x) = scan b x
   scan b (BytesOctet x) = scan b x
   scan b (BytesIndex x y) = scan b x || scan b y

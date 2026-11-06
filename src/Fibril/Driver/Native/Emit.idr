@@ -77,6 +77,7 @@ mutual
   generate mode n (BytesAppend a b) = binary mode n "f_bytes_append" a b
   generate mode n (BytesIndex a b) = binary mode n "f_bytes_index" a b
   generate mode n (BytesSlice a b c) = ternary mode n "f_bytes_slice" a b c
+  generate mode n (BytesShare x) = unary mode n "f_nominal" x
   generate mode n (BytesLength x) = unary mode n "f_bytes_length" x
   generate mode n (BytesOctet x) = unary mode n "f_bytes_octet" x
   generate mode n (StringValue value) = Right (Output n (S n) [literal n value])
@@ -139,12 +140,15 @@ mutual
   generate mode n (IOBind _ _ action continuation) = binary mode n "f_bind" action continuation
   generate Binary n (ReadBytes capacity) = unary Binary n "f_read_bytes" capacity
   generate Binary n (WriteBytes bytes) = unary Binary n "f_write_bytes" bytes
+  generate Binary n RejectBytes = Right (constant n "f_reject_bytes(r)")
   generate Binary n FlushBytes = Right (constant n "f_flush_bytes(r)")
   generate Interactive n ReadLine = Right (constant n "f_read_line(r)")
   generate Resources n ReadLine = Right (constant n "f_read_line(r)")
   generate Resources n (WithInputFile _ path body) = binary Resources n "f_with_input" path body
   generate Resources n (ReadInputFile handle) = unary Resources n "f_read_input" handle
   generate Resources n (PairCase _ scrutinee branch) = binary Resources n "f_pair_case" scrutinee branch
+  generate mode n (BoxValue _ value) = unary mode n "f_nominal" value
+  generate mode n (BoxCase _ scrutinee branch) = binary mode n "f_nominal_case" scrutinee branch
   generate Resources n (PairValue annotation first second) =
     case weakHead typeReductionFuel annotation of
       HeadLimit _ => Left "Native pair annotation reduction budget exhausted"

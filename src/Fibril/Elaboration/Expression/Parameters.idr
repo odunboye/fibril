@@ -101,6 +101,7 @@ mutual
     match position mapping prune x y solutions
   match position mapping prune (ReadBytes x) (ReadBytes y) solutions = match position mapping prune x y solutions
   match position mapping prune (WriteBytes x) (WriteBytes y) solutions = match position mapping prune x y solutions
+  match position mapping prune RejectBytes RejectBytes solutions = Right solutions
   match position mapping prune FlushBytes FlushBytes solutions = Right solutions
   match position mapping prune ReadLine ReadLine solutions = Right solutions
   match position mapping prune (FileHandleValue left first) (FileHandleValue right second) solutions =
@@ -112,6 +113,7 @@ mutual
   match position mapping prune (UTF8Decode x) (UTF8Decode y) solutions = match position mapping prune x y solutions
   match position mapping prune BytesType BytesType solutions = Right solutions
   match position mapping prune (BytesValue x) (BytesValue y) solutions = if x == y then Right solutions else failure position
+  match position mapping prune (BytesShare x) (BytesShare y) solutions = match position mapping prune x y solutions
   match position mapping prune (BytesLength x) (BytesLength y) solutions = match position mapping prune x y solutions
   match position mapping prune (BytesOctet x) (BytesOctet y) solutions = match position mapping prune x y solutions
   match position mapping prune (BytesAppend x y) (BytesAppend u v) solutions = pair position mapping prune x y u v solutions
@@ -309,10 +311,12 @@ implicitArgumentType position (S fuel) context (UTF8Encode _) = Right (Just (utf
 implicitArgumentType position (S fuel) context (UTF8Decode _) = Right (Just (utf8ResultType StringType))
 implicitArgumentType position (S fuel) context (ReadBytes _) = Right (Just (IOType byteReadResultType))
 implicitArgumentType position (S fuel) context (WriteBytes _) = Right (Just (IOType UnitType))
+implicitArgumentType position (S fuel) context RejectBytes = Right (Just (IOType UnitType))
 implicitArgumentType position (S fuel) context FlushBytes = Right (Just (IOType UnitType))
 implicitArgumentType position (S fuel) context BytesType = Right (Just (Universe 0))
 implicitArgumentType position (S fuel) context (BytesAppend _ _) = Right (Just BytesType)
 implicitArgumentType position (S fuel) context (BytesOctet _) = Right (Just BytesType)
+implicitArgumentType position (S fuel) context (BytesShare _) = Right (Just (BoxType Unrestricted BytesType))
 implicitArgumentType position (S fuel) context (BytesLength _) = Right (Just NatType)
 implicitArgumentType position (S fuel) context (StringValue _) = Right (Just StringType)
 implicitArgumentType position (S fuel) context BoolTrue = Right (Just BoolType)

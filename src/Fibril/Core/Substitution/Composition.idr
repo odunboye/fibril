@@ -48,6 +48,7 @@ mutual
   renameAfterSubstitution env sigma (SeqFold p z s x) = rewrite renameAfterSubstitution env sigma p in rewrite renameAfterSubstitution env sigma z in rewrite renameAfterSubstitution env sigma s in rewrite renameAfterSubstitution env sigma x in Refl
   renameAfterSubstitution env sigma (ReadBytes x) = cong ReadBytes (renameAfterSubstitution env sigma x)
   renameAfterSubstitution env sigma (WriteBytes x) = cong WriteBytes (renameAfterSubstitution env sigma x)
+  renameAfterSubstitution env sigma RejectBytes = Refl
   renameAfterSubstitution env sigma FlushBytes = Refl
   renameAfterSubstitution env sigma ReadLine = Refl
   renameAfterSubstitution env sigma (FileHandleValue _ _) = Refl
@@ -58,6 +59,7 @@ mutual
   renameAfterSubstitution env sigma (UTF8Decode x) = cong UTF8Decode (renameAfterSubstitution env sigma x)
   renameAfterSubstitution env sigma BytesType = Refl
   renameAfterSubstitution env sigma (BytesValue _) = Refl
+  renameAfterSubstitution env sigma (BytesShare x) = cong BytesShare (renameAfterSubstitution env sigma x)
   renameAfterSubstitution env sigma (BytesLength x) = cong BytesLength (renameAfterSubstitution env sigma x)
   renameAfterSubstitution env sigma (BytesOctet x) = cong BytesOctet (renameAfterSubstitution env sigma x)
   renameAfterSubstitution env sigma (BytesAppend x y) = rewrite renameAfterSubstitution env sigma x in rewrite renameAfterSubstitution env sigma y in Refl
@@ -168,6 +170,7 @@ mutual
   substituteAfterRenaming env sigma (SeqFold p z s x) = rewrite substituteAfterRenaming env sigma p in rewrite substituteAfterRenaming env sigma z in rewrite substituteAfterRenaming env sigma s in rewrite substituteAfterRenaming env sigma x in Refl
   substituteAfterRenaming env sigma (ReadBytes x) = cong ReadBytes (substituteAfterRenaming env sigma x)
   substituteAfterRenaming env sigma (WriteBytes x) = cong WriteBytes (substituteAfterRenaming env sigma x)
+  substituteAfterRenaming env sigma RejectBytes = Refl
   substituteAfterRenaming env sigma FlushBytes = Refl
   substituteAfterRenaming env sigma ReadLine = Refl
   substituteAfterRenaming env sigma (FileHandleValue _ _) = Refl
@@ -178,6 +181,7 @@ mutual
   substituteAfterRenaming env sigma (UTF8Decode x) = cong UTF8Decode (substituteAfterRenaming env sigma x)
   substituteAfterRenaming env sigma BytesType = Refl
   substituteAfterRenaming env sigma (BytesValue _) = Refl
+  substituteAfterRenaming env sigma (BytesShare x) = cong BytesShare (substituteAfterRenaming env sigma x)
   substituteAfterRenaming env sigma (BytesLength x) = cong BytesLength (substituteAfterRenaming env sigma x)
   substituteAfterRenaming env sigma (BytesOctet x) = cong BytesOctet (substituteAfterRenaming env sigma x)
   substituteAfterRenaming env sigma (BytesAppend x y) = rewrite substituteAfterRenaming env sigma x in rewrite substituteAfterRenaming env sigma y in Refl
@@ -298,6 +302,7 @@ mutual
   substituteComposition first second (SeqFold p z s x) = rewrite substituteComposition first second p in rewrite substituteComposition first second z in rewrite substituteComposition first second s in rewrite substituteComposition first second x in Refl
   substituteComposition first second (ReadBytes x) = cong ReadBytes (substituteComposition first second x)
   substituteComposition first second (WriteBytes x) = cong WriteBytes (substituteComposition first second x)
+  substituteComposition first second RejectBytes = Refl
   substituteComposition first second FlushBytes = Refl
   substituteComposition first second ReadLine = Refl
   substituteComposition first second (FileHandleValue _ _) = Refl
@@ -308,6 +313,7 @@ mutual
   substituteComposition first second (UTF8Decode x) = cong UTF8Decode (substituteComposition first second x)
   substituteComposition first second BytesType = Refl
   substituteComposition first second (BytesValue _) = Refl
+  substituteComposition first second (BytesShare x) = cong BytesShare (substituteComposition first second x)
   substituteComposition first second (BytesLength x) = cong BytesLength (substituteComposition first second x)
   substituteComposition first second (BytesOctet x) = cong BytesOctet (substituteComposition first second x)
   substituteComposition first second (BytesAppend x y) = rewrite substituteComposition first second x in rewrite substituteComposition first second y in Refl

@@ -83,7 +83,7 @@ make -j8 bytes-native-test CC='cc -fsanitize=address,undefined -fno-omit-frame-p
 
 Validation passed the unit/property phase, 163 CLI, 19 native-emitter, 6 pure-byte/
 UTF-8 native, 9 interactive CLI, 7 editor and 16 handbook tests. All focused IO
-subtargets passed in split runs, including 303 hosted checks and 29 resource
+subtargets passed in split runs, including 305 hosted checks and 29 resource
 differentials. Native byte/codec/console/resource/binary suites passed ASan/UBSan.
 The hosted fixture used the documented explicit 450-second deadline on this
 machine; no default runner budget or text policy was increased.
