@@ -71,6 +71,9 @@ checks =
    ("output planner rejects dormant binary requests", rejected (prepareIO 128 128 hidden)),
    ("interactive preparation rejects dormant binary requests", rejected (prepareInteractive 128 128 hidden)),
    ("all old C modes reject dormant binary requests", rejected (emitCheckedC hidden) && rejected (emitCheckedInteractiveC 64 8192 hidden) && rejected (emitCheckedResourceC 64 8192 hidden)),
+   ("explicit binary C mode accepts binary descriptions", not (rejected (emitCheckedBinaryC 2 4 (echo 2)))),
+   ("binary C mode rejects dormant text", rejected (emitCheckedBinaryC 2 4 (BoolCase BoolFalse (WriteLine (StringValue "hidden")) (IOPure UnitValue)))) ,
+   ("binary C admission bounds are explicit", rejected (emitCheckedBinaryC 100001 8 (echo 2)) && rejected (emitCheckedBinaryC 2 8388609 (echo 2))),
    ("pure bytes are not IO capabilities", not (containsBinaryRequest (the (Term 0) (BytesValue (fromList [0,255])))))]
 
 record Facts where

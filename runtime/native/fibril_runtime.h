@@ -54,6 +54,11 @@ FValue *f_bind(FRuntime *r, FEnv *env, FEval action, FEval continuation);
 FValue *f_write(FRuntime *r, FEnv *env, FEval text);
 /* Inert request; only the separate interactive runner may execute it. */
 FValue *f_read_line(FRuntime *r);
+FValue *f_read_bytes(FRuntime *r, FEnv *env, FEval capacity);
+FValue *f_write_bytes(FRuntime *r, FEnv *env, FEval bytes);
+FValue *f_flush_bytes(FRuntime *r);
+/* Link fibril_binary_runtime.c instead of fibril_runtime.c for this runner. */
+int fibril_native_binary_run(FEval entry, size_t requests, size_t capacity);
 int fibril_native_run(FEval entry);
 /* Incremental execution may leave output before a later error. */
 int fibril_native_interactive_run(FEval entry, size_t requests, size_t line_characters);

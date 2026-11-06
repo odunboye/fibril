@@ -20,7 +20,7 @@ struct FEnv { FThunk *value; FEnv *tail; };
 typedef enum { V_UNIT, V_ERASED, V_BOOL, V_STRING, V_BYTES, V_CLOSURE, V_NOMINAL, V_VARIANT,
                V_NAT_ZERO, V_NAT_SUCC, V_REC_END, V_REC_MORE, V_SEQ_NIL, V_SEQ_CONS,
                V_PURE, V_BIND, V_WRITE, V_READ, V_PAIR, V_INPUT_HANDLE,
-               V_WITH_INPUT, V_READ_INPUT } FTag;
+               V_WITH_INPUT, V_READ_INPUT, V_READ_BYTES, V_WRITE_BYTES, V_FLUSH_BYTES } FTag;
 typedef enum { F_NAT, F_NAT_RUNTIME, F_REC, F_SEQ } FFoldKind;
 struct FValue {
   FTag tag;
@@ -414,6 +414,15 @@ FValue *f_pure(FRuntime *r, FEnv *env, FEval value) { return io1(r, env, V_PURE,
 FValue *f_bind(FRuntime *r, FEnv *env, FEval action, FEval continuation) { return io1(r, env, V_BIND, action, continuation); }
 FValue *f_write(FRuntime *r, FEnv *env, FEval text) { return io1(r, env, V_WRITE, text, NULL); }
 FValue *f_read_line(FRuntime *r) { return new_value(r, V_READ); }
+FValue *f_read_bytes(FRuntime *r, FEnv *env, FEval capacity) {
+  if (!capacity) { fail(r, "missing native binary capacity"); return NULL; }
+  return io1(r, env, V_READ_BYTES, capacity, NULL);
+}
+FValue *f_write_bytes(FRuntime *r, FEnv *env, FEval bytes) {
+  if (!bytes) { fail(r, "missing native binary bytes"); return NULL; }
+  return io1(r, env, V_WRITE_BYTES, bytes, NULL);
+}
+FValue *f_flush_bytes(FRuntime *r) { return new_value(r, V_FLUSH_BYTES); }
 FValue *f_with_input(FRuntime *r, FEnv *env, FEval path, FEval body) { return io1(r, env, V_WITH_INPUT, path, body); }
 FValue *f_read_input(FRuntime *r, FEnv *env, FEval handle) { return io1(r, env, V_READ_INPUT, handle, NULL); }
 

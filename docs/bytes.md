@@ -167,7 +167,7 @@ No timed-out invocation is counted as a successful test.
 
 ## Remaining work
 
-- [Explicit fallible UTF-8 conversion](utf8-values.md) and [hosted source binary IO](io-binary-source.md) are now implemented; native binary execution remains next.
-- Native binary descriptions/lowering/runner parity. Hosted execution uses the
-  existing [transport](io-binary.md) behind explicit conservative admission.
+- [Explicit fallible UTF-8 conversion](utf8-values.md) and [hosted/native binary IO](io-binary-source.md) are implemented.
+- Extend checked binary execution to bounded framing using the existing
+  [transport](io-binary.md) behind explicit conservative admission.
 - A real Fibril-written bounded Content-Length parser and echo program.

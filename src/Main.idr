@@ -64,6 +64,7 @@ Usage:
   fibril test                  Check all listed modules, evaluate tests main : Bool
   fibril test --package PATH   Same pure test workflow for an explicit package
   fibril emit-c PATH           Check and emit experimental C source to stdout
+  fibril emit-c-binary PATH      Emit explicit binary-only C (standalone)
   fibril emit-c-interactive PATH  Emit incremental C with stdin support (standalone)
   fibril emit-c --source-dir ROOT ENTRY  Check modules and emit C
   fibril emit-c --package PATH  Check a local package and emit C
@@ -175,6 +176,7 @@ main = do
     ["emit-c", "--package", manifest] => emitCPackage manifest >>= printC
     ["emit-c", "--source-dir", root, entry] => emitCProject root entry >>= printC
     ["emit-c", path] => emitCFile path >>= printC
+    ["emit-c-binary", path] => emitBinaryCFile path >>= printC
     ["emit-c-interactive", path] => emitInteractiveCFile path >>= printC
     ["run-binary", path] => runBinaryFile path >>= printExecution
     ["run-interactive", path] => runInteractiveFile path >>= printExecution

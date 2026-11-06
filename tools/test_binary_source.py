@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import selectors
 import signal
+import shlex
 import subprocess
 import tempfile
 import unittest
@@ -131,6 +132,98 @@ class SourceBinary(unittest.TestCase):
                         os.killpg(process.pid,signal.SIGKILL)
                         process.wait()
                     process.stderr.close()
+
+
+class NativeBinary(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.temporary = tempfile.TemporaryDirectory(prefix='fibril-native-binary-')
+        cls.addClassCleanup(cls.temporary.cleanup)
+        cls.work = Path(cls.temporary.name)
+        cls.cc = shlex.split(os.environ.get('CC','cc'))
+        cls.chunk = cls.compile_source(ROOT / 'examples/core/binary-echo.fib', 'chunk')
+        cls.loop = cls.compile_source(ROOT / 'examples/core/binary-echo-loop.fib', 'loop')
+
+    @classmethod
+    def compile_source(cls, path, name):
+        status, source, diagnostic = invoke('emit-c-binary', path)
+        if status:
+            raise AssertionError(diagnostic)
+        if b'fibril_native_binary_run(' not in source or b'f_read_bytes(' not in source:
+            raise AssertionError('binary lowering missing from generated C')
+        cfile = cls.work / (name + '.c')
+        cfile.write_bytes(source)
+        executable = cls.work / name
+        runtime = ROOT / 'runtime/native'
+        compiled = subprocess.run(cls.cc + ['-std=c11','-Wall','-Wextra','-Werror','-I',str(runtime),
+            str(cfile),str(runtime / 'fibril_binary_runtime.c'),'-o',str(executable)],
+            capture_output=True,timeout=60)
+        if compiled.returncode:
+            raise AssertionError(compiled.stderr)
+        return executable
+
+    def native(self, executable, data):
+        result = subprocess.run([str(executable)],input=data,capture_output=True,timeout=20)
+        return result.returncode,result.stdout,result.stderr
+
+    def test_hosted_native_chunk_and_sequence_agree(self):
+        for data in (b'',b'\0',b'\0\xff',b'\xff\x80\r\nextra'):
+            with self.subTest(data=data):
+                self.assertEqual(self.native(self.chunk,data),invoke('run-binary','examples/core/binary-echo.fib',data))
+        for offset in range(0,256,32):
+            data = bytes(range(offset,offset+32))
+            self.assertEqual(self.native(self.loop,data),(0,data,b''))
+        self.assertEqual(self.native(self.loop,b'\0\xff\x80\r\n'),(0,b'\0\xff\x80\r\n',b''))
+
+    def test_read_views_survive_slice_and_utf8_conversion(self):
+        path = self.work / 'views.fib'
+        path.write_text('encode : (1 s : String) -> IO Unit\nencode = \\(1 s : String) => primUTF8Case Bytes (IO Unit) (primUTF8Encode s) (pure Unit ()) (\\(1 b : Bytes) => primWriteBytes b)\nhandle : (1 b : Bytes) -> IO Unit\nhandle = \\(1 b : Bytes) => primUTF8Case String (IO Unit) (primUTF8Decode (primBytesSlice Zero (Succ (Succ Zero)) b)) (pure Unit ()) encode\nmain : IO Unit\nmain = bind ByteReadResult Unit (primReadBytes (Succ (Succ Zero))) (\\(1 r : ByteReadResult) => primByteReadCase (IO Unit) r (pure Unit ()) handle)\n')
+        executable = self.compile_source(path,'views')
+        for data, expected in [(b'\xce\xbb',b'\xce\xbb'),(b'\0a',b'\0a'),(b'\xff\0',b'')]:
+            with self.subTest(data=data):
+                self.assertEqual(invoke('run-binary',path,data),(0,expected,b''))
+                self.assertEqual(self.native(executable,data),(0,expected,b''))
+
+    def test_binary_emitter_rejects_dormant_text(self):
+        path = self.work / 'mixed.fib'
+        path.write_text('main : IO Unit\nmain = if True then primFlushBytes else putStrLn "text"\n')
+        status, out, err = invoke('emit-c-binary',path)
+        self.assertNotEqual(status,0)
+        self.assertNotIn(b'static FValue',out)
+        self.assertIn(b'rejects non-binary',err)
+
+    def test_native_flush_before_input(self):
+        path = self.work / 'prompt.fib'
+        path.write_text('main : IO Unit\nmain = do\n  primWriteBytes (primBytesOctetMod256 Zero)\n  primFlushBytes\n  (1 r : ByteReadResult) <- primReadBytes (Succ Zero)\n  primByteReadCase (IO Unit) r (pure Unit ()) (\\(1 b : Bytes) => primWriteBytes b)\n')
+        executable = self.compile_source(path,'prompt')
+        process = subprocess.Popen([str(executable)],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+        try:
+            with selectors.DefaultSelector() as selector:
+                selector.register(process.stdout,selectors.EVENT_READ)
+                self.assertTrue(selector.select(10),'native flush not visible')
+                self.assertEqual(os.read(process.stdout.fileno(),1),b'\0')
+            out, err = process.communicate(b'\xff',timeout=20)
+            self.assertEqual((process.returncode,out,err),(0,b'\xff',b''))
+        finally:
+            if process.poll() is None:
+                process.kill();process.wait()
+            for stream in (process.stdin,process.stdout,process.stderr):
+                stream.close()
+
+    def test_native_stdin_and_stdout_failures(self):
+        descriptor = os.open(self.work,os.O_RDONLY)
+        try:
+            result = subprocess.run([str(self.chunk)],stdin=descriptor,capture_output=True,timeout=20)
+            self.assertEqual((result.returncode,result.stdout),(1,b''))
+            self.assertIn(b'Binary read failed after 0 bytes',result.stderr)
+        finally:
+            os.close(descriptor)
+        destination = self.work / 'readonly'
+        destination.write_bytes(b'')
+        with destination.open('rb') as output:
+            result = subprocess.run([str(self.chunk)],input=b'\0\xff',stdout=output,stderr=subprocess.PIPE,timeout=20)
+            self.assertEqual(result.returncode,1)
+            self.assertTrue(b'flush failed' in result.stderr or b'write failed' in result.stderr,result.stderr)
 
 
 if __name__ == '__main__':

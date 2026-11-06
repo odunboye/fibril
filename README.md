@@ -13,13 +13,13 @@ compiler backends, and real-time guarantees are not implemented.
 pure, and bind over experimental IO descriptions. A hosted runner executes stdout
 plans; a complete effect calculus and compiler backends remain future work.
 [Pure byte operations](docs/bytes.md) now check and normalize separately from
-text and have native lowering for the initial pure subset. [Checked hosted
-binary IO](docs/io-binary-source.md) is available through explicit `run-binary`;
-native source binary execution remains future work. [Explicit UTF-8 conversion](docs/utf8-values.md) is fallible
+text and have native lowering for the initial pure subset. [Checked binary
+IO](docs/io-binary-source.md) is available through hosted `run-binary` and native
+`emit-c-binary`, with separate admission from text/resource IO. [Explicit UTF-8 conversion](docs/utf8-values.md) is fallible
 and preserves valid NUL without relaxing console output policy.
 An internal [binary transport pilot](docs/io-binary.md) preserves arbitrary bytes
 through hosted/native stdio, with explicit budgets and checked flush. It is not
-a self-hosted LSP runtime; its source connection is hosted-only for now.
+a self-hosted LSP runtime; framing and compiler-service work remain.
 See [checker scope and limits](docs/erased-checker.md). The [local module/import work](docs/modules.md) now has shared metadata parsing and read-only POSIX dependency discovery;
 check/eval/run --source-dir now support checked closed qualified imports and
 hosted execution. Version-2 project JSON retains source identity/snapshots; FibrilCheckProject validates project snapshots with conservative loaded-buffer

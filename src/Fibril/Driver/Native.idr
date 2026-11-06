@@ -22,6 +22,16 @@ emitCFile path = do
       Right term => emitCheckedC term
 
 public export
+emitBinaryCFile : String -> IO (Either String String)
+emitBinaryCFile path = do
+  loaded <- loadSource path
+  pure $ case loaded of
+    Left err => Left (renderFileError path (show err))
+    Right source => case resolveSource source of
+      Left err => Left (renderDriverError path source (FrontendFailure err))
+      Right term => emitCheckedBinaryC 4096 8388608 term
+
+public export
 emitCProject : String -> String -> IO (Either String String)
 emitCProject root entry = do
   checked <- checkProject root entry

@@ -17,12 +17,13 @@ import Fibril.Elaboration.Expression.Payload
 
 %default total
 
-data NativeMode = Preflight | Interactive | Resources
+data NativeMode = Preflight | Interactive | Resources | Binary
 
 Eq NativeMode where
   Preflight == Preflight = True
   Interactive == Interactive = True
   Resources == Resources = True
+  Binary == Binary = True
   _ == _ = False
 
 record Generated where
@@ -136,6 +137,9 @@ mutual
   generate mode n (IOPure value) = unary mode n "f_pure" value
   generate mode n (WriteLine text) = unary mode n "f_write" text
   generate mode n (IOBind _ _ action continuation) = binary mode n "f_bind" action continuation
+  generate Binary n (ReadBytes capacity) = unary Binary n "f_read_bytes" capacity
+  generate Binary n (WriteBytes bytes) = unary Binary n "f_write_bytes" bytes
+  generate Binary n FlushBytes = Right (constant n "f_flush_bytes(r)")
   generate Interactive n ReadLine = Right (constant n "f_read_line(r)")
   generate Resources n ReadLine = Right (constant n "f_read_line(r)")
   generate Resources n (WithInputFile _ path body) = binary Resources n "f_with_input" path body
@@ -189,7 +193,8 @@ prototypes start (S count) = prototype start :: prototypes (S start) count
 
 emitEntry : NativeMode -> Nat -> Nat -> Term 0 -> Either String String
 emitEntry mode requests lineLimit term = do
-  if containsBinaryRequest term then Left "Binary IO requires an explicit binary runner; native lowering is not enabled" else Right ()
+  if mode /= Binary && containsBinaryRequest term then Left "Binary IO requires the explicit binary runner" else Right ()
+  if mode == Binary && containsNonBinaryIO term then Left "Native binary entry rejects non-binary IO/references" else Right ()
   if mode == Resources && containsFileReference term
     then Left "Native resource entry rejects runtime file references" else Right ()
   case checkRuntime checkingDepth typeReductionFuel Empty term (IOType UnitType) of
@@ -197,7 +202,9 @@ emitEntry mode requests lineLimit term = do
     Right _ => Right ()
   if coreNodes term > 8192 then Left "Native core admission exceeds 8192 nodes" else Right ()
   if payloadSize term > payloadLimit then Left "Native literal admission exceeds 8192 characters" else Right ()
-  if mode /= Preflight && (requests > 100000 || lineLimit > 8192)
+  if mode == Binary && (requests > 100000 || lineLimit > 8388608)
+     then Left "Native binary admission limit exceeded" else Right ()
+  if mode /= Preflight && mode /= Binary && (requests > 100000 || lineLimit > 8192)
      then Left (if mode == Resources then "Native resource admission limit exceeded"
                 else "Native interactive admission limit exceeded") else Right ()
   code <- generate mode 0 term
@@ -205,6 +212,7 @@ emitEntry mode requests lineLimit term = do
         Preflight => "fibril_native_run(" ++ name code.root ++ ")"
         Interactive => "fibril_native_interactive_run(" ++ name code.root ++ ", " ++ show requests ++ ", " ++ show lineLimit ++ ")"
         Resources => "fibril_native_resource_run(" ++ name code.root ++ ", " ++ show requests ++ ", " ++ show lineLimit ++ ")"
+        Binary => "fibril_native_binary_run(" ++ name code.root ++ ", " ++ show requests ++ ", " ++ show lineLimit ++ ")"
   Right ("/* Generated from checked Fibril core; experimental native subset. */\n" ++
          "#include \"fibril_runtime.h\"\n" ++ concat (prototypes 0 code.next) ++
          concat code.definitions ++ "int main(void) { return " ++ entry ++ "; }\n")
@@ -224,3 +232,9 @@ emitCheckedInteractiveC = emitEntry Interactive
 public export
 emitCheckedResourceC : Nat -> Nat -> Term 0 -> Either String String
 emitCheckedResourceC = emitEntry Resources
+
+||| Explicit binary-only borrowed stdio. Second bound is aggregate byte capacity.
+||| Compile generated C against fibril_binary_runtime.c, not fibril_runtime.c.
+public export
+emitCheckedBinaryC : Nat -> Nat -> Term 0 -> Either String String
+emitCheckedBinaryC = emitEntry Binary

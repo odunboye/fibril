@@ -1,7 +1,7 @@
-# Checked hosted binary IO
+# Checked binary IO
 
-Status: working **hosted**, standalone `.fib` execution via explicit
-`fibril run-binary PATH`. Native checked binary execution/emission is not enabled.
+Status: working standalone `.fib` execution via explicit hosted
+`fibril run-binary PATH` and checked native `fibril emit-c-binary PATH`.
 The [trusted transport](io-binary.md) and [pure bytes](bytes.md) are separate
 layers; there is no framed-message/LSP implementation yet.
 
@@ -88,18 +88,53 @@ recursive constructors and nominal inventories **before execution**:
 - Binary execution rejects text IO, file operations/types and runtime references,
   even when hidden in dormant fields. It does not acquire a file capability.
 
-Native `emit-c-binary`/binary source execution is not implemented. Existing C
-modes reject these descriptions rather than silently repurposing text IO.
+Only `emit-c-binary` grants native binary execution. Existing C modes reject
+these descriptions rather than silently repurposing text IO.
 
 Hosted wrappers are revoked on represented return; streams remain caller-owned.
 Arbitrary host exceptions, signals/SIGPIPE, crashes, task cancellation and
 concurrent mutation are not normalized or bracketed by this milestone. No
 scheduler, public source scoped-file API or compiler-service bridge is added.
 
+## Native binary execution
+
+```sh
+./build/exec/fibril emit-c-binary examples/core/binary-echo-loop.fib > /tmp/binary.c
+cc -std=c11 -I runtime/native /tmp/binary.c runtime/native/fibril_binary_runtime.c -o /tmp/binary
+printf '\\000\\377' | /tmp/binary | od -An -tx1
+# 00 ff
+```
+
+Compile `fibril_binary_runtime.c` **instead of** `fibril_runtime.c`. It is an
+explicit amalgamation of the pure runtime and binary transport, reusing their
+private evaluator/session implementation. Do not additionally link either
+`fibril_runtime.c` or `fibril_bytes.c`; that would duplicate symbols. Legacy native
+build commands still compile only the original runtime and gain no binary entry.
+
+`Binary` lowering checks the complete original term and rejects text/resource IO
+before generating code. The separate C interpreter accepts only pure, bind,
+read-bytes, write-bytes and flush descriptions. It uses the established byte
+session for reservations, prefix failures, poisoning and final flush. Read
+buffers and all derived byte/String views remain live through the callback;
+final Unit is forced before session storage is freed. Pure arena teardown then
+walks allocation metadata without inspecting freed byte views.
+
+The runner keeps evaluator errors distinct from physical transport failures.
+Read/write diagnostics retain the current operation's consumed/accepted count;
+source physical errors remain fatal. The typed hosted API retains the full read
+prefix; the native process interface returns status/diagnostics, not that payload.
+Callback failure skips final flush, successful Unit completion checks it without
+request fuel. Native evaluator depth/steps/arena bounds differ from hosted
+reduction policy and can reject larger computations earlier. No verified
+preservation, general exception/signal/cancellation safety or total heap bound
+is claimed.
+
 ## Evidence
 
 ```sh
 make -j8 binary-source-test
+make -j8 binary-source-test CC='cc -fsanitize=address,undefined -fno-omit-frame-pointer'
+make -j8 binary-runtime-test
 ```
 
 `Tests.BinaryDescriptions` checks typing, inert reduction, conservative admission,
@@ -108,10 +143,16 @@ reads, EOF, typed partial-read/write failures, request/flush accounting and no
 mandatory flush on driver failure. `tools/test_binary_source.py` runs actual
 `.fib` chunks/sequences over all octets, empty/short input, explicit flush-before-
 input, real stdout failure, zero reads and dormant cross-mode requests. It cleans
-up only its own child process groups.
+up only its own child process groups. Native source tests compile the actual
+examples and compare all-octet/EOF/short/prompt/error behavior to hosted execution.
+`tools/test_binary_native.py` adds thirteen raw bridge scenarios for capacity,
+prefixes, request/flush policy, allocation/admission failures and arena/session
+cleanup. The source integration suite also carries read-backed byte views
+through slice/UTF-8 conversion and back to binary output. These trusted C
+fixtures are not source-typing evidence.
 
-Validation passed the unit/property phase (27 binary description/interpreter
-checks), 163 CLI, 19 native-emitter, 6 pure-byte/codec native, 8 binary-source,
+Validation passed the unit/property phase (30 binary description/interpreter
+checks), 163 CLI, 19 native-emitter, 6 pure-byte/codec native, 13 binary-source,
 9 interactive CLI, 7 editor and 16 handbook tests. Focused IO subtargets passed
 in split runs, including 303 hosted checks and 29 resource differentials. Native
 console/resource/byte/codec/binary suites passed ASan/UBSan; the hosted compiler

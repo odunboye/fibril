@@ -2,8 +2,8 @@
 
 Status: immutable byte values now have a first [pure core/source slice](bytes.md).
 Trusted hosted/native **transport** APIs have differential tests. The first
-[checked hosted source binary runner](io-binary-source.md) is now available;
-native source binary IO and an LSP implementation written in Fibril are not.
+[checked hosted/native source binary runners](io-binary-source.md) are now
+available; an LSP implementation written in Fibril is not.
 The existing pure byte constructs now have native value/lowering coverage.
 Existing text IO retains strict UTF-8 decoding and NUL rejection.
 
@@ -33,8 +33,8 @@ and `.c`, separate from the existing checked-expression runtime.
   wrappers reject access. Arbitrary host exceptions/abort/cancellation are not
   bracketed by this pilot. Native C callers must respect lexical scope.
 - Do not execute IO during source conversion/checking. Only explicit hosted
-  `run-binary` grants source access; default output/interactive/resource and C
-  emission modes reject binary requests.
+  `run-binary` or native `emit-c-binary` grants source access; default output,
+  interactive/resource and legacy C emission modes reject binary requests.
 
 ### Reads
 
@@ -176,13 +176,13 @@ proof extensions are implemented; `examples/core/bytes-pure.fib` checks/evaluate
 Pure index/slice and [explicit UTF-8 conversion](utf8-values.md), with native
 coverage, are now implemented.
 
-1. Add native lowering/execution for the checked binary descriptions. Hosted
-   `run-binary` and `.fib` chunk/sequence examples are implemented; all existing
-   runner gates conservatively reject binary requests.
-2. Implement bounded Content-Length framing in Fibril: first one frame, then a
+Hosted/native checked binary execution and chunk/sequence examples are now
+implemented, with separate gates from the legacy runners.
+
+1. Implement bounded Content-Length framing in Fibril: first one frame, then a
    bounded sequence. Test fragmentation, Unicode byte counts and truncation.
-3. Add JSON/document state and a narrow compiler-service bridge.
-4. Design task cancellation and ownership before concurrent source execution.
+2. Add JSON/document state and a narrow compiler-service bridge.
+3. Design task cancellation and ownership before concurrent source execution.
 
 Reusable descriptions remain allowed. This is not world-token IO, a binary-file
 ownership library, general exception safety or a verified runtime.

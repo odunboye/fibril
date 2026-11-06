@@ -1,4 +1,4 @@
-/* Trusted binary transport pilot, not yet checked source emission. POSIX/C stdio. */
+/* Trusted binary transport, also used by the explicit checked binary runner. */
 #ifndef FIBRIL_BYTES_H
 #define FIBRIL_BYTES_H
 #include <stddef.h>
