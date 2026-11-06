@@ -67,6 +67,7 @@ import Fibril.Foundation.DeMorgan.Scope
 import Fibril.Foundation.DeMorgan.PathSyntax
 import Fibril.Foundation.DeMorgan.ClosedPath
 import Fibril.Foundation.DeMorgan.ClosedCorePath
+import Fibril.Foundation.DeMorgan.IndependentPath
 import Fibril.Foundation.DeMorgan.Restriction
 import Data.Fin
 import Data.Maybe
@@ -391,6 +392,24 @@ checks =
                (CoreApply (CoreAbstract (CoreTerm BoolTrue)) (Var FZ))) (Var FZ))))
              BoolTrue BoolTrue of
         Exhausted => True; _ => False)
+  , ("independent closed path witness applies at both endpoints",
+      case checkClosedPath 64 64 4 (CoreAbstract (CoreTerm BoolTrue)) BoolTrue BoolTrue of
+        Right path => case (applyCheckedClosedPath 64 64 5 path Zero,
+                            applyCheckedClosedPath 64 64 5 path One) of
+          (CoreValue BoolTrue, CoreValue BoolTrue) => True
+          _ => False
+        Left _ => False)
+  , ("independent closed path rejects boundary mismatch",
+      case checkClosedPath 64 64 4 (CoreAbstract (CoreTerm BoolTrue)) BoolTrue BoolFalse of
+        Left Rejected => True; _ => False)
+  , ("independent closed path propagates exhausted checking",
+      case checkClosedPath 64 64 1 (CoreAbstract (CoreTerm BoolTrue)) BoolTrue BoolTrue of
+        Left Exhausted => True; _ => False)
+  , ("independent witness application can exhaust",
+      case checkClosedPath 64 64 4 (CoreAbstract (CoreTerm BoolTrue)) BoolTrue BoolTrue of
+        Right path => case applyCheckedClosedPath 64 64 1 path Zero of
+          CoreExhausted => True; _ => False
+        Left _ => False)
   , ("raw core path abstraction checks",
       case checkCorePathExpr 64 64 3 (the (CorePathExpr 0) (CoreAbstract (CoreTerm BoolTrue))) BoolTrue BoolTrue of
         Accepted => True; _ => False)

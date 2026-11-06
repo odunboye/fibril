@@ -110,9 +110,12 @@ effects. Retain these tests and the use of the ordinary erased checker.
 
 It is **not yet the independent path judgment** described above:
 
-1. `CorePathExpr` is separate raw syntax, not a core type former or a checked
-   derivation. `checkCorePathExpr` returns only a status; callers must not treat
-   raw `CoreStepped` syntax as a reusable typing certificate.
+1. `CorePathExpr` is separate raw syntax, not a core type former. The isolated
+   `IndependentPath` module exposes an opaque `CheckedClosedPath` witness only
+   after the fragment checker accepts, but this is not a core typing derivation.
+   `checkCorePathExpr` itself returns only a status; callers must not treat raw
+   `CoreStepped` syntax as a reusable typing certificate. Applying a witness
+   rechecks its recorded inputs under the supplied budgets.
 2. `collapseBody` accepts nested syntactic constant paths by inferring identical
    endpoints, then discards their dimension applications. This is a deliberately
    narrow shortcut, not general path inference, face checking, or conversion.
