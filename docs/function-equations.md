@@ -230,10 +230,41 @@ unrestricted; a linear prefix is not accepted. This is convenience over a
 checked fold, not a general termination checker. The earlier single-erased-type
 form still permits its documented omitted implicit argument.
 
-Dependent results over the input, non-uniform recursive arguments, arbitrary
-recursive calls and general termination checking remain unsupported. Checked project definition navigation
-resolves the authored self-call; experimental C emission supports the checked
-fixed-shape fold subject to native limits.
+Dependent results over the input, arbitrary non-uniform recursive arguments,
+arbitrary recursive calls and general termination checking remain unsupported;
+the particular linear accumulator form below is an exception. Checked project
+definition navigation resolves the authored self-call; experimental C emission
+supports the checked fixed-shape fold subject to native limits.
+
+## Linear list accumulator
+
+A narrow direct-style reverse-onto equation is also supported:
+
+~~~fibril
+reverseOnto : (1 items : Items String) -> (1 acc : Items String) -> Items String
+reverseOnto items acc = case items of
+  Empty => acc
+  Prepend head tail => reverseOnto tail (Prepend head acc)
+~~~
+
+The [runnable example](../examples/modules/linear-accumulator/Main.fib) uses
+qualified imported constructors. The signature has exactly two linear inputs
+and a result, all the same checked fixed list family. The case scrutinizes the
+first input; the empty branch is exactly the accumulator, and the cons branch
+is exactly the direct self-call on the immediate tail and that family's checked
+cons constructor applied to the head and accumulator. Branch order may be
+reversed. Binder collisions, other arguments, computed updates, duplicate or
+omitted linear values, implicit prefixes, indirect calls and other recursive
+forms are not admitted by this rule.
+
+The compiler lowers this shape to a `SeqFold` returning a linear
+accumulator-to-list function. Its base is the identity; each step builds a
+function that applies the linear induction result to the head consed onto its
+accumulator. The original accumulator is not captured by the repeatedly invoked
+step. The whole generated core is independently checked for types and usage.
+This is syntax over an expressible fold, **not general recursion or use of the
+experimental size-change checker**. Constructor identity is checked, not
+inferred from spelling. Experimental native emission remains unverified.
 
 ## Bounds, tooling and evidence
 

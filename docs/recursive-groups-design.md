@@ -12,8 +12,8 @@ below. None of this changes what the compiler accepts.
 
 ## A concrete goal
 
-The following uses the existing fixed list shape, but is **proposed syntax and is
-not currently accepted**:
+The following direct-style shape uses the existing fixed list shape and is now
+accepted as a narrowly restricted structural equation:
 
 ~~~fibril
 reverseOnto : (1 items : Data.Items.Items Nat) ->
@@ -25,15 +25,19 @@ reverseOnto items acc = case items of
 ~~~
 
 The recursive call decreases the first list while changing the linear
-accumulator. The current equation lowering requires non-structural parameters
-to be a uniform erased or unrestricted prefix, so it does not accept this
-form. This is a convenience and direct-style recursion goal, **not a claim that
-reversal cannot be expressed with a fold**. A later executable test should
-observe element order for empty, singleton, and multi-element inputs, including
-a nonempty accumulator.
+accumulator. Fibril accepts exactly this restricted cons-onto-accumulator shape
+by lowering it to an independently checked function-valued `SeqFold`. Its fold
+result is a linear accumulator transformer: the accumulator is supplied to
+that transformer, not captured by the repeatedly invoked fold step. The runnable
+[linear accumulator example](../examples/modules/linear-accumulator/Main.fib)
+uses strings; tests observe empty, singleton and multi-element inputs, including
+a nonempty accumulator. This is direct-style convenience, **not new
+expressive power or general termination checking**. It does not use the
+experimental size-change checker. Reference/native agreement is sampled
+behavior, not a backend correctness proof.
 
-For `(items, acc)`, the call's intended matrix, with callee rows and caller
-columns, is:
+For `(items, acc)`, the separate experimental graph analysis describes this
+call with the following matrix, with callee rows and caller columns:
 
 | | caller `items` | caller `acc` |
 |---|---|---|

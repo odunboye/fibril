@@ -47,6 +47,17 @@ class NativeTests(unittest.TestCase):
                 self.assertEqual(native.returncode, 0, native.stderr)
                 self.assertEqual(native.stdout, output)
 
+    def test_linear_accumulator_fold_matches_reference(self):
+        root = ROOT / 'examples/modules/linear-accumulator'
+        args = ['--source-dir', str(root), str(root / 'Main.fib')]
+        with tempfile.TemporaryDirectory() as directory:
+            _, native = self.compile_and_run(args, directory)
+            reference = run_cli('run', *args, text=False, timeout=120)
+            self.assertEqual(reference.returncode, 0, reference.stderr)
+            self.assertEqual(native.returncode, 0, native.stderr)
+            self.assertEqual(native.stdout, b'bac\n')
+            self.assertEqual(native.stdout, reference.stdout)
+
     def test_native_finite_data_and_branches_match_reference(self):
         cases = [('implicit-constructors', b'receipt\n'),
                  ('direct-data-case', b'L: hello\nR: yes\nno\n')]

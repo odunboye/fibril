@@ -6,7 +6,10 @@ digraph FunctionEquations {
   body [label="Ordinary generated core lambdas"];
   structural [label="Immediate-tail self calls\nchecked constructors + guarded admission\nuniform prefix; exclusive branches"];
   fold [label="NatRec / RecFold / SeqFold\nerased tail + linear induction result"];
+  accumulator [label="Immediate tail + cons onto accumulator\nauthored constructor application checked"];
+  continuation [label="SeqFold returns linear accumulator transformer\nno linear capture in repeated step"];
   check [label="Independent core checker\ntyping + erased/runtime usage"];
   source -> pi -> body -> check;
   source -> structural -> fold -> check;
+  source -> accumulator -> continuation -> check;
 }

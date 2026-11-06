@@ -2,6 +2,7 @@
 """Smoke-test the built CLI independently of its pure implementation helpers."""
 from pathlib import Path
 import subprocess
+import shutil
 import signal
 import time
 from unittest.mock import patch
@@ -1950,6 +1951,69 @@ class CLITests(unittest.TestCase):
             path.write_text(formatted.stdout)
             self.assertEqual(run('format', '--check', str(path)).returncode, 0)
             self.assertEqual(project('run').stdout, 'hello world\n')
+
+    def test_linear_accumulator_as_checked_function_valued_fold(self):
+        fixture = ROOT / 'examples/modules/linear-accumulator'
+        args = ['--source-dir', str(fixture), str(fixture / 'Main.fib')]
+        result = run('run', *args)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout, 'bac\n')
+        source = (fixture / 'Main.fib').read_text()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(fixture / 'Data', root / 'Data')
+            path = root / 'Main.fib'
+            path.write_text(source)
+            lines = source.splitlines()
+            call_line = next(i for i, line in enumerate(lines, 1) if '=> reverseOnto tail' in line)
+            call_column = lines[call_line - 1].index('reverseOnto tail') + 1
+            definition_line = next(i for i, line in enumerate(lines, 1) if line.startswith('reverseOnto items acc ='))
+            navigation = run('definition', '--source-dir', str(root), '--entry', str(path),
+                             str(call_line), str(call_column), str(path))
+            self.assertEqual(navigation.returncode, 0, navigation.stderr)
+            self.assertEqual(json.loads(navigation.stdout)['definition']['range']['start']['line'], definition_line)
+            formatted = run('format', str(path))
+            self.assertEqual(formatted.returncode, 0, formatted.stderr)
+            path.write_text(formatted.stdout)
+            self.assertEqual(run('format', '--check', str(path)).returncode, 0)
+            self.assertEqual(run('run', '--source-dir', str(root), str(path)).stdout, 'bac\n')
+            arms = ('  Data.Items.Empty => acc\n'
+                    '  Data.Items.Prepend head tail => reverseOnto tail (Data.Items.Prepend head acc)')
+            self.assertIn(arms, source)
+            path.write_text(source.replace(arms, '\n'.join(reversed(arms.splitlines()))))
+            self.assertEqual(run('run', '--source-dir', str(root), str(path)).stdout, 'bac\n')
+            original = 'Data.Items.Prepend "a" (Data.Items.Prepend "b" (Data.Items.Empty {String}))'
+            for value, expected in [('Data.Items.Empty {String}', 'c\n'),
+                                    ('Data.Items.Prepend "a" (Data.Items.Empty {String})', 'ac\n')]:
+                path.write_text(source.replace(original, value))
+                checked = run('run', '--source-dir', str(root), str(path))
+                self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
+                self.assertEqual(checked.stdout, expected)
+            variants = [source.replace('reverseOnto tail (Data.Items.Prepend head acc)', 'reverseOnto tail acc'),
+                        source.replace('reverseOnto tail (Data.Items.Prepend head acc)',
+                                       'reverseOnto tail (Data.Items.Prepend head (Data.Items.Prepend head acc))'),
+                        source.replace('reverseOnto tail (Data.Items.Prepend head acc)',
+                                       'reverseOnto items (Data.Items.Prepend head acc)'),
+                        source.replace('Data.Items.Empty => acc', 'Data.Items.Empty => Data.Items.Empty {String}')]
+            for invalid in variants:
+                self.assertNotEqual(invalid, source)
+                path.write_text(invalid)
+                rejected = run('run', '--source-dir', str(root), str(path))
+                self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
+            # Checking the constructor's value is not enough: the authored call
+            # must respect explicit versus implicit erased arguments.
+            short = source[:source.index('main : IO Unit')] + 'main : IO Unit\nmain = putStrLn "checked"\n'
+            alias_type = ('consAlias : {binder} -> (1 h : A) -> (1 t : Data.Items.Items A) -> Data.Items.Items A\n'
+                          'consAlias T h t = Data.Items.Prepend h t\n')
+            for binder, succeeds in [('{0 A : Type}', True), ('(0 A : Type)', False)]:
+                baseline = short.replace('reverseOnto :', alias_type.format(binder=binder) + 'reverseOnto :')
+                path.write_text(baseline)
+                self.assertEqual(run('check', '--source-dir', str(root), str(path)).returncode, 0)
+                applied = baseline.replace('reverseOnto tail (Data.Items.Prepend head acc)',
+                                           'reverseOnto tail (consAlias head acc)')
+                path.write_text(applied)
+                checked = run('check', '--source-dir', str(root), str(path))
+                self.assertEqual(checked.returncode == 0, succeeds, checked.stdout + checked.stderr)
 
     def test_structural_sequence_recursive_equations(self):
         source = ('module Main\ndata Items {0 A : Type} : Type where\n  Empty : Items A\n'
