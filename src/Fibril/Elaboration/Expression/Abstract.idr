@@ -35,6 +35,9 @@ mutual
   descend env hole target (SeqNil ty) = SeqNil (abstractWith env hole target ty)
   descend env hole target (SeqCons ty h t) = SeqCons (abstractWith env hole target ty) (abstractWith env hole target h) (abstractWith env hole target t)
   descend env hole target (SeqFold p z s x) = SeqFold (abstractWith env hole target p) (abstractWith env hole target z) (abstractWith env hole target s) (abstractWith env hole target x)
+  descend env hole target ReadLine = ReadLine
+  descend env hole target (FileHandleValue identity generation) = FileHandleValue identity generation
+  descend env hole target (ReadInputFile handle) = ReadInputFile (abstractWith env hole target handle)
   descend env hole target StringType = StringType
   descend env hole target (StringValue value) = StringValue value
   descend env hole target (StringAppend a b) = StringAppend (abstractWith env hole target a) (abstractWith env hole target b)
@@ -49,7 +52,9 @@ mutual
   descend env hole target (BoxType q ty) = BoxType q (abstractWith env hole target ty)
   descend env hole target (BoxValue a b) = BoxValue (abstractWith env hole target a) (abstractWith env hole target b)
   descend env hole target (BoxCase a b c) = BoxCase (abstractWith env hole target a) (abstractWith env hole target b) (abstractWith env hole target c)
+  descend env hole target (WithInputFile result path body) = WithInputFile (abstractWith env hole target result) (abstractWith env hole target path) (abstractWith env hole target body)
   descend env hole target (IOType a) = IOType (abstractWith env hole target a)
+  descend env hole target (FileHandleType region) = FileHandleType (abstractWith env hole target region)
   descend env hole target (IOPure a) = IOPure (abstractWith env hole target a)
   descend env hole target (WriteLine a) = WriteLine (abstractWith env hole target a)
   descend env hole target (IOBind a b c d) = IOBind (abstractWith env hole target a) (abstractWith env hole target b) (abstractWith env hole target c) (abstractWith env hole target d)

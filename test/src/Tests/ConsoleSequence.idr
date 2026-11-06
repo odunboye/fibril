@@ -1,6 +1,9 @@
 module Tests.ConsoleSequence
 
 import Data.List
+import Data.Fin
+import Fibril.Core.Quantity
+import Fibril.Driver.Limits
 import Data.IORef
 import Fibril.Core.Term
 import Fibril.Effect.Console
@@ -29,10 +32,43 @@ commands : Nat -> String
 commands Z = ""
 commands (S count) = "  putStrLn \"ok\"\n" ++ commands count
 
+-- Construct core descriptions directly so the parser's do-block limit cannot
+-- mask the planner's independent, global write allowance.
+writePrefix : Nat -> Term 0 -> Term 0
+writePrefix Z tail = tail
+writePrefix (S count) tail =
+  IOBind UnitType UnitType (WriteLine (StringValue "ok"))
+    (Lambda Linear UnitType
+      (UnitCase (Variable FZ) (weaken (writePrefix count tail))))
+
+writeChain : Nat -> Term 0
+writeChain count = writePrefix count (IOPure UnitValue)
+
+expensiveText : Nat -> Term 0
+expensiveText Z = StringValue "end"
+expensiveText (S count) = StringAppend (StringValue "") (expensiveText count)
+
 public export
 checks : List (String, Bool)
 checks =
-  [ ("IO do preserves order", planned block == Just ["first", "second"])
+  [ ("IO core plan accepts exactly the write allowance",
+      case prepareIO 128 128 (writeChain consoleActionLimit) of
+        Right actions => length actions == consoleActionLimit
+        Left _ => False)
+  , ("IO core plan rejects writes beyond the allowance",
+      case prepareIO 128 128 (writeChain (S consoleActionLimit)) of
+        Left PlanActionLimit => True
+        _ => False)
+  , ("IO expensive write requires more reduction fuel",
+      case prepareIO 128 128 (WriteLine (expensiveText 129)) of
+        Left PlanReductionLimit => True
+        _ => False)
+  , ("IO exhausted action allowance rejects before text normalization",
+      case prepareIO 128 128
+             (writePrefix consoleActionLimit (WriteLine (expensiveText 129))) of
+        Left PlanActionLimit => True
+        _ => False)
+  , ("IO do preserves order", planned block == Just ["first", "second"])
   , ("IO do next-line body",
       planned "main : IO Unit\nmain =\n  do\n    putStrLn \"ok\"" == Just ["ok"])
   , ("IO do comments and CRLF",
@@ -66,7 +102,63 @@ runSequenceChecks = do
   writeIORef seen []
   failure <- sequenceConsole perform [PrintLine "first", PrintLine "fail", PrintLine "never"]
   attempted <- readIORef seen
-  pure [("console host sequencing order",
+  writeIORef seen []
+  let flush : IO (Either String ())
+      flush = do
+        modifyIORef seen ("flush" ::)
+        pure (Right ())
+  flushed <- sequenceConsoleWithFlush perform flush [PrintLine "first", PrintLine "second"]
+  flushedEvents <- readIORef seen
+  writeIORef seen []
+  failedWrite <- sequenceConsoleWithFlush perform flush [PrintLine "fail", PrintLine "never"]
+  failedEvents <- readIORef seen
+  writeIORef seen []
+  empty <- sequenceConsoleWithFlush perform flush []
+  emptyEvents <- readIORef seen
+  writeIORef seen []
+  let failFlush : IO (Either String ())
+      failFlush = do
+        modifyIORef seen ("flush failed" ::)
+        pure (Left "injected flush failure")
+  failedFlush <- sequenceConsoleWithFlush perform failFlush [PrintLine "first"]
+  flushFailureEvents <- readIORef seen
+  writeIORef seen []
+  let read : IO (Either String (Maybe String))
+      read = do
+        modifyIORef seen ("read" ::)
+        pure (Right (Just "response"))
+  readResult <- readAfterFlush flush read
+  readEvents <- readIORef seen
+  writeIORef seen []
+  blockedRead <- readAfterFlush failFlush read
+  blockedEvents <- readIORef seen
+  writeIORef seen []
+  let failedRead : IO (Either String (Maybe String))
+      failedRead = do
+        modifyIORef seen ("read failed" ::)
+        pure (Left "injected input failure")
+  readFailure <- readAfterFlush flush failedRead
+  readFailureEvents <- readIORef seen
+  nulOutput <- executeConsole (PrintLine "a\0b")
+  pure [("console rejects NUL output instead of truncating it",
+          nulOutput == Left "Console output contains NUL"),
+        ("console prompt flush precedes input",
+          readResult == Right (Just "response") && reverse readEvents == ["flush", "read"]),
+        ("console prompt flush failure prevents input",
+          blockedRead == Left "injected flush failure" && reverse blockedEvents == ["flush failed"]),
+        ("console input failure survives successful prompt flush",
+          readFailure == Left "injected input failure" &&
+          reverse readFailureEvents == ["flush", "read failed"]),
+        ("console flush follows all successful writes",
+          flushed == Right () && reverse flushedEvents == ["first", "second", "flush"]),
+        ("console write failure skips final flush",
+          failedWrite == Left "injected output failure" && reverse failedEvents == ["fail"]),
+        ("console empty plan still flushes",
+          empty == Right () && reverse emptyEvents == ["flush"]),
+        ("console flush failure is returned after writes",
+          failedFlush == Left "injected flush failure" &&
+          reverse flushFailureEvents == ["first", "flush failed"]),
+        ("console host sequencing order",
           success == Right () && reverse completed == ["first", "second"]),
         ("console host sequencing stops at failure",
           failure == Left "injected output failure" && reverse attempted == ["first", "fail"])]

@@ -2,3 +2,10 @@
 module Fibril.Driver.Limits
 
 import public Fibril.Core.Limits
+
+%default total
+
+||| Maximum writes admitted by the hosted console planner.
+public export
+consoleActionLimit : Nat
+consoleActionLimit = 64

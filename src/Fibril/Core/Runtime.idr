@@ -28,7 +28,7 @@ Show RuntimeError where
     "Binder usage: expected " ++ show expected ++ ", observed " ++ show observed
   show (ContextUsage i expected observed) =
     "Variable " ++ show i ++ ": expected " ++ show expected ++ ", observed " ++ show observed
-  show RuntimeTypeExpression = "Runtime type expressions (universe/Pi/Sigma/Box/Variant/Nominal/Unit/Bool/String/IO) are not supported"
+  show RuntimeTypeExpression = "Runtime type expressions (universe/Pi/Sigma/Box/Variant/Nominal/Unit/Bool/String/IO/FileHandle) are not supported"
 
 liftTyping : Either CheckError a -> Either RuntimeError a
 liftTyping (Left err) = Left (TypingError err)
@@ -90,6 +90,9 @@ mutual
     baseUsage <- analyze depth reduction context base
     consUsage <- analyze depth reduction context cons
     Right (combineUsage valueUsage (joinUsage baseUsage consUsage))
+  analyze (S depth) reduction context ReadLine = Right zeroUsage
+  analyze (S depth) reduction context (FileHandleValue _ _) = Right zeroUsage
+  analyze (S depth) reduction context (ReadInputFile handle) = analyze depth reduction context handle
   analyze (S depth) reduction context StringType = Left RuntimeTypeExpression
   analyze (S depth) reduction context (StringValue _) = Right zeroUsage
   analyze (S depth) reduction context (StringAppend left right) = do
@@ -100,7 +103,13 @@ mutual
     leftUsage <- analyze depth reduction context left
     rightUsage <- analyze depth reduction context right
     Right (combineUsage leftUsage rightUsage)
+  analyze (S depth) reduction context (WithInputFile result path body) = do
+    pathUsage <- analyze depth reduction context path
+    bodyUsage <- analyze depth reduction context body
+    -- Open failure skips the callback: it cannot own captured linear resources.
+    Right (combineUsage pathUsage (scaleUsage Unrestricted bodyUsage))
   analyze (S depth) reduction context (IOType _) = Left RuntimeTypeExpression
+  analyze (S depth) reduction context (FileHandleType _) = Left RuntimeTypeExpression
   analyze (S depth) reduction context (IOPure value) = analyze depth reduction context value
   analyze (S depth) reduction context (WriteLine text) = analyze depth reduction context text
   analyze (S depth) reduction context (IOBind a b action next) = do

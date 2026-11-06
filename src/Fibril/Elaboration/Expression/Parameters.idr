@@ -98,6 +98,10 @@ mutual
   match position mapping prune (SeqFold p z s x) (SeqFold q w t y) solutions = do
     solutions <- triple position mapping prune p z s q w t solutions
     match position mapping prune x y solutions
+  match position mapping prune ReadLine ReadLine solutions = Right solutions
+  match position mapping prune (FileHandleValue left first) (FileHandleValue right second) solutions =
+    if left == right && first == second then Right solutions else failure position
+  match position mapping prune (ReadInputFile left) (ReadInputFile right) solutions = match position mapping prune left right solutions
   match position mapping prune StringType StringType solutions = Right solutions
   match position mapping prune (StringValue x) (StringValue y) solutions =
     if x == y then Right solutions else failure position
@@ -109,7 +113,12 @@ mutual
       match position mapping prune shape actualShape solutions
     else failure position
   match position mapping prune (VariantType xs) (VariantType ys) solutions = matchArms position mapping prune xs ys solutions
+  match position mapping prune (WithInputFile a p f) (WithInputFile b q g) solutions = do
+    first <- match position mapping prune a b solutions
+    second <- match position mapping prune p q first
+    match position mapping prune f g second
   match position mapping prune (IOType x) (IOType y) solutions = match position mapping prune x y solutions
+  match position mapping prune (FileHandleType x) (FileHandleType y) solutions = match position mapping prune x y solutions
   match position mapping prune (IOPure x) (IOPure y) solutions = match position mapping prune x y solutions
   match position mapping prune (WriteLine x) (WriteLine y) solutions = match position mapping prune x y solutions
   match position mapping prune (BoxValue x y) (BoxValue u v) solutions = pair position mapping prune x y u v solutions
@@ -343,6 +352,8 @@ implicitArgumentType position (S fuel) context (SeqFold motive _ _ value) = do
     Just (Apply _ _) => Right Nothing
     Just ty => Right (Just ty)
     Nothing => Right Nothing
+implicitArgumentType position (S fuel) context ReadLine = Right (Just (IOType readResultType))
+implicitArgumentType position (S fuel) context (FileHandleValue identity _) = Right (Just (FileHandleType (runtimeFileRegion identity)))
 implicitArgumentType position (S fuel) context UnitValue = Right (Just UnitType)
 implicitArgumentType position (S fuel) context StringType = Right (Just (Universe 0))
 implicitArgumentType position (S fuel) context BoolType = Right (Just (Universe 0))

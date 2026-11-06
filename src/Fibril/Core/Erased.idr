@@ -29,6 +29,7 @@ data CheckError : Type where
   ExpectedBoxType : {0 n : Nat} -> (found : Term n) -> CheckError
   ExpectedPairType : {0 n : Nat} -> (found : Term n) -> CheckError
   ExpectedFunction : {0 n : Nat} -> (found : Term n) -> CheckError
+  ExpectedFileHandle : {0 n : Nat} -> (found : Term n) -> CheckError
   ||| Both types retain a shared scope; payloads are diagnostic data, not proofs.
   TypeMismatch : {0 n : Nat} -> (actual, expected : Term n) -> CheckError
   BranchTypeMismatch : {0 n : Nat} -> (yesType, noType : Term n) -> CheckError
@@ -47,6 +48,7 @@ Show CheckError where
   show (ExpectedBoxMotive found) = "Expected an erased box motive returning a universe; found: " ++ renderTerm found
   show (ExpectedBoxType found) = "Expected a unary box type; found: " ++ renderTerm found
   show (ExpectedFunction found) = "Expected a dependent function type; found: " ++ renderTerm found
+  show (ExpectedFileHandle found) = "Expected a file handle type; found: " ++ renderTerm found
   show (TypeMismatch actual expected) =
     "Inferred type is not compatible with expected type; inferred: " ++ renderTerm actual ++
     "; expected: " ++ renderTerm expected
@@ -256,6 +258,14 @@ mutual
         requireCompatible reduction consType (Pi Linear element (Pi Linear (weaken exposed) resultType))
         Right (Apply motive value)
       _ => Left (RecursiveDataError "case scrutinee must have a sequence type")
+  infer (S depth) reduction context ReadLine = Right (IOType readResultType)
+  infer (S depth) reduction context (FileHandleValue identity _) = Right (FileHandleType (runtimeFileRegion identity))
+  infer (S depth) reduction context (ReadInputFile handle) = do
+    handleType <- infer depth reduction context handle
+    exposed <- exposeType reduction handleType
+    case exposed of
+      FileHandleType region => Right (IOType (fileReadResultType region))
+      _ => Left (ExpectedFileHandle exposed)
   infer (S depth) reduction context StringType = Right (Universe 0)
   infer (S depth) reduction context (StringValue _) = Right StringType
   infer (S depth) reduction context (StringAppend left right) = do
@@ -270,6 +280,18 @@ mutual
     rightType <- infer depth reduction context right
     requireCompatible reduction rightType StringType
     Right BoolType
+  infer (S depth) reduction context (FileHandleType region) = do
+    regionType <- infer depth reduction context region
+    requireCompatible reduction regionType (Universe 0)
+    Right (Universe 0)
+  infer (S depth) reduction context (WithInputFile result path body) = do
+    resultSort <- infer depth reduction context result
+    requireCompatible reduction resultSort (Universe 0)
+    pathType <- infer depth reduction context path
+    requireCompatible reduction pathType StringType
+    bodyType <- infer depth reduction context body
+    requireCompatible reduction bodyType (scopedInputBodyType result)
+    Right (IOType (fileScopeResultType result))
   infer (S depth) reduction context (IOType ty) = do
     level <- sortOf depth reduction context ty
     Right (Universe level)

@@ -36,6 +36,9 @@ mutual
   renderTerm (SeqNil ty) = "(SeqNil " ++ renderTerm ty ++ ")"
   renderTerm (SeqCons ty h t) = "(SeqCons " ++ renderTerm ty ++ " " ++ renderTerm h ++ " " ++ renderTerm t ++ ")"
   renderTerm (SeqFold p z s x) = "(SeqFold " ++ renderTerm p ++ " " ++ renderTerm z ++ " " ++ renderTerm s ++ " " ++ renderTerm x ++ ")"
+  renderTerm ReadLine = "ReadLine"
+  renderTerm (FileHandleValue identity generation) = "(RuntimeFileHandle " ++ show identity ++ " " ++ show generation ++ ")"
+  renderTerm (ReadInputFile handle) = "(ReadInputFile " ++ renderTerm handle ++ ")"
   renderTerm StringType = "String"
   renderTerm (StringValue value) = show value
   renderTerm (StringAppend left right) = "(StringAppend " ++ renderTerm left ++ " " ++ renderTerm right ++ ")"
@@ -50,7 +53,9 @@ mutual
   renderTerm (BoxType q ty) = "(Box " ++ show q ++ " " ++ renderTerm ty ++ ")"
   renderTerm (BoxValue ty value) = "(BoxValue " ++ renderTerm ty ++ " " ++ renderTerm value ++ ")"
   renderTerm (BoxCase motive value branch) = "(BoxCase " ++ renderTerm motive ++ " " ++ renderTerm value ++ " " ++ renderTerm branch ++ ")"
+  renderTerm (WithInputFile result path body) = "(WithInputFile " ++ renderTerm result ++ " " ++ renderTerm path ++ " " ++ renderTerm body ++ ")"
   renderTerm (IOType ty) = "(IO " ++ renderTerm ty ++ ")"
+  renderTerm (FileHandleType region) = "(FileHandle " ++ renderTerm region ++ ")"
   renderTerm (IOPure value) = "(Pure " ++ renderTerm value ++ ")"
   renderTerm (WriteLine text) = "(WriteLine " ++ renderTerm text ++ ")"
   renderTerm (IOBind a b action next) =

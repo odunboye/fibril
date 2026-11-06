@@ -27,28 +27,40 @@ parse name template owned sourceOnly library dry [] = case name of
   Just name => if not (validProjectName name) then Left "Invalid project name: use 1..64 lowercase ASCII letters/digits/_/-, starting with a letter (no paths)."
     else if not sourceOnly && not (validTestedPrefix (maybe "App" id owned)) then Left "Invalid package prefix."
     else Right (NewOptions name dry (if sourceOnly then Nothing else Just (maybe "App" id owned)) library)
-parse name template owned sourceOnly True dry ("--lib" :: _) = Left "Duplicate --lib option."
-parse name template owned True False dry ("--lib" :: _) = Left "--lib conflicts with --source-only."
-parse name template owned False False dry ("--lib" :: rest) = parse name template owned False True dry rest
-parse name template owned sourceOnly True dry ("--source-only" :: _) = Left "--source-only conflicts with --lib."
-parse name template owned True library dry ("--source-only" :: _) = Left "Duplicate --source-only option."
-parse name template (Just _) False library dry ("--source-only" :: _) = Left "--source-only conflicts with --module-prefix."
-parse name template Nothing False library dry ("--source-only" :: rest) = parse name template Nothing True library dry rest
-parse name template owned True library dry ("--module-prefix" :: _) = Left "--module-prefix conflicts with --source-only."
-parse name template owned sourceOnly library True ("--dry-run" :: _) = Left "Duplicate --dry-run option."
-parse name template owned sourceOnly library False ("--dry-run" :: rest) = parse name template owned sourceOnly library True rest
-parse name (Just _) owned sourceOnly library dry ("--template" :: _) = Left "Duplicate --template option."
-parse name Nothing owned sourceOnly library dry ("--template" :: "console" :: rest) = parse name (Just "console") owned sourceOnly library dry rest
-parse name Nothing owned sourceOnly library dry ("--template" :: _) = Left "Only --template console is supported. Web/server/mobile templates are not deployable yet."
-parse name template (Just _) sourceOnly library dry ("--module-prefix" :: _) = Left "Duplicate --module-prefix option."
-parse name template Nothing sourceOnly library dry ("--module-prefix" :: value :: rest) =
-  if validProjectPrefix value then parse name template (Just value) sourceOnly library dry rest
-  else Left "Invalid module prefix: use up to 16 capitalized ASCII components within 1024 characters; Main and its descendants are reserved."
-parse name template Nothing sourceOnly library dry ["--module-prefix"] = Left "Missing --module-prefix value."
-parse Nothing template owned sourceOnly library dry (arg :: rest) =
-  if isPrefixOf ['-', '-'] (unpack arg) then Left ("Unknown project option: " ++ arg)
-  else parse (Just arg) template owned sourceOnly library dry rest
-parse (Just _) template owned sourceOnly library dry (_ :: _) = Left "Unexpected project argument or option. Run fibril new --help."
+-- Dispatch on arguments first. Splitting all Boolean/Maybe state parameters
+-- in clause heads makes the compiler's coverage matrix unnecessarily large.
+parse name template owned sourceOnly library dry ("--lib" :: rest) =
+  if library then Left "Duplicate --lib option."
+  else if sourceOnly then Left "--lib conflicts with --source-only."
+  else parse name template owned sourceOnly True dry rest
+parse name template owned sourceOnly library dry ("--source-only" :: rest) =
+  if library then Left "--source-only conflicts with --lib."
+  else if sourceOnly then Left "Duplicate --source-only option."
+  else case owned of
+    Just _ => Left "--source-only conflicts with --module-prefix."
+    Nothing => parse name template Nothing True library dry rest
+parse name template owned sourceOnly library dry ("--dry-run" :: rest) =
+  if dry then Left "Duplicate --dry-run option."
+  else parse name template owned sourceOnly library True rest
+parse name template owned sourceOnly library dry ("--template" :: rest) =
+  case template of
+    Just _ => Left "Duplicate --template option."
+    Nothing => case rest of
+      "console" :: following => parse name (Just "console") owned sourceOnly library dry following
+      _ => Left "Only --template console is supported. Web/server/mobile templates are not deployable yet."
+parse name template owned sourceOnly library dry ("--module-prefix" :: rest) =
+  if sourceOnly then Left "--module-prefix conflicts with --source-only."
+  else case owned of
+    Just _ => Left "Duplicate --module-prefix option."
+    Nothing => case rest of
+      [] => Left "Missing --module-prefix value."
+      value :: following =>
+        if validProjectPrefix value then parse name template (Just value) sourceOnly library dry following
+        else Left "Invalid module prefix: use up to 16 capitalized ASCII components within 1024 characters; Main and its descendants are reserved."
+parse name template owned sourceOnly library dry (arg :: rest) = case name of
+  Nothing => if isPrefixOf ['-', '-'] (unpack arg) then Left ("Unknown project option: " ++ arg)
+    else parse (Just arg) template owned sourceOnly library dry rest
+  Just _ => Left "Unexpected project argument or option. Run fibril new --help."
 
 files : String -> Maybe String -> List ProjectFile
 files name Nothing = consoleFiles name
