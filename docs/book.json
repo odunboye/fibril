@@ -286,7 +286,7 @@
         "path": "docs/size-change-certificates.md"
       },
       {
-        "title": "Recursive groups (proposed)",
+        "title": "Recursive group core and proposed checking",
         "path": "docs/recursive-groups-design.md"
       },
       {

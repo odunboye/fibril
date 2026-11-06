@@ -2,13 +2,16 @@
 
 ## Status
 
-**Design proposal only.** Fibril does not yet have recursive core groups, a
-recursive-call core node, or general source termination checking. The existing
+**Raw representation implemented; checking and execution are proposed.**
+`Fibril.Core.RecursiveGroup` defines a separate scoped group-body syntax with
+explicit saturated member calls. It is not an ordinary `Term` constructor and
+is not checked, evaluated or accepted from source. Fibril does not yet support
+general recursive definitions or source termination checking. The existing
 [structural equations](function-equations.md) lower to checked recursors. The
 [size-change experiment](size-change-certificates.md) checks synthetic bodies,
 not Fibril programs. Isolated experiments also check and run a tightly
-restricted actual open core body under a hypothetical self variable, as described
-below. None of this changes what the compiler accepts.
+restricted open ordinary-core body under a hypothetical self variable. None of
+these group experiments changes what the compiler accepts.
 
 ## A concrete goal
 
@@ -143,13 +146,62 @@ not expose recursion to Fibril source, ordinary conversion, the evaluator or
 backends. Tests observe actual reverse order, including a nonempty accumulator,
 and reject invalid inputs, stale or forged graphs and insufficient fuel.
 
-## Candidate first core fragment
+## Implemented raw group syntax
 
-The smallest useful direction is a **closed, immutable group** of explicitly
-signed functions with nondependent, first-order argument and result types.
-Start with one self-recursive function over `Nat` and the existing fixed
-`Items Nat` shape; add mutual groups only after the single-member boundary is
-working. Do not broaden data positivity. No ambient variables or linear
+`Fibril.Core.RecursiveGroup` represents an ordered group with an arity vector
+and one `Member` per entry. Each member has a closed ordinary core signature
+`Term 0` and a `Body` scoped over its declared number of parameters. Parameter
+locals use the ordinary newest-first de Bruijn convention. Group members use a
+separate finite positional index: a `Call` target is bounded by the group size,
+and its vector of ordinary core arguments has exactly that target's declared
+arity. `memberAt` returns the member at a position with its corresponding body
+scope in the Idris type. Positions are meaningful only within that exact group.
+For example, the test suite represents mutually recursive even/odd bodies in
+Idris using the actual Fibril core terms:
+
+~~~idris
+evenBody : Body [1, 1] 1
+evenBody = CaseNat (Variable FZ) (Return BoolTrue)
+                   (Call (FS FZ) [Variable FZ])
+
+oddBody : Body [1, 1] 1
+oddBody = CaseNat (Variable FZ) (Return BoolFalse)
+                  (Call FZ [Variable FZ])
+~~~
+
+These are construction examples, not Fibril source or executable definitions.
+
+Bodies contain `Return` of an ordinary scoped term, direct `Call`, and explicit
+Nat, list and Bool cases. A Nat successor adds the predecessor at local `0`;
+a list cons adds the tail at `0` and head at `1`. Group calls are not local
+variables or ordinary `Term` applications, cannot be partially applied, and
+cannot appear inside embedded ordinary terms in this representation. This is a
+restricted **tail-call body grammar**, not general recursive core syntax;
+nested calls and recursive results inside expressions are not represented.
+`renameBody` and `substituteBody` transform ordinary locals, lifting under case
+binders, while preserving member targets. They do not unfold or evaluate calls.
+
+These are raw constructors, not evidence of well-formedness. The arity table is
+not yet checked against each signature's Pi telescope; terms, signatures and
+branch types can be malformed, effects or higher-order values can occur in
+embedded terms, and a nonterminating group is representable. Even an empty raw
+group can be constructed. No admission, signature/body checking, coverage,
+quantitative use, positivity, termination, source elaboration, evaluation,
+conversion, serialization trust, or backend support follows. In particular,
+local or external function values could conceal behavior outside this syntax;
+a later checker must reject or account for them. The tests include a scoped
+mutual even/odd representation, heterogeneous and zero arities, compile-time
+negative target/saturation/scope examples, and binder-aware transformations;
+they are not a soundness proof.
+
+## Candidate first checked core fragment
+
+The smallest useful checking direction is a **closed, immutable group** of
+explicitly signed functions with nondependent, first-order argument and result
+types. The raw syntax can already represent multiple members, but no member is
+admitted. Start checking with one self-recursive function over `Nat` and the
+existing fixed `Items Nat` shape; add checked mutual groups only after the
+single-member boundary is working. Do not broaden data positivity. No ambient variables or linear
 resources may be captured by a group body. Recursive functions are not values:
 only explicit saturated calls to a member of the current group are permitted.
 
@@ -246,9 +298,10 @@ bound, no external IO termination, and no backend correctness.
 
 ## Stages and acceptance tests
 
-1. **Core design and representation:** settle group scoping, signatures, call
-   syntax, binding and a closed checked-body contract. Document the exact
-   supported expression grammar and operational rules before source acceptance.
+1. **Core design and representation:** raw group scoping, signatures and direct
+   call syntax are implemented as described above. A closed checked-body
+   contract, admitted expression grammar and operational rules remain to be
+   settled before source acceptance.
 2. **Checked reference slice:** independently check actual core/group bodies,
    their types, coverage and quantities; authenticate all call sites; verify
    their certificate; and evaluate the same checked bodies under explicit fuel.
