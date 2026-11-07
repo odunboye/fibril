@@ -396,8 +396,9 @@ scrutinee, and in pattern clauses, the predecessor stays linear and must be
 consumed exactly once. The fallback inherits
 the general elaborator's pattern resolution, which resolves a `Zero` pattern to
 the built-in constructor even when an identical `Zero` is imported. Mutual
-recursion beyond the bounded Nat/Bool pairs, native C emission and navigation from
-a call to its definition are not supported. Runnable examples:
+recursion beyond the bounded Nat/Bool pairs and navigation from a call to its
+definition are not supported. Native C emission works but stays inside the runtime's
+fixed evaluation budget; on the hosted path `run --fuel` widens the planning budget. Runnable examples:
 [Half.fib](../examples/modules/general-recursion/Half.fib) and
 [Chain.fib](../examples/modules/general-recursion/Chain.fib) (accepted), and
 [Loop.fib](../examples/modules/general-recursion/Loop.fib) (refused).

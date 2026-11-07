@@ -35,6 +35,9 @@ FValue *f_with_region(FRuntime *r, FEnv *env, FEval body);
 FValue *f_literal(FRuntime *r, const unsigned char *bytes, size_t length);
 FValue *f_variable(FRuntime *r, FEnv *env, size_t index);
 FValue *f_lambda(FRuntime *r, FEnv *env, int erased, FEval body);
+/* Recursive function: body sees the function itself as variable 0. Termination is the
+   checker's size-change admission; the runtime only ties the knot. */
+FValue *f_fix(FRuntime *r, FEnv *env, FEval body);
 FValue *f_apply(FRuntime *r, FEnv *env, FEval function, FEval argument);
 FValue *f_append(FRuntime *r, FEnv *env, FEval left, FEval right);
 /* Trusted literal storage must remain immutable/alive through the run. */

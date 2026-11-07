@@ -251,6 +251,23 @@ FValue *f_lambda(FRuntime *r, FEnv *env, int erased, FEval body) {
   if (v) { v->as.closure.body = body; v->as.closure.env = env; v->as.closure.erased = erased; }
   return v;
 }
+/* A recursive function: its body is evaluated in an environment that already holds the
+   function itself. The self cell is marked in progress while the body is evaluated, so a
+   body that forces self before the closure exists fails as a cyclic thunk instead of
+   running a null code pointer. The result then points back at its own environment; the
+   arena frees allocations without traversing the graph, so this cycle is harmless. */
+FValue *f_fix(FRuntime *r, FEnv *env, FEval body) {
+  FThunk *self = thunk(r, NULL, NULL);
+  if (!self) return NULL;
+  self->state = 1;
+  FEnv *inner = extend(r, env, self);
+  if (!inner) return NULL;
+  FValue *value = evaluate(r, body, inner);
+  if (!value) return NULL;
+  self->value = value;
+  self->state = 2;
+  return value;
+}
 static FValue *apply_thunk(FRuntime *r, FValue *function, FThunk *argument) {
   if (!function || function->tag != V_CLOSURE) { fail(r, "native application expects a function"); return NULL; }
   FEnv *env = extend(r, function->as.closure.env, function->as.closure.erased ? NULL : argument);

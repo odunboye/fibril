@@ -6,9 +6,13 @@
 the program at native runtime, then explicitly compile and run it using a C11
 compiler. This is a useful path for console prototypes and testing the native
 runtime boundary. It is **not a production backend** or a networked email
-service: there is no native HTTP, SMTP, TLS, storage, UI, FFI, general recursive
-function (a size-change-admitted `Fix` fails closed) or general data support yet. Nat, fixed unary and list-shaped recursive
-values, their structural folds and direct cases are supported. Finite
+service: there is no native HTTP, SMTP, TLS, storage, UI, FFI or general data
+support yet. Nat, fixed unary and list-shaped recursive
+values, their structural folds and direct cases are supported. A size-change-admitted
+`Fix` (general recursion, see [function equations](function-equations.md#general-recursion))
+is emitted as a recursive closure and agrees with the hosted evaluator, but it runs
+inside the same fixed evaluation budget as everything else (100000 steps, depth 512),
+so native emission does not widen how much recursion a program can do. Finite
 nullary/unary nominal variants and cases are supported, including
 [pure pair payloads and record lowering](native-pure-pairs.md). For ordinary
 development, the existing bounded reference `fibril run` remains an alternative.

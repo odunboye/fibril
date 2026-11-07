@@ -68,6 +68,50 @@ class NativeTests(unittest.TestCase):
                 self.assertEqual(native.returncode, 0, native.stderr)
                 self.assertEqual(native.stdout, output)
 
+    def test_general_recursion_fix_matches_reference(self):
+        # A size-change-admitted Fix is emitted as a recursive native closure. Outputs must
+        # agree with the hosted evaluator; the fuel only widens the hosted planning budget.
+        root = ROOT / 'examples/modules/general-recursion'
+        expected = {'Half': b'!!!\n', 'Chain': b'xxx\n', 'Swap': b'!\n', 'Doubling': b'!!!!\n',
+                    'Fibonacci': b'!!!\n', 'Ackermann': b'!!!\n'}
+        for name, output in expected.items():
+            with self.subTest(program=name), tempfile.TemporaryDirectory() as directory:
+                args = ['--source-dir', str(root), str(root / (name + '.fib'))]
+                _, native = self.compile_and_run(args, directory)
+                reference = run_cli('run', '--source-dir', str(root), '--fuel', '4096',
+                                    str(root / (name + '.fib')), text=False, timeout=120)
+                self.assertEqual(reference.returncode, 0, reference.stderr)
+                self.assertEqual(native.returncode, 0, native.stderr)
+                self.assertEqual(native.stdout, output)
+                self.assertEqual(native.stdout, reference.stdout)
+
+    def test_fix_native_budget_is_the_fixed_runtime_limit(self):
+        # Native Fix inherits the runtime's fixed evaluation budget; it does not widen it.
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            def nest(depth):
+                text = '(Succ Zero)'
+                for _ in range(depth):
+                    text = '(double ' + text + ')'
+                return text
+            source = ('module Main\n'
+                      'double : (1 n : Nat) -> Nat\n'
+                      'double n = natRec (\\(0 k : Nat) => Nat) Zero (\\(0 k : Nat) => \\(1 r : Nat) => Succ (Succ r)) n\n'
+                      'half : (1 n : Nat) -> Nat\nhalf n = case n of\n  Zero => Zero\n'
+                      '  Succ a => case a of\n    Zero => Zero\n    Succ b => Succ (half b)\n'
+                      'marks : (1 count : Nat) -> String\n'
+                      'marks count = natRec (\\(0 k : Nat) => String) ""\n'
+                      '  (\\(0 k : Nat) => \\(1 result : String) => appendString result "!") count\n'
+                      'main : IO Unit\nmain = putStrLn (marks (half ' + nest(7) + '))\n')
+            (root / 'Main.fib').write_text(source)
+            _, native = self.compile_and_run(['--source-dir', str(root), str(root / 'Main.fib')], directory)
+            self.assertEqual(native.returncode, 0, native.stderr)
+            self.assertEqual(native.stdout, b'!' * 64 + b'\n')
+            (root / 'Main.fib').write_text(source.replace(nest(7), nest(9)))
+            _, native = self.compile_and_run(['--source-dir', str(root), str(root / 'Main.fib')], directory)
+            self.assertNotEqual(native.returncode, 0)
+            self.assertIn(b'native evaluation budget exhausted', native.stderr)
+
     def test_mutual_nat_parity_matches_reference(self):
         root = ROOT / 'examples/modules/mutual-parity'
         args = ['--source-dir', str(root), str(root / 'Main.fib')]

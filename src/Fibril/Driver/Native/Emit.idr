@@ -118,6 +118,10 @@ mutual
     let flag = if quantity == Erased then "1" else "0"
     let code = function n ("return f_lambda(r, e, " ++ flag ++ ", " ++ name generated.root ++ ");")
     Right (Output n generated.next (code :: generated.definitions))
+  generate mode n (Fix _ body) = do
+    generated <- generate mode (S n) body
+    let code = function n ("return f_fix(r, e, " ++ name generated.root ++ ");")
+    Right (Output n generated.next (code :: generated.definitions))
   generate mode n (Apply function argument) = binary mode n "f_apply" function argument
   generate mode n (StringAppend left right) = binary mode n "f_append" left right
   generate mode n (StringEqual left right) = binary mode n "f_string_equal" left right

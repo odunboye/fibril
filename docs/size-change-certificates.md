@@ -41,8 +41,10 @@ variable, because unfolding copies its closure.
 Conversion treats `Fix` as neutral and never unfolds it. Run-mode evaluation
 (`Fibril.Core.Evaluation`) unfolds it only after the ordinary reducer is stuck,
 and only at binder-free positions of closed terms, so an open call cannot unfold
-forever. Fix-free terms evaluate exactly as before. The C emitter does not support
-`Fix` and fails closed. Termination is a property of the checked graph under these
+forever. Fix-free terms evaluate exactly as before. The C emitter lowers `Fix` to a
+recursive closure whose environment holds the function itself (`f_fix`); the result
+matches the hosted evaluator, within the runtime's fixed step and depth budget.
+Termination is a property of the checked graph under these
 rules; it is not a mechanized proof of the extractor or the evaluator.
 
 ## Graph and certificate
