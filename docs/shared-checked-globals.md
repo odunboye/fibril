@@ -121,6 +121,9 @@ its fuel policy. There is no total CPU/heap bound or semantics-preservation
 proof. The bootstrap prelude can be migrated separately. Historical parser/LSP
 measurements must be rerun before claiming a throughput improvement.
 
+The [composed workload probe](composed-workloads.md) measures the current graph
+policy separately from those historical expanded-tree records.
+
 Current hosted diagnostic observers pass the checked environment and report
 reachable shared-graph size, so a one-node entry reference cannot hide its
 program's footprint. The older tree-schema cost auditor uses a separately tagged,

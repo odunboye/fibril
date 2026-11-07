@@ -2,6 +2,10 @@
 
 Status: implemented exploratory measurement, not a stable performance guarantee.
 
+For whole-program checking, native allocation/work counters and current
+shared-graph failure thresholds, use the separate
+[composed workload probe](composed-workloads.md).
+
 ## Run
 
 ```sh

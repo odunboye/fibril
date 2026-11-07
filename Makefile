@@ -1,7 +1,7 @@
 PACK ?= pack
 IDRIS2 ?= idris2
 
-.PHONY: prelude prelude-check build unit-test test io-test io-hosted-test io-runtime-test io-resource-runtime-test io-resource-emitter-test io-emitter-test io-interactive-test io-binary-test io-binary-bench io-cli-test native-test region-test native-pair-test bytes-native-test binary-source-test binary-iteration-test binary-count-test binary-runtime-test binary-scale-test binary-number-test binary-number-bench json-oracle-test json-sharing-probe json-iteration-test lsp-lifecycle-test framing-test header-iteration-test editor-test lsp-test examples bench bench-smoke python-embed-test docs handbook serve-docs clean
+.PHONY: prelude prelude-check build unit-test test io-test io-hosted-test io-runtime-test io-resource-runtime-test io-resource-emitter-test io-emitter-test io-interactive-test io-binary-test io-binary-bench io-cli-test native-test region-test native-pair-test bytes-native-test binary-source-test binary-iteration-test binary-count-test binary-runtime-test binary-scale-test binary-number-test binary-number-bench json-oracle-test json-sharing-probe json-iteration-test lsp-lifecycle-test framing-test header-iteration-test editor-test lsp-test examples bench bench-smoke composed-bench python-embed-test docs handbook serve-docs clean
 prelude:
 	python3 tools/embed_prelude.py
 
@@ -17,6 +17,7 @@ unit-test: build
 	PACK="$(PACK)" IDRIS2="$(IDRIS2)" python3 tools/test_units.py
 
 test: unit-test
+	CC="$(CC)" python3 tools/test_composed_probe.py
 	CC="$(CC)" python3 tools/test_shared_globals.py
 	python3 tools/test_cli.py
 	python3 tools/test_pattern_clauses.py
@@ -45,6 +46,10 @@ io-binary-test:
 # Measurement only: validates output but never asserts timing thresholds.
 io-binary-bench:
 	IDRIS2="$(IDRIS2)" CC="$(CC)" python3 tools/bench_binary.py
+
+# Offline shared-graph admission and execution measurements, no timing gates.
+composed-bench: build
+	PACK="$(PACK)" IDRIS2="$(IDRIS2)" CC="$(CC)" python3 tools/probe_composed.py
 
 io-hosted-test:
 	IDRIS2="$(IDRIS2)" python3 tools/test_io_hosted.py
