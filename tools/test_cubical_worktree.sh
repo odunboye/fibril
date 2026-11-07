@@ -240,3 +240,39 @@ for fixture in TypedTypeCongUnrelated TypedTypeCongFace TypedTypeCongMalformed T
   fi
 done
 echo 'Restricted type congruence negative tests passed.'
+
+for fixture in TypedIntervalNonBoolean TypedIntervalWrongPath TypedIntervalFalseFace TypedIntervalScope TypedDependentUnrelated; do
+  "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1 || true
+  location='right hand side'
+  case $fixture in
+    TypedIntervalNonBoolean) expected='Mismatch between: Zero and Var FZ.' ;;
+    TypedIntervalWrongPath) expected='Mismatch between: FZ and FS FZ.' ;;
+    TypedIntervalFalseFace) expected='Mismatch between: True and False.' ;;
+    TypedIntervalScope) expected='Mismatch between: S ?k and 0.'; location='type' ;;
+    TypedDependentUnrelated) expected='Mismatch between: FS FZ and FZ.' ;;
+  esac
+  if ! grep -Fq "While processing $location of bad" "$tmp/$fixture.log" ||
+     [[ $(grep -c '^Error:' "$tmp/$fixture.log") -ne 1 ]] ||
+     ! grep -Fq "$expected" "$tmp/$fixture.log"; then
+    echo "Interval/dependent congruence negative test $fixture failed for an unrelated reason:" >&2
+    cat "$tmp/$fixture.log" >&2; exit 1
+  fi
+done
+echo 'Typed interval and dependent abstraction congruence negative tests passed.'
+
+# The interval shapes match IMeetRightOne; rejection must be its face proof,
+# not a structural mismatch or a scope error.
+fixture=TypedIntervalExcludedMiddle
+if "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1; then
+  echo "Expected $fixture to reject Boolean excluded middle on the interval." >&2
+  exit 1
+fi
+if ! grep -Fq 'While processing right hand side of bad' "$tmp/$fixture.log" ||
+   [[ $(grep -c '^Error:' "$tmp/$fixture.log") -ne 1 ]] ||
+   ! grep -Fq 'Mismatch between: True and False.' "$tmp/$fixture.log" ||
+   ! grep -Fq 'bad = IMeetRightOne Refl' "$tmp/$fixture.log" ||
+   ! grep -Fq 'TypedIntervalExcludedMiddle:11:21--11:25' "$tmp/$fixture.log"; then
+  echo "Interval excluded-middle test failed for an unrelated reason:" >&2
+  cat "$tmp/$fixture.log" >&2; exit 1
+fi
+echo 'Typed interval excluded-middle face-evidence negative test passed.'

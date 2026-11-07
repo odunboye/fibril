@@ -160,3 +160,21 @@ restrictedConvertedPath = NConvert
     (NRefl (NElim (NPathVar FZ) (Var (FS FZ))))
     (NRefl (NElim (NPathVar FZ) (Var (FS FZ)))))
   restrictedPathTypeCongruence
+
+-- The inner edge of the square, with the outer dimension still free.
+squareInner : NeutralHasType {n = 1} Tests.Cubical.TypedPath.neutralContext STop
+  (NAbstract (NApply (NPath FZ) (Meet (Var (FS FZ)) (Var FZ))))
+  (NPathType NType (NBase FZ) (NApply (NPath FZ) (Var FZ)))
+squareInner = NIntro NBaseForm (NBaseVar FZ) (NElim (NPathVar FZ) (Var FZ))
+  (NElim (NPathVar FZ) (Meet (Var (FS FZ)) (Var FZ)))
+  (NEndpointLeft (NPathVar FZ) (NBaseVar FZ) Refl)
+  (NIntervalApplyCong (NPathVar FZ) (IMeetRightOne Refl))
+
+squareRightCong : NeutralEqual {n = 1} Tests.Cubical.TypedPath.neutralContext STop
+  (NApply (NPath FZ) (Meet (Var FZ) One)) (NApply (NPath FZ) (Var FZ)) NType
+squareRightCong = NIntervalApplyCong (NPathVar FZ) (IMeetRightOne Refl)
+
+dependentAbstractRefl : NeutralEqual {n = 0} Tests.Cubical.TypedPath.neutralContext STop
+  (NAbstract (NBase FZ)) (NAbstract (NBase FZ))
+  (NPathType NType (NBase FZ) (NBase FZ))
+dependentAbstractRefl = NPathPAbstractCong pathPConstant pathPConstant (NRefl (NBaseVar FZ))

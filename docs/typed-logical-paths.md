@@ -105,9 +105,35 @@ The new concrete example converts the constant path at `p i` from
 `Path A (p i) (p i)` to `Path A a a` on `i = 0`, using the typed endpoint
 rule twice. Negative fixtures reject unrelated endpoints, reusing evidence from
 bottom at top, a term as a type, and an escaping dimension. This is a bounded
-subset, not a proof of the requested square. In particular the present
-judgments still lack the dimension-expression congruence needed to identify
-`p (i ∧ 1)` with `p i`, as well as dependent abstraction congruence and
-restricted family/face transport needed for its outer boundaries. No general
+subset, not a proof of the requested square. The restricted congruences below now supply the inner edge, but not the
+restricted type and equality transport needed for the outer boundaries. No general
 weakening of derivations, semantic soundness theorem, or actual nested square
 is claimed.
+
+
+## Typed interval and dependent abstraction congruence
+
+`IntervalEquivalent` is deliberately a very small sufficient relation, not a
+Boolean-vertex solver: reflexivity and `i ∧ j = i` when the bounded syntactic
+face entailment checks `j = 1`. The latter uses the existing 12-dimension,
+12-face-node bounded check; the interval expression is not traversed by a new
+solver. This is an elementary lattice identity under the checked assumption,
+not an Idris semantic soundness theorem. `NIntervalApplyCong` requires one
+and the same typed path with a nondependent carrier on both sides. It does not
+identify different paths or invent equality of dependent result types.
+`NPathPAbstractCong` requires two complete abstractions of the identical family
+and endpoints, and body equality at that family on the weakened face.
+
+`squareInner` derives `λ j. p (i ∧ j) : Path A a (p i)` in the explicit
+neutral path context. Its left boundary uses the typed path endpoint rule and
+its right boundary the new interval congruence. The full nested square is not
+claimed: under the outer endpoint face its inner abstraction must be compared
+with the chosen outer endpoint at the varying family, whose endpoint types
+only agree by restricted `NPathTypeCong` and `NConvert`. The existing equality
+judgment has no conversion/transport rule to move a derived equality to that
+converted type, nor general face weakening to establish all abstraction typing
+premises at the exact nested faces. These missing typed derivations are not
+assumptions. There is no general eta/beta, semantic soundness theorem, or
+production checker change. Negative fixtures check non-Boolean collapse,
+distinct path identities, invalid face evidence, dimension scope, and unrelated
+dependent-abstraction endpoints.
