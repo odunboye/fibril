@@ -15,9 +15,14 @@ Main and the separate LSP worktree are not merged or modified.
   one lexical `equalString` binding reduce the diagnostic parser from 12170 to
   5972 core nodes; its wrapper is 6479, below the unchanged 8192 cap. Source-
   preservation checks pass. This is not proof of runtime grammar coverage.
-- Iteration (`2ebb7b3`, integrated as `bcc7772`): diagnosis/design only. The
-  explicit Done/Continue binary iteration API remains unimplemented; see
-  [its proposal](bounded-binary-iteration-proposal.md).
+- Iteration: the design checkpoint (`2ebb7b3`, integrated as `bcc7772`) is now
+  followed by implementation `d99022e`/`04088eb`, count safety `3b7edb8` and
+  payload tests `aa9741e`. Independent reviews accepted the reducer/count policy
+  and the typing/admission/runtime changes; distinct-payload lifetime coverage
+  closed the follow-up finding. See [bounded binary iteration](bounded-binary-iteration.md).
+  Ordinary reducers retain their unmetered semantics. Count decoding charges
+  nested canonical traversal and unary construction before allocation, not
+  arbitrary CPU/heap activity. Sanitizer coverage is named by tested subset.
 
 The pair worker's combined regression invocation exited **2**, not success,
 following an early handbook-registration failure. Individual later test outcomes
@@ -81,9 +86,15 @@ historical evidence JSON into `docs/assets/evidence/`. The earlier handbook
 invocation failed on that missing static asset and is not counted as success.
 A default compiler-wrapper invocation also failed to resolve Pack's compiler;
 the pinned existing Idris2 path succeeded without modifying any shared install.
-This is split validation, not a claim that a combined full-regression invocation
-passed here.
+That initial pair/state checkpoint used split validation. After iteration was
+reviewed and integrated, the parent combined `make -j8 test editor-test handbook`
+invocation passed, as did315 hosted IO checks and the targeted sanitizer/differential
+runs. See [iteration acceptance](bounded-binary-iteration.md#parent-acceptance-on-the-foundations-branch)
+for exact counts, coverage and limits; the earlier failed invocations are not
+retroactively counted as passes.
 
-No runner limits were raised. The next separate implementation is bounded early-
-completion iteration with explicit work accounting, not another parser rewrite
-or an implicit natRec strictness change.
+No runner limits were raised. Bounded early-completion iteration is now available
+on this isolated foundations branch with explicit state/result and work contracts;
+this is not an implicit natRec strictness change. Header/JSON consumers have not
+been rewritten to use it. Generalized headers, JSON runtime limits and subsequent
+JSON-RPC integration remain separate work.

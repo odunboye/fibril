@@ -1,4 +1,4 @@
-# Bounded binary iteration: diagnostic milestone / proposal, not implementation
+# Bounded binary iteration: approved design and baseline diagnostics
 
 Status: **approved design implemented; count/reducer independently reviewed**.
 The test-only distinct-payload/session-view coverage follow-up is recorded in the

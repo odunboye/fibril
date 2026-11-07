@@ -1,14 +1,14 @@
 # Bounded binary iteration — implementation and count-safety follow-up
 
-Status: **count/reducer independently accepted; payload/lifetime coverage added**.
-The typing/admission/runtime audit found no observed bug, but identified a P2
-coverage gap: prior successful source tests used S=R=Bytes and sanitized raw loops
-used Unit without read/write payloads. The test-only follow-up below addresses
-that gap; reviewed production code is unchanged.
+Status: **independently reviewed and accepted on the isolated foundations branch**.
+The typing/admission/runtime audit found no observed bug. Its P2 coverage gap
+(prior source tests used S=R=Bytes; sanitized raw loops used Unit without reads)
+was closed by the distinct-payload/session-view tests and independent follow-up
+review. Reviewed production code is unchanged by that test-only follow-up.
 The earlier d6e034b checkpoint was partial: ordinary head reduction could allocate
 unary naturals before the count ledger charged their visits. The follow-up closes
 that specific gap with a shared policy-parametric reducer, not a second evaluator
-or a top-level preguard. The new coverage milestone remains subject to its test-review gate.
+or a top-level preguard. Parent acceptance validation is recorded below.
 
 `Core/Reduction/Work.idr` provides an unmetered Identity policy and a bounded
 CountWork policy. Existing `step`/`stepHead` select Identity; count entry selects
@@ -252,8 +252,11 @@ it is not a required parser limit or a new count cap.
 The full local-prefix unit/property suite passes, including ordinary full/head
 reduction, byte-range, UTF8 codec, typing and usage checks. The iteration suite
 now has13 groups, including max1024, the distinct-type source fixture,15 original
-raw native modes and9 read-backed lifetime modes, all native fixtures run both
-normally and under ASan/UBSan. The count suite remains5 groups (22 core checks plus
+raw native modes and9 read-backed lifetime modes. Those raw fixtures and the
+new distinct-payload checked-source fixture run normally and under ASan/UBSan.
+At that worker checkpoint, other checked-source fixtures including max1024 used
+ordinary native compilation; no sanitizer coverage is claimed for those earlier
+builds. The later parent run explicitly enabled sanitizers through CC (below). The count suite remains5 groups (22 core checks plus
 four checked-source groups). No production source changed in the payload/lifetime
 follow-up; the full unit/source/framing runs above describe the count-policy
 checkpoint and are not claimed as newly rerun for this test-only change.
@@ -338,7 +341,38 @@ IDRIS2=/path/to/pinned/idris2 python3 tools/test_binary_iteration.py \
 make -j8 binary-iteration-test IDRIS2=/path/to/pinned/idris2
 ```
 
-Not claimed: completed acceptance before the coverage review gate, verified
-backend/QTT preservation, world tokens, exactly-once semantics, general exception/
+## Parent acceptance on the foundations branch
+
+Independent reviews accepted the count/reducer refactor and the complementary
+source-typing/admission/native-runtime portion. The later coverage review closed
+the distinct-payload/session-view finding; its remaining documentation correction
+now names sanitizer subsets rather than claiming every prior native build was
+sanitized. No production defect was found by those reviews.
+
+The parent then ran the combined `make -j8 test editor-test handbook` gate on the
+integrated code with the pinned compiler and private package staging. It passed
+the unit/property phase, 163 CLI, 19 native-emitter, 8 pair, 7 byte/codec native,
+13 binary-source, 14 bridge scenarios in one test, 5 count, 13 iteration,
+9 scalability, 6 number-probe, 8 oracle, 14 framing, 9 interactive CLI, 7 editor
+and 16 handbook tests. Separate hosted IO compatibility passed315 checks.
+
+A separate parent invocation set `CC='cc -fsanitize=address,undefined
+-fno-omit-frame-pointer'` for count/iteration and console/resource/binary-transport
+targets. The count5/iteration13, console-native19, resource-native25 and
+transport19 tests passed; checked resource hosted/native differentials also
+passed. The iteration source builder honors this CC, so this later run includes
+sanitized checked-source max1024 as well as the raw and distinct-payload suites.
+This extends earlier coverage without reclassifying earlier ordinary builds.
+
+The 97-case combined JSON diagnostic was repeated after the shared reducer
+refactor: hosted70 matches/26 budget blockers/1 reader EOF, native93 matches/
+3 blockers/1 EOF, no mismatch/unexpected failure/deadline. These blockers are
+not successful parser executions. Neither generalized headers nor 4096-byte
+JSON has been delivered by the iteration mechanism.
+
+No runtime limits were raised. Main, LSP and the canonical Frame source remain
+unchanged. Integration is confined to `feature/protocol-foundations`.
+
+Not claimed: verified backend/QTT preservation, world tokens, exactly-once semantics, general exception/
 cancellation safety, total-heap or general CPU bounds, full parser grammar,
 headers, or JSON delivery.
