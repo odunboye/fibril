@@ -341,6 +341,15 @@ internally checked erased arguments), unit elimination and alternatives. The
 `Uses` constructors retain their intermediate usage vectors as explicit
 implicit data to support this structural induction.
 
+`addJoinCommon` proves `add (joinQuantity a b) w = joinQuantity
+(add a w) (add b w)` for every coefficient; `combineJoinCommon` lifts this
+pointwise to usage vectors. `admitJoinParts` proves the converse direction of
+`admitJoin`: permission for a join entails permission for each branch. These
+are branch-induction ingredients even when the two branches have different
+ambient demands, but the common-demand identity does not apply when the
+replacement is charged differently in each branch. They do not establish that
+substituted subterms have the necessary derivations or common demand.
+
 `usageUnique` proves that any two `Uses` derivations for the same term have
 identical vectors. `instantiateHeadUsage` proves the head-reference case of
 quantitative substitution: for any typed `v`, derivation `Uses v w` and
@@ -355,6 +364,13 @@ is: given `Uses t (Linear :: u)`, `Uses v w`, and
 simultaneous substitution, a Core.Term admission/translation connection,
 reduction preservation, erasure compatibility or ownership soundness is proved.
 The fragment is not a bounded production admission API.
+
+A stronger *exact* graded substitution formula is false. With context
+`[x:Unit, y:Unit]`, `t = If True x y` has demand `[omega, omega]`;
+substituting `y` for `x` yields `If True y y` with demand `[1]`, whereas
+`u + q*w` predicts `[omega]`. This does not refute the single-linear target:
+its head demand is omega, not 1. It does show that an induction cannot simply
+assert exact equality with a pointwise graded formula across arbitrary joins.
 
 The head demand alone is not an induction hypothesis for arbitrary subterms:
 `UseApp` may hide unrestricted head demand under an erased argument, yet still

@@ -96,6 +96,16 @@ zeroScaledHead = UnitElim
 underLinearBinder : Term [UnitTy, UnitTy] (Arrow Linear UnitTy UnitTy)
 underLinearBinder = Lam Linear (UnitElim (Ref Here) (Ref (There Here)))
 
+branchCommon : combineUsage (joinUsage [Erased, Linear] [Linear, Linear]) [Linear, Linear] =
+               joinUsage (combineUsage [Erased, Linear] [Linear, Linear])
+                         (combineUsage [Linear, Linear] [Linear, Linear])
+branchCommon = combineJoinCommon [Erased, Linear] [Linear, Linear] [Linear, Linear]
+
+branchParts : (Admits [Unrestricted, Linear] [Erased, Linear],
+               Admits [Unrestricted, Linear] [Linear, Linear])
+branchParts = admitJoinParts [Unrestricted, Linear] [Erased, Linear] [Linear, Linear]
+  (AdmitCons Refl (AdmitCons Refl AdmitNil))
+
 alternativePermission : Admits [Linear] [Linear]
 alternativePermission = admitJoin [Linear] [Linear] [Linear]
   (AdmitCons Refl AdmitNil) (AdmitCons Refl AdmitNil)
@@ -141,7 +151,9 @@ contractReplacements variable = Ref (contract variable)
 export
 checks : List (String, Bool)
 checks =
-  [ ("quantitative weakening preserves nested binders, captures and erased arguments", case weakenedExampleUses of UseLam _ _ => True)
+  [ ("common replacement demand distributes through unequal alternative joins", case branchCommon of Refl => True)
+  , ("joined permission splits into both exact branch permissions", case branchParts of (AdmitCons _ _, AdmitCons _ _) => True)
+  , ("quantitative weakening preserves nested binders, captures and erased arguments", case weakenedExampleUses of UseLam _ _ => True)
   , ("typed substitution weakens an open replacement under two binders", case captureSafe of Refl => True)
   , ("typed head substitution preserves the shadowing binder", case boundVariableUnchanged of Refl => True)
   , ("typed head substitution lowers untouched outer variables", case tailVariableLowered of Refl => True)
@@ -151,6 +163,15 @@ checks =
   , ("quantitative inference rejects unused linear binder", binderRejected Linear Erased (inferUsage unused))
   , ("quantitative inference rejects duplicated linear binder", binderRejected Linear Unrestricted (inferUsage duplicated))
   , ("quantitative inference rejects erased extraction", binderRejected Erased Linear (inferUsage erasedExtraction))
+  , ("graded exact substitution formula fails for correlated alternatives",
+      acceptedWith [Unrestricted, Unrestricted] [Unrestricted, Unrestricted]
+        (the (Term [UnitTy, UnitTy] UnitTy)
+          (If (Boolean True) (Ref Here) (Ref (There Here)))) &&
+      acceptedWith [Linear] [Linear]
+        (instantiate (the (Term [UnitTy] UnitTy) (Ref Here))
+          (the (Term [UnitTy, UnitTy] UnitTy)
+            (If (Boolean True) (Ref Here) (Ref (There Here))))) &&
+      combineUsage [Unrestricted] (scaleUsage Unrestricted [Linear]) == [Unrestricted])
   , ("quantitative alternatives share a linear resource", acceptedWith [Linear] [Linear] alternative)
   , ("quantitative alternatives with differing use need unrestricted permission",
       rejected (checkUsage [Linear] (the (Term [UnitTy] UnitTy) (If (Boolean True) (Ref Here) Unit))) &&

@@ -155,6 +155,72 @@ admitJoin (permission :: permissions) (x :: xs) (y :: ys)
   AdmitCons (rewrite joinAllows permission x y in rewrite px in py)
             (admitJoin permissions xs ys restX restY)
 
+||| Adding the same demand to each alternative commutes with permission join.
+||| This is specific to the three Fibril quantities and their exact join.
+public export
+addJoinCommon : (left, right, common : Quantity) ->
+  add (joinQuantity left right) common =
+  joinQuantity (add left common) (add right common)
+addJoinCommon Erased Erased Erased = Refl
+addJoinCommon Erased Erased Linear = Refl
+addJoinCommon Erased Erased Unrestricted = Refl
+addJoinCommon Erased Linear Erased = Refl
+addJoinCommon Erased Linear Linear = Refl
+addJoinCommon Erased Linear Unrestricted = Refl
+addJoinCommon Erased Unrestricted Erased = Refl
+addJoinCommon Erased Unrestricted Linear = Refl
+addJoinCommon Erased Unrestricted Unrestricted = Refl
+addJoinCommon Linear Erased Erased = Refl
+addJoinCommon Linear Erased Linear = Refl
+addJoinCommon Linear Erased Unrestricted = Refl
+addJoinCommon Linear Linear Erased = Refl
+addJoinCommon Linear Linear Linear = Refl
+addJoinCommon Linear Linear Unrestricted = Refl
+addJoinCommon Linear Unrestricted Erased = Refl
+addJoinCommon Linear Unrestricted Linear = Refl
+addJoinCommon Linear Unrestricted Unrestricted = Refl
+addJoinCommon Unrestricted Erased Erased = Refl
+addJoinCommon Unrestricted Erased Linear = Refl
+addJoinCommon Unrestricted Erased Unrestricted = Refl
+addJoinCommon Unrestricted Linear Erased = Refl
+addJoinCommon Unrestricted Linear Linear = Refl
+addJoinCommon Unrestricted Linear Unrestricted = Refl
+addJoinCommon Unrestricted Unrestricted Erased = Refl
+addJoinCommon Unrestricted Unrestricted Linear = Refl
+addJoinCommon Unrestricted Unrestricted Unrestricted = Refl
+
+||| Pointwise common-replacement demand can be moved through alternatives.
+||| No claim is made when the replacement is charged differently per branch.
+public export
+combineJoinCommon : (left, right, common : Usage n) ->
+  combineUsage (joinUsage left right) common =
+  joinUsage (combineUsage left common) (combineUsage right common)
+combineJoinCommon [] [] [] = Refl
+combineJoinCommon (x :: xs) (y :: ys) (z :: zs) =
+  rewrite addJoinCommon x y z in
+  cong (joinQuantity (add x z) (add y z) ::) (combineJoinCommon xs ys zs)
+
+andTrueLeft : (x, y : Bool) -> x && y = True -> x = True
+andTrueLeft False _ Refl impossible
+andTrueLeft True _ _ = Refl
+
+andTrueRight : (x, y : Bool) -> x && y = True -> y = True
+andTrueRight False _ Refl impossible
+andTrueRight True _ prf = prf
+
+||| Each alternative is admitted whenever their exact permission join is.
+public export
+admitJoinParts : (permissions, left, right : Usage n) ->
+  Admits permissions (joinUsage left right) ->
+  (Admits permissions left, Admits permissions right)
+admitJoinParts [] [] [] AdmitNil = (AdmitNil, AdmitNil)
+admitJoinParts (p :: ps) (x :: xs) (y :: ys) (AdmitCons allowed rest) =
+  let (left, right) = admitJoinParts ps xs ys rest in
+  case joinAllows p x y of
+    equality => case trans (sym equality) allowed of
+      both => (AdmitCons (andTrueLeft (allows p x) (allows p y) both) left,
+               AdmitCons (andTrueRight (allows p x) (allows p y) both) right)
+
 ||| Left identity for the ambient demand vector in head-variable substitution.
 public export
 combineZeroLeft : (usage : Usage n) -> combineUsage Fibril.Core.Usage.zeroUsage usage = usage
