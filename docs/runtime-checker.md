@@ -100,3 +100,14 @@ exercise a fixed dependent open context using erased capturing lambdas and
 linear identity applications. They test beta-step/normalization preservation of
 usage, and reject unrestricted duplication or erased extraction. These finite
 samples are not general preservation proofs or coverage of arbitrary derivations.
+
+### Nat case predecessor quantities
+
+Core `NatCase` accepts a linear or unrestricted successor predecessor binder;
+an erased binder is rejected. Runtime usage scales the scrutinee's usage by
+that binder quantity and adds the join of the two branch usages. Branch
+captures are not scaled: the selected closure runs once. An unrestricted
+predecessor therefore requires unrestricted permission for every scrutinee
+resource, even when the scrutinee evaluates to zero. Surface Nat patterns
+still elaborate linear predecessor binders; unrestricted source patterns and
+catchall patterns are not part of this core milestone.

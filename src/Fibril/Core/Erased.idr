@@ -104,8 +104,13 @@ mutual
     baseType <- infer depth reduction context base
     requireCompatible reduction baseType (Apply motive NatZero)
     moreType <- infer depth reduction context more
+    moreHead <- exposeType reduction moreType
+    quantity <- case moreHead of
+      Pi Linear _ _ => Right Linear
+      Pi Unrestricted _ _ => Right Unrestricted
+      _ => Left (NatError "case successor must have a linear or unrestricted Nat binder")
     let resultType = Apply (weaken motive) (NatSucc (Variable FZ))
-    requireCompatible reduction moreType (Pi Linear NatType resultType)
+    requireCompatible reduction moreType (Pi quantity NatType resultType)
     Right (Apply motive value)
   infer (S depth) reduction context (NatRec motive base next value) = do
     valueType <- infer depth reduction context value

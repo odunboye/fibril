@@ -476,6 +476,35 @@ main = do
             self.assertEqual(native.returncode, 0, native.stderr)
             self.assertEqual(native.stdout, b'selected!\n')
 
+    def test_runtime_nat_case_reuses_predecessor_thunk(self):
+        # Core unrestricted branches are not yet expressible as source patterns.
+        source = r'''
+#include "fibril_runtime.h"
+static int calls;
+static FValue *zero(FRuntime *r, FEnv *e) { (void)e; calls++; return f_nat_zero(r); }
+static FValue *value(FRuntime *r, FEnv *e) { return f_nat_succ(r, e, zero); }
+static FValue *var(FRuntime *r, FEnv *e) { return f_variable(r, e, 0); }
+static FValue *text(FRuntime *r, FEnv *e) { (void)e; return f_literal(r, (const unsigned char *)"x", 1); }
+static FValue *unused(FRuntime *r, FEnv *e) { return f_lambda(r, e, 0, text); }
+static FValue *inspect(FRuntime *r, FEnv *e) { return f_nat_case(r, e, var, text, unused); }
+static FValue *twice(FRuntime *r, FEnv *e) { return f_append(r, e, inspect, inspect); }
+static FValue *branch(FRuntime *r, FEnv *e) { return f_lambda(r, e, 0, twice); }
+static FValue *result(FRuntime *r, FEnv *e) { return f_nat_case(r, e, value, text, branch); }
+static FValue *entry(FRuntime *r, FEnv *e) { return f_write(r, e, result); }
+int main(void) { int result = fibril_native_run(entry); return result ? result : calls == 1 ? 0 : 2; }
+'''
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'probe.c'
+            executable = Path(directory) / 'probe'
+            path.write_text(source)
+            build = subprocess.run(CC + ['-std=c11', '-Wall', '-Wextra', '-Werror', '-pedantic',
+                                          '-I', str(RUNTIME), str(path), str(RUNTIME / 'fibril_runtime.c'),
+                                          '-o', str(executable)], capture_output=True, text=True, timeout=120)
+            self.assertEqual(build.returncode, 0, build.stderr)
+            native = subprocess.run([str(executable)], capture_output=True, timeout=120)
+            self.assertEqual(native.returncode, 0, native.stderr)
+            self.assertEqual(native.stdout, b'xx\n')
+
     def test_runtime_fold_thunks_are_lazy_and_memoized(self):
         # Direct runtime probes intentionally bypass the Fibril checker. They
         # exercise delayed and shared thunks, not source-level typing claims.

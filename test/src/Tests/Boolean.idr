@@ -21,6 +21,8 @@ import Fibril.Source.Text
 import Fibril.Source.Resolve.Error
 
 %default total
+%ambiguity_depth 6
+
 
 accepted : Bool -> String -> Bool
 accepted erased source = case checkSource erased source of
@@ -96,6 +98,61 @@ checks =
           case (checkRuntime 512 128 Empty z BoolType, checkRuntime 512 128 Empty s NatType) of
             (Right _, Right _) => True
             _ => False
+        _ => False)
+  , ("NatCase unrestricted predecessor duplicates or discards and rechecks reductions",
+      let motive = Lambda Erased NatType NatType
+          duplicate = Lambda Unrestricted NatType
+            (NatRec (Lambda Erased NatType NatType) (Variable FZ)
+              (Lambda Erased NatType (Lambda Linear NatType (NatSucc (Variable FZ)))) (Variable FZ))
+          discard = Lambda Unrestricted NatType NatZero
+          zero = NatCase motive NatZero (NatSucc NatZero) duplicate
+          succ = NatCase motive (NatSucc (NatSucc NatZero)) NatZero duplicate
+          ignored = NatCase motive (NatSucc NatZero) NatZero discard in
+      case (checkRuntime 512 128 Empty zero NatType, checkRuntime 512 128 Empty succ NatType,
+            checkRuntime 512 128 Empty ignored NatType, step zero, step succ, normalize 128 succ) of
+        (Right _, Right _, Right _, Just z, Just s, Normal (NatSucc (NatSucc NatZero))) =>
+          case (checkRuntime 512 128 Empty z NatType, checkRuntime 512 128 Empty s NatType) of
+            (Right _, Right _) => True
+            _ => False
+        _ => False)
+  , ("NatCase unrestricted predecessor scales scrutinee, including closure captures",
+      let motive = Lambda Erased NatType NatType
+          branch = Lambda Unrestricted NatType (Variable FZ)
+          direct = NatCase motive (Variable FZ) NatZero branch
+          tail = NatCase motive (NatSucc (Variable FZ)) NatZero branch
+          closure = NatCase motive (Apply (Lambda Linear UnitType
+            (UnitCase (Variable FZ) (Variable (FS FZ)))) UnitValue) NatZero branch in
+      case (checkRuntime 512 128 (Extend Empty Linear NatType) direct NatType,
+            checkRuntime 512 128 (Extend Empty Linear NatType) tail NatType,
+            checkRuntime 512 128 (Extend Empty Linear NatType) closure NatType,
+            checkRuntime 512 128 (Extend Empty Unrestricted NatType) direct NatType) of
+        (Left (ContextUsage _ Linear Unrestricted), Left (ContextUsage _ Linear Unrestricted),
+         Left (ContextUsage _ Linear Unrestricted), Right _) => True
+        _ => False)
+  , ("NatCase unrestricted branch captures are joined but not scaled",
+      let motive = Lambda Erased NatType StringType
+          branch = Lambda Unrestricted NatType (Variable (FS FZ))
+          duplicate = Lambda Unrestricted NatType (StringAppend (Variable (FS FZ)) (Variable (FS FZ))) in
+      case (checkRuntime 512 128 (Extend Empty Linear StringType)
+              (NatCase motive NatZero (Variable FZ) branch) StringType,
+            checkRuntime 512 128 (Extend Empty Linear StringType)
+              (NatCase motive NatZero (StringValue "") branch) StringType,
+            checkRuntime 512 128 (Extend Empty Linear StringType)
+              (NatCase motive NatZero (Variable FZ) duplicate) StringType) of
+        (Right _, Left _, Left _) => True
+        _ => False)
+  , ("NatCase unrestricted dependent motive validates successor result",
+      let motive = Lambda Erased NatType
+            (NatCase (Lambda Erased NatType (Universe 0)) (Variable FZ) BoolType
+              (Lambda Linear NatType NatType))
+          branch = Lambda Unrestricted NatType (Variable FZ)
+          good = NatCase motive (NatSucc NatZero) BoolTrue branch
+          bad = NatCase motive NatZero BoolTrue (Lambda Unrestricted NatType BoolTrue) in
+      case (checkRuntime 512 128 Empty good NatType, step good,
+            checkErased 512 128 Empty bad BoolType) of
+        (Right _, Just reduced, Left _) => case checkRuntime 512 128 Empty reduced NatType of
+          Right _ => True
+          _ => False
         _ => False)
   , ("NatCase substitution traverses all fields and preserves bound variables",
       let term : Term 1
