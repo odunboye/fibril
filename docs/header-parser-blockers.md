@@ -26,6 +26,11 @@ The probe does not assert that today's failures must remain failures.
 - `nested32x32/Main.fib`: the same transition in 32 blocks of 32, **1024 total**
   transitions, not a reset allowance of 1024 per block.
 - `flat1024/Main.fib`: the same transition with a flat 1024-deep Nat count.
+- `drain1024/Main.fib` and `drain1024-constant/Main.fib`: later no-read state
+  forwarding minimization/control, observed by `tools/probe_header_loop_depth.py`.
+  See the [bounded iteration proposal](bounded-binary-iteration-proposal.md) for
+  measured alias-chain depth versus residual-transition work and the accepted
+  next design direction (not runtime implementation approval).
 - `usage-failure/Main.fib`: minimized historical helper usage mistake, separate
   from the running experiments.
 - `expansion-failure/`: abandoned full-parser construction checkpoint, separate
