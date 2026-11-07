@@ -1,5 +1,6 @@
 module Tests.Reference.VerifiedReduction
 
+import Fibril.Foundation.DeMorgan.Interval
 import Fibril.Foundation.DeMorgan.NormalForm
 import Fibril.Foundation.DeMorgan.Sorted
 
@@ -29,3 +30,17 @@ strangeProof : observes (\x => x == 2) (insertionSortBy Tests.Reference.Verified
                observes (\x => x == 2) [1, 2, 1]
 strangeProof = observesInsertionSortBy strange (\x => x == 2) [1, 2, 1]
 
+
+-- Raw syntax exercises both De Morgan branches and independent signs.
+rawPositive : evalDNF Tests.Reference.VerifiedReduction.independent
+  (verifiedNormal False (Meet (Var 0) (Reverse (Var 0)))) = True
+rawPositive = trans (evalVerifiedNormal independent False (Meet (Var 0) (Reverse (Var 0)))) Refl
+
+rawNegative : evalDNF Tests.Reference.VerifiedReduction.independent
+  (verifiedNormal True (Join (Var 0) (Reverse (Var 0)))) = True
+rawNegative = trans (evalVerifiedNormal independent True (Join (Var 0) (Reverse (Var 0)))) Refl
+
+rawNested : (env : SignedAssignment) -> (polarity : Bool) ->
+  evalDNF env (verifiedNormal polarity (Reverse (Join Zero (Meet (Var 1) One)))) =
+  evalSigned env polarity (Reverse (Join Zero (Meet (Var 1) One)))
+rawNested env polarity = evalVerifiedNormal env polarity (Reverse (Join Zero (Meet (Var 1) One)))

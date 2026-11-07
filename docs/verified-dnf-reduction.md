@@ -21,7 +21,15 @@ difference for the DNF ordering is established, nor is equality with production
 bridges it to this sort. The theorem establishes semantic equality, not
 syntactic equality, sortedness, canonicality, or completeness. In particular,
 it does not discharge the conditional soundness theorem for production
-reduction. No candidate normalizer is introduced.
+reduction.
+
+`verifiedNormal` follows the same polarity recursion as `normal`, but applies
+`verifiedReduce` at joins and Cartesian products. `evalVerifiedNormal env
+polarity interval` proves unconditional equality with `evalSigned`, including
+independent signs and reversal. This theorem applies only to the candidate; it
+does not establish production normalizer soundness, compatibility, sortedness,
+canonicality, or completeness. A finite corpus compares candidate and
+production outputs for both polarities as a reference test only, not a proof.
 
 The proof-application tests include empty and duplicate inputs, independently
 true opposite polarities, and a deliberately unlawful comparator. These proof applications do not establish compatibility with the opaque

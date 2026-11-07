@@ -3,6 +3,7 @@ module Fibril.Foundation.DeMorgan.VerifiedReduction
 
 import Fibril.Foundation.DeMorgan.Sorted
 import Fibril.Foundation.DeMorgan.NormalForm
+import Fibril.Foundation.DeMorgan.Interval
 
 %default total
 
@@ -97,3 +98,69 @@ evalVerifiedReduce env ds =
   trans (evalAbsorptionFilter env (verifiedCanonicalSorted (map Fibril.Foundation.DeMorgan.VerifiedReduction.verifiedCanonicalSorted ds))) $
   trans (evalVerifiedDNFCanonical env (map Fibril.Foundation.DeMorgan.VerifiedReduction.verifiedCanonicalSorted ds)) $
   evalMapVerified env ds
+
+public export
+verifiedJoinDNF : DNF -> DNF -> DNF
+verifiedJoinDNF xs ys = verifiedReduce (xs ++ ys)
+
+public export
+verifiedMeetDNF : DNF -> DNF -> DNF
+verifiedMeetDNF xs ys = verifiedReduce (concatMap (\x => map (\y => x ++ y) ys) xs)
+
+||| Candidate with the same structural recursion as normal, using verifiedReduce.
+public export
+verifiedNormal : Bool -> Interval Nat -> DNF
+verifiedNormal False Zero = []
+verifiedNormal True Zero = [[]]
+verifiedNormal False One = [[]]
+verifiedNormal True One = []
+verifiedNormal polarity (Var n) = [[(n, polarity)]]
+verifiedNormal polarity (Reverse x) = verifiedNormal (not polarity) x
+verifiedNormal False (Meet x y) = verifiedMeetDNF (verifiedNormal False x) (verifiedNormal False y)
+verifiedNormal True (Meet x y) = verifiedJoinDNF (verifiedNormal True x) (verifiedNormal True y)
+verifiedNormal False (Join x y) = verifiedJoinDNF (verifiedNormal False x) (verifiedNormal False y)
+verifiedNormal True (Join x y) = verifiedMeetDNF (verifiedNormal True x) (verifiedNormal True y)
+
+public export
+evalVerifiedJoinDNF : (env : SignedAssignment) -> (xs, ys : DNF) ->
+  evalDNF env (verifiedJoinDNF xs ys) = (evalDNF env xs || evalDNF env ys)
+evalVerifiedJoinDNF env xs ys = trans (evalVerifiedReduce env (xs ++ ys)) (evalDNFAppend env xs ys)
+
+public export
+evalVerifiedMeetDNF : (env : SignedAssignment) -> (xs, ys : DNF) ->
+  evalDNF env (verifiedMeetDNF xs ys) = (evalDNF env xs && evalDNF env ys)
+evalVerifiedMeetDNF env xs ys =
+  trans (evalVerifiedReduce env (concatMap (\x => map (\y => x ++ y) ys) xs)) (evalMeetProduct env xs ys)
+
+||| Unconditional signed evaluation preservation for the candidate normalizer.
+public export
+evalVerifiedNormal : (env : SignedAssignment) -> (polarity : Bool) -> (x : Interval Nat) ->
+  evalDNF env (verifiedNormal polarity x) = evalSigned env polarity x
+evalVerifiedNormal env False Zero = Refl
+evalVerifiedNormal env True Zero = Refl
+evalVerifiedNormal env False One = Refl
+evalVerifiedNormal env True One = Refl
+evalVerifiedNormal env False (Var n) with (env n False)
+  evalVerifiedNormal env False (Var n) | False = Refl
+  evalVerifiedNormal env False (Var n) | True = Refl
+evalVerifiedNormal env True (Var n) with (env n True)
+  evalVerifiedNormal env True (Var n) | False = Refl
+  evalVerifiedNormal env True (Var n) | True = Refl
+evalVerifiedNormal env False (Reverse x) = evalVerifiedNormal env True x
+evalVerifiedNormal env True (Reverse x) = evalVerifiedNormal env False x
+evalVerifiedNormal env False (Meet x y) =
+  rewrite evalVerifiedMeetDNF env (verifiedNormal False x) (verifiedNormal False y) in
+  rewrite evalVerifiedNormal env False x in
+  rewrite evalVerifiedNormal env False y in Refl
+evalVerifiedNormal env True (Meet x y) =
+  rewrite evalVerifiedJoinDNF env (verifiedNormal True x) (verifiedNormal True y) in
+  rewrite evalVerifiedNormal env True x in
+  rewrite evalVerifiedNormal env True y in Refl
+evalVerifiedNormal env False (Join x y) =
+  rewrite evalVerifiedJoinDNF env (verifiedNormal False x) (verifiedNormal False y) in
+  rewrite evalVerifiedNormal env False x in
+  rewrite evalVerifiedNormal env False y in Refl
+evalVerifiedNormal env True (Join x y) =
+  rewrite evalVerifiedMeetDNF env (verifiedNormal True x) (verifiedNormal True y) in
+  rewrite evalVerifiedNormal env True x in
+  rewrite evalVerifiedNormal env True y in Refl
