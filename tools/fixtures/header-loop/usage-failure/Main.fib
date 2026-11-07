@@ -1,0 +1,11 @@
+module Main
+
+-- NON-PRODUCTION diagnostic checkpoint; see docs/header-parser-blockers.md.
+
+-- Historical helper error, NOT evidence that continuation boxing is impossible.
+-- The linear indexed code is passed beneath unrestricted ascii's argument.
+main : IO Unit
+main =
+  let (ascii : (bytes : Bytes) -> String) = \(bytes : Bytes) => primUTF8Case String String (primUTF8Decode bytes) "" (\(1 text : String) => text) in
+  let (lower : (bytes : Bytes) -> String) = \(bytes : Bytes) => primBytesIndexCase String (primBytesIndex Zero bytes) "" (\(1 code : Nat) => ascii (primBytesSlice code (Succ Zero) primBytesEmpty)) in
+  pure Unit ()

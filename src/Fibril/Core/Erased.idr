@@ -290,6 +290,76 @@ mutual
     case exposed of
       FileHandleType region => Right (IOType (fileReadResultType region))
       _ => Left (ExpectedFileHandle exposed)
+  infer (S depth) reduction context (BytesLengthIs count bytes) = do
+    countType <- infer depth reduction context count
+    requireCompatible reduction countType NatType
+    bytesType <- infer depth reduction context bytes
+    requireCompatible reduction bytesType BytesType
+    Right BoolType
+  infer (S depth) reduction context (BytesIndex index bytes) = do
+    indexType <- infer depth reduction context index
+    requireCompatible reduction indexType NatType
+    bytesType <- infer depth reduction context bytes
+    requireCompatible reduction bytesType BytesType
+    Right byteIndexResultType
+  infer (S depth) reduction context (BytesSlice start count bytes) = do
+    startType <- infer depth reduction context start
+    requireCompatible reduction startType NatType
+    countType <- infer depth reduction context count
+    requireCompatible reduction countType NatType
+    bytesType <- infer depth reduction context bytes
+    requireCompatible reduction bytesType BytesType
+    Right BytesType
+  infer (S depth) reduction context (UTF8Encode x) = do
+    ty <- infer depth reduction context x
+    requireCompatible reduction ty StringType
+    Right (utf8ResultType BytesType)
+  infer (S depth) reduction context (UTF8Decode x) = do
+    ty <- infer depth reduction context x
+    requireCompatible reduction ty BytesType
+    Right (utf8ResultType StringType)
+  infer (S depth) reduction context BytesType = Right (Universe 0)
+  infer (S depth) reduction context (BytesValue _) = Right BytesType
+  infer (S depth) reduction context (BytesAppend a b) = do
+    aType <- infer depth reduction context a
+    requireCompatible reduction aType BytesType
+    bType <- infer depth reduction context b
+    requireCompatible reduction bType BytesType
+    Right BytesType
+  infer (S depth) reduction context (BytesShare x) = do
+    ty <- infer depth reduction context x
+    requireCompatible reduction ty BytesType
+    Right (BoxType Unrestricted BytesType)
+  infer (S depth) reduction context (BytesLength x) = do
+    ty <- infer depth reduction context x
+    requireCompatible reduction ty BytesType
+    Right NatType
+  infer (S depth) reduction context (BytesOctet x) = do
+    ty <- infer depth reduction context x
+    requireCompatible reduction ty NatType
+    Right BytesType
+  infer (S depth) reduction context (IterateBinary stateType resultType count step initial) = do
+    stateSort <- infer depth reduction context stateType
+    requireCompatible reduction stateSort (Universe 0)
+    resultSort <- infer depth reduction context resultType
+    requireCompatible reduction resultSort (Universe 0)
+    countType <- infer depth reduction context count
+    requireCompatible reduction countType NatType
+    stepType <- infer depth reduction context step
+    requireCompatible reduction stepType (binaryStepType stateType resultType)
+    initialType <- infer depth reduction context initial
+    requireCompatible reduction initialType stateType
+    Right (IOType (loopVariantType stateType resultType))
+  infer (S depth) reduction context (ReadBytes x) = do
+    ty <- infer depth reduction context x
+    requireCompatible reduction ty NatType
+    Right (IOType byteReadResultType)
+  infer (S depth) reduction context (WriteBytes x) = do
+    ty <- infer depth reduction context x
+    requireCompatible reduction ty BytesType
+    Right (IOType UnitType)
+  infer (S depth) reduction context RejectBytes = Right (IOType UnitType)
+  infer (S depth) reduction context FlushBytes = Right (IOType UnitType)
   infer (S depth) reduction context StringType = Right (Universe 0)
   infer (S depth) reduction context (StringValue _) = Right StringType
   infer (S depth) reduction context (StringAppend left right) = do

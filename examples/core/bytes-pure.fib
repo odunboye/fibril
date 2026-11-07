@@ -1,0 +1,7 @@
+-- Pure octets only: no binary effects or implicit UTF-8 conversion.
+-- primBytesOctetMod256 takes the low eight bits, not a checked-range cast.
+packet : Bytes
+packet = primBytesAppend (primBytesOctetMod256 Zero) (primBytesOctetMod256 (Succ Zero))
+
+main : Nat
+main = primBytesLength packet

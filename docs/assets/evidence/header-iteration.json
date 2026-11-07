@@ -1,0 +1,1815 @@
+{
+  "status": "Supervisor-approved diagnostic stop; HEADER adoption and withFrame API NOT delivered",
+  "base": "0bc9c85",
+  "branch": "feature/header-iteration-adoption",
+  "compiler": "/Users/odunadeboye/.local/state/pack/install/74b33730b6fea649b15e8d01ab099df9effcc7a0/idris2/bin/idris2",
+  "source_sha256": {
+    "tools/fixtures/header-iteration/names/Main.fib": "68f2e69ab1e54a366129701e1575efd7593f0be03522a2d674883a0c8a31358c",
+    "tools/fixtures/header-iteration/value-first/Main.fib": "ceddb9fcd79636dffd10f9a1715876d57fd1e868cebf526c2f1722d95c354fd4",
+    "examples/modules/binary-frame/Protocol/Frame.fib": "7bb933ba31da8978a8e0687329a2ae02a667d1bd9fb4045bc20f272ff6d15384"
+  },
+  "limits": {
+    "initial_core_nodes": 8192,
+    "construction": 200000,
+    "hosted_fuel": 4096,
+    "hosted_depth": 4096,
+    "checking_depth": 512,
+    "native_steps": 100000,
+    "native_pure_depth": 512,
+    "native_arena_payload": 16777216,
+    "requests": 4096,
+    "capacity": 8388608
+  },
+  "metric_order": [
+    "peak_pure_depth",
+    "callbacks",
+    "reads",
+    "writes",
+    "arena_allocations",
+    "requests",
+    "reserved_capacity",
+    "consumed_bytes",
+    "accepted_bytes",
+    "flushes"
+  ],
+  "runs": {
+    "independent_controls": [
+      {
+        "variant": "baseline",
+        "source_sha256": "68f2e69ab1e54a366129701e1575efd7593f0be03522a2d674883a0c8a31358c",
+        "classification_policy": "preserved baseline"
+      },
+      {
+        "fixture": "baseline",
+        "phase": "check",
+        "command": [
+          "/Users/odunadeboye/dev/idris2/projects/fibril-header-adoption/build/exec/fibril",
+          "check",
+          "--source-dir",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/baseline",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/baseline/Main.fib"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.092,
+        "stdout_bytes": 82,
+        "stdout_sha256": "1d054e3a11e0625230617d70baa8f5dac5340eec50776dd83bd322713da54e9f",
+        "diagnostic": ""
+      },
+      {
+        "fixture": "baseline",
+        "phase": "measure",
+        "command": [
+          "/Users/odunadeboye/dev/idris2/projects/fibril-header-adoption/build/header-measure/build/exec/measure",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/baseline",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/baseline/Main.fib"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.08,
+        "stdout_bytes": 29,
+        "stdout_sha256": "2180c9aebd6c19463ecdbb21b24311d12e8de0c8c76d2ebf2cb67c2cfa306953",
+        "diagnostic": ""
+      },
+      {
+        "variant": "baseline",
+        "admission": "CORE_NODES=2687 PAYLOAD=1212"
+      },
+      {
+        "fixture": "baseline",
+        "phase": "emit",
+        "command": [
+          "/Users/odunadeboye/dev/idris2/projects/fibril-header-adoption/build/exec/fibril",
+          "emit-c-binary",
+          "--source-dir",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/baseline",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/baseline/Main.fib"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.106,
+        "stdout_bytes": 151353,
+        "stdout_sha256": "cc99402d0ecb0494da761180adc9d2db2f715908b0e982f57c236042fbc2cb3a",
+        "diagnostic": ""
+      },
+      {
+        "fixture": "baseline",
+        "phase": "cc-observer",
+        "command": [
+          "cc",
+          "-std=c11",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-I",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/baseline",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/baseline/main.c",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/baseline/metrics.c",
+          "-o",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/baseline/native"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.11,
+        "stdout_bytes": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "diagnostic": ""
+      },
+      {
+        "fixture": "baseline",
+        "phase": "hosted",
+        "command": [
+          "/Users/odunadeboye/dev/idris2/projects/fibril-header-adoption/build/exec/fibril",
+          "run-binary",
+          "--source-dir",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/baseline",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/baseline/Main.fib"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.203,
+        "stdout_bytes": 20,
+        "stdout_sha256": "3ff631c1007011956c999fd75f6a0d90f385761325ee58c26d99eb7058838676",
+        "diagnostic": "",
+        "input_bytes": 20,
+        "stdin_kept_open": true
+      },
+      {
+        "fixture": "baseline",
+        "phase": "native",
+        "command": [
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/baseline/native"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.133,
+        "stdout_bytes": 20,
+        "stdout_sha256": "3ff631c1007011956c999fd75f6a0d90f385761325ee58c26d99eb7058838676",
+        "diagnostic": "HEADER_LOOP_METRICS 14091 522195 100000 512\nHEADER_ITERATION_METRICS 47 20 20 1 12776 21 40 20 20 1\n",
+        "input_bytes": 20,
+        "stdin_kept_open": true,
+        "native_steps": 14091,
+        "native_arena_payload": 522195,
+        "native_step_limit": 100000,
+        "native_pure_depth_limit": 512
+      },
+      {
+        "fixture": "baseline",
+        "phase": "hosted",
+        "command": [
+          "/Users/odunadeboye/dev/idris2/projects/fibril-header-adoption/build/exec/fibril",
+          "run-binary",
+          "--source-dir",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/baseline",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/baseline/Main.fib"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.765,
+        "stdout_bytes": 128,
+        "stdout_sha256": "149688baa015aba65851686bbba6c0300a05bbf4754269d7e55b3705e9b1f0c0",
+        "diagnostic": "",
+        "input_bytes": 128,
+        "stdin_kept_open": true
+      },
+      {
+        "fixture": "baseline",
+        "phase": "native",
+        "command": [
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/baseline/native"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.006,
+        "stdout_bytes": 128,
+        "stdout_sha256": "149688baa015aba65851686bbba6c0300a05bbf4754269d7e55b3705e9b1f0c0",
+        "diagnostic": "HEADER_LOOP_METRICS 79971 3130881 100000 512\nHEADER_ITERATION_METRICS 47 128 128 1 77576 129 256 128 128 1\n",
+        "input_bytes": 128,
+        "stdin_kept_open": true,
+        "native_steps": 79971,
+        "native_arena_payload": 3130881,
+        "native_step_limit": 100000,
+        "native_pure_depth_limit": 512
+      },
+      {
+        "fixture": "baseline",
+        "phase": "hosted",
+        "command": [
+          "/Users/odunadeboye/dev/idris2/projects/fibril-header-adoption/build/exec/fibril",
+          "run-binary",
+          "--source-dir",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/baseline",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/baseline/Main.fib"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 5.404,
+        "stdout_bytes": 1024,
+        "stdout_sha256": "2e049ce0e1311037ea0975689b364d885373a198ae60f859eb29d7f9fe92b961",
+        "diagnostic": "",
+        "input_bytes": 1024,
+        "stdin_kept_open": true
+      },
+      {
+        "fixture": "baseline",
+        "phase": "native",
+        "command": [
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/baseline/native"
+        ],
+        "status": 1,
+        "outcome": "budget-rejection",
+        "seconds": 0.007,
+        "stdout_bytes": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "diagnostic": "HEADER_LOOP_METRICS 100000 3934129 100000 512\nHEADER_ITERATION_METRICS 47 159 159 0 97364 159 159 159 0 0\nfibril native binary: native evaluation budget exhausted\n",
+        "input_bytes": 1024,
+        "stdin_kept_open": true,
+        "native_steps": 100000,
+        "native_arena_payload": 3934129,
+        "native_step_limit": 100000,
+        "native_pure_depth_limit": 512,
+        "native_limit": "steps"
+      },
+      {
+        "variant": "classification-control",
+        "source_sha256": "28e2b74b14dc55dcd2b17da2fbe9870c02ab4cd5fee7a4babaf36f213d4f84d3",
+        "classification_policy": "INTENTIONALLY WEAKENED diagnostic"
+      },
+      {
+        "fixture": "classification-control",
+        "phase": "check",
+        "command": [
+          "/Users/odunadeboye/dev/idris2/projects/fibril-header-adoption/build/exec/fibril",
+          "check",
+          "--source-dir",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/classification-control",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/classification-control/Main.fib"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.09,
+        "stdout_bytes": 82,
+        "stdout_sha256": "1d054e3a11e0625230617d70baa8f5dac5340eec50776dd83bd322713da54e9f",
+        "diagnostic": ""
+      },
+      {
+        "fixture": "classification-control",
+        "phase": "measure",
+        "command": [
+          "/Users/odunadeboye/dev/idris2/projects/fibril-header-adoption/build/header-measure/build/exec/measure",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/classification-control",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/classification-control/Main.fib"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.081,
+        "stdout_bytes": 29,
+        "stdout_sha256": "1ce83046374b6eb97fc85a48fe28214a92169f0b488a028f58d7377cf7673e68",
+        "diagnostic": ""
+      },
+      {
+        "variant": "classification-control",
+        "admission": "CORE_NODES=2582 PAYLOAD=1212"
+      },
+      {
+        "fixture": "classification-control",
+        "phase": "emit",
+        "command": [
+          "/Users/odunadeboye/dev/idris2/projects/fibril-header-adoption/build/exec/fibril",
+          "emit-c-binary",
+          "--source-dir",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/classification-control",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/classification-control/Main.fib"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.108,
+        "stdout_bytes": 143969,
+        "stdout_sha256": "cb35222b545441599216691d709526640abedff4ed7da81502b325b0de6a2270",
+        "diagnostic": ""
+      },
+      {
+        "fixture": "classification-control",
+        "phase": "cc-observer",
+        "command": [
+          "cc",
+          "-std=c11",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-I",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/classification-control",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/classification-control/main.c",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/classification-control/metrics.c",
+          "-o",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/classification-control/native"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.108,
+        "stdout_bytes": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "diagnostic": ""
+      },
+      {
+        "fixture": "classification-control",
+        "phase": "hosted",
+        "command": [
+          "/Users/odunadeboye/dev/idris2/projects/fibril-header-adoption/build/exec/fibril",
+          "run-binary",
+          "--source-dir",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/classification-control",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/classification-control/Main.fib"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.18,
+        "stdout_bytes": 20,
+        "stdout_sha256": "3ff631c1007011956c999fd75f6a0d90f385761325ee58c26d99eb7058838676",
+        "diagnostic": "",
+        "input_bytes": 20,
+        "stdin_kept_open": true
+      },
+      {
+        "fixture": "classification-control",
+        "phase": "native",
+        "command": [
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/classification-control/native"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.135,
+        "stdout_bytes": 20,
+        "stdout_sha256": "3ff631c1007011956c999fd75f6a0d90f385761325ee58c26d99eb7058838676",
+        "diagnostic": "HEADER_LOOP_METRICS 10353 357843 100000 512\nHEADER_ITERATION_METRICS 34 20 20 1 9179 21 40 20 20 1\n",
+        "input_bytes": 20,
+        "stdin_kept_open": true,
+        "native_steps": 10353,
+        "native_arena_payload": 357843,
+        "native_step_limit": 100000,
+        "native_pure_depth_limit": 512
+      },
+      {
+        "fixture": "classification-control",
+        "phase": "hosted",
+        "command": [
+          "/Users/odunadeboye/dev/idris2/projects/fibril-header-adoption/build/exec/fibril",
+          "run-binary",
+          "--source-dir",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/classification-control",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/classification-control/Main.fib"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.581,
+        "stdout_bytes": 128,
+        "stdout_sha256": "149688baa015aba65851686bbba6c0300a05bbf4754269d7e55b3705e9b1f0c0",
+        "diagnostic": "",
+        "input_bytes": 128,
+        "stdin_kept_open": true
+      },
+      {
+        "fixture": "classification-control",
+        "phase": "native",
+        "command": [
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/classification-control/native"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.005,
+        "stdout_bytes": 128,
+        "stdout_sha256": "149688baa015aba65851686bbba6c0300a05bbf4754269d7e55b3705e9b1f0c0",
+        "diagnostic": "HEADER_LOOP_METRICS 50313 1784577 100000 512\nHEADER_ITERATION_METRICS 34 128 128 1 48167 129 256 128 128 1\n",
+        "input_bytes": 128,
+        "stdin_kept_open": true,
+        "native_steps": 50313,
+        "native_arena_payload": 1784577,
+        "native_step_limit": 100000,
+        "native_pure_depth_limit": 512
+      },
+      {
+        "fixture": "classification-control",
+        "phase": "hosted",
+        "command": [
+          "/Users/odunadeboye/dev/idris2/projects/fibril-header-adoption/build/exec/fibril",
+          "run-binary",
+          "--source-dir",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/classification-control",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/classification-control/Main.fib"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 3.895,
+        "stdout_bytes": 1024,
+        "stdout_sha256": "2e049ce0e1311037ea0975689b364d885373a198ae60f859eb29d7f9fe92b961",
+        "diagnostic": "",
+        "input_bytes": 1024,
+        "stdin_kept_open": true
+      },
+      {
+        "fixture": "classification-control",
+        "phase": "native",
+        "command": [
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/classification-control/native"
+        ],
+        "status": 1,
+        "outcome": "budget-rejection",
+        "seconds": 0.007,
+        "stdout_bytes": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "diagnostic": "HEADER_LOOP_METRICS 100000 3574688 100000 512\nHEADER_ITERATION_METRICS 34 262 262 0 96646 262 262 262 0 0\nfibril native binary: native evaluation budget exhausted\n",
+        "input_bytes": 1024,
+        "stdin_kept_open": true,
+        "native_steps": 100000,
+        "native_arena_payload": 3574688,
+        "native_step_limit": 100000,
+        "native_pure_depth_limit": 512,
+        "native_limit": "steps"
+      },
+      {
+        "variant": "aliases",
+        "source_sha256": "ec18395198c1221948b42724e3aeb7fa77cb24554c0a7e6e2d85dedaa2f79aa6",
+        "classification_policy": "preserved baseline"
+      },
+      {
+        "fixture": "aliases",
+        "phase": "check",
+        "command": [
+          "/Users/odunadeboye/dev/idris2/projects/fibril-header-adoption/build/exec/fibril",
+          "check",
+          "--source-dir",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/aliases",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/aliases/Main.fib"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.103,
+        "stdout_bytes": 82,
+        "stdout_sha256": "1d054e3a11e0625230617d70baa8f5dac5340eec50776dd83bd322713da54e9f",
+        "diagnostic": ""
+      },
+      {
+        "fixture": "aliases",
+        "phase": "measure",
+        "command": [
+          "/Users/odunadeboye/dev/idris2/projects/fibril-header-adoption/build/header-measure/build/exec/measure",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/aliases",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/aliases/Main.fib"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.093,
+        "stdout_bytes": 29,
+        "stdout_sha256": "221e710dd867ac06e5176a8be16bacee8010cc26a68c11153aa31f80dd4858bc",
+        "diagnostic": ""
+      },
+      {
+        "variant": "aliases",
+        "admission": "CORE_NODES=2885 PAYLOAD=1212"
+      },
+      {
+        "fixture": "aliases",
+        "phase": "emit",
+        "command": [
+          "/Users/odunadeboye/dev/idris2/projects/fibril-header-adoption/build/exec/fibril",
+          "emit-c-binary",
+          "--source-dir",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/aliases",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/aliases/Main.fib"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.127,
+        "stdout_bytes": 149234,
+        "stdout_sha256": "fa2688cfeaf592386ab559a3bad57280060a27bcce9ed9cfc4ea70a9af15bd1e",
+        "diagnostic": ""
+      },
+      {
+        "fixture": "aliases",
+        "phase": "cc-observer",
+        "command": [
+          "cc",
+          "-std=c11",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-I",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/aliases",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/aliases/main.c",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/aliases/metrics.c",
+          "-o",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/aliases/native"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.109,
+        "stdout_bytes": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "diagnostic": ""
+      },
+      {
+        "fixture": "aliases",
+        "phase": "hosted",
+        "command": [
+          "/Users/odunadeboye/dev/idris2/projects/fibril-header-adoption/build/exec/fibril",
+          "run-binary",
+          "--source-dir",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/aliases",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/aliases/Main.fib"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.222,
+        "stdout_bytes": 20,
+        "stdout_sha256": "3ff631c1007011956c999fd75f6a0d90f385761325ee58c26d99eb7058838676",
+        "diagnostic": "",
+        "input_bytes": 20,
+        "stdin_kept_open": true
+      },
+      {
+        "fixture": "aliases",
+        "phase": "native",
+        "command": [
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/aliases/native"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.135,
+        "stdout_bytes": 20,
+        "stdout_sha256": "3ff631c1007011956c999fd75f6a0d90f385761325ee58c26d99eb7058838676",
+        "diagnostic": "HEADER_LOOP_METRICS 13359 495507 100000 512\nHEADER_ITERATION_METRICS 47 20 20 1 11969 21 40 20 20 1\n",
+        "input_bytes": 20,
+        "stdin_kept_open": true,
+        "native_steps": 13359,
+        "native_arena_payload": 495507,
+        "native_step_limit": 100000,
+        "native_pure_depth_limit": 512
+      },
+      {
+        "fixture": "aliases",
+        "phase": "hosted",
+        "command": [
+          "/Users/odunadeboye/dev/idris2/projects/fibril-header-adoption/build/exec/fibril",
+          "run-binary",
+          "--source-dir",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/aliases",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/aliases/Main.fib"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.797,
+        "stdout_bytes": 128,
+        "stdout_sha256": "149688baa015aba65851686bbba6c0300a05bbf4754269d7e55b3705e9b1f0c0",
+        "diagnostic": "",
+        "input_bytes": 128,
+        "stdin_kept_open": true
+      },
+      {
+        "fixture": "aliases",
+        "phase": "native",
+        "command": [
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/aliases/native"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.006,
+        "stdout_bytes": 128,
+        "stdout_sha256": "149688baa015aba65851686bbba6c0300a05bbf4754269d7e55b3705e9b1f0c0",
+        "diagnostic": "HEADER_LOOP_METRICS 75027 2950401 100000 512\nHEADER_ITERATION_METRICS 47 128 128 1 72125 129 256 128 128 1\n",
+        "input_bytes": 128,
+        "stdin_kept_open": true,
+        "native_steps": 75027,
+        "native_arena_payload": 2950401,
+        "native_step_limit": 100000,
+        "native_pure_depth_limit": 512
+      },
+      {
+        "fixture": "aliases",
+        "phase": "hosted",
+        "command": [
+          "/Users/odunadeboye/dev/idris2/projects/fibril-header-adoption/build/exec/fibril",
+          "run-binary",
+          "--source-dir",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/aliases",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/aliases/Main.fib"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 5.42,
+        "stdout_bytes": 1024,
+        "stdout_sha256": "2e049ce0e1311037ea0975689b364d885373a198ae60f859eb29d7f9fe92b961",
+        "diagnostic": "",
+        "input_bytes": 1024,
+        "stdin_kept_open": true
+      },
+      {
+        "fixture": "aliases",
+        "phase": "native",
+        "command": [
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/aliases/native"
+        ],
+        "status": 1,
+        "outcome": "budget-rejection",
+        "seconds": 0.007,
+        "stdout_bytes": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "diagnostic": "HEADER_LOOP_METRICS 100000 3950280 100000 512\nHEADER_ITERATION_METRICS 47 170 170 0 96486 170 170 170 0 0\nfibril native binary: native evaluation budget exhausted\n",
+        "input_bytes": 1024,
+        "stdin_kept_open": true,
+        "native_steps": 100000,
+        "native_arena_payload": 3950280,
+        "native_step_limit": 100000,
+        "native_pure_depth_limit": 512,
+        "native_limit": "steps"
+      },
+      {
+        "variant": "aliases-classification-control",
+        "source_sha256": "d2a9917dc746bb4417211065d1933ebe819ffdd1ab5fc02db9ed219b5363b11f",
+        "classification_policy": "INTENTIONALLY WEAKENED diagnostic"
+      },
+      {
+        "fixture": "aliases-classification-control",
+        "phase": "check",
+        "command": [
+          "/Users/odunadeboye/dev/idris2/projects/fibril-header-adoption/build/exec/fibril",
+          "check",
+          "--source-dir",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/aliases-classification-control",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/aliases-classification-control/Main.fib"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.103,
+        "stdout_bytes": 82,
+        "stdout_sha256": "1d054e3a11e0625230617d70baa8f5dac5340eec50776dd83bd322713da54e9f",
+        "diagnostic": ""
+      },
+      {
+        "fixture": "aliases-classification-control",
+        "phase": "measure",
+        "command": [
+          "/Users/odunadeboye/dev/idris2/projects/fibril-header-adoption/build/header-measure/build/exec/measure",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/aliases-classification-control",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/aliases-classification-control/Main.fib"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.091,
+        "stdout_bytes": 29,
+        "stdout_sha256": "25ee9965d4165d8538fc4addece139afbffcc7c15296cbd2a04143084825c834",
+        "diagnostic": ""
+      },
+      {
+        "variant": "aliases-classification-control",
+        "admission": "CORE_NODES=2780 PAYLOAD=1212"
+      },
+      {
+        "fixture": "aliases-classification-control",
+        "phase": "emit",
+        "command": [
+          "/Users/odunadeboye/dev/idris2/projects/fibril-header-adoption/build/exec/fibril",
+          "emit-c-binary",
+          "--source-dir",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/aliases-classification-control",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/aliases-classification-control/Main.fib"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.124,
+        "stdout_bytes": 141850,
+        "stdout_sha256": "55d63a56bfda91232957bef4a188815668ad559ae29a49e7ae83df88bb688f16",
+        "diagnostic": ""
+      },
+      {
+        "fixture": "aliases-classification-control",
+        "phase": "cc-observer",
+        "command": [
+          "cc",
+          "-std=c11",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-I",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/aliases-classification-control",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/aliases-classification-control/main.c",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/aliases-classification-control/metrics.c",
+          "-o",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/aliases-classification-control/native"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.106,
+        "stdout_bytes": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "diagnostic": ""
+      },
+      {
+        "fixture": "aliases-classification-control",
+        "phase": "hosted",
+        "command": [
+          "/Users/odunadeboye/dev/idris2/projects/fibril-header-adoption/build/exec/fibril",
+          "run-binary",
+          "--source-dir",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/aliases-classification-control",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/aliases-classification-control/Main.fib"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.194,
+        "stdout_bytes": 20,
+        "stdout_sha256": "3ff631c1007011956c999fd75f6a0d90f385761325ee58c26d99eb7058838676",
+        "diagnostic": "",
+        "input_bytes": 20,
+        "stdin_kept_open": true
+      },
+      {
+        "fixture": "aliases-classification-control",
+        "phase": "native",
+        "command": [
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/aliases-classification-control/native"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.131,
+        "stdout_bytes": 20,
+        "stdout_sha256": "3ff631c1007011956c999fd75f6a0d90f385761325ee58c26d99eb7058838676",
+        "diagnostic": "HEADER_LOOP_METRICS 9621 331155 100000 512\nHEADER_ITERATION_METRICS 34 20 20 1 8372 21 40 20 20 1\n",
+        "input_bytes": 20,
+        "stdin_kept_open": true,
+        "native_steps": 9621,
+        "native_arena_payload": 331155,
+        "native_step_limit": 100000,
+        "native_pure_depth_limit": 512
+      },
+      {
+        "fixture": "aliases-classification-control",
+        "phase": "hosted",
+        "command": [
+          "/Users/odunadeboye/dev/idris2/projects/fibril-header-adoption/build/exec/fibril",
+          "run-binary",
+          "--source-dir",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/aliases-classification-control",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/aliases-classification-control/Main.fib"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.594,
+        "stdout_bytes": 128,
+        "stdout_sha256": "149688baa015aba65851686bbba6c0300a05bbf4754269d7e55b3705e9b1f0c0",
+        "diagnostic": "",
+        "input_bytes": 128,
+        "stdin_kept_open": true
+      },
+      {
+        "fixture": "aliases-classification-control",
+        "phase": "native",
+        "command": [
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/aliases-classification-control/native"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.004,
+        "stdout_bytes": 128,
+        "stdout_sha256": "149688baa015aba65851686bbba6c0300a05bbf4754269d7e55b3705e9b1f0c0",
+        "diagnostic": "HEADER_LOOP_METRICS 45369 1604097 100000 512\nHEADER_ITERATION_METRICS 34 128 128 1 42716 129 256 128 128 1\n",
+        "input_bytes": 128,
+        "stdin_kept_open": true,
+        "native_steps": 45369,
+        "native_arena_payload": 1604097,
+        "native_step_limit": 100000,
+        "native_pure_depth_limit": 512
+      },
+      {
+        "fixture": "aliases-classification-control",
+        "phase": "hosted",
+        "command": [
+          "/Users/odunadeboye/dev/idris2/projects/fibril-header-adoption/build/exec/fibril",
+          "run-binary",
+          "--source-dir",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/aliases-classification-control",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/aliases-classification-control/Main.fib"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 3.88,
+        "stdout_bytes": 1024,
+        "stdout_sha256": "2e049ce0e1311037ea0975689b364d885373a198ae60f859eb29d7f9fe92b961",
+        "diagnostic": "",
+        "input_bytes": 1024,
+        "stdin_kept_open": true
+      },
+      {
+        "fixture": "aliases-classification-control",
+        "phase": "native",
+        "command": [
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-18i9djcz/aliases-classification-control/native"
+        ],
+        "status": 1,
+        "outcome": "budget-rejection",
+        "seconds": 0.007,
+        "stdout_bytes": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "diagnostic": "HEADER_LOOP_METRICS 100000 3571451 100000 512\nHEADER_ITERATION_METRICS 34 293 292 0 95193 292 292 292 0 0\nfibril native binary: native evaluation budget exhausted\n",
+        "input_bytes": 1024,
+        "stdin_kept_open": true,
+        "native_steps": 100000,
+        "native_arena_payload": 3571451,
+        "native_step_limit": 100000,
+        "native_pure_depth_limit": 512,
+        "native_limit": "steps"
+      }
+    ],
+    "broken_dispatch_control": [
+      {
+        "variant": "value-first",
+        "source_sha256": "97852397d1241f8c82ae2900cdb80d2c48c9572924d24c54ad0f816c78ad42cc",
+        "classification_policy": "preserved baseline"
+      },
+      {
+        "fixture": "value-first",
+        "phase": "check",
+        "command": [
+          "/Users/odunadeboye/dev/idris2/projects/fibril-header-adoption/build/exec/fibril",
+          "check",
+          "--source-dir",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-3yhhepuo/value-first",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-3yhhepuo/value-first/Main.fib"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.111,
+        "stdout_bytes": 82,
+        "stdout_sha256": "1d054e3a11e0625230617d70baa8f5dac5340eec50776dd83bd322713da54e9f",
+        "diagnostic": ""
+      },
+      {
+        "fixture": "value-first",
+        "phase": "measure",
+        "command": [
+          "/Users/odunadeboye/dev/idris2/projects/fibril-header-adoption/build/header-measure/build/exec/measure",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-3yhhepuo/value-first",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-3yhhepuo/value-first/Main.fib"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.099,
+        "stdout_bytes": 29,
+        "stdout_sha256": "996283b27531f593b6b850297728b70f4fe13de0916ad3fe770f526e5bca796b",
+        "diagnostic": ""
+      },
+      {
+        "variant": "value-first",
+        "admission": "CORE_NODES=2954 PAYLOAD=1228"
+      },
+      {
+        "fixture": "value-first",
+        "phase": "emit",
+        "command": [
+          "/Users/odunadeboye/dev/idris2/projects/fibril-header-adoption/build/exec/fibril",
+          "emit-c-binary",
+          "--source-dir",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-3yhhepuo/value-first",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-3yhhepuo/value-first/Main.fib"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.134,
+        "stdout_bytes": 159026,
+        "stdout_sha256": "1fb981a010b3d2ccea84692750a4316732c2b614ecc27c730c4eb263ca6acb32",
+        "diagnostic": ""
+      },
+      {
+        "fixture": "value-first",
+        "phase": "cc-observer",
+        "command": [
+          "cc",
+          "-std=c11",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-I",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-3yhhepuo/value-first",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-3yhhepuo/value-first/main.c",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-3yhhepuo/value-first/metrics.c",
+          "-o",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-3yhhepuo/value-first/native"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.116,
+        "stdout_bytes": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "diagnostic": ""
+      },
+      {
+        "fixture": "value-first",
+        "phase": "hosted",
+        "command": [
+          "/Users/odunadeboye/dev/idris2/projects/fibril-header-adoption/build/exec/fibril",
+          "run-binary",
+          "--source-dir",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-3yhhepuo/value-first",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-3yhhepuo/value-first/Main.fib"
+        ],
+        "status": -9,
+        "outcome": "timeout",
+        "seconds": 30.003,
+        "stdout_bytes": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "diagnostic": "",
+        "input_bytes": 20,
+        "stdin_kept_open": true
+      },
+      {
+        "fixture": "value-first",
+        "phase": "native",
+        "command": [
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-3yhhepuo/value-first/native"
+        ],
+        "status": -9,
+        "outcome": "timeout",
+        "seconds": 30.003,
+        "stdout_bytes": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "diagnostic": "",
+        "input_bytes": 20,
+        "stdin_kept_open": true
+      },
+      {
+        "fixture": "value-first",
+        "phase": "hosted",
+        "command": [
+          "/Users/odunadeboye/dev/idris2/projects/fibril-header-adoption/build/exec/fibril",
+          "run-binary",
+          "--source-dir",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-3yhhepuo/value-first",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-3yhhepuo/value-first/Main.fib"
+        ],
+        "status": -9,
+        "outcome": "timeout",
+        "seconds": 30.004,
+        "stdout_bytes": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "diagnostic": "",
+        "input_bytes": 128,
+        "stdin_kept_open": true
+      },
+      {
+        "fixture": "value-first",
+        "phase": "native",
+        "command": [
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-3yhhepuo/value-first/native"
+        ],
+        "status": -9,
+        "outcome": "timeout",
+        "seconds": 30.004,
+        "stdout_bytes": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "diagnostic": "",
+        "input_bytes": 128,
+        "stdin_kept_open": true
+      },
+      {
+        "fixture": "value-first",
+        "phase": "hosted",
+        "command": [
+          "/Users/odunadeboye/dev/idris2/projects/fibril-header-adoption/build/exec/fibril",
+          "run-binary",
+          "--source-dir",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-3yhhepuo/value-first",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-3yhhepuo/value-first/Main.fib"
+        ],
+        "status": 1,
+        "outcome": "input-rejection",
+        "seconds": 6.755,
+        "stdout_bytes": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "diagnostic": "Binary program rejected input\n",
+        "input_bytes": 1024,
+        "stdin_kept_open": true
+      },
+      {
+        "fixture": "value-first",
+        "phase": "native",
+        "command": [
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-3yhhepuo/value-first/native"
+        ],
+        "status": 1,
+        "outcome": "budget-rejection",
+        "seconds": 0.007,
+        "stdout_bytes": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "diagnostic": "HEADER_LOOP_METRICS 100000 4010542 100000 512\nHEADER_ITERATION_METRICS 48 182 182 0 97393 182 182 182 0 0\nfibril native binary: native evaluation budget exhausted\n",
+        "input_bytes": 1024,
+        "stdin_kept_open": true,
+        "native_steps": 100000,
+        "native_arena_payload": 4010542,
+        "native_step_limit": 100000,
+        "native_pure_depth_limit": 512,
+        "native_limit": "steps"
+      }
+    ],
+    "corrected_dispatch": [
+      {
+        "variant": "value-first",
+        "source_sha256": "ceddb9fcd79636dffd10f9a1715876d57fd1e868cebf526c2f1722d95c354fd4",
+        "classification_policy": "preserved baseline"
+      },
+      {
+        "fixture": "value-first",
+        "phase": "check",
+        "command": [
+          "/Users/odunadeboye/dev/idris2/projects/fibril-header-adoption/build/exec/fibril",
+          "check",
+          "--source-dir",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-w3j8b93g/value-first",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-w3j8b93g/value-first/Main.fib"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.116,
+        "stdout_bytes": 82,
+        "stdout_sha256": "1d054e3a11e0625230617d70baa8f5dac5340eec50776dd83bd322713da54e9f",
+        "diagnostic": ""
+      },
+      {
+        "fixture": "value-first",
+        "phase": "measure",
+        "command": [
+          "/Users/odunadeboye/dev/idris2/projects/fibril-header-adoption/build/header-measure/build/exec/measure",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-w3j8b93g/value-first",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-w3j8b93g/value-first/Main.fib"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.106,
+        "stdout_bytes": 29,
+        "stdout_sha256": "a86c90de89ad478256bf5a4f34bd85e587b1a263e83a90b44178c061047f4229",
+        "diagnostic": ""
+      },
+      {
+        "variant": "value-first",
+        "admission": "CORE_NODES=2954 PAYLOAD=1226"
+      },
+      {
+        "fixture": "value-first",
+        "phase": "emit",
+        "command": [
+          "/Users/odunadeboye/dev/idris2/projects/fibril-header-adoption/build/exec/fibril",
+          "emit-c-binary",
+          "--source-dir",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-w3j8b93g/value-first",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-w3j8b93g/value-first/Main.fib"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.141,
+        "stdout_bytes": 159017,
+        "stdout_sha256": "64bd0a8c25bcce6ac306f8add65b1216199d9eb785134d9b6d399a66f52541cb",
+        "diagnostic": ""
+      },
+      {
+        "fixture": "value-first",
+        "phase": "cc-observer",
+        "command": [
+          "cc",
+          "-std=c11",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-I",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-w3j8b93g/value-first",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-w3j8b93g/value-first/main.c",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-w3j8b93g/value-first/metrics.c",
+          "-o",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-w3j8b93g/value-first/native"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.127,
+        "stdout_bytes": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "diagnostic": ""
+      },
+      {
+        "fixture": "value-first",
+        "phase": "hosted",
+        "command": [
+          "/Users/odunadeboye/dev/idris2/projects/fibril-header-adoption/build/exec/fibril",
+          "run-binary",
+          "--source-dir",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-w3j8b93g/value-first",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-w3j8b93g/value-first/Main.fib"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.247,
+        "stdout_bytes": 20,
+        "stdout_sha256": "3ff631c1007011956c999fd75f6a0d90f385761325ee58c26d99eb7058838676",
+        "diagnostic": "",
+        "input_bytes": 20,
+        "stdin_kept_open": true
+      },
+      {
+        "fixture": "value-first",
+        "phase": "native",
+        "command": [
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-w3j8b93g/value-first/native"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.138,
+        "stdout_bytes": 20,
+        "stdout_sha256": "3ff631c1007011956c999fd75f6a0d90f385761325ee58c26d99eb7058838676",
+        "diagnostic": "HEADER_LOOP_METRICS 12884 480707 100000 512\nHEADER_ITERATION_METRICS 48 20 20 1 11569 21 40 20 20 1\n",
+        "input_bytes": 20,
+        "stdin_kept_open": true,
+        "native_steps": 12884,
+        "native_arena_payload": 480707,
+        "native_step_limit": 100000,
+        "native_pure_depth_limit": 512
+      },
+      {
+        "fixture": "value-first",
+        "phase": "hosted",
+        "command": [
+          "/Users/odunadeboye/dev/idris2/projects/fibril-header-adoption/build/exec/fibril",
+          "run-binary",
+          "--source-dir",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-w3j8b93g/value-first",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-w3j8b93g/value-first/Main.fib"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.948,
+        "stdout_bytes": 128,
+        "stdout_sha256": "149688baa015aba65851686bbba6c0300a05bbf4754269d7e55b3705e9b1f0c0",
+        "diagnostic": "",
+        "input_bytes": 128,
+        "stdin_kept_open": true
+      },
+      {
+        "fixture": "value-first",
+        "phase": "native",
+        "command": [
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-w3j8b93g/value-first/native"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.006,
+        "stdout_bytes": 128,
+        "stdout_sha256": "149688baa015aba65851686bbba6c0300a05bbf4754269d7e55b3705e9b1f0c0",
+        "diagnostic": "HEADER_LOOP_METRICS 70448 2807729 100000 512\nHEADER_ITERATION_METRICS 48 128 128 1 68269 129 256 128 128 1\n",
+        "input_bytes": 128,
+        "stdin_kept_open": true,
+        "native_steps": 70448,
+        "native_arena_payload": 2807729,
+        "native_step_limit": 100000,
+        "native_pure_depth_limit": 512
+      },
+      {
+        "fixture": "value-first",
+        "phase": "hosted",
+        "command": [
+          "/Users/odunadeboye/dev/idris2/projects/fibril-header-adoption/build/exec/fibril",
+          "run-binary",
+          "--source-dir",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-w3j8b93g/value-first",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-w3j8b93g/value-first/Main.fib"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 6.74,
+        "stdout_bytes": 1024,
+        "stdout_sha256": "2e049ce0e1311037ea0975689b364d885373a198ae60f859eb29d7f9fe92b961",
+        "diagnostic": "",
+        "input_bytes": 1024,
+        "stdin_kept_open": true
+      },
+      {
+        "fixture": "value-first",
+        "phase": "native",
+        "command": [
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-w3j8b93g/value-first/native"
+        ],
+        "status": 1,
+        "outcome": "budget-rejection",
+        "seconds": 0.007,
+        "stdout_bytes": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "diagnostic": "HEADER_LOOP_METRICS 100000 4010542 100000 512\nHEADER_ITERATION_METRICS 48 182 182 0 97393 182 182 182 0 0\nfibril native binary: native evaluation budget exhausted\n",
+        "input_bytes": 1024,
+        "stdin_kept_open": true,
+        "native_steps": 100000,
+        "native_arena_payload": 4010542,
+        "native_step_limit": 100000,
+        "native_pure_depth_limit": 512,
+        "native_limit": "steps"
+      }
+    ],
+    "final_dispatch_validation": [
+      {
+        "variant": "value-first",
+        "source_sha256": "ceddb9fcd79636dffd10f9a1715876d57fd1e868cebf526c2f1722d95c354fd4",
+        "classification_policy": "preserved baseline"
+      },
+      {
+        "fixture": "value-first",
+        "phase": "check",
+        "command": [
+          "/Users/odunadeboye/dev/idris2/projects/fibril-header-adoption/build/exec/fibril",
+          "check",
+          "--source-dir",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-8zs864n_/value-first",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-8zs864n_/value-first/Main.fib"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.114,
+        "stdout_bytes": 82,
+        "stdout_sha256": "1d054e3a11e0625230617d70baa8f5dac5340eec50776dd83bd322713da54e9f",
+        "diagnostic": ""
+      },
+      {
+        "fixture": "value-first",
+        "phase": "measure",
+        "command": [
+          "/Users/odunadeboye/dev/idris2/projects/fibril-header-adoption/build/header-measure/build/exec/measure",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-8zs864n_/value-first",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-8zs864n_/value-first/Main.fib"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.117,
+        "stdout_bytes": 29,
+        "stdout_sha256": "a86c90de89ad478256bf5a4f34bd85e587b1a263e83a90b44178c061047f4229",
+        "diagnostic": ""
+      },
+      {
+        "variant": "value-first",
+        "admission": "CORE_NODES=2954 PAYLOAD=1226"
+      },
+      {
+        "fixture": "value-first",
+        "phase": "emit",
+        "command": [
+          "/Users/odunadeboye/dev/idris2/projects/fibril-header-adoption/build/exec/fibril",
+          "emit-c-binary",
+          "--source-dir",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-8zs864n_/value-first",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-8zs864n_/value-first/Main.fib"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.135,
+        "stdout_bytes": 159017,
+        "stdout_sha256": "64bd0a8c25bcce6ac306f8add65b1216199d9eb785134d9b6d399a66f52541cb",
+        "diagnostic": ""
+      },
+      {
+        "fixture": "value-first",
+        "phase": "cc-observer",
+        "command": [
+          "cc",
+          "-std=c11",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-I",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-8zs864n_/value-first",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-8zs864n_/value-first/main.c",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-8zs864n_/value-first/metrics.c",
+          "-o",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-8zs864n_/value-first/native"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.118,
+        "stdout_bytes": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "diagnostic": ""
+      },
+      {
+        "fixture": "value-first",
+        "phase": "hosted",
+        "command": [
+          "/Users/odunadeboye/dev/idris2/projects/fibril-header-adoption/build/exec/fibril",
+          "run-binary",
+          "--source-dir",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-8zs864n_/value-first",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-8zs864n_/value-first/Main.fib"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.263,
+        "stdout_bytes": 20,
+        "stdout_sha256": "3ff631c1007011956c999fd75f6a0d90f385761325ee58c26d99eb7058838676",
+        "diagnostic": "",
+        "input_bytes": 20,
+        "stdin_kept_open": true
+      },
+      {
+        "fixture": "value-first",
+        "phase": "native",
+        "command": [
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-8zs864n_/value-first/native"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.036,
+        "stdout_bytes": 20,
+        "stdout_sha256": "3ff631c1007011956c999fd75f6a0d90f385761325ee58c26d99eb7058838676",
+        "diagnostic": "HEADER_LOOP_METRICS 12884 480707 100000 512\nHEADER_ITERATION_METRICS 48 20 20 1 11569 21 40 20 20 1\n",
+        "input_bytes": 20,
+        "stdin_kept_open": true,
+        "native_steps": 12884,
+        "native_arena_payload": 480707,
+        "native_step_limit": 100000,
+        "native_pure_depth_limit": 512
+      },
+      {
+        "variant": "value-first",
+        "phase": "native-metrics",
+        "input_bytes": 20,
+        "peak_pure_depth": 48,
+        "callbacks": 20,
+        "reads": 20,
+        "writes": 1,
+        "arena_allocations": 11569,
+        "requests": 21,
+        "reserved_capacity": 40,
+        "consumed_bytes": 20,
+        "accepted_bytes": 20,
+        "flushes": 1
+      },
+      {
+        "fixture": "value-first",
+        "phase": "hosted",
+        "command": [
+          "/Users/odunadeboye/dev/idris2/projects/fibril-header-adoption/build/exec/fibril",
+          "run-binary",
+          "--source-dir",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-8zs864n_/value-first",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-8zs864n_/value-first/Main.fib"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.977,
+        "stdout_bytes": 128,
+        "stdout_sha256": "149688baa015aba65851686bbba6c0300a05bbf4754269d7e55b3705e9b1f0c0",
+        "diagnostic": "",
+        "input_bytes": 128,
+        "stdin_kept_open": true
+      },
+      {
+        "fixture": "value-first",
+        "phase": "native",
+        "command": [
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-8zs864n_/value-first/native"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 0.006,
+        "stdout_bytes": 128,
+        "stdout_sha256": "149688baa015aba65851686bbba6c0300a05bbf4754269d7e55b3705e9b1f0c0",
+        "diagnostic": "HEADER_LOOP_METRICS 70448 2807729 100000 512\nHEADER_ITERATION_METRICS 48 128 128 1 68269 129 256 128 128 1\n",
+        "input_bytes": 128,
+        "stdin_kept_open": true,
+        "native_steps": 70448,
+        "native_arena_payload": 2807729,
+        "native_step_limit": 100000,
+        "native_pure_depth_limit": 512
+      },
+      {
+        "variant": "value-first",
+        "phase": "native-metrics",
+        "input_bytes": 128,
+        "peak_pure_depth": 48,
+        "callbacks": 128,
+        "reads": 128,
+        "writes": 1,
+        "arena_allocations": 68269,
+        "requests": 129,
+        "reserved_capacity": 256,
+        "consumed_bytes": 128,
+        "accepted_bytes": 128,
+        "flushes": 1
+      },
+      {
+        "fixture": "value-first",
+        "phase": "hosted",
+        "command": [
+          "/Users/odunadeboye/dev/idris2/projects/fibril-header-adoption/build/exec/fibril",
+          "run-binary",
+          "--source-dir",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-8zs864n_/value-first",
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-8zs864n_/value-first/Main.fib"
+        ],
+        "status": 0,
+        "outcome": "accepted",
+        "seconds": 6.943,
+        "stdout_bytes": 1024,
+        "stdout_sha256": "2e049ce0e1311037ea0975689b364d885373a198ae60f859eb29d7f9fe92b961",
+        "diagnostic": "",
+        "input_bytes": 1024,
+        "stdin_kept_open": true
+      },
+      {
+        "fixture": "value-first",
+        "phase": "native",
+        "command": [
+          "/var/folders/7x/qc57ddy15_zcrzvx3jdrprvw0000gn/T/fibril-header-iteration-8zs864n_/value-first/native"
+        ],
+        "status": 1,
+        "outcome": "budget-rejection",
+        "seconds": 0.007,
+        "stdout_bytes": 0,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "diagnostic": "HEADER_LOOP_METRICS 100000 4010542 100000 512\nHEADER_ITERATION_METRICS 48 182 182 0 97393 182 182 182 0 0\nfibril native binary: native evaluation budget exhausted\n",
+        "input_bytes": 1024,
+        "stdin_kept_open": true,
+        "native_steps": 100000,
+        "native_arena_payload": 4010542,
+        "native_step_limit": 100000,
+        "native_pure_depth_limit": 512,
+        "native_limit": "steps"
+      },
+      {
+        "variant": "value-first",
+        "phase": "native-metrics",
+        "input_bytes": 1024,
+        "peak_pure_depth": 48,
+        "callbacks": 182,
+        "reads": 182,
+        "writes": 0,
+        "arena_allocations": 97393,
+        "requests": 182,
+        "reserved_capacity": 182,
+        "consumed_bytes": 182,
+        "accepted_bytes": 0,
+        "flushes": 0
+      }
+    ]
+  },
+  "focused_observations": [
+    {
+      "case": "long-name-82",
+      "variant": "baseline",
+      "backend": "hosted",
+      "outcome": "budget-blocked-NOT-parser-success",
+      "diagnostic": "Binary reduction budget exhausted\n",
+      "metrics": null
+    },
+    {
+      "case": "long-name-82",
+      "variant": "baseline",
+      "backend": "native",
+      "outcome": "budget-blocked-NOT-parser-success",
+      "diagnostic": "HEADER_LOOP_METRICS 54811 2062169 100000 512\nHEADER_ITERATION_METRICS 512 78 78 0 51811 78 78 78 0 0\nfibril native binary: native evaluation budget exhausted\n",
+      "metrics": {
+        "peak_pure_depth": 512,
+        "callbacks": 78,
+        "reads": 78,
+        "writes": 0,
+        "arena_allocations": 51811,
+        "requests": 78,
+        "reserved_capacity": 78,
+        "consumed_bytes": 78,
+        "accepted_bytes": 0,
+        "flushes": 0
+      }
+    },
+    {
+      "case": "long-name-82",
+      "variant": "value-first",
+      "backend": "hosted",
+      "outcome": "budget-blocked-NOT-parser-success",
+      "diagnostic": "Binary reduction budget exhausted\n",
+      "metrics": null
+    },
+    {
+      "case": "long-name-82",
+      "variant": "value-first",
+      "backend": "native",
+      "outcome": "budget-blocked-NOT-parser-success",
+      "diagnostic": "HEADER_LOOP_METRICS 53296 1998953 100000 512\nHEADER_ITERATION_METRICS 512 78 78 0 49755 78 78 78 0 0\nfibril native binary: native evaluation budget exhausted\n",
+      "metrics": {
+        "peak_pure_depth": 512,
+        "callbacks": 78,
+        "reads": 78,
+        "writes": 0,
+        "arena_allocations": 49755,
+        "requests": 78,
+        "reserved_capacity": 78,
+        "consumed_bytes": 78,
+        "accepted_bytes": 0,
+        "flushes": 0
+      }
+    },
+    {
+      "case": "one-line-1023",
+      "variant": "baseline",
+      "backend": "hosted",
+      "outcome": "accepted",
+      "metrics": null
+    },
+    {
+      "case": "one-line-1023",
+      "variant": "baseline",
+      "backend": "native",
+      "outcome": "budget-blocked-NOT-parser-success",
+      "metrics": {
+        "peak_pure_depth": 47,
+        "callbacks": 159,
+        "reads": 159,
+        "writes": 0,
+        "arena_allocations": 97364,
+        "requests": 159,
+        "reserved_capacity": 159,
+        "consumed_bytes": 159,
+        "accepted_bytes": 0,
+        "flushes": 0
+      }
+    },
+    {
+      "case": "one-line-1023",
+      "variant": "value-first",
+      "backend": "hosted",
+      "outcome": "accepted",
+      "metrics": null
+    },
+    {
+      "case": "one-line-1023",
+      "variant": "value-first",
+      "backend": "native",
+      "outcome": "budget-blocked-NOT-parser-success",
+      "metrics": {
+        "peak_pure_depth": 48,
+        "callbacks": 182,
+        "reads": 182,
+        "writes": 0,
+        "arena_allocations": 97393,
+        "requests": 182,
+        "reserved_capacity": 182,
+        "consumed_bytes": 182,
+        "accepted_bytes": 0,
+        "flushes": 0
+      }
+    },
+    {
+      "case": "one-line-1024",
+      "variant": "baseline",
+      "backend": "hosted",
+      "outcome": "accepted",
+      "metrics": null
+    },
+    {
+      "case": "one-line-1024",
+      "variant": "baseline",
+      "backend": "native",
+      "outcome": "budget-blocked-NOT-parser-success",
+      "metrics": {
+        "peak_pure_depth": 47,
+        "callbacks": 159,
+        "reads": 159,
+        "writes": 0,
+        "arena_allocations": 97364,
+        "requests": 159,
+        "reserved_capacity": 159,
+        "consumed_bytes": 159,
+        "accepted_bytes": 0,
+        "flushes": 0
+      }
+    },
+    {
+      "case": "one-line-1024",
+      "variant": "value-first",
+      "backend": "hosted",
+      "outcome": "accepted",
+      "metrics": null
+    },
+    {
+      "case": "one-line-1024",
+      "variant": "value-first",
+      "backend": "native",
+      "outcome": "budget-blocked-NOT-parser-success",
+      "metrics": {
+        "peak_pure_depth": 48,
+        "callbacks": 182,
+        "reads": 182,
+        "writes": 0,
+        "arena_allocations": 97393,
+        "requests": 182,
+        "reserved_capacity": 182,
+        "consumed_bytes": 182,
+        "accepted_bytes": 0,
+        "flushes": 0
+      }
+    },
+    {
+      "case": "one-line-1025",
+      "variant": "baseline",
+      "backend": "hosted",
+      "outcome": "input-rejected",
+      "metrics": null
+    },
+    {
+      "case": "one-line-1025",
+      "variant": "baseline",
+      "backend": "native",
+      "outcome": "budget-blocked-NOT-parser-success",
+      "metrics": {
+        "peak_pure_depth": 47,
+        "callbacks": 159,
+        "reads": 159,
+        "writes": 0,
+        "arena_allocations": 97364,
+        "requests": 159,
+        "reserved_capacity": 159,
+        "consumed_bytes": 159,
+        "accepted_bytes": 0,
+        "flushes": 0
+      }
+    },
+    {
+      "case": "one-line-1025",
+      "variant": "value-first",
+      "backend": "hosted",
+      "outcome": "input-rejected",
+      "metrics": null
+    },
+    {
+      "case": "one-line-1025",
+      "variant": "value-first",
+      "backend": "native",
+      "outcome": "budget-blocked-NOT-parser-success",
+      "metrics": {
+        "peak_pure_depth": 48,
+        "callbacks": 182,
+        "reads": 182,
+        "writes": 0,
+        "arena_allocations": 97393,
+        "requests": 182,
+        "reserved_capacity": 182,
+        "consumed_bytes": 182,
+        "accepted_bytes": 0,
+        "flushes": 0
+      }
+    },
+    {
+      "case": "two-lines-1024",
+      "variant": "baseline",
+      "backend": "hosted",
+      "outcome": "accepted",
+      "metrics": null
+    },
+    {
+      "case": "two-lines-1024",
+      "variant": "baseline",
+      "backend": "native",
+      "outcome": "budget-blocked-NOT-parser-success",
+      "metrics": {
+        "peak_pure_depth": 47,
+        "callbacks": 159,
+        "reads": 159,
+        "writes": 0,
+        "arena_allocations": 97364,
+        "requests": 159,
+        "reserved_capacity": 159,
+        "consumed_bytes": 159,
+        "accepted_bytes": 0,
+        "flushes": 0
+      }
+    },
+    {
+      "case": "two-lines-1024",
+      "variant": "value-first",
+      "backend": "hosted",
+      "outcome": "accepted",
+      "metrics": null
+    },
+    {
+      "case": "two-lines-1024",
+      "variant": "value-first",
+      "backend": "native",
+      "outcome": "budget-blocked-NOT-parser-success",
+      "metrics": {
+        "peak_pure_depth": 48,
+        "callbacks": 182,
+        "reads": 182,
+        "writes": 0,
+        "arena_allocations": 97393,
+        "requests": 182,
+        "reserved_capacity": 182,
+        "consumed_bytes": 182,
+        "accepted_bytes": 0,
+        "flushes": 0
+      }
+    },
+    {
+      "case": "two-lines-1025",
+      "variant": "baseline",
+      "backend": "hosted",
+      "outcome": "input-rejected",
+      "metrics": null
+    },
+    {
+      "case": "two-lines-1025",
+      "variant": "baseline",
+      "backend": "native",
+      "outcome": "budget-blocked-NOT-parser-success",
+      "metrics": {
+        "peak_pure_depth": 47,
+        "callbacks": 159,
+        "reads": 159,
+        "writes": 0,
+        "arena_allocations": 97364,
+        "requests": 159,
+        "reserved_capacity": 159,
+        "consumed_bytes": 159,
+        "accepted_bytes": 0,
+        "flushes": 0
+      }
+    },
+    {
+      "case": "two-lines-1025",
+      "variant": "value-first",
+      "backend": "hosted",
+      "outcome": "input-rejected",
+      "metrics": null
+    },
+    {
+      "case": "two-lines-1025",
+      "variant": "value-first",
+      "backend": "native",
+      "outcome": "budget-blocked-NOT-parser-success",
+      "metrics": {
+        "peak_pure_depth": 48,
+        "callbacks": 182,
+        "reads": 182,
+        "writes": 0,
+        "arena_allocations": 97393,
+        "requests": 182,
+        "reserved_capacity": 182,
+        "consumed_bytes": 182,
+        "accepted_bytes": 0,
+        "flushes": 0
+      }
+    }
+  ],
+  "validation": [
+    {
+      "command": "source build/header-env.sh; make -j8 build PACK=/tmp/fibril-foundations-pack IDRIS2=\"$IDRIS2\"",
+      "status": "passed",
+      "notes": "pinned real compiler, curated external dependencies, no shared installation"
+    },
+    {
+      "command": "$IDRIS2 --install fibril.ipkg; $IDRIS2 --build measure.ipkg",
+      "status": "passed",
+      "notes": "IDRIS2_PREFIX=this worktree/build/test-prefix; reused tools/fixtures/json-admission/Measure.idr in private build/header-measure"
+    },
+    {
+      "command": "make -j8 header-iteration-test PACK=/tmp/fibril-foundations-pack IDRIS2=\"$IDRIS2\"",
+      "status": "passed",
+      "notes": "10 source/observer tests, including explicit budget-blocked observations; NOT generalized-header acceptance"
+    },
+    {
+      "command": "CC='cc -fsanitize=address,undefined -fno-omit-frame-pointer' python3 tools/test_header_iteration.py HeaderIterationProbeTests HeaderIterationSourceTests.test_short_ascii_names_values_and_strict_crlf HeaderIterationSourceTests.test_invalid_ascii_tokens_controls_and_crlf_reject_with_stdin_open HeaderIterationSourceTests.test_nonempty_header_line_allowance_15_16_17 -v",
+      "status": "passed",
+      "notes": "7 named tests; native source builds sanitized, hosted process also exercised"
+    },
+    {
+      "command": "python3 tools/test_framing.py Framing.test_bulk_body_request_and_capacity_accounting Framing.test_unicode_count_is_encoded_byte_count Framing.test_two_frame_sequence_and_later_rejection Framing.test_fragmented_open_input_completes_without_eof -v",
+      "status": "passed",
+      "notes": "4 unchanged-production hosted/native regressions; not a replacement-header/body test"
+    },
+    {
+      "command": "python3 -m py_compile tools/probe_header_iteration.py tools/test_header_iteration.py; evidence JSON/hash assertions; git diff --check",
+      "status": "passed",
+      "notes": "Four timeout rows retained, all recorded fixture/production source hashes match"
+    },
+    {
+      "command": "$IDRIS2 --mkdoc fibril.ipkg; python3 tools/build_handbook.py; python3 tools/test_handbook.py",
+      "status": "passed",
+      "notes": "worktree-local generated API and handbook;16 handbook tests and local file links passed; did not invoke broad cold test target"
+    }
+  ],
+  "earlier_failures": [
+    "Initial source type checking: lower helper passed linear unary index through unrestricted ascii argument; fixed by linear ascii binder.",
+    "Initial source main: eta-short record eliminator did not check against nondependent abstract interface; fixed with explicit state/fields binders.",
+    "Initial observer seam expected one loop callback application, actual two runtime branches; fail-closed check fixed to require exactly two.",
+    "Broken value-first generator emitted literal backslash-r/backslash-t. Four 30-second deadlines at20/128 (hosted/native) are FAILED observations, preserved in runs.broken_dispatch_control; fixed, then rerun. They are not valid semantic controls.",
+    "Initial final-test invocation failed import due Python edit typo; fixed.",
+    "First full focused invocation failed: assumed success of82-byte valid token-name header instead hit hosted reduction budget. Test now preserves non-golden long-name budget observations; short token-character tests are independent. No source policy relaxed.",
+    "Initial handbook generation failed because this fresh worktree lacked build/docs/index.html; generated API locally with pinned Idris2, then handbook build and16 tests passed."
+  ],
+  "not_claimed": [
+    "full/header grammar",
+    "production withFrame API",
+    "1024-byte native header success",
+    "header+JSON combined admission",
+    "new header/body callback or normalization behavior",
+    "broad combined suites",
+    "QTT preservation/world tokens/exactly-once/verified backend/general exceptions/cancellation/total heap"
+  ]
+}

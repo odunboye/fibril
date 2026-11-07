@@ -4,6 +4,8 @@ module Fibril.Driver.Native.Emit
 import Data.List
 import Data.Fin
 import Fibril.Core.Term
+import Fibril.Core.EffectAdmission
+import Fibril.Data.Bytes
 import Fibril.Core.Quantity
 import Fibril.Core.Context
 import Fibril.Core.Runtime
@@ -15,12 +17,13 @@ import Fibril.Elaboration.Expression.Payload
 
 %default total
 
-data NativeMode = Preflight | Interactive | Resources
+data NativeMode = Preflight | Interactive | Resources | Binary
 
 Eq NativeMode where
   Preflight == Preflight = True
   Interactive == Interactive = True
   Resources == Resources = True
+  Binary == Binary = True
   _ == _ = False
 
 record Generated where
@@ -54,12 +57,30 @@ literal n text =
     "static const unsigned char fibril_literal_" ++ show n ++ "[] = {" ++ contents ++ "};\n" ++
     function n ("(void)e; return f_literal(r, fibril_literal_" ++ show n ++ ", " ++ show (length bytes) ++ ");")
 
+byteLiteral : Nat -> Bytes -> String
+byteLiteral n value =
+  let bytes : List Bits8 = Fibril.Data.Bytes.toList value
+      contents = if null bytes then "0" else concat (intersperse "," (map show bytes)) in
+    "static const unsigned char fibril_bytes_" ++ show n ++ "[] = {" ++ contents ++ "};\n" ++
+    function n ("(void)e; return f_bytes_literal(r, fibril_bytes_" ++ show n ++ ", " ++ show (length bytes) ++ ");")
+
 constant : Nat -> String -> Generated
 constant n expr = Output n (S n) [function n ("(void)e; return " ++ expr ++ ";")]
 
 mutual
   generate : NativeMode -> Nat -> Term n -> Either String Generated
   generate mode n (Variable index) = Right (Output n (S n) [function n ("return f_variable(r, e, " ++ show (finToNat index) ++ ");")])
+  generate mode n (UTF8Encode x) = unary mode n "f_utf8_encode" x
+  generate mode n (UTF8Decode x) = unary mode n "f_utf8_decode" x
+  generate mode n BytesType = Right (constant n "f_erased(r)")
+  generate mode n (BytesValue value) = Right (Output n (S n) [byteLiteral n value])
+  generate mode n (BytesAppend a b) = binary mode n "f_bytes_append" a b
+  generate mode n (BytesLengthIs a b) = binary mode n "f_bytes_length_is" a b
+  generate mode n (BytesIndex a b) = binary mode n "f_bytes_index" a b
+  generate mode n (BytesSlice a b c) = ternary mode n "f_bytes_slice" a b c
+  generate mode n (BytesShare x) = unary mode n "f_nominal" x
+  generate mode n (BytesLength x) = unary mode n "f_bytes_length" x
+  generate mode n (BytesOctet x) = unary mode n "f_bytes_octet" x
   generate mode n (StringValue value) = Right (Output n (S n) [literal n value])
   generate mode n UnitValue = Right (constant n "f_unit(r)")
   generate mode n (Universe _) = Right (constant n "f_erased(r)")
@@ -119,17 +140,25 @@ mutual
   generate mode n (IOPure value) = unary mode n "f_pure" value
   generate mode n (WriteLine text) = unary mode n "f_write" text
   generate mode n (IOBind _ _ action continuation) = binary mode n "f_bind" action continuation
+  generate Binary n (IterateBinary _ _ count step initial) = ternary Binary n "f_iterate_binary" count step initial
+  generate Binary n (ReadBytes capacity) = unary Binary n "f_read_bytes" capacity
+  generate Binary n (WriteBytes bytes) = unary Binary n "f_write_bytes" bytes
+  generate Binary n RejectBytes = Right (constant n "f_reject_bytes(r)")
+  generate Binary n FlushBytes = Right (constant n "f_flush_bytes(r)")
   generate Interactive n ReadLine = Right (constant n "f_read_line(r)")
   generate Resources n ReadLine = Right (constant n "f_read_line(r)")
   generate Resources n (WithInputFile _ path body) = binary Resources n "f_with_input" path body
   generate Resources n (ReadInputFile handle) = unary Resources n "f_read_input" handle
-  generate Resources n (PairCase _ scrutinee branch) = binary Resources n "f_pair_case" scrutinee branch
-  generate Resources n (PairValue annotation first second) =
+  -- Pure pair structure is shared by modes; its contents retain the caller's gate.
+  generate mode n (PairCase _ scrutinee branch) = binary mode n "f_pair_case" scrutinee branch
+  generate mode n (BoxValue _ value) = unary mode n "f_nominal" value
+  generate mode n (BoxCase _ scrutinee branch) = binary mode n "f_nominal_case" scrutinee branch
+  generate mode n (PairValue annotation first second) =
     case weakHead typeReductionFuel annotation of
       HeadLimit _ => Left "Native pair annotation reduction budget exhausted"
       HeadForm (Sigma q r _ _) => do
-        a <- generate Resources (S n) first
-        b <- generate Resources a.next second
+        a <- generate mode (S n) first
+        b <- generate mode a.next second
         let erasedFirst = if q == Erased then "1" else "0"
         let erasedSecond = if r == Erased then "1" else "0"
         let code = function n ("return f_pair(r, e, " ++ erasedFirst ++ ", " ++ erasedSecond ++ ", " ++
@@ -172,6 +201,8 @@ prototypes start (S count) = prototype start :: prototypes (S start) count
 
 emitEntry : NativeMode -> Nat -> Nat -> Term 0 -> Either String String
 emitEntry mode requests lineLimit term = do
+  if mode /= Binary && containsBinaryRequest term then Left "Binary IO requires the explicit binary runner" else Right ()
+  if mode == Binary && containsNonBinaryIO term then Left "Native binary entry rejects non-binary IO/references" else Right ()
   if mode == Resources && containsFileReference term
     then Left "Native resource entry rejects runtime file references" else Right ()
   case checkRuntime checkingDepth typeReductionFuel Empty term (IOType UnitType) of
@@ -179,7 +210,9 @@ emitEntry mode requests lineLimit term = do
     Right _ => Right ()
   if coreNodes term > 8192 then Left "Native core admission exceeds 8192 nodes" else Right ()
   if payloadSize term > payloadLimit then Left "Native literal admission exceeds 8192 characters" else Right ()
-  if mode /= Preflight && (requests > 100000 || lineLimit > 8192)
+  if mode == Binary && (requests > 100000 || lineLimit > 8388608)
+     then Left "Native binary admission limit exceeded" else Right ()
+  if mode /= Preflight && mode /= Binary && (requests > 100000 || lineLimit > 8192)
      then Left (if mode == Resources then "Native resource admission limit exceeded"
                 else "Native interactive admission limit exceeded") else Right ()
   code <- generate mode 0 term
@@ -187,6 +220,7 @@ emitEntry mode requests lineLimit term = do
         Preflight => "fibril_native_run(" ++ name code.root ++ ")"
         Interactive => "fibril_native_interactive_run(" ++ name code.root ++ ", " ++ show requests ++ ", " ++ show lineLimit ++ ")"
         Resources => "fibril_native_resource_run(" ++ name code.root ++ ", " ++ show requests ++ ", " ++ show lineLimit ++ ")"
+        Binary => "fibril_native_binary_run(" ++ name code.root ++ ", " ++ show requests ++ ", " ++ show lineLimit ++ ")"
   Right ("/* Generated from checked Fibril core; experimental native subset. */\n" ++
          "#include \"fibril_runtime.h\"\n" ++ concat (prototypes 0 code.next) ++
          concat code.definitions ++ "int main(void) { return " ++ entry ++ "; }\n")
@@ -206,3 +240,9 @@ emitCheckedInteractiveC = emitEntry Interactive
 public export
 emitCheckedResourceC : Nat -> Nat -> Term 0 -> Either String String
 emitCheckedResourceC = emitEntry Resources
+
+||| Explicit binary-only borrowed stdio. Second bound is aggregate byte capacity.
+||| Compile generated C against fibril_binary_runtime.c, not fibril_runtime.c.
+public export
+emitCheckedBinaryC : Nat -> Nat -> Term 0 -> Either String String
+emitCheckedBinaryC = emitEntry Binary

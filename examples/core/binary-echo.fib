@@ -1,0 +1,4 @@
+-- Explicit borrowed binary stdio; use `fibril run-binary`, never text run.
+-- Echo one chunk of at most two bytes, including NUL/invalid UTF-8 unchanged.
+main : IO Unit
+main = bind ByteReadResult Unit (primReadBytes (Succ (Succ Zero))) (\(1 result : ByteReadResult) => primByteReadCase (IO Unit) result (pure Unit ()) (\(1 bytes : Bytes) => primWriteBytes bytes))

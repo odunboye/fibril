@@ -3,6 +3,7 @@ module Fibril.Elaboration.Expression.Payload
 
 import Data.Fin
 import Fibril.Core.Term
+import Fibril.Data.Bytes
 import Fibril.Core.Quantity
 
 %default total
@@ -46,9 +47,25 @@ mutual
   payloadWeight env (SeqNil ty) = payloadWeight env ty
   payloadWeight env (SeqCons ty h t) = cap (payloadWeight env ty + payloadWeight env h + payloadWeight env t)
   payloadWeight env (SeqFold p z s x) = cap (payloadWeight env p + payloadWeight env z + payloadWeight env s + payloadWeight env x)
+  payloadWeight env (IterateBinary stateType resultType count step initial) = cap (payloadWeight env stateType + payloadWeight env resultType + payloadWeight env count + payloadWeight env step + payloadWeight env initial)
+  payloadWeight env (ReadBytes x) = payloadWeight env x
+  payloadWeight env (WriteBytes x) = payloadWeight env x
+  payloadWeight env RejectBytes = 0
+  payloadWeight env FlushBytes = 0
   payloadWeight env ReadLine = 0
   payloadWeight env (FileHandleValue _ _) = 0
   payloadWeight env (ReadInputFile handle) = payloadWeight env handle
+  payloadWeight env (BytesLengthIs a b) = cap (payloadWeight env a + payloadWeight env b)
+  payloadWeight env (BytesIndex a b) = cap (payloadWeight env a + payloadWeight env b)
+  payloadWeight env (BytesSlice a b c) = cap (payloadWeight env a + payloadWeight env b + payloadWeight env c)
+  payloadWeight env (UTF8Encode x) = payloadWeight env x
+  payloadWeight env (UTF8Decode x) = payloadWeight env x
+  payloadWeight env BytesType = 0
+  payloadWeight env (BytesValue value) = cap (byteLength value)
+  payloadWeight env (BytesShare x) = payloadWeight env x
+  payloadWeight env (BytesLength x) = payloadWeight env x
+  payloadWeight env (BytesOctet x) = payloadWeight env x
+  payloadWeight env (BytesAppend a b) = cap (payloadWeight env a + payloadWeight env b)
   payloadWeight env StringType = 0
   payloadWeight env (StringValue value) = cap (length value)
   payloadWeight env (StringAppend a b) = cap (payloadWeight env a + payloadWeight env b)

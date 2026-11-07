@@ -1,0 +1,34 @@
+module Main
+
+-- Byte-state diagnostic, not a header or JSON parser.
+record SharedBytes : Type where
+  constructor Shared
+  bytes : Bytes
+
+encode : (text : String) -> Bytes
+encode = \(text : String) => primUTF8Case Bytes Bytes (primUTF8Encode text) primBytesEmpty (\(1 bytes : Bytes) => bytes)
+
+reject : (1 saved : Bytes) -> IO (LoopStep Bytes Bytes)
+reject = \(1 saved : Bytes) => bind Unit (LoopStep Bytes Bytes) primRejectBytes (\(1 done : Unit) => case done of () => pure (LoopStep Bytes Bytes) (primLoopDone Bytes Bytes saved))
+
+finish : (1 result : LoopResult Bytes Bytes) -> IO Unit
+finish = \(1 result : LoopResult Bytes Bytes) => primLoopResultCase Bytes Bytes (IO Unit) result
+  (\(1 bytes : Bytes) => primWriteBytes bytes)
+  (\(1 bytes : Bytes) => bind Unit Unit primRejectBytes (\(1 done : Unit) => case done of () => primWriteBytes bytes))
+
+main : IO Unit
+main =
+  let (done : (1 state : Bytes) -> LoopStep Bytes Bytes) = primLoopDone Bytes Bytes in
+  let (more : (1 state : Bytes) -> LoopStep Bytes Bytes) = primLoopContinue Bytes Bytes in
+  let (respond : (1 response : LoopStep Bytes Bytes) -> IO (LoopStep Bytes Bytes)) = primPure (LoopStep Bytes Bytes) in
+  let (read : IO ByteReadResult) = primReadBytes (Succ Zero) in
+  let (readBind : (1 action : IO ByteReadResult) -> (1 next : (1 response : ByteReadResult) -> IO (LoopStep Bytes Bytes)) -> IO (LoopStep Bytes Bytes)) = primBind ByteReadResult (LoopStep Bytes Bytes) in
+  let (readCase : (1 response : ByteReadResult) -> (eof : (1 state : Bytes) -> IO (LoopStep Bytes Bytes)) -> (chunk : (1 bytes : Bytes) -> (1 state : Bytes) -> IO (LoopStep Bytes Bytes)) -> (1 state : Bytes) -> IO (LoopStep Bytes Bytes)) = primByteReadCase ((1 state : Bytes) -> IO (LoopStep Bytes Bytes)) in
+  let (decode : (1 result : UTF8Result String) -> (invalid : Bool) -> (valid : (1 text : String) -> Bool) -> Bool) = primUTF8Case String Bool in
+  let (colon : (1 text : String) -> Bool) = primStringEqual ":" in
+  let (isColon : (1 bytes : Bytes) -> Bool) = \(1 bytes : Bytes) => decode (primUTF8Decode bytes) False colon in
+  let (next : (1 state : Bytes) -> IO (LoopStep Bytes Bytes)) = \(1 state : Bytes) => readBind read (\(1 response : ByteReadResult) =>
+    (readCase response reject (\(1 chunk : Bytes) => case primBytesShare chunk of Shared raw =>
+      \(1 saved : Bytes) => if isColon raw then respond (done saved) else respond (more (primBytesAppend saved raw)))) state) in
+  bind (LoopResult Bytes Bytes) Unit
+    (primIterateBinary Bytes Bytes (primBytesLength (encode "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")) next primBytesEmpty) finish

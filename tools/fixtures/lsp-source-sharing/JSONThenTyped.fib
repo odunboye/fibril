@@ -1,0 +1,22 @@
+module JSONThenTyped
+import Protocol.JSON
+import LSP
+
+-- ADMISSION PROBE ONLY: parsing a fixed [] is not decoding a wire event.
+-- The fixed typed request below is not derived from the JSON token contents.
+-- CONTROL-ONLY state demand, not a full-ID observation or preservation test.
+main : IO Unit
+main = primUTF8Case Bytes (IO Unit) (primUTF8Encode "[]") primRejectBytes (\(1 input : Bytes) =>
+  primBind JSONResult Unit (parseJSONBinary input) (\(1 parsed : JSONResult) => case parsed of
+    InvalidJSON => primRejectBytes
+    JSONBoundedFailure => primRejectBytes
+    JSONTokens tokens => if primBytesLengthIs (Succ (Succ Zero)) tokens then
+      case transition Preinitialize (Request (RequestDetails (StringId primBytesEmpty) Initialize))
+        return (\(0 self : Step) => IO Unit) of
+          (state : State) (action : Action) => case state return (\(0 self : State) => IO Unit) of
+            Preinitialize => primRejectBytes
+            AwaitInitialized => primPure Unit ()
+            Running => primRejectBytes
+            Shutdown => primRejectBytes
+            Terminated => primRejectBytes
+      else primRejectBytes))

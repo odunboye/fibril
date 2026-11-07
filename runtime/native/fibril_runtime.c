@@ -17,21 +17,23 @@ typedef struct FAction { const unsigned char *bytes; size_t length; struct FActi
 typedef struct FInput { size_t identity, generation; FILE *file; const char *close_error; struct FInput *next; } FInput;
 struct FRuntime { FAllocation *allocations; size_t bytes, steps, depth, actions; const char *error; FAction *head, *tail; FInput *inputs; size_t next_input; };
 struct FEnv { FThunk *value; FEnv *tail; };
-typedef enum { V_UNIT, V_ERASED, V_BOOL, V_STRING, V_CLOSURE, V_NOMINAL, V_VARIANT,
+typedef enum { V_UNIT, V_ERASED, V_BOOL, V_STRING, V_BYTES, V_CLOSURE, V_NOMINAL, V_VARIANT,
                V_NAT_ZERO, V_NAT_SUCC, V_REC_END, V_REC_MORE, V_SEQ_NIL, V_SEQ_CONS,
                V_PURE, V_BIND, V_WRITE, V_READ, V_PAIR, V_INPUT_HANDLE,
-               V_WITH_INPUT, V_READ_INPUT } FTag;
+               V_WITH_INPUT, V_READ_INPUT, V_READ_BYTES, V_WRITE_BYTES, V_FLUSH_BYTES, V_REJECT_BYTES, V_ITERATE_BINARY } FTag;
 typedef enum { F_NAT, F_NAT_RUNTIME, F_REC, F_SEQ } FFoldKind;
 struct FValue {
   FTag tag;
   union {
     struct { const unsigned char *bytes; size_t length; } string;
+    struct { const unsigned char *data; size_t length; } bytes;
     int boolean;
     FThunk *nominal;
     struct { size_t tag; FThunk *payload; } variant;
     struct { FThunk *head, *tail; } recursive;
     struct { FEval body; FEnv *env; int erased; } closure;
     struct { FThunk *first, *second; } io;
+    struct { FThunk *count, *step, *initial; } iteration;
     struct { FThunk *first, *second; } pair;
     struct { size_t identity, generation; } handle;
   } as;
@@ -112,6 +114,118 @@ FValue *f_literal(FRuntime *r, const unsigned char *bytes, size_t length) {
   FValue *v = new_value(r, V_STRING);
   if (v) { v->as.string.bytes = bytes; v->as.string.length = length; }
   return v;
+}
+FValue *f_bytes_literal(FRuntime *r, const unsigned char *bytes, size_t length) {
+  if ((length && !bytes) || length > F_MAX_BYTES) {
+    fail(r, "invalid native byte literal"); return NULL;
+  }
+  FValue *value = new_value(r, V_BYTES);
+  if (value) { value->as.bytes.data = bytes; value->as.bytes.length = length; }
+  return value;
+}
+FValue *f_bytes_append(FRuntime *r, FEnv *env, FEval left, FEval right) {
+  if (!left || !right) { fail(r, "missing native byte append operand"); return NULL; }
+  FValue *a = evaluate(r, left, env);
+  FValue *b = a ? evaluate(r, right, env) : NULL;
+  if (!a || !b || a->tag != V_BYTES || b->tag != V_BYTES) {
+    fail(r, "native byte append expects Bytes"); return NULL;
+  }
+  if (a->as.bytes.length > SIZE_MAX - b->as.bytes.length) {
+    fail(r, "native byte length overflow"); return NULL;
+  }
+  size_t length = a->as.bytes.length + b->as.bytes.length;
+  unsigned char *data = allocate(r, length ? length : 1);
+  if (!data) return NULL;
+  if (a->as.bytes.length) memcpy(data, a->as.bytes.data, a->as.bytes.length);
+  if (b->as.bytes.length) memcpy(data + a->as.bytes.length, b->as.bytes.data, b->as.bytes.length);
+  return f_bytes_literal(r, data, length);
+}
+/* Charge even memoized natural traversals, which otherwise could cycle forever
+   in a malformed trusted fixture. Arena allocation has its separate bound. */
+static int byte_work(FRuntime *r) {
+  if (!enter(r)) return 0;
+  r->depth--; return 1;
+}
+static FValue *byte_natural(FRuntime *r, size_t count) {
+  FValue *result = f_nat_zero(r);
+  for (size_t n = 0; result && n < count; n++) {
+    if (!byte_work(r)) return NULL;
+    FThunk *tail = ready(r, result);
+    if (!tail) return NULL;
+    result = new_value(r, V_NAT_SUCC);
+    if (result) result->as.recursive.tail = tail;
+  }
+  return result;
+}
+FValue *f_bytes_length(FRuntime *r, FEnv *env, FEval expression) {
+  if (!expression) { fail(r, "missing native byte length operand"); return NULL; }
+  FValue *bytes = evaluate(r, expression, env);
+  if (!bytes || bytes->tag != V_BYTES) { fail(r, "native byte length expects Bytes"); return NULL; }
+  return byte_natural(r, bytes->as.bytes.length);
+}
+/* Saturate instead of wrapping. Still validate/charge every successor tail. */
+static int byte_position(FRuntime *r, FEnv *env, FEval expression, size_t *position) {
+  if (!expression) { fail(r, "missing native byte position"); return 0; }
+  FValue *value = evaluate(r, expression, env);
+  size_t n = 0;
+  while (value && value->tag == V_NAT_SUCC) {
+    if (!byte_work(r)) return 0;
+    if (n < SIZE_MAX) n++;
+    value = force(r, value->as.recursive.tail);
+  }
+  if (!value || value->tag != V_NAT_ZERO) { fail(r, "native byte position expects Nat"); return 0; }
+  *position = n; return 1;
+}
+FValue *f_bytes_length_is(FRuntime *r, FEnv *env, FEval count, FEval expression) {
+  if (!expression) { fail(r, "missing native byte length predicate operand"); return NULL; }
+  size_t expected;
+  if (!byte_position(r, env, count, &expected)) return NULL;
+  FValue *bytes = evaluate(r, expression, env);
+  if (!bytes || bytes->tag != V_BYTES) { fail(r, "native byte length predicate expects Bytes"); return NULL; }
+  return f_bool(r, expected == bytes->as.bytes.length);
+}
+FValue *f_bytes_index(FRuntime *r, FEnv *env, FEval index, FEval expression) {
+  if (!expression) { fail(r, "missing native byte index operand"); return NULL; }
+  size_t offset;
+  if (!byte_position(r, env, index, &offset)) return NULL;
+  FValue *bytes = evaluate(r, expression, env);
+  if (!bytes || bytes->tag != V_BYTES) { fail(r, "native byte index expects Bytes"); return NULL; }
+  FValue *result = new_value(r, V_VARIANT);
+  if (!result) return NULL;
+  if (offset < bytes->as.bytes.length) {
+    result->as.variant.tag = 1;
+    result->as.variant.payload = ready(r, byte_natural(r, bytes->as.bytes.data[offset]));
+    if (!result->as.variant.payload) return NULL;
+  }
+  return result;
+}
+FValue *f_bytes_slice(FRuntime *r, FEnv *env, FEval start, FEval count, FEval expression) {
+  if (!expression) { fail(r, "missing native byte slice operand"); return NULL; }
+  size_t offset, length;
+  if (!byte_position(r, env, start, &offset) || !byte_position(r, env, count, &length)) return NULL;
+  FValue *bytes = evaluate(r, expression, env);
+  if (!bytes || bytes->tag != V_BYTES) { fail(r, "native byte slice expects Bytes"); return NULL; }
+  if (offset > bytes->as.bytes.length) offset = bytes->as.bytes.length;
+  size_t remaining = bytes->as.bytes.length - offset;
+  if (length > remaining) length = remaining;
+  /* Views are immutable; their arena/static storage lives through the run. */
+  const unsigned char *data = length ? bytes->as.bytes.data + offset : NULL;
+  return f_bytes_literal(r, data, length);
+}
+FValue *f_bytes_octet(FRuntime *r, FEnv *env, FEval expression) {
+  if (!expression) { fail(r, "missing native byte octet operand"); return NULL; }
+  FValue *value = evaluate(r, expression, env);
+  unsigned char octet = 0;
+  while (value && value->tag == V_NAT_SUCC) {
+    if (!byte_work(r)) return NULL;
+    octet = (unsigned char)(octet + 1u);
+    value = force(r, value->as.recursive.tail);
+  }
+  if (!value || value->tag != V_NAT_ZERO) { fail(r, "native byte octet expects Nat"); return NULL; }
+  unsigned char *data = allocate(r, 1);
+  if (!data) return NULL;
+  *data = octet;
+  return f_bytes_literal(r, data, 1);
 }
 FValue *f_variable(FRuntime *r, FEnv *env, size_t index) {
   while (env && index) { env = env->tail; index--; }
@@ -320,6 +434,25 @@ FValue *f_pure(FRuntime *r, FEnv *env, FEval value) { return io1(r, env, V_PURE,
 FValue *f_bind(FRuntime *r, FEnv *env, FEval action, FEval continuation) { return io1(r, env, V_BIND, action, continuation); }
 FValue *f_write(FRuntime *r, FEnv *env, FEval text) { return io1(r, env, V_WRITE, text, NULL); }
 FValue *f_read_line(FRuntime *r) { return new_value(r, V_READ); }
+FValue *f_read_bytes(FRuntime *r, FEnv *env, FEval capacity) {
+  if (!capacity) { fail(r, "missing native binary capacity"); return NULL; }
+  return io1(r, env, V_READ_BYTES, capacity, NULL);
+}
+FValue *f_write_bytes(FRuntime *r, FEnv *env, FEval bytes) {
+  if (!bytes) { fail(r, "missing native binary bytes"); return NULL; }
+  return io1(r, env, V_WRITE_BYTES, bytes, NULL);
+}
+FValue *f_iterate_binary(FRuntime *r, FEnv *env, FEval count, FEval step, FEval initial) {
+  if (!count || !step || !initial) { fail(r, "missing native binary iteration field"); return NULL; }
+  FValue *v = new_value(r, V_ITERATE_BINARY);
+  if (!v) return NULL;
+  v->as.iteration.count = thunk(r, count, env);
+  v->as.iteration.step = thunk(r, step, env);
+  v->as.iteration.initial = thunk(r, initial, env);
+  return v->as.iteration.count && v->as.iteration.step && v->as.iteration.initial ? v : NULL;
+}
+FValue *f_reject_bytes(FRuntime *r) { return new_value(r, V_REJECT_BYTES); }
+FValue *f_flush_bytes(FRuntime *r) { return new_value(r, V_FLUSH_BYTES); }
 FValue *f_with_input(FRuntime *r, FEnv *env, FEval path, FEval body) { return io1(r, env, V_WITH_INPUT, path, body); }
 FValue *f_read_input(FRuntime *r, FEnv *env, FEval handle) { return io1(r, env, V_READ_INPUT, handle, NULL); }
 
@@ -379,6 +512,31 @@ static FValue *read_result(FRuntime *r, size_t tag, FValue *payload) {
   if (payload) { v->as.variant.payload = ready(r, payload); if (!v->as.variant.payload) return NULL; }
   return v;
 }
+static FValue *convert_utf8(FRuntime *r, FEnv *env, FEval expression, int encode) {
+  if (!expression) { fail(r, "missing native UTF8 operand"); return NULL; }
+  FValue *input = evaluate(r, expression, env);
+  if (!input || input->tag != (encode ? V_STRING : V_BYTES)) {
+    fail(r, "native UTF8 conversion operand type mismatch"); return NULL;
+  }
+  const unsigned char *data = encode ? input->as.string.bytes : input->as.bytes.data;
+  size_t length = encode ? input->as.string.length : input->as.bytes.length;
+  if ((length && !data) || length > F_MAX_BYTES) { fail(r, "invalid native UTF8 payload or byte budget"); return NULL; }
+  /* Reserve validation work even for malformed sequences; no refund on an
+     early error. This is evaluator work, not the binary transport quota. */
+  if (r->steps > F_MAX_STEPS || length > F_MAX_STEPS - r->steps) {
+    fail(r, "native UTF8 evaluation budget exhausted"); return NULL;
+  }
+  r->steps += length;
+  /* Existing String consumers expect addressable storage even when empty. */
+  static const unsigned char empty[] = {0};
+  if (!data) data = empty;
+  size_t characters;
+  if (!utf8_count(data, length, &characters)) return read_result(r, 0, NULL);
+  FValue *payload = encode ? f_bytes_literal(r, data, length) : f_literal(r, data, length);
+  return payload ? read_result(r, 1, payload) : NULL;
+}
+FValue *f_utf8_encode(FRuntime *r, FEnv *env, FEval expression) { return convert_utf8(r, env, expression, 1); }
+FValue *f_utf8_decode(FRuntime *r, FEnv *env, FEval expression) { return convert_utf8(r, env, expression, 0); }
 static FValue *input_error(FRuntime *r, const char *message) {
   FValue *text = f_literal(r, (const unsigned char *)message, strlen(message));
   return text ? read_result(r, 2, text) : NULL;

@@ -1,0 +1,17 @@
+module Input
+
+record Packet : Type 0 where
+  constructor MkPacket
+  eliminator usePacket
+  0 label : String
+  1 bytes : Bytes
+
+writePacket : (1 packet : Packet) -> IO Unit
+writePacket packet = usePacket (\(0 self : Packet) => IO Unit) packet
+  (\(0 label : String) => \(1 bytes : Bytes) => primWriteBytes bytes)
+
+main : IO Unit
+main = do
+  (1 result : ByteReadResult) <- primReadBytes (Succ (Succ (Succ Zero)))
+  primByteReadCase (IO Unit) result (pure Unit ())
+    (\(1 bytes : Bytes) => writePacket (MkPacket "erased" (primBytesSlice (Succ Zero) (Succ (Succ Zero)) bytes)))

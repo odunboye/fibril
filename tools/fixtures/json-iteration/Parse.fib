@@ -1,0 +1,4 @@
+module Parse
+import Protocol.JSON
+main : (1 input : Bytes) -> JSONResult
+main = parseJSON

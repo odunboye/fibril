@@ -1,0 +1,9 @@
+module Two
+import Protocol.Frame
+
+-- Exactly two frames, sequentially. The IO description is reusable; effects are
+-- not memoized. A later rejection does not roll back the earlier frame's echo.
+main : IO Unit
+main = let (action : IO Unit) = Protocol.Frame.echoFrame in do
+  action
+  action
