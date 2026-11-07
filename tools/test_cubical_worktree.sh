@@ -120,3 +120,17 @@ if ! grep -Fq 'While processing right hand side of bad. When unifying:' "$tmp/sq
   exit 1
 fi
 echo 'Square witness opacity and mismatch negative tests passed.'
+"$idris" -p fibril --check ForgeReusablePath.idr > "$tmp/forge-reusable.log" 2>&1 || true
+if ! grep -Fq 'ReusablePath.MkCheckedPath is private' "$tmp/forge-reusable.log" || grep -Fq 'While processing type of bad' "$tmp/forge-reusable.log"; then
+  cat "$tmp/forge-reusable.log" >&2; exit 1
+fi
+"$idris" -p fibril --check ReusablePathMismatch.idr > "$tmp/reusable-mismatch.log" 2>&1 || true
+if ! grep -Fq 'While processing right hand side of bad. When unifying:' "$tmp/reusable-mismatch.log" || ! grep -Fq 'Mismatch between:' "$tmp/reusable-mismatch.log" || grep -Fq 'While processing type of bad' "$tmp/reusable-mismatch.log"; then
+  cat "$tmp/reusable-mismatch.log" >&2; exit 1
+fi
+echo 'Reusable path opacity and mismatch negative tests passed.'
+"$idris" -p fibril --check ReusablePathContextMismatch.idr > "$tmp/reusable-context.log" 2>&1 || true
+if ! grep -Fq 'While processing right hand side of bad. When unifying:' "$tmp/reusable-context.log" || ! grep -Fq 'Mismatch between:' "$tmp/reusable-context.log" || grep -Fq 'While processing type of bad' "$tmp/reusable-context.log"; then
+  cat "$tmp/reusable-context.log" >&2; exit 1
+fi
+echo 'Reusable path context mismatch negative test passed.'

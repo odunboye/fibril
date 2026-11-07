@@ -413,3 +413,20 @@ what is erased, how reduction behaves, and what remains unproved. An application
 feature must not silently turn unsupported cubical terms into runtime values or
 expand the trusted proof fragment. Conversely, the cubical milestone must not
 claim real-time guarantees, a production runtime, or platform interoperability.
+
+## Experimental reusable telescope paths
+
+`Fibril.Cubical.Logical.ReusablePath` checks an abstraction against open
+first-order telescope endpoints on both faces and returns an opaque witness
+indexed by the exact telescope, body and endpoints. Application substitutes a
+scoped interval for the newest dimension, preserving older dimensions, and
+bounds its inputs and output. The witness does not carry an arbitrary caller
+supplied conversion environment; endpoint comparisons use the ordinary
+face-restricted telescope conversion. Admission and conversion are bounded and
+incomplete: rejection or exhaustion is not a proof of inconsistency.
+
+This is an isolated one-dimensional API over `Tvar`/`Tapp`, not a new trusted
+core feature, quantitative path judgment, or general higher-path calculus.
+A body may depend on another dimension, but path-valued endpoints and checked
+square application are not represented. No runtime conversion or general nested
+path claim follows. See `Tests.Cubical.ReusablePath` and the opacity fixtures.
