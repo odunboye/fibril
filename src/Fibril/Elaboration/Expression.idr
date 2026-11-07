@@ -715,6 +715,35 @@ mutual
       _ => Left (CannotElaborate span.start "Invalid data-case shape")
 
   equationBody : List GlobalDefinition -> Context n -> Vect n String -> Term n -> List Token -> Expr -> Either ResolveError (Term n)
+  equationBody globals context env expected [argument] body@(NDataCase span (NRef _ scrutinee) Nothing [(zero, [], base), (binder, [], more)]) =
+    if argument.spelling /= "$clauseScrutinee" || scrutinee /= argument.spelling ||
+       not (case unpack binder.spelling of c :: _ => isLower c; [] => False) ||
+       isJust (lookupName binder.spelling env) ||
+       isJust (find (\entry => entry.name == binder.spelling) globals) ||
+       not (null (qualifiedCandidates binder.spelling globals))
+    then ordinaryEquation globals context env expected argument body
+    else case expected of
+      Pi q domain result => do
+        if coreNodes domain > 512 then Left (CannotElaborate argument.span.start "Function equation parameter type exceeds 512 nodes") else Right ()
+        if not (maybe False (\ty => sameSyntax ty NatType) (guardedNormal typeReductionFuel domain))
+          then ordinaryEquation globals context env expected argument body else do
+          let ctx = Extend context q domain
+          let scope = argument.spelling :: env
+          motive <- expectedDataMotive span.start NatType result (Variable FZ)
+          checked <- natCaseArms span.start globals ctx scope NatType (Just motive) [(zero, [], base)]
+          case checked of
+            [(0, baseTerm)] => do
+              let successorContext = Extend ctx Unrestricted NatType
+              let actual = NatSucc (Variable FZ)
+              let applied = Apply (weaken motive) actual
+              let branchResult = fromMaybe applied (guardedNormal typeReductionFuel applied)
+              branch <- elaborateExpected globals (Extend successorContext Unrestricted NatType)
+                          (binder.spelling :: "$nat.predecessor" :: scope) (weaken branchResult) more
+              let successor = Lambda Unrestricted NatType
+                    (Apply (Lambda Unrestricted NatType branch) actual)
+              Right (Lambda q domain (NatCase motive (Variable FZ) baseTerm successor))
+            _ => Left (CannotElaborate zero.span.start "Nat catch-all requires Zero as its first clause")
+      _ => ordinaryEquation globals context env expected argument body
   equationBody globals context env expected [] body = elaborateExpected globals context env expected body
   equationBody globals context env expected (name :: rest) body = do
     -- Do not reduce an unchecked signature to expose Pi: head beta reduction
@@ -726,6 +755,14 @@ mutual
         following <- equationBody globals (Extend context q domain) (name.spelling :: env) result rest body
         Right (Lambda q domain following)
       _ => Left (CannotElaborate name.span.start "Function equation requires an explicit Pi for every named parameter")
+
+  ordinaryEquation : List GlobalDefinition -> Context n -> Vect n String -> Term n -> Token -> Expr -> Either ResolveError (Term n)
+  ordinaryEquation globals context env expected name body = case expected of
+    Pi q domain result => do
+      if coreNodes domain > 512 then Left (CannotElaborate name.span.start "Function equation parameter type exceeds 512 nodes") else Right ()
+      following <- equationBody globals (Extend context q domain) (name.spelling :: env) result [] body
+      Right (Lambda q domain following)
+    _ => Left (CannotElaborate name.span.start "Function equation requires an explicit Pi for every named parameter")
 
   elaborateArms : List GlobalDefinition -> Maybe (Context n) -> Vect n String -> List (Maybe (Quantity, Expr)) -> Either ResolveError (List (Maybe (Quantity, Term n)))
   elaborateArms globals context env [] = Right []

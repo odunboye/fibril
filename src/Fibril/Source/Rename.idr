@@ -6,6 +6,9 @@ import Fibril.Source.Text
 import Fibril.Source.Lexer
 import Fibril.Source.Symbol
 import Fibril.Source.Navigation
+import Fibril.Source.Syntax
+import Fibril.Source.Declaration
+import Fibril.Source.Document
 
 %default total
 
@@ -67,6 +70,23 @@ preserved width edits after before = any
   (\reference => mappedSpan width edits before.origin reference.origin &&
                  mappedSpan width edits before.target reference.target) after
 
+-- Without checked resolution, a final bare head and its body cannot be
+-- distinguished reliably from a constructor and its uses.
+hasAmbiguousClause : Declaration -> Bool
+hasAmbiguousClause decl = case decl.value of
+  NEquationLambda _ [argument] _ (NDataCase _ _ Nothing arms) =>
+    argument.spelling == "$clauseScrutinee" &&
+    case reverse arms of
+      (_, [], _) :: _ => True
+      _ => False
+  _ => False
+
+ambiguousItem : AuthoredDeclaration -> Bool
+ambiguousItem (Ordinary decl) = hasAmbiguousClause decl
+ambiguousItem (ImplementationItem decl) = hasAmbiguousClause decl
+ambiguousItem (MutualItem group) = hasAmbiguousClause group.first || hasAmbiguousClause group.second
+ambiguousItem _ = False
+
 ||| Validate a new ASCII identifier, propose all declaration/use edits, and reject
 ||| any change in lexical resolution (including newly captured unresolved names).
 ||| No type-checking, cross-file safety, or source mutation is claimed.
@@ -82,6 +102,9 @@ previewRename source line column name = do
   case (document.moduleHeader, document.imports) of
     (Nothing, []) => Right ()
     _ => Left RenameModuleUnsupported
+  case document.body of
+    DeclarationDocument items => if any ambiguousItem items then Left RenameChangesScope else Right ()
+    _ => Right ()
   originalRefs <- the (Either RenameError (List Reference)) $ case documentReferences source of
     Left err => Left (RenameFrontend err)
     Right references => Right references

@@ -139,7 +139,11 @@ parsePairFramed column definitionColumn expressionBudget end tokens@(first :: _)
           let caseBody = NDataCase (Between definedName.span.start finish)
                            (NRef synthetic.span synthetic.spelling) Nothing (firstArm :: later)
           let value = NEquationLambda (Between definedName.span.start finish) [synthetic] expected caseBody
-          Right (Defined (Between first.span.start finish) name.span definedName.span False q name.spelling expected value, remaining)
+          let finalPattern = case reverse later of
+                (token, [], _) :: _ => Just (FinalBarePattern token)
+                _ => Nothing
+          let decl = Defined (Between first.span.start finish) name.span definedName.span False q name.spelling expected value
+          Right ({ finalPattern := finalPattern } decl, remaining)
       else ordinary name definedName first q expected arguments body remaining
     _ => ordinary name definedName first q expected arguments body remaining
   where

@@ -95,7 +95,6 @@ main = get ({constructor} Bool Bool True)
             'f Zero = Zero\nf Zero = Zero',
             'f n = case n of\n  Zero => Zero',
             'f Zero = Zero\nf Succ n = Zero',
-            'f Zero = Zero\nf n = n',
         ]
         for definition in definitions:
             with self.subTest(definition=definition):
@@ -116,7 +115,7 @@ main = get ({constructor} Bool Bool True)
                               for x in edits], [(3, 8), (3, 17)])
 
     def test_clause_headers_navigation_and_rename(self):
-        source = "f : Bool -> Bool\nf A = True\nf B = False\nf C = True\nmain : Bool\nmain = f True\n"
+        source = "f : Bool -> Bool\nf A = True\nf B = False\nf C z = True\nmain : Bool\nmain = f True\n"
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'source.fib'
             path.write_text(source)
@@ -134,6 +133,21 @@ main = get ({constructor} Bool Bool True)
                 rename = call('rename-preview', str(line), str(column), 'renamed')
                 self.assertEqual(rename.returncode, 0, rename.stderr)
                 self.assertEqual([x['range']['start']['line'] for x in json.loads(rename.stdout)['edits']], [1, 2, 3, 4, 6])
+
+    def test_rename_rejects_ambiguous_final_clause_heads(self):
+        cases = [
+            ("first : Bool\nfirst = True\nsecond : Bool\nsecond = False\nf : Bool -> Bool\nf first = True\nf second = False\nmain : Bool\nmain = True\n", '3', '1', 'other'),
+            ("other : Nat\nother = Zero\nf : Nat -> Nat\nf Zero = Zero\nf item = item\nmain : Nat\nmain = other\n", '1', '1', 'item'),
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'source.fib'
+            for source, line, column, name in cases:
+                with self.subTest(name=name):
+                    path.write_text(source)
+                    result = subprocess.run([str(EXE), 'rename-preview', line, column, name, str(path)],
+                                            text=True, capture_output=True)
+                    self.assertNotEqual(result.returncode, 0, result.stdout)
+                    self.assertIn('lexical resolution would change', result.stderr)
 
     def test_clause_payload_binders_are_distinct(self):
         source = "f : Bool -> Bool\nf A x = x\nf B x = x\nmain : Bool\nmain = True\n"
@@ -165,6 +179,93 @@ main = get ({constructor} Bool Bool True)
                                             text=True, capture_output=True)
                 self.assertEqual(definition.returncode, 0, definition.stderr)
                 self.assertEqual(json.loads(definition.stdout)['definition']['range']['start']['line'], 7)
+
+    def test_final_nat_binder_used_and_unused(self):
+        for body, result_type, value, expected in [
+            ('item', 'Nat', 'Zero', 'Zero'),
+            ('item', 'Nat', 'Succ Zero', '(Succ Zero)'),
+            ('False', 'Bool', 'Succ Zero', 'False'),
+        ]:
+            base = 'Zero' if result_type == 'Nat' else 'True'
+            source = ('module Main\nf : Nat -> ' + result_type + '\nf Zero = ' + base +
+                      '\nf item = ' + body + '\nmain : ' + result_type +
+                      '\nmain = f (' + value + ')\n')
+            result = self.run_source(source)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn('Normal: ' + expected, result.stdout)
+
+    def test_final_nat_binder_rejects_uppercase_and_linear_input(self):
+        for signature, name in [('Nat -> Nat', 'Missing'), ('(1 n : Nat) -> Nat', 'item')]:
+            result = self.run_source('module Main\nf : ' + signature + '\nf Zero = Zero\n' +
+                                     f'f {name} = Zero\nmain : Nat\nmain = Zero\n')
+            self.assertNotEqual(result.returncode, 0, result.stdout)
+
+    def test_final_nat_binder_visible_nonconstructor_is_rejected(self):
+        source = ('module Main\nitem : Bool\nitem = True\nf : Nat -> Nat\n'
+                  'f Zero = Zero\nf item = Zero\nmain : Nat\nmain = Zero\n')
+        self.assertNotEqual(self.run_source(source).returncode, 0)
+
+    def test_imported_candidates_and_catchall_before_zero_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for module in ('First', 'Second'):
+                (root / (module + '.fib')).write_text(
+                    f'module {module}\nexport\nitem : Bool\nitem = True\n')
+            path = root / 'Main.fib'
+            for imports, clauses, diagnostic in [
+                ('import First\n', 'f Zero = Zero\nf item = Zero', 'Nat-case constructor does not match'),
+                ('import First\nimport Second\n', 'f Zero = Zero\nf item = Zero', 'Ambiguous imported name item'),
+                ('', 'f item = item\nf Zero = Zero', 'Unbound name "item"'),
+            ]:
+                with self.subTest(imports=imports, clauses=clauses):
+                    path.write_text('module Main\n' + imports + 'f : Nat -> Nat\n' +
+                                    clauses + '\nmain : Nat\nmain = Zero\n')
+                    result = subprocess.run([str(EXE), 'eval', '--source-dir', directory, str(path)],
+                                            text=True, capture_output=True, timeout=20)
+                    self.assertNotEqual(result.returncode, 0, result.stdout)
+                    self.assertIn(diagnostic, result.stderr)
+
+    def test_lowercase_constructor_remains_a_constructor(self):
+        source = '''module Main
+data Choice : Type where
+  first : Choice
+  second : Choice
+f : Choice -> Bool
+f first = True
+f second = False
+main : Bool
+main = f second
+'''
+        result = self.run_source(source)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('Normal: False', result.stdout)
+
+    def test_unresolved_final_head_is_not_a_navigation_binder(self):
+        source = 'f : Nat -> Nat\nf Zero = Zero\nf item = item\nmain : Nat\nmain = Zero\n'
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'source.fib'
+            path.write_text(source)
+            result = subprocess.run([str(EXE), 'references', '3', '3', str(path)],
+                                    text=True, capture_output=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(json.loads(result.stdout)['references'], [])
+
+    def test_unresolved_final_head_body_does_not_link_outer_name(self):
+        source = ('item : Nat\nitem = Zero\nf : Nat -> Nat\nf Zero = Zero\n'
+                  'f item = item\nmain : Nat\nmain = item\n')
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'source.fib'
+            path.write_text(source)
+            for column in (3, 10):
+                result = subprocess.run([str(EXE), 'references', '5', str(column), str(path)],
+                                        text=True, capture_output=True)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                references = json.loads(result.stdout)['references']
+                if column == 10:
+                    self.assertEqual(references, [])
+                else:
+                    self.assertNotIn(5, [span['start']['line'] for span in references
+                                         if span['start']['column'] == 10])
 
     def test_missing_constructor_rejected(self):
         # Three constructors permit a grouped but non-exhaustive block.

@@ -66,12 +66,22 @@ ordinary references. Use [direct data cases](direct-data-cases.md) for forms
 outside this slice. Small structural Nat, unary-data and list-shaped equations
 are separate exceptions below, not general termination checking.
 
+A bounded Nat catch-all is also supported: `f Zero = ...` followed by
+`f item = ...`, where `item` is a previously unresolved lowercase name, binds
+the entire successor value (and may be unused). Visible or ambiguous names are
+resolved as constructors instead, and a catch-all before `Zero` is rejected.
+The input must be unrestricted: reconstruction uses an unrestricted successor
+predecessor. Explicit `Succ` patterns still require linear use of their named
+predecessor. General catch-alls and wildcard patterns are not supported.
+
 Same-file definition and references include every clause header and supported
 constructor and payload occurrences. Rename is capture-checked and same-file
 only, and currently rejects documents with module headers; named modules cannot
 use rename preview. Checked project definition uses the existing project navigation
-rules. Formatting and other tooling do not acquire additional clause-specific
-semantics.
+rules. Navigation cannot certify a final bare head as a checked binder: it does
+does not link that head or its binder uses and conservatively suppresses outer-name
+references with the same spelling in that clause body, even when the head is a constructor.
+Formatting and other tooling do not acquire additional clause-specific semantics.
 
 Fewer named parameters than explicit Pis are allowed: the body must itself supply
 the remaining function value and still check. More names than Pis fail at the

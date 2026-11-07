@@ -40,6 +40,7 @@ class NativeTests(unittest.TestCase):
 
     def test_nat_case_and_clauses_match_reference(self):
         for definition in ('f Zero = Zero\nf Succ n = Succ n',
+                           'f Zero = Zero\nf item = item',
                            'f n = case n of\n  Zero => Zero\n  Succ k => Succ k'):
             for value, expected in (('Zero', b'\n'), ('Succ (Succ Zero)', b'!!\n')):
                 with self.subTest(definition=definition, value=value), tempfile.TemporaryDirectory() as directory:

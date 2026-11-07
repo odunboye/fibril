@@ -109,5 +109,6 @@ that binder quantity and adds the join of the two branch usages. Branch
 captures are not scaled: the selected closure runs once. An unrestricted
 predecessor therefore requires unrestricted permission for every scrutinee
 resource, even when the scrutinee evaluates to zero. Surface Nat patterns
-still elaborate linear predecessor binders; unrestricted source patterns and
-catchall patterns are not part of this core milestone.
+still elaborate linear predecessor binders. A bounded final Nat binding catch-all
+uses an unrestricted predecessor internally and therefore requires an unrestricted
+scrutinee; general unrestricted source patterns and catch-alls are unsupported.
