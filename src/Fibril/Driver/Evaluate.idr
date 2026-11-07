@@ -3,6 +3,7 @@ module Fibril.Driver.Evaluate
 
 import Fibril.Core.Context
 import Fibril.Core.Term
+import Fibril.Core.Evaluation
 import Fibril.Core.Pretty
 import Fibril.Core.Reduction
 import Fibril.Core.Runtime
@@ -19,7 +20,7 @@ import Fibril.Driver.ModuleGraph
 -- raw public data, not a certificate suitable for an unchecked public entrypoint.
 evaluatePrepared : Nat -> RuntimeSource -> Either DriverError (List String)
 evaluatePrepared fuel prepared = do
-  normal <- case normalize fuel prepared.term of
+  normal <- case normalizeRun fuel prepared.term of
     OutOfFuel _ => Left EvaluationLimit
     Normal term => Right term
   case checkRuntime checkingDepth typeReductionFuel Empty normal prepared.inferredType of

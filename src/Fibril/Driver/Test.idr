@@ -3,6 +3,7 @@ module Fibril.Driver.Test
 
 import Fibril.Core.Context
 import Fibril.Core.Term
+import Fibril.Core.Evaluation
 import Fibril.Core.Runtime
 import Fibril.Core.Reduction
 import Fibril.Driver.Limits
@@ -24,7 +25,7 @@ testInline manifest = do
     case checkRuntime checkingDepth typeReductionFuel Empty project.term BoolType of
       Left _ => Left (graph.entry ++ ": Test entry must have main : Bool")
       Right _ => Right ()
-    normal <- case normalize 128 project.term of
+    normal <- case normalizeRun 128 project.term of
       OutOfFuel _ => Left (graph.entry ++ ": Test evaluation fuel exhausted (128); no pass result")
       Normal term => Right term
     case checkRuntime checkingDepth typeReductionFuel Empty normal BoolType of

@@ -4,6 +4,7 @@ module Fibril.Driver.Console
 import Data.List
 import Fibril.Core.Context
 import Fibril.Core.Term
+import Fibril.Core.Evaluation
 import Fibril.Core.Runtime
 import Fibril.Core.Reduction
 import Fibril.Core.WeakHead
@@ -46,7 +47,7 @@ validate term ty = case checkRuntime checkingDepth typeReductionFuel Empty term 
   Right _ => Right ()
 
 normal : Nat -> Term 0 -> Either IOPlanError (Term 0)
-normal fuel term = case normalize fuel term of
+normal fuel term = case normalizeRun fuel term of
   OutOfFuel _ => Left PlanReductionLimit
   Normal result => Right result
 
@@ -55,7 +56,7 @@ normal fuel term = case normalize fuel term of
 plan : Nat -> Nat -> Nat -> Term 0 -> Either IOPlanError Planned
 plan Z fuel remaining term = Left PlanDepthLimit
 plan (S depth) fuel remaining term = do
-  head <- case weakHead fuel term of
+  head <- case weakHeadRun fuel term of
     HeadLimit _ => Left PlanReductionLimit
     HeadForm head => Right head
   _ <- case inferRuntime checkingDepth typeReductionFuel Empty head of

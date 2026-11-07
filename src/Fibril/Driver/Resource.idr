@@ -4,6 +4,7 @@ module Fibril.Driver.Resource
 import Data.IORef
 import System.File
 import Fibril.Core.Term
+import Fibril.Core.Evaluation
 import Fibril.Core.Quantity
 import Fibril.Core.Context
 import Fibril.Core.Runtime
@@ -75,7 +76,7 @@ validate term ty = case checkRuntime checkingDepth typeReductionFuel Empty term 
   Right _ => Right ()
 
 normal : Nat -> Term 0 -> Either ResourceError (Term 0)
-normal fuel term = case normalize fuel term of
+normal fuel term = case normalizeRun fuel term of
   OutOfFuel _ => Left ResourceReductionLimit
   Normal value => Right value
 
@@ -110,7 +111,7 @@ execute : Nat -> Nat -> IORef Nat -> InputOwnershipTable -> InputSession -> Reso
           Term 0 -> IO (Either ResourceError (Term 0))
 execute Z fuel requests next session host term = pure (Left ResourceDepthLimit)
 execute (S depth) fuel requests next session host term =
-  case weakHead fuel term of
+  case weakHeadRun fuel term of
     HeadLimit _ => pure (Left ResourceReductionLimit)
     HeadForm head => case inferRuntime checkingDepth typeReductionFuel Empty head of
       Left err => pure (Left (ResourceTyping err))

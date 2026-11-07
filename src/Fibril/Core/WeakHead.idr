@@ -10,54 +10,63 @@ import Fibril.Core.Reduction
 ||| One head beta/data-case step. Do not inspect binder bodies or annotations; force primitive operands as needed.
 ||| A variable-headed application is stuck and needs no head step.
 public export
-stepHead : Term n -> Maybe (Term n)
-stepHead (Apply (Lambda q domain body) argument) =
+stepHeadWith : (unfold : Bool) -> Term n -> Maybe (Term n)
+-- Runtime mode only: unfold a Fix applied at a head position. Type-level callers
+-- pass False, so conversion and type exposure never unfold recursion.
+stepHeadWith True (Apply fix@(Fix ty body) argument) =
+  Just (Apply (instantiateTerm fix body) argument)
+stepHeadWith unfold (Apply (Lambda q domain body) argument) =
   Just (instantiateTerm argument body)
-stepHead (Apply function argument) =
-  map (\next => Apply next argument) (stepHead function)
-stepHead (UnitCase UnitValue body) = Just body
-stepHead (UnitCase scrutinee body) = map (\next => UnitCase next body) (stepHead scrutinee)
-stepHead (NatRec motive base next NatZero) = Just base
-stepHead (NatRec motive base next (NatSucc value)) = Just (Apply (Apply next value) (NatRec motive base next value))
-stepHead (NatRec motive base next value) = map (NatRec motive base next) (stepHead value)
-stepHead (NatRecRuntime motive base next NatZero) = Just base
-stepHead (NatRecRuntime motive base next (NatSucc value)) = Just (Apply (Apply next value) (NatRecRuntime motive base next value))
-stepHead (NatRecRuntime motive base next value) = map (NatRecRuntime motive base next) (stepHead value)
-stepHead (RecFold motive base next (RecEnd _)) = Just base
-stepHead (RecFold motive base next (RecMore _ tail)) = Just (Apply (Apply next tail) (RecFold motive base next tail))
-stepHead (RecFold motive base next value) = map (RecFold motive base next) (stepHead value)
-stepHead (RecCase motive (RecEnd _) base more) = Just base
-stepHead (RecCase motive (RecMore _ tail) base more) = Just (Apply more tail)
-stepHead (RecCase motive value base more) = map (\x => RecCase motive x base more) (stepHead value)
-stepHead (SeqCase motive (SeqNil _) base cons) = Just base
-stepHead (SeqCase motive (SeqCons _ head tail) base cons) = Just (Apply (Apply cons head) tail)
-stepHead (SeqCase motive value base cons) = map (\x => SeqCase motive x base cons) (stepHead value)
-stepHead (SeqFold motive base next (SeqNil _)) = Just base
-stepHead (SeqFold motive base next (SeqCons _ head tail)) = Just (Apply (Apply (Apply next head) tail) (SeqFold motive base next tail))
-stepHead (SeqFold motive base next value) = map (SeqFold motive base next) (stepHead value)
-stepHead (BoolCase BoolTrue yes no) = Just yes
-stepHead (BoolCase BoolFalse yes no) = Just no
-stepHead (BoolCase condition yes no) =
-  map (\next => BoolCase next yes no) (stepHead condition)
-stepHead (NominalCase motive (NominalValue ty value) branch) = Just (Apply branch value)
-stepHead (NominalCase motive value branch) = map (\next => NominalCase motive next branch) (stepHead value)
-stepHead (VariantCase motive (VariantValue ty tag payload) branches) = variantContract tag payload branches
-stepHead (VariantCase motive value branches) = map (\next => VariantCase motive next branches) (stepHead value)
-stepHead (BoxCase motive (BoxValue ty value) branch) = Just (Apply branch value)
-stepHead (BoxCase motive value branch) = map (\next => BoxCase motive next branch) (stepHead value)
-stepHead (PairCase motive (PairValue ty first second) branch) = Just (Apply (Apply branch first) second)
-stepHead (PairCase motive scrutinee branch) = map (\next => PairCase motive next branch) (stepHead scrutinee)
-stepHead (IOBind a b (IOPure value) next) = Just (Apply next value)
-stepHead (IOBind a b action next) = map (\result => IOBind a b result next) (stepHead action)
-stepHead (StringAppend (StringValue left) (StringValue right)) = Just (StringValue (left ++ right))
-stepHead (StringAppend left right) = case stepHead left of
+stepHeadWith unfold (Apply function argument) =
+  map (\next => Apply next argument) (stepHeadWith unfold function)
+stepHeadWith unfold (UnitCase UnitValue body) = Just body
+stepHeadWith unfold (UnitCase scrutinee body) = map (\next => UnitCase next body) (stepHeadWith unfold scrutinee)
+stepHeadWith unfold (NatRec motive base next NatZero) = Just base
+stepHeadWith unfold (NatRec motive base next (NatSucc value)) = Just (Apply (Apply next value) (NatRec motive base next value))
+stepHeadWith unfold (NatRec motive base next value) = map (NatRec motive base next) (stepHeadWith unfold value)
+stepHeadWith unfold (NatRecRuntime motive base next NatZero) = Just base
+stepHeadWith unfold (NatRecRuntime motive base next (NatSucc value)) = Just (Apply (Apply next value) (NatRecRuntime motive base next value))
+stepHeadWith unfold (NatRecRuntime motive base next value) = map (NatRecRuntime motive base next) (stepHeadWith unfold value)
+stepHeadWith unfold (RecFold motive base next (RecEnd _)) = Just base
+stepHeadWith unfold (RecFold motive base next (RecMore _ tail)) = Just (Apply (Apply next tail) (RecFold motive base next tail))
+stepHeadWith unfold (RecFold motive base next value) = map (RecFold motive base next) (stepHeadWith unfold value)
+stepHeadWith unfold (RecCase motive (RecEnd _) base more) = Just base
+stepHeadWith unfold (RecCase motive (RecMore _ tail) base more) = Just (Apply more tail)
+stepHeadWith unfold (RecCase motive value base more) = map (\x => RecCase motive x base more) (stepHeadWith unfold value)
+stepHeadWith unfold (SeqCase motive (SeqNil _) base cons) = Just base
+stepHeadWith unfold (SeqCase motive (SeqCons _ head tail) base cons) = Just (Apply (Apply cons head) tail)
+stepHeadWith unfold (SeqCase motive value base cons) = map (\x => SeqCase motive x base cons) (stepHeadWith unfold value)
+stepHeadWith unfold (SeqFold motive base next (SeqNil _)) = Just base
+stepHeadWith unfold (SeqFold motive base next (SeqCons _ head tail)) = Just (Apply (Apply (Apply next head) tail) (SeqFold motive base next tail))
+stepHeadWith unfold (SeqFold motive base next value) = map (SeqFold motive base next) (stepHeadWith unfold value)
+stepHeadWith unfold (BoolCase BoolTrue yes no) = Just yes
+stepHeadWith unfold (BoolCase BoolFalse yes no) = Just no
+stepHeadWith unfold (BoolCase condition yes no) =
+  map (\next => BoolCase next yes no) (stepHeadWith unfold condition)
+stepHeadWith unfold (NominalCase motive (NominalValue ty value) branch) = Just (Apply branch value)
+stepHeadWith unfold (NominalCase motive value branch) = map (\next => NominalCase motive next branch) (stepHeadWith unfold value)
+stepHeadWith unfold (VariantCase motive (VariantValue ty tag payload) branches) = variantContract tag payload branches
+stepHeadWith unfold (VariantCase motive value branches) = map (\next => VariantCase motive next branches) (stepHeadWith unfold value)
+stepHeadWith unfold (BoxCase motive (BoxValue ty value) branch) = Just (Apply branch value)
+stepHeadWith unfold (BoxCase motive value branch) = map (\next => BoxCase motive next branch) (stepHeadWith unfold value)
+stepHeadWith unfold (PairCase motive (PairValue ty first second) branch) = Just (Apply (Apply branch first) second)
+stepHeadWith unfold (PairCase motive scrutinee branch) = map (\next => PairCase motive next branch) (stepHeadWith unfold scrutinee)
+stepHeadWith unfold (IOBind a b (IOPure value) next) = Just (Apply next value)
+stepHeadWith unfold (IOBind a b action next) = map (\result => IOBind a b result next) (stepHeadWith unfold action)
+stepHeadWith unfold (StringAppend (StringValue left) (StringValue right)) = Just (StringValue (left ++ right))
+stepHeadWith unfold (StringAppend left right) = case stepHeadWith unfold left of
   Just next => Just (StringAppend next right)
-  Nothing => map (StringAppend left) (stepHead right)
-stepHead (StringEqual (StringValue left) (StringValue right)) = Just (if left == right then BoolTrue else BoolFalse)
-stepHead (StringEqual left right) = case stepHead left of
+  Nothing => map (StringAppend left) (stepHeadWith unfold right)
+stepHeadWith unfold (StringEqual (StringValue left) (StringValue right)) = Just (if left == right then BoolTrue else BoolFalse)
+stepHeadWith unfold (StringEqual left right) = case stepHeadWith unfold left of
   Just next => Just (StringEqual next right)
-  Nothing => map (StringEqual left) (stepHead right)
-stepHead _ = Nothing
+  Nothing => map (StringEqual left) (stepHeadWith unfold right)
+stepHeadWith unfold _ = Nothing
+
+||| Type-level head step: Fix stays neutral.
+public export
+stepHead : Term n -> Maybe (Term n)
+stepHead = stepHeadWith False
 
 ||| Exposed outer syntax is not necessarily in full beta normal form.
 public export

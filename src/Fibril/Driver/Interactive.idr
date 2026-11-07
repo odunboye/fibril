@@ -3,6 +3,7 @@ module Fibril.Driver.Interactive
 
 import Fibril.Core.Context
 import Fibril.Core.Term
+import Fibril.Core.Evaluation
 import Fibril.Core.Runtime
 import Fibril.Core.Reduction
 import Fibril.Core.WeakHead
@@ -44,7 +45,7 @@ validate term ty = case checkRuntime checkingDepth typeReductionFuel Empty term 
   Right _ => Right ()
 
 normal : Nat -> Term 0 -> Either InteractiveError (Term 0)
-normal fuel term = case normalize fuel term of
+normal fuel term = case normalizeRun fuel term of
   OutOfFuel _ => Left InteractiveReductionLimit
   Normal value => Right value
 
@@ -53,7 +54,7 @@ normal fuel term = case normalize fuel term of
 compile : Nat -> Nat -> Term 0 -> ConsoleProgram (Either InteractiveError (Term 0))
 compile Z fuel term = Finished (Left InteractiveDepthLimit)
 compile (S depth) fuel term =
-  case weakHead fuel term of
+  case weakHeadRun fuel term of
     HeadLimit _ => Finished (Left InteractiveReductionLimit)
     HeadForm head => case inferRuntime checkingDepth typeReductionFuel Empty head of
       Left err => Finished (Left (InteractiveTyping err))

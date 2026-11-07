@@ -4,6 +4,8 @@ import Data.Fin
 import Data.String
 import Fibril.Core.Context
 import Fibril.Core.Erased
+import Fibril.Core.Evaluation
+import Fibril.Core.WeakHead
 import Fibril.Core.Pretty
 import Fibril.Core.Quantity
 import Fibril.Core.Reduction
@@ -108,6 +110,28 @@ extractsTo _ _ = False
 capturing : Term 1
 capturing = Fix (Pi Erased NatType NatType) (Lambda Erased NatType (Variable (FS (FS FZ))))
 
+one : Term n
+one = NatSucc NatZero
+
+two : Term n
+two = NatSucc one
+
+nilList : Term n
+nilList = SeqNil listTy
+
+oneTwo : Term 0
+oneTwo = SeqCons listTy one (SeqCons listTy two nilList)
+
+twoOne : Term 0
+twoOne = SeqCons listTy two (SeqCons listTy one nilList)
+
+reverseCall : Term 0
+reverseCall = Apply (Apply reverseFix oneTwo) nilList
+
+headIs : HeadResult n -> Term n -> Bool
+headIs (HeadForm t) expected = sameSyntax t expected
+headIs _ _ = False
+
 normalIs : ReductionResult n -> Term n -> Bool
 normalIs (Normal t) expected = sameSyntax t expected
 normalIs _ _ = False
@@ -160,6 +184,27 @@ checks =
       isRejected (inferErased 512 128 Empty notAType))
   , ("runtime checking also refuses an unadmitted fix",
       isRejected (inferRuntime 512 128 Empty looping))
+  , ("run-mode evaluation unfolds an admitted fix: reverse [1,2] is [2,1]",
+      normalIs (normalizeRun 200 reverseCall) twoOne)
+  , ("run-mode evaluation reports fuel exhaustion instead of a partial answer",
+      case normalizeRun 2 reverseCall of
+        OutOfFuel _ => True
+        _ => False)
+  , ("run-mode head reduction unfolds fix at the head",
+      headIs (weakHeadRun 200 reverseCall) twoOne)
+  , ("type-level head reduction still treats fix as neutral",
+      case weakHead 200 reverseCall of
+        HeadForm t => sameSyntax t reverseCall
+        _ => False)
+  , ("type-level normalization leaves the recursive call unevaluated",
+      normalIs (normalize 200 reverseCall) reverseCall)
+  , ("run-mode evaluation never unfolds under a binder, so an open call stays stuck",
+      normalIs (normalizeRun 200 (the (Term 0) (Lambda Linear listTy
+                  (Apply (Apply (weaken reverseFix) (Variable FZ)) nilList))))
+               (the (Term 0) (Lambda Linear listTy
+                  (Apply (Apply (weaken reverseFix) (Variable FZ)) nilList))))
+  , ("run-mode evaluation agrees with the ordinary reducer on fix-free terms",
+      normalIs (normalizeRun 8 (the (Term 0) (Apply (Lambda Linear NatType (Variable FZ)) one))) one)
   , ("fix is neutral: conversion never unfolds it",
       normalIs (normalize 64 (Apply looping NatZero)) (Apply looping NatZero))
   , ("fix normalization still reduces inside its body",
