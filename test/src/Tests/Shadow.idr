@@ -20,6 +20,7 @@ import Fibril.Core.Quantitative.Substitution
 import Fibril.Cubical.Logical.ShadowSubstitution
 import Fibril.Cubical.Logical.ShadowPath
 import Fibril.Cubical.Logical.ShadowTypedBridge
+import Fibril.Cubical.Logical.ShadowCommon
 import Fibril.Foundation.DeMorgan.Interval
 import Fibril.Foundation.DeMorgan.Scope
 
@@ -107,6 +108,41 @@ linearSource = If (Ref Here) (Boolean True) (Boolean False)
 
 linearSourceUses : Uses Tests.Shadow.linearSource [Linear]
 linearSourceUses = UseIf (UseRef Here) UseBoolean UseBoolean
+
+commonLinearIf : CommonHasType [LBool]
+  (CIf (CVar FZ) (CBool True) (CBool False)) LBool
+commonLinearIf = sourceCommonTyped Tests.Shadow.linearSource
+
+linearIdentity : Term [] (Arrow Linear BoolTy BoolTy)
+linearIdentity = Lam Linear (Ref Here)
+
+linearIdentityUses : Uses Tests.Shadow.linearIdentity []
+linearIdentityUses = UseLam (UseRef Here) Refl
+
+linearIdentityTranslation :
+  commonTerm (shadowTerm Tests.Shadow.linearIdentity) = CLam (CVar FZ)
+linearIdentityTranslation = Refl
+
+commonLinearIdentity : CommonHasType [] (CLam (CVar FZ)) (LArrow LBool LBool)
+commonLinearIdentity = sourceCommonTyped Tests.Shadow.linearIdentity
+
+-- This captured-variable example tests scope and substitution only: its linear
+-- binder is unused, so no Uses derivation is claimed for it.
+commonBinder : CommonHasType [LBool]
+  (CLam (CIf (CVar (FS FZ)) (CBool True) (CBool False))) (LArrow LUnit LBool)
+commonBinder = sourceCommonTyped (the (Term [BoolTy] (Arrow Linear UnitTy BoolTy))
+  (Lam Linear (If (Ref (There Here)) (Boolean True) (Boolean False))))
+
+commonSubstitutionUnderBinder :
+  commonTerm (shadowTerm (substitute Tests.Shadow.sourceReplacement
+    (the (Term [BoolTy] (Arrow Linear UnitTy BoolTy))
+      (Lam Linear (If (Ref (There Here)) (Boolean True) (Boolean False)))))) =
+  commonTerm (substituteLogical (imageSubstitution [BoolTy] Tests.Shadow.sourceReplacement)
+    (shadowTerm (the (Term [BoolTy] (Arrow Linear UnitTy BoolTy))
+      (Lam Linear (If (Ref (There Here)) (Boolean True) (Boolean False))))))
+commonSubstitutionUnderBinder = sourceCommonSubstitution [BoolTy] Tests.Shadow.sourceReplacement
+  (the (Term [BoolTy] (Arrow Linear UnitTy BoolTy))
+    (Lam Linear (If (Ref (There Here)) (Boolean True) (Boolean False))))
 
 shadowDeclarations : PathDeclarations [LBool] [LBool]
 shadowDeclarations = DeclarePath (shadowTerm Tests.Shadow.linearSource) (LBoolean False) NoPaths

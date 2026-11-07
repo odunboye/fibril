@@ -837,3 +837,22 @@ allowance, not evidence of entailment. These are composable admission primitives
 field, target face, proof-tree traversal and solver operation before invoking the
 trusted-host recertifier. Proof-node fuel is a separate bound. No arbitrary
 untrusted-substitution guarantee is claimed.
+
+### Type-preserving common ordinary terms
+
+`ShadowCommon` supplies a separate declarative judgment for ordinary logical
+terms, retaining the complete Boolean, unit and arrow context and result type.
+`commonTermTyped` translates every intrinsic `LogicalTerm`; `sourceCommonTyped`
+specializes it to every quantitative term's `shadowTerm`, and
+`sourceCommonSubstitution` follows the existing source-shadow substitution
+commutation theorem, including under binders. This translation is syntactic and
+proves no resource preservation or semantic soundness. Source `Uses` evidence
+remains separate and cannot be recovered from the shadow.
+
+The only connection to the existing abstract-base `NeutralHasType` judgment in
+this module is `commonVariableErasure`: a variable position is admitted as an
+`NBase` of `NType`. This deliberately forgets its logical type. It is not a
+translation of the new judgment's general terms, paths, or equalities into
+TypedPath. In particular, nonconstant declared Boolean paths remain supported
+only by the existing intrinsic `ShadowPath` judgment, not by this common-term
+judgment or the TypedPath checker; the type-preserving path bridge is unfinished.
