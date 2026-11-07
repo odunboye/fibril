@@ -312,10 +312,64 @@ laterTransEndpoint : BodyEqual Tests.Shadow.shadowDeclarations (the (ScopedFace 
   (NeutralAt LHere (Var FZ)) (Embed (shadowTerm Tests.Shadow.linearSource))
 laterTransEndpoint = BodyTrans BodyRefl Tests.Shadow.bodyEndpointEqual
 
+largePreflightSource : Nat -> ScopedInterval 2
+largePreflightSource Z = Zero
+largePreflightSource (S n) = Reverse (largePreflightSource n)
+
+preflightIntervals : List (ScopedInterval 2)
+preflightIntervals = [Zero, One, Var FZ, Var (FS FZ), Reverse (Var FZ),
+  Meet (Var FZ) (Join (Var FZ) (Var (FS FZ)))]
+
+preflightFaces : List (ScopedFace 2)
+preflightFaces = [SBottom, STop, SEndpoint FZ False, SEndpoint (FS FZ) True,
+  SConjunction (SEndpoint FZ False) (SDisjunction (SEndpoint FZ True) STop)]
+
+preflightEnv : Vect 2 (ScopedInterval 1)
+preflightEnv = [Reverse (Meet (Var FZ) One), Join Zero (Var FZ)]
+
+-- Two vector cells plus three environment nodes plus three source nodes.
+inputBoundaryEnv : Vect 2 (ScopedInterval 1)
+inputBoundaryEnv = [Zero, Reverse One]
+
+inputBoundaryInterval : ScopedInterval 2
+inputBoundaryInterval = Meet (Var FZ) Zero
+
+inputBoundaryFace : ScopedFace 2
+inputBoundaryFace = SConjunction (SEndpoint FZ False) SBottom
+
+largerDestinationEnv : Vect 1 (ScopedInterval 2)
+largerDestinationEnv = [Var FZ]
+
+intervalPreflightReference : Nat -> ScopedInterval 2 -> Bool
+intervalPreflightReference fuel source =
+  boundedShadowIntervalPreflight (MkShadowSubstitutionBounds 2 100 fuel) Tests.Shadow.preflightEnv source ==
+    intervalNodes fuel (substituteScoped (\i => index i Tests.Shadow.preflightEnv) source)
+
+facePreflightReference : Nat -> ScopedFace 2 -> Bool
+facePreflightReference fuel source =
+  boundedShadowFacePreflight (MkShadowSubstitutionBounds 2 100 fuel) Tests.Shadow.preflightEnv source ==
+    faceNodes fuel (substituteScopedFace (\i => index i Tests.Shadow.preflightEnv) source)
+
 public export
 checks : List (String, Bool)
 checks =
-  [ ("recertify sym/trans", hasRecertification (recertifyDimensionEvidence 4 (atDimension Zero) STop Tests.Shadow.bodyTransEndpoint))
+  [ ("interval preflight matches substitution corpus", all (\fuel => all (intervalPreflightReference fuel) Tests.Shadow.preflightIntervals) (the (List Nat) [0, 1, 2, 3, 4, 5, 8, 12, 20]))
+  , ("face preflight matches substitution corpus", all (\fuel => all (facePreflightReference fuel) Tests.Shadow.preflightFaces) (the (List Nat) [0, 1, 2, 3, 4, 5, 8, 12, 20]))
+  , ("unused large environment rejected", boundedShadowIntervalPreflight (MkShadowSubstitutionBounds 2 20 10) [Zero, Tests.Shadow.longReverse 1000] (the (ScopedInterval 2) (Var FZ)) == Nothing)
+  , ("duplicate expansion rejected", boundedShadowIntervalPreflight (MkShadowSubstitutionBounds 2 100 7) Tests.Shadow.preflightEnv (Meet (Var FZ) (Var FZ)) == Nothing)
+  , ("interval aggregate input one below", boundedShadowIntervalPreflight (MkShadowSubstitutionBounds 2 7 10) Tests.Shadow.inputBoundaryEnv Tests.Shadow.inputBoundaryInterval == Nothing)
+  , ("interval aggregate input exact", boundedShadowIntervalPreflight (MkShadowSubstitutionBounds 2 8 10) Tests.Shadow.inputBoundaryEnv Tests.Shadow.inputBoundaryInterval == Just 7)
+  , ("interval aggregate input one above", boundedShadowIntervalPreflight (MkShadowSubstitutionBounds 2 9 10) Tests.Shadow.inputBoundaryEnv Tests.Shadow.inputBoundaryInterval == Just 7)
+  , ("face aggregate input one below", boundedShadowFacePreflight (MkShadowSubstitutionBounds 2 7 10) Tests.Shadow.inputBoundaryEnv Tests.Shadow.inputBoundaryFace == Nothing)
+  , ("face aggregate input exact", boundedShadowFacePreflight (MkShadowSubstitutionBounds 2 8 10) Tests.Shadow.inputBoundaryEnv Tests.Shadow.inputBoundaryFace == Just 7)
+  , ("face aggregate input one above", boundedShadowFacePreflight (MkShadowSubstitutionBounds 2 9 10) Tests.Shadow.inputBoundaryEnv Tests.Shadow.inputBoundaryFace == Just 7)
+  , ("scope limit rejected", boundedShadowFacePreflight (MkShadowSubstitutionBounds 1 100 100) Tests.Shadow.preflightEnv STop == Nothing)
+  , ("interval destination scope alone rejected", boundedShadowIntervalPreflight (MkShadowSubstitutionBounds 1 10 10) Tests.Shadow.largerDestinationEnv (Var FZ) == Nothing)
+  , ("interval destination scope admitted at limit", boundedShadowIntervalPreflight (MkShadowSubstitutionBounds 2 10 10) Tests.Shadow.largerDestinationEnv (Var FZ) == Just 9)
+  , ("face destination scope alone rejected", boundedShadowFacePreflight (MkShadowSubstitutionBounds 1 10 10) Tests.Shadow.largerDestinationEnv (SEndpoint FZ False) == Nothing)
+  , ("face destination scope admitted at limit", boundedShadowFacePreflight (MkShadowSubstitutionBounds 2 10 10) Tests.Shadow.largerDestinationEnv (SEndpoint FZ False) == Just 9)
+  , ("large retained source rejected", boundedShadowIntervalPreflight (MkShadowSubstitutionBounds 2 20 100) Tests.Shadow.preflightEnv (Tests.Shadow.largePreflightSource 1000) == Nothing)
+  , ("recertify sym/trans", hasRecertification (recertifyDimensionEvidence 4 (atDimension Zero) STop Tests.Shadow.bodyTransEndpoint))
   , ("recertify success remaining fuel", recertifiedWithFuel 5 (recertifyDimensionEvidence 9 (atDimension Zero) STop Tests.Shadow.bodyTransEndpoint))
   , ("recertify failed endpoint remaining fuel", rejectedWithFuel 8 (recertifyDimensionEvidence 9 Var STop Tests.Shadow.bodyEndpointEqual))
   , ("recertify later trans failure remaining fuel", rejectedWithFuel 6 (recertifyDimensionEvidence 9 Var STop Tests.Shadow.laterTransEndpoint))

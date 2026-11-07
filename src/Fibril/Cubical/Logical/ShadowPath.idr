@@ -265,6 +265,83 @@ data DimensionEvidence : {0 context : Vect n LogicalType} -> {0 paths : Vect k L
     DimensionEvidence env target (BodyIfEqual c t f)
   DimUnitElim : {0 x : BodyEqual declarations face x1 x2} -> {0 b : BodyEqual declarations face b1 b2} -> DimensionEvidence env target x -> DimensionEvidence env target b -> DimensionEvidence env target (BodyUnitElimEqual x b)
 
+||| Limits for the first-order substitution preflight, independent of proof fuel.
+public export
+record ShadowSubstitutionBounds where
+  constructor MkShadowSubstitutionBounds
+  maxScope : Nat
+  inputNodes : Nat
+  outputNodes : Nat
+
+shadowEnvironmentNodes : Nat -> Vect n (ScopedInterval d) -> Maybe Nat
+shadowEnvironmentNodes fuel [] = Just fuel
+shadowEnvironmentNodes Z (_ :: _) = Nothing
+shadowEnvironmentNodes (S fuel) (x :: xs) = do
+  rest <- intervalNodes fuel x
+  shadowEnvironmentNodes rest xs
+
+shadowMappedIntervalNodes : Nat -> Vect n (ScopedInterval d) -> ScopedInterval n -> Maybe Nat
+shadowMappedIntervalNodes Z _ _ = Nothing
+shadowMappedIntervalNodes (S fuel) env Zero = Just fuel
+shadowMappedIntervalNodes (S fuel) env One = Just fuel
+shadowMappedIntervalNodes fuel env (Var i) = intervalNodes fuel (index i env)
+shadowMappedIntervalNodes (S fuel) env (Reverse x) = shadowMappedIntervalNodes fuel env x
+shadowMappedIntervalNodes (S fuel) env (Meet x y) = do
+  rest <- shadowMappedIntervalNodes fuel env x
+  shadowMappedIntervalNodes rest env y
+shadowMappedIntervalNodes (S fuel) env (Join x y) = do
+  rest <- shadowMappedIntervalNodes fuel env x
+  shadowMappedIntervalNodes rest env y
+
+-- Reverse does not produce a face node in scopedEndpoint.
+shadowEndpointNodes : Nat -> ScopedInterval d -> Maybe Nat
+shadowEndpointNodes fuel (Reverse x) = shadowEndpointNodes fuel x
+shadowEndpointNodes Z _ = Nothing
+shadowEndpointNodes (S fuel) Zero = Just fuel
+shadowEndpointNodes (S fuel) One = Just fuel
+shadowEndpointNodes (S fuel) (Var _) = Just fuel
+shadowEndpointNodes (S fuel) (Meet x y) = do
+  rest <- shadowEndpointNodes fuel x
+  shadowEndpointNodes rest y
+shadowEndpointNodes (S fuel) (Join x y) = do
+  rest <- shadowEndpointNodes fuel x
+  shadowEndpointNodes rest y
+
+shadowMappedFaceNodes : Nat -> Vect n (ScopedInterval d) -> ScopedFace n -> Maybe Nat
+shadowMappedFaceNodes Z _ _ = Nothing
+shadowMappedFaceNodes (S fuel) env SBottom = Just fuel
+shadowMappedFaceNodes (S fuel) env STop = Just fuel
+shadowMappedFaceNodes fuel env (SEndpoint i _) = shadowEndpointNodes fuel (index i env)
+shadowMappedFaceNodes (S fuel) env (SConjunction x y) = do
+  rest <- shadowMappedFaceNodes fuel env x
+  shadowMappedFaceNodes rest env y
+shadowMappedFaceNodes (S fuel) env (SDisjunction x y) = do
+  rest <- shadowMappedFaceNodes fuel env x
+  shadowMappedFaceNodes rest env y
+
+||| Admission only: returns remaining output-node allowance without constructing
+||| the substitution. All vector entries, including unused ones, are admitted.
+public export
+boundedShadowIntervalPreflight : {n, d : Nat} -> ShadowSubstitutionBounds ->
+  Vect n (ScopedInterval d) -> ScopedInterval n -> Maybe Nat
+boundedShadowIntervalPreflight {n} {d} bounds env source =
+  if n <= maxScope bounds && d <= maxScope bounds then do
+    rest <- shadowEnvironmentNodes (inputNodes bounds) env
+    _ <- intervalNodes rest source
+    shadowMappedIntervalNodes (outputNodes bounds) env source
+  else Nothing
+
+||| As above, accounting exactly for scopedEndpoint's erased reversals.
+public export
+boundedShadowFacePreflight : {n, d : Nat} -> ShadowSubstitutionBounds ->
+  Vect n (ScopedInterval d) -> ScopedFace n -> Maybe Nat
+boundedShadowFacePreflight {n} {d} bounds env source =
+  if n <= maxScope bounds && d <= maxScope bounds then do
+    rest <- shadowEnvironmentNodes (inputNodes bounds) env
+    _ <- faceNodes rest source
+    shadowMappedFaceNodes (outputNodes bounds) env source
+  else Nothing
+
 ||| Trusted-host recertification: fuel counts proof nodes, shared left to right.
 ||| Substitution functions and their results are not resource bounded.
 public export

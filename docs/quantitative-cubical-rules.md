@@ -807,3 +807,15 @@ representation: `DeclaredLeft` and `DeclaredRight` retain their interval, and
 also require an accessible runtime interval rather than an erased one. Existing
 callers that relied on erasure may need changes. Retaining these fields increases
 proof memory use. No runtime checker or quantitative guarantee is changed.
+
+The separate `boundedShadowIntervalPreflight` and `boundedShadowFacePreflight`
+operations admit a finite vector, source syntax, and explicit scope, input-node,
+and output-node limits. They scan unused vector entries, cap both dimension
+scopes (and therefore Fin traversal and vector length), and count each output
+occurrence without constructing the mapped syntax. Face counts follow
+`scopedEndpoint`, which drops reversals. Their result is remaining output-node
+allowance, not evidence of entailment. These are composable admission primitives,
+**not** a bounded recertifier: callers must still bound every retained proof
+field, target face, proof-tree traversal and solver operation before invoking the
+trusted-host recertifier. Proof-node fuel is a separate bound. No arbitrary
+untrusted-substitution guarantee is claimed.
