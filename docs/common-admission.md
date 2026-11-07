@@ -1,7 +1,7 @@
-# CommonAdmission: bounded typing and reflexive equality admission
+# CommonAdmission: bounded typing and certified face equality
 
-`Fibril.Cubical.Logical.CommonAdmission` admits **typing and a reflexive-generator
-equality certificate slice**, not a new calculus,
+`Fibril.Cubical.Logical.CommonAdmission` admits **typing and first-order face
+equality certificates**, not a new calculus,
 conversion procedure, or production bridge. Common Path v0 in
 `cubical-experiment-contract.md` remains authoritative. No v0 rule changed.
 
@@ -65,12 +65,12 @@ Named path environments are retained under ordinary binders, as in v0.
 `Left InputLimit`, `Left CheckingLimit`, and `Left TypeMismatch` are distinct
 fail-closed results. For these typing entry points, abstraction, globals,
 recursion and effects
-have no constructors or fallback. The equality entry point below separately
-reports unsupported endpoint/restriction requests. There is no production
-checker/runtime fallback and no solver invoked by these entry points. Thus there
-is no solver invocation or expansion budget in the supported slice. Such budgets
-must be explicit before
-those operations are added, not silently equated with these two allowances.
+have no constructors or fallback. The original reflexive equality entry point
+below separately reports unsupported endpoint/restriction requests. There is no
+production checker/runtime fallback and no solver invoked by these typing entry
+points. The separate canonical-context equality entry point explicitly adds a
+solver-call allowance and retains authoritative expansion/solver caps, rather
+than silently equating them with these two allowances.
 
 This is **not** a whole time/allocation/resource theorem. It does not bound the
 caller's construction/deserialization of input, host allocation, compiler
@@ -87,8 +87,9 @@ the **environment-dependent** higher-order setoid model. A vector of named-path
 types is not a declaration context and asserts no endpoint equations.
 
 The complete declaration/equality/abstraction gate must retain the following
-exact v0 evidence, without replacing it with a Boolean. The reflexive-generator
-slice below now constructs items 1 and 2 for its supported grammar:
+exact v0 evidence, without replacing it with a Boolean. The original reflexive-generator
+API and the separate canonical-context equality API below construct items 1 and 2
+for their supported grammars:
 
 1. `CommonDeclarations ctx paths`, each declaration's exact ordinary endpoints,
    their `CommonHasType` derivations and accessible `HigherOrderTerm` witnesses.
@@ -111,7 +112,8 @@ slice below now constructs items 1 and 2 for its supported grammar:
    dimension-weakened endpoint witnesses. The existing boundary/application
    theorems apply only to that complete certificate.
 4. `DependentPathAdmissible declarations ps` remains an **explicit model
-   assumption about a chosen environment-dependent path interpretation**. Its
+   assumption about a chosen environment-dependent path interpretation** (for the
+   canonical API, constructed from its exact-witness canonical validity premise). Its
    endpoint relations for every ordinary environment are not consequences of
    typechecking a list of path types. The checker must not invent an arbitrary
    model, constant path, Boolean certificate, or existence theorem to discharge
@@ -122,10 +124,9 @@ slice below now constructs items 1 and 2 for its supported grammar:
    must rebuild the actual judgments and renew checks/evidence, never assume
    unconditional stability of solver acceptance or semantic certificates.
 
-**Non-reflexive endpoint equality and abstraction certificate construction
-remain unimplemented.** Raw declaration endpoint typing and the bounded
-reflexive-generator equality slice below are automatic. Existing witness
-dimension mapping is
+**Abstraction certificate construction remains unimplemented.** Non-reflexive
+endpoint equality is now supported by the separate canonical-context API below;
+the original reflexive API is preserved. Existing witness dimension mapping is
 available, but is not an admission/resource theorem for host substitutions or
 automatic recertification of equality/abstraction boundaries.
 
@@ -206,7 +207,7 @@ witness**; no theorem of coherence merely from equal erasure is assumed.
 Model admissibility is an allowed interpretation assumption, not an assumption of
 the target equality. No manual semantic certificate is needed for success.
 
-### Unsupported endpoint/restriction and the remaining gate
+### Endpoint/restriction unsupported by the original API
 
 `AEEndpoint name interval side` and `AERestrict source certificate` explicitly
 return `UnsupportedEquality`, including when nested. Their full syntax is still
@@ -223,12 +224,13 @@ inferred from erasure. Endpoint admission must first index actual admissibility
 by canonical admitted witnesses and construct uniform structural alignment
 providers (or prove an appropriate coherence result). It must not fabricate
 admissibility, request the target semantic equation, or take a manual semantic
-certificate. This slice deliberately leaves endpoints unsupported until then.
+certificate. The original API deliberately leaves endpoints unsupported. The separate
+canonical-context API below supplies that missing exact-witness contract.
 
-Homogeneous abstraction, automatically admitted boundaries, equality dimension
-recertification, non-reflexive open named-path equality, and the full first
-end-to-end path gate remain open. Existing dimension mapping of returned typing
-witnesses is tested, but is not automatic mapping of equality certificates.
+Homogeneous abstraction, automatically admitted abstraction boundaries, equality
+dimension recertification, and the full first end-to-end path abstraction gate
+remain open. Existing dimension mapping of returned typing witnesses is tested,
+but is not automatic mapping of equality certificates.
 
 ### Budgets and evidence
 
@@ -257,3 +259,127 @@ substitution; `openSound` typechecks the uniform provider under actual model
 admissibility. These observations do not assert admitted endpoint equality.
 Five new diagnostic-specific compile negatives prevent changing the returned
 face, intermediate/right term, type, context, or reflecting equality into `Uses`.
+
+
+## Canonical-context endpoint and compositional equality admission
+
+`admitCanonicalCommonEquality budget ctx declarations face left right expected certificate`
+is a **separate experimental entry point**. It preserves `admitCommonEquality`,
+its result types, fuel boundaries, and arbitrary-admissibility reflexive provider.
+It uses the same scoped raw syntax, declarations and `AdmissionEquality` grammar;
+there are no new v0 equations, lambda congruence, beta/eta, parser, runtime or
+production-core changes. Endpoint and restriction requests remain unsupported
+by the original entry point, not by this one.
+
+### Exact semantic context premise
+
+`AdmittedDeclarations` retains both actual `HigherOrderTerm` witnesses selected
+by declaration checking. `CanonicalPathAdmissible declarations ps` asserts that
+**those exact witnesses** are related to the corresponding paths at zero and
+one, for every ordinary environment. `ps` is an arbitrary environment-dependent
+semantic path environment. Validity is an explicit semantic model premise,
+**not** a Boolean algorithm, a target equation, or a promised existence theorem.
+
+`canonicalPathAdmissible declarations ps valid` automatically constructs the
+existing `DependentPathAdmissible (checkedDeclarations declarations) ps` using
+exactly those witnesses. `CanonicalDeclaredPath` retains exact selected raw
+endpoint syntax and witnesses through typed lookup. `canonicalLookupAlignment`,
+`canonicalLeftAlignment`, and `canonicalRightAlignment` construct structural
+alignment to the witnesses extracted by authoritative lookup/face interpretation
+under that very converted admissibility proof. They do not infer coherence from
+equal types or erasures. The arbitrary-witness `DependentPathAdmissible` relation
+is unchanged and cannot be substituted for canonical validity.
+
+Success is `AdmittedCanonicalEqualityInput`, retaining checked declarations and
+`canonicalResult`. That result contains both exact `AdmittedPathTerm` typing and
+computational witnesses, `canonicalEquality : CommonFaceEqual ...`, and
+`canonicalEvidence`: a provider uniform over `ps` and its actual canonical
+validity proof, returning `DependentEndpointFaceEvidence` indexed by the
+**automatically converted** admissibility proof. Thus
+`dependentEndpointFaceEvidenceSound (canonicalEvidence result ps valid)` proves
+the returned terms related at every ordinary environment and every De Morgan
+valuation satisfying the admitted face. No caller target typing, equality,
+alignment or semantic certificate is accepted by admission.
+
+### Raw certificates and supported closure
+
+`AEEndpoint name interval side` checks that the left target is exactly
+`APAt name interval`, the named declaration's actual result type matches the
+expected type, and the right target is `APOrdinary` of its selected declared
+endpoint. Raw matching retains **all annotations**, literal values, finite names,
+and interval syntax, even when different annotations have identical erasures.
+Every declaration's two endpoints is independently typechecked before lookup.
+The actual `boundedEndpointEntails face interval side = True` proof is checked
+and retained; failure, including solver exhaustion/incompleteness, rejects.
+Both `CommonLeft` and `CommonRight` are constructed with their exact witnesses
+and automatic canonical alignment providers.
+
+Symmetry, transitivity and app/if/unit-eliminator congruences operate on genuinely
+**different** target terms, without a top-level raw-equality requirement.
+Transitivity recursively admits both sides of its exact annotated middle, then
+structurally compares their actual witnesses, including every hidden application
+domain, to construct the required intermediate alignment. It fails closed if
+comparison cannot construct alignment. Reflexivity alone requires exact annotated
+raw equality and shares its single checked witness. Application congruence checks
+both raw domain annotations and the certificate domain.
+
+`AERestrict source certificate` checks the exact authoritative
+`boundedFaceEntails target source = True`, admits the subcertificate at `source`,
+and constructs `CommonRestrict` / `DepEndpointRestrict`. The implication is
+**target => source**, never the reverse. No automatic certificate substitution
+or dimension recertification is supplied.
+
+### Shared allowances and rejection
+
+`CanonicalEqualityBudget` contains the original `syntaxBudget : AdmissionBudget`
+and a separate `solverCalls` allowance. One shared sequential input preflight
+traverses the ordinary context, every declaration/type/both endpoints, dimension
+scope, ambient face, both annotated targets, expected type, and the entire
+certificate tree including middle terms, source faces and intervals. It finishes
+**before** checking declarations, lookup, comparisons, or any solver call.
+
+One shared `checkingNodes` allowance then pays for declaration cells/terminator,
+independently checked ordinary endpoints, every certificate node, and the ordinary
+or path nodes visited by reflexivity's typing checker. Endpoint certificates
+reuse checked declaration witnesses; their target embeddings/name witnesses are
+constructed by the certificate rule rather than independently rechecked.
+Congruences construct their target typing from admitted children. Recursive
+siblings and restrictions receive remaining fuel, never a reset.
+
+One `solverCalls` token is reserved per endpoint/restriction request, shared
+across all siblings. Additionally the **existing authoritative fixed caps**
+remain: endpoint interval preflight 12, combined face-node cap 12, dimension cap
+12. There is no uncapped solver or expansion fallback. `InputLimit`,
+`CheckingLimit`, `SolverLimit`, `TypeMismatch`, `SyntaxMismatch`, and
+`FaceMismatch` are fail-closed results. `FaceMismatch` includes inconclusive or
+capped solver rejection and is not a proof of non-entailment. The original
+entry point continues to use `UnsupportedEquality` for endpoint/restriction.
+Comparisons, alignment construction and interpreting returned providers are not
+separately metered; this is not a whole allocation/time theorem.
+
+### Evidence and remaining gate
+
+`Tests.Cubical.CommonEndpointAdmission` invokes the automatically returned
+provider under a **constructively built canonical validity proof** for an actual
+open, nonconstant, environment-dependent Boolean path from the ordinary variable
+to the shadow of a linear source Boolean `If`. `Uses ... [Linear]` remains a
+separate proof. Both endpoints and both ordinary Boolean valuations are checked,
+while another dimension has a non-Boolean value. Symmetry, transitivity,
+app/if/unit congruences, restriction, and nonzero named lookup invoke semantic
+soundness too. Returned witness dimension mapping is observed separately, not
+claimed as admitted equality recertification.
+
+Regressions reject wrong face/name/type/interval/context/endpoint annotation,
+reversed restriction, missing solver tokens, interval/face solver caps, and
+shared input/checking exhaustion. Exact small endpoint boundaries are input
+16/17 and checking 4/5; trans/sym checking is 7/8, and solver tokens are shared
+across trans/sym, restrictions and all congruence siblings. Diagnostic-specific
+compile negatives prevent changing returned context/face or replacing canonical
+validity by arbitrary `DependentPathAdmissible` evidence.
+
+**Remaining:** there is no general conversion/equality decision procedure or
+completeness theorem, no general existence theorem for semantic contexts, no
+lambda equality rule, no automatic equality dimension recertification, and no
+admitted homogeneous path abstraction with both automatically constructed
+boundary certificates. This completes a genuine declared-endpoint equality
+admission contract, not the full path abstraction/production integration gate.

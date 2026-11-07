@@ -6,6 +6,9 @@ import Data.Vect
 import Decidable.Equality
 import Fibril.Cubical.Logical.Shadow
 import Fibril.Cubical.Logical.ShadowCommon
+import Fibril.Cubical.Logical.TypedPath
+import Fibril.Cubical.Logical.OpenPath
+import Fibril.Cubical.Logical.ShadowPath
 import Fibril.Cubical.Logical.ShadowTypedBridge
 import Fibril.Foundation.DeMorgan.Interval
 import Fibril.Foundation.DeMorgan.Scope
@@ -53,7 +56,7 @@ eraseAdmissionPath (APUnitElim x b) = CPUnitElim (eraseAdmissionPath x) (eraseAd
 eraseAdmissionPath (APIf c t f) = CPIf (eraseAdmissionPath c) (eraseAdmissionPath t) (eraseAdmissionPath f)
 
 public export
-data AdmissionError = InputLimit | CheckingLimit | TypeMismatch | SyntaxMismatch | UnsupportedEquality
+data AdmissionError = InputLimit | CheckingLimit | TypeMismatch | SyntaxMismatch | UnsupportedEquality | SolverLimit | FaceMismatch
 
 ||| Preflight counts all context/type/scope/index/interval/syntax constructors
 ||| together, before lookup, type comparison or proof construction. Checking
@@ -291,7 +294,7 @@ admitCommonPathTerm budget ctx paths d raw a = do
   Right evidence
 
 ||| First-order certificate syntax, not a target judgment or semantic proof.
-||| Endpoint and restriction requests are retained for explicit fail-closed status.
+||| The original reflexive entry point rejects endpoint/restriction requests.
 public export
 data AdmissionEquality : Nat -> Nat -> Nat -> Type where
   AERefl : AdmissionEquality n k d
@@ -594,3 +597,359 @@ admitCommonEquality budget ctx raw face left right a cert = do
       (fuel, MkCheckedReflexive eq evidence) <- checkReflexive fuel (checkedDeclarations declarations) face left a
         (pathTyping typed) (pathWitness typed) cert
       Right (MkAdmittedEqualityInput declarations (MkAdmittedEquality typed typed eq evidence))
+
+||| Semantic validity of the checker-selected witnesses, not a decision procedure
+||| and not a claim that every declaration context has a model.
+public export
+CanonicalPathAdmissible : {ctx : Vect n LogicalType} -> {raw : AdmissionDeclarations n k} ->
+  AdmittedDeclarations ctx raw -> carrier (commonDependentPathEnvironmentSetoid ctx (admissionPathTypes raw)) -> Type
+CanonicalPathAdmissible CheckedNoPaths () = ()
+CanonicalPathAdmissible {raw = ADCons a _ _ _} (CheckedDeclare l r rest) (path, ps) =
+  ((env : carrier (commonEnvironmentSetoid ctx)) -> related (commonTypeSetoid a)
+    (applyMorphism path (env, (False, False))) (applyMorphism (higherOrderTermSemantics (termWitness l)) env),
+   ((env : carrier (commonEnvironmentSetoid ctx)) -> related (commonTypeSetoid a)
+    (applyMorphism path (env, (True, True))) (applyMorphism (higherOrderTermSemantics (termWitness r)) env),
+    CanonicalPathAdmissible rest ps))
+
+public export
+canonicalPathAdmissible : {ctx : Vect n LogicalType} -> {raw : AdmissionDeclarations n k} ->
+  (decls : AdmittedDeclarations ctx raw) -> (ps : carrier (commonDependentPathEnvironmentSetoid ctx (admissionPathTypes raw))) ->
+  CanonicalPathAdmissible decls ps -> DependentPathAdmissible (checkedDeclarations decls) ps
+canonicalPathAdmissible CheckedNoPaths () () = DependentAdmissibleNil
+canonicalPathAdmissible (CheckedDeclare l r rest) (path, ps) (zero, one, valid) =
+  DependentAdmissibleCons (termWitness l) (termWitness r) zero one (canonicalPathAdmissible rest ps valid)
+
+||| Lookup retains the exact raw endpoint syntax AND the selected witnesses.
+public export
+data CanonicalDeclaredPath : {ctx : Vect n LogicalType} -> {raw : AdmissionDeclarations n k} ->
+  (decls : AdmittedDeclarations ctx raw) -> (p : LogicalVar (admissionPathTypes raw) a) ->
+  {left, right : AdmissionTerm n} -> AdmittedTerm ctx left a -> AdmittedTerm ctx right a -> Type where
+  CanonicalHere : CanonicalDeclaredPath (CheckedDeclare l r rest) LHere l r
+  CanonicalThere : CanonicalDeclaredPath rest p l r -> CanonicalDeclaredPath (CheckedDeclare x y rest) (LThere p) l r
+
+public export
+canonicalDeclaredPath : {ctx : Vect n LogicalType} -> {raw : AdmissionDeclarations n k} ->
+  {left, right : AdmissionTerm n} ->
+  {decls : AdmittedDeclarations ctx raw} -> {p : LogicalVar (admissionPathTypes raw) a} ->
+  {l : AdmittedTerm ctx left a} -> {r : AdmittedTerm ctx right a} ->
+  CanonicalDeclaredPath decls p l r ->
+  CommonDeclaredPath (checkedDeclarations decls) p (eraseAdmission left) (eraseAdmission right)
+canonicalDeclaredPath CanonicalHere = CommonDeclaredHere
+canonicalDeclaredPath (CanonicalThere p) = CommonDeclaredThere (canonicalDeclaredPath p)
+
+public export
+CanonicalLookupAlignment : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} -> {a : LogicalType} ->
+  {p : LogicalVar paths a} -> {ps : carrier (commonDependentPathEnvironmentSetoid ctx paths)} ->
+  {0 lt : CommonHasType ctx l a} -> {0 rt : CommonHasType ctx r a} ->
+  HigherOrderTerm ctx a lt -> HigherOrderTerm ctx a rt -> DependentPathEndpoints ctx p l r ps -> Type
+CanonicalLookupAlignment l r (DependentEndpoints actualL actualR _ _) =
+  (HigherOrderAlignment actualL l, HigherOrderAlignment actualR r)
+
+public export
+canonicalLookupAlignment : {ctx : Vect n LogicalType} -> {raw : AdmissionDeclarations n k} ->
+  {a : LogicalType} -> {left, right : AdmissionTerm n} ->
+  {decls : AdmittedDeclarations ctx raw} -> {p : LogicalVar (admissionPathTypes raw) a} ->
+  {l : AdmittedTerm ctx left a} -> {r : AdmittedTerm ctx right a} ->
+  (selected : CanonicalDeclaredPath decls p l r) ->
+  (ps : carrier (commonDependentPathEnvironmentSetoid ctx (admissionPathTypes raw))) ->
+  (valid : CanonicalPathAdmissible decls ps) ->
+  CanonicalLookupAlignment (termWitness l) (termWitness r)
+    (dependentDeclaredLookup (canonicalDeclaredPath selected) ps (canonicalPathAdmissible decls ps valid))
+canonicalLookupAlignment {decls = CheckedDeclare l r rest} CanonicalHere (path, ps) (zero, one, valid) =
+  (selfTermAlignment (termWitness l), selfTermAlignment (termWitness r))
+canonicalLookupAlignment {l} {r} {decls = CheckedDeclare x y rest} (CanonicalThere selected) (path, ps) (zero, one, valid)
+  with (dependentDeclaredLookup (canonicalDeclaredPath selected) ps (canonicalPathAdmissible rest ps valid)) proof found
+    canonicalLookupAlignment {l} {r} {decls = CheckedDeclare x y rest} (CanonicalThere selected) (path, ps) (zero, one, valid)
+      | DependentEndpoints actualL actualR z o =
+        replace {p = CanonicalLookupAlignment (termWitness l) (termWitness r)} found
+          (canonicalLookupAlignment selected ps valid)
+
+public export
+canonicalLeftAlignment : {ctx : Vect n LogicalType} -> {raw : AdmissionDeclarations n k} ->
+  {a : LogicalType} -> {left, right : AdmissionTerm n} ->
+  {decls : AdmittedDeclarations ctx raw} -> {p : LogicalVar (admissionPathTypes raw) a} ->
+  {l : AdmittedTerm ctx left a} -> {r : AdmittedTerm ctx right a} ->
+  (selected : CanonicalDeclaredPath decls p l r) ->
+  (ps : carrier (commonDependentPathEnvironmentSetoid ctx (admissionPathTypes raw))) ->
+  (valid : CanonicalPathAdmissible decls ps) -> (env : carrier (commonEnvironmentSetoid ctx)) ->
+  (valuation : Fin d -> DM) -> (face : ScopedFace d) -> (i : ScopedInterval d) ->
+  (check : boundedEndpointEntails face i False = True) -> (holds : faceAtVal valuation face = True) ->
+  DependentEndpointAlignment (termWitness l)
+    (dependentDeclaredLeftAtFace (canonicalDeclaredPath selected) ps (canonicalPathAdmissible decls ps valid) env valuation face i check holds)
+canonicalLeftAlignment {decls} {l} {r} selected ps valid env valuation face i check holds
+  with (dependentDeclaredLookup (canonicalDeclaredPath selected) ps (canonicalPathAdmissible decls ps valid)) proof found
+    canonicalLeftAlignment {decls} {l} {r} selected ps valid env valuation face i check holds
+      | DependentEndpoints actualL actualR z o =
+        fst (replace {p = CanonicalLookupAlignment (termWitness l) (termWitness r)} found
+          (canonicalLookupAlignment selected ps valid))
+
+public export
+canonicalRightAlignment : {ctx : Vect n LogicalType} -> {raw : AdmissionDeclarations n k} ->
+  {a : LogicalType} -> {left, right : AdmissionTerm n} ->
+  {decls : AdmittedDeclarations ctx raw} -> {p : LogicalVar (admissionPathTypes raw) a} ->
+  {l : AdmittedTerm ctx left a} -> {r : AdmittedTerm ctx right a} ->
+  (selected : CanonicalDeclaredPath decls p l r) ->
+  (ps : carrier (commonDependentPathEnvironmentSetoid ctx (admissionPathTypes raw))) ->
+  (valid : CanonicalPathAdmissible decls ps) -> (env : carrier (commonEnvironmentSetoid ctx)) ->
+  (valuation : Fin d -> DM) -> (face : ScopedFace d) -> (i : ScopedInterval d) ->
+  (check : boundedEndpointEntails face i True = True) -> (holds : faceAtVal valuation face = True) ->
+  DependentEndpointAlignment (termWitness r)
+    (dependentDeclaredRightAtFace (canonicalDeclaredPath selected) ps (canonicalPathAdmissible decls ps valid) env valuation face i check holds)
+canonicalRightAlignment {decls} {l} {r} selected ps valid env valuation face i check holds
+  with (dependentDeclaredLookup (canonicalDeclaredPath selected) ps (canonicalPathAdmissible decls ps valid)) proof found
+    canonicalRightAlignment {decls} {l} {r} selected ps valid env valuation face i check holds
+      | DependentEndpoints actualL actualR z o =
+        snd (replace {p = CanonicalLookupAlignment (termWitness l) (termWitness r)} found
+          (canonicalLookupAlignment selected ps valid))
+
+record SelectedDeclaration {ctx : Vect n LogicalType} {raw : AdmissionDeclarations n k}
+  (decls : AdmittedDeclarations ctx raw) (name : Fin k) (a : LogicalType) where
+  constructor MkSelectedDeclaration
+  rawLeft : AdmissionTerm n
+  rawRight : AdmissionTerm n
+  selectedLeft : AdmittedTerm ctx rawLeft a
+  selectedRight : AdmittedTerm ctx rawRight a
+  selectedName : LogicalVar (admissionPathTypes raw) a
+  selectedIndex : variableIndex selectedName = name
+  selectedDeclaration : CanonicalDeclaredPath decls selectedName selectedLeft selectedRight
+
+selectDeclaration : {ctx : Vect n LogicalType} -> {raw : AdmissionDeclarations n k} ->
+  (decls : AdmittedDeclarations ctx raw) -> (name : Fin k) -> (a : LogicalType) ->
+  Either AdmissionError (SelectedDeclaration decls name a)
+selectDeclaration {raw = ADCons b left right rest} (CheckedDeclare l r ds) FZ a =
+  case commonTypeDecEq b a of
+    No _ => Left TypeMismatch
+    Yes Refl => Right (MkSelectedDeclaration left right l r LHere Refl CanonicalHere)
+selectDeclaration (CheckedDeclare l r ds) (FS name) a = do
+  MkSelectedDeclaration left right l' r' p eq selected <- selectDeclaration ds name a
+  Right (MkSelectedDeclaration left right l' r' (LThere p) (cong FS eq) (CanonicalThere selected))
+
+||| Additional shared call allowance; interval expansion and face solving also
+||| retain the authoritative solver's fixed caps (12), rejecting inconclusively.
+public export
+record CanonicalEqualityBudget where
+  constructor MkCanonicalEqualityBudget
+  syntaxBudget : AdmissionBudget
+  solverCalls : Nat
+
+public export
+record AdmittedCanonicalEquality {ctx : Vect n LogicalType} {raw : AdmissionDeclarations n k}
+  (decls : AdmittedDeclarations ctx raw) (face : ScopedFace d)
+  (left, right : AdmissionPathTerm n k d) (a : LogicalType) where
+  constructor MkAdmittedCanonicalEquality
+  canonicalLeft : AdmittedPathTerm ctx (admissionPathTypes raw) d left a
+  canonicalRight : AdmittedPathTerm ctx (admissionPathTypes raw) d right a
+  canonicalEquality : CommonFaceEqual (checkedDeclarations decls) face (eraseAdmissionPath left) (eraseAdmissionPath right) a
+  canonicalEvidence : (ps : carrier (commonDependentPathEnvironmentSetoid ctx (admissionPathTypes raw))) ->
+    (valid : CanonicalPathAdmissible decls ps) ->
+    DependentEndpointFaceEvidence canonicalEquality (pathWitness canonicalLeft) (pathWitness canonicalRight)
+      ps (canonicalPathAdmissible decls ps valid)
+
+public export
+record AdmittedCanonicalEqualityInput (ctx : Vect n LogicalType) (raw : AdmissionDeclarations n k)
+  (face : ScopedFace d) (left, right : AdmissionPathTerm n k d) (a : LogicalType) where
+  constructor MkAdmittedCanonicalEqualityInput
+  canonicalDeclarations : AdmittedDeclarations ctx raw
+  canonicalResult : AdmittedCanonicalEquality canonicalDeclarations face left right a
+
+checkCanonicalEndpoint : {ctx : Vect n LogicalType} -> {raw : AdmissionDeclarations n k} -> {d : Nat} ->
+  (decls : AdmittedDeclarations ctx raw) -> (face : ScopedFace d) ->
+  (left, right : AdmissionPathTerm n k d) -> (a : LogicalType) ->
+  (name : Fin k) -> (i : ScopedInterval d) -> (side : Bool) ->
+  Either AdmissionError (AdmittedCanonicalEquality decls face left right a)
+checkCanonicalEndpoint decls face (APAt p j) (APOrdinary target) a name i side = do
+  case decEq p name of
+    No _ => Left SyntaxMismatch
+    Yes Refl => Right ()
+  Refl <- maybe (Left SyntaxMismatch) Right (sameInterval j i)
+  MkSelectedDeclaration lraw rraw l r named namedIndex selected <- selectDeclaration decls p a
+  case side of
+    False => do
+      Refl <- maybe (Left SyntaxMismatch) Right (sameTerm lraw target)
+      case decEq (boundedEndpointEntails face i False) True of
+        No _ => Left FaceMismatch
+        Yes check => Right (replace {p = \q => AdmittedCanonicalEquality decls face (APAt q i) (APOrdinary lraw) a} namedIndex
+          (MkAdmittedCanonicalEquality
+            (MkAdmittedPathTerm (CPAtType named) (HOPAt _ _ a d named i))
+            (MkAdmittedPathTerm (CPOrdinaryType (termTyping l)) (HOPOrdinary _ _ a d (termWitness l)))
+            (CommonLeft (canonicalDeclaredPath selected) check)
+            (\ps, valid => DepEndpointLeft named i (termWitness l) (canonicalDeclaredPath selected) check ps
+              (canonicalPathAdmissible decls ps valid)
+              (\env, valuation, holds => canonicalLeftAlignment selected ps valid env valuation face i check holds))))
+    True => do
+      Refl <- maybe (Left SyntaxMismatch) Right (sameTerm rraw target)
+      case decEq (boundedEndpointEntails face i True) True of
+        No _ => Left FaceMismatch
+        Yes check => Right (replace {p = \q => AdmittedCanonicalEquality decls face (APAt q i) (APOrdinary rraw) a} namedIndex
+          (MkAdmittedCanonicalEquality
+            (MkAdmittedPathTerm (CPAtType named) (HOPAt _ _ a d named i))
+            (MkAdmittedPathTerm (CPOrdinaryType (termTyping r)) (HOPOrdinary _ _ a d (termWitness r)))
+            (CommonRight (canonicalDeclaredPath selected) check)
+            (\ps, valid => DepEndpointRight named i (termWitness r) (canonicalDeclaredPath selected) check ps
+              (canonicalPathAdmissible decls ps valid)
+              (\env, valuation, holds => canonicalRightAlignment selected ps valid env valuation face i check holds))))
+checkCanonicalEndpoint decls face left right a name i side = Left SyntaxMismatch
+
+sameLogicalVar : (x, y : LogicalVar ctx a) -> Maybe (x = y)
+sameLogicalVar LHere LHere = Just Refl
+sameLogicalVar (LThere x) (LThere y) = do
+  Refl <- sameLogicalVar x y
+  Just Refl
+sameLogicalVar _ _ = Nothing
+
+||| Heterogeneous comparison inspects syntax and hidden domains before producing
+||| the authoritative same-syntax structural alignment.
+data ComparedTerms : {ctx : Vect n LogicalType} -> {a : LogicalType} ->
+  {0 lt : CommonHasType ctx t a} -> {0 rt : CommonHasType ctx u a} ->
+  HigherOrderTerm ctx a lt -> HigherOrderTerm ctx a rt -> Type where
+  AlignedTerms : HigherOrderAlignment l r -> ComparedTerms l r
+
+alignTermWitnesses : {ctx : Vect n LogicalType} -> {a : LogicalType} ->
+  {0 lt : CommonHasType ctx t a} -> {0 rt : CommonHasType ctx u a} ->
+  (l : HigherOrderTerm ctx a lt) -> (r : HigherOrderTerm ctx a rt) -> Maybe (ComparedTerms l r)
+alignTermWitnesses (HOVar ctx a x) (HOVar ctx a y) = do
+  Refl <- sameLogicalVar x y
+  Just (AlignedTerms (AlignVar ctx a x))
+alignTermWitnesses (HOUnit ctx) (HOUnit ctx) = Just (AlignedTerms (AlignUnit ctx))
+alignTermWitnesses (HOBool ctx b) (HOBool ctx c) = case decEq b c of
+  No _ => Nothing
+  Yes Refl => Just (AlignedTerms (AlignBool ctx b))
+alignTermWitnesses (HOLambda ctx a b l) (HOLambda ctx a b r) = do
+  AlignedTerms aligned <- alignTermWitnesses l r
+  Just (AlignedTerms (AlignLambda aligned))
+alignTermWitnesses (HOApplication ctx a b f x) (HOApplication ctx c b g y) = case commonTypeDecEq a c of
+  No _ => Nothing
+  Yes Refl => do
+    AlignedTerms af <- alignTermWitnesses f g
+    AlignedTerms ax <- alignTermWitnesses x y
+    Just (AlignedTerms (AlignApplication af ax))
+alignTermWitnesses (HOUnitElim ctx a x b) (HOUnitElim ctx a y c) = do
+  AlignedTerms ax <- alignTermWitnesses x y
+  AlignedTerms ab <- alignTermWitnesses b c
+  Just (AlignedTerms (AlignUnitElim ax ab))
+alignTermWitnesses (HOIf ctx a c t f) (HOIf ctx a c' t' f') = do
+  AlignedTerms ac <- alignTermWitnesses c c'
+  AlignedTerms at <- alignTermWitnesses t t'
+  AlignedTerms af <- alignTermWitnesses f f'
+  Just (AlignedTerms (AlignIf ac at af))
+alignTermWitnesses _ _ = Nothing
+
+data ComparedPaths : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} -> {a : LogicalType} ->
+  {0 lt : CommonPathHasType ctx paths t a} -> {0 rt : CommonPathHasType ctx paths u a} ->
+  HigherOrderPathTerm ctx paths a d lt -> HigherOrderPathTerm ctx paths a d rt -> Type where
+  AlignedPaths : HigherOrderPathAlignment l r -> ComparedPaths l r
+
+alignPathWitnesses : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} -> {a : LogicalType} ->
+  {0 lt : CommonPathHasType ctx paths t a} -> {0 rt : CommonPathHasType ctx paths u a} ->
+  (l : HigherOrderPathTerm ctx paths a d lt) -> (r : HigherOrderPathTerm ctx paths a d rt) ->
+  Maybe (ComparedPaths l r)
+alignPathWitnesses (HOPOrdinary ctx paths a d l) (HOPOrdinary ctx paths a d r) = do
+  AlignedTerms aligned <- alignTermWitnesses l r
+  Just (AlignedPaths (AlignPathOrdinary aligned))
+alignPathWitnesses (HOPAt ctx paths a d p i) (HOPAt ctx paths a d q j) = do
+  Refl <- sameLogicalVar p q
+  Refl <- sameInterval i j
+  Just (AlignedPaths (AlignPathAt ctx paths a d q j))
+alignPathWitnesses (HOPLambda ctx paths a b d l) (HOPLambda ctx paths a b d r) = do
+  AlignedPaths aligned <- alignPathWitnesses l r
+  Just (AlignedPaths (AlignPathLambda aligned))
+alignPathWitnesses (HOPApplication ctx paths a b d f x) (HOPApplication ctx paths c b d g y) =
+  case commonTypeDecEq a c of
+    No _ => Nothing
+    Yes Refl => do
+      AlignedPaths af <- alignPathWitnesses f g
+      AlignedPaths ax <- alignPathWitnesses x y
+      Just (AlignedPaths (AlignPathApplication af ax))
+alignPathWitnesses (HOPUnitElim ctx paths a d x b) (HOPUnitElim ctx paths a d y c) = do
+  AlignedPaths ax <- alignPathWitnesses x y
+  AlignedPaths ab <- alignPathWitnesses b c
+  Just (AlignedPaths (AlignPathUnitElim ax ab))
+alignPathWitnesses (HOPIf ctx paths a d c t f) (HOPIf ctx paths a d c' t' f') = do
+  AlignedPaths ac <- alignPathWitnesses c c'
+  AlignedPaths at <- alignPathWitnesses t t'
+  AlignedPaths af <- alignPathWitnesses f f'
+  Just (AlignedPaths (AlignPathIf ac at af))
+alignPathWitnesses _ _ = Nothing
+
+checkCanonicalEquality : {ctx : Vect n LogicalType} -> {raw : AdmissionDeclarations n k} -> {d : Nat} ->
+  Nat -> Nat -> (decls : AdmittedDeclarations ctx raw) -> (face : ScopedFace d) ->
+  (left, right : AdmissionPathTerm n k d) -> (a : LogicalType) -> AdmissionEquality n k d ->
+  Either AdmissionError (Nat, Nat, AdmittedCanonicalEquality decls face left right a)
+checkCanonicalEquality Z calls decls face left right a cert = Left CheckingLimit
+checkCanonicalEquality (S fuel) calls decls face left right a AERefl =
+  case samePath left right of
+    Nothing => Left SyntaxMismatch
+    Just Refl => do
+      (fuel, typed) <- checkPath fuel ctx (admissionPathTypes raw) d left a
+      Right (fuel, calls, MkAdmittedCanonicalEquality typed typed (CommonRefl (pathTyping typed))
+        (\ps, valid => DepEndpointStructural (DepFaceRefl (selfPathAlignment (pathWitness typed)))))
+checkCanonicalEquality (S fuel) calls decls face left right a (AESym cert) = do
+  (fuel, calls, MkAdmittedCanonicalEquality r l eq evidence) <- checkCanonicalEquality fuel calls decls face right left a cert
+  Right (fuel, calls, MkAdmittedCanonicalEquality l r (CommonSym eq)
+    (\ps, valid => DepEndpointSym (evidence ps valid)))
+checkCanonicalEquality (S fuel) calls decls face left right a (AETrans middle c1 c2) = do
+  (fuel, calls, MkAdmittedCanonicalEquality l m eq1 e1) <- checkCanonicalEquality fuel calls decls face left middle a c1
+  (fuel, calls, MkAdmittedCanonicalEquality m' r eq2 e2) <- checkCanonicalEquality fuel calls decls face middle right a c2
+  AlignedPaths alignment <- maybe (Left SyntaxMismatch) Right (alignPathWitnesses (pathWitness m) (pathWitness m'))
+  Right (fuel, calls, MkAdmittedCanonicalEquality l r (CommonTrans eq1 eq2)
+    (\ps, valid => DepEndpointTrans (e1 ps valid) alignment (e2 ps valid)))
+checkCanonicalEquality (S fuel) calls decls face (APApp domain f x) (APApp domain' g y) b (AEApp annotated cf cx) =
+  case commonTypeDecEq domain domain' of
+    No _ => Left SyntaxMismatch
+    Yes Refl => case commonTypeDecEq domain annotated of
+      No _ => Left TypeMismatch
+      Yes Refl => do
+        (fuel, calls, MkAdmittedCanonicalEquality fl fr feq ef) <- checkCanonicalEquality fuel calls decls face f g (LArrow domain b) cf
+        (fuel, calls, MkAdmittedCanonicalEquality xl xr xeq ex) <- checkCanonicalEquality fuel calls decls face x y domain cx
+        Right (fuel, calls, MkAdmittedCanonicalEquality
+          (MkAdmittedPathTerm (CPAppType (pathTyping fl) (pathTyping xl)) (HOPApplication ctx _ domain b d (pathWitness fl) (pathWitness xl)))
+          (MkAdmittedPathTerm (CPAppType (pathTyping fr) (pathTyping xr)) (HOPApplication ctx _ domain b d (pathWitness fr) (pathWitness xr)))
+          (CommonAppEqual feq xeq) (\ps, valid => DepEndpointApp (ef ps valid) (ex ps valid)))
+checkCanonicalEquality (S fuel) calls decls face (APIf c t f) (APIf c' t' f') a (AEIf cc tc fc) = do
+  (fuel, calls, MkAdmittedCanonicalEquality cl cr ceq ec) <- checkCanonicalEquality fuel calls decls face c c' LBool cc
+  (fuel, calls, MkAdmittedCanonicalEquality tl tr teq et) <- checkCanonicalEquality fuel calls decls face t t' a tc
+  (fuel, calls, MkAdmittedCanonicalEquality fl fr feq ef) <- checkCanonicalEquality fuel calls decls face f f' a fc
+  Right (fuel, calls, MkAdmittedCanonicalEquality
+    (MkAdmittedPathTerm (CPIfType (pathTyping cl) (pathTyping tl) (pathTyping fl)) (HOPIf ctx _ a d (pathWitness cl) (pathWitness tl) (pathWitness fl)))
+    (MkAdmittedPathTerm (CPIfType (pathTyping cr) (pathTyping tr) (pathTyping fr)) (HOPIf ctx _ a d (pathWitness cr) (pathWitness tr) (pathWitness fr)))
+    (CommonIfEqual ceq teq feq) (\ps, valid => DepEndpointIf (ec ps valid) (et ps valid) (ef ps valid)))
+checkCanonicalEquality (S fuel) calls decls face (APUnitElim x b) (APUnitElim x' b') a (AEUnitElim xc bc) = do
+  (fuel, calls, MkAdmittedCanonicalEquality xl xr xeq ex) <- checkCanonicalEquality fuel calls decls face x x' LUnit xc
+  (fuel, calls, MkAdmittedCanonicalEquality bl br beq eb) <- checkCanonicalEquality fuel calls decls face b b' a bc
+  Right (fuel, calls, MkAdmittedCanonicalEquality
+    (MkAdmittedPathTerm (CPUnitElimType (pathTyping xl) (pathTyping bl)) (HOPUnitElim ctx _ a d (pathWitness xl) (pathWitness bl)))
+    (MkAdmittedPathTerm (CPUnitElimType (pathTyping xr) (pathTyping br)) (HOPUnitElim ctx _ a d (pathWitness xr) (pathWitness br)))
+    (CommonUnitElimEqual xeq beq) (\ps, valid => DepEndpointUnitElim (ex ps valid) (eb ps valid)))
+checkCanonicalEquality (S fuel) Z decls face left right a (AEEndpoint _ _ _) = Left SolverLimit
+checkCanonicalEquality (S fuel) (S calls) decls face left right a (AEEndpoint name i side) = do
+  result <- checkCanonicalEndpoint decls face left right a name i side
+  Right (fuel, calls, result)
+checkCanonicalEquality (S fuel) Z decls face left right a (AERestrict _ _) = Left SolverLimit
+checkCanonicalEquality (S fuel) (S calls) decls face left right a (AERestrict source cert) =
+  case decEq (boundedFaceEntails face source) True of
+    No _ => Left FaceMismatch
+    Yes check => do
+      (fuel, calls, MkAdmittedCanonicalEquality l r eq evidence) <- checkCanonicalEquality fuel calls decls source left right a cert
+      Right (fuel, calls, MkAdmittedCanonicalEquality l r (CommonRestrict eq check)
+        (\ps, valid => DepEndpointRestrict face source check (evidence ps valid)))
+checkCanonicalEquality (S fuel) calls decls face left right a cert = Left SyntaxMismatch
+
+||| Separate experimental API: preserves the original reflexive provider contract.
+||| All raw inputs are preflighted together before checking or any solver call.
+public export
+admitCanonicalCommonEquality : {d : Nat} -> CanonicalEqualityBudget -> (ctx : Vect n LogicalType) ->
+  (raw : AdmissionDeclarations n k) -> (face : ScopedFace d) ->
+  (left, right : AdmissionPathTerm n k d) -> (a : LogicalType) -> AdmissionEquality n k d ->
+  Either AdmissionError (AdmittedCanonicalEqualityInput ctx raw face left right a)
+admitCanonicalCommonEquality budget ctx raw face left right a cert = do
+  fuel <- preflightContext (inputNodes (syntaxBudget budget)) ctx
+  fuel <- preflightDeclarations fuel raw
+  fuel <- preflightScope fuel d
+  fuel <- preflightFace fuel face
+  fuel <- preflightPath fuel left
+  fuel <- preflightPath fuel right
+  fuel <- preflightType fuel a
+  _ <- preflightEquality fuel cert
+  (fuel, declarations) <- checkDeclarations (checkingNodes (syntaxBudget budget)) ctx raw
+  (_, _, result) <- checkCanonicalEquality fuel (solverCalls budget) declarations face left right a cert
+  Right (MkAdmittedCanonicalEqualityInput declarations result)
