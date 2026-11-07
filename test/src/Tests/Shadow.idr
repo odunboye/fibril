@@ -999,3 +999,87 @@ commonPairUnjustifiedEndpointRejected = Refl
 
 commonPairNonBooleanFaceFalse : faceAtVal Tests.Shadow.commonPairValuation (SEndpoint (FS FZ) False) = False
 commonPairNonBooleanFaceFalse = Refl
+
+-- The endpoint is the actual nonconstant conditional translated from the
+-- linear source, interpreted at both possible ordinary valuations.
+firstOrderLinearIf : FirstOrderTerm (sourceCommonTyped Tests.Shadow.linearSource)
+firstOrderLinearIf = FOIf (FOVar LHere) (FOBool True) (FOBool False)
+
+firstOrderLinearIfTrue : interpretFirstOrderTerm Tests.Shadow.firstOrderLinearIf (FOCons True FONil) = True
+firstOrderLinearIfTrue = Refl
+
+firstOrderLinearIfFalse : interpretFirstOrderTerm Tests.Shadow.firstOrderLinearIf (FOCons False FONil) = False
+firstOrderLinearIfFalse = Refl
+
+firstOrderTestPath : FirstOrderEnv [LBool] -> DM -> Bool
+firstOrderTestPath (FOCons b FONil) (False, False) = b
+firstOrderTestPath (FOCons b FONil) (False, True) = False
+firstOrderTestPath (FOCons b FONil) (True, False) = b
+firstOrderTestPath (FOCons b FONil) (True, True) = True
+
+firstOrderTestDeclarations : CommonDeclarations [LBool] [LBool]
+firstOrderTestDeclarations = CommonDeclarePath
+  (commonTerm (shadowTerm Tests.Shadow.linearSource)) (CBool True)
+  (sourceCommonTyped Tests.Shadow.linearSource) CBoolType CommonNoPaths
+
+firstOrderTestPaths : FirstOrderPaths [LBool] [LBool]
+firstOrderTestPaths = FOPath Tests.Shadow.firstOrderTestPath FONoPaths
+
+firstOrderTestZero : (env : FirstOrderEnv [LBool]) -> Tests.Shadow.firstOrderTestPath env (False, False) = interpretFirstOrderTerm Tests.Shadow.firstOrderLinearIf env
+firstOrderTestZero (FOCons False FONil) = Refl
+firstOrderTestZero (FOCons True FONil) = Refl
+
+firstOrderTestAdmissible : FirstOrderAdmissible Tests.Shadow.firstOrderTestDeclarations Tests.Shadow.firstOrderTestPaths
+firstOrderTestAdmissible = FOAdmissibleCons Tests.Shadow.firstOrderLinearIf (FOBool True)
+  Tests.Shadow.firstOrderTestZero
+  (\(FOCons b FONil) => Refl) FOAdmissibleNil
+
+firstOrderNonBooleanPath : interpretFirstOrderPath
+  (the (FirstOrderPathTerm (CPAtType {ctx = [LBool]} {i = Var (FS FZ)} LHere)) (FOAt LHere (Var (FS FZ))))
+  (FOCons True FONil) Tests.Shadow.firstOrderTestPaths Tests.Shadow.commonPairValuation = False
+firstOrderNonBooleanPath = Refl
+
+-- At this environment both endpoint values are True, while the non-endpoint
+-- pair produces False. This detects an implementation collapsing it to either endpoint.
+firstOrderPathBothEndpointsTrue :
+  (firstOrderPathLookup LHere Tests.Shadow.firstOrderTestPaths (FOCons True FONil) (False, False) = True,
+   firstOrderPathLookup LHere Tests.Shadow.firstOrderTestPaths (FOCons True FONil) (True, True) = True)
+firstOrderPathBothEndpointsTrue = (Refl, Refl)
+
+firstOrderSecondPath : FirstOrderEnv [LBool] -> DM -> Bool
+firstOrderSecondPath env pair = False
+
+firstOrderTwoDeclarations : CommonDeclarations [LBool] [LBool, LBool]
+firstOrderTwoDeclarations = CommonDeclarePath (CBool False) (CBool False)
+  CBoolType CBoolType Tests.Shadow.firstOrderTestDeclarations
+
+firstOrderTwoPaths : FirstOrderPaths [LBool] [LBool, LBool]
+firstOrderTwoPaths = FOPath Tests.Shadow.firstOrderSecondPath Tests.Shadow.firstOrderTestPaths
+
+firstOrderTwoAdmissible : FirstOrderAdmissible Tests.Shadow.firstOrderTwoDeclarations Tests.Shadow.firstOrderTwoPaths
+firstOrderTwoAdmissible = FOAdmissibleCons (FOBool False) (FOBool False)
+  (\env => Refl) (\env => Refl) Tests.Shadow.firstOrderTestAdmissible
+
+firstOrderHeadLookup :
+  (firstOrderPathLookup LHere Tests.Shadow.firstOrderTwoPaths (FOCons True FONil) (False, False) = False,
+   firstOrderPathLookup LHere Tests.Shadow.firstOrderTwoPaths (FOCons True FONil) (True, True) = False)
+firstOrderHeadLookup = case firstOrderDeclaredLookup CommonDeclaredHere Tests.Shadow.firstOrderTwoPaths Tests.Shadow.firstOrderTwoAdmissible of
+  FOEndpoints (FOBool False) (FOBool False) zero one => (zero (FOCons True FONil), one (FOCons True FONil))
+
+firstOrderTailLookup :
+  (firstOrderPathLookup (LThere LHere) Tests.Shadow.firstOrderTwoPaths (FOCons False FONil) (False, False) = False,
+   firstOrderPathLookup (LThere LHere) Tests.Shadow.firstOrderTwoPaths (FOCons False FONil) (True, True) = True)
+firstOrderTailLookup = case firstOrderDeclaredLookup (CommonDeclaredThere CommonDeclaredHere) Tests.Shadow.firstOrderTwoPaths Tests.Shadow.firstOrderTwoAdmissible of
+  FOEndpoints (FOIf (FOVar LHere) (FOBool True) (FOBool False)) (FOBool True) zero one =>
+    (zero (FOCons False FONil), one (FOCons False FONil))
+
+firstOrderNonBooleanDiffersFromBothEndpoints :
+  (interpretFirstOrderPath
+     (the (FirstOrderPathTerm (CPAtType {ctx = [LBool]} {i = Var (FS FZ)} LHere)) (FOAt LHere (Var (FS FZ))))
+     (FOCons True FONil) Tests.Shadow.firstOrderTestPaths Tests.Shadow.commonPairValuation ==
+     firstOrderPathLookup LHere Tests.Shadow.firstOrderTestPaths (FOCons True FONil) (False, False),
+   interpretFirstOrderPath
+     (the (FirstOrderPathTerm (CPAtType {ctx = [LBool]} {i = Var (FS FZ)} LHere)) (FOAt LHere (Var (FS FZ))))
+     (FOCons True FONil) Tests.Shadow.firstOrderTestPaths Tests.Shadow.commonPairValuation ==
+     firstOrderPathLookup LHere Tests.Shadow.firstOrderTestPaths (FOCons True FONil) (True, True)) = (False, False)
+firstOrderNonBooleanDiffersFromBothEndpoints = Refl

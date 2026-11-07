@@ -170,8 +170,17 @@ uses `dmScopedEndpointValSound`; dimensions may take either non-endpoint pair.
 The extracted endpoint face is sufficient, not necessary, for an interval to
 be an endpoint in this model.
 
-This is only the interval-side lemma for the common endpoint rules. There is
-still no independent interpretation of common terms or declared paths and no
-fundamental soundness theorem for `CommonFaceEqual`, including its congruence
-rules. In particular this lemma does not establish semantic equations for
-named paths or claim dependent path, composition, or resource soundness.
+The independent `FirstOrderTerm` and `FirstOrderPathTerm` interpretations cover
+the structurally restricted Bool/Unit fragment, indexed by actual common typing
+derivations; lambda and application are excluded. Typed finite environments
+interpret ordinary variables, and named paths are functions of the ordinary
+environment and the actual four-pair dimension value. `FirstOrderAdmissible`
+requires each path's endpoint values to equal its actual declared endpoint
+interpretations for every ordinary environment; `firstOrderDeclaredLookup`
+returns these endpoint equations for a declared path.
+
+The interval lemma and admissible lookup have not been combined into a
+soundness theorem for `CommonFaceEqual`. There is no first-order evidence
+indexed by its equality derivations and no proof for its endpoint or congruence
+rules. This interpretation does not claim higher-order, dependent path,
+composition, or resource soundness.

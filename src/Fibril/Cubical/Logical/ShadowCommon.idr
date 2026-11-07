@@ -651,3 +651,120 @@ commonQuantitativeIndependentPath source s term usage used replacement replaceme
    sourceIndependentCommonSubstitution source (singleSubstitution s) term,
    substituteCommonShadowPath (commonImageSubstitution (shadowContext source) (imageSubstitution source (singleSubstitution s)))
      (commonImageSubstitutionTyped (shadowContext source) (imageSubstitution source (singleSubstitution s))) decls path)
+
+||| Semantic carriers deliberately have no inhabitants at arrow types.
+public export
+FirstOrderValue : LogicalType -> Type
+FirstOrderValue LUnit = Builtin.Unit
+FirstOrderValue LBool = Bool
+FirstOrderValue (LArrow _ _) = Void
+
+||| A finite, type-indexed ordinary environment.
+public export
+data FirstOrderEnv : Vect n LogicalType -> Type where
+  FONil : FirstOrderEnv []
+  FOCons : FirstOrderValue a -> FirstOrderEnv ctx -> FirstOrderEnv (a :: ctx)
+
+public export
+firstOrderLookup : LogicalVar ctx a -> FirstOrderEnv ctx -> FirstOrderValue a
+firstOrderLookup LHere (FOCons x xs) = x
+firstOrderLookup (LThere v) (FOCons x xs) = firstOrderLookup v xs
+
+||| Structural evidence excludes lambda and application, including those hidden
+||| inside an embedded ordinary term. It is indexed by the actual typing proof.
+public export
+data FirstOrderTerm : {0 ctx : Vect n LogicalType} -> {0 t : CommonTerm n} ->
+  {0 a : LogicalType} -> (0 typing : CommonHasType ctx t a) -> Type where
+  FOVar : (v : LogicalVar ctx a) -> FirstOrderTerm (CVariable v)
+  FOUnit : FirstOrderTerm CUnitType
+  FOBool : {0 ctx : Vect n LogicalType} -> (b : Bool) -> FirstOrderTerm {ctx = ctx} (CBoolType {b})
+  FOUnitElim : {0 x : CommonHasType ctx xt LUnit} -> {0 b : CommonHasType ctx bt a} -> FirstOrderTerm x -> FirstOrderTerm b ->
+    FirstOrderTerm (CUnitEliminationType x b)
+  FOIf : {0 c : CommonHasType ctx ct LBool} -> {0 t : CommonHasType ctx tt a} -> {0 f : CommonHasType ctx ft a} -> FirstOrderTerm c -> FirstOrderTerm t -> FirstOrderTerm f ->
+    FirstOrderTerm (CConditionalType c t f)
+
+public export
+interpretFirstOrderTerm : {0 typing : CommonHasType ctx t a} ->
+  FirstOrderTerm typing -> FirstOrderEnv ctx -> FirstOrderValue a
+interpretFirstOrderTerm (FOVar v) env = firstOrderLookup v env
+interpretFirstOrderTerm FOUnit env = ()
+interpretFirstOrderTerm (FOBool b) env = b
+interpretFirstOrderTerm (FOUnitElim x b) env = interpretFirstOrderTerm b env
+interpretFirstOrderTerm (FOIf c t f) env =
+  if interpretFirstOrderTerm c env then interpretFirstOrderTerm t env else interpretFirstOrderTerm f env
+
+||| Each named path is a function of the actual four-pair dimension value.
+||| It may also depend on the whole ordinary environment.
+public export
+data FirstOrderPaths : Vect n LogicalType -> Vect k LogicalType -> Type where
+  FONoPaths : FirstOrderPaths ctx []
+  FOPath : (FirstOrderEnv ctx -> DM -> FirstOrderValue a) ->
+    FirstOrderPaths ctx paths -> FirstOrderPaths ctx (a :: paths)
+
+public export
+firstOrderPathLookup : LogicalVar paths a -> FirstOrderPaths ctx paths ->
+  FirstOrderEnv ctx -> DM -> FirstOrderValue a
+firstOrderPathLookup LHere (FOPath p rest) = p
+firstOrderPathLookup (LThere v) (FOPath p rest) = firstOrderPathLookup v rest
+
+public export
+data FirstOrderPathTerm : {0 ctx : Vect n LogicalType} -> {0 paths : Vect k LogicalType} ->
+  {0 t : CommonPathTerm n k d} -> {0 a : LogicalType} ->
+  (0 typing : CommonPathHasType ctx paths t a) -> Type where
+  FOOrdinary : {0 paths : Vect k LogicalType} -> {0 t : CommonHasType ctx tm a} -> FirstOrderTerm t -> FirstOrderPathTerm {paths = paths} (CPOrdinaryType t)
+  FOAt : {0 ctx : Vect n LogicalType} -> (p : LogicalVar paths a) -> (i : ScopedInterval d) -> FirstOrderPathTerm {ctx = ctx} (CPAtType {i} p)
+  FOPathUnitElim : {0 x : CommonPathHasType ctx paths xt LUnit} -> {0 b : CommonPathHasType ctx paths bt a} -> FirstOrderPathTerm x -> FirstOrderPathTerm b ->
+    FirstOrderPathTerm (CPUnitElimType x b)
+  FOPathIf : {0 c : CommonPathHasType ctx paths ct LBool} -> {0 t : CommonPathHasType ctx paths tt a} -> {0 f : CommonPathHasType ctx paths ft a} -> FirstOrderPathTerm c -> FirstOrderPathTerm t -> FirstOrderPathTerm f ->
+    FirstOrderPathTerm (CPIfType c t f)
+
+public export
+interpretFirstOrderPath : {0 t : CommonPathTerm n k d} -> {0 typing : CommonPathHasType ctx paths t a} ->
+  FirstOrderPathTerm typing -> FirstOrderEnv ctx -> FirstOrderPaths ctx paths ->
+  (Fin d -> DM) -> FirstOrderValue a
+interpretFirstOrderPath (FOOrdinary t) env paths valuation = interpretFirstOrderTerm t env
+interpretFirstOrderPath (FOAt p i) env paths valuation =
+  firstOrderPathLookup p paths env (evalDMVal valuation i)
+interpretFirstOrderPath (FOPathUnitElim x b) env paths valuation =
+  interpretFirstOrderPath b env paths valuation
+interpretFirstOrderPath (FOPathIf c t f) env paths valuation =
+  if interpretFirstOrderPath c env paths valuation
+     then interpretFirstOrderPath t env paths valuation
+     else interpretFirstOrderPath f env paths valuation
+
+||| Admissibility relates each actual declared endpoint to its interpretation
+||| for every ordinary environment, not merely a chosen valuation.
+public export
+data FirstOrderAdmissible : {0 ctx : Vect n LogicalType} ->
+  {0 paths : Vect k LogicalType} -> CommonDeclarations ctx paths ->
+  FirstOrderPaths ctx paths -> Type where
+  FOAdmissibleNil : FirstOrderAdmissible CommonNoPaths FONoPaths
+  FOAdmissibleCons : {0 paths : Vect k LogicalType} -> {rest : CommonDeclarations ctx paths} -> {ps : FirstOrderPaths ctx paths} -> {0 lt : CommonHasType ctx l a} -> {0 rt : CommonHasType ctx r a} ->
+    (left : FirstOrderTerm lt) -> (right : FirstOrderTerm rt) ->
+    {path : FirstOrderEnv ctx -> DM -> FirstOrderValue a} ->
+    ((env : FirstOrderEnv ctx) -> path env (False, False) = interpretFirstOrderTerm left env) ->
+    ((env : FirstOrderEnv ctx) -> path env (True, True) = interpretFirstOrderTerm right env) ->
+    FirstOrderAdmissible rest ps ->
+    FirstOrderAdmissible (CommonDeclarePath l r lt rt rest) (FOPath path ps)
+
+||| Endpoint witnesses retain erased typing derivations without recovering them
+||| from erased declaration fields at runtime.
+public export
+data FirstOrderEndpoints : {0 ctx : Vect n LogicalType} -> {0 paths : Vect k LogicalType} ->
+  (p : LogicalVar paths a) -> (l, r : CommonTerm n) -> FirstOrderPaths ctx paths -> Type where
+  FOEndpoints : {0 paths : Vect k LogicalType} -> {p : LogicalVar paths a} -> {ps : FirstOrderPaths ctx paths} -> {0 lt : CommonHasType ctx l a} -> {0 rt : CommonHasType ctx r a} ->
+    (left : FirstOrderTerm lt) -> (right : FirstOrderTerm rt) ->
+    ((env : FirstOrderEnv ctx) -> firstOrderPathLookup p ps env (False, False) = interpretFirstOrderTerm left env) ->
+    ((env : FirstOrderEnv ctx) -> firstOrderPathLookup p ps env (True, True) = interpretFirstOrderTerm right env) ->
+    FirstOrderEndpoints p l r ps
+
+public export
+firstOrderDeclaredLookup : {0 decls : CommonDeclarations ctx paths} ->
+  {p : LogicalVar paths a} -> {l, r : CommonTerm n} ->
+  CommonDeclaredPath decls p l r -> (ps : FirstOrderPaths ctx paths) ->
+  FirstOrderAdmissible decls ps -> FirstOrderEndpoints p l r ps
+firstOrderDeclaredLookup CommonDeclaredHere (FOPath path ps) (FOAdmissibleCons left right zero one rest) =
+  FOEndpoints left right zero one
+firstOrderDeclaredLookup (CommonDeclaredThere declared) (FOPath path ps) (FOAdmissibleCons left right zero one rest) =
+  case firstOrderDeclaredLookup declared ps rest of
+    FOEndpoints l r z o => FOEndpoints l r z o
