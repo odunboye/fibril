@@ -223,3 +223,28 @@ tree is not bounded or synthesized. In particular this does not check PathP
 introduction, synthesize the square, or derive its restricted face equalities;
 it can apply the separately constructed declarative square. The result
 indices contain the original path, face, interval and exact expected type.
+
+`checkDependentIntroduction` synthesizes an `NPathPIntro` directly from the
+raw indexed term and expected type. It checks family formation, both endpoint
+typings and the body, and proves both boundaries independently. Its restricted
+grammar uses the existing exact term checker, plus synthesis of a declared path
+variable followed by checked face-sensitive type conversion. Base boundaries
+use the existing proof-producing base equality checker; other boundaries require
+syntactically identical terms checked at the exact family. Thus a genuinely
+varying family with a path-variable body can be checked on the bottom face,
+and a varying base path body can be checked on the top face. It does not infer
+the nested square, nor does it generally synthesize recursive dependent term
+and equality derivations. It never identifies non-Boolean interval expressions
+by their vertices. Failure to prove an entailment or an unsupported boundary is
+`Unsupported`; definite mismatches in supported forms are `Mismatch`.
+
+The entry point admits the face and both input expressions under a shared cap
+of min(budget, 128), caps context sizes at 12 and the result dimension at 11,
+and preflights both endpoint substitutions using `boundedInstantiate` before
+constructing them. Formation has its own depth limit of min(budget, 12), and
+all recursive admission and substitution checks re-use rather than globally
+consume the budget; it is not a bound on total work or proof-tree size.
+`Exhausted` reports those admission, dimension, substitution, or formation
+limits. Generated weakening and restricted faces are linear in admitted input;
+the bounded entailment procedure has its own smaller face limit and can fail
+closed as `Unsupported`.

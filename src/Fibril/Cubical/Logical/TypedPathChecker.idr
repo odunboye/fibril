@@ -472,3 +472,53 @@ checkDependentApplication {m} {k} {n} budget ctx face p i family l r expected de
           Just same => case same of
             Refl => Right (NPathPElim derivation i)
   else Left Exhausted
+
+-- Synthesize a neutral path variable's declared type before conversion. Other
+-- terms use the exact admitted checking grammar; annotations are not evidence.
+introTyping : {n : Nat} -> (ctx : PathContext m k) -> (face : ScopedFace n) ->
+  (term, ty : NeutralExpr m k n) -> Either CheckError (NeutralHasType ctx face term ty)
+introTyping ctx face (NPath p) ty = do
+  eq <- typeEqualAdmitted ctx face
+    (NPathType NType (NBase (left (index p ctx))) (NBase (right (index p ctx)))) ty
+  Right (NConvert (NPathVar p) eq)
+introTyping ctx face term ty = checkAdmitted ctx face term ty
+
+-- Reflexivity is only used after comparing the indexed syntax, and after
+-- checking the term at the exact family on the restricted face.
+introBoundary : {n : Nat} -> (ctx : PathContext m k) -> (face : ScopedFace n) ->
+  (x, y, ty : NeutralExpr m k n) -> Either CheckError (NeutralEqual ctx face x y ty)
+introBoundary ctx face x y NType = equalAdmitted ctx face x y
+introBoundary ctx face x y ty = case neutralSame x y of
+  Nothing => Left Unsupported
+  Just Refl => do
+    xp <- introTyping ctx face y ty
+    Right (NRefl xp)
+
+||| Autonomous introduction for admitted base equalities or reflexive syntactic
+||| boundaries. The body may be a declared neutral path converted using checked
+||| face-sensitive equality.
+||| Each generated substitution is preflighted; per-call caps are not a global
+||| work bound. No supplied derivation is used.
+public export
+checkDependentIntroduction : {m, k, n : Nat} -> (budget : Nat) -> (ctx : PathContext m k) ->
+  (face : ScopedFace n) -> (term, ty : NeutralExpr m k n) ->
+  Either CheckError (NeutralHasType ctx face term ty)
+checkDependentIntroduction {m} {k} {n} budget ctx face term ty =
+  if m <= 12 && k <= 12 && n <= 11 then
+    case faceNodes (min 128 budget) face >>= \f => exprNodes f term >>= \g => exprNodes g ty of
+      Nothing => Left Exhausted
+      Just _ => go term ty
+  else Left Exhausted
+  where
+    go : (term, ty : NeutralExpr m k n) -> Either CheckError (NeutralHasType ctx face term ty)
+    go (NAbstract body) (NPathType family l r) = do
+      _ <- boundedInstantiate budget Zero family
+      _ <- boundedInstantiate budget One family
+      fp <- checkDependentFormation budget ctx (weakenFace face) family
+      lp <- introTyping ctx face l (mapNeutralDimensions TypedPath.faceZero family)
+      rp <- introTyping ctx face r (mapNeutralDimensions TypedPath.faceOne family)
+      bp <- introTyping ctx (weakenFace face) body family
+      le <- introBoundary ctx (SConjunction (weakenFace face) (SEndpoint FZ False)) body (weakenNeutralDimensions l) family
+      re <- introBoundary ctx (SConjunction (weakenFace face) (SEndpoint FZ True)) body (weakenNeutralDimensions r) family
+      Right (NPathPIntro fp lp rp bp le re)
+    go _ _ = Left Unsupported

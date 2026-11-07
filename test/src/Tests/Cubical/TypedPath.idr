@@ -405,10 +405,49 @@ duplicatePreflightTest =
   checkerExhausted (checkDependentApplication 39 neutralContext SBottom (NAbstract (NAbstract (NBase FZ))) nonBooleanArgument
     duplicatingFamily (NAbstract (NBase FZ)) (NAbstract (NBase FZ)) NType duplicatingPath)
 
+autoFamily : NeutralExpr 2 1 1
+autoFamily = NPathType NType (NApply (NPath FZ) (Var FZ))
+  (NApply (NPath FZ) (Var FZ))
+
+autoType : NeutralExpr 2 1 0
+autoType = NPathType autoFamily (NPath FZ) (NPath FZ)
+
 public export
 checkerChecks : List (String, Bool)
 checkerChecks =
-  [ ("varying family application at i meet reverse i", checkerSuccess
+  [ ("autonomous varying body top", checkerSuccess
+      (checkDependentIntroduction {n = 0} 128 neutralContext STop
+        (NAbstract (NApply (NPath FZ) (Var FZ)))
+        (NPathType NType (NBase FZ) (NBase (FS FZ)))))
+  , ("autonomous varying body wrong endpoint", checkerUnsupported
+      (checkDependentIntroduction {n = 0} 128 neutralContext STop
+        (NAbstract (NApply (NPath FZ) (Var FZ)))
+        (NPathType NType (NBase (FS FZ)) (NBase (FS FZ)))))
+  , ("autonomous varying family bottom", checkerSuccess
+      (checkDependentIntroduction 128 neutralContext SBottom (NAbstract (NPath FZ)) autoType))
+  , ("autonomous varying family top rejected", checkerUnsupported
+      (checkDependentIntroduction 128 neutralContext STop (NAbstract (NPath FZ)) autoType))
+  , ("autonomous wrong endpoint", checkerMismatch
+      (checkDependentIntroduction 128 neutralContext SBottom (NAbstract (NPath FZ))
+        (NPathType autoFamily (NBase FZ) (NPath FZ))))
+  , ("autonomous wrong body", checkerMismatch
+      (checkDependentIntroduction 128 neutralContext SBottom (NAbstract (NBase FZ)) autoType))
+  , ("autonomous size exhausted", checkerExhausted
+      (checkDependentIntroduction 3 neutralContext SBottom (NAbstract (NPath FZ)) autoType))
+  , ("autonomous dimension exhausted", checkerExhausted
+      (checkDependentIntroduction {n = 12} 128 neutralContext SBottom
+        (NAbstract (NBase FZ)) (NPathType NType (NBase FZ) (NBase FZ))))
+  , ("autonomous nonboolean family bottom", checkerSuccess
+      (checkDependentIntroduction {n = 0} 128 neutralContext SBottom (NAbstract (NPath FZ))
+        (NPathType (NPathType NType
+          (NApply (NPath FZ) (Meet (Var FZ) (Reverse (Var FZ))))
+          (NApply (NPath FZ) (Meet (Var FZ) (Reverse (Var FZ))))) (NPath FZ) (NPath FZ))))
+  , ("autonomous nonboolean family top rejected", checkerUnsupported
+      (checkDependentIntroduction {n = 0} 128 neutralContext STop (NAbstract (NPath FZ))
+        (NPathType (NPathType NType
+          (NApply (NPath FZ) (Meet (Var FZ) (Reverse (Var FZ))))
+          (NApply (NPath FZ) (Meet (Var FZ) (Reverse (Var FZ))))) (NPath FZ) (NPath FZ))))
+  , ("varying family application at i meet reverse i", checkerSuccess
       (checkDependentApplication 128 neutralContext SBottom
         (NAbstract (NAbstract (NBase FZ))) nonBooleanArgument duplicatingFamily
         (NAbstract (NBase FZ)) (NAbstract (NBase FZ)) duplicatedInstance duplicatingPath))
