@@ -211,3 +211,15 @@ within the implemented shapes, and `Unsupported` reports other shapes or an
 endpoint entailment the bounded procedure cannot prove (including its 12
 dimension/12 face-node limits). False faces do not enable extra conversions.
 The checker has no production elaboration or runtime authority.
+
+`checkDependentApplication` checks an application against the exact syntactic
+instance of a supplied family, producing `NPathPElim` from an **already supplied**
+exact PathP typing. It checks the face, path, interval, family, endpoints and
+expected type against the shared admission cap, and preflights substitution
+with `boundedInstantiate` before structurally comparing the instantiated family
+with the expected type. A different syntactic instance is `Mismatch`; this is
+not a conversion checker. As with the conversion helpers, the supplied proof
+tree is not bounded or synthesized. In particular this does not check PathP
+introduction, synthesize the square, or derive its restricted face equalities;
+it can apply the separately constructed declarative square. The result
+indices contain the original path, face, interval and exact expected type.

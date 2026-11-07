@@ -427,3 +427,48 @@ checkDependentFormation : {m, k, n : Nat} -> (budget : Nat) -> (ctx : PathContex
   (face : ScopedFace n) -> (ty : NeutralExpr m k n) ->
   Either CheckError (NeutralTypeFormed ctx face ty)
 checkDependentFormation budget = dependentFormation (min 12 budget) budget
+
+-- Structural equality produces an equality of the actual syntax indices.
+neutralSame : (x, y : NeutralExpr m k n) -> Maybe (x = y)
+neutralSame (NBase x) (NBase y) = case decEq x y of
+  Yes Refl => Just Refl
+  No _ => Nothing
+neutralSame (NPath x) (NPath y) = case decEq x y of
+  Yes Refl => Just Refl
+  No _ => Nothing
+neutralSame NType NType = Just Refl
+neutralSame (NPathType a l r) (NPathType b l' r') = do
+  Refl <- neutralSame a b
+  Refl <- neutralSame l l'
+  Refl <- neutralSame r r'
+  Just Refl
+neutralSame (NAbstract x) (NAbstract y) = do
+  Refl <- neutralSame x y
+  Just Refl
+neutralSame (NApply p i) (NApply q j) = do
+  Refl <- neutralSame p q
+  Refl <- intervalSame i j
+  Just Refl
+neutralSame _ _ = Nothing
+
+||| Check an application using an already established exact PathP derivation.
+||| The proof tree is supplied, not synthesized or bounded by this function.
+public export
+checkDependentApplication : {m, k, n : Nat} -> (budget : Nat) -> (ctx : PathContext m k) ->
+  (face : ScopedFace n) -> (p : NeutralExpr m k n) -> (i : ScopedInterval n) ->
+  (family : NeutralExpr m k (S n)) -> (l, r, expected : NeutralExpr m k n) ->
+  NeutralHasType ctx face p (NPathType family l r) ->
+  Either CheckError (NeutralHasType ctx face (NApply p i) expected)
+checkDependentApplication {m} {k} {n} budget ctx face p i family l r expected derivation =
+  if m <= 12 && k <= 12 && n <= 11 then
+    case faceNodes (min 128 budget) face >>= \a => exprNodes a p >>= \b =>
+         intervalNodes b i >>= \c => exprNodes c family >>= \d =>
+         exprNodes d l >>= \e => exprNodes e r >>= \f => exprNodes f expected of
+      Nothing => Left Exhausted
+      Just _ => do
+        _ <- boundedInstantiate budget i family
+        case neutralSame (mapNeutralDimensions (instantiateDimension i) family) expected of
+          Nothing => Left Mismatch
+          Just same => case same of
+            Refl => Right (NPathPElim derivation i)
+  else Left Exhausted

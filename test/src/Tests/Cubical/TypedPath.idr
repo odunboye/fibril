@@ -316,10 +316,128 @@ substitutionReference = all (\replacement => all (\i =>
     Right (NApply (NPath FZ) actual) => sameInterval actual (referenceInterval replacement i)
     _ => False) smallIntervals) (the (List (ScopedInterval 0)) [Zero, One])
 
+squareFamily : NeutralExpr 2 1 1
+squareFamily = NPathType NType (NBase FZ) (NApply (NPath FZ) (Var FZ))
+
+squareTerm : NeutralExpr 2 1 0
+squareTerm = NAbstract (NAbstract (NApply (NPath FZ) (Meet (Var (FS FZ)) (Var FZ))))
+
+squareLeft : NeutralExpr 2 1 0
+squareLeft = NAbstract (NBase FZ)
+
+squareRight : NeutralExpr 2 1 0
+squareRight = NAbstract (NApply (NPath FZ) (Var FZ))
+
+-- A genuinely varying family that duplicates its parameter in both endpoints.
+duplicatingFamily : NeutralExpr 2 1 2
+duplicatingFamily = NPathType NType
+  (NApply (NPath FZ) (Meet (Var FZ) (Var FZ)))
+  (NApply (NPath FZ) (Meet (Var FZ) (Var FZ)))
+
+constantEdgeAt : (face : ScopedFace n) -> (i : ScopedInterval n) ->
+  boundedFaceEntails face (scopedEndpoint i False) = True ->
+  NeutralHasType Tests.Cubical.TypedPath.neutralContext face (NAbstract (NBase FZ))
+    (NPathType NType (NApply (NPath FZ) i) (NApply (NPath FZ) i))
+constantEdgeAt face i endpoint = NConvert
+  (NIntro NBaseForm (NBaseVar FZ) (NBaseVar FZ) (NBaseVar FZ)
+    (NRefl (NBaseVar FZ)) (NRefl (NBaseVar FZ)))
+  (NPathTypeCong NBaseForm (NBaseVar FZ) (NBaseVar FZ)
+    (NElim (NPathVar FZ) i) (NElim (NPathVar FZ) i)
+    (NSym (NEndpointLeft (NPathVar FZ) (NBaseVar FZ) endpoint))
+    (NSym (NEndpointLeft (NPathVar FZ) (NBaseVar FZ) endpoint)))
+
+duplicatingPath : NeutralHasType {n = 1} Tests.Cubical.TypedPath.neutralContext SBottom
+  (NAbstract (NAbstract (NBase FZ)))
+  (NPathType Tests.Cubical.TypedPath.duplicatingFamily (NAbstract (NBase FZ)) (NAbstract (NBase FZ)))
+duplicatingPath = NPathPIntro
+  (NPathForm NBaseForm
+    (NElim (NPathVar FZ) (Meet (Var FZ) (Var FZ)))
+    (NElim (NPathVar FZ) (Meet (Var FZ) (Var FZ))))
+  (constantEdgeAt SBottom (Meet Zero Zero) Refl)
+  (constantEdgeAt SBottom (Meet One One) Refl)
+  (constantEdgeAt SBottom (Meet (Var FZ) (Var FZ)) Refl)
+  (NRefl (constantEdgeAt (SConjunction SBottom (SEndpoint FZ False))
+    (Meet (Var FZ) (Var FZ)) Refl))
+  (NRefl (constantEdgeAt (SConjunction SBottom (SEndpoint FZ True))
+    (Meet (Var FZ) (Var FZ)) Refl))
+
+nonBooleanArgument : ScopedInterval 1
+nonBooleanArgument = Meet (Var FZ) (Reverse (Var FZ))
+
+duplicatedInstance : NeutralExpr 2 1 1
+duplicatedInstance = NPathType NType
+  (NApply (NPath FZ) (Meet nonBooleanArgument nonBooleanArgument))
+  (NApply (NPath FZ) (Meet nonBooleanArgument nonBooleanArgument))
+
+-- Independent counters mirror the grammar, not the checker's private allowance.
+testIntervalSize : ScopedInterval n -> Nat
+testIntervalSize Zero = 1
+testIntervalSize One = 1
+testIntervalSize (Var _) = 1
+testIntervalSize (Reverse x) = 1 + testIntervalSize x
+testIntervalSize (Meet x y) = 1 + testIntervalSize x + testIntervalSize y
+testIntervalSize (Join x y) = 1 + testIntervalSize x + testIntervalSize y
+
+testExprSize : NeutralExpr m k n -> Nat
+testExprSize (NBase _) = 1
+testExprSize (NPath _) = 1
+testExprSize NType = 1
+testExprSize (NPathType a l r) = 1 + testExprSize a + testExprSize l + testExprSize r
+testExprSize (NAbstract x) = 1 + testExprSize x
+testExprSize (NApply p i) = 1 + testExprSize p + testIntervalSize i
+
+duplicatePreflightTest : Bool
+duplicatePreflightTest =
+  let p : NeutralExpr 2 1 1 = NAbstract (NAbstract (NBase FZ))
+      edge : NeutralExpr 2 1 1 = NAbstract (NBase FZ)
+      -- SBottom counts one node. This independently establishes admission.
+      admitted = 1 + testExprSize p + testIntervalSize nonBooleanArgument +
+        testExprSize duplicatingFamily + testExprSize edge + testExprSize edge + testExprSize (the (NeutralExpr 2 1 1) NType)
+      expansion = testIntervalSize nonBooleanArgument + testExprSize duplicatingFamily +
+        testExprSize duplicatedInstance in
+  admitted == 25 && expansion == 40 && admitted <= 39 &&
+  checkerExhausted (boundedInstantiate 39 nonBooleanArgument duplicatingFamily) &&
+  (case boundedInstantiate 40 nonBooleanArgument duplicatingFamily of
+    Right (NPathType NType
+      (NApply (NPath FZ) (Meet (Meet (Var FZ) (Reverse (Var FZ))) (Meet (Var FZ) (Reverse (Var FZ)))))
+      (NApply (NPath FZ) (Meet (Meet (Var FZ) (Reverse (Var FZ))) (Meet (Var FZ) (Reverse (Var FZ)))))) => True
+    _ => False) &&
+  checkerExhausted (checkDependentApplication 39 neutralContext SBottom (NAbstract (NAbstract (NBase FZ))) nonBooleanArgument
+    duplicatingFamily (NAbstract (NBase FZ)) (NAbstract (NBase FZ)) NType duplicatingPath)
+
 public export
 checkerChecks : List (String, Bool)
 checkerChecks =
-  [ ("small exhaustive substitution reference", substitutionReference)
+  [ ("varying family application at i meet reverse i", checkerSuccess
+      (checkDependentApplication 128 neutralContext SBottom
+        (NAbstract (NAbstract (NBase FZ))) nonBooleanArgument duplicatingFamily
+        (NAbstract (NBase FZ)) (NAbstract (NBase FZ)) duplicatedInstance duplicatingPath))
+  , ("varying family nonboolean instance is not zero", checkerMismatch
+      (checkDependentApplication 128 neutralContext SBottom
+        (NAbstract (NAbstract (NBase FZ))) nonBooleanArgument duplicatingFamily
+        (NAbstract (NBase FZ)) (NAbstract (NBase FZ))
+        (NPathType NType (NApply (NPath FZ) (Meet Zero Zero))
+          (NApply (NPath FZ) (Meet Zero Zero))) duplicatingPath))
+  , ("dependent application expanded output preflight", duplicatePreflightTest)
+  , ("dependent application of square at zero", checkerSuccess
+      (checkDependentApplication 128 neutralContext STop squareTerm Zero squareFamily squareLeft squareRight
+        (NPathType NType (NBase FZ) (NApply (NPath FZ) Zero)) square))
+  , ("dependent application of square at one", checkerSuccess
+      (checkDependentApplication 128 neutralContext STop squareTerm One squareFamily squareLeft squareRight
+        (NPathType NType (NBase FZ) (NApply (NPath FZ) One)) square))
+  , ("dependent application wrong family instance", checkerMismatch
+      (checkDependentApplication 128 neutralContext STop squareTerm One squareFamily squareLeft squareRight
+        (NPathType NType (NBase FZ) (NApply (NPath FZ) Zero)) square))
+  , ("dependent application exhausted", checkerExhausted
+      (checkDependentApplication 1 neutralContext STop squareTerm Zero squareFamily squareLeft squareRight
+        (NPathType NType (NBase FZ) (NApply (NPath FZ) Zero)) square))
+  , ("dependent application coincident endpoints", checkerSuccess
+      (checkDependentApplication {n = 0} 64 coincidentContext STop (NPath FZ) One NType
+        (NBase FZ) (NBase FZ) NType (NPathVar FZ)))
+  , ("dependent application nonboolean interval", checkerSuccess
+      (checkDependentApplication {n = 1} 64 neutralContext STop (NPath FZ)
+        (Meet (Var FZ) (Reverse (Var FZ))) NType (NBase FZ) (NBase (FS FZ)) NType (NPathVar FZ)))
+  , ("small exhaustive substitution reference", substitutionReference)
   , ("dependent formation", checkerSuccess (checkDependentFormation {n = 0} 128 neutralContext STop
       (NPathType (NPathType NType (NApply (NPath FZ) (Var FZ)) (NApply (NPath FZ) (Var FZ)))
         (NAbstract (NApply (NPath FZ) Zero)) (NAbstract (NApply (NPath FZ) One)))))
