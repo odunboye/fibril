@@ -114,6 +114,15 @@ mutual
       Nothing => case step next of
         Just s => Just (SeqFold motive base s value)
         Nothing => SeqFold motive base next <$> step value
+  step (IterateBinary stateType resultType count next initial) = case step stateType of
+    Just x => Just (IterateBinary x resultType count next initial)
+    Nothing => case step resultType of
+      Just x => Just (IterateBinary stateType x count next initial)
+      Nothing => case step count of
+        Just x => Just (IterateBinary stateType resultType x next initial)
+        Nothing => case step next of
+          Just x => Just (IterateBinary stateType resultType count x initial)
+          Nothing => map (IterateBinary stateType resultType count next) (step initial)
   step (ReadBytes x) = map ReadBytes (step x)
   step (WriteBytes x) = map WriteBytes (step x)
   step RejectBytes = Nothing

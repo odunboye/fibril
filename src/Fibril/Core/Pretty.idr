@@ -37,6 +37,7 @@ mutual
   renderTerm (SeqNil ty) = "(SeqNil " ++ renderTerm ty ++ ")"
   renderTerm (SeqCons ty h t) = "(SeqCons " ++ renderTerm ty ++ " " ++ renderTerm h ++ " " ++ renderTerm t ++ ")"
   renderTerm (SeqFold p z s x) = "(SeqFold " ++ renderTerm p ++ " " ++ renderTerm z ++ " " ++ renderTerm s ++ " " ++ renderTerm x ++ ")"
+  renderTerm (IterateBinary stateType resultType count step initial) = "(IterateBinary " ++ renderTerm stateType ++ " " ++ renderTerm resultType ++ " " ++ renderTerm count ++ " " ++ renderTerm step ++ " " ++ renderTerm initial ++ ")"
   renderTerm (ReadBytes x) = "(ReadBytes " ++ renderTerm x ++ ")"
   renderTerm (WriteBytes x) = "(WriteBytes " ++ renderTerm x ++ ")"
   renderTerm RejectBytes = "RejectBytes"

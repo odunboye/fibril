@@ -139,6 +139,7 @@ mutual
   generate mode n (IOPure value) = unary mode n "f_pure" value
   generate mode n (WriteLine text) = unary mode n "f_write" text
   generate mode n (IOBind _ _ action continuation) = binary mode n "f_bind" action continuation
+  generate Binary n (IterateBinary _ _ count step initial) = ternary Binary n "f_iterate_binary" count step initial
   generate Binary n (ReadBytes capacity) = unary Binary n "f_read_bytes" capacity
   generate Binary n (WriteBytes bytes) = unary Binary n "f_write_bytes" bytes
   generate Binary n RejectBytes = Right (constant n "f_reject_bytes(r)")

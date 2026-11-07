@@ -46,6 +46,7 @@ mutual
   payloadWeight env (SeqNil ty) = payloadWeight env ty
   payloadWeight env (SeqCons ty h t) = cap (payloadWeight env ty + payloadWeight env h + payloadWeight env t)
   payloadWeight env (SeqFold p z s x) = cap (payloadWeight env p + payloadWeight env z + payloadWeight env s + payloadWeight env x)
+  payloadWeight env (IterateBinary stateType resultType count step initial) = cap (payloadWeight env stateType + payloadWeight env resultType + payloadWeight env count + payloadWeight env step + payloadWeight env initial)
   payloadWeight env (ReadBytes x) = payloadWeight env x
   payloadWeight env (WriteBytes x) = payloadWeight env x
   payloadWeight env RejectBytes = 0

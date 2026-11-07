@@ -99,6 +99,10 @@ mutual
   match position mapping prune (SeqFold p z s x) (SeqFold q w t y) solutions = do
     solutions <- triple position mapping prune p z s q w t solutions
     match position mapping prune x y solutions
+  match position mapping prune (IterateBinary s r n f x) (IterateBinary t u m g y) solutions = do
+    solutions <- triple position mapping prune s r n t u m solutions
+    solutions <- match position mapping prune f g solutions
+    match position mapping prune x y solutions
   match position mapping prune (ReadBytes x) (ReadBytes y) solutions = match position mapping prune x y solutions
   match position mapping prune (WriteBytes x) (WriteBytes y) solutions = match position mapping prune x y solutions
   match position mapping prune RejectBytes RejectBytes solutions = Right solutions
@@ -311,6 +315,7 @@ implicitArgumentType position (S fuel) context (BytesIndex _ _) = Right (Just by
 implicitArgumentType position (S fuel) context (BytesSlice _ _ _) = Right (Just BytesType)
 implicitArgumentType position (S fuel) context (UTF8Encode _) = Right (Just (utf8ResultType BytesType))
 implicitArgumentType position (S fuel) context (UTF8Decode _) = Right (Just (utf8ResultType StringType))
+implicitArgumentType position (S fuel) context (IterateBinary s r _ _ _) = Right (Just (IOType (loopVariantType s r)))
 implicitArgumentType position (S fuel) context (ReadBytes _) = Right (Just (IOType byteReadResultType))
 implicitArgumentType position (S fuel) context (WriteBytes _) = Right (Just (IOType UnitType))
 implicitArgumentType position (S fuel) context RejectBytes = Right (Just (IOType UnitType))

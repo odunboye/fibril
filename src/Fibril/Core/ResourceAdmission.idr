@@ -18,6 +18,7 @@ mutual
   containsFileReference BoolType = False
   containsFileReference BoolTrue = False
   containsFileReference BoolFalse = False
+  containsFileReference (IterateBinary stateType resultType count step initial) = containsFileReference stateType || containsFileReference resultType || containsFileReference count || containsFileReference step || containsFileReference initial
   containsFileReference (ReadBytes x) = containsFileReference x
   containsFileReference (WriteBytes x) = containsFileReference x
   containsFileReference RejectBytes = False

@@ -314,6 +314,18 @@ mutual
     ty <- infer depth reduction context x
     requireCompatible reduction ty NatType
     Right BytesType
+  infer (S depth) reduction context (IterateBinary stateType resultType count step initial) = do
+    stateSort <- infer depth reduction context stateType
+    requireCompatible reduction stateSort (Universe 0)
+    resultSort <- infer depth reduction context resultType
+    requireCompatible reduction resultSort (Universe 0)
+    countType <- infer depth reduction context count
+    requireCompatible reduction countType NatType
+    stepType <- infer depth reduction context step
+    requireCompatible reduction stepType (binaryStepType stateType resultType)
+    initialType <- infer depth reduction context initial
+    requireCompatible reduction initialType stateType
+    Right (IOType (loopVariantType stateType resultType))
   infer (S depth) reduction context (ReadBytes x) = do
     ty <- infer depth reduction context x
     requireCompatible reduction ty NatType

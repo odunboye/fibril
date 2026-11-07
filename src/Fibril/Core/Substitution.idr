@@ -45,6 +45,7 @@ mutual
   substituteCongruent left right agree (SeqNil ty) = cong SeqNil (substituteCongruent left right agree ty)
   substituteCongruent left right agree (SeqCons ty h t) = rewrite substituteCongruent left right agree ty in rewrite substituteCongruent left right agree h in rewrite substituteCongruent left right agree t in Refl
   substituteCongruent left right agree (SeqFold p z s x) = rewrite substituteCongruent left right agree p in rewrite substituteCongruent left right agree z in rewrite substituteCongruent left right agree s in rewrite substituteCongruent left right agree x in Refl
+  substituteCongruent left right agree (IterateBinary stateType resultType count step initial) = rewrite substituteCongruent left right agree stateType in rewrite substituteCongruent left right agree resultType in rewrite substituteCongruent left right agree count in rewrite substituteCongruent left right agree step in rewrite substituteCongruent left right agree initial in Refl
   substituteCongruent left right agree (ReadBytes x) = cong ReadBytes (substituteCongruent left right agree x)
   substituteCongruent left right agree (WriteBytes x) = cong WriteBytes (substituteCongruent left right agree x)
   substituteCongruent left right agree RejectBytes = Refl
@@ -159,6 +160,7 @@ mutual
   renameAsSubstitution env (SeqNil ty) = cong SeqNil (renameAsSubstitution env ty)
   renameAsSubstitution env (SeqCons ty h t) = rewrite renameAsSubstitution env ty in rewrite renameAsSubstitution env h in rewrite renameAsSubstitution env t in Refl
   renameAsSubstitution env (SeqFold p z s x) = rewrite renameAsSubstitution env p in rewrite renameAsSubstitution env z in rewrite renameAsSubstitution env s in rewrite renameAsSubstitution env x in Refl
+  renameAsSubstitution env (IterateBinary stateType resultType count step initial) = rewrite renameAsSubstitution env stateType in rewrite renameAsSubstitution env resultType in rewrite renameAsSubstitution env count in rewrite renameAsSubstitution env step in rewrite renameAsSubstitution env initial in Refl
   renameAsSubstitution env (ReadBytes x) = cong ReadBytes (renameAsSubstitution env x)
   renameAsSubstitution env (WriteBytes x) = cong WriteBytes (renameAsSubstitution env x)
   renameAsSubstitution env RejectBytes = Refl

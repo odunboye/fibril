@@ -46,6 +46,7 @@ mutual
   renameAfterSubstitution env sigma (SeqNil ty) = cong SeqNil (renameAfterSubstitution env sigma ty)
   renameAfterSubstitution env sigma (SeqCons ty h t) = rewrite renameAfterSubstitution env sigma ty in rewrite renameAfterSubstitution env sigma h in rewrite renameAfterSubstitution env sigma t in Refl
   renameAfterSubstitution env sigma (SeqFold p z s x) = rewrite renameAfterSubstitution env sigma p in rewrite renameAfterSubstitution env sigma z in rewrite renameAfterSubstitution env sigma s in rewrite renameAfterSubstitution env sigma x in Refl
+  renameAfterSubstitution env sigma (IterateBinary stateType resultType count step initial) = rewrite renameAfterSubstitution env sigma stateType in rewrite renameAfterSubstitution env sigma resultType in rewrite renameAfterSubstitution env sigma count in rewrite renameAfterSubstitution env sigma step in rewrite renameAfterSubstitution env sigma initial in Refl
   renameAfterSubstitution env sigma (ReadBytes x) = cong ReadBytes (renameAfterSubstitution env sigma x)
   renameAfterSubstitution env sigma (WriteBytes x) = cong WriteBytes (renameAfterSubstitution env sigma x)
   renameAfterSubstitution env sigma RejectBytes = Refl
@@ -169,6 +170,7 @@ mutual
   substituteAfterRenaming env sigma (SeqNil ty) = cong SeqNil (substituteAfterRenaming env sigma ty)
   substituteAfterRenaming env sigma (SeqCons ty h t) = rewrite substituteAfterRenaming env sigma ty in rewrite substituteAfterRenaming env sigma h in rewrite substituteAfterRenaming env sigma t in Refl
   substituteAfterRenaming env sigma (SeqFold p z s x) = rewrite substituteAfterRenaming env sigma p in rewrite substituteAfterRenaming env sigma z in rewrite substituteAfterRenaming env sigma s in rewrite substituteAfterRenaming env sigma x in Refl
+  substituteAfterRenaming env sigma (IterateBinary stateType resultType count step initial) = rewrite substituteAfterRenaming env sigma stateType in rewrite substituteAfterRenaming env sigma resultType in rewrite substituteAfterRenaming env sigma count in rewrite substituteAfterRenaming env sigma step in rewrite substituteAfterRenaming env sigma initial in Refl
   substituteAfterRenaming env sigma (ReadBytes x) = cong ReadBytes (substituteAfterRenaming env sigma x)
   substituteAfterRenaming env sigma (WriteBytes x) = cong WriteBytes (substituteAfterRenaming env sigma x)
   substituteAfterRenaming env sigma RejectBytes = Refl
@@ -302,6 +304,7 @@ mutual
   substituteComposition first second (SeqNil ty) = cong SeqNil (substituteComposition first second ty)
   substituteComposition first second (SeqCons ty h t) = rewrite substituteComposition first second ty in rewrite substituteComposition first second h in rewrite substituteComposition first second t in Refl
   substituteComposition first second (SeqFold p z s x) = rewrite substituteComposition first second p in rewrite substituteComposition first second z in rewrite substituteComposition first second s in rewrite substituteComposition first second x in Refl
+  substituteComposition first second (IterateBinary stateType resultType count step initial) = rewrite substituteComposition first second stateType in rewrite substituteComposition first second resultType in rewrite substituteComposition first second count in rewrite substituteComposition first second step in rewrite substituteComposition first second initial in Refl
   substituteComposition first second (ReadBytes x) = cong ReadBytes (substituteComposition first second x)
   substituteComposition first second (WriteBytes x) = cong WriteBytes (substituteComposition first second x)
   substituteComposition first second RejectBytes = Refl

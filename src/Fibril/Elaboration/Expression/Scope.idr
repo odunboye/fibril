@@ -36,6 +36,7 @@ mutual
   thin env (SeqNil ty) = SeqNil <$> thin env ty
   thin env (SeqCons ty h t) = [| SeqCons (thin env ty) (thin env h) (thin env t) |]
   thin env (SeqFold p z s x) = [| SeqFold (thin env p) (thin env z) (thin env s) (thin env x) |]
+  thin env (IterateBinary stateType resultType count step initial) = [| IterateBinary (thin env stateType) (thin env resultType) (thin env count) (thin env step) (thin env initial) |]
   thin env (ReadBytes x) = map ReadBytes (thin env x)
   thin env (WriteBytes x) = map WriteBytes (thin env x)
   thin env RejectBytes = Just RejectBytes
@@ -121,6 +122,7 @@ mutual
   substitutionNodes env (SeqNil ty) = min (S inferredResultNodes) (1 + substitutionNodes env ty)
   substitutionNodes env (SeqCons ty h t) = min (S inferredResultNodes) (1 + substitutionNodes env ty + substitutionNodes env h + substitutionNodes env t)
   substitutionNodes env (SeqFold p z s x) = min (S inferredResultNodes) (1 + substitutionNodes env p + substitutionNodes env z + substitutionNodes env s + substitutionNodes env x)
+  substitutionNodes env (IterateBinary stateType resultType count step initial) = min (S inferredResultNodes) (1 + substitutionNodes env stateType + substitutionNodes env resultType + substitutionNodes env count + substitutionNodes env step + substitutionNodes env initial)
   substitutionNodes env (ReadBytes x) = min (S inferredResultNodes) (1 + substitutionNodes env x)
   substitutionNodes env (WriteBytes x) = min (S inferredResultNodes) (1 + substitutionNodes env x)
   substitutionNodes env RejectBytes = 1

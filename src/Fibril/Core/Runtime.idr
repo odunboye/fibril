@@ -90,6 +90,11 @@ mutual
     baseUsage <- analyze depth reduction context base
     consUsage <- analyze depth reduction context cons
     Right (combineUsage valueUsage (joinUsage baseUsage consUsage))
+  analyze (S depth) reduction context (IterateBinary stateType resultType count step initial) = do
+    countUsage <- analyze depth reduction context count
+    stepUsage <- analyze depth reduction context step
+    initialUsage <- analyze depth reduction context initial
+    Right (combineUsage countUsage (combineUsage (scaleUsage Unrestricted stepUsage) initialUsage))
   analyze (S depth) reduction context (ReadBytes x) = analyze depth reduction context x
   analyze (S depth) reduction context (WriteBytes x) = analyze depth reduction context x
   analyze (S depth) reduction context RejectBytes = Right zeroUsage

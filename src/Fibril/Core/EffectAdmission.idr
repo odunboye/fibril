@@ -8,6 +8,7 @@ import Fibril.Core.Quantity
 
 mutual
   scan : Bool -> Term n -> Bool
+  scan binary (IterateBinary stateType resultType count step initial) = binary || scan binary stateType || scan binary resultType || scan binary count || scan binary step || scan binary initial
   scan binary (ReadBytes x) = binary || scan binary x
   scan binary (WriteBytes x) = binary || scan binary x
   scan binary RejectBytes = binary

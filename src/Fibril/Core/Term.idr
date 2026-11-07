@@ -101,6 +101,8 @@ data Term : Nat -> Type where
   WriteBytes : Term n -> Term n
   FlushBytes : Term n
   ||| Represented binary protocol rejection; no transport request is performed.
+  ||| Binary-only bounded iteration. Types erased; callback reusable, state linear.
+  IterateBinary : Term n -> Term n -> Term n -> Term n -> Term n -> Term n
   RejectBytes : Term n
   ||| Nondependent branches; runtime checking joins their resource permissions.
   BoolCase : Term n -> Term n -> Term n -> Term n
@@ -124,6 +126,13 @@ canonicalNatural : Term n -> Maybe Nat
 canonicalNatural NatZero = Just Z
 canonicalNatural (NatSucc n) = map S (canonicalNatural n)
 canonicalNatural _ = Nothing
+
+||| Tags 0 Done/Finished carry R; tags 1 Continue/Exhausted carry S.
+||| These are structural aliases, not a runtime provenance/refinement guarantee.
+public export
+loopVariantType : Term n -> Term n -> Term n
+loopVariantType stateType resultType = VariantType
+  [Just (Linear, resultType), Just (Linear, stateType)]
 
 ||| Missing or found octet (as a natural 0..255), never a sentinel byte.
 public export
@@ -234,6 +243,7 @@ mutual
   rename env (SeqCons ty head tail) = SeqCons (rename env ty) (rename env head) (rename env tail)
   rename env (SeqFold motive base step value) = SeqFold (rename env motive) (rename env base) (rename env step) (rename env value)
   rename env (SeqCase motive value base cons) = SeqCase (rename env motive) (rename env value) (rename env base) (rename env cons)
+  rename env (IterateBinary stateType resultType count step initial) = IterateBinary (rename env stateType) (rename env resultType) (rename env count) (rename env step) (rename env initial)
   rename env (ReadBytes x) = ReadBytes (rename env x)
   rename env (WriteBytes x) = WriteBytes (rename env x)
   rename env RejectBytes = RejectBytes
@@ -325,6 +335,7 @@ mutual
   substituteTerm env (SeqCons ty head tail) = SeqCons (substituteTerm env ty) (substituteTerm env head) (substituteTerm env tail)
   substituteTerm env (SeqFold motive base step value) = SeqFold (substituteTerm env motive) (substituteTerm env base) (substituteTerm env step) (substituteTerm env value)
   substituteTerm env (SeqCase motive value base cons) = SeqCase (substituteTerm env motive) (substituteTerm env value) (substituteTerm env base) (substituteTerm env cons)
+  substituteTerm env (IterateBinary stateType resultType count step initial) = IterateBinary (substituteTerm env stateType) (substituteTerm env resultType) (substituteTerm env count) (substituteTerm env step) (substituteTerm env initial)
   substituteTerm env (ReadBytes x) = ReadBytes (substituteTerm env x)
   substituteTerm env (WriteBytes x) = WriteBytes (substituteTerm env x)
   substituteTerm env RejectBytes = RejectBytes
@@ -423,6 +434,7 @@ mutual
   sameSyntax (SeqCons a h t) (SeqCons b x y) = sameSyntax a b && sameSyntax h x && sameSyntax t y
   sameSyntax (SeqFold p z s x) (SeqFold q w t y) = sameSyntax p q && sameSyntax z w && sameSyntax s t && sameSyntax x y
   sameSyntax (SeqCase p x z s) (SeqCase q y w t) = sameSyntax p q && sameSyntax x y && sameSyntax z w && sameSyntax s t
+  sameSyntax (IterateBinary stateType resultType count step initial) (IterateBinary a b c d e) = sameSyntax stateType a && sameSyntax resultType b && sameSyntax count c && sameSyntax step d && sameSyntax initial e
   sameSyntax (ReadBytes a) (ReadBytes b) = sameSyntax a b
   sameSyntax (WriteBytes a) (WriteBytes b) = sameSyntax a b
   sameSyntax RejectBytes RejectBytes = True
@@ -522,3 +534,9 @@ scopedInputBodyType result = Pi Erased (Universe 0)
   (Pi Linear (FileHandleType (Variable FZ))
     (IOType (Sigma Linear Linear (FileHandleType (Variable (FS FZ)))
       (weaken (weaken (weaken result))))))
+
+public export
+binaryStepType : Term n -> Term n -> Term n
+binaryStepType stateType resultType = Pi Linear stateType
+  (IOType (loopVariantType (weaken stateType) (weaken resultType)))
+
