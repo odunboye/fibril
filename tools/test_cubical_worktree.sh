@@ -361,3 +361,30 @@ if ! grep -Fq 'Mismatch between: True and False' "$tmp/shadow-mapped-face.log"; 
   exit 1
 fi
 echo 'Mapped shadow face escape negative test passed.'
+for fixture in ShadowTypedBridgeWrongFace ShadowTypedBridgeWrongIndex; do
+  "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1 || true
+  case "$fixture" in
+    ShadowTypedBridgeWrongFace) expected='Mismatch between: True and False.' ;;
+    ShadowTypedBridgeWrongIndex) expected='Mismatch between: LThere LHere and LHere.' ;;
+  esac
+  if [[ $(grep -c '^Error:' "$tmp/$fixture.log") -ne 1 ]] ||
+     ! grep -Fq 'Error: While processing right hand side of bad.' "$tmp/$fixture.log" ||
+     ! grep -Fq "$expected" "$tmp/$fixture.log"; then
+    echo "Negative bridge test $fixture failed for an unrelated reason:" >&2
+    cat "$tmp/$fixture.log" >&2; exit 1
+  fi
+  case "$fixture" in
+    ShadowTypedBridgeWrongFace)
+      if ! grep -Fq 'boundedFaceEntails (the (ScopedFace 1) (SEndpoint FZ True)) (scopedEndpoint (Var FZ) False) = True' "$tmp/$fixture.log"; then
+        echo 'Wrong-face fixture did not reject the intended target entailment:' >&2
+        cat "$tmp/$fixture.log" >&2; exit 1
+      fi ;;
+    ShadowTypedBridgeWrongIndex)
+      if ! grep -Fq 'DeclaredEndpoint (DeclarePath (LRef (LThere LHere)) (LRef (LThere LHere)) NoPaths)' "$tmp/$fixture.log" ||
+         ! grep -Fq 'DeclaredEndpoint (DeclarePath (LRef LHere) (LRef (LThere LHere)) NoPaths)' "$tmp/$fixture.log"; then
+        echo 'Wrong-index fixture did not reject the intended source declaration:' >&2
+        cat "$tmp/$fixture.log" >&2; exit 1
+      fi ;;
+  esac
+done
+echo 'Shadow typed bridge wrong-face and wrong-index tests passed.'

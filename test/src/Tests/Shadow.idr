@@ -6,6 +6,8 @@ import Fibril.Core.Quantity
 import Fibril.Core.Usage
 import Fibril.Cubical.Logical.TypedPath
 import Fibril.Cubical.Logical.OpenPath
+import Fibril.Cubical.Logical.PathContext
+
 
 import Fibril.Cubical.Logical.ScopedSyntax
 import Fibril.Foundation.DeMorgan.Face
@@ -17,6 +19,7 @@ import Fibril.Core.Quantitative.Usage
 import Fibril.Core.Quantitative.Substitution
 import Fibril.Cubical.Logical.ShadowSubstitution
 import Fibril.Cubical.Logical.ShadowPath
+import Fibril.Cubical.Logical.ShadowTypedBridge
 import Fibril.Foundation.DeMorgan.Interval
 import Fibril.Foundation.DeMorgan.Scope
 
@@ -452,3 +455,34 @@ checks =
   , ("auto no fuel", not (hasAutomaticBoundary (shadowApplicationZeroAuto 0 STop (Embed (shadowTerm Tests.Shadow.linearSource)) (Embed (LBoolean False)) Tests.Shadow.shadowNeutralPath)))
   , ("auto ambient", hasAutomaticBoundary (shadowApplicationOneAuto 1 (SEndpoint FZ False) (Embed (shadowTerm Tests.Shadow.linearSource)) (Embed (shadowTerm Tests.Shadow.linearSource)) Tests.Shadow.ambientFaceShadowPath))
   ]
+
+-- This source is genuinely used linearly; the bridge maps its variable
+-- position to the target's abstract base, not Boolean semantics.
+bridgeSource : Term [BoolTy] BoolTy
+bridgeSource = Ref Here
+
+bridgeSourceUses : Uses Tests.Shadow.bridgeSource [Linear]
+bridgeSourceUses = UseRef Here
+
+bridgeSourcePath : DeclaredShadowPath
+  (DeclarePath (shadowTerm Tests.Shadow.bridgeSource) (shadowTerm Tests.Shadow.bridgeSource) NoPaths)
+  (the (ScopedFace 0) STop) (Embed (shadowTerm Tests.Shadow.bridgeSource)) (Embed (shadowTerm Tests.Shadow.bridgeSource))
+bridgeSourcePath = ShadowAbstract (NeutralAt LHere (Var FZ))
+  (BodyEndpoint (DeclaredLeft DeclaredHere Refl))
+  (BodyEndpoint (DeclaredRight DeclaredHere Refl))
+
+bridgeSourceTyped : NeutralHasType (bridgeContext {context = [LBool]} LHere LHere) (the (ScopedFace 0) STop)
+  (NAbstract (NApply (NPath FZ) (Var FZ)))
+  (NPathType NType (NBase FZ) (NBase FZ))
+bridgeSourceTyped = bridgeDeclaredPath LHere LHere (the (ScopedFace 0) STop)
+  {path = Tests.Shadow.bridgeSourcePath} (WitnessNeutral Refl Refl) Refl Refl
+
+bridgeSourceLeft : NeutralEqual (bridgeContext {context = [LBool]} LHere LHere) (the (ScopedFace 1) (SEndpoint FZ False))
+  (NApply (NPath FZ) (Var FZ)) (NBase FZ) NType
+bridgeSourceLeft = bridgeLeft {context = [LBool]} LHere LHere (the (ScopedFace 1) (SEndpoint FZ False)) (Var FZ)
+  (DeclaredLeft DeclaredHere Refl) Refl
+
+bridgeSourceRight : NeutralEqual (bridgeContext {context = [LBool]} LHere LHere) (the (ScopedFace 1) (SEndpoint FZ True))
+  (NApply (NPath FZ) (Var FZ)) (NBase FZ) NType
+bridgeSourceRight = bridgeRight {context = [LBool]} LHere LHere (the (ScopedFace 1) (SEndpoint FZ True)) (Var FZ)
+  (DeclaredRight DeclaredHere Refl) Refl
