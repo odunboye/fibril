@@ -12,6 +12,7 @@ import unittest
 from unittest import mock
 
 import probe_lsp_source_sharing as probe
+from lsp_evidence_history import verify_evidence
 
 from lsp_source_sharing import (ROOT, CANDIDATE, BASELINES, source_preservation,
     bare, closed, expand_closed, expand_introduced, instrument_module_check)
@@ -111,8 +112,8 @@ class LSPSourceSharing(unittest.TestCase):
             instrument_module_check(source.replace('module Fibril.Driver.ModuleCheck', 'module Changed'))
 
     def test_evidence_exact_sizes_construction_and_blockers(self):
-        data = json.loads(EVIDENCE.read_text())
-        sanitized = json.loads(EVIDENCE.with_name('lsp-source-sharing-sanitized.json').read_text())
+        data = verify_evidence(EVIDENCE, candidate=True)
+        sanitized = verify_evidence(EVIDENCE.with_name('lsp-source-sharing-sanitized.json'), candidate=True)
         for key in ('syntax', 'helpers', 'native', 'json_rows', 'json_matrix_totals', 'framing',
                     'inputs_sha256', 'private_checker_sha256', 'source_controls'):
             self.assertEqual(data[key], sanitized[key], key)
@@ -120,9 +121,7 @@ class LSPSourceSharing(unittest.TestCase):
         # their hashes and verify those two historical blobs, not rewritten hashes.
         for path in (EVIDENCE, EVIDENCE.with_name('lsp-source-sharing-sanitized.json')):
             self.assertEqual(path.read_bytes(), historical_bytes(path.relative_to(ROOT)))
-        for path, sha in data['inputs_sha256'].items():
-            content = historical_bytes(path) if path in HISTORICAL_HARNESS_PATHS else (ROOT/path).read_bytes()
-            self.assertEqual(hashlib.sha256(content).hexdigest(), sha, path)
+        # Input digests were verified against explicit reachable recording epochs above.
         rows = {r['entry']: r for r in data['syntax']}
         expected = {'Main.fib': (4341, 3719, 52863, 51509), 'Two.fib': (4364, 3742, 52909, 51555),
             'Parse.fib': (6205, 4935, 145990, 136828), 'ParseBinary.fib': (7467, 6197, 148514, 139352),

@@ -76,6 +76,10 @@
         "path": "docs/lsp.md"
       },
       {
+        "title": "Consolidated LSP worktrees",
+        "path": "docs/lsp-consolidation.md"
+      },
+      {
         "title": "Legacy Vim and Neovim commands",
         "path": "docs/editor-highlighting.md"
       },

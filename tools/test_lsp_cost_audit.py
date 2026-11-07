@@ -11,6 +11,7 @@ from probe_lsp_cost_audit import ROOT, FIXTURE, summarize, prepare_root
 from lsp_cost_instrument import instrument, replace_once
 from test_lsp_lifecycle import source_for, request, notify
 from test_binary_iteration import observe
+from lsp_evidence_history import verify_evidence
 
 EVIDENCE = ROOT / 'docs/assets/evidence/lsp-cost-audit.json'
 
@@ -87,14 +88,13 @@ class LSPCostAudit(unittest.TestCase):
             self.assertIn('interact_binary', labels['allocation_sites'])
 
     def test_committed_evidence_totals_provenance_and_blockers(self):
-        data = json.loads(EVIDENCE.read_text())
+        data = verify_evidence(EVIDENCE, candidate=False)
         self.assertEqual(data['base_commit'], 'afaf00c4c683a0e05c658a12c80a05d8e123201b')
-        sanitized = json.loads(EVIDENCE.with_name('lsp-cost-audit-sanitized.json').read_text())
+        sanitized = verify_evidence(EVIDENCE.with_name('lsp-cost-audit-sanitized.json'), candidate=False)
         for key in ('syntax', 'admission', 'native', 'inputs_sha256',
                     'private_instrumented_sha256', 'instrumentation'):
             self.assertEqual(data[key], sanitized[key], key)
-        for path, digest in data['inputs_sha256'].items():
-            self.assertEqual(hashlib.sha256((ROOT / path).read_bytes()).hexdigest(), digest, path)
+        # Recorded measurements attest their historical Git blobs, not this merge's compiler.
         rows = {row['entry']: row for row in data['syntax']}
         for label, nodes in [('echoFrame', 4341), ('JSON-binary-API', 7467), ('JSON-Read65', 8002),
                              ('typed-transition', 4359), ('FullIdFour', 8467)]:
