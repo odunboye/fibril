@@ -1121,6 +1121,124 @@ planMutualWorker snapshot globals members decl =
     firstMember : String
     firstMember = case members of first :: _ => first; [] => ""
 
+record MutualValues where
+  constructor MutualValuesPlan
+  firstValue : Term 0
+  secondValue : Term 0
+  firstCall : SourceSpan
+  firstTarget : Bool
+  secondCall : SourceSpan
+  secondTarget : Bool
+
+-- Exactly one forwarding equation enables the alias slice. It never makes
+-- arbitrary nondecreasing groups eligible for ordinary recursive admission.
+forwardEquation : Expr -> Bool
+forwardEquation (NEquationLambda _ _ _ (NApply _ _ _)) = True
+forwardEquation _ = False
+
+forwardOrder : Expr -> Maybe Bool
+forwardOrder (NPi _ Linear _ (NRef _ "Nat") (NPi _ Linear _ (NBoolType _) (NBoolType _))) = Just True
+forwardOrder (NPi _ Linear _ (NBoolType _) (NPi _ Linear _ (NRef _ "Nat") (NBoolType _))) = Just False
+forwardOrder _ = Nothing
+
+record ForwardShape where
+  constructor ForwardShapePlan
+  natFirst : Bool
+  natArgument : String
+  payloadArgument : String
+  body : Expr
+
+forwardShape : ModuleSnapshot -> List String -> Declaration -> Either GraphError ForwardShape
+forwardShape snapshot members decl = do
+  if decl.quantity /= Unrestricted || decl.generated || decl.dictionary || invalid decl.name
+    then bad decl.nameSpan.start "Forwarding workers require unrestricted ordinary names" else Right ()
+  order <- case forwardOrder decl.expected of
+    Just order => Right order
+    Nothing => bad decl.nameSpan.start "Forwarding signatures require linear Nat/Bool arguments and Bool result"
+  case decl.expected of
+    NPi _ _ first _ (NPi _ _ second _ _) =>
+      if first == second || invalid first || invalid second || elem first members || elem second members
+        then bad decl.nameSpan.start "Invalid forwarding signature binders" else Right ()
+    _ => bad decl.nameSpan.start "Invalid forwarding signature"
+  case decl.value of
+    NEquationLambda _ [first, second] _ body => do
+      if first.spelling == second.spelling || invalid first.spelling || invalid second.spelling ||
+         elem first.spelling members || elem second.spelling members
+        then bad first.span.start "Invalid forwarding equation binders" else Right ()
+      Right (ForwardShapePlan order (if order then first.spelling else second.spelling)
+        (if order then second.spelling else first.spelling) body)
+    _ => bad decl.definitionNameSpan.start "Forwarding workers require exactly two equation arguments"
+  where
+    invalid : String -> Bool
+    invalid name = elem name (the (List String) ["_", "Nat", "Zero", "Succ"])
+
+    bad : Position -> String -> Either GraphError a
+    bad position message = Left (problem snapshot (Just position) message)
+
+planForwardValues : ModuleSnapshot -> MutualDeclaration -> Either GraphError MutualValues
+planForwardValues snapshot group = do
+  let aliasFirst = forwardEquation group.first.value
+  if aliasFirst == forwardEquation group.second.value
+    then Left (problem snapshot (Just group.span.start) "Forwarding groups require exactly one alias and one structural worker; alias cycles are unsupported") else Right ()
+  first <- forwardShape snapshot [group.first.name, group.second.name] group.first
+  second <- forwardShape snapshot [group.first.name, group.second.name] group.second
+  let aliasShape = if aliasFirst then first else second
+  let structural = if aliasFirst then second else first
+  (aliasTarget, aliasSite) <- call first second aliasShape.natArgument aliasShape.payloadArgument aliasShape.body
+  if aliasTarget /= not aliasFirst
+    then Left (problem snapshot (Just aliasSite.start) "A forwarding alias must call the other group member") else Right ()
+  case structural.body of
+    NDataCase span (NRef _ scrutinee) Nothing [(one, oneBinders, oneBody), (two, twoBinders, twoBody)] => do
+      if scrutinee /= structural.natArgument
+        then Left (problem snapshot (Just span.start) "Structural forwarding worker must case on its Nat argument") else Right ()
+      (base, predecessor, successor) <- case (one.spelling, oneBinders, two.spelling, twoBinders) of
+        ("Zero", [], "Succ", [predecessor]) => Right (oneBody, predecessor, twoBody)
+        ("Succ", [predecessor], "Zero", []) => Right (twoBody, predecessor, oneBody)
+        _ => Left (problem snapshot (Just span.start) "Forwarding worker requires exhaustive Zero and Succ predecessor arms")
+      if elem predecessor.spelling (the (List String) ["_", "Nat", "Zero", "Succ", group.first.name, group.second.name, structural.natArgument, structural.payloadArgument])
+        then Left (problem snapshot (Just predecessor.span.start) "Invalid forwarding predecessor binder") else Right ()
+      basePlan <- the (Either GraphError PayloadBase) $ case base of
+        NRef _ name => if name == structural.payloadArgument then Right KeepPayload else badBase base
+        NIf _ (NRef _ name) (NBoolValue _ yes) (NBoolValue _ no) =>
+          if name == structural.payloadArgument then Right (TruthTable yes no) else badBase base
+        _ => badBase base
+      (workerTarget, workerSite) <- call first second predecessor.spelling structural.payloadArgument successor
+      -- Eliminate the alias, then build BOTH entries from the same one-worker
+      -- fold, preserving exact saturated open equations without Bool eta.
+      Right (MutualValuesPlan (forwardWorker basePlan first.natFirst) (forwardWorker basePlan second.natFirst)
+        (if aliasFirst then aliasSite else workerSite) (if aliasFirst then aliasTarget else workerTarget)
+        (if aliasFirst then workerSite else aliasSite) (if aliasFirst then workerTarget else aliasTarget))
+    _ => Left (problem snapshot (Just (extent structural.body).start) "Forwarding groups require one direct structural Nat case")
+  where
+    badBase : Expr -> Either GraphError PayloadBase
+    badBase base = Left (problem snapshot (Just (extent base).start) "Forwarding base must consume its payload directly or test it with literal branches")
+
+    call : ForwardShape -> ForwardShape -> String -> String -> Expr -> Either GraphError (Bool, SourceSpan)
+    call first second nat payload expression = case expression of
+      NApply _ (NApply _ (NRef site name) (NRef _ one)) (NRef _ two) => do
+        target <- if name == group.first.name then Right True else if name == group.second.name then Right False
+          else Left (problem snapshot (Just site.start) "Forwarding calls must target a group member")
+        let order = if target then first.natFirst else second.natFirst
+        if one == (if order then nat else payload) && two == (if order then payload else nat)
+          then Right (target, site)
+          else Left (problem snapshot (Just site.start) "Forwarding calls require the unchanged owned arguments in target signature order")
+      _ => Left (problem snapshot (Just (extent expression).start) "Forwarding calls require a saturated two-variable group call")
+
+planMutualValues : ModuleSnapshot -> List Weighted -> List String -> MutualDeclaration -> Either GraphError MutualValues
+planMutualValues snapshot globals members group =
+  if forwardEquation group.first.value || forwardEquation group.second.value then planForwardValues snapshot group else do
+    plan0 <- planMutualWorker snapshot globals members group.first
+    plan1 <- planMutualWorker snapshot globals members group.second
+    if plan0.payload /= plan1.payload
+      then Left (problem snapshot (Just group.span.start) "Mutual workers must agree on their payload calling convention") else Right ()
+    let value0 = if plan0.payload
+          then payloadWorker plan0.basePlan plan1.basePlan plan0.target plan1.target True
+          else worker plan0.whenTrue plan1.whenTrue plan0.target plan1.target True
+    let value1 = if plan0.payload
+          then payloadWorker plan0.basePlan plan1.basePlan plan0.target plan1.target False
+          else worker plan0.whenTrue plan1.whenTrue plan0.target plan1.target False
+    Right (MutualValuesPlan value0 value1 plan0.site plan0.target plan1.site plan1.target)
+
 compileMutual : ModuleSnapshot -> List String -> List Weighted -> MutualDeclaration -> Nat -> Either GraphError Compiled
 compileMutual snapshot moduleName globals group remaining = do
   -- Worst-case payload template: 55 nodes/worker + 5/signature = 120.
@@ -1133,27 +1251,20 @@ compileMutual snapshot moduleName globals group remaining = do
     then Left (problem snapshot (Just group.span.start) "Mutual names and Nat constructors must be unshadowed and distinct") else Right ()
   if any (\decl => cost remaining globals [] decl.expected > 32) (the (List Declaration) [group.first, group.second])
     then Left (problem snapshot (Just group.span.start) "Mutual signature expansion admission exhausted (32)") else Right ()
-  plan0 <- planMutualWorker snapshot globals members group.first
-  plan1 <- planMutualWorker snapshot globals members group.second
-  if plan0.payload /= plan1.payload
-    then Left (problem snapshot (Just group.span.start) "Mutual workers must agree on their payload calling convention") else Right ()
+  planned <- planMutualValues snapshot globals members group
   -- Canonical admitted signatures cannot clone imported aliases or expand globals.
   ty0 <- signature group.first
   ty1 <- signature group.second
-  let value0 = if plan0.payload
-        then payloadWorker plan0.basePlan plan1.basePlan plan0.target plan1.target True
-        else worker plan0.whenTrue plan1.whenTrue plan0.target plan1.target True
-  let value1 = if plan0.payload
-        then payloadWorker plan0.basePlan plan1.basePlan plan0.target plan1.target False
-        else worker plan0.whenTrue plan1.whenTrue plan0.target plan1.target False
+  let value0 = planned.firstValue
+  let value1 = planned.secondValue
   if nodes ty0 + nodes ty1 + nodes value0 + nodes value1 > reservation
     then Left (problem snapshot Nothing "Internal mutual construction reservation was insufficient") else Right ()
   checked group.first value0 ty0
   checked group.second value1 ty1
   let one = definition group.first ty0 value0
   let two = definition group.second ty1 value1
-  let sites = [StructuralSite snapshot.path (callToken plan0.site) (if plan0.target then group.first.definitionNameSpan else group.second.definitionNameSpan),
-               StructuralSite snapshot.path (callToken plan1.site) (if plan1.target then group.first.definitionNameSpan else group.second.definitionNameSpan)]
+  let sites = [StructuralSite snapshot.path (callToken planned.firstCall) (if planned.firstTarget then group.first.definitionNameSpan else group.second.definitionNameSpan),
+               StructuralSite snapshot.path (callToken planned.secondCall) (if planned.secondTarget then group.first.definitionNameSpan else group.second.definitionNameSpan)]
   Right (Definitions [one, two] (if group.exported then [qualify one, qualify two] else []) sites (minus remaining reservation))
   where
     signature : Declaration -> Either GraphError (Term 0)
@@ -1161,8 +1272,11 @@ compileMutual snapshot moduleName globals group remaining = do
       Left err => Left (problem snapshot (Just err.position) (show err))
       Right ty => case guardedNormal typeReductionFuel ty of
         Just normalized => if sameSyntax normalized
-          (if mutualPayloadSignature decl.expected then Pi Linear NatType (Pi Linear BoolType BoolType) else Pi Linear NatType BoolType) then Right normalized
-          else Left (problem snapshot (Just decl.nameSpan.start) "Mutual signature must resolve to literal Nat -> Bool")
+          (case forwardOrder decl.expected of
+             Just False => Pi Linear BoolType (Pi Linear NatType BoolType)
+             Just True => Pi Linear NatType (Pi Linear BoolType BoolType)
+             Nothing => Pi Linear NatType BoolType) then Right normalized
+          else Left (problem snapshot (Just decl.nameSpan.start) "Mutual signature must resolve to its admitted literal Nat/Bool telescope")
         Nothing => Left (problem snapshot (Just decl.nameSpan.start) "Mutual signature normalization admission exhausted")
 
     checked : Declaration -> Term 0 -> Term 0 -> Either GraphError ()

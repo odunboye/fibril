@@ -343,6 +343,35 @@ payloadBases : List PayloadBase
 payloadBases = [KeepPayload, TruthTable False False, TruthTable False True,
                 TruthTable True False, TruthTable True True]
 
+applyForward : Bool -> Term 0 -> Term 2 -> Term 2 -> Term 2
+applyForward natFirst entry n p =
+  let embedded = weaken (weaken entry) in
+  if natFirst then Apply (Apply embedded n) p else Apply (Apply embedded p) n
+
+forwardEquations : PayloadBase -> Bool -> Bool -> Bool -> Bool -> Bool
+forwardEquations plan order0 order1 aliasFirst targetFirst =
+  let first = forwardWorker plan order0
+      second = forwardWorker plan order1
+      worker = if aliasFirst then second else first
+      workerOrder = if aliasFirst then order1 else order0
+      n : Term 2 = Variable (FS FZ)
+      p : Term 2 = Variable FZ
+      signature : Bool -> Term 0
+      signature = \order => if order then Pi Linear NatType (Pi Linear BoolType BoolType)
+                             else Pi Linear BoolType (Pi Linear NatType BoolType)
+   in accepted (checkRuntime 256 256 Empty first (signature order0)) &&
+      accepted (checkRuntime 256 256 Empty second (signature order1)) &&
+      coreNodes first + coreNodes second + 10 <= 62 &&
+      equal (applyForward order0 first n p) (applyForward order1 second n p) &&
+      equal (applyForward workerOrder worker NatZero p) (payloadBaseTerm plan) &&
+      equal (applyForward workerOrder worker (NatSucc n) p)
+            (applyForward (if targetFirst then order0 else order1) (if targetFirst then first else second) n p)
+  where
+    equal : Term 2 -> Term 2 -> Bool
+    equal left right = case betaCompare 256 left right of
+      EqualNormalForms => True
+      _ => False
+
 mutualEquations : Bool -> Bool -> Bool -> Bool -> Bool
 mutualEquations base0 base1 target0 target1 =
   let first = worker base0 base1 target0 target1 True
@@ -356,7 +385,13 @@ mutualEquations base0 base1 target0 target1 =
 public export
 checks : List (String, Bool)
 checks =
-  [ ("payload lowering preserves open base/successor equations and quantities for all 100 plans",
+  [ ("forwarding aliases preserve open equations and quantities for all 80 plans",
+      all (\base => all (\order0 => all (\order1 => all (\aliasFirst => all (forwardEquations base order0 order1 aliasFirst)
+        (the (List Bool) [False, True])) (the (List Bool) [False, True]))
+        (the (List Bool) [False, True])) (the (List Bool) [False, True])) payloadBases)
+  , ("forwarding templates have maximum aggregate construction cost 62 nodes",
+      2 * coreNodes (forwardWorker (TruthTable False True) False) + 10 == 62)
+  , ("payload lowering preserves open base/successor equations and quantities for all 100 plans",
       all (\base0 => all (\base1 => all (\target0 => all (payloadEquations base0 base1 target0)
         (the (List Bool) [False, True])) (the (List Bool) [False, True])) payloadBases) payloadBases)
   , ("payload template maximum fixed construction cost is exactly 120 nodes",

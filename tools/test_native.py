@@ -70,6 +70,17 @@ class NativeTests(unittest.TestCase):
             self.assertEqual(native.stdout, b'identity\nnegated\nidentity again\nother entry\n')
             self.assertEqual(native.stdout, reference.stdout)
 
+    def test_mutual_nat_forwarding_alias_matches_reference(self):
+        root = ROOT / 'examples/modules/mutual-parity'
+        args = ['--source-dir', str(root), str(root / 'Reordered.fib')]
+        with tempfile.TemporaryDirectory() as directory:
+            _, native = self.compile_and_run(args, directory)
+            reference = run_cli('run', *args, text=False, timeout=120)
+            self.assertEqual(reference.returncode, 0, reference.stderr)
+            self.assertEqual(native.returncode, 0, native.stderr)
+            self.assertEqual(native.stdout, b'forwarded\nreordered\nunchanged payload\n')
+            self.assertEqual(native.stdout, reference.stdout)
+
     def test_linear_accumulator_fold_matches_reference(self):
         root = ROOT / 'examples/modules/linear-accumulator'
         args = ['--source-dir', str(root), str(root / 'Main.fib')]

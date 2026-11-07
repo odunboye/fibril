@@ -40,6 +40,102 @@ def run(*args, cwd=ROOT):
 
 
 class CLITests(unittest.TestCase):
+    def test_mutual_nat_forwarding_alias_plans(self):
+        bases = ['flag', 'if flag then False else False', 'if flag then False else True',
+                 'if flag then True else False', 'if flag then True else True']
+        for base_index, base in enumerate(bases):
+            for bits in range(16):
+                order0, order1, alias_first, target_first = [bool(bits & (1 << bit)) for bit in range(4)]
+                orders = {'first': order0, 'second': order1}
+                alias, worker = ('first', 'second') if alias_first else ('second', 'first')
+                target = 'first' if target_first else 'second'
+                call = lambda name, n, p: f'{name} {n} {p}' if orders[name] else f'{name} {p} {n}'
+                declarations = []
+                for name in ['first', 'second']:
+                    signature = '(1 n : Nat) -> (1 p : Bool)' if orders[name] else '(1 p : Bool) -> (1 n : Nat)'
+                    binders = 'count flag' if orders[name] else 'flag count'
+                    if name == alias:
+                        body = call(worker, 'count', 'flag')
+                    else:
+                        body = f'case count of\n    Succ previous => {call(target, "previous", "flag")}\n    Zero => {base}'
+                    declarations.append(f'  {name} : {signature} -> Bool\n  {name} {binders} = {body}')
+                observations, expected = [], []
+                for name in ['first', 'second']:
+                    for flag in [False, True]:
+                        value = flag if base_index == 0 else [False, not flag, flag, True][base_index - 1]
+                        for n in ['Zero', '(Succ Zero)', '(Succ (Succ Zero))']:
+                            expression = call(name, n, 'True' if flag else 'False')
+                            observations.append(f'  putStrLn (if {expression} then "T" else "F")')
+                            expected.append('T' if value else 'F')
+                with self.subTest(base=base_index, bits=bits), tempfile.TemporaryDirectory() as directory:
+                    path = Path(directory) / 'Main.fib'
+                    path.write_text('module Main\nmutual where\n' + '\n'.join(declarations) +
+                                    '\nmain : IO Unit\nmain = do\n' + '\n'.join(observations) + '\n')
+                    result = run('run', '--source-dir', directory, str(path))
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertEqual(result.stdout, '\n'.join(expected) + '\n')
+
+    def test_mutual_nat_forwarding_alias_boundaries_and_navigation(self):
+        fixture = (ROOT / 'examples/modules/mutual-parity/Reordered.fib').read_text()
+        mutations = [
+            ('first count flag = second flag count', 'first count flag = first count flag'),
+            ('second flag count = case count of\n    Zero => if flag then False else True\n    Succ previous => first previous flag', 'second flag count = first count flag'),
+            ('second flag count = case count of', 'second flag count = case flag of'),
+            ('second flag count', 'second count flag'),
+            ('first count flag = second flag count', 'first count flag = second count flag'),
+            ('second flag count', 'second True count'),
+            ('second flag count', 'second flag (Succ count)'),
+            ('first previous flag', 'first count flag'),
+            ('first previous flag', 'first previous True'),
+            ('first previous flag', 'first flag previous'),
+            ('first previous flag', 'Reordered.first previous flag'),
+            ('first count flag = second flag count', 'first count flag = if True then second flag count else second flag count'),
+            ('first count flag = second flag count', 'first count flag = second flag'),
+            ('first count flag = second flag count', 'first count flag = second flag count flag'),
+            ('(1 flag : Bool)', '(flag : Bool)'),
+            ('(1 flag : Bool)', '(0 flag : Bool)'),
+            ('(1 count : Nat)', '(1 count : Bool)'),
+            ('first count flag =', 'first count first ='),
+            ('Succ previous =>', 'Succ flag =>'),
+            ('Zero => if flag then False else True', 'Zero => True'),
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Reordered.fib'
+            for old, new in mutations:
+                with self.subTest(new=new):
+                    path.write_text(fixture.replace(old, new))
+                    result = run('check', '--source-dir', directory, str(path))
+                    self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+            path.write_text(fixture.replace('second flag count\n', '((second) flag) count\n'))
+            formatted = run('format', str(path))
+            self.assertEqual(formatted.returncode, 0, formatted.stderr)
+            path.write_text(formatted.stdout)
+            self.assertEqual(run('format', '--check', str(path)).returncode, 0)
+            lines = formatted.stdout.splitlines()
+            alias_line = next(i for i, text in enumerate(lines, 1) if 'first count flag =' in text)
+            worker_line = next(i for i, text in enumerate(lines, 1) if 'second flag count =' in text)
+            succ_line = next(i for i, text in enumerate(lines, 1) if '=> first previous flag' in text)
+            for line, token, expected_line in [(alias_line, 'second', worker_line), (succ_line, 'first', alias_line),
+                                               (succ_line, 'previous', succ_line), (succ_line, 'flag', worker_line),
+                                               (alias_line, 'flag', alias_line), (alias_line, 'count', alias_line)]:
+                column = lines[line - 1].rindex(token) + 1
+                ref = run('definition', '--source-dir', directory, '--entry', str(path), str(line), str(column), str(path))
+                self.assertEqual(ref.returncode, 0, ref.stdout + ref.stderr)
+                report = json.loads(ref.stdout)
+                self.assertTrue(report['checked'])
+                self.assertEqual(report['definition']['range']['start']['line'], expected_line)
+            main = Path(directory) / 'Main.fib'
+            main.write_text('module Main\nimport Reordered (first)\nmain : IO Unit\nmain = putStrLn (if first (Succ Zero) False then "yes" else "no")\n')
+            args = ['--source-dir', directory, str(main)]
+            result = run('run', *args)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'yes\n')
+            valid = path.read_text()
+            path.write_text(valid.replace('Zero => if flag then False else True', 'Zero => True'))
+            self.assertNotEqual(run('check', *args).returncode, 0)
+            path.write_text(valid.replace('export\n', ''))
+            self.assertNotEqual(run('check', *args).returncode, 0)
+
     def test_mutual_nat_payload_tables(self):
         for bits in range(64):
             values = [bool(bits & (1 << bit)) for bit in range(6)]

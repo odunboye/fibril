@@ -49,6 +49,24 @@ payloadWorker base0 base1 target0 target1 entry =
               (Apply (Apply (Variable (FS (FS FZ))) (literal target1)) (Variable FZ)))))))
         (Variable (FS FZ))) (literal entry)) (Variable FZ)))
 
+||| One structural worker and its acyclic forwarding alias share this fold.
+||| No selector is needed: the alias contributes no distinct recursive state.
+||| True is Nat-first; False is Bool-first. Only the saturated calling order
+||| differs, so open alias equations require beta/iota, not eta or delta rules.
+public export
+forwardWorker : PayloadBase -> Bool -> Term 0
+forwardWorker base natFirst = if natFirst
+  then Lambda Linear NatType
+    (NatRec (Lambda Erased NatType state)
+      (Lambda Linear BoolType (payloadBase base FZ))
+      (Lambda Erased NatType (Lambda Linear state (Variable FZ)))
+      (Variable FZ))
+  else Lambda Linear BoolType (Lambda Linear NatType
+    (Apply (NatRec (Lambda Erased NatType state)
+      (Lambda Linear BoolType (payloadBase base FZ))
+      (Lambda Erased NatType (Lambda Linear state (Variable FZ)))
+      (Variable FZ)) (Variable (FS FZ))))
+
 ||| Both bases and targets are included in each closed worker. True denotes
 ||| member zero; False denotes member one. The predecessor is erased and the
 ||| induction result is consumed once in each exclusive selector branch.

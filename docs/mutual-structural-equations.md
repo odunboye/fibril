@@ -34,9 +34,10 @@ no-payload mode, each worker:
 Names must be distinct, unshadowed and referenceable. Nat constructors must be
 unshadowed checked builtins; spelling alone is not authority. Parameter and
 predecessor binders cannot shadow members or the recognized Nat names.
-Qualification, wrappers, extra parameters beyond the payload mode below, aliases, captures, effects,
-dependent results, reconstructed arguments, partial calls and nested recursion
-are rejected. Export applies to the entire group. Without `export`, both
+Qualification, wrappers, extra parameters beyond the payload mode below,
+captures, effects, dependent results, reconstructed arguments, partial calls and
+nested recursion are rejected. Aliases and argument reordering are supported
+only in the separate one-alias mode described below. Export applies to the entire group. Without `export`, both
 members are private. Headerless checking and the flat unchecked `elaborate`
 command reject groups rather than silently flattening them.
 
@@ -103,7 +104,8 @@ The zero arm is exactly one of:
 A bare literal would discard the linear payload and is rejected. Equal literal
 branches are allowed: evaluating the condition consumes the payload. Changed,
 reconstructed, discarded or duplicated payloads, arbitrary base expressions,
-erased/unrestricted payload parameters and argument reordering are rejected.
+erased/unrestricted payload parameters and argument reordering between two
+structural workers are rejected.
 Signature and equation binders are separate scopes and may have different
 names, but binders within each scope must be distinct; the predecessor may not
 shadow either equation argument or a member.
@@ -144,6 +146,81 @@ finished worker types. CLI tests cover all 64 conditional-base tables with both
 entries and both Bool values; the example additionally covers direct identity.
 No new core rule or evaluator is involved.
 
+## One forwarding alias and one structural worker
+
+A third, separate group mode supports **one acyclic forwarding alias** and
+**one structural payload worker**. Either member may come first, and each
+member independently chooses the literal signature order `Nat, Bool` or
+`Bool, Nat`, with both parameters linear and result Bool. See the
+[reordered example](../examples/modules/mutual-parity/Reordered.fib):
+
+```fibril
+mutual where
+  first : (1 n : Nat) -> (1 flag : Bool) -> Bool
+  first n flag = second flag n
+
+  second : (1 flag : Bool) -> (1 n : Nat) -> Bool
+  second flag n = case n of
+    Zero => flag
+    Succ previous => first previous flag
+```
+
+The alias must make exactly one saturated call to the **other** member, using
+its own Nat and Bool variables in the target's signature order. The worker
+cases directly on its Nat argument, has one of the five payload bases above,
+and calls itself or the alias on the immediate predecessor with unchanged
+payload. Alias self-calls, two aliases, alias cycles, partial calls, changed or
+duplicated arguments, arbitrary wrappers, captures and unsupported signatures
+are rejected. Two structural Bool-first workers are **not** admitted by this
+alternative. The existing two-worker modes keep their previous restrictions.
+
+### Alias elimination and complete core construction
+
+Eliminate the acyclic forwarding equation before constructing the core. A
+worker successor call through the alias then becomes a direct structural step.
+Both published entries use the **same** one-worker fold, not two distinct
+selector tags (which need not convert on a neutral Nat).
+
+```text
+State = (1 p : Bool) -> Bool
+P = lambda (0 k : Nat). State
+B = lambda (1 p : Bool). E(base,p)
+S = lambda (0 k : Nat). lambda (1 ih : State). ih
+C n = NatRec P B S n
+Nat-first entry  = lambda (1 n : Nat). C n
+Bool-first entry = lambda (1 p : Bool). lambda (1 n : Nat). C n p
+```
+
+`forwardWorker` constructs these closed templates directly: no assumed member
+references, recursive knot, runtime group evaluator or SCT acceptance.
+The repeated step captures no owned argument and consumes its induction result
+once; its predecessor is erased. The base consumes the payload exactly as
+authored. Each finished function consumes its Nat and Bool once in either
+calling order. In particular, the implementation does **not** replace the
+function with its base and silently discard the linear Nat.
+
+For neutral Nat `k` and Bool `p`, write `argsX(k,p)` for X's declared order.
+Existing beta/iota rules establish:
+
+```text
+Alias(argsAlias(k,p)) = C k p = Worker(argsWorker(k,p))
+Worker(argsWorker(Zero,p)) = E(base,p)
+Worker(argsWorker(Succ k,p)) = C k p = Target(argsTarget(k,p))
+```
+
+`Target` can be the alias or the worker. No Bool/function eta or new open
+unfolding rule is required. Tests cover all **80 plans** (five bases, two member
+placements, two orders/member and two successor targets), checking core types,
+open equations and source execution. The largest directly constructed entry is
+26 nodes; both entries plus signatures occupy at most **62** nodes, asserted
+in core tests and covered by the unchanged 128-node reservation.
+
+Authored navigation retains both calls and their source targets even though
+the core entries share a canonical implementation. An alias call navigates to
+the worker; a successor call navigates to its authored target, not a hidden fold.
+Imports, exports, formatting and whole-group atomic failure use the same paths
+as the two structural-worker modes.
+
 ## Admission, checking and publication
 
 1. Preserve one authored group item, including both members' original spans.
@@ -181,8 +258,9 @@ existing independently checked function-valued SeqFold.
 ## Design gate and stop conditions
 
 The finite contract above is the complete slice. Do not silently widen it when
-an authored group fails. Further payload types, aliases, dependent results or nonstructural
-calls need their own scoped translation and quantity/correspondence argument.
+an authored group fails. Further payload types, more general alias graphs,
+dependent results or nonstructural calls need their own scoped translation and
+quantity/correspondence argument.
 Stop if a proposed extension needs duplicated owned values, a recursive knot,
 unconditional open unfolding, unavailable transport, or SCT acceptance as an
 unchecked substitute for the finished core term.

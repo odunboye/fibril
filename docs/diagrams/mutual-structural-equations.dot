@@ -3,10 +3,12 @@ digraph MutualStructuralEquations {
   node [shape=box];
   source [label="Authored mutual where\ntwo Nat -> Bool workers\noptional unchanged linear Bool payload"];
   plan [label="Admit both equations\nfinite bases + predecessor targets\ncheck unchanged payload"];
+  alias [label="Optional one acyclic forwarding alias\nnormalize declared argument order"];
   core [label="Two closed NatRec workers\nlinear selector + induction result\npayload enters function-valued fold"];
   check [label="Independently check both\ntypes + quantitative usage"];
   publish [label="Publish both atomically\nauthored exports + navigation"];
   run [label="Existing conversion / reference\nexperimental native emission"];
   source -> plan -> core -> check -> publish -> run;
+  plan -> alias -> core;
   sct [label="SCT experiment\nnot involved", style=dashed];
 }
