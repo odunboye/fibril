@@ -8,6 +8,7 @@ import Fibril.Cubical.Logical.Telescope
 import Fibril.Cubical.Logical.PathContext
 import Fibril.Cubical.Logical.OpenPath
 import Fibril.Foundation.DeMorgan.Interval
+import Fibril.Foundation.DeMorgan.Face
 import Fibril.Foundation.DeMorgan.Scope
 import Fibril.Foundation.DeMorgan.Restriction
 
@@ -100,7 +101,15 @@ checkFixedJ ctx p = case (applyPath 12 p Zero, applyPath 12 p One) of
 export
 checks : List (String, Bool)
 checks =
-  [ ("asymmetric square application selects and rechecks both pairs of edges",
+  [ ("reference pair semantics retains non-Boolean signed generators",
+      evalReferenceDM (\_ => signedDM True True) (Meet (Var 0) (Reverse (Var 0))) == signedDM True True &&
+      evalReferenceDM (\_ => signedDM False False) (Join (Var 0) (Reverse (Var 0))) == signedDM False False)
+  , ("reference faces use union and contradictory endpoints are empty",
+      faceReferenceDM (\_ => signedDM True True) (Disjunction (Endpoint 0 False) (Endpoint 0 True)) == False &&
+      faceReferenceDM (\_ => (False, False)) (Disjunction (Endpoint 0 False) (Endpoint 0 True)) &&
+      not (faceReferenceDM (\_ => (True, True)) (Conjunction (Endpoint 0 False) (Endpoint 0 True))) &&
+      accepted (restrictedIntervalEqual {n=1} 12 (SConjunction (SEndpoint FZ False) (SEndpoint FZ True)) Zero One))
+  , ("asymmetric square application selects and rechecks both pairs of edges",
       case checkBoundSquare {n=1} 16 asymmetricCtx
              (Tapp FZ (Var (FS FZ))) (Tvar FZ) (Tvar (FS FZ))
              (Tapp FZ (Var FZ)) (Tapp FZ (Var FZ)) of

@@ -334,3 +334,35 @@ fewer due to the shared node cap); the budget is admission, not work fuel.
 `Accepted` means that this finite check returned true, `Rejected` that it
 returned false, and `Exhausted` that an admission guard failed. The soundness theorem above applies only to `Accepted`, not to a converse
 interpretation of `Rejected` or `Exhausted`.
+
+#### Reference-syntax semantic bridge and remaining completeness
+
+`forgetIntervalDM` and `forgetFaceDM` prove for every Nat-indexed pair
+valuation that scope forgetting commutes with interval evaluation and face
+truth. `restrictedReferenceDMSound` combines these results with solver
+soundness: acceptance implies equality of the forgotten reference expressions
+under every pair valuation satisfying the forgotten face. `signedDM` encodes
+independent positive and negative Boolean observations as `(p, !q)`;
+`signedDMReverse`, `signedDMMeet`, and `signedDMJoin` prove the reversal,
+meet, and join coordinate laws for every input. These results use the actual
+OpenPath model and do not change the checker.
+
+Mathematically, the expected free-algebra completeness argument is finite:
+expand interval terms into distributive DNFs over *both* signed generators.
+A Boolean assignment to these generators is exactly one pair valuation per
+variable. Equality of monotone Boolean functions determines their absorbed
+DNFs, hence free De Morgan equality. For an endpoint assumption on a variable,
+both signed observations are fixed to opposite Boolean values. A consistent
+conjunction fixes these variables and leaves all other signed generators free;
+a disjunction is the union of its conjunction branches. Contradictory
+conjunctions denote the empty face and equality there is vacuous. Therefore
+pair equality on every valuation satisfying a face entails the corresponding
+free equality on every consistent endpoint branch. This is a mathematical
+argument, **not a machine-checked completeness theorem**: proving the DNF
+algorithm's semantic correctness and uniqueness, face branch decomposition,
+and the exact restricted normal-form comparison remains necessary. In
+particular `NormalForm.equivalent` compares unrestricted expressions; the
+current `Restriction` module does not expose a restricted interval-normal-form
+comparison. No theorem here equates solver acceptance with that Boolean
+comparison or establishes completeness of `convertNeutrals`, which also has
+other acceptance branches.

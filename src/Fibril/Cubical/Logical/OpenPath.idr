@@ -8,6 +8,7 @@ import Data.List.Elem
 import Data.So
 import Language.Reflection
 import Fibril.Foundation.DeMorgan.Interval
+import Fibril.Foundation.DeMorgan.Face
 import Fibril.Foundation.DeMorgan.Scope
 import Fibril.Foundation.DeMorgan.Restriction
 
@@ -700,3 +701,118 @@ restrictedIntervalEqualValSound budget face r s valuation accepted holds =
   restrictedIntervalEqualValSoundGivenCoverage budget face r s valuation
     (\i, member => finNubCoverage (faceNames face ++ intervalNames r ++ intervalNames s) i member)
     accepted holds
+
+||| Evaluate the reference Nat-labelled interval syntax in the solver's actual
+||| four-pair algebra. This is not the separate diamond in FaceSoundness.
+public export
+evalReferenceDM : (Nat -> DM) -> Interval Nat -> DM
+evalReferenceDM env Zero = (False, False)
+evalReferenceDM env One = (True, True)
+evalReferenceDM env (Var i) = env i
+evalReferenceDM env (Reverse x) = dmReverse (evalReferenceDM env x)
+evalReferenceDM env (Meet x y) = dmMeet (evalReferenceDM env x) (evalReferenceDM env y)
+evalReferenceDM env (Join x y) = dmJoin (evalReferenceDM env x) (evalReferenceDM env y)
+
+||| Evaluation commutes with the existing scope-forgetting map, for every
+||| reference valuation and every scoped interval, including reversals.
+public export
+forgetIntervalDM : (env : Nat -> DM) -> (r : ScopedInterval n) ->
+  evalReferenceDM env (forgetInterval r) = evalDMVal (env . Data.Fin.finToNat) r
+forgetIntervalDM env Zero = Refl
+forgetIntervalDM env One = Refl
+forgetIntervalDM env (Var i) = Refl
+forgetIntervalDM env (Reverse x) = cong dmReverse (forgetIntervalDM env x)
+forgetIntervalDM env (Meet x y) =
+  rewrite forgetIntervalDM env x in rewrite forgetIntervalDM env y in Refl
+forgetIntervalDM env (Join x y) =
+  rewrite forgetIntervalDM env x in rewrite forgetIntervalDM env y in Refl
+
+||| Reference face syntax interpreted by exact endpoint equality in the pair model.
+public export
+faceReferenceDM : (Nat -> DM) -> Face -> Bool
+faceReferenceDM env Bottom = False
+faceReferenceDM env Top = True
+faceReferenceDM env (Endpoint i b) = env i == (b, b)
+faceReferenceDM env (Conjunction x y) = faceReferenceDM env x && faceReferenceDM env y
+faceReferenceDM env (Disjunction x y) = faceReferenceDM env x || faceReferenceDM env y
+
+||| Scope forgetting preserves endpoint assumptions, conjunction and disjunction.
+public export
+forgetFaceDM : (env : Nat -> DM) -> (face : ScopedFace n) ->
+  faceReferenceDM env (forgetFace face) = faceAtVal (env . Data.Fin.finToNat) face
+forgetFaceDM env SBottom = Refl
+forgetFaceDM env STop = Refl
+forgetFaceDM env (SEndpoint i b) = Refl
+forgetFaceDM env (SConjunction x y) =
+  rewrite forgetFaceDM env x in rewrite forgetFaceDM env y in Refl
+forgetFaceDM env (SDisjunction x y) =
+  rewrite forgetFaceDM env x in rewrite forgetFaceDM env y in Refl
+
+||| Accepted restricted comparison implies equality of the forgotten reference
+||| expressions in the pair model under every satisfying reference valuation.
+public export
+restrictedReferenceDMSound : {n : Nat} -> (budget : Nat) ->
+  (face : ScopedFace n) -> (r, s : ScopedInterval n) -> (env : Nat -> DM) ->
+  restrictedIntervalEqual budget face r s = Accepted ->
+  faceReferenceDM env (forgetFace face) = True ->
+  evalReferenceDM env (forgetInterval r) = evalReferenceDM env (forgetInterval s)
+restrictedReferenceDMSound budget face r s env accepted holds =
+  trans (forgetIntervalDM env r) $
+  trans (restrictedIntervalEqualValSound budget face r s (env . Data.Fin.finToNat)
+    accepted (trans (sym (forgetFaceDM env face)) holds)) (sym (forgetIntervalDM env s))
+
+||| Encode independent positive and negative Boolean generator observations.
+public export
+signedDM : Bool -> Bool -> DM
+signedDM positive negative = (positive, not negative)
+
+||| Reversal exchanges the two signed observations.
+public export
+signedDMReverse : (p, q : Bool) ->
+  dmReverse (signedDM p q) = signedDM q p
+signedDMReverse False False = Refl
+signedDMReverse False True = Refl
+signedDMReverse True False = Refl
+signedDMReverse True True = Refl
+
+||| Coordinate law for signed observations of meet.
+public export
+signedDMMeet : (p, q, r, s : Bool) ->
+  dmMeet (signedDM p q) (signedDM r s) = signedDM (p && r) (q || s)
+signedDMMeet False False False False = Refl
+signedDMMeet False False False True = Refl
+signedDMMeet False False True False = Refl
+signedDMMeet False False True True = Refl
+signedDMMeet False True False False = Refl
+signedDMMeet False True False True = Refl
+signedDMMeet False True True False = Refl
+signedDMMeet False True True True = Refl
+signedDMMeet True False False False = Refl
+signedDMMeet True False False True = Refl
+signedDMMeet True False True False = Refl
+signedDMMeet True False True True = Refl
+signedDMMeet True True False False = Refl
+signedDMMeet True True False True = Refl
+signedDMMeet True True True False = Refl
+signedDMMeet True True True True = Refl
+
+||| Coordinate law for signed observations of join.
+public export
+signedDMJoin : (p, q, r, s : Bool) ->
+  dmJoin (signedDM p q) (signedDM r s) = signedDM (p || r) (q && s)
+signedDMJoin False False False False = Refl
+signedDMJoin False False False True = Refl
+signedDMJoin False False True False = Refl
+signedDMJoin False False True True = Refl
+signedDMJoin False True False False = Refl
+signedDMJoin False True False True = Refl
+signedDMJoin False True True False = Refl
+signedDMJoin False True True True = Refl
+signedDMJoin True False False False = Refl
+signedDMJoin True False False True = Refl
+signedDMJoin True False True False = Refl
+signedDMJoin True False True True = Refl
+signedDMJoin True True False False = Refl
+signedDMJoin True True False True = Refl
+signedDMJoin True True True False = Refl
+signedDMJoin True True True True = Refl
