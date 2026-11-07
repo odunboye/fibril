@@ -228,6 +228,12 @@ application, Boolean conditionals, and unit elimination. The latter requires
 both typed witnesses even though its semantics returns the body. Conditional
 branches can have arbitrary logical types, including arrows.
 
+`higherOrderApplicationBeta` proves that interpreting an application is
+semantic application, for arbitrary witnesses and logical types;
+`higherOrderApplicationBetaAt` gives the corresponding pointwise equation.
+Their proof splits the result logical type to expose the interpreter’s
+dependent case tree. Neither law assumes equality of semantic functions.
+
 `HigherOrderAlignment` is structural evidence indexed by two actual ordinary
 witnesses for the same syntax, context and result type. Its application rule
 requires a shared domain type, recursively, and its lambda, conditional and

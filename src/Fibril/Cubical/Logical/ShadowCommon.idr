@@ -1239,6 +1239,34 @@ higherOrderTermSemantics (HOApplication ctx a b f x) = commonApply (higherOrderT
 higherOrderTermSemantics (HOUnitElim ctx a x body) = commonUnitElimination (higherOrderTermSemantics x) (higherOrderTermSemantics body)
 higherOrderTermSemantics (HOIf ctx a c t f) = commonIf (higherOrderTermSemantics c) (higherOrderTermSemantics t) (higherOrderTermSemantics f)
 
+||| Interpretation of an application computes to semantic application.
+||| Splitting the result type exposes the interpreter’s dependent case tree.
+public export
+higherOrderApplicationBeta : {ctx : Vect n LogicalType} -> {a, b : LogicalType} ->
+  {0 ft : CommonHasType ctx tmf (LArrow a b)} ->
+  {0 xt : CommonHasType ctx tmx a} ->
+  (f : HigherOrderTerm ctx (LArrow a b) ft) ->
+  (arg : HigherOrderTerm ctx a xt) ->
+  higherOrderTermSemantics (HOApplication ctx a b f arg) =
+    commonApply (higherOrderTermSemantics f) (higherOrderTermSemantics arg)
+higherOrderApplicationBeta {b = LUnit} f arg = Refl
+higherOrderApplicationBeta {b = LBool} f arg = Refl
+higherOrderApplicationBeta {b = LArrow c d} f arg = Refl
+
+
+||| Pointwise form of the application beta law.
+public export
+higherOrderApplicationBetaAt : {ctx : Vect n LogicalType} -> {a, b : LogicalType} ->
+  {0 ft : CommonHasType ctx tmf (LArrow a b)} ->
+  {0 xt : CommonHasType ctx tmx a} ->
+  (f : HigherOrderTerm ctx (LArrow a b) ft) ->
+  (arg : HigherOrderTerm ctx a xt) -> (env : carrier (commonEnvironmentSetoid ctx)) ->
+  applyMorphism (higherOrderTermSemantics (HOApplication ctx a b f arg)) env =
+    applyMorphism (applyMorphism (higherOrderTermSemantics f) env)
+      (applyMorphism (higherOrderTermSemantics arg) env)
+higherOrderApplicationBetaAt f arg env =
+  cong (\m => applyMorphism m env) (higherOrderApplicationBeta f arg)
+
 ||| Structural alignment retains the same intermediate type at every application.
 ||| It relates actual witnesses, not semantic values or arbitrary typings.
 public export
