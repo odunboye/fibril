@@ -1872,3 +1872,49 @@ dependentBinderExtensionalApplied :
   applyMorphism (applyMorphism (dependentPathSemantics Tests.Shadow.dependentBinder (\_ => (True, False)))
     ((False, ()), (Tests.Shadow.dependentLinearPathAlternative, ()))) True
 dependentBinderExtensionalApplied = Tests.Shadow.dependentBinderExtensional True True Refl
+
+-- Identical unannotated syntax can use distinct application argument types.
+ambiguousBoolArrow : HigherOrderTerm [] LBool
+  (CApplicationType {a = LArrow LBool LBool} (CLambdaType (CBoolType {b = True})) (CLambdaType (CVariable LHere)))
+ambiguousBoolArrow = HOApplication [] (LArrow LBool LBool) LBool
+  (HOLambda [] (LArrow LBool LBool) LBool (HOBool [LArrow LBool LBool] True))
+  (HOLambda [] LBool LBool (HOVar [LBool] LBool LHere))
+
+ambiguousUnitArrow : HigherOrderTerm [] LBool
+  (CApplicationType {a = LArrow LUnit LUnit} (CLambdaType (CBoolType {b = True})) (CLambdaType (CVariable LHere)))
+ambiguousUnitArrow = HOApplication [] (LArrow LUnit LUnit) LBool
+  (HOLambda [] (LArrow LUnit LUnit) LBool (HOBool [LArrow LUnit LUnit] True))
+  (HOLambda [] LUnit LUnit (HOVar [LUnit] LUnit LHere))
+
+ambiguousArrowDomainsDiffer : LArrow LBool LBool = LArrow LUnit LUnit -> Void
+ambiguousArrowDomainsDiffer Refl impossible
+
+dependentSameWitnessBinder : related (commonTypeSetoid (LArrow LBool LBool))
+  (applyMorphism (dependentPathSemantics Tests.Shadow.dependentBinder (\_ => (True, False)))
+    ((False, ()), Tests.Shadow.dependentLinearPaths))
+  (applyMorphism (dependentPathSemantics Tests.Shadow.dependentBinder (\_ => (True, False)))
+    ((False, ()), (Tests.Shadow.dependentLinearPathAlternative, ())))
+dependentSameWitnessBinder = dependentPathSameWitness Tests.Shadow.dependentBinder (\_ => (True, False))
+  ((False, ()), Tests.Shadow.dependentLinearPaths)
+  ((False, ()), (Tests.Shadow.dependentLinearPathAlternative, ()))
+  ((Refl, Refl), Tests.Shadow.dependentLinearPathsRelated)
+
+dependentSameWitnessLinearIf : related (commonTypeSetoid LBool)
+  (applyMorphism (dependentPathSemantics Tests.Shadow.pathLinearIf (\_ => (True, False)))
+    ((True, ()), Tests.Shadow.dependentLinearPaths))
+  (applyMorphism (dependentPathSemantics Tests.Shadow.pathLinearIf (\_ => (True, False)))
+    ((True, ()), (Tests.Shadow.dependentLinearPathAlternative, ())))
+dependentSameWitnessLinearIf = dependentPathSameWitness Tests.Shadow.pathLinearIf (\_ => (True, False))
+  ((True, ()), Tests.Shadow.dependentLinearPaths)
+  ((True, ()), (Tests.Shadow.dependentLinearPathAlternative, ()))
+  ((Refl, Refl), Tests.Shadow.dependentLinearPathsRelated)
+
+dependentSameWitnessApplication : related (commonTypeSetoid LBool)
+  (applyMorphism (dependentPathSemantics Tests.Shadow.pathCaptured (\_ => (True, False)))
+    ((True, ()), Tests.Shadow.dependentLinearPaths))
+  (applyMorphism (dependentPathSemantics Tests.Shadow.pathCaptured (\_ => (True, False)))
+    ((True, ()), (Tests.Shadow.dependentLinearPathAlternative, ())))
+dependentSameWitnessApplication = dependentPathSameWitness Tests.Shadow.pathCaptured (\_ => (True, False))
+  ((True, ()), Tests.Shadow.dependentLinearPaths)
+  ((True, ()), (Tests.Shadow.dependentLinearPathAlternative, ()))
+  ((Refl, Refl), Tests.Shadow.dependentLinearPathsRelated)

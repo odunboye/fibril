@@ -1520,3 +1520,11 @@ dependentDeclaredRightAtFace declared ps admissible env valuation face i accepte
   case dependentDeclaredLookup declared ps admissible of
     DependentEndpoints left right zero one =>
       DependentAtFace right (rewrite commonBoundedEndpointValSound valuation face i True accepted holds in one env)
+
+||| A single witness is coherent with itself at related dependent environments.
+public export
+dependentPathSameWitness : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} ->
+  {a : LogicalType} -> {d : Nat} -> {0 t : CommonPathTerm n k d} ->
+  {0 typing : CommonPathHasType ctx paths t a} -> (w : HigherOrderPathTerm ctx paths a d typing) ->
+  (valuation : Fin d -> DM) -> morphismsRelated (dependentPathSemantics w valuation) (dependentPathSemantics w valuation)
+dependentPathSameWitness w valuation x y xy = respectsRelation (dependentPathSemantics w valuation) xy

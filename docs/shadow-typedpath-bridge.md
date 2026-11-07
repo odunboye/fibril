@@ -279,3 +279,15 @@ values at non-Boolean dimensions, and checks capture avoidance.
 
 This is isolated from the earlier environment-independent model and does not
 establish general higher-order face equality soundness or witness coherence.
+
+`dependentPathSameWitness` exposes the preservation property of the dependent
+interpreter at two related ordinary/path environments and one valuation. Both
+sides must use the **same witness**; it is not coherence for independently
+constructed witnesses, even when their erased derivation indices coincide. The
+checked application `(λx.true) (λy.y)` has witnesses at Bool with intermediate
+argument types `Bool -> Bool` and `Unit -> Unit`, which are provably distinct.
+Thus unannotated syntax and result type cannot justify alignment. General
+coherence needs either a justified way to align the erased derivation indices
+or explicit structural alignment, including intermediate application types;
+endpoint soundness additionally needs alignment with the witness actually
+chosen by admissibility. Neither is supplied by this same-witness lemma.
