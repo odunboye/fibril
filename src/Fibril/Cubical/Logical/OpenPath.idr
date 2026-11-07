@@ -2,6 +2,7 @@
 module Fibril.Cubical.Logical.OpenPath
 
 import Data.Fin
+import Data.List
 import Fibril.Foundation.DeMorgan.Interval
 import Fibril.Foundation.DeMorgan.Scope
 import Fibril.Foundation.DeMorgan.Restriction
@@ -77,6 +78,74 @@ convertToVariable budget (Under face) path term target =
               rightFace = if right path == target then scopedEndpoint r True else SBottom
            in if holds (Under face) (SDisjunction leftFace rightFace)
                  then Accepted else Rejected
+
+-- The four-element De Morgan algebra is the product of two Boolean
+-- lattices, with reversal swapping and complementing the coordinates.
+DM : Type
+DM = (Bool, Bool)
+
+intervalNames : ScopedInterval n -> List (Fin n)
+intervalNames Zero = []
+intervalNames One = []
+intervalNames (Var i) = [i]
+intervalNames (Reverse x) = intervalNames x
+intervalNames (Meet x y) = intervalNames x ++ intervalNames y
+intervalNames (Join x y) = intervalNames x ++ intervalNames y
+
+faceNames : ScopedFace n -> List (Fin n)
+faceNames SBottom = []
+faceNames STop = []
+faceNames (SEndpoint i _) = [i]
+faceNames (SConjunction x y) = faceNames x ++ faceNames y
+faceNames (SDisjunction x y) = faceNames x ++ faceNames y
+
+lookupDM : Fin n -> List (Fin n, DM) -> DM
+lookupDM i [] = (False, False)
+lookupDM i ((j, value) :: rest) = if i == j then value else lookupDM i rest
+
+evalDM : List (Fin n, DM) -> ScopedInterval n -> DM
+evalDM env Zero = (False, False)
+evalDM env One = (True, True)
+evalDM env (Var i) = lookupDM i env
+evalDM env (Reverse x) = let (a, b) = evalDM env x in (not b, not a)
+evalDM env (Meet x y) =
+  let (a, b) = evalDM env x; (c, d) = evalDM env y in (a && c, b && d)
+evalDM env (Join x y) =
+  let (a, b) = evalDM env x; (c, d) = evalDM env y in (a || c, b || d)
+
+faceAt : List (Fin n, DM) -> ScopedFace n -> Bool
+faceAt env SBottom = False
+faceAt env STop = True
+faceAt env (SEndpoint i b) = lookupDM i env == (b, b)
+faceAt env (SConjunction x y) = faceAt env x && faceAt env y
+faceAt env (SDisjunction x y) = faceAt env x || faceAt env y
+
+allAssignments : List (Fin n) -> List (Fin n, DM) -> ScopedFace n ->
+                 ScopedInterval n -> ScopedInterval n -> Bool
+allAssignments [] env face r s = not (faceAt env face) || evalDM env r == evalDM env s
+allAssignments (i :: rest) env face r s =
+  all (\v => allAssignments rest ((i, v) :: env) face r s)
+      [(False, False), (False, True), (True, False), (True, True)]
+
+||| Compare applications of the single declared neutral path at two dimensions.
+||| Rejection is only failure of this sufficient conversion rule. The path
+||| argument fixes the shared typed declaration; distinct paths are not expressible.
+public export
+convertNeutrals : Nat -> Restriction n -> NeutralPath m ->
+                  ScopedInterval n -> ScopedInterval n -> Result
+convertNeutrals budget (Under face) path r s =
+  case faceNodes (min 12 budget) face >>= \fuel =>
+       intervalNodes fuel r >>= \fuel => intervalNodes fuel s of
+    Nothing => Exhausted
+    Just _ => if allAssignments (nub (faceNames face ++ intervalNames r ++ intervalNames s))
+                                 [] face r s
+                 then Accepted
+                 else if left path == right path then
+                   case (convertToVariable budget (Under face) path (At r) (left path),
+                         convertToVariable budget (Under face) path (At s) (left path)) of
+                     (Accepted, Accepted) => Accepted
+                     _ => Rejected
+                 else Rejected
 
 ||| Check <i> body against Path A left right by checking both faces.
 ||| Each face check has the same bounded admission allowance, not a shared one.

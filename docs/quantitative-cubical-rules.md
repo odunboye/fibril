@@ -478,8 +478,22 @@ abstraction by endpoint conversion and permits restricted endpoint conversion
 on arbitrary scoped faces. Dimension substitution uses the existing scoped
 infrastructure; term renaming also renames the path declaration. Scope is
 indexed, and the negative fixtures reject escaping dimension and term indices.
-The square tests check the two zero faces and the combined one face of a meet;
-they are not a general square or composition judgment.
+The square tests check both zero faces against `a` and both one faces against
+`p @ j` and `p @ i` respectively, including mismatch and exhaustion; this is
+not a general square or composition judgment.
+
+`convertNeutrals` compares two applications of that same declared path. It
+accepts when their interval arguments agree under the face restriction, or when
+coincident path endpoints allow both applications to convert to that endpoint.
+It does not identify different path variables or claim completeness for all
+endpoint-driven equalities. The interval check enumerates the four-element
+De Morgan algebra, with the two middle elements fixed by reversal, rather than
+Boolean vertices. Face atoms constrain an assigned dimension to an endpoint;
+disjunction is checked as a union of such restrictions. The mathematical
+justification is that the four-element algebra generates De Morgan algebras,
+and each conjunction of endpoint constraints amounts to substituting those
+endpoints; a face disjunction is a union of these cases. This is an informal
+soundness argument, not a machine-checked theorem.
 
 This is not the complete gate 4: there are no general type contexts, multiple
 path variables, path-valued terms, arbitrary term substitution, general term
@@ -493,7 +507,13 @@ empty restrictions still entail the goal. Each extracted endpoint face has at
 most as many nodes as the admitted interval; the disjunction therefore has at
 most twice that number plus one. The admitted assumption and interval have at
 most 12 nodes combined, bounding the assumption and generated goal to at most
-24 nodes combined. This bounds solver input size, not its operation count.
+24 nodes combined. The neutral-to-neutral check instead admits the face and both interval trees
+together at at most `min 12 budget` nodes, before collecting names and
+enumerating at most four assignments per distinct occurring dimension. Its
+coincident-endpoint fallback calls the existing bounded conversion twice.
+Each individual face solver call remains bounded as above. No expanded system
+is supplied to either solver. This bounds solver input size, not total work or
+its operation count.
 Abstraction checks reuse the caller's allowance for each face, so this is not a
 shared operation budget. Scope sizes
 and Fin index comparison costs are not capped. Substitution
