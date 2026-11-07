@@ -31,16 +31,16 @@ remain in the source quantitative judgment.
 
 | Rule family | Authoritative implementation | Established contract | Remaining obligation |
 | --- | --- | --- | --- |
-| Ordinary formation/typing | `CommonTerm`, `CommonHasType` | Scoped variables, Unit/Bool, lambda/application, conditional, unit elimination | Proof-producing admission of raw syntax |
+| Ordinary formation/typing | `CommonTerm`, `CommonHasType` | Scoped variables, Unit/Bool, lambda/application, conditional, unit elimination | `CommonAdmission` admits scoped annotated raw typing; production correspondence remains open |
 | Ordinary substitution | `CommonSubstitutionTyped`, `substituteCommonTyped` | Typed environments preserve ordinary typing; translation commutation | Production checker correspondence |
-| Dimension-scoped bodies | `CommonPathTerm`, `CommonPathHasType` | Ordinary embeddings, named application, lambda/application, if/unit | Unified raw term/path checker |
+| Dimension-scoped bodies | `CommonPathTerm`, `CommonPathHasType` | Ordinary embeddings, named application, lambda/application, if/unit | `CommonAdmission` admits scoped annotated bodies; equality/abstraction admission remains open |
 | Named declarations | `CommonDeclarations`, `CommonDeclaredPath` | Dimension-independent typed ordinary endpoints, exact typed name lookup | Automatic semantic witness construction and admission contract |
 | Face equality | `CommonFaceEqual` | Typed reflexivity, declared endpoints, symmetry/transitivity, stronger-face restriction, app/if/unit congruence | General soundness evidence construction; no lambda equality or beta/eta rule is added |
 | Homogeneous abstraction | `CommonShadowPath` / `CommonAbstract` | Typed body under fresh dimension and both actual face-restricted boundaries | Automatic construction of complete semantic certificates |
 | Application | `applyCommonShadowPath` | Capture-avoiding substitution for fresh dimension | Production elaboration/reduction correspondence |
 | Term substitution of judgments | `substituteCommonDeclarations`, `substituteCommonFaceEqual`, `substituteCommonShadowPath` | Independent typed substitution preserves declarations/equalities/abstractions | Integrated quantitative cubical preservation |
 | Dimension substitution | `CommonDimensionEvidence`, `CommonPathDimensionEvidence`, `mapCommonShadowPathDimensions` | Rebuilds actual judgments with renewed indexed checks | Automatic recertification; unconditional stability is not claimed |
-| Interpretation | `HigherOrderTerm`, `HigherOrderPathTerm`, `dependentPathSemantics` | Explicit computational witnesses interpret as extensional setoid morphisms | Automatic witnesses from successful admission |
+| Interpretation | `HigherOrderTerm`, `HigherOrderPathTerm`, `dependentPathSemantics` | Explicit computational witnesses interpret as extensional setoid morphisms | `CommonAdmission` constructs typing witnesses automatically; complete equality/boundary certificates remain open |
 | Semantic equality | `DependentEndpointFaceEvidence`, `dependentEndpointFaceEvidenceSound` | Actual derivations sound with explicit structural evidence and admissibility | Every admitted equality must construct this evidence |
 | Semantic abstraction/application | `HigherOrderCommonShadowPath`, `higherOrderCommonPathBoundary`, `higherOrderCommonPathApplicationRelated` | Exact witnessed abstraction/application and both endpoint relations | Automatic boundary evidence; full cubical model |
 
@@ -69,9 +69,11 @@ ownership checks remain separately authoritative for execution.
 
 ## Checking, exhaustion and cost
 
-The selected calculus is a declarative Idris proof interface, **not an untrusted
-input checker**. `TypedPathChecker` is not its checker. No successful common
-admission API currently guarantees construction of all semantic evidence.
+The selected calculus itself is a declarative Idris proof interface.
+`CommonAdmission` now supplies a bounded, evidence-producing first typing slice
+for scoped annotated raw ordinary/path syntax; see [its exact contract](common-admission.md).
+`TypedPathChecker` is not its checker. No successful common admission API yet
+guarantees construction of all equality/abstraction semantic evidence.
 
 Existing bounded entailment checks are incomplete. Unsupported cases and
 exhaustion must reject certificate construction; `False` is not a proof of
@@ -85,6 +87,7 @@ untrusted time/allocation guarantee.
 | Modules | Role after freeze |
 | --- | --- |
 | `ShadowCommon` | Authoritative v0 judgments and selected dependent semantic model |
+| `CommonAdmission` | Isolated scoped annotated typing admission with actual derivations and computational witnesses; no equality/abstraction admission |
 | `Shadow`, `ShadowSubstitution` | Intrinsic pure source-shadow language and proved source translation dependencies |
 | `ShadowPath` | Source-side path representation and translation/recertification dependency; not a competing production language |
 | `ShadowTypedBridge` | Restricted compatibility bridge; not the type-preserving v0 target |
@@ -107,9 +110,12 @@ presheaf model. Finite valuation substitution results do not establish general
 cubical naturality or fibrancy. No full production normalization, erasure,
 execution or ownership soundness theorem follows from v0.
 
-## Next gate: one evidence-producing admission contract
+## Next gate: complete evidence-producing admission contract
 
-Before adding language rules, specify a raw-input interface that:
+The [first admission slice](common-admission.md) constructs exact ordinary/path
+typing and computational witnesses, without caller-supplied conclusions. It does
+not complete equality, declaration or abstraction admission. Before adding
+language rules, complete a raw-input interface that:
 
 1. Admits exact ordinary, named-path, dimension and face contexts.
 2. Produces `CommonPathHasType` and exact equality/abstraction derivations.

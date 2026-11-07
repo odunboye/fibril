@@ -41,6 +41,25 @@ cd "$tmp/tests"
 "$idris" --build tests.ipkg
 ./build/exec/fibril-tests
 cd negative
+# Admission's Fin scopes reject malformed indices before checking. Exact
+# evidence indices also prevent changing context/type or reflecting quantities.
+for fixture in CommonAdmissionWrongIndex CommonAdmissionWrongPathIndex CommonAdmissionWrongDimension CommonAdmissionWrongContext CommonAdmissionWrongType CommonAdmissionUsesReflection CommonAdmissionErasedBinder; do
+  "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1 || true
+  case "$fixture" in
+    CommonAdmissionWrongIndex|CommonAdmissionWrongPathIndex|CommonAdmissionWrongDimension) expected='Mismatch between: S ?k and 0.' ;;
+    CommonAdmissionWrongContext|CommonAdmissionWrongType) expected='Mismatch between: LBool and LUnit.' ;;
+    CommonAdmissionUsesReflection) expected='Mismatch between: CommonHasType' ;;
+    CommonAdmissionErasedBinder) expected='Mismatch between: True and False.' ;;
+  esac
+  if [[ $(grep -c '^Error:' "$tmp/$fixture.log") -ne 1 ]] ||
+     ! grep -Fq 'Error: While processing right hand side of bad.' "$tmp/$fixture.log" ||
+     ! grep -Fq "$expected" "$tmp/$fixture.log" ||
+     grep -Eq 'Undefined name|While processing type of' "$tmp/$fixture.log"; then
+    echo "Common admission negative test failed: $fixture" >&2
+    cat "$tmp/$fixture.log" >&2; exit 1
+  fi
+done
+echo 'Common admission scope, exact evidence and quantity negatives passed.'
 for fixture in CommonAbstractWrongFace CommonAbstractWrongIndex CommonAbstractWrongBoundary; do
   "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1 || true
   case "$fixture" in
