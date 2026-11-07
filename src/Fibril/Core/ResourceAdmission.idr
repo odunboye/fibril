@@ -29,6 +29,7 @@ mutual
   containsFileReference (RecMore ty value) = containsFileReference ty || containsFileReference value
   containsFileReference (RecFold p z s x) = containsFileReference p || containsFileReference z || containsFileReference s || containsFileReference x
   containsFileReference (RecCase p x z s) = containsFileReference p || containsFileReference x || containsFileReference z || containsFileReference s
+  containsFileReference (NatCase p x z s) = containsFileReference p || containsFileReference x || containsFileReference z || containsFileReference s
   containsFileReference (SeqType _ element) = containsFileReference element
   containsFileReference (SeqNil ty) = containsFileReference ty
   containsFileReference (SeqCons ty head tail) = containsFileReference ty || containsFileReference head || containsFileReference tail

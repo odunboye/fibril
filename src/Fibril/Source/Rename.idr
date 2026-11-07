@@ -6,6 +6,9 @@ import Fibril.Source.Text
 import Fibril.Source.Lexer
 import Fibril.Source.Symbol
 import Fibril.Source.Navigation
+import Fibril.Source.Syntax
+import Fibril.Source.Declaration
+import Fibril.Source.Document
 
 %default total
 
@@ -67,6 +70,23 @@ preserved width edits after before = any
   (\reference => mappedSpan width edits before.origin reference.origin &&
                  mappedSpan width edits before.target reference.target) after
 
+-- Without checked resolution, a final bare head and its body cannot be
+-- distinguished reliably from a constructor and its uses.
+ambiguousClauseTouches : String -> String -> Declaration -> Bool
+ambiguousClauseTouches old name decl = case decl.value of
+  NEquationLambda _ [argument] _ (NDataCase _ _ Nothing arms) =>
+    argument.spelling == "$clauseScrutinee" &&
+    case reverse arms of
+      (head, [], _) :: _ => head.spelling == old || head.spelling == name
+      _ => False
+  _ => False
+
+ambiguousItemTouches : String -> String -> AuthoredDeclaration -> Bool
+ambiguousItemTouches old name (Ordinary decl) = ambiguousClauseTouches old name decl
+ambiguousItemTouches old name (ImplementationItem decl) = ambiguousClauseTouches old name decl
+ambiguousItemTouches old name (MutualItem group) = ambiguousClauseTouches old name group.first || ambiguousClauseTouches old name group.second
+ambiguousItemTouches _ _ _ = False
+
 ||| Validate a new ASCII identifier, propose all declaration/use edits, and reject
 ||| any change in lexical resolution (including newly captured unresolved names).
 ||| No type-checking, cross-file safety, or source mutation is claimed.
@@ -88,6 +108,15 @@ previewRename source line column name = do
   selected <- case find (atCursor line column) originalRefs of
     Nothing => Left NoRenameTarget
     Just reference => Right reference
+  old <- case find (\token => sameSpan token.span selected.origin) document.tokens of
+    Nothing => Left RenameChangesScope
+    Just token => Right token.spelling
+  -- A different spelling cannot change whether an ambiguous head resolves to
+  -- a global or bind its suppressed same-spelled uses. The usual reference
+  -- comparison below still checks capture for every visible occurrence.
+  case document.body of
+    DeclarationDocument items => if any (ambiguousItemTouches old name) items then Left RenameChangesScope else Right ()
+    _ => Right ()
   symbols <- case documentSymbols source of
     Left err => Left (RenameFrontend err)
     Right symbols => Right symbols

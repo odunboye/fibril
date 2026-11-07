@@ -79,6 +79,7 @@ mutual
   generate mode n (RecFold _ base step value) = ternary mode n "f_rec_fold" base step value
   generate mode n (SeqFold _ base step value) = ternary mode n "f_seq_fold" base step value
   generate mode n (RecCase _ value base more) = ternary mode n "f_rec_case" value base more
+  generate mode n (NatCase _ value base more) = ternary mode n "f_nat_case" value base more
   generate mode n (SeqCase _ value base cons) = ternary mode n "f_seq_case" value base cons
   generate mode n BoolTrue = Right (constant n "f_bool(r, 1)")
   generate mode n BoolFalse = Right (constant n "f_bool(r, 0)")

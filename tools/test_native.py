@@ -38,6 +38,26 @@ class NativeTests(unittest.TestCase):
                 self.assertEqual(reference.returncode, 0, reference.stderr)
                 self.assertEqual(native.stdout, reference.stdout)
 
+    def test_nat_case_and_clauses_match_reference(self):
+        for definition in ('f Zero = Zero\nf Succ n = Succ n',
+                           'f Zero = Zero\nf item = item',
+                           'f n = case n of\n  Zero => Zero\n  Succ k => Succ k'):
+            for value, expected in (('Zero', b'\n'), ('Succ (Succ Zero)', b'!!\n')):
+                with self.subTest(definition=definition, value=value), tempfile.TemporaryDirectory() as directory:
+                    path = Path(directory) / 'Main.fib'
+                    path.write_text('module Main\nf : Nat -> Nat\n' + definition +
+                        '\nmarks : (1 n : Nat) -> String\nmarks n = natRec '
+                        '(\\(0 k : Nat) => String) "" '
+                        '(\\(0 k : Nat) => \\(1 result : String) => appendString result "!") n\n'
+                        + f'main : IO Unit\nmain = putStrLn (marks (f ({value})))\n')
+                    args = ['--source-dir', directory, str(path)]
+                    _, native = self.compile_and_run(args, directory)
+                    reference = run_cli('run', *args, text=False, timeout=120)
+                    self.assertEqual(reference.returncode, 0, reference.stderr)
+                    self.assertEqual(native.returncode, 0, native.stderr)
+                    self.assertEqual(native.stdout, expected)
+                    self.assertEqual(native.stdout, reference.stdout)
+
     def test_imported_module_and_package_entry(self):
         cases = [(['--source-dir', str(ROOT / 'examples/modules/checked'), str(ROOT / 'examples/modules/checked/Main.fib')], b'Hello, Fibril!\n'),
                  (['--source-dir', str(ROOT / 'examples/modules/implicit-arguments'), str(ROOT / 'examples/modules/implicit-arguments/Main.fib')], b'queued: receipt\nexplicit type\nphantom type\nboth inferred\npartly explicit\n'),
@@ -456,6 +476,35 @@ main = do
             _, native = self.compile_and_run(['--source-dir', directory, str(path)], directory)
             self.assertEqual(native.returncode, 0, native.stderr)
             self.assertEqual(native.stdout, b'selected!\n')
+
+    def test_runtime_nat_case_reuses_predecessor_thunk(self):
+        # Core unrestricted branches are not yet expressible as source patterns.
+        source = r'''
+#include "fibril_runtime.h"
+static int calls;
+static FValue *zero(FRuntime *r, FEnv *e) { (void)e; calls++; return f_nat_zero(r); }
+static FValue *value(FRuntime *r, FEnv *e) { return f_nat_succ(r, e, zero); }
+static FValue *var(FRuntime *r, FEnv *e) { return f_variable(r, e, 0); }
+static FValue *text(FRuntime *r, FEnv *e) { (void)e; return f_literal(r, (const unsigned char *)"x", 1); }
+static FValue *unused(FRuntime *r, FEnv *e) { return f_lambda(r, e, 0, text); }
+static FValue *inspect(FRuntime *r, FEnv *e) { return f_nat_case(r, e, var, text, unused); }
+static FValue *twice(FRuntime *r, FEnv *e) { return f_append(r, e, inspect, inspect); }
+static FValue *branch(FRuntime *r, FEnv *e) { return f_lambda(r, e, 0, twice); }
+static FValue *result(FRuntime *r, FEnv *e) { return f_nat_case(r, e, value, text, branch); }
+static FValue *entry(FRuntime *r, FEnv *e) { return f_write(r, e, result); }
+int main(void) { int result = fibril_native_run(entry); return result ? result : calls == 1 ? 0 : 2; }
+'''
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'probe.c'
+            executable = Path(directory) / 'probe'
+            path.write_text(source)
+            build = subprocess.run(CC + ['-std=c11', '-Wall', '-Wextra', '-Werror', '-pedantic',
+                                          '-I', str(RUNTIME), str(path), str(RUNTIME / 'fibril_runtime.c'),
+                                          '-o', str(executable)], capture_output=True, text=True, timeout=120)
+            self.assertEqual(build.returncode, 0, build.stderr)
+            native = subprocess.run([str(executable)], capture_output=True, timeout=120)
+            self.assertEqual(native.returncode, 0, native.stderr)
+            self.assertEqual(native.stdout, b'xx\n')
 
     def test_runtime_fold_thunks_are_lazy_and_memoized(self):
         # Direct runtime probes intentionally bypass the Fibril checker. They

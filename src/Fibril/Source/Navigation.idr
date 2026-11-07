@@ -103,8 +103,18 @@ mutual
   walk context env (NBoxValue _ ty value) = walk context env ty ++ walk context env value
   walk context env (NBoxCase _ motive value branch) = walk context env motive ++ walk context env value ++ walk context env branch
   walk context env (NPairValue _ ty first second) = walk context env ty ++ walk context env first ++ walk context env second
+  -- A final bare grouped-clause head may be a checked binder. This lexical
+  -- traversal has no checking certificate, so suppress possible outer targets
+  -- in its body rather than report an incorrect reference.
+  walk context env (NEquationLambda _ [argument] _ (NDataCase _ value Nothing arms)) =
+    if argument.spelling == "$clauseScrutinee"
+    then walk context ((argument.spelling, Nothing) :: env) value ++
+         walkDataArms True context ((argument.spelling, Nothing) :: env) arms
+    else let scope = (argument.spelling, if argument.spelling == "_" then Nothing else Just (context.localTarget argument.span)) :: env
+          in (if argument.spelling == "_" then [] else self context (Just argument.span)) ++
+             walk context scope value ++ walkDataArms False context scope arms
   walk context env (NEquationLambda _ names _ body) =
-    let sites = filter (\token => token.spelling /= "_") names
+    let sites = filter (\token => token.spelling /= "_" && token.spelling /= "$clauseScrutinee") names
         refs = concatMap (\token => self context (Just token.span)) sites
         following = foldl (\scope, token => (token.spelling, if token.spelling == "_" then Nothing else Just (context.localTarget token.span)) :: scope) env names
      in refs ++ walk context following body
@@ -113,8 +123,8 @@ mutual
         refs = concatMap (\token => self context (Just token.span)) sites
         following = foldl (\scope, token => (token.spelling, if token.spelling == "_" then Nothing else Just (context.localTarget token.span)) :: scope) env names
      in refs ++ walk context following body
-  walk context env (NDataCase _ value Nothing arms) = walk context env value ++ walkDataArms context env arms
-  walk context env (NDataCase _ value (Just motive) arms) = walk context env value ++ walk context env motive ++ walkDataArms context env arms
+  walk context env (NDataCase _ value Nothing arms) = walk context env value ++ walkDataArms False context env arms
+  walk context env (NDataCase _ value (Just motive) arms) = walk context env value ++ walk context env motive ++ walkDataArms False context env arms
   walk context env (NConstructorCase _ _ constructor value branch motive) =
     walk context env constructor ++ walk context env value ++ (case motive of Nothing => []; Just result => walk context env result) ++ walk context env branch
   walk context env (NInferCase _ _ value branch) = walk context env value ++ walk context env branch
@@ -148,9 +158,9 @@ mutual
      in walk context env domain ++ walk context env value ++ self context target ++
         walk context ((name, map context.localTarget target) :: env) body
 
-  walkDataArms : Walker destination -> Environment destination -> List (Token, List Token, Expr) -> List (ReferenceTo destination)
-  walkDataArms context env [] = []
-  walkDataArms context env ((constructor, binder, body) :: rest) =
+  walkDataArms : Bool -> Walker destination -> Environment destination -> List (Token, List Token, Expr) -> List (ReferenceTo destination)
+  walkDataArms clause context env [] = []
+  walkDataArms clause context env ((constructor, binder, body) :: rest) =
     let qualified = elem '.' (unpack constructor.spelling)
         selected : Maybe destination
         selected = if qualified then context.qualifiedTarget constructor.spelling else case lexicalTarget constructor.spelling env of
@@ -162,12 +172,15 @@ mutual
                     token.span.finish.offset <= constructor.span.finish.offset) (reverse context.tokens))
                  else Just constructor.span
         refs : List (ReferenceTo destination)
-        refs = case (origin, selected) of (Just region, Just dest) => [RefersTo region dest]; _ => []
+        refs = if clause && null rest && null binder then [] else
+          case (origin, selected) of (Just region, Just dest) => [RefersTo region dest]; _ => []
         binderRefs : List (ReferenceTo destination)
         binderRefs = concatMap (\bound => if bound.spelling == "_" then [] else self context (Just bound.span)) binder
         following : Environment destination
         following = foldl (\scope, bound => (bound.spelling, if bound.spelling == "_" then Nothing else Just (context.localTarget bound.span)) :: scope) env binder
-     in refs ++ binderRefs ++ walk context following body ++ walkDataArms context env rest
+        bodyScope = if clause && null rest && null binder
+                    then (constructor.spelling, Nothing) :: following else following
+     in refs ++ binderRefs ++ walk context bodyScope body ++ walkDataArms clause context env rest
 
 dataParameters : Walker destination -> Environment destination -> List RecordParameter ->
                  (List (ReferenceTo destination), Environment destination)
@@ -186,6 +199,23 @@ dataFields context env (field :: rest) =
       (refs, scope) = dataFields context following rest
    in (walk context env field.ty ++ self context (Just field.token.span) ++ refs, scope)
 
+-- Each lowered arm retains its authored constructor token. The immediately
+-- preceding token is its clause header, as guaranteed by clause parsing.
+clauseHeaders : Walker destination -> Declaration -> List (ReferenceTo destination)
+clauseHeaders context decl = case decl.value of
+  NEquationLambda _ [argument] _ (NDataCase _ _ Nothing arms) =>
+    if argument.spelling == "$clauseScrutinee" then concatMap header arms else []
+  _ => []
+  where
+    header : (Token, List Token, Expr) -> List (ReferenceTo destination)
+    header (constructor, _, _) =
+      case find (\token => token.span.finish.offset <= constructor.span.start.offset) (reverse context.tokens) of
+        Just token => if token.kind == Name && token.spelling == decl.name &&
+                         token.span.start.line == constructor.span.start.line &&
+                         token.span.start.offset /= decl.definitionNameSpan.start.offset
+          then [RefersTo token.span (context.localTarget decl.definitionNameSpan)] else []
+        Nothing => []
+
 declarations : Walker destination -> Environment destination -> List AuthoredDeclaration -> List (ReferenceTo destination)
 declarations context env [] = []
 declarations context env (MutualItem group :: rest) =
@@ -202,7 +232,7 @@ declarations context env (Ordinary decl :: rest) =
     [RefersTo decl.nameSpan (context.localTarget decl.definitionNameSpan)] else
     [RefersTo decl.nameSpan (context.localTarget decl.definitionNameSpan),
      RefersTo decl.definitionNameSpan (context.localTarget decl.definitionNameSpan)]) ++
-  (if decl.generated then [] else walk context env decl.expected ++ walk context env decl.value) ++
+  (if decl.generated then [] else clauseHeaders context decl ++ walk context env decl.expected ++ walk context env decl.value) ++
   declarations context ((decl.name, Just (context.localTarget decl.definitionNameSpan)) :: env) rest
 
 declarations context env (ImplementationBlock block :: rest) =

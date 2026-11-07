@@ -74,6 +74,18 @@ mutual
     baseUsage <- analyze depth reduction context base
     moreUsage <- analyze depth reduction context more
     Right (combineUsage valueUsage (joinUsage baseUsage moreUsage))
+  analyze (S depth) reduction context (NatCase motive value base more) = do
+    moreType <- liftTyping (inferErased depth reduction context more)
+    exposed <- case weakHead reduction moreType of
+      HeadForm ty => Right ty
+      HeadLimit _ => Left (TypingError ReductionLimit)
+    case exposed of
+      Pi q _ _ => do
+        valueUsage <- analyze depth reduction context value
+        baseUsage <- analyze depth reduction context base
+        moreUsage <- analyze depth reduction context more
+        Right (combineUsage (scaleUsage q valueUsage) (joinUsage baseUsage moreUsage))
+      _ => Left (TypingError (ExpectedFunction exposed))
   analyze (S depth) reduction context (SeqType _ _) = Left RuntimeTypeExpression
   analyze (S depth) reduction context (SeqNil _) = Right zeroUsage
   analyze (S depth) reduction context (SeqCons _ head tail) = do
