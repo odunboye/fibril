@@ -490,9 +490,20 @@ autoType : NeutralExpr 2 1 0
 autoType = NPathType autoFamily (NPath FZ) (NPath FZ)
 
 public export
+isPairRejected : Result -> Bool
+isPairRejected Rejected = True
+isPairRejected _ = False
+
+isPairAccepted : Result -> Bool
+isPairAccepted Accepted = True
+isPairAccepted _ = False
+
+public export
 checkerChecks : List (String, Bool)
 checkerChecks =
-  [ ("autonomous square exact shared work budget", checkerSuccess
+  [ ("pair solver rejects complement", isPairRejected (restrictedIntervalEqual {n = 1} 12 STop (Meet (Var FZ) (Reverse (Var FZ))) Zero))
+  , ("pair solver zero face", isPairAccepted (restrictedIntervalEqual {n = 1} 12 (SEndpoint FZ False) (Meet (Var FZ) (Reverse (Var FZ))) Zero))
+  , ("autonomous square exact shared work budget", checkerSuccess
       (checkDependentIntroduction {n = 0} 223 neutralContext STop squareTerm
         (NPathType squareFamily squareLeft squareRight)))
   , ("autonomous square one token short has no witness", checkerExhausted
@@ -754,3 +765,20 @@ checkerChecks =
   , ("checker formation", checkerSuccess (checkNeutralFormation {n = 0} 32 neutralContext STop
       (NPathType NType (NApply (NPath FZ) Zero) (NBase FZ))))
   ]
+
+-- OpenPath's involution fixes both non-endpoints, unlike the Boolean diamond.
+pairFixedLeft : evalDM [(FZ, (False, True))] (Meet (Var FZ) (Reverse (Var FZ))) = (False, True)
+pairFixedLeft = Refl
+
+pairFixedRight : evalDM [(FZ, (True, False))] (Meet (Var FZ) (Reverse (Var FZ))) = (True, False)
+pairFixedRight = Refl
+
+diamondComplement : evalInterval (const DPositive) (Meet (Var FZ) (Reverse (Var FZ))) = DZero
+diamondComplement = Refl
+
+pairFaceConsistent : faceAt [(FZ, (False, True))] (SConjunction (SEndpoint FZ False) (SEndpoint FZ True)) = False
+pairFaceConsistent = Refl
+
+pairEndpointTheorem : (env : List (Fin 1, DM)) -> (r : ScopedInterval 1) ->
+  faceAt env (scopedEndpoint r True) = True -> (evalDM env r == (True, True)) = True
+pairEndpointTheorem env r p = dmScopedEndpointSound env r True p

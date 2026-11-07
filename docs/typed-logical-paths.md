@@ -293,3 +293,29 @@ four-element model, not completeness for free De Morgan algebras, a semantic
 interpretation of the typed path judgments or endpoint rules, or full cubical
 soundness. The four-element quotient identifies `i ∧ ~i` with zero; that
 identity does not hold in the free De Morgan interval.
+
+#### OpenPath's distinct solver model
+
+`OpenPath` instead enumerates the four Boolean pairs with coordinatewise meet
+and join, and reversal `(a,b) ↦ (!b,!a)`. Both incomparable pairs are fixed by
+reversal. Thus it is **not** the diamond involution used by `FaceSoundness`:
+for either fixed pair, `i ∧ ~i = i`, not zero. The solver regression checks
+this distinction and invokes `restrictedIntervalEqual` both unrestricted and
+under the zero face. Opposite endpoint faces are never simultaneously true in
+this pair model.
+
+`dmScopedEndpointSound` proves directly for the solver's actual list lookup,
+`faceAt` and `evalDM` that truth of `scopedEndpoint r b` implies evaluation of
+`r` to `(b,b)`. `dmMeetScopedOne` proves evaluation of `x ∧ y` equals that of
+`x` when the extracted one-face of `y` holds. These are sufficient-direction
+results, not a proof of the enumeration checker: completeness of `nub` name
+collection and coverage of arbitrary valuations by `allAssignments` remain to
+be established. No free-algebra completeness or converse is claimed.
+
+`restrictedIntervalEqual` rejects scopes above 12 and admits at most 12 total
+face/interval syntax nodes (also bounded by the caller's budget). It enumerates
+four values per distinct collected name, at most 4^12 assignments (and often
+fewer due to the shared node cap); the budget is admission, not work fuel.
+`Accepted` means that this finite check returned true, `Rejected` that it
+returned false, and `Exhausted` that an admission guard failed. This statement
+is operational and does not assert the unproved arbitrary-valuation theorem.
