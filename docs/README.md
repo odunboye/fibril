@@ -35,6 +35,7 @@ The generated homepage separates teaching chapters, references, and project reco
 - [Neovim/Vim highlighting](editor-highlighting.md): local runtime setup, lexical scope, and optional tests.
 
 - [Hello world / hosted console](console-runner.md): first run command and its explicit effect boundary.
+- [Protocol foundations checkpoint](protocol-foundations.md): reviewed pair lowering/state sharing, corrected oracle, and explicit remaining runtime blockers.
 - [Native binary continuation stack](binary-runtime-scalability.md): bounded iterative IO traversal; measured 4 KiB framing policy, unchanged hosted reduction budget.
 - [Numeric probes and 4 KiB framing](binary-numbers.md): measured source-level decimal strategy, unchanged runner budgets.
 - [Fibril-written bounded framing](binary-framing.md): canonical Content-Length echo with one-/two-frame clients, checked hosted/native, strict 0..4096-byte body limit; not an LSP server.

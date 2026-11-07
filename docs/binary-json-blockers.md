@@ -145,7 +145,7 @@ was used. Pack's temporary-directory warnings were left alone.
 - `python3 -m py_compile` for both observers: exit 0.
 
 Machine-readable case-level evidence is in
-[`json-state-sharing-evidence.json`](json-state-sharing-evidence.json).
+[`json-state-sharing-evidence.json`](assets/evidence/json-state-sharing-evidence.json).
 No native executable, sanitizer result, full grammar-equivalence pass, production
 API or 4096-byte runtime feasibility is claimed. Parent review and the separate
 pair lane are required before any integration beyond this source-only milestone.

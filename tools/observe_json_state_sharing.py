@@ -44,8 +44,16 @@ def reject_constant(value):
     raise ValueError(value)
 
 
+class ObjectMembers(list):
+    """Keep every member, including overwritten duplicate-key values."""
+
+
 def scalar_unicode(value):
-    if isinstance(value, str):
+    if isinstance(value, ObjectMembers):
+        for key, item in value:
+            scalar_unicode(key)
+            scalar_unicode(item)
+    elif isinstance(value, str):
         value.encode('utf-8', errors='strict')
     elif isinstance(value, list):
         for item in value:
@@ -58,7 +66,8 @@ def scalar_unicode(value):
 
 def oracle(data):
     try:
-        value = json.loads(data.decode('utf-8', errors='strict'), parse_constant=reject_constant)
+        value = json.loads(data.decode('utf-8', errors='strict'), parse_constant=reject_constant,
+                           object_pairs_hook=ObjectMembers)
     except (ValueError, UnicodeError):
         return False, False, b'\0'
     try:
