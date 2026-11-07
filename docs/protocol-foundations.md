@@ -143,3 +143,45 @@ proposed unary-free byte-table lookup is not implemented/approved and would not
 alone close the measured per-byte cost gap. Batching, representation/compiler
 work or an explicitly narrower product policy require a separately reviewed
 scaling decision; none is silently substituted here.
+
+## Typed lifecycle and workload checkpoint
+
+The isolated `feature/lsp-bootstrap` follow-up adds a **pure typed-event** lifecycle
+prototype, not a wire server. Its future decoder boundary requires signed32 JSON
+integer IDs or decoded scalar-valid UTF-8 string IDs; constructors remain forgeable.
+Initialize success is a semantic marker, not a negotiated capabilities response.
+See `tools/fixtures/lsp-lifecycle/README.md` for the complete transition matrix,
+preconditions and observation formats.
+
+Independent review closed the ID-contract blocker. The parent independently ran
+all five lifecycle groups normally and with ASan/UBSan: all133 rows match each
+other and committed evidence, including source-provenance hashes. Per backend,
+53 outputs observe full IDs,12 multi-event outputs deliberately omit IDs, and one
+actual no-output session has zero reads/writes (with the mandatory final flush);
+one admission row is shared.
+The full-ID four-event handshake remains an admission failure at8467 nodes, not
+a successful session. These independent fits do not prove server composition.
+
+The [workload corpus and scaling proposal](lsp-workload-scaling.md) contains14
+offline reference-derived/synthetic messages, **not captured client traffic**.
+A capability-rich initialize is3681 bytes/720 lexical tokens; document fixtures
+can exceed4096 bytes. Historical Read65 denials consume only65 bytes and do not
+profile complete larger messages. No parser cap, primitive or runtime budget was
+changed. Historical evidence hashes identify the launcher, not the compiler image.
+
+Probe-tool fixes retain an owned unreaped anchor through final group signaling;
+the documented platform, credential and cancellation exclusions still apply.
+Fresh review accepted that limited cleanup contract. Parent checks passed19
+workload tests,8 oracle tests and generator reproducibility; the historical
+evidence is unchanged except its explicit launcher-hash scope annotation.
+After integration, the parent reran five lifecycle groups,19 workload tests and
+`make -j8 handbook` (unit/property phase plus16 handbook checks). Main, the Python
+LSP reference and the accepted foundations worktree remain untouched.
+
+The next decision is a **specification/cost spike**, not approval to implement the
+sketched byte APIs: measure runtime work/allocation and actual composed initial
+syntax, and compare minimal existing-Bytes/view operations against new opaque
+extents or another iterator. A classifier lookup alone is insufficient; adding
+bulk operations also does not by itself establish admitted composition. Wire
+JSON decoding, response serialization, generalized headers, documents and the
+typed compiler-service bridge remain undelivered.
