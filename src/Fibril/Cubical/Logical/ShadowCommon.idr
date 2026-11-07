@@ -29,6 +29,38 @@ data CommonTerm : Nat -> Type where
   CUnitElim : CommonTerm n -> CommonTerm n -> CommonTerm n
   CIf : CommonTerm n -> CommonTerm n -> CommonTerm n -> CommonTerm n
 
+||| Renaming and substitution act directly on common syntax, independently of
+||| logical terms. The lifted environment keeps the binder at index zero.
+public export
+liftCommonRenaming : (Fin n -> Fin m) -> Fin (S n) -> Fin (S m)
+liftCommonRenaming rho FZ = FZ
+liftCommonRenaming rho (FS i) = FS (rho i)
+
+public export
+renameCommon : (Fin n -> Fin m) -> CommonTerm n -> CommonTerm m
+renameCommon rho (CVar i) = CVar (rho i)
+renameCommon rho CUnit = CUnit
+renameCommon rho (CBool b) = CBool b
+renameCommon rho (CLam b) = CLam (renameCommon (liftCommonRenaming rho) b)
+renameCommon rho (CApp f x) = CApp (renameCommon rho f) (renameCommon rho x)
+renameCommon rho (CUnitElim x b) = CUnitElim (renameCommon rho x) (renameCommon rho b)
+renameCommon rho (CIf c t f) = CIf (renameCommon rho c) (renameCommon rho t) (renameCommon rho f)
+
+public export
+liftCommonSubstitution : (Fin n -> CommonTerm m) -> Fin (S n) -> CommonTerm (S m)
+liftCommonSubstitution sigma FZ = CVar FZ
+liftCommonSubstitution sigma (FS i) = renameCommon FS (sigma i)
+
+public export
+substituteCommon : (Fin n -> CommonTerm m) -> CommonTerm n -> CommonTerm m
+substituteCommon sigma (CVar i) = sigma i
+substituteCommon sigma CUnit = CUnit
+substituteCommon sigma (CBool b) = CBool b
+substituteCommon sigma (CLam b) = CLam (substituteCommon (liftCommonSubstitution sigma) b)
+substituteCommon sigma (CApp f x) = CApp (substituteCommon sigma f) (substituteCommon sigma x)
+substituteCommon sigma (CUnitElim x b) = CUnitElim (substituteCommon sigma x) (substituteCommon sigma b)
+substituteCommon sigma (CIf c t f) = CIf (substituteCommon sigma c) (substituteCommon sigma t) (substituteCommon sigma f)
+
 public export
 data CommonHasType : Vect n LogicalType -> CommonTerm n -> LogicalType -> Type where
   CVariable : (v : LogicalVar ctx a) -> CommonHasType ctx (CVar (variableIndex v)) a
@@ -89,6 +121,16 @@ data CommonPathTerm : Nat -> Nat -> Nat -> Type where
   CPUnitElim : CommonPathTerm n k d -> CommonPathTerm n k d -> CommonPathTerm n k d
   CPIf : CommonPathTerm n k d -> CommonPathTerm n k d -> CommonPathTerm n k d -> CommonPathTerm n k d
 
+||| Ordinary substitution does not change named paths or dimensions.
+public export
+substituteCommonPath : (Fin n -> CommonTerm m) -> CommonPathTerm n k d -> CommonPathTerm m k d
+substituteCommonPath sigma (CPOrdinary t) = CPOrdinary (substituteCommon sigma t)
+substituteCommonPath sigma (CPAt p i) = CPAt p i
+substituteCommonPath sigma (CPLam b) = CPLam (substituteCommonPath (liftCommonSubstitution sigma) b)
+substituteCommonPath sigma (CPApp f x) = CPApp (substituteCommonPath sigma f) (substituteCommonPath sigma x)
+substituteCommonPath sigma (CPUnitElim x b) = CPUnitElim (substituteCommonPath sigma x) (substituteCommonPath sigma b)
+substituteCommonPath sigma (CPIf c t f) = CPIf (substituteCommonPath sigma c) (substituteCommonPath sigma t) (substituteCommonPath sigma f)
+
 public export
 data CommonPathHasType : Vect n LogicalType -> Vect k LogicalType -> CommonPathTerm n k d -> LogicalType -> Type where
   CPOrdinaryType : CommonHasType ctx t a -> CommonPathHasType ctx paths (CPOrdinary t) a
@@ -127,6 +169,19 @@ mapCommonPathDimensions env (CPLam b) = CPLam (mapCommonPathDimensions env b)
 mapCommonPathDimensions env (CPApp f x) = CPApp (mapCommonPathDimensions env f) (mapCommonPathDimensions env x)
 mapCommonPathDimensions env (CPUnitElim x b) = CPUnitElim (mapCommonPathDimensions env x) (mapCommonPathDimensions env b)
 mapCommonPathDimensions env (CPIf c t f) = CPIf (mapCommonPathDimensions env c) (mapCommonPathDimensions env t) (mapCommonPathDimensions env f)
+
+||| The two operations affect disjoint scopes, including under binders.
+public export
+commonPathMixedSubstitution : (sigma : Fin n -> CommonTerm m) ->
+  (dims : Fin d -> ScopedInterval e) -> (body : CommonPathTerm n k d) ->
+  mapCommonPathDimensions dims (substituteCommonPath sigma body) =
+  substituteCommonPath sigma (mapCommonPathDimensions dims body)
+commonPathMixedSubstitution sigma dims (CPOrdinary t) = Refl
+commonPathMixedSubstitution sigma dims (CPAt p i) = Refl
+commonPathMixedSubstitution sigma dims (CPLam b) = cong CPLam (commonPathMixedSubstitution (liftCommonSubstitution sigma) dims b)
+commonPathMixedSubstitution sigma dims (CPApp f x) = cong2 CPApp (commonPathMixedSubstitution sigma dims f) (commonPathMixedSubstitution sigma dims x)
+commonPathMixedSubstitution sigma dims (CPUnitElim x b) = cong2 CPUnitElim (commonPathMixedSubstitution sigma dims x) (commonPathMixedSubstitution sigma dims b)
+commonPathMixedSubstitution sigma dims (CPIf c t f) = rewrite commonPathMixedSubstitution sigma dims c in rewrite commonPathMixedSubstitution sigma dims t in rewrite commonPathMixedSubstitution sigma dims f in Refl
 
 public export
 commonPathDimensionsCommute : (env : Fin d -> ScopedInterval e) -> (body : PathBody context paths d a) ->

@@ -772,3 +772,85 @@ pairedConditionalLeftEndpoint :
   commonPathTerm (mapPathTerms (imageSubstitution [BoolTy] (singleSubstitution (SubstituteHere (Boolean True))))
     (the (PathBody [LBool] [LBool] 0 LBool) (Embed (shadowTerm Tests.Shadow.linearSource))))
 pairedConditionalLeftEndpoint = Refl
+
+-- The source uses both its captured condition and its local binder once.
+commonCapturedSource : Term [BoolTy] (Arrow Linear BoolTy BoolTy)
+commonCapturedSource = Lam Linear (If (Ref (There Here)) (Ref Here) (Ref Here))
+
+commonCapturedUses : Uses Tests.Shadow.commonCapturedSource [Linear]
+commonCapturedUses = UseLam (UseIf (UseRef (There Here)) (UseRef Here) (UseRef Here)) Refl
+
+commonIdentityImage : Fin 1 -> CommonTerm 1
+commonIdentityImage FZ = CVar FZ
+
+commonCapturedSubstitution :
+  substituteCommon Tests.Shadow.commonIdentityImage
+    (commonTerm (shadowTerm Tests.Shadow.commonCapturedSource)) =
+  CLam (CIf (CVar (FS FZ)) (CVar FZ) (CVar FZ))
+commonCapturedSubstitution = Refl
+
+commonCapturedResultTyped : CommonHasType [LBool]
+  (substituteCommon Tests.Shadow.commonIdentityImage
+    (commonTerm (shadowTerm Tests.Shadow.commonCapturedSource))) (LArrow LBool LBool)
+commonCapturedResultTyped = CLambdaType (CConditionalType (CVariable (LThere LHere)) (CVariable LHere) (CVariable LHere))
+
+commonPathCapturedSubstitution :
+  substituteCommonPath Tests.Shadow.commonIdentityImage
+    (the (CommonPathTerm 1 1 1)
+      (CPLam (CPIf (CPOrdinary (CVar (FS FZ))) (CPAt FZ (Var FZ)) (CPOrdinary (CVar FZ))))) =
+  CPLam (CPIf (CPOrdinary (CVar (FS FZ))) (CPAt FZ (Var FZ)) (CPOrdinary (CVar FZ)))
+commonPathCapturedSubstitution = Refl
+
+commonTrueImage : Fin 1 -> CommonTerm 0
+commonTrueImage FZ = CBool True
+
+commonActualIfSubstitution :
+  substituteCommon Tests.Shadow.commonTrueImage (commonTerm (shadowTerm Tests.Shadow.linearSource)) =
+  CIf (CBool True) (CBool True) (CBool False)
+commonActualIfSubstitution = Refl
+
+commonActualPathSubstitution :
+  substituteCommonPath Tests.Shadow.commonTrueImage
+    (commonPathTerm (the (PathBody [LBool] [LBool] 1 LBool)
+      (BodyIf (Embed (shadowTerm Tests.Shadow.linearSource)) (NeutralAt LHere (Var FZ)) (Embed (LBoolean False))))) =
+  CPIf (CPOrdinary (CIf (CBool True) (CBool True) (CBool False))) (CPAt FZ (Var FZ)) (CPOrdinary (CBool False))
+commonActualPathSubstitution = Refl
+
+-- The image's own lambda binds index zero; its free Boolean must cross the
+-- surrounding lambda without being captured by either binder.
+commonCompoundImage : Fin 1 -> CommonTerm 1
+commonCompoundImage FZ = CLam (CIf (CVar FZ) (CVar (FS FZ)) (CBool False))
+
+commonCompoundUnderBinder :
+  substituteCommon Tests.Shadow.commonCompoundImage
+    (the (CommonTerm 1) (CLam (CApp (CVar (FS FZ)) (CVar FZ)))) =
+  CLam (CApp (CLam (CIf (CVar FZ) (CVar (FS (FS FZ))) (CBool False))) (CVar FZ))
+commonCompoundUnderBinder = Refl
+
+commonCompoundResultTyped : CommonHasType [LBool]
+  (substituteCommon Tests.Shadow.commonCompoundImage
+    (the (CommonTerm 1) (CLam (CApp (CVar (FS FZ)) (CVar FZ))))) (LArrow LBool LBool)
+commonCompoundResultTyped = CLambdaType (CApplicationType
+  (CLambdaType (CConditionalType (CVariable LHere) (CVariable (LThere (LThere LHere))) CBoolType))
+  (CVariable LHere))
+
+commonMixedDimensions : Fin 1 -> ScopedInterval 2
+commonMixedDimensions FZ = Meet (Var FZ) (Reverse (Var (FS FZ)))
+
+commonMixedBody : CommonPathTerm 1 1 1
+commonMixedBody = CPLam (CPApp (CPOrdinary (CVar (FS FZ))) (CPAt FZ (Var FZ)))
+
+commonMixedCompound :
+  mapCommonPathDimensions Tests.Shadow.commonMixedDimensions
+    (substituteCommonPath Tests.Shadow.commonCompoundImage Tests.Shadow.commonMixedBody) =
+  substituteCommonPath Tests.Shadow.commonCompoundImage
+    (mapCommonPathDimensions Tests.Shadow.commonMixedDimensions Tests.Shadow.commonMixedBody)
+commonMixedCompound = commonPathMixedSubstitution Tests.Shadow.commonCompoundImage
+  Tests.Shadow.commonMixedDimensions Tests.Shadow.commonMixedBody
+
+commonMixedCompoundResult :
+  mapCommonPathDimensions Tests.Shadow.commonMixedDimensions
+    (substituteCommonPath Tests.Shadow.commonCompoundImage Tests.Shadow.commonMixedBody) =
+  CPLam (CPApp (CPOrdinary (CLam (CIf (CVar FZ) (CVar (FS (FS FZ))) (CBool False))))
+    (CPAt FZ (Meet (Var FZ) (Reverse (Var (FS FZ))))) )
+commonMixedCompoundResult = Refl

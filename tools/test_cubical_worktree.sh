@@ -74,6 +74,18 @@ for fixture in ShadowCommonWrongType ShadowCommonWrongContext; do
   fi
 done
 echo 'Common judgment wrong type and context negative tests passed.'
+fixture=ShadowCommonSubstitutionWrongScope
+"$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1 || true
+if [[ $(grep -c '^Error:' "$tmp/$fixture.log") -ne 1 ]] ||
+   ! grep -Fq 'Error: While processing right hand side of bad. When unifying:' "$tmp/$fixture.log" ||
+   ! grep -Fq 'CommonTerm 1' "$tmp/$fixture.log" ||
+   ! grep -Fq 'CommonTerm 0' "$tmp/$fixture.log" ||
+   ! grep -Fq 'Mismatch between: 1 and 0.' "$tmp/$fixture.log" ||
+   grep -Eq 'Undefined name|While processing type of' "$tmp/$fixture.log"; then
+  echo "Common substitution wrong scope test failed for an unrelated reason: $fixture" >&2
+  cat "$tmp/$fixture.log" >&2; exit 1
+fi
+echo 'Common substitution wrong scope negative test passed.'
 for fixture in PairedSubstitutionWrongEndpoint PairedSubstitutionWrongContext; do
   "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1 || true
   case "$fixture" in

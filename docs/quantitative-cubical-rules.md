@@ -862,3 +862,16 @@ declarations, face-restricted equalities, path abstractions and their boundaries
 see `shadow-typedpath-bridge.md` for its exact scope and its pairing with the
 single-deletion quantitative theorem. It does not connect general common terms
 to the TypedPath checker or independently substitute common syntax.
+
+### Independent common syntax operations (limited)
+
+`renameCommon` and `substituteCommon` operate structurally on `CommonTerm`;
+`substituteCommonPath` extends ordinary substitution to path bodies while
+leaving named paths and dimensions unchanged. Under a lambda the bound index
+stays zero and substitution images are weakened. These functions accept
+arbitrary finite-indexed environments: they do **not** by themselves establish
+that an environment preserves `CommonHasType`. Generic typing preservation and
+commutation with logical substitution have not been proved. In particular no
+substitution preservation theorem for declarations, faces or path judgments is
+claimed. The concrete tests check a typed linear source and binder capture, not
+a quantitative preservation theorem for common substitution.
