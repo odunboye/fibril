@@ -206,6 +206,10 @@
         "path": "docs/mutual-structural-equations.md"
       },
       {
+        "title": "Shared checked globals",
+        "path": "docs/shared-checked-globals.md"
+      },
+      {
         "title": "Bare Type as Type 0",
         "path": "docs/bare-type.md"
       },
