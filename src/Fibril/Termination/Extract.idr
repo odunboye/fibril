@@ -5,6 +5,7 @@ module Fibril.Termination.Extract
 
 import Data.Fin
 import Data.List
+import Fibril.Core.Pretty
 import Fibril.Core.Quantity
 import Fibril.Core.Term
 import Fibril.Termination.SizeChange
@@ -143,7 +144,7 @@ mutual
   walk k env (Apply f x) = do
     ex <- walk k env x
     walkApp k env f [argRow k env x] ex
-  walk _ _ _ = Left "unsupported term form in a recursive body"
+  walk _ _ other = Left ("unsupported term form in a recursive body: " ++ pack (take 48 (unpack (renderTerm other))))
 
   -- The cons arm binds the head, then the tail as the newest variable.
   walkCons : Nat -> List Row -> Row -> Term m -> Either String (List Call)

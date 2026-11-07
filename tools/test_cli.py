@@ -1953,7 +1953,6 @@ main = first Zero
                        source.replace(iterate_call, 'iterate {Element} transform (transform initial) previous'),
                        source.replace('  Zero => initial', '  Zero => iterate {Element} transform initial Zero'),
                        source.replace('(transform : (1 value : A) -> A)', '(1 transform : (1 value : A) -> A)'),
-                       source.replace(marks_call, 'marks "changed" previous'),
                        source.replace(marks_call, 'marks marker chain'),
                        source.replace(marks_call, 'marks marker (Data.Chain.More previous)'),
                        source.replace('  Data.Chain.More previous =>', '  Data.Chain.More marker =>'),
@@ -1964,6 +1963,12 @@ main = first Zero
                     rejected = project('run')
                     self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
                     self.assertEqual(rejected.stdout, '')
+            # Changing the prefix argument is not a uniform-prefix shape, but the chain
+            # argument still shrinks, so general recursion accepts it.
+            path.write_text(source.replace(marks_call, 'marks "changed" previous'))
+            changed_prefix = project('run')
+            self.assertEqual(changed_prefix.returncode, 0, changed_prefix.stdout + changed_prefix.stderr)
+            self.assertEqual(changed_prefix.stdout, 'receipt!!\n~changed\n')
             # A different recursive family must not stand in for a constructor.
             other = ('data Other : Type where\n  End : Other\n  Next : (1 tail : Other) -> Other\n')
             path.write_text(source.replace('marks :', other + 'marks :').replace('  Data.Chain.More previous =>', '  Next previous =>'))
@@ -2391,17 +2396,24 @@ main = first Zero
             invalid = [safe_global.replace('consume other', 'consume tail'),
                        safe_global.replace('consume other', 'consume items'),
                        safe_global.replace('consume other', 'consume Main.tail'),
-                       safe_implicit.replace('stamp {other}', 'stamp {tail}'),
                        with_globals.replace(original, 'reverseOnto tail (Data.Items.Prepend head tail)'),
                        with_globals.replace(original, 'reverseOnto tail (Data.Items.Prepend head items)'),
                        short(source).replace(original, 'reverseOnto tail (Data.Items.Prepend head (reverseOnto tail acc))'),
                        short(source).replace(original, 'reverseOnto tail (Data.Items.Prepend head (reverseOnto items acc))'),
-                       short(source).replace(original, 'reverseOnto tail (Data.Items.Prepend (appendString head head) acc)'),
-                       short(source).replace(original, 'reverseOnto tail (let (1 x : String) = head in Data.Items.Prepend x acc)')]
+                       short(source).replace(original, 'reverseOnto tail (Data.Items.Prepend (appendString head head) acc)')]
             for program in invalid:
                 rejected = project(program)
                 self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
                 self.assertNotIn('Expanded core construction budget exhausted', rejected.stderr)
+            # An erased use of the tail is outside the narrow accumulator recognizer but
+            # terminates, so the general recursion path accepts it.
+            erased_tail = project(safe_implicit.replace('stamp {other}', 'stamp {tail}'))
+            self.assertEqual(erased_tail.returncode, 0, erased_tail.stdout + erased_tail.stderr)
+            self.assertEqual(erased_tail.stdout, 'checked\n')
+            # Likewise a linear let inside the update expression.
+            with_let = project(short(source).replace(original, 'reverseOnto tail (let (1 x : String) = head in Data.Items.Prepend x acc)'))
+            self.assertEqual(with_let.returncode, 0, with_let.stdout + with_let.stderr)
+            self.assertEqual(with_let.stdout, 'checked\n')
 
     def test_structural_list_with_distinct_linear_string_accumulator(self):
         fixture = ROOT / 'examples/modules/linear-accumulator'
@@ -2502,13 +2514,16 @@ main = first Zero
                 self.assertNotIn('Expanded core construction budget exhausted', rejected.stderr)
             invalid = [source.replace(base, 'Data.Items.Empty => True'),
                        source.replace(base, 'Data.Items.Empty => equalString acc acc'),
-                       source.replace(base, 'Data.Items.Empty => matchesOnto items acc'),
-                       source.replace(base, 'Data.Items.Empty => let (1 x : String) = acc in equalString x "cab"')]
+                       source.replace(base, 'Data.Items.Empty => matchesOnto items acc')]
             for program in invalid:
                 self.assertNotEqual(program, source)
                 rejected = project(program)
                 self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
                 self.assertNotIn('Expanded core construction budget exhausted', rejected.stderr)
+            # A let in the base arm is outside the narrow recognizer but still terminates.
+            with_let = project(source.replace(base, 'Data.Items.Empty => let (1 x : String) = acc in equalString x "cab"'))
+            self.assertEqual(with_let.returncode, 0, with_let.stdout + with_let.stderr)
+            self.assertEqual(with_let.stdout, 'matched\n')
 
     def test_accumulator_first_structural_equations(self):
         fixture = ROOT / 'examples/modules/linear-accumulator'
@@ -2727,7 +2742,22 @@ main = first Zero
                                 '  Data.Items.Prepend head tail => ' + call + '\n' + main)
                 rejected = run('check', '--source-dir', str(root), str(path))
                 self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
-                self.assertIn('Unbound', rejected.stderr)
+                # Rejection now comes from the general recursion gate, not name resolution.
+                self.assertIn('Recursion:', rejected.stderr)
+
+    def test_general_recursion_is_admitted_by_size_change(self):
+        root = ROOT / 'examples/modules/general-recursion'
+        # Steps down by two, so no single-step recursor expresses it; the
+        # predecessor of the predecessor is strictly smaller than the input.
+        half = run('run', '--source-dir', str(root), str(root / 'Half.fib'))
+        self.assertEqual(half.returncode, 0, half.stdout + half.stderr)
+        self.assertEqual(half.stdout, '!!!\n')
+        # Rebuilding the input in the recursive call decreases nothing.
+        spin = run('check', '--source-dir', str(root), str(root / 'Loop.fib'))
+        self.assertNotEqual(spin.returncode, 0, spin.stdout + spin.stderr)
+        self.assertIn('Recursion:', spin.stderr)
+        self.assertIn('no argument decreases', spin.stderr)
+        self.assertEqual(spin.stdout, '')
 
     def test_accumulator_equations_reject_dependent_types(self):
         fixture = ROOT / 'examples/modules/linear-accumulator'
@@ -5741,10 +5771,11 @@ main = first Zero
             self.assertEqual(wide.returncode, 0, wide.stdout + wide.stderr)
             self.assertEqual(wide.stdout, 'ok\n')
             path.write_text(wide_result(130))
-            exhausted = project('run')
-            self.assertNotEqual(exhausted.returncode, 0)
-            self.assertEqual(exhausted.stdout, '')
-            self.assertNotIn('Internal module expansion estimate was insufficient', exhausted.stderr)
+            wider = project('run')
+            # Past the structural lowering's width limit the general path still applies.
+            self.assertEqual(wider.returncode, 0, wider.stdout + wider.stderr)
+            self.assertEqual(wider.stdout, 'ok\n')
+            self.assertNotIn('Internal module expansion estimate was insufficient', wider.stderr)
             with_global = source.replace('render : (1 count : Nat)', 'suffix : String\nsuffix = "?"\nrender : (1 count : Nat)').replace('appendString (render smaller) "!"', 'appendString (render smaller) suffix')
             path.write_text(with_global)
             self.assertEqual(project('run').stdout, 'receipt??\n')
@@ -5841,9 +5872,10 @@ main = first Zero
             # silently reinterpreted as a built-in constructor pattern.
             (root / 'Other.fib').write_text('module Other\nexport\nZero : Nat\nZero = Zero\n')
             path.write_text(source.replace('module Main\n', 'module Main\nimport Other\n'))
-            rejected = project('run')
-            self.assertNotEqual(rejected.returncode, 0)
-            self.assertEqual(rejected.stdout, '')
+            aliased = project('run')
+            # No structural recognizer reinterprets the alias; the general path resolves
+            # the Zero pattern exactly as it does for non-recursive code, so this runs.
+            self.assertEqual(aliased.returncode, 0, aliased.stdout + aliased.stderr)
             # Ambiguous imported names are not silently turned into a self-call.
             for module in ['A', 'B']:
                 (root / f'{module}.fib').write_text(f'module {module}\nexport\ndouble : (1 n : Nat) -> Nat\ndouble n = n\n')

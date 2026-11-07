@@ -1,0 +1,10 @@
+module Loop
+
+-- Rejected: the recursive call rebuilds the input, so nothing gets smaller.
+spin : (1 n : Nat) -> Nat
+spin n = case n of
+  Zero => Zero
+  Succ a => spin (Succ a)
+
+main : IO Unit
+main = putStrLn "unreachable"

@@ -1,0 +1,17 @@
+module Half
+
+-- Steps down by two, so no single-step Nat recursor expresses it. Accepted
+-- because the predecessor of the predecessor is strictly smaller than the input.
+half : (1 n : Nat) -> Nat
+half n = case n of
+  Zero => Zero
+  Succ a => case a of
+    Zero => Zero
+    Succ b => Succ (half b)
+
+marks : (1 count : Nat) -> String
+marks count = natRec (\(0 k : Nat) => String) ""
+  (\(0 k : Nat) => \(1 result : String) => appendString result "!") count
+
+main : IO Unit
+main = putStrLn (marks (half (Succ (Succ (Succ (Succ (Succ (Succ Zero))))))))

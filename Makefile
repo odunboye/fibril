@@ -46,6 +46,7 @@ native-test: build
 	CC="$(CC)" python3 tools/test_native.py
 
 examples: build
+	./build/exec/fibril run --source-dir examples/modules/general-recursion examples/modules/general-recursion/Half.fib
 	$(PACK) run fibril-examples
 	./build/exec/fibril manifest examples/manifests/mailer/fibril.yaml
 	./build/exec/fibril manifest examples/manifests/email-core/fibril.yaml

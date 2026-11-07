@@ -1365,11 +1365,21 @@ compileDeclarations snapshot name globals (Single decl :: rest) remaining = do
     Nothing => case uniformStructuralEquation globals decl.name implicitPrefix ty recursionValue of
       Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
       Right candidate => Right candidate
+  -- No structural recognizer matched. A self-referencing equation elaborates as a
+  -- Fix over its own name; the checker's termination gate then admits or refuses it.
+  -- Without a self reference the ordinary non-recursive path is unchanged.
   value <- case recursive of
     Just recursive => Right recursive
     Nothing => case elaborateExpected (map global globals) Empty [] ty decl.value of
-      Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
       Right value => Right value
+      Left plain =>
+        let refuse = Left ({ stage := if plain.elaborating then "elaboration" else "resolution" } (problem snapshot (Just plain.position) (show plain)))
+        -- A visible global with the same name (for example two ambiguous imports) is
+        -- never silently replaced by a self reference.
+         in if any (\entry => entry.global.name == decl.name || isSuffixOf ("." ++ decl.name) entry.global.name) globals then refuse
+            else case elaborateExpected (map global globals) (Extend Empty Unrestricted ty) [decl.name] (weaken ty) decl.value of
+              Right body => Right (Fix ty body)
+              Left _ => refuse
   if nodes ty + nodes value > estimate
      then Left (problem snapshot Nothing "Internal module expansion estimate was insufficient")
      else Right ()
