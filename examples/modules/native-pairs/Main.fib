@@ -1,0 +1,5 @@
+module Main
+import Pairs
+
+main : IO Unit
+main = putStrLn sample

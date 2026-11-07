@@ -200,6 +200,10 @@
         "path": "docs/native-c.md"
       },
       {
+        "title": "Experimental native pure pairs",
+        "path": "docs/native-pure-pairs.md"
+      },
+      {
         "title": "Hello world and hosted console execution",
         "path": "docs/console-runner.md"
       },

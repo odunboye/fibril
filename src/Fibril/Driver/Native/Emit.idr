@@ -147,15 +147,16 @@ mutual
   generate Resources n ReadLine = Right (constant n "f_read_line(r)")
   generate Resources n (WithInputFile _ path body) = binary Resources n "f_with_input" path body
   generate Resources n (ReadInputFile handle) = unary Resources n "f_read_input" handle
-  generate Resources n (PairCase _ scrutinee branch) = binary Resources n "f_pair_case" scrutinee branch
+  -- Pure pair structure is shared by modes; its contents retain the caller's gate.
+  generate mode n (PairCase _ scrutinee branch) = binary mode n "f_pair_case" scrutinee branch
   generate mode n (BoxValue _ value) = unary mode n "f_nominal" value
   generate mode n (BoxCase _ scrutinee branch) = binary mode n "f_nominal_case" scrutinee branch
-  generate Resources n (PairValue annotation first second) =
+  generate mode n (PairValue annotation first second) =
     case weakHead typeReductionFuel annotation of
       HeadLimit _ => Left "Native pair annotation reduction budget exhausted"
       HeadForm (Sigma q r _ _) => do
-        a <- generate Resources (S n) first
-        b <- generate Resources a.next second
+        a <- generate mode (S n) first
+        b <- generate mode a.next second
         let erasedFirst = if q == Erased then "1" else "0"
         let erasedSecond = if r == Erased then "1" else "0"
         let code = function n ("return f_pair(r, e, " ++ erasedFirst ++ ", " ++ erasedSecond ++ ", " ++
