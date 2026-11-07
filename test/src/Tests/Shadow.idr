@@ -1309,3 +1309,57 @@ firstOrderTailLeftSound : Tests.Shadow.firstOrderTestPath (FOCons True FONil) (F
 firstOrderTailLeftSound = firstOrderFaceEqualSound Tests.Shadow.firstOrderTailLeftWitness
   (FOCons True FONil) Tests.Shadow.firstOrderTwoPaths Tests.Shadow.firstOrderTwoAdmissible
   Tests.Shadow.commonPairValuation Refl
+
+-- Conditional congruence uses the translated linear endpoint in its then branch
+-- and a path at the non-Boolean second dimension in its else branch.
+firstOrderIfCongruence : FirstOrderFaceEqual
+  (CommonIfEqual
+    (the (CommonFaceEqual Tests.Shadow.firstOrderTestDeclarations (the (ScopedFace 2) (SEndpoint FZ False))
+      (CPOrdinary (CVar FZ)) (CPOrdinary (CVar FZ)) LBool)
+      (CommonRefl (CPOrdinaryType (CVariable LHere))))
+    (the (CommonFaceEqual Tests.Shadow.firstOrderTestDeclarations (the (ScopedFace 2) (SEndpoint FZ False))
+      (CPAt FZ (Var FZ)) (CPOrdinary (CIf (CVar FZ) (CBool True) (CBool False))) LBool)
+      (CommonLeft CommonDeclaredHere Refl))
+    (CommonRefl (CPAtType {i = Var (FS FZ)} LHere)))
+  (FOPathIf (FOOrdinary (FOVar LHere)) (FOAt LHere (Var FZ)) (FOAt LHere (Var (FS FZ))))
+  (FOPathIf (FOOrdinary (FOVar LHere)) (FOOrdinary Tests.Shadow.firstOrderLinearIf) (FOAt LHere (Var (FS FZ))))
+firstOrderIfCongruence = FOFaceIf (FOOrdinary (FOVar LHere)) (FOOrdinary (FOVar LHere))
+  (FOAt LHere (Var FZ)) (FOOrdinary Tests.Shadow.firstOrderLinearIf)
+  (FOAt LHere (Var (FS FZ))) (FOAt LHere (Var (FS FZ)))
+  (FOFaceRefl (FOOrdinary (FOVar LHere))) Tests.Shadow.firstOrderTestFaceWitness
+  (FOFaceRefl (FOAt LHere (Var (FS FZ))))
+
+firstOrderIfCongruenceTrue : Tests.Shadow.firstOrderTestPath (FOCons True FONil) (False, False) = True
+firstOrderIfCongruenceTrue = firstOrderFaceEqualSound Tests.Shadow.firstOrderIfCongruence
+  (FOCons True FONil) Tests.Shadow.firstOrderTestPaths Tests.Shadow.firstOrderTestAdmissible
+  Tests.Shadow.commonPairValuation Refl
+
+firstOrderIfCongruenceFalse : Tests.Shadow.firstOrderTestPath (FOCons False FONil) (False, True) =
+  Tests.Shadow.firstOrderTestPath (FOCons False FONil) (False, True)
+firstOrderIfCongruenceFalse = firstOrderFaceEqualSound Tests.Shadow.firstOrderIfCongruence
+  (FOCons False FONil) Tests.Shadow.firstOrderTestPaths Tests.Shadow.firstOrderTestAdmissible
+  Tests.Shadow.commonPairValuation Refl
+
+firstOrderUnitCongruence : FirstOrderFaceEqual
+  (CommonUnitElimEqual
+    (the (CommonFaceEqual Tests.Shadow.firstOrderTestDeclarations (the (ScopedFace 2) (SEndpoint FZ False))
+      (CPOrdinary CUnit) (CPOrdinary CUnit) LUnit) (CommonRefl (CPOrdinaryType CUnitType)))
+    (the (CommonFaceEqual Tests.Shadow.firstOrderTestDeclarations (the (ScopedFace 2) (SEndpoint FZ False))
+      (CPAt FZ (Var FZ)) (CPOrdinary (CIf (CVar FZ) (CBool True) (CBool False))) LBool)
+      (CommonLeft CommonDeclaredHere Refl)))
+  (FOPathUnitElim (FOOrdinary FOUnit) (FOAt LHere (Var FZ)))
+  (FOPathUnitElim (FOOrdinary FOUnit) (FOOrdinary Tests.Shadow.firstOrderLinearIf))
+firstOrderUnitCongruence = FOFaceUnitElim (FOOrdinary FOUnit) (FOOrdinary FOUnit)
+  (FOAt LHere (Var FZ)) (FOOrdinary Tests.Shadow.firstOrderLinearIf)
+  (FOFaceRefl (FOOrdinary FOUnit)) Tests.Shadow.firstOrderTestFaceWitness
+
+firstOrderUnitCongruenceSound : Tests.Shadow.firstOrderTestPath (FOCons True FONil) (False, False) = True
+firstOrderUnitCongruenceSound = firstOrderFaceEqualSound Tests.Shadow.firstOrderUnitCongruence
+  (FOCons True FONil) Tests.Shadow.firstOrderTestPaths Tests.Shadow.firstOrderTestAdmissible
+  Tests.Shadow.commonPairValuation Refl
+
+firstOrderIfRestrictedSound : Tests.Shadow.firstOrderTestPath (FOCons True FONil) (False, False) = True
+firstOrderIfRestrictedSound = firstOrderFaceEqualSound
+  (FOFaceRestrict (SConjunction (SEndpoint FZ False) STop) (SEndpoint FZ False) Refl Tests.Shadow.firstOrderIfCongruence)
+  (FOCons True FONil) Tests.Shadow.firstOrderTestPaths Tests.Shadow.firstOrderTestAdmissible
+  Tests.Shadow.commonPairValuation Refl

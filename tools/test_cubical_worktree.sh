@@ -554,3 +554,18 @@ if [[ $(grep -c '^Error:' "$tmp/$fixture.log") -ne 1 ]] ||
   cat "$tmp/$fixture.log" >&2; exit 1
 fi
 echo 'First-order coherence mismatched term negative test passed.'
+for fixture in FirstOrderFaceIfWrongBranch FirstOrderFaceFalseHolds; do
+  case $fixture in
+    FirstOrderFaceIfWrongBranch) expected='Mismatch between: False and True.' ;;
+    FirstOrderFaceFalseHolds) expected='Mismatch between: True and False.' ;;
+  esac
+  "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1 || true
+  if [[ $(grep -c '^Error:' "$tmp/$fixture.log") -ne 1 ]] ||
+     ! grep -Fq 'Error: While processing right hand side of bad.' "$tmp/$fixture.log" ||
+     ! grep -Fq "$expected" "$tmp/$fixture.log" ||
+     grep -Eq 'Undefined name|While processing type of' "$tmp/$fixture.log"; then
+    echo "First-order face negative test failed for an unrelated reason: $fixture" >&2
+    cat "$tmp/$fixture.log" >&2; exit 1
+  fi
+done
+echo 'First-order face congruence and false-face negative tests passed.'

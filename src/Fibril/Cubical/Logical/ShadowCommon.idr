@@ -718,6 +718,12 @@ data FirstOrderPathTerm : {0 ctx : Vect n LogicalType} -> {0 paths : Vect k Logi
   FOPathIf : {0 c : CommonPathHasType ctx paths ct LBool} -> {0 t : CommonPathHasType ctx paths tt a} -> {0 f : CommonPathHasType ctx paths ft a} -> FirstOrderPathTerm c -> FirstOrderPathTerm t -> FirstOrderPathTerm f ->
     FirstOrderPathTerm (CPIfType c t f)
 
+||| No first-order witness exists for an application typing derivation.
+public export
+firstOrderPathApplicationImpossible : {0 f : CommonPathHasType ctx paths fn (LArrow a b)} ->
+  {0 x : CommonPathHasType ctx paths arg a} -> FirstOrderPathTerm (CPAppType f x) -> Void
+firstOrderPathApplicationImpossible w impossible
+
 public export
 interpretFirstOrderPath : {0 t : CommonPathTerm n k d} -> {0 typing : CommonPathHasType ctx paths t a} ->
   FirstOrderPathTerm typing -> FirstOrderEnv ctx -> FirstOrderPaths ctx paths ->
@@ -984,6 +990,40 @@ data FirstOrderFaceEqual : {0 ctx : Vect n LogicalType} -> {0 paths : Vect k Log
     {m : FirstOrderPathTerm mid} -> {m' : FirstOrderPathTerm mid'} ->
     FirstOrderFaceEqual eq l m -> FirstOrderFaceEqual eq' m' r ->
     FirstOrderFaceEqual (CommonTrans eq eq') l r
+  FOFaceIf :
+    {0 ctx : Vect n LogicalType} -> {0 paths : Vect k LogicalType} ->
+    {0 decls : CommonDeclarations ctx paths} -> {0 face : ScopedFace d} ->
+    {0 c : CommonPathTerm n k d} -> {0 cty, csub : CommonPathHasType ctx paths c LBool} ->
+    {0 c' : CommonPathTerm n k d} -> {0 c'ty, c'sub : CommonPathHasType ctx paths c' LBool} ->
+    {0 t : CommonPathTerm n k d} -> {0 tty, tsub : CommonPathHasType ctx paths t a} ->
+    {0 t' : CommonPathTerm n k d} -> {0 t'ty, t'sub : CommonPathHasType ctx paths t' a} ->
+    {0 f : CommonPathTerm n k d} -> {0 fty, fsub : CommonPathHasType ctx paths f a} ->
+    {0 f' : CommonPathTerm n k d} -> {0 f'ty, f'sub : CommonPathHasType ctx paths f' a} ->
+    {0 ceq : CommonFaceEqual decls face c c' LBool} -> {0 teq : CommonFaceEqual decls face t t' a} ->
+    {0 feq : CommonFaceEqual decls face f f' a} ->
+    {cl : FirstOrderPathTerm csub} -> {cr : FirstOrderPathTerm c'sub} ->
+    {tl : FirstOrderPathTerm tsub} -> {tr : FirstOrderPathTerm t'sub} ->
+    {fl : FirstOrderPathTerm fsub} -> {fr : FirstOrderPathTerm f'sub} ->
+    (c : FirstOrderPathTerm cty) -> (c' : FirstOrderPathTerm c'ty) ->
+    (t : FirstOrderPathTerm tty) -> (t' : FirstOrderPathTerm t'ty) ->
+    (f : FirstOrderPathTerm fty) -> (f' : FirstOrderPathTerm f'ty) ->
+    FirstOrderFaceEqual ceq cl cr -> FirstOrderFaceEqual teq tl tr ->
+    FirstOrderFaceEqual feq fl fr ->
+    FirstOrderFaceEqual (CommonIfEqual ceq teq feq) (FOPathIf c t f) (FOPathIf c' t' f')
+  FOFaceUnitElim :
+    {0 ctx : Vect n LogicalType} -> {0 paths : Vect k LogicalType} ->
+    {0 decls : CommonDeclarations ctx paths} -> {0 face : ScopedFace d} ->
+    {0 x : CommonPathTerm n k d} -> {0 xty, xsub : CommonPathHasType ctx paths x LUnit} ->
+    {0 y : CommonPathTerm n k d} -> {0 yty, ysub : CommonPathHasType ctx paths y LUnit} ->
+    {0 b : CommonPathTerm n k d} -> {0 bty, bsub : CommonPathHasType ctx paths b a} ->
+    {0 b' : CommonPathTerm n k d} -> {0 b'ty, b'sub : CommonPathHasType ctx paths b' a} ->
+    {0 xeq : CommonFaceEqual decls face x y LUnit} -> {0 beq : CommonFaceEqual decls face b b' a} ->
+    {xl : FirstOrderPathTerm xsub} -> {xr : FirstOrderPathTerm ysub} ->
+    {bl : FirstOrderPathTerm bsub} -> {br : FirstOrderPathTerm b'sub} ->
+    (x : FirstOrderPathTerm xty) -> (y : FirstOrderPathTerm yty) ->
+    (b : FirstOrderPathTerm bty) -> (b' : FirstOrderPathTerm b'ty) ->
+    FirstOrderFaceEqual xeq xl xr -> FirstOrderFaceEqual beq bl br ->
+    FirstOrderFaceEqual (CommonUnitElimEqual xeq beq) (FOPathUnitElim x b) (FOPathUnitElim y b')
   FOFaceRestrict : {0 x, y : CommonPathTerm n k d} ->
     {0 lt : CommonPathHasType ctx paths x a} -> {0 rt : CommonPathHasType ctx paths y a} ->
     {l : FirstOrderPathTerm lt} -> {r : FirstOrderPathTerm rt} ->
@@ -1014,6 +1054,16 @@ firstOrderFaceEqualSound (FOFaceSym eq) env ps adm valuation holds = sym (firstO
 firstOrderFaceEqualSound (FOFaceTrans {m} {m'} eq eq') env ps adm valuation holds =
   trans (firstOrderFaceEqualSound eq env ps adm valuation holds)
     (trans (firstOrderPathCoherent m m' env ps valuation) (firstOrderFaceEqualSound eq' env ps adm valuation holds))
+firstOrderFaceEqualSound (FOFaceIf c c' t t' f f' {cl} {cr} {tl} {tr} {fl} {fr} ce te fe) env ps adm valuation holds with (interpretFirstOrderPath c env ps valuation) proof choice
+  firstOrderFaceEqualSound (FOFaceIf c c' t t' f f' {cl} {cr} {tl} {tr} {fl} {fr} ce te fe) env ps adm valuation holds | True =
+    rewrite sym (trans (firstOrderPathCoherent c cl env ps valuation) (trans (firstOrderFaceEqualSound ce env ps adm valuation holds) (firstOrderPathCoherent cr c' env ps valuation))) in
+    rewrite choice in trans (firstOrderPathCoherent t tl env ps valuation) (trans (firstOrderFaceEqualSound te env ps adm valuation holds) (firstOrderPathCoherent tr t' env ps valuation))
+  firstOrderFaceEqualSound (FOFaceIf c c' t t' f f' {cl} {cr} {tl} {tr} {fl} {fr} ce te fe) env ps adm valuation holds | False =
+    rewrite sym (trans (firstOrderPathCoherent c cl env ps valuation) (trans (firstOrderFaceEqualSound ce env ps adm valuation holds) (firstOrderPathCoherent cr c' env ps valuation))) in
+    rewrite choice in trans (firstOrderPathCoherent f fl env ps valuation) (trans (firstOrderFaceEqualSound fe env ps adm valuation holds) (firstOrderPathCoherent fr f' env ps valuation))
+firstOrderFaceEqualSound (FOFaceUnitElim x y b b' {bl} {br} xe be) env ps adm valuation holds =
+  trans (firstOrderPathCoherent b bl env ps valuation)
+    (trans (firstOrderFaceEqualSound be env ps adm valuation holds) (firstOrderPathCoherent br b' env ps valuation))
 firstOrderFaceEqualSound (FOFaceRestrict face source check eq) env ps adm valuation holds =
   firstOrderFaceEqualSound eq env ps adm valuation (commonFaceValEntailsSound valuation face source check holds)
 firstOrderFaceEqualSound (FOFaceLeft p i w declared check) env ps adm valuation holds =

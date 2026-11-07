@@ -194,12 +194,17 @@ syntax and uses constructor injectivity rather than inspecting erased typing
 derivations.
 
 `FirstOrderFaceEqual` gives derivation-indexed evidence for reflexivity,
-symmetry, transitivity, restriction, and declared left and right endpoints.
+symmetry, transitivity, restriction, declared left and right endpoints, and
+conditional and unit-elimination congruence.
 `firstOrderFaceEqualSound` proves equal interpretations on a satisfying face
 for any admissible path environment. Transitivity uses witness coherence;
-endpoint cases use admissible declaration lookup. This is a restricted fragment:
-conditional and unit-elimination congruence are not yet covered, and
-application congruence is excluded. It is not a soundness theorem for every
+endpoint cases use admissible declaration lookup. Congruence uses actual
+subderivations and coherence between independently chosen witnesses. The unit
+interpreter ignores the scrutinee but the body relation is proved recursively.
+Application congruence is excluded: `firstOrderPathApplicationImpossible`
+shows that an application typing derivation cannot have a first-order witness. It is not a soundness theorem for every
 `CommonFaceEqual` derivation.
 This interpretation does not claim higher-order, dependent path, composition,
 resource, or runtime soundness.
+The result is not a soundness theorem for the full path calculus and makes no
+claim about higher-order semantics, ownership, or runtime behavior.
