@@ -3,6 +3,7 @@
   "source_base": "83aba54c5f03ea309d9fd8515fb9eb3d02daf4f9",
   "compiler": "build/exec/fibril",
   "compiler_sha256": "8587e4e519ac3367e035c863c845899210988d1ad39551700425b44b1fda6156",
+  "compiler_sha256_scope": "launcher file bytes only; compiler image not recorded",
   "production_source_sha256": {
     "examples/modules/binary-frame/Main.fib": "ab74386567d24630646e03fe4c1e61f857837f99351fa1e1b2148d36412e4bf3",
     "examples/modules/binary-frame/Protocol/Frame.fib": "7bb933ba31da8978a8e0687329a2ae02a667d1bd9fb4045bc20f272ff6d15384",

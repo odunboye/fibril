@@ -12,6 +12,7 @@ from pathlib import Path
 import re
 import shlex
 import shutil
+import signal
 import subprocess
 import tempfile
 
@@ -25,8 +26,55 @@ METRICS = ['steps', 'peak_pure_depth', 'arena_payload', 'callbacks', 'reads', 'w
            'consumed_bytes', 'accepted_bytes', 'flushes', 'requests', 'reserved_capacity']
 
 
+def run_process(command, *, input=None, timeout=120):
+    """POSIX probe scope: own one session/group; never search for descendants.
+
+    Always signal the owned group, even after its leader exits: descendants may
+    ignore TERM or close their output pipes. Reap the immediate child, not other
+    processes. Escaped sessions and repeated interruption of cleanup are outside
+    the tested contract.
+    """
+    args = list(map(str, command))
+    process = None
+
+    def signal_group(signum):
+        # The group id comes only from this new-session Popen, never a caller or
+        # process-tree search. Refuse to signal our own group even on a bad seam.
+        if process.pid <= 1 or process.pid == os.getpgrp():
+            raise RuntimeError('probe did not acquire a private process group')
+        try:
+            os.killpg(process.pid, signum)
+        except ProcessLookupError:
+            pass
+
+    try:
+        process = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE, start_new_session=True)
+        output, error = process.communicate(input=input, timeout=timeout)
+        return subprocess.CompletedProcess(args, process.returncode, output, error)
+    finally:
+        if process is not None:
+            try:
+                signal_group(signal.SIGTERM)
+                try:
+                    process.wait(timeout=0.25)
+                except subprocess.TimeoutExpired:
+                    pass
+            finally:
+                try:
+                    # Do not condition escalation on poll()/wait(): an exited
+                    # leader says nothing about descendants in its owned group.
+                    signal_group(signal.SIGKILL)
+                finally:
+                    try:
+                        process.wait(timeout=2)
+                    finally:
+                        for stream in (process.stdin, process.stdout, process.stderr):
+                            stream.close()
+
+
 def checked(command, timeout=120):
-    result = subprocess.run(list(map(str, command)), capture_output=True, timeout=timeout)
+    result = run_process(command, timeout=timeout)
     if result.returncode:
         raise AssertionError((command, result.returncode, result.stderr.decode(errors='replace')))
     return result.stdout
@@ -45,7 +93,7 @@ def native(exe, directory, root, entry):
 
 
 def observation(command, data, timeout):
-    result = subprocess.run(list(map(str, command)), input=data, capture_output=True, timeout=timeout)
+    result = run_process(command, input=data, timeout=timeout)
     diagnostic = result.stderr.decode('utf-8', errors='strict')
     match = re.search(r'^PROFILE ([\d ]+)\n', diagnostic, re.M)
     metrics = dict(zip(METRICS, map(int, match[1].split()), strict=True)) if match else None
@@ -119,6 +167,7 @@ def run(exe, timeout, measure=None):
             'source_base': '83aba54c5f03ea309d9fd8515fb9eb3d02daf4f9',
             'compiler': str(exe.relative_to(ROOT)) if exe.is_relative_to(ROOT) else str(exe),
             'compiler_sha256': hashlib.sha256(exe.read_bytes()).hexdigest(),
+            'compiler_sha256_scope': 'launcher file bytes only; compiler image not recorded',
             'production_source_sha256': {path: hashlib.sha256((ROOT / path).read_bytes()).hexdigest() for path in (
                 'examples/modules/binary-frame/Main.fib', 'examples/modules/binary-frame/Protocol/Frame.fib',
                 'tools/fixtures/json-iteration/Read65.fib', 'tools/fixtures/json-iteration/Protocol/JSON.fib',
