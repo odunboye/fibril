@@ -58,6 +58,27 @@ for fixture in ShadowCommonWrongType ShadowCommonWrongContext; do
   fi
 done
 echo 'Common judgment wrong type and context negative tests passed.'
+for fixture in CommonFaceWrongFace CommonFaceWrongIndex CommonFaceWrongType CommonFaceUsesReflection; do
+  "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1 || true
+  case "$fixture" in
+    CommonFaceWrongFace) expected='boundedFaceEntails (the (ScopedFace 1) (SEndpoint FZ True)) (scopedEndpoint (Var FZ) False)' ;;
+    CommonFaceWrongIndex) expected='Mismatch between: FZ and FS FZ.' ;;
+    CommonFaceWrongType) expected='Mismatch between: LBool and LUnit.' ;;
+    CommonFaceUsesReflection) expected='Uses (the (Term [BoolTy] BoolTy) (Ref Here)) [Erased]' ;;
+  esac
+  if [[ $(grep -c '^Error:' "$tmp/$fixture.log") -ne 1 ]] ||
+     ! grep -Fq 'Error: While processing right hand side of bad.' "$tmp/$fixture.log" ||
+     ! grep -Fq "$expected" "$tmp/$fixture.log" ||
+     grep -Eq 'Undefined name|While processing type of' "$tmp/$fixture.log"; then
+    echo "Common face equality negative test failed for an unrelated reason: $fixture" >&2
+    cat "$tmp/$fixture.log" >&2; exit 1
+  fi
+  if [[ $fixture == CommonFaceUsesReflection ]] && ! grep -Fq 'Mismatch between: CommonFaceEqual' "$tmp/$fixture.log"; then
+    echo 'Common face equality reflection fixture did not reject the intended judgment.' >&2
+    cat "$tmp/$fixture.log" >&2; exit 1
+  fi
+done
+echo 'Common face equality wrong face, index, type, and Uses reflection tests passed.'
 # Idris --check may return zero even when it reports a type error. Inspect the
 # diagnostic as well as the status, and load the temporary package explicitly.
 "$idris" -p fibril --check ForgeClosedPath.idr > "$tmp/forge.log" 2>&1 || true

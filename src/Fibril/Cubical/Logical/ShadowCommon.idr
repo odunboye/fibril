@@ -135,3 +135,70 @@ commonPathDimensionsCommute env (BodyLam b) = cong CPLam (commonPathDimensionsCo
 commonPathDimensionsCommute env (BodyApp f x) = cong2 CPApp (commonPathDimensionsCommute env f) (commonPathDimensionsCommute env x)
 commonPathDimensionsCommute env (BodyUnitElim x b) = cong2 CPUnitElim (commonPathDimensionsCommute env x) (commonPathDimensionsCommute env b)
 commonPathDimensionsCommute env (BodyIf c t f) = rewrite commonPathDimensionsCommute env c in rewrite commonPathDimensionsCommute env t in rewrite commonPathDimensionsCommute env f in Refl
+
+||| Dimension-independent, intrinsically typed common path declarations.
+public export
+data CommonDeclarations : Vect n LogicalType -> Vect k LogicalType -> Type where
+  CommonNoPaths : CommonDeclarations ctx []
+  CommonDeclarePath : (left, right : CommonTerm n) ->
+    (0 leftType : CommonHasType ctx left a) -> (0 rightType : CommonHasType ctx right a) ->
+    CommonDeclarations ctx paths -> CommonDeclarations ctx (a :: paths)
+
+public export
+commonDeclarations : (decls : PathDeclarations ctx paths) -> CommonDeclarations ctx paths
+commonDeclarations NoPaths = CommonNoPaths
+commonDeclarations (DeclarePath l r rest) =
+  CommonDeclarePath (commonTerm l) (commonTerm r) (commonTermTyped l) (commonTermTyped r) (commonDeclarations rest)
+
+public export
+data CommonDeclaredPath : {0 ctx : Vect n LogicalType} -> {0 paths : Vect k LogicalType} -> CommonDeclarations ctx paths -> LogicalVar paths a -> CommonTerm n -> CommonTerm n -> Type where
+  CommonDeclaredHere : CommonDeclaredPath (CommonDeclarePath l r lt rt rest) LHere l r
+  CommonDeclaredThere : CommonDeclaredPath rest p l r ->
+    CommonDeclaredPath (CommonDeclarePath x y xt yt rest) (LThere p) l r
+
+public export
+commonDeclaredPath : {0 decls : PathDeclarations ctx paths} ->
+  {0 p : LogicalVar paths a} -> {0 l, r : LogicalTerm ctx a} ->
+  DeclaredPath decls p l r -> CommonDeclaredPath (commonDeclarations decls) p (commonTerm l) (commonTerm r)
+commonDeclaredPath DeclaredHere = CommonDeclaredHere
+commonDeclaredPath (DeclaredThere p) = CommonDeclaredThere (commonDeclaredPath p)
+
+||| Equality under the exact face; constructors carry independent typing evidence.
+public export
+data CommonFaceEqual : {0 ctx : Vect n LogicalType} -> {0 paths : Vect k LogicalType} -> CommonDeclarations ctx paths -> ScopedFace d ->
+  CommonPathTerm n k d -> CommonPathTerm n k d -> LogicalType -> Type where
+  CommonRefl : {0 ctx : Vect n LogicalType} -> {0 paths : Vect k LogicalType} -> {0 decls : CommonDeclarations ctx paths} -> (0 typed : CommonPathHasType ctx paths x a) -> CommonFaceEqual decls face x x a
+  CommonSym : CommonFaceEqual decls face x y a -> CommonFaceEqual decls face y x a
+  CommonTrans : CommonFaceEqual decls face x y a -> CommonFaceEqual decls face y z a -> CommonFaceEqual decls face x z a
+  CommonLeft : CommonDeclaredPath decls p l r -> boundedEndpointEntails face i False = True ->
+    CommonFaceEqual decls face (CPAt (variableIndex p) i) (CPOrdinary l) a
+  CommonRight : CommonDeclaredPath decls p l r -> boundedEndpointEntails face i True = True ->
+    CommonFaceEqual decls face (CPAt (variableIndex p) i) (CPOrdinary r) a
+  CommonRestrict : {0 ctx : Vect n LogicalType} -> {0 paths : Vect k LogicalType} -> {0 decls : CommonDeclarations ctx paths} -> {0 face : ScopedFace d} -> {0 x, y : CommonPathTerm n k d} -> {source : ScopedFace d} -> CommonFaceEqual decls source x y a ->
+    boundedFaceEntails face source = True -> CommonFaceEqual decls face x y a
+  CommonAppEqual : CommonFaceEqual decls face f g (LArrow a b) -> CommonFaceEqual decls face x y a ->
+    CommonFaceEqual decls face (CPApp f x) (CPApp g y) b
+  CommonIfEqual : CommonFaceEqual decls face c c' LBool -> CommonFaceEqual decls face t t' a ->
+    CommonFaceEqual decls face f f' a -> CommonFaceEqual decls face (CPIf c t f) (CPIf c' t' f') a
+  CommonUnitElimEqual : CommonFaceEqual decls face x y LUnit -> CommonFaceEqual decls face b b' a ->
+    CommonFaceEqual decls face (CPUnitElim x b) (CPUnitElim y b') a
+
+public export
+commonDeclaredEndpoint : {0 decls : PathDeclarations ctx paths} -> {0 face : ScopedFace d} ->
+  {0 x, y : PathBody ctx paths d a} -> DeclaredEndpoint decls face x y ->
+  CommonFaceEqual (commonDeclarations decls) face (commonPathTerm x) (commonPathTerm y) a
+commonDeclaredEndpoint (DeclaredLeft p check) = CommonLeft (commonDeclaredPath p) check
+commonDeclaredEndpoint (DeclaredRight p check) = CommonRight (commonDeclaredPath p) check
+
+public export
+commonBodyEqual : {0 decls : PathDeclarations ctx paths} -> {0 face : ScopedFace d} ->
+  {0 x, y : PathBody ctx paths d a} -> BodyEqual decls face x y ->
+  CommonFaceEqual (commonDeclarations decls) face (commonPathTerm x) (commonPathTerm y) a
+commonBodyEqual {x} BodyRefl = CommonRefl (commonPathTermTyped x)
+commonBodyEqual (BodySym eq) = CommonSym (commonBodyEqual eq)
+commonBodyEqual (BodyTrans x y) = CommonTrans (commonBodyEqual x) (commonBodyEqual y)
+commonBodyEqual (BodyEndpoint eq) = commonDeclaredEndpoint eq
+commonBodyEqual (BodyRestrict eq check) = CommonRestrict (commonBodyEqual eq) check
+commonBodyEqual (BodyAppEqual f x) = CommonAppEqual (commonBodyEqual f) (commonBodyEqual x)
+commonBodyEqual (BodyIfEqual c t f) = CommonIfEqual (commonBodyEqual c) (commonBodyEqual t) (commonBodyEqual f)
+commonBodyEqual (BodyUnitElimEqual x b) = CommonUnitElimEqual (commonBodyEqual x) (commonBodyEqual b)

@@ -697,3 +697,18 @@ commonPathBinderDimensions :
 commonPathBinderDimensions = commonPathDimensionsCommute (atDimension Zero)
   (the (PathBody [LBool] [LBool] 1 (LArrow LUnit LBool))
     (BodyLam (BodyApp (Embed (LLam (LRef LHere))) (NeutralAt LHere (Var FZ)))))
+
+commonLinearIfEndpoint : CommonFaceEqual
+  (commonDeclarations (DeclarePath (shadowTerm Tests.Shadow.linearSource) (shadowTerm Tests.Shadow.linearSource) NoPaths))
+  (the (ScopedFace 1) (SEndpoint FZ False))
+  (CPAt FZ (Var FZ)) (CPOrdinary (CIf (CVar FZ) (CBool True) (CBool False))) LBool
+commonLinearIfEndpoint = commonBodyEqual {decls = DeclarePath (shadowTerm Tests.Shadow.linearSource) (shadowTerm Tests.Shadow.linearSource) NoPaths}
+  (BodyEndpoint (DeclaredLeft DeclaredHere Refl))
+
+commonLinearIfCongruence : CommonFaceEqual
+  (commonDeclarations (DeclarePath (shadowTerm Tests.Shadow.linearSource) (shadowTerm Tests.Shadow.linearSource) NoPaths))
+  (the (ScopedFace 1) (SEndpoint FZ False))
+  (CPIf (CPAt FZ (Var FZ)) (CPOrdinary (CBool True)) (CPOrdinary (CBool False)))
+  (CPIf (CPOrdinary (CIf (CVar FZ) (CBool True) (CBool False))) (CPOrdinary (CBool True)) (CPOrdinary (CBool False))) LBool
+commonLinearIfCongruence = commonBodyEqual {decls = DeclarePath (shadowTerm Tests.Shadow.linearSource) (shadowTerm Tests.Shadow.linearSource) NoPaths}
+  (BodyIfEqual (BodyEndpoint (DeclaredLeft DeclaredHere Refl)) (BodyRefl {x = Embed (LBoolean True)}) (BodyRefl {x = Embed (LBoolean False)}))

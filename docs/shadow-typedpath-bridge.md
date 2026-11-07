@@ -67,3 +67,29 @@ of the enlarged typing/equality calculus. The proof-producing experimental
 checker is unchanged and does not search these new closure rules; production
 runtime conversion is unchanged. Other source congruence constructors remain
 outside this bridge, and bridgeability is not claimed for every source proof.
+
+## Common face-restricted equality
+
+`CommonDeclarations` independently stores arbitrary ordinary `CommonTerm`
+endpoints, with typing evidence in the exact ordinary context and a separate
+indexed path context. These endpoints do not depend on dimensions or mention
+path names. `commonDeclarations` translates every source declaration, and
+`commonDeclaredPath` preserves its typed path index and both endpoints.
+
+`CommonFaceEqual` is an independent declarative judgment over typed common path
+terms, indexed by the exact declaration context, face and logical type. Its
+endpoint rules use common lookup evidence and the same `boundedEndpointEntails`
+equation as the source; restriction uses the same `boundedFaceEntails`
+equation. Reflexivity requires common typing, while the other constructors
+preserve typing through their premises or typed declarations. The structural
+`commonDeclaredEndpoint` and `commonBodyEqual` translations cover all source
+`DeclaredEndpoint` and `BodyEqual` constructors, including all three source
+congruences. They do not embed a source equality proof as a target axiom.
+The tests include the shadow of an actual linear Bool conditional, as a
+nonconstant declaration endpoint and within a conditional congruence.
+
+This is face-restricted equality, not a translation of `DeclaredShadowPath`
+abstraction or an introduction rule for common paths; those remain a separate
+milestone. Neither this judgment nor the shadow reflects to quantitative
+`Uses`, runtime equality, or semantic soundness. Negative fixtures check wrong
+face, path index, type, and attempted `Uses` reflection.
