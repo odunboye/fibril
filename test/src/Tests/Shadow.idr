@@ -2354,3 +2354,58 @@ dependentTailAlignedRight : applyMorphism Tests.Shadow.dependentTailPath ((), (T
 dependentTailAlignedRight = dependentDeclaredRightAlignedAtFace (CommonDeclaredThere CommonDeclaredHere)
   Tests.Shadow.dependentTwoPaths Tests.Shadow.dependentTwoAdmissible () (\_ => (True, True))
   (the (ScopedFace 1) (SEndpoint FZ True)) (Var FZ) Refl Refl (HOBool [] True) (AlignBool [] True)
+
+-- The face derivation is indexed by the actual linear-source typing proof.
+dependentLinearReflEvidence : DependentFaceEvidence
+  {decls = Tests.Shadow.dependentLinearDeclarations} {face = the (ScopedFace 1) STop}
+  (CommonRefl (CPOrdinaryType (sourceCommonTyped Tests.Shadow.linearSource)))
+  Tests.Shadow.pathLinearIf Tests.Shadow.pathLinearIf
+dependentLinearReflEvidence = DepFaceRefl Tests.Shadow.pathLinearAlignment
+
+dependentLinearCompositeEvidence : DependentFaceEvidence
+  {decls = Tests.Shadow.dependentLinearDeclarations} {face = the (ScopedFace 1) STop}
+  (CommonTrans (CommonSym (CommonRefl (CPOrdinaryType (sourceCommonTyped Tests.Shadow.linearSource))))
+    (CommonRefl (CPOrdinaryType (sourceCommonTyped Tests.Shadow.linearSource))))
+  Tests.Shadow.pathLinearIf Tests.Shadow.pathLinearIf
+dependentLinearCompositeEvidence = DepFaceTrans (DepFaceSym Tests.Shadow.dependentLinearReflEvidence)
+  Tests.Shadow.pathLinearAlignment Tests.Shadow.dependentLinearReflEvidence
+
+dependentLinearRestrictedEvidence : DependentFaceEvidence
+  {decls = Tests.Shadow.dependentLinearDeclarations} {face = the (ScopedFace 1) (SEndpoint FZ False)}
+  (CommonRestrict {source = STop} (CommonTrans (CommonSym (CommonRefl (CPOrdinaryType (sourceCommonTyped Tests.Shadow.linearSource))))
+    (CommonRefl (CPOrdinaryType (sourceCommonTyped Tests.Shadow.linearSource)))) Refl)
+  Tests.Shadow.pathLinearIf Tests.Shadow.pathLinearIf
+dependentLinearRestrictedEvidence = DepFaceRestrict (SEndpoint FZ False) STop Refl Tests.Shadow.dependentLinearCompositeEvidence
+
+dependentLinearCompositeSound : (b : Bool) ->
+  applyMorphism (dependentPathSemantics Tests.Shadow.pathLinearIf (\_ => (True, False)))
+    ((b, ()), Tests.Shadow.dependentLinearPaths) =
+  applyMorphism (dependentPathSemantics Tests.Shadow.pathLinearIf (\_ => (True, False)))
+    ((b, ()), Tests.Shadow.dependentLinearPaths)
+dependentLinearCompositeSound b = dependentFaceEvidenceSound Tests.Shadow.dependentLinearCompositeEvidence
+  (b, ()) Tests.Shadow.dependentLinearPaths Tests.Shadow.dependentLinearAdmissible (\_ => (True, False)) Refl
+
+dependentLinearRestrictedSound : (b : Bool) ->
+  applyMorphism (dependentPathSemantics Tests.Shadow.pathLinearIf (\_ => (False, False)))
+    ((b, ()), Tests.Shadow.dependentLinearPaths) =
+  applyMorphism (dependentPathSemantics Tests.Shadow.pathLinearIf (\_ => (False, False)))
+    ((b, ()), Tests.Shadow.dependentLinearPaths)
+dependentLinearRestrictedSound b = dependentFaceEvidenceSound Tests.Shadow.dependentLinearRestrictedEvidence
+  (b, ()) Tests.Shadow.dependentLinearPaths Tests.Shadow.dependentLinearAdmissible (\_ => (False, False)) Refl
+
+-- This face proof interprets the named path, not the ordinary endpoint.
+dependentAtFaceEvidence : DependentFaceEvidence
+  {decls = Tests.Shadow.dependentLinearDeclarations} {face = the (ScopedFace 1) STop}
+  (CommonRefl (CPAtType {i = Var FZ} LHere))
+  Tests.Shadow.dependentLinearAt Tests.Shadow.dependentLinearAt
+dependentAtFaceEvidence = DepFaceRefl (AlignPathAt [LBool] [LBool] LBool 1 LHere (Var FZ))
+
+dependentAtNonBooleanSound : applyMorphism (dependentPathSemantics Tests.Shadow.dependentLinearAt (\_ => (True, False)))
+  ((False, ()), Tests.Shadow.dependentLinearPaths) = True
+dependentAtNonBooleanSound = trans (dependentFaceEvidenceSound Tests.Shadow.dependentAtFaceEvidence
+  (False, ()) Tests.Shadow.dependentLinearPaths Tests.Shadow.dependentLinearAdmissible
+  (\_ => (True, False)) Refl) Refl
+
+dependentAtEndpointDiffers : applyMorphism (dependentPathSemantics Tests.Shadow.dependentLinearAt (\_ => (False, False)))
+  ((False, ()), Tests.Shadow.dependentLinearPaths) = False
+dependentAtEndpointDiffers = Refl

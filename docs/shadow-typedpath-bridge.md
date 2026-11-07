@@ -317,6 +317,14 @@ endpoint evidence extracted from a particular admissibility proof.
 `dependentDeclaredLeftAlignedAtFace` and `dependentDeclaredRightAlignedAtFace`
 use it to relate the declared path endpoint to an independently selected witness;
 the alignment is an explicit premise, not a semantic equality assumption. These
-lemmas are pointwise at one ordinary environment, not yet a theorem for actual
-`CommonFaceEqual` derivations or related dependent environments. No structural
-higher-order face-equality constructors or soundness cases are provided here.
+lemmas are pointwise at one ordinary environment.
+
+`DependentFaceEvidence` is indexed by an actual `CommonFaceEqual` derivation
+and selected dependent path witnesses. Its soundness theorem covers structural
+reflexivity, symmetry, transitivity and face restriction at one environment,
+path environment, admissibility proof and valuation. Reflexivity and the
+intermediate witnesses in transitivity require explicit path alignment; no
+semantic relation is assumed. Endpoint, application, conditional and unit
+elimination derivations are not yet constructors of this evidence, so this is
+not general higher-order face soundness. In particular, the endpoint alignment
+lemmas above have not yet been integrated into the face derivation theorem.

@@ -655,3 +655,29 @@ for fixture in DependentEndpointWrongAlignment DependentEndpointWrongFace Depend
   fi
 done
 echo 'Dependent endpoint wrong alignment, face and path negative tests passed.'
+
+for fixture in DependentFaceFalseHolds DependentFaceWrongFace DependentFaceWrongDerivation DependentFaceTransWrongAlignment; do
+  if "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1; then
+    echo "Dependent face negative test unexpectedly succeeded: $fixture" >&2; exit 1
+  fi
+  case "$fixture" in
+    DependentFaceFalseHolds) expected='Mismatch between: True and False.' ;;
+    DependentFaceWrongFace) expected='Mismatch between: STop and SBottom.' ;;
+    DependentFaceWrongDerivation) expected='Mismatch between: CommonRefl (CPOrdinaryType CBoolType) and CommonSym (CommonRefl (CPOrdinaryType CBoolType)).' ;;
+    DependentFaceTransWrongAlignment) expected='Mismatch between: LUnit and LBool.' ;;
+  esac
+  if [[ $(grep -c '^Error:' "$tmp/$fixture.log") -ne 1 ]] ||
+     ! grep -Fxq 'Error: While processing right hand side of bad. When unifying:' "$tmp/$fixture.log" ||
+     ! grep -Fxq "$expected" "$tmp/$fixture.log" ||
+     grep -Eq 'Undefined name|While processing type of' "$tmp/$fixture.log"; then
+    echo "Dependent face negative test failed for an unrelated reason: $fixture" >&2
+    cat "$tmp/$fixture.log" >&2; exit 1
+  fi
+  if [[ "$fixture" == DependentFaceTransWrongAlignment ]] &&
+     { ! grep -Fq 'unitDomain unitDomain' "$tmp/$fixture.log" ||
+       ! grep -Fq "boolDomain unitDomain" "$tmp/$fixture.log"; }; then
+    echo 'Dependent face trans test did not report both intermediate witnesses:' >&2
+    cat "$tmp/$fixture.log" >&2; exit 1
+  fi
+done
+echo 'Dependent face false holds, face, derivation and trans alignment negative tests passed.'
