@@ -6079,14 +6079,19 @@ main = first Zero
             # immediate predecessor; no failed match becomes a core fixpoint.
             bad_steps = ['double count', 'double (Succ smaller)',
                          'Succ (double (double smaller))',
-                         'double', 'double {Nat} smaller',
-                         '(\\(1 smaller : Nat) => double smaller) smaller']
+                         'double', 'double {Nat} smaller']
             for step in bad_steps:
                 with self.subTest(step=step):
                     path.write_text(source.replace('Succ (Succ (double smaller))', step))
                     rejected = project('run')
                     self.assertNotEqual(rejected.returncode, 0)
                     self.assertEqual(rejected.stdout, '')
+            # A let that copies the predecessor and recurses on the copy still terminates, so general
+            # recursion accepts it (it computes something else: double is always zero here).
+            path.write_text(source.replace('Succ (Succ (double smaller))', '(\\(1 smaller : Nat) => double smaller) smaller'))
+            copied = project('run')
+            self.assertEqual(copied.returncode, 0, copied.stdout + copied.stderr)
+            self.assertEqual(copied.stdout, '\n')
             for changed in [source.replace('Succ smaller =>', 'Succ double =>'),
                             source.replace('double count = case count', 'double Zero = case Zero'),
                             source.replace('Zero => Zero', 'Zero => double Zero')]:

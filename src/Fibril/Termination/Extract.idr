@@ -40,33 +40,40 @@ smaller Decreases = Decreases
 
 -- Binders entered since the Fix are tracked newest first. The self variable
 -- sits immediately outside them; anything beyond is an ordinary outer variable.
-data Slot = Local Row | SelfSlot | Outer
+data Slot = Local Row | Partial (List Row) | SelfSlot | Outer
 
-slot : List Row -> Fin m -> Slot
+-- What a binder entered since the Fix stands for: a value related to the parameters by a
+-- row, or an alias of a partial application of the recursive function itself (a let-bound
+-- `f = self tag`), recorded by the rows of the arguments it already holds.
+data Entry = Val Row | Alias (List Row)
+
+slot : List Entry -> Fin m -> Slot
 slot env i = go (finToNat i) env
   where
-    go : Nat -> List Row -> Slot
+    go : Nat -> List Entry -> Slot
     go Z [] = SelfSlot
     go (S _) [] = Outer
-    go Z (r :: _) = Local r
+    go Z (Val r :: _) = Local r
+    go Z (Alias p :: _) = Partial p
     go (S d) (_ :: rs) = go d rs
 
-argRow : Nat -> List Row -> Term m -> Row
+argRow : Nat -> List Entry -> Term m -> Row
 argRow k env (Variable i) = case slot env i of
   Local r => r
   _ => unknownRow k
 argRow k _ _ = unknownRow k
 
-tailRow : Nat -> List Row -> Term m -> Row
+tailRow : Nat -> List Entry -> Term m -> Row
 tailRow k env (Variable i) = case slot env i of
   Local r => map smaller r
   _ => unknownRow k
 tailRow k _ _ = unknownRow k
 
 mutual
-  walk : Nat -> List Row -> Term m -> Either String (List Call)
+  walk : Nat -> List Entry -> Term m -> Either String (List Call)
   walk k env (Variable i) = case slot env i of
     SelfSlot => Left "the recursive function is used other than as the head of a saturated call"
+    Partial _ => Left "the recursive function is used other than as the head of a saturated call"
     _ => Right []
   walk k env (Universe _) = Right []
   walk k env UnitType = Right []
@@ -109,17 +116,17 @@ mutual
     Right (x ++ y ++ z)
   walk k env (Pi _ d b) = do
     x <- walk k env d
-    y <- walk k (unknownRow k :: env) b
+    y <- walk k (Val (unknownRow k) :: env) b
     Right (x ++ y)
   walk k env (Sigma _ _ d b) = do
     x <- walk k env d
-    y <- walk k (unknownRow k :: env) b
+    y <- walk k (Val (unknownRow k) :: env) b
     Right (x ++ y)
   -- A lambda away from the leading parameters may run later or repeatedly, so
   -- a call under it is not accounted for and is refused.
   walk k env (Lambda _ d b) = do
     x <- walk k env d
-    y <- walk k (unknownRow k :: env) b
+    y <- walk k (Val (unknownRow k) :: env) b
     case y of
       [] => Right x
       _ => Left "recursive call under a non-leading lambda"
@@ -148,12 +155,56 @@ mutual
     c <- walk k env base
     d <- walkMore k env (tailRow k env value) more
     Right (a ++ b ++ c ++ d)
+  -- A let (a lambda applied at once) runs its body once, in the same evaluation context, so
+  -- calls inside it count. The bound variable inherits what is known about its value.
+  walk k env (Apply (Lambda _ d inner) x) = do
+    a <- walk k env d
+    (entry, ex) <- entryOf k env x
+    b <- walk k (entry :: env) inner
+    Right (a ++ ex ++ b)
   walk k env (Apply f x) = do
     ex <- walk k env x
     walkApp k env f [argRow k env x] ex
   walk _ _ other = Left ("unsupported term form in a recursive body: " ++ pack (take 48 (unpack (renderTerm other))))
 
-  walk4 : Nat -> List Row -> Term m -> Term m -> Term m -> Term m -> Either String (List Call)
+  -- The rows of a partial application of the recursive function (or of an alias to one),
+  -- with the calls nested in its arguments; Nothing when the head is something else.
+  aliasOf : Nat -> List Entry -> Term m -> Either String (Maybe (List Row, List Call))
+  aliasOf k env (Variable i) = Right (case slot env i of
+    SelfSlot => Just ([], [])
+    Partial held => Just (held, [])
+    _ => Nothing)
+  aliasOf k env (Apply g y) = do
+    inner <- aliasOf k env g
+    case inner of
+      Nothing => Right Nothing
+      Just (rows, calls) => do
+        ey <- walk k env y
+        Right (Just (rows ++ [argRow k env y], calls ++ ey))
+  aliasOf _ _ _ = Right Nothing
+
+  -- What a let-bound value stands for: an alias of a not-yet-saturated call of the recursive
+  -- function, the size relation of a variable it copies, or otherwise an unknown value.
+  entryOf : Nat -> List Entry -> Term m -> Either String (Entry, List Call)
+  entryOf k env x = do
+    found <- aliasOf k env x
+    case found of
+      Just (rows, calls) =>
+        if length rows < k then Right (Alias rows, calls) else other
+      Nothing => other
+    where
+      unknown : Either String (Entry, List Call)
+      unknown = do
+        calls <- walk k env x
+        Right (Val (unknownRow k), calls)
+      other : Either String (Entry, List Call)
+      other = case x of
+        Variable i => case slot env i of
+          Local r => Right (Val r, [])
+          _ => unknown
+        _ => unknown
+
+  walk4 : Nat -> List Entry -> Term m -> Term m -> Term m -> Term m -> Either String (List Call)
   walk4 k env a b c d = do
     w <- walk k env a
     x <- walk k env b
@@ -162,40 +213,42 @@ mutual
     Right (w ++ x ++ y ++ z)
 
   -- The cons arm binds the head, then the tail as the newest variable.
-  walkCons : Nat -> List Row -> Row -> Term m -> Either String (List Call)
+  walkCons : Nat -> List Entry -> Row -> Term m -> Either String (List Call)
   walkCons k env tl (Lambda _ d1 (Lambda _ d2 inner)) = do
     x <- walk k env d1
-    y <- walk k (unknownRow k :: env) d2
-    z <- walk k (tl :: unknownRow k :: env) inner
+    y <- walk k (Val (unknownRow k) :: env) d2
+    z <- walk k (Val tl :: Val (unknownRow k) :: env) inner
     Right (x ++ y ++ z)
   walkCons k env _ other = walk k env other
 
-  walkMore : Nat -> List Row -> Row -> Term m -> Either String (List Call)
+  walkMore : Nat -> List Entry -> Row -> Term m -> Either String (List Call)
   walkMore k env tl (Lambda _ d inner) = do
     x <- walk k env d
-    y <- walk k (tl :: env) inner
+    y <- walk k (Val tl :: env) inner
     Right (x ++ y)
   walkMore k env _ other = walk k env other
 
   -- Spine walk: arguments are collected as rows and also walked for nested calls.
-  walkApp : Nat -> List Row -> Term m -> List Row -> List Call -> Either String (List Call)
+  walkApp : Nat -> List Entry -> Term m -> List Row -> List Call -> Either String (List Call)
   walkApp k env (Apply g y) rows acc = do
     ey <- walk k env y
     walkApp k env g (argRow k env y :: rows) (acc ++ ey)
   walkApp k env (Variable i) rows acc = case slot env i of
     SelfSlot => if length rows == k then Right (Edge 0 0 rows :: acc)
                 else Left "recursive call is not saturated"
+    Partial held => if length held + length rows == k then Right (Edge 0 0 (held ++ rows) :: acc)
+                      else Left "recursive call is not saturated"
     _ => Right acc
   walkApp k env other rows acc = do
     e <- walk k env other
     Right (acc ++ e)
 
 -- The body must begin with one lambda per function argument in the type.
-peel : Nat -> Nat -> List Row -> Term m -> Either String (List Call)
+peel : Nat -> Nat -> List Entry -> Term m -> Either String (List Call)
 peel k Z env body = walk k env body
 peel k (S r) env (Lambda _ dom inner) = do
   x <- walk k env dom
-  y <- peel k r (paramRow k (minus k (S r)) :: env) inner
+  y <- peel k r (Val (paramRow k (minus k (S r))) :: env) inner
   Right (x ++ y)
 peel _ _ _ _ = Left "recursive body has fewer leading lambdas than its type has arguments"
 

@@ -212,14 +212,44 @@ checks =
       isNotAdmitted (inferErased 512 128 Empty rebuiltFix))
   , ("swapping arguments is refused by the idempotent composite",
       isNotAdmitted (inferErased 512 128 Empty swapFix))
-  , ("passing self as an argument is refused",
-      isLeft (extractFix (natToNat {n = 0}) (Lambda Linear NatType (Apply (Lambda Linear natToNat NatZero) (Variable (FS FZ))))))
+  , ("passing self as an ordinary argument is refused",
+      isLeft (extractFix (natToNat {n = 0}) (Lambda Linear NatType (StringAppend (Variable (FS FZ)) (Variable (FS FZ))))))
   , ("an unsaturated recursive call is refused",
       isLeft (extractFix (the (Term 0) (Pi Linear NatType (Pi Linear NatType NatType)))
         (Lambda Linear NatType (Lambda Linear NatType (Apply (Variable (FS (FS FZ))) (Variable FZ))))))
-  , ("a recursive call under a non-leading lambda is refused",
+  , ("a recursive call under a deferred lambda is refused",
       isLeft (extractFix (natToNat {n = 0})
-        (Lambda Linear NatType (Apply (Lambda Linear NatType (Apply (Variable (FS (FS FZ))) (Variable FZ))) (Variable FZ)))))
+        (Lambda Linear NatType (PairValue NatType (Lambda Linear NatType (Apply (Variable (FS (FS FZ))) (Variable FZ))) NatZero))))
+  , ("a let (an immediately applied lambda) runs once, so its calls are extracted",
+      extractsTo [Edge 0 0 [[NonIncreasing]]]
+        (extractFix (natToNat {n = 0})
+          (Lambda Linear NatType (Apply (Lambda Linear NatType (Apply (Variable (FS (FS FZ))) (Variable FZ))) (Variable FZ)))))
+  , ("a let-bound copy of a variable keeps that variable's size relation",
+      extractsTo [Edge 0 0 [[Decreases]]]
+        (extractFix (natToNat {n = 0})
+          (Lambda Linear NatType
+            (NatCase natMotive (Variable FZ) NatZero
+              (Lambda Linear NatType
+                (Apply (Lambda Linear NatType (Apply (Variable (FS (FS (FS FZ)))) (Variable FZ))) (Variable FZ)))))))
+  , ("a let-bound partial application of self is callable and counts its held arguments",
+      extractsTo [Edge 0 0 [[Unknown, Unknown], [Unknown, Decreases]]]
+        (extractFix (the (Term 0) (Pi Linear NatType (Pi Linear NatType NatType)))
+          (Lambda Linear NatType (Lambda Linear NatType
+            (Apply (Lambda Linear (Pi Linear NatType NatType)
+                     (NatCase natMotive (Variable (FS FZ)) NatZero
+                       (Lambda Linear NatType (Apply (Variable (FS FZ)) (Variable FZ)))))
+                   (Apply (Variable (FS (FS FZ))) NatZero))))))
+  , ("a let-bound alias of self used as a value is refused",
+      isLeft (extractFix (the (Term 0) (Pi Linear NatType (Pi Linear NatType NatType)))
+        (Lambda Linear NatType (Lambda Linear NatType
+          (Apply (Lambda Linear (Pi Linear NatType NatType) (Variable FZ))
+                 (Apply (Variable (FS (FS FZ))) NatZero))))))
+  , ("a let-bound alias called with too few arguments is refused",
+      isLeft (extractFix (the (Term 0) (Pi Linear NatType (Pi Linear NatType (Pi Linear NatType NatType))))
+        (Lambda Linear NatType (Lambda Linear NatType (Lambda Linear NatType
+          (Apply (Lambda Linear (Pi Linear NatType (Pi Linear NatType NatType))
+                   (Apply (Variable FZ) NatZero))
+                 (Apply (Variable (FS (FS (FS FZ)))) NatZero)))))))
   , ("unsupported syntax in a recursive body fails closed",
       isLeft (extractFix (natToNat {n = 0})
         (Lambda Linear NatType (IOPure (Variable FZ)))))
