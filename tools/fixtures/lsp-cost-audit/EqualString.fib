@@ -1,0 +1,4 @@
+module EqualString
+-- OFFLINE helper expansion inventory only.
+main : (1 left : String) -> (1 right : String) -> Bool
+main = equalString

@@ -1,0 +1,8 @@
+module EchoJSONThenTyped
+import Protocol.Frame
+import JSONThenTyped
+
+-- ADMISSION PROBE ONLY: no body access or event decoding. Independent echo,
+-- then fixed-buffer parser/typed-event probe. Never a wire pipeline.
+main : IO Unit
+main = primBind Unit Unit Protocol.Frame.echoFrame (\(1 done : Unit) => case done of () => JSONThenTyped.main)
