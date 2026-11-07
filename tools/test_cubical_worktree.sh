@@ -292,3 +292,10 @@ for fixture in TypedEqualConvertUnrelated TypedFaceRestrictEscape TypedEqualConv
   fi
 done
 echo 'Typed equality conversion and face restriction negative tests passed.'
+"$idris" -p fibril --check TypedCheckerIndexMismatch.idr > "$tmp/typed-checker-index.log" 2>&1 || true
+if ! grep -q 'Mismatch between:' "$tmp/typed-checker-index.log" || grep -q 'While processing type of bad' "$tmp/typed-checker-index.log"; then
+  echo 'Negative checker index test failed for an unrelated reason:' >&2
+  cat "$tmp/typed-checker-index.log" >&2
+  exit 1
+fi
+echo 'Typed checker index mismatch negative test passed.'

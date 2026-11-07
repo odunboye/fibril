@@ -27,12 +27,10 @@ and derives this square under a declared neutral path context. There is no gener
 weakening/substitution preservation theorem for derivations or semantic
 soundness theorem here. ScopedSyntax proves separate syntactic substitution laws.
 
-This is a declarative proof interface, not an algorithm accepting untrusted
+The original judgments are a declarative proof interface, not themselves an algorithm accepting untrusted
 syntax; it does not expose a runtime conversion or a checker with exhaustion.
 In particular it supplies no resource admission guarantee for elaborating
-untrusted Idris proofs. A future runtime checker must bound all inputs and
-substitution outputs before conversion and reject unsupported cases and
-exhaustion, rather than treating this proof interface as such a checker.
+untrusted Idris proofs. The experimental bounded checker described below accepts a much smaller grammar and is not a production runtime checker.
 
 ## Neutral declarations and restricted judgments
 
@@ -138,3 +136,37 @@ production checker feature or semantic soundness theorem. There is no general
 eta/beta or dependent-family type congruence. Negative fixtures cover unrelated
 carriers, bottom-face escape, failed endpoints, face indices and distinct neutral
 paths, among other scope and premise failures.
+
+
+## Bounded neutral checker
+
+`Fibril.Cubical.Logical.TypedPathChecker` is an isolated, deliberately incomplete
+algorithm. `checkNeutral` returns either an error or the actual public
+`NeutralHasType ctx face term ty` derivation at exactly the supplied indices;
+`checkNeutralFormation` similarly returns `NeutralTypeFormed`. These are not
+opaque certificates: the declarative constructors remain public and Idris
+checks their premises. In particular endpoint derivations use propositional
+proofs of the actual `boundedFaceEntails` equations, not a Boolean assertion.
+
+Accepted terms are base variables at `NType`, declared neutral paths at their
+exact declared base-variable endpoints, applications of declared neutral paths
+at any scoped interval at `NType`, constant base-variable abstractions at
+`Path A x x`, and abstractions `\i => p i` at precisely p's declared
+endpoints. Formation accepts `NType` and `Path A l r` when both endpoints are
+accepted terms at `NType`. No conversion, arbitrary abstractions, nested
+PathP or square is checked; those remain declarative only. Implementing them
+requires bounded dependent substitution and proof-producing type/equality
+comparison, including face-sensitive path-type congruence.
+
+All syntax, including both annotations and the face, shares an admission
+allowance capped at 128 nodes; base, path, and dimension counts are capped at
+12. Scoped `Fin` indices and `PathContext` enforce scope and endpoint
+formation. Admission happens before comparisons, entailment, or face weakening;
+the latter creates at most the admitted face plus two nodes. No term
+substitution is performed, hence no substitution output is allocated. The
+fixed grammar does bounded comparisons and at most two capped entailment calls.
+`Exhausted` reports admission failure, `Mismatch` reports a definite mismatch
+within the implemented shapes, and `Unsupported` reports other shapes or an
+endpoint entailment the bounded procedure cannot prove (including its 12
+dimension/12 face-node limits). False faces do not enable extra conversions.
+The checker has no production elaboration or runtime authority.

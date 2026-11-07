@@ -6,6 +6,8 @@ import Fibril.Cubical.Logical.PathContext
 import Fibril.Cubical.Logical.OpenPath
 import Fibril.Cubical.Logical.ScopedSyntax
 import Fibril.Cubical.Logical.TypedPath
+import Fibril.Cubical.Logical.TypedPathChecker
+
 import Fibril.Foundation.DeMorgan.Face
 import Fibril.Foundation.DeMorgan.Interval
 import Fibril.Foundation.DeMorgan.Scope
@@ -238,3 +240,42 @@ convertedEquality = NEqualConvert
     (NRefl (NElim (NPathVar FZ) (Var (FS FZ))))
     (NRefl (NElim (NPathVar FZ) (Var (FS FZ))))))
   restrictedPathTypeCongruence restrictedConvertedPath restrictedConvertedPath
+
+checkerSuccess : Either CheckError a -> Bool
+checkerSuccess (Right _) = True
+checkerSuccess _ = False
+
+checkerMismatch : Either CheckError a -> Bool
+checkerMismatch (Left Mismatch) = True
+checkerMismatch _ = False
+
+checkerExhausted : Either CheckError a -> Bool
+checkerExhausted (Left Exhausted) = True
+checkerExhausted _ = False
+
+checkerUnsupported : Either CheckError a -> Bool
+checkerUnsupported (Left Unsupported) = True
+checkerUnsupported _ = False
+
+public export
+checkerChecks : List (String, Bool)
+checkerChecks =
+  [ ("checker open abstraction", checkerSuccess (checkNeutral {n = 0} 32 neutralContext STop
+      (NAbstract (NApply (NPath FZ) (Var FZ)))
+      (NPathType NType (NBase FZ) (NBase (FS FZ)))))
+  , ("checker false face", checkerSuccess (checkNeutral {n = 1} 32 neutralContext SBottom
+      (NApply (NPath FZ) (Var FZ)) NType))
+  , ("checker annotation mismatch", checkerMismatch (checkNeutral {n = 0} 32 neutralContext STop
+      (NPath FZ) (NPathType NType (NBase (FS FZ)) (NBase FZ))))
+  , ("checker exhausted", checkerExhausted (checkNeutral {n = 1} 2 neutralContext STop
+      (NApply (NPath FZ) (Var FZ)) NType))
+  , ("checker unsupported", checkerUnsupported (checkNeutral {n = 0} 32 neutralContext STop
+      (NAbstract (NAbstract (NBase FZ))) NType))
+  , ("checker entailment limit fails closed", checkerUnsupported (checkNeutral {n = 12} 32 neutralContext STop
+      (NAbstract (NApply (NPath FZ) (Var FZ)))
+      (NPathType NType (NBase FZ) (NBase (FS FZ)))))
+  , ("checker good annotation", checkerSuccess (checkNeutral {n = 0} 32 neutralContext STop
+      (NPath FZ) (NPathType NType (NBase FZ) (NBase (FS FZ)))))
+  , ("checker formation", checkerSuccess (checkNeutralFormation {n = 0} 32 neutralContext STop
+      (NPathType NType (NApply (NPath FZ) Zero) (NBase FZ))))
+  ]
