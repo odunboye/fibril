@@ -1,0 +1,1 @@
+{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":"file:///workspace/anonymous/Buffer.fib","languageId":"fibril","version":1,"text":"main : IO Unit\r\nmain = putStrLn \"α🌍é\"\r\n"}}}
