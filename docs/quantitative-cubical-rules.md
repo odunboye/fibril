@@ -357,6 +357,27 @@ quantitative substitution: for any typed `v`, derivation `Uses v w` and
 `Uses (instantiate v (Ref Here)) r` and `Admits P r`. This is a genuine
 quantitative case, not the general substitution result.
 
+`instantiateAlternativesUsage` additionally proves substitution for the term
+`If (Boolean flag) x x`, for any internally valid replacement and any admitted
+replacement demand. Its two syntactic copies are alternative executions, so
+`joinUsageIdempotent` preserves even a linear demand rather than adding it twice.
+This is a strictly bounded term shape, not a general induction theorem.
+
+A candidate general invariant must work under an insertion below arbitrary
+binders: given a derivation and a replacement derivation weakened under those
+binders, construct the substituted derivation, preserve each intervening
+binder's exact demand, and relate the remaining output demand by pointwise
+permission to `u + q*w`, where `q` is the removed variable's demand. The
+relation must be permission (`allows`), not numerical order or equality. The
+replacement must still yield internal derivations when `q` is erased, because
+erased application arguments are checked. At alternatives, the candidate bound
+must account for potentially different `q`s and overlapping ambient demands;
+the common-demand equality alone is insufficient. This is a proof plan, not a
+machine-checked invariant: the required substitution/renaming commutation,
+permission algebra and binder-preservation induction are not established.
+Consequently neither validity nor a counterexample for the full theorem is
+claimed by this intermediate result.
+
 In this representation the single-linear quantitative theorem **still missing**
 is: given `Uses t (Linear :: u)`, `Uses v w`, and
 `Admits P (combineUsage u w)`, construct some `r` together with

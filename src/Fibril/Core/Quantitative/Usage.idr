@@ -237,6 +237,29 @@ instantiateHeadUsage : {n : Nat} -> {0 context : Vect n Ty} ->
 instantiateHeadUsage value w permissions derivation admitted =
   (w ** (derivation, rewrite sym (combineZeroLeft w) in admitted))
 
+||| Joining the same exact demand in two alternatives preserves it. This is
+||| alternative sharing, not sequential duplication of a linear resource.
+public export
+joinUsageIdempotent : (usage : Usage n) -> joinUsage usage usage = usage
+joinUsageIdempotent [] = Refl
+joinUsageIdempotent (Erased :: rest) = cong (Erased ::) (joinUsageIdempotent rest)
+joinUsageIdempotent (Linear :: rest) = cong (Linear ::) (joinUsageIdempotent rest)
+joinUsageIdempotent (Unrestricted :: rest) = cong (Unrestricted ::) (joinUsageIdempotent rest)
+
+||| Substitution into either occurrence of a head reference in alternatives:
+||| both syntactic copies share the same ambient demand, including linear uses.
+public export
+instantiateAlternativesUsage : {n : Nat} -> {0 context : Vect n Ty} ->
+  (value : Term context a) -> (flag : Bool) -> (w, permissions : Usage n) ->
+  Uses value w -> Admits permissions w ->
+  (r : Usage n **
+    (Uses (instantiate value (If (Boolean flag) (Ref Here) (Ref Here))) r,
+     Admits permissions r))
+instantiateAlternativesUsage value flag w permissions derivation admitted =
+  (w ** (rewrite sym (combineZeroLeft w) in
+          rewrite sym (joinUsageIdempotent w) in
+          UseIf UseBoolean derivation derivation, admitted))
+
 public export
 data UsageError
   = BinderMismatch Quantity Quantity

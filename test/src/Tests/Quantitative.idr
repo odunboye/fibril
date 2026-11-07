@@ -228,3 +228,21 @@ checks =
   where
     unusedBody : Term [BoolTy] (Arrow Linear UnitTy UnitTy)
     unusedBody = Lam Linear Unit
+
+-- The replacement occurs in both branches, but its linear demand is shared.
+alternativeSubstitutionLinear :
+  (r : Usage 1 **
+    (Uses (instantiate (the (Term [UnitTy] UnitTy) (Ref Here))
+      (If (Boolean True) (Ref Here) (Ref Here))) r,
+     Admits [Linear] r))
+alternativeSubstitutionLinear =
+  instantiateAlternativesUsage (Ref Here) True [Linear] [Linear]
+    (UseRef Here) (AdmitCons Refl AdmitNil)
+
+alternativeDemandNotSequential :
+  joinUsage [Linear] [Linear] = [Linear]
+alternativeDemandNotSequential = Refl
+
+alternativeSequentialWouldDuplicate :
+  combineUsage [Linear] [Linear] = [Unrestricted]
+alternativeSequentialWouldDuplicate = Refl
