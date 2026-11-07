@@ -84,6 +84,8 @@ Usage:
   fibril run-binary --source-dir ROOT ENTRY  Execute checked binary project
   fibril run-interactive PATH  Execute incremental stdin/stdout IO (standalone)
   fibril run --source-dir ROOT ENTRY  Check modules, then execute the complete IO plan
+  fibril run --fuel N PATH     Same as run, with planning reduction fuel 0..4096 (default 128);
+                               also --source-dir ROOT --fuel N ENTRY and --package PATH --fuel N
   fibril eval --source-dir ROOT ENTRY  Checked module reference normalization
   fibril eval --source-dir ROOT --fuel N ENTRY  Module normalization with fuel 0..4096
   fibril eval PATH              Checked reference normalization (128 reduction steps)
@@ -133,6 +135,12 @@ fuelValue text =
                in if value <= 4096 then Just value else Nothing
          else Nothing
 
+||| Parse a decimal fuel bound (0..4096, as for eval), then run with it.
+runWithFuel : String -> (Nat -> IO (Either String ())) -> IO ()
+runWithFuel text action = case fuelValue text of
+  Just fuel => action fuel >>= printExecution
+  Nothing => printExecution (Left "Fuel must be decimal 0..4096.")
+
 coordinate : String -> Maybe Nat
 coordinate text =
   let chars = unpack text
@@ -176,7 +184,7 @@ main = do
     ["check"] => packageCheck "fibril.yaml"
     ["test"] => testPackage "fibril.yaml" >>= printServiceReport
     ["test", "--package", manifest] => testPackage manifest >>= printServiceReport
-    ["run"] => runPackage "fibril.yaml" >>= printExecution
+    ["run"] => runPackage 128 "fibril.yaml" >>= printExecution
     ["emit-c"] => emitCPackage "fibril.yaml" >>= printC
     ["emit-c", "--package", manifest] => emitCPackage manifest >>= printC
     ["emit-c", "--source-dir", root, entry] => emitCProject root entry >>= printC
@@ -196,10 +204,13 @@ main = do
         Left err => do
           _ <- fPutStrLn stderr (renderGraphError err)
           exitFailure
-    ["run", "--package", manifest] => runPackage manifest >>= printExecution
+    ["run", "--package", manifest] => runPackage 128 manifest >>= printExecution
+    ["run", "--package", manifest, "--fuel", text] => runWithFuel text (\fuel => runPackage fuel manifest)
     ["check", "--package", manifest] => packageCheck manifest
-    ["run", "--source-dir", root, entry] => runProject root entry >>= printExecution
-    ["run", path] => runFile path >>= printExecution
+    ["run", "--source-dir", root, entry] => runProject 128 root entry >>= printExecution
+    ["run", "--source-dir", root, "--fuel", text, entry] => runWithFuel text (\fuel => runProject fuel root entry)
+    ["run", "--fuel", text, path] => runWithFuel text (\fuel => runFile fuel path)
+    ["run", path] => runFile 128 path >>= printExecution
     ["eval", "--source-dir", root, entry] => evaluateProjectFile 128 root entry >>= printServiceReport
     ["eval", "--source-dir", root, "--fuel", text, entry] =>
       case fuelValue text of

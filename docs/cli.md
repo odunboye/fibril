@@ -26,6 +26,7 @@ Build with `pack build fibril`, then invoke `./build/exec/fibril`.
 | check PATH | Parse/resolve an expression or declaration file with main, then check typing/runtime usage |
 | module-graph ROOT ENTRY | Read-only POSIX dependency discovery as JSON; no core checking or execution |
 | run --source-dir ROOT ENTRY | Check the full project, prepare IO Unit output plan, then execute host stdout |
+| run --fuel N PATH | Same as `run PATH` with planning reduction fuel 0..4096 (default 128); also `run --source-dir ROOT --fuel N ENTRY` and `run --package PATH --fuel N`. Fuel bounds each reduction while planning output, not time or memory; recursion that exhausts it fails with `IO planning reduction budget exhausted` |
 | eval --source-dir ROOT ENTRY | Check modules, normalize entry, and recheck without performing effects |
 | eval --source-dir ROOT --fuel N ENTRY | Project reference evaluation with fuel 0..4096 |
 | check --source-dir ROOT ENTRY | Check bounded POSIX dependency graph and closed qualified module interfaces; no execution |

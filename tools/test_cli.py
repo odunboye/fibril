@@ -2796,6 +2796,41 @@ main = first Zero
         self.assertEqual(doubling.returncode, 0, doubling.stdout + doubling.stderr)
         self.assertEqual(doubling.stdout, '!!!!\n')
 
+    def test_run_fuel_option_raises_the_planning_budget(self):
+        def nat(n):
+            return 'Zero' if n == 0 else '(Succ ' * n + 'Zero' + ')' * n
+        source = ('module Main\n'
+                  'half : (1 n : Nat) -> Nat\nhalf n = case n of\n  Zero => Zero\n'
+                  '  Succ a => case a of\n    Zero => Zero\n    Succ b => Succ (half b)\n'
+                  'marks : (1 count : Nat) -> String\n'
+                  'marks count = natRec (\\(0 k : Nat) => String) ""\n'
+                  '  (\\(0 k : Nat) => \\(1 result : String) => appendString result "!") count\n'
+                  'main : IO Unit\nmain = putStrLn (marks (half ' + nat(16) + '))\n')
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'Main.fib').write_text(source)
+            entry = str(root / 'Main.fib')
+            # The default budget is unchanged and too small for this recursion.
+            default = run('run', '--source-dir', str(root), entry)
+            self.assertNotEqual(default.returncode, 0, default.stdout)
+            self.assertIn('IO planning reduction budget exhausted', default.stderr)
+            # The explicit bound admits it; the answer is half of 16 marks.
+            raised = run('run', '--source-dir', str(root), '--fuel', '4096', entry)
+            self.assertEqual(raised.returncode, 0, raised.stdout + raised.stderr)
+            self.assertEqual(raised.stdout, '!!!!!!!!\n')
+            # Out-of-range and non-numeric bounds are rejected before anything runs.
+            for bad in ['4097', 'x', '', '-1', '04096x']:
+                rejected = run('run', '--source-dir', str(root), '--fuel', bad, entry)
+                self.assertNotEqual(rejected.returncode, 0, bad)
+                self.assertIn('Fuel must be decimal 0..4096', rejected.stderr)
+                self.assertEqual(rejected.stdout, '')
+            # A plain single-file program accepts the flag too.
+            plain = root / 'plain.fib'
+            plain.write_text('main : IO Unit\nmain = putStrLn "hi"\n')
+            plain_run = run('run', '--fuel', '128', str(plain))
+            self.assertEqual(plain_run.returncode, 0, plain_run.stdout + plain_run.stderr)
+            self.assertEqual(plain_run.stdout, 'hi\n')
+
     def test_accumulator_equations_reject_dependent_types(self):
         fixture = ROOT / 'examples/modules/linear-accumulator'
         examples = [
