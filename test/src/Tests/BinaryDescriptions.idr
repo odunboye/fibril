@@ -55,10 +55,62 @@ wrappers = [RejectBytes, FlushBytes, ReadBytes NatZero, WriteBytes (BytesValue e
   UTF8Encode FlushBytes, BytesSlice NatZero FlushBytes (BytesValue empty),
   BytesLengthIs FlushBytes (BytesValue empty), BytesLengthIs NatZero FlushBytes]
 
+loopShape : Term n
+loopShape = loopVariantType BytesType BytesType
+
+loopStep : Term 0
+loopStep = Lambda Linear BytesType
+  (IOPure (VariantValue loopShape 0 (Just (Variable FZ))))
+
+iteration : Term 0
+iteration = IterateBinary BytesType BytesType NatZero loopStep (BytesValue empty)
+
+-- Raw invalid terms exercise every field BEFORE source/kernel checking.
+inLoopFields : Term 0 -> List (Term 0)
+inLoopFields hidden =
+  [IterateBinary hidden BytesType NatZero loopStep (BytesValue empty),
+   IterateBinary BytesType hidden NatZero loopStep (BytesValue empty),
+   IterateBinary BytesType BytesType hidden loopStep (BytesValue empty),
+   IterateBinary BytesType BytesType NatZero hidden (BytesValue empty),
+   IterateBinary BytesType BytesType NatZero loopStep hidden]
+
+loopUnit : Term 0
+loopUnit = IOBind loopShape UnitType iteration
+  (Lambda Linear loopShape
+    (VariantCase (Lambda Erased loopShape (IOType UnitType)) (Variable FZ)
+      [Lambda Linear BytesType (WriteBytes (Variable FZ)),
+       Lambda Linear BytesType (WriteBytes (Variable FZ))]))
+
+badLoopQuantity : Term 0
+badLoopQuantity = IterateBinary BytesType BytesType NatZero
+  (Lambda Unrestricted BytesType (IOPure (VariantValue loopShape 0 (Just (Variable FZ)))))
+  (BytesValue empty)
+
+linearCount : Term 0
+linearCount = Lambda Linear NatType
+  (IterateBinary BytesType BytesType (Variable FZ) (weaken loopStep) (BytesValue empty))
+
+aliasedCountState : Term 0
+aliasedCountState = Lambda Linear NatType
+  (IterateBinary NatType NatType (Variable FZ)
+    (Lambda Linear NatType (IOPure (VariantValue (loopVariantType NatType NatType) 0 (Just (Variable FZ)))))
+    (Variable FZ))
+
 public export
 checks : List (String, Bool)
 checks =
-  [("binary rejection is inert IO Unit", accepted RejectBytes (IOType UnitType)),
+  [("raw core consumes a linear count once", accepted linearCount (Pi Linear NatType (IOType loopShape))),
+   ("count and initial cannot alias a linear variable", not (accepted aliasedCountState (Pi Linear NatType (IOType (loopVariantType NatType NatType))))),
+   ("binary loop checks fixed small S/R and variant callback", accepted iteration (IOType loopShape)),
+   ("binary loop rejects a large state universe", not (accepted (IterateBinary (Universe 0) BytesType NatZero loopStep (BytesValue empty)) (IOType loopShape))),
+   ("binary loop requires a linear callback argument", not (accepted badLoopQuantity (IOType loopShape))),
+   ("loop capability is present even at zero count", containsBinaryRequest iteration),
+   ("binary admission scans all five loop fields", all containsNonBinaryIO (inLoopFields ReadLine)),
+   ("resource admission scans all five loop fields", all containsFileReference (inLoopFields (FileHandleValue 1 0))),
+   ("old hosted modes reject zero-count loop", rejected (prepareIO 128 128 loopUnit) && rejected (prepareInteractive 128 128 loopUnit)),
+   ("old C modes reject zero-count loop", rejected (emitCheckedC loopUnit) && rejected (emitCheckedInteractiveC 64 8192 loopUnit) && rejected (emitCheckedResourceC 64 8192 loopUnit)),
+   ("binary C admits checked zero-count loop", not (rejected (emitCheckedBinaryC 64 8192 loopUnit))),
+   ("binary rejection is inert IO Unit", accepted RejectBytes (IOType UnitType)),
    ("binary rejection remains an explicit capability", rejected (prepareIO 128 128 RejectBytes) && rejected (prepareInteractive 128 128 RejectBytes)),
    ("binary read is typed inert IO", accepted (ReadBytes (naturalTerm 2)) (IOType byteReadResultType)),
    ("binary write requires Bytes", not (accepted (WriteBytes (StringValue "x")) (IOType UnitType))),
@@ -144,6 +196,11 @@ runBinaryDescriptionChecks = do
   admissionFlushes <- readIORef denied.flushes
   resource <- runResourceTermWith 64 128 64
     (ResourceHost (\_ => pure (Right ())) (pure (Right Nothing)) (pure (Right ())) (\_, _ => pure ())) hidden
+  loopResource <- runResourceTermWith 64 128 64
+    (ResourceHost (\_ => pure (Right ())) (pure (Right Nothing)) (pure (Right ())) (\_, _ => pure ())) loopUnit
+  let loopResourceRejected = case loopResource of
+        ExecutedResources (Left ResourceAdmission) [] 0 => True
+        _ => False
   let resourceRejected = case resource of
         ExecutedResources (Left ResourceAdmission) [] 0 => True
         _ => False
@@ -176,6 +233,6 @@ runBinaryDescriptionChecks = do
      ("zero read fails before the adapter", fault zeroResult BinaryZeroRead && zeroReads == 0),
      ("admission failure invokes no final flush", rejected deniedResult && admissionFlushes == 0),
      ("description failure invokes no final flush", rejected reductionError && reductionFlushes == 0),
-     ("resource runner rejects binary syntax before creating a session", resourceRejected),
+     ("resource runner rejects binary syntax before creating a session", resourceRejected && loopResourceRejected),
      ("later driver failure does not masquerade as successful flush", rejected afterWriteError && acceptedBeforeError == [captured] && afterWriteFlushes == 0),
      ("protocol rejection performs no transport action or final flush", protocolRejected && rejectedReads == 0 && null rejectedWrites && rejectedFlushes == 0)]

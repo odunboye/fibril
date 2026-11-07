@@ -52,11 +52,20 @@ loopCaseType = Pi Erased (Universe 0) (Pi Erased (Universe 0)
     (loopCaseBodyType (Variable (FS (FS FZ))) (Variable (FS FZ)) (Variable FZ))))
 
 loopCaseValue : Term 0
-loopCaseValue = Lambda Erased (Universe 0) (Lambda Erased (Universe 0) (Lambda Erased (Universe 0) (Lambda Linear (loopVariantType (Variable (FS (FS FZ))) (Variable (FS FZ))) (Lambda Unrestricted (Pi Linear (Variable (FS (FS FZ))) (Variable (FS (FS FZ)))) (Lambda Unrestricted (Pi Linear (Variable (FS (FS (FS (FS FZ))))) (Variable (FS (FS (FS FZ))))) (VariantCase (Lambda Erased (loopVariantType (Variable (FS (FS (FS (FS (FS FZ)))))) (Variable (FS (FS (FS (FS FZ)))))) (Variable (FS (FS (FS (FS FZ)))))) (Variable (FS (FS FZ))) [(Variable (FS FZ)), (Variable FZ)]))))))
+loopCaseValue = Lambda Erased (Universe 0)
+  (Lambda Erased (Universe 0)
+    (Lambda Erased (Universe 0)
+      (Lambda Linear (loopVariantType (Variable (FS (FS FZ))) (Variable (FS FZ)))
+        (Lambda Unrestricted (Pi Linear (Variable (FS (FS FZ))) (Variable (FS (FS FZ))))
+          (Lambda Unrestricted (Pi Linear (Variable (FS (FS (FS (FS FZ))))) (Variable (FS (FS (FS FZ)))))
+            (VariantCase
+              (Lambda Erased (loopVariantType (Variable (FS (FS (FS (FS (FS FZ)))))) (Variable (FS (FS (FS (FS FZ))))))
+                (Variable (FS (FS (FS (FS FZ))))))
+              (Variable (FS (FS FZ))) [(Variable (FS FZ)), (Variable FZ)]))))))
 
 iterateType : Term 0
 iterateType = Pi Erased (Universe 0) (Pi Erased (Universe 0)
-  (Pi Linear NatType
+  (Pi Unrestricted NatType
     (Pi Unrestricted (binaryStepType (Variable (FS (FS FZ))) (Variable (FS FZ)))
       (Pi Linear (Variable (FS (FS (FS FZ))))
         (IOType (loopVariantType (Variable (FS (FS (FS (FS FZ)))))
@@ -64,7 +73,7 @@ iterateType = Pi Erased (Universe 0) (Pi Erased (Universe 0)
 
 iterateValue : Term 0
 iterateValue = Lambda Erased (Universe 0) (Lambda Erased (Universe 0)
-  (Lambda Linear NatType
+  (Lambda Unrestricted NatType
     (Lambda Unrestricted (binaryStepType (Variable (FS (FS FZ))) (Variable (FS FZ)))
       (Lambda Linear (Variable (FS (FS (FS FZ))))
         (IterateBinary (Variable (FS (FS (FS (FS FZ)))))

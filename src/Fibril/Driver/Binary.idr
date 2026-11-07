@@ -42,7 +42,7 @@ Show BinaryRunError where
   show BinaryEntryAdmission = "Binary entry rejects non-binary IO/references or exceeds admission limits"
   show BinaryDepthLimit = "Binary description depth exhausted"
   show BinaryReductionLimit = "Binary reduction budget exhausted"
-  show BinaryExpectedNat = "Binary read capacity did not normalize to Nat"
+  show BinaryExpectedNat = "Binary count/capacity did not normalize to Nat"
   show BinaryExpectedBytes = "Binary write did not normalize to Bytes"
   show BinaryExpectedLoopStep = "Binary loop expects Done/Continue with a payload"
   show BinaryExpectedUnit = "Binary main did not normalize to Unit"

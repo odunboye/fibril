@@ -1,10 +1,13 @@
 # Bounded binary iteration: diagnostic milestone / proposal, not implementation
 
-Status: **supervisor accepted as the next implementation direction; runtime
-implementation is not authorized in this milestone**. No primitive, checker,
-evaluator, emitter, runtime or budget change is implemented. Production `Protocol/Frame.fib`
-remains baseline `0efe064`. This is separate from pure JSON folding/pair lowering
-and from the source state-abstraction work. No header parser is delivered.
+Status: **approved design; partial implementation checkpoint, NOT complete**.
+The branch now has the inert core/source description and hosted/native runners;
+see [implementation evidence and blocker](bounded-binary-iteration.md).
+Hosted count decoding still has an allocation-before-charge gap in existing pure
+Nat materialization, so full boundedness acceptance is explicitly blocked.
+The measurements below remain the historical pre-implementation diagnostic.
+Production `Protocol/Frame.fib` is unchanged. This is separate from pure JSON
+folding/pair lowering and source state abstraction. No header parser is delivered.
 
 ## Measured cause (unchanged limits)
 

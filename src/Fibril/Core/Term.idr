@@ -539,4 +539,3 @@ public export
 binaryStepType : Term n -> Term n -> Term n
 binaryStepType stateType resultType = Pi Linear stateType
   (IOType (loopVariantType (weaken stateType) (weaken resultType)))
-

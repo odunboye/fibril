@@ -11,7 +11,7 @@ typedef struct {
   size_t read_prefix, write_prefix;
 } FBinaryContext;
 
-static int binary_capacity(FRuntime *r, FThunk *input, size_t *out) {
+static int binary_natural(FRuntime *r, FThunk *input, size_t *out) {
   FValue *value = force(r, input);
   size_t count = 0;
   while (value && value->tag == V_NAT_SUCC) {
@@ -19,7 +19,7 @@ static int binary_capacity(FRuntime *r, FThunk *input, size_t *out) {
     if (count < SIZE_MAX) count++;
     value = force(r, value->as.recursive.tail);
   }
-  if (!value || value->tag != V_NAT_ZERO) { fail(r, "native binary capacity expects Nat"); return 0; }
+  if (!value || value->tag != V_NAT_ZERO) { fail(r, "native binary count/capacity expects Nat"); return 0; }
   *out = count; return 1;
 }
 
@@ -61,7 +61,7 @@ static FThunk *interact_binary(FBinaryContext *context, FByteSession *session, F
       if (!io->as.iteration.count || !io->as.iteration.step || !io->as.iteration.initial) {
         fail(r, "missing native binary iteration field"); return NULL;
       }
-      if (!binary_capacity(r, io->as.iteration.count, &limit)) return NULL;
+      if (!binary_natural(r, io->as.iteration.count, &limit)) return NULL;
       if (!limit) {
         FValue *exhausted = new_value(r, V_VARIANT);
         if (!exhausted) return NULL;
@@ -89,7 +89,7 @@ static FThunk *interact_binary(FBinaryContext *context, FByteSession *session, F
     } else if (io->tag == V_PURE) result = io->as.io.first;
     else if (io->tag == V_READ_BYTES) {
       size_t capacity;
-      if (binary_capacity(r, io->as.io.first, &capacity)) {
+      if (binary_natural(r, io->as.io.first, &capacity)) {
         FByteRead read = fibril_bytes_read(session, capacity);
         if (read.status == FB_EOF) result = ready(r, read_result(r, 0, NULL));
         else if (read.status == FB_OK) {
