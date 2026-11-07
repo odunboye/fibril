@@ -6,6 +6,8 @@ module Fibril.Foundation.DeMorgan.NormalForm
 
 import Data.List
 import Data.List.Elem
+import Data.Nat
+
 import Fibril.Foundation.DeMorgan.Sorted
 import Fibril.Foundation.DeMorgan.Interval
 
@@ -478,6 +480,87 @@ absorptionRemovedWitness ds c removed =
     andTrue False b eq impossible
     andTrue True b eq = (Refl, eq)
 
+||| A successful merge check never increases clause length, even if unsorted.
+public export
+subsetSortedLength : (xs, ys : Clause) -> subsetSorted xs ys = True -> LTE (length xs) (length ys)
+subsetSortedLength [] ys ok = LTEZero
+subsetSortedLength (x :: xs) [] ok impossible
+subsetSortedLength (x :: xs) (y :: ys) ok with (compare x y)
+  subsetSortedLength (x :: xs) (y :: ys) ok | LT impossible
+  subsetSortedLength (x :: xs) (y :: ys) ok | EQ = LTESucc (subsetSortedLength xs ys ok)
+  subsetSortedLength (x :: xs) (y :: ys) ok | GT = lteSuccRight (subsetSortedLength (x :: xs) ys ok)
+
+||| Equal-length successful checks identify the actual literal lists.
+public export
+subsetSortedEqualLength : (xs, ys : Clause) -> subsetSorted xs ys = True -> length xs = length ys -> xs = ys
+subsetSortedEqualLength [] [] ok len = Refl
+subsetSortedEqualLength [] (y :: ys) ok len impossible
+subsetSortedEqualLength (x :: xs) [] ok len impossible
+subsetSortedEqualLength (x :: xs) (y :: ys) ok len with (compare x y) proof order
+  subsetSortedEqualLength (x :: xs) (y :: ys) ok len | LT impossible
+  subsetSortedEqualLength (x :: xs) (y :: ys) ok len | EQ =
+    cong2 (::) (literalCompareEqual x y order) (subsetSortedEqualLength xs ys ok (injective len))
+  subsetSortedEqualLength (x :: xs) (y :: ys) ok len | GT =
+    let bound : LTE (S (length xs)) (length xs)
+        bound = replace {p = \n => LTE (S (length xs)) n} (sym (injective len)) (subsetSortedLength (x :: xs) ys ok)
+     in absurd (succNotLTEpred bound)
+
+natEqSelf : (n : Nat) -> (n == n) = True
+natEqSelf Z = Refl
+natEqSelf (S n) = natEqSelf n
+
+literalEqSelf : (x : Literal) -> (x == x) = True
+literalEqSelf (n, False) = rewrite natEqSelf n in Refl
+literalEqSelf (n, True) = rewrite natEqSelf n in Refl
+
+clauseEqSelf : (xs : Clause) -> (xs == xs) = True
+clauseEqSelf [] = Refl
+clauseEqSelf (x :: xs) = rewrite literalEqSelf x in clauseEqSelf xs
+
+strictFromLTE : (n, m : Nat) -> LTE n m -> Not (n = m) -> LTE (S n) m
+strictFromLTE Z Z bound neq = absurd (neq Refl)
+strictFromLTE Z (S m) bound neq = LTESucc LTEZero
+strictFromLTE (S n) (S m) (LTESucc bound) neq =
+  LTESucc (strictFromLTE n m bound (\eq => neq (cong S eq)))
+
+||| Distinct successful absorbers are strictly shorter, ruling out cycles.
+public export
+subsetSortedStrictLength : (xs, ys : Clause) -> xs /= ys = True ->
+  subsetSorted xs ys = True -> LTE (S (length xs)) (length ys)
+subsetSortedStrictLength xs ys distinct subset =
+  strictFromLTE (length xs) (length ys) (subsetSortedLength xs ys subset) $
+    \same => let equal = subsetSortedEqualLength xs ys subset same in
+      replace {p = \zs => zs /= ys = True -> Void} (sym equal)
+        (\bad => absurd (trans (sym (clauseEqSelf ys)) (notTrueFalse (ys == ys) bad))) distinct
+  where
+    notTrueFalse : (b : Bool) -> (not b = True) -> b = False
+    notTrueFalse False p = Refl
+    notTrueFalse True p impossible
+
+absorptionSurvivesFuel : (fuel : Nat) -> (env : SignedAssignment) -> (ds : DNF) ->
+  (c : Clause) -> LTE (S (length c)) fuel -> Elem c ds -> evalClause env c = True ->
+  evalDNF env (filter (\x => not (any (\d => d /= x && subsetSorted d x) ds)) ds) = True
+absorptionSurvivesFuel Z env ds c bound member holds impossible
+absorptionSurvivesFuel (S fuel) env ds c (LTESucc bound) member holds with
+  (not (any (\d => d /= c && subsetSorted d c) ds)) proof kept
+  absorptionSurvivesFuel (S fuel) env ds c (LTESucc bound) member holds | True =
+    evalDNFMember env _ c (filterMemberKept _ ds member kept) holds
+  absorptionSurvivesFuel (S fuel) env ds c (LTESucc bound) member holds | False =
+    let (d ** (inOriginal, distinct, subset)) = absorptionRemovedWitness ds c kept in
+    absorptionSurvivesFuel fuel env ds d
+      (transitive (subsetSortedStrictLength d c distinct subset) bound)
+      inOriginal (subsetSortedClauseHolds env d c subset holds)
+
+||| The exact absorption filter preserves evaluation for every DNF, including
+||| unsorted and duplicate clauses; no transitivity of subsetSorted is needed.
+public export
+evalAbsorptionFilter : (env : SignedAssignment) -> (ds : DNF) ->
+  evalDNF env (filter (\c => not (any (\d => d /= c && subsetSorted d c) ds)) ds) =
+  evalDNF env ds
+evalAbsorptionFilter env ds =
+  evalDNFFilterIfSurvives env _ ds $ \c, member, removed, holds =>
+    absorptionSurvivesFuel (S (length c)) env ds c (LTESucc reflexive) member holds
+
 evalDNFMapCanonical : (env : SignedAssignment) ->
   ((xs : Clause) -> evalClause env (sort xs) = evalClause env xs) ->
   (ds : DNF) -> evalDNF env (map Fibril.Foundation.DeMorgan.Sorted.canonicalSorted ds) = evalDNF env ds
@@ -492,9 +575,8 @@ public export
 preAbsorption : DNF -> DNF
 preAbsorption ds = canonicalSorted (map canonicalSorted ds)
 
-||| Exact remaining obligations for unconditional reduction soundness:
-||| evaluation preservation of the two actual sorts, and a surviving subset
-||| witness for each true clause removed by the actual absorption filter.
+||| Earlier stronger conditional form, retained for callers that already have
+||| direct surviving subset witnesses. See reductionSoundIfSort below.
 public export
 reductionSoundIfSortAndSurvivors : (env : SignedAssignment) ->
   ((xs : Clause) -> evalClause env (sort xs) = evalClause env xs) ->
@@ -511,6 +593,18 @@ reductionSoundIfSortAndSurvivors env literalSort clauseSort survivors ds =
   trans (evalAbsorptionFilterIfSurvivors env
     (canonicalSorted (map canonicalSorted ds))
     (survivors ds)) $
+  trans (evalDNFCanonicalSorted env (map canonicalSorted ds)) $
+  trans (clauseSort (map canonicalSorted ds)) $
+  evalDNFMapCanonical env literalSort ds
+
+||| Actual reduction is sound provided the two library sorts preserve evaluation.
+public export
+reductionSoundIfSort : (env : SignedAssignment) ->
+  ((xs : Clause) -> evalClause env (sort xs) = evalClause env xs) ->
+  ((ds : DNF) -> evalDNF env (sort ds) = evalDNF env ds) ->
+  ReductionSound env
+reductionSoundIfSort env literalSort clauseSort ds =
+  trans (evalAbsorptionFilter env (preAbsorption ds)) $
   trans (evalDNFCanonicalSorted env (map canonicalSorted ds)) $
   trans (clauseSort (map canonicalSorted ds)) $
   evalDNFMapCanonical env literalSort ds

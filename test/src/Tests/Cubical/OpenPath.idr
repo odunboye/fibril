@@ -3,6 +3,8 @@ module Tests.Cubical.OpenPath
 import Data.Fin
 import Data.List
 import Data.List.Elem
+import Data.Nat
+
 import Data.Vect
 import Fibril.Cubical.Logical.Square
 import Fibril.Cubical.Logical.ReusablePath
@@ -618,3 +620,60 @@ removedWitnessExample :
 removedWitnessExample =
   absorptionRemovedWitness [[(0, False)], [(0, False), (0, True)]]
     [(0, False), (0, True)] Refl
+
+-- The first witness for the longest clause is itself removed: following the
+-- original list therefore requires two strictly decreasing hops.
+chainDNF : Fibril.Foundation.DeMorgan.NormalForm.DNF
+chainDNF = [[(0, False), (1, False)], [(0, False)],
+            [(0, False), (1, False), (2, False)]]
+
+chainFirstRemoved : not (any (\d => d /= [(0, False), (1, False), (2, False)] &&
+  subsetSorted d [(0, False), (1, False), (2, False)]) Tests.Cubical.OpenPath.chainDNF) = False
+chainFirstRemoved = Refl
+
+chainSecondRemoved : not (any (\d => d /= [(0, False), (1, False)] &&
+  subsetSorted d [(0, False), (1, False)]) Tests.Cubical.OpenPath.chainDNF) = False
+chainSecondRemoved = Refl
+
+chainExactFilter : filter (\c => not (any (\d => d /= c && subsetSorted d c) Tests.Cubical.OpenPath.chainDNF)) Tests.Cubical.OpenPath.chainDNF =
+  [[(0, False)]]
+chainExactFilter = Refl
+
+chainFilterSound : (env : SignedAssignment) ->
+  evalDNF env (filter (\c => not (any (\d => d /= c && subsetSorted d c) Tests.Cubical.OpenPath.chainDNF)) Tests.Cubical.OpenPath.chainDNF) =
+  evalDNF env Tests.Cubical.OpenPath.chainDNF
+chainFilterSound env = evalAbsorptionFilter env Tests.Cubical.OpenPath.chainDNF
+
+edgeFilterSound : (env : SignedAssignment) ->
+  evalDNF env (filter (\c => not (any (\d => d /= c && subsetSorted d c)
+    (the Fibril.Foundation.DeMorgan.NormalForm.DNF [[], [(1, False), (0, False)], [], [(1, False)]])))
+    (the Fibril.Foundation.DeMorgan.NormalForm.DNF [[], [(1, False), (0, False)], [], [(1, False)]])) =
+  evalDNF env (the Fibril.Foundation.DeMorgan.NormalForm.DNF [[], [(1, False), (0, False)], [], [(1, False)]])
+edgeFilterSound env = evalAbsorptionFilter env [[], [(1, False), (0, False)], [], [(1, False)]]
+
+emptyFilterSound : (env : SignedAssignment) ->
+  evalDNF env (filter (\c => not (any (\d => d /= c && subsetSorted d c) (the Fibril.Foundation.DeMorgan.NormalForm.DNF []))) []) = evalDNF env []
+emptyFilterSound env = evalAbsorptionFilter env []
+
+noAbsorptionCycle : (a, b : Fibril.Foundation.DeMorgan.NormalForm.Clause) ->
+  a /= b = True -> subsetSorted a b = True ->
+  b /= a = True -> subsetSorted b a = True -> Void
+noAbsorptionCycle a b ab subsetAB ba subsetBA =
+  succNotLTEpred (transitive (subsetSortedStrictLength a b ab subsetAB)
+    (lteSuccLeft (subsetSortedStrictLength b a ba subsetBA)))
+
+chainFirstHop : subsetSorted [(0, False), (1, False)]
+  [(0, False), (1, False), (2, False)] = True
+chainFirstHop = Refl
+
+chainSecondHop : subsetSorted [(0, False)] [(0, False), (1, False)] = True
+chainSecondHop = Refl
+
+unsortedStrictHop : LTE 2 2
+unsortedStrictHop = subsetSortedStrictLength [(1, False)] [(1, False), (0, False)] Refl Refl
+
+duplicateEmptyExactFilter :
+  filter (\c => not (any (\d => d /= c && subsetSorted d c)
+    (the Fibril.Foundation.DeMorgan.NormalForm.DNF [[], [(1, False), (0, False)], [], [(1, False)]])))
+    (the Fibril.Foundation.DeMorgan.NormalForm.DNF [[], [(1, False), (0, False)], [], [(1, False)]]) = [[], []]
+duplicateEmptyExactFilter = Refl
