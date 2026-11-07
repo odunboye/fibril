@@ -139,3 +139,12 @@ if ! grep -Fq 'While processing right hand side of bad. When unifying:' "$tmp/sq
   cat "$tmp/square-application-mismatch.log" >&2; exit 1
 fi
 echo 'Square application endpoint mismatch negative test passed.'
+for negative in ScopedSyntaxDimensionEscape ScopedSyntaxTermEscape; do
+  "$idris" -p fibril --check "$negative.idr" > "$tmp/$negative.log" 2>&1 || true
+  if ! grep -q 'Mismatch between: S .* and 0' "$tmp/$negative.log"; then
+    echo "Scoped syntax negative test failed for an unrelated reason: $negative" >&2
+    cat "$tmp/$negative.log" >&2
+    exit 1
+  fi
+done
+echo 'Uniform syntax scope escape negative tests passed.'
