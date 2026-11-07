@@ -121,6 +121,18 @@ mutual
     NPathPElim : NeutralHasType ctx face p (NPathType family l r) ->
       (i : ScopedInterval n) ->
       NeutralHasType ctx face (NApply p i) (mapNeutralDimensions (instantiateDimension i) family)
+    NConvert : NeutralHasType ctx face t a -> NeutralTypeEqual ctx face a b ->
+      NeutralHasType ctx face t b
+
+  public export
+  data NeutralTypeEqual : PathContext m k -> ScopedFace n -> NeutralExpr m k n -> NeutralExpr m k n -> Type where
+    NTypeRefl : NeutralTypeFormed ctx face a -> NeutralTypeEqual ctx face a a
+    NPathTypeCong : NeutralTypeFormed ctx face a ->
+      NeutralHasType ctx face l a -> NeutralHasType ctx face r a ->
+      NeutralHasType ctx face l' a -> NeutralHasType ctx face r' a ->
+      NeutralEqual ctx face l l' a -> NeutralEqual ctx face r r' a ->
+      NeutralTypeEqual ctx face (NPathType (weakenNeutralDimensions a) l r)
+                                (NPathType (weakenNeutralDimensions a) l' r')
 
   public export
   data NeutralEqual : PathContext m k -> ScopedFace n -> NeutralExpr m k n -> NeutralExpr m k n -> NeutralExpr m k n -> Type where

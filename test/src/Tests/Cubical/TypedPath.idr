@@ -139,3 +139,24 @@ varyingEndpointAtOpenZero h = NPathPEndpointLeft h
     (NElim (NPathVar FZ) (Var (FS FZ)))
     (NRefl (NElim (NPathVar FZ) (Var (FS FZ))))
     (NRefl (NElim (NPathVar FZ) (Var (FS FZ))))) Refl
+
+-- Congruence is restricted to the very face on which the endpoint equality
+-- was established; both source and target path types are formed there.
+restrictedPathTypeCongruence :
+  NeutralTypeEqual {n = 1} Tests.Cubical.TypedPath.neutralContext (SEndpoint FZ False)
+    (NPathType NType (NApply (NPath FZ) (Var FZ)) (NApply (NPath FZ) (Var FZ)))
+    (NPathType NType (NBase FZ) (NBase FZ))
+restrictedPathTypeCongruence = NPathTypeCong NBaseForm
+  (NElim (NPathVar FZ) (Var FZ)) (NElim (NPathVar FZ) (Var FZ))
+  (NBaseVar FZ) (NBaseVar FZ) neutralLeftRestricted neutralLeftRestricted
+
+restrictedConvertedPath :
+  NeutralHasType {n = 1} Tests.Cubical.TypedPath.neutralContext (SEndpoint FZ False)
+    (NAbstract (NApply (NPath FZ) (Var (FS FZ))))
+    (NPathType NType (NBase FZ) (NBase FZ))
+restrictedConvertedPath = NConvert
+  (NIntro NBaseForm (NElim (NPathVar FZ) (Var FZ)) (NElim (NPathVar FZ) (Var FZ))
+    (NElim (NPathVar FZ) (Var (FS FZ)))
+    (NRefl (NElim (NPathVar FZ) (Var (FS FZ))))
+    (NRefl (NElim (NPathVar FZ) (Var (FS FZ)))))
+  restrictedPathTypeCongruence

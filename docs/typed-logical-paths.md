@@ -73,8 +73,8 @@ The tests form a genuinely varying family whose endpoints are both `p i`, and
 check constant-family PathP introduction, elimination and an endpoint. They do
 not derive the requested square `λ i. λ j. p (i ∧ j)`: its boundaries need
 face-restricted congruence/conversion between types such as `Path A a (p i)`
-and their endpoint substitutions, and the present equality judgment cannot
-supply that conversion. Nor is there a general derivation substitution or
+and their endpoint substitutions, and the original equality judgment could not
+supply that conversion; the bounded extension below supplies only a subset. Nor is there a general derivation substitution or
 weakening theorem. These rules are declarative and restricted, not equality
 reflection, a semantic soundness proof, or a production runtime checker.
 
@@ -86,3 +86,28 @@ family is rejected, while an endpoint typed at the open instantiated family is
 accepted. Substitution under a nested abstraction is checked definitionally to
 preserve the inner binder. Separate negative examples reject a body of the wrong
 type and a reflexive proof of the wrong varying-family boundary.
+
+## Bounded type congruence and conversion
+
+`NeutralTypeEqual` adds reflexivity for a formed type and congruence for
+**nondependent** path types over the same formed carrier. Both pairs of
+endpoints must be typed at that carrier and related by `NeutralEqual` at the
+same context and face. Thus both path types are formed by `NPathForm`; no
+endpoint equality alone identifies arbitrary types. `NConvert` changes a term's
+type only with this type-equality evidence at the identical context and face.
+This is the restricted path-congruence and conversion instance of CCHM's
+judgmental equality rules, not equality reflection. It does not include
+congruence of genuinely varying PathP families. Its path-family binder is
+exactly the existing `weakenNeutralDimensions a`; it introduces no unlifted
+face under a binder. Existing PathP rules continue to use `weakenFace`.
+
+The new concrete example converts the constant path at `p i` from
+`Path A (p i) (p i)` to `Path A a a` on `i = 0`, using the typed endpoint
+rule twice. Negative fixtures reject unrelated endpoints, reusing evidence from
+bottom at top, a term as a type, and an escaping dimension. This is a bounded
+subset, not a proof of the requested square. In particular the present
+judgments still lack the dimension-expression congruence needed to identify
+`p (i ∧ 1)` with `p i`, as well as dependent abstraction congruence and
+restricted family/face transport needed for its outer boundaries. No general
+weakening of derivations, semantic soundness theorem, or actual nested square
+is claimed.

@@ -217,3 +217,26 @@ for fixture in TypedPathPOpenEndpoint TypedPathPBadBody TypedPathPBadBoundary; d
   fi
 done
 echo 'PathP instantiated endpoint, body, and boundary negative tests passed.'
+
+for fixture in TypedTypeCongUnrelated TypedTypeCongFace TypedTypeCongMalformed TypedTypeCongScope; do
+  "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1 || true
+  location='right hand side'
+  case $fixture in
+    TypedTypeCongUnrelated) expected='Mismatch between: FZ and FS FZ.' ;;
+    TypedTypeCongFace) expected='Mismatch between: SBottom and STop.' ;;
+    TypedTypeCongMalformed) expected='Mismatch between: NType and NBase FZ.' ;;
+    TypedTypeCongScope) expected='Mismatch between: S ?k and 0.'; location='type' ;;
+  esac
+  if ! grep -Fq "While processing $location of bad" "$tmp/$fixture.log" ||
+     [[ $(grep -c '^Error:' "$tmp/$fixture.log") -ne 1 ]] ||
+     ! grep -Fq "$expected" "$tmp/$fixture.log"; then
+    echo "Type congruence negative test $fixture failed for an unrelated reason:" >&2
+    cat "$tmp/$fixture.log" >&2; exit 1
+  fi
+  if [[ $fixture == TypedTypeCongUnrelated ]] &&
+     ! grep -Fq 'NeutralEqual ?ctx ?face (NBase FZ) (NBase (FS FZ)) NType' "$tmp/$fixture.log"; then
+    echo "Type congruence negative test $fixture did not reject the endpoint equality premise:" >&2
+    cat "$tmp/$fixture.log" >&2; exit 1
+  fi
+done
+echo 'Restricted type congruence negative tests passed.'
