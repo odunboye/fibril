@@ -2409,3 +2409,113 @@ dependentAtNonBooleanSound = trans (dependentFaceEvidenceSound Tests.Shadow.depe
 dependentAtEndpointDiffers : applyMorphism (dependentPathSemantics Tests.Shadow.dependentLinearAt (\_ => (False, False)))
   ((False, ()), Tests.Shadow.dependentLinearPaths) = False
 dependentAtEndpointDiffers = Refl
+
+dependentLinearEndpointEvidence : DependentEndpointFaceEvidence
+  Tests.Shadow.commonLinearIfEndpoint Tests.Shadow.dependentLinearAt Tests.Shadow.pathLinearIf
+  Tests.Shadow.dependentLinearPaths Tests.Shadow.dependentLinearAdmissible
+dependentLinearEndpointEvidence = DepEndpointLeft LHere (Var FZ) Tests.Shadow.higherOrderLinearIf
+  CommonDeclaredHere Refl Tests.Shadow.dependentLinearPaths Tests.Shadow.dependentLinearAdmissible
+  (\env, valuation, holds => Tests.Shadow.higherOrderLinearAlignment)
+
+dependentLinearEndpointSound : (b : Bool) ->
+  applyMorphism (dependentPathSemantics Tests.Shadow.dependentLinearAt (\_ => (False, False)))
+    ((b, ()), Tests.Shadow.dependentLinearPaths) =
+  applyMorphism (dependentPathSemantics Tests.Shadow.pathLinearIf (\_ => (False, False)))
+    ((b, ()), Tests.Shadow.dependentLinearPaths)
+dependentLinearEndpointSound b = dependentEndpointFaceEvidenceSound Tests.Shadow.dependentLinearEndpointEvidence
+  (b, ()) (\_ => (False, False)) Refl
+
+dependentTailRightEvidence : DependentEndpointFaceEvidence
+  {decls = Tests.Shadow.dependentTwoDeclarations} {face = the (ScopedFace 1) (SEndpoint FZ True)}
+  (CommonRight {i = Var FZ} (CommonDeclaredThere CommonDeclaredHere) Refl)
+  (HOPAt [] [LBool, LBool] LBool 1 (LThere LHere) (Var FZ))
+  (HOPOrdinary [] [LBool, LBool] LBool 1 (HOBool [] True))
+  Tests.Shadow.dependentTwoPaths Tests.Shadow.dependentTwoAdmissible
+dependentTailRightEvidence = DepEndpointRight (LThere LHere) (Var FZ) (HOBool [] True)
+  (CommonDeclaredThere CommonDeclaredHere) Refl Tests.Shadow.dependentTwoPaths Tests.Shadow.dependentTwoAdmissible
+  (\env, valuation, holds => AlignBool [] True)
+
+dependentTailRightSound : applyMorphism Tests.Shadow.dependentTailPath ((), (True, True)) = True
+dependentTailRightSound = dependentEndpointFaceEvidenceSound Tests.Shadow.dependentTailRightEvidence () (\_ => (True, True)) Refl
+
+dependentLinearTwoDimEvidence : DependentEndpointFaceEvidence
+  {decls = Tests.Shadow.dependentLinearDeclarations} {face = the (ScopedFace 2) (SEndpoint FZ False)}
+  (CommonLeft {i = Var FZ} CommonDeclaredHere Refl)
+  (HOPAt [LBool] [LBool] LBool 2 LHere (Var FZ))
+  (HOPOrdinary [LBool] [LBool] LBool 2 Tests.Shadow.higherOrderLinearIf)
+  Tests.Shadow.dependentLinearPaths Tests.Shadow.dependentLinearAdmissible
+dependentLinearTwoDimEvidence = DepEndpointLeft LHere (Var FZ) Tests.Shadow.higherOrderLinearIf
+  CommonDeclaredHere Refl Tests.Shadow.dependentLinearPaths Tests.Shadow.dependentLinearAdmissible
+  (\env, valuation, holds => Tests.Shadow.higherOrderLinearAlignment)
+
+dependentLinearUnrelatedNonBoolean : (b : Bool) ->
+  applyMorphism (dependentPathSemantics (HOPAt [LBool] [LBool] LBool 2 LHere (Var FZ))
+    (\i => case i of FZ => (False, False); FS FZ => (True, False))) ((b, ()), Tests.Shadow.dependentLinearPaths) =
+  applyMorphism (higherOrderTermSemantics Tests.Shadow.higherOrderLinearIf) (b, ())
+dependentLinearUnrelatedNonBoolean b = dependentEndpointFaceEvidenceSound Tests.Shadow.dependentLinearTwoDimEvidence
+  (b, ()) (\i => case i of FZ => (False, False); FS FZ => (True, False)) Refl
+
+dependentLinearEndpointRestricted : DependentEndpointFaceEvidence
+  {decls = Tests.Shadow.dependentLinearDeclarations} {face = the (ScopedFace 1) (SEndpoint FZ False)}
+  (CommonRestrict {source = SEndpoint FZ False} Tests.Shadow.commonLinearIfEndpoint Refl)
+  Tests.Shadow.dependentLinearAt Tests.Shadow.pathLinearIf Tests.Shadow.dependentLinearPaths Tests.Shadow.dependentLinearAdmissible
+dependentLinearEndpointRestricted = DepEndpointRestrict (SEndpoint FZ False) (SEndpoint FZ False) Refl Tests.Shadow.dependentLinearEndpointEvidence
+
+-- Symmetry and transitivity are used on endpoint evidence, not just reflexivity.
+dependentLinearEndpointRoundTrip : DependentEndpointFaceEvidence
+  (CommonTrans (CommonSym Tests.Shadow.commonLinearIfEndpoint) Tests.Shadow.commonLinearIfEndpoint)
+  Tests.Shadow.pathLinearIf Tests.Shadow.pathLinearIf
+  Tests.Shadow.dependentLinearPaths Tests.Shadow.dependentLinearAdmissible
+dependentLinearEndpointRoundTrip = DepEndpointTrans (DepEndpointSym Tests.Shadow.dependentLinearEndpointEvidence)
+  (AlignPathAt [LBool] [LBool] LBool 1 LHere (Var FZ)) Tests.Shadow.dependentLinearEndpointEvidence
+
+dependentLinearEndpointRoundTripConsumed : (b : Bool) ->
+  applyMorphism (dependentPathSemantics Tests.Shadow.pathLinearIf (\_ => (False, False)))
+    ((b, ()), Tests.Shadow.dependentLinearPaths) = b
+dependentLinearEndpointRoundTripConsumed b = trans
+  (dependentEndpointFaceEvidenceSound Tests.Shadow.dependentLinearEndpointRoundTrip
+    (b, ()) (\_ => (False, False)) Refl) (sym (Tests.Shadow.dependentLinearEndpoint b))
+
+dependentLinearThreeDimEvidence : DependentEndpointFaceEvidence
+  {decls = Tests.Shadow.dependentLinearDeclarations} {face = the (ScopedFace 3) (SEndpoint FZ False)}
+  (CommonLeft {i = Var FZ} CommonDeclaredHere Refl)
+  (HOPAt [LBool] [LBool] LBool 3 LHere (Var FZ))
+  (HOPOrdinary [LBool] [LBool] LBool 3 Tests.Shadow.higherOrderLinearIf)
+  Tests.Shadow.dependentLinearPaths Tests.Shadow.dependentLinearAdmissible
+dependentLinearThreeDimEvidence = DepEndpointLeft LHere (Var FZ) Tests.Shadow.higherOrderLinearIf
+  CommonDeclaredHere Refl Tests.Shadow.dependentLinearPaths Tests.Shadow.dependentLinearAdmissible
+  (\env, valuation, holds => Tests.Shadow.higherOrderLinearAlignment)
+
+dependentLinearStrictRestriction : DependentEndpointFaceEvidence
+  {decls = Tests.Shadow.dependentLinearDeclarations}
+  {face = the (ScopedFace 3) (SConjunction (SEndpoint FZ False) (SEndpoint (FS FZ) True))}
+  (CommonRestrict {source = SEndpoint FZ False} (CommonLeft {i = Var FZ} CommonDeclaredHere Refl) Refl)
+  (HOPAt [LBool] [LBool] LBool 3 LHere (Var FZ))
+  (HOPOrdinary [LBool] [LBool] LBool 3 Tests.Shadow.higherOrderLinearIf)
+  Tests.Shadow.dependentLinearPaths Tests.Shadow.dependentLinearAdmissible
+dependentLinearStrictRestriction = DepEndpointRestrict
+  (SConjunction (SEndpoint FZ False) (SEndpoint (FS FZ) True)) (SEndpoint FZ False) Refl
+  Tests.Shadow.dependentLinearThreeDimEvidence
+
+dependentLinearStrictRestrictionConsumed : (b : Bool) ->
+  applyMorphism (dependentPathSemantics (HOPAt [LBool] [LBool] LBool 3 LHere (Var FZ))
+    (\i => case i of FZ => (False, False); FS FZ => (True, True); FS (FS FZ) => (True, False)))
+    ((b, ()), Tests.Shadow.dependentLinearPaths) = b
+dependentLinearStrictRestrictionConsumed b = trans
+  (dependentEndpointFaceEvidenceSound Tests.Shadow.dependentLinearStrictRestriction (b, ())
+    (\i => case i of FZ => (False, False); FS FZ => (True, True); FS (FS FZ) => (True, False)) Refl)
+  (sym (Tests.Shadow.dependentLinearEndpoint b))
+
+dependentLinearEndpointSymConsumed : (b : Bool) ->
+  applyMorphism (dependentPathSemantics Tests.Shadow.pathLinearIf (\_ => (False, False)))
+    ((b, ()), Tests.Shadow.dependentLinearPaths) = b
+dependentLinearEndpointSymConsumed b = trans
+  (dependentEndpointFaceEvidenceSound (DepEndpointSym Tests.Shadow.dependentLinearEndpointEvidence)
+    (b, ()) (\_ => (False, False)) Refl) Refl
+
+-- The source holds while the conjunction fails, so this restriction is strict.
+dependentLinearRestrictionIsStrict :
+  (faceAtVal (\_ => (False, False)) (the (ScopedFace 3) (SEndpoint FZ False)),
+   faceAtVal (\_ => (False, False))
+     (the (ScopedFace 3) (SConjunction (SEndpoint FZ False) (SEndpoint (FS FZ) True)))) = (True, False)
+dependentLinearRestrictionIsStrict = Refl

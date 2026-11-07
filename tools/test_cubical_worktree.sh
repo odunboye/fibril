@@ -681,3 +681,49 @@ for fixture in DependentFaceFalseHolds DependentFaceWrongFace DependentFaceWrong
   fi
 done
 echo 'Dependent face false holds, face, derivation and trans alignment negative tests passed.'
+
+fixture=DependentEndpointFaceWrongSide
+if "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1; then
+  echo "Dependent endpoint face wrong-side test unexpectedly succeeded" >&2; exit 1
+fi
+if [[ $(grep -c '^Error:' "$tmp/$fixture.log") -ne 1 ]] ||
+   ! grep -Fq 'Error: While processing right hand side of bad. When unifying:' "$tmp/$fixture.log" ||
+   ! grep -Fq 'Mismatch between: CommonRight CommonDeclaredHere Refl and CommonLeft CommonDeclaredHere Refl.' "$tmp/$fixture.log" ||
+   grep -Eq 'Undefined name|While processing type of' "$tmp/$fixture.log"; then
+  echo 'Dependent endpoint face wrong-side diagnostic failed:' >&2
+  cat "$tmp/$fixture.log" >&2; exit 1
+fi
+echo 'Dependent endpoint face wrong-side test passed.'
+
+for fixture in DependentEndpointFaceWrongEnvironment DependentEndpointFaceWrongAdmissibility DependentEndpointFaceWrongSelected DependentEndpointFaceWrongFace DependentEndpointFaceWrongTrans; do
+  if "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1; then
+    echo "Dependent endpoint face negative test unexpectedly succeeded: $fixture" >&2; exit 1
+  fi
+  case "$fixture" in
+    DependentEndpointFaceWrongEnvironment) expected="Can't solve constraint between: True and vary (snd _)." ;;
+    DependentEndpointFaceWrongAdmissibility) expected="Can't solve constraint between: Refl and let () = _ in Refl." ;;
+    DependentEndpointFaceWrongSelected) expected='Mismatch between: LBool and LUnit.' ;;
+    DependentEndpointFaceWrongFace) expected='Mismatch between: SEndpoint FZ False and SConjunction (SEndpoint FZ False) (SEndpoint FZ False).' ;;
+    DependentEndpointFaceWrongTrans) expected='Mismatch between: LUnit and LBool.' ;;
+  esac
+  if [[ $(grep -c '^Error:' "$tmp/$fixture.log") -ne 1 ]] ||
+     ! grep -Fq 'Error: While processing right hand side of bad.' "$tmp/$fixture.log" ||
+     ! grep -Fq "$expected" "$tmp/$fixture.log" ||
+     grep -Eq 'Undefined name|While processing type of' "$tmp/$fixture.log"; then
+    echo "Dependent endpoint face negative diagnostic failed: $fixture" >&2
+    cat "$tmp/$fixture.log" >&2; exit 1
+  fi
+  case "$fixture" in
+    DependentEndpointFaceWrongSelected)
+      if ! grep -Fq 'DependentEndpointAlignment unitDomain (dependentDeclaredLeftAtFace' "$tmp/$fixture.log" ||
+         ! grep -Fq 'HigherOrderAlignment boolDomain boolDomain' "$tmp/$fixture.log"; then
+        echo 'Selected witness diagnostic omitted alignment operands' >&2; cat "$tmp/$fixture.log" >&2; exit 1
+      fi ;;
+    DependentEndpointFaceWrongTrans)
+      if ! grep -Fq 'unitDomain unitDomain' "$tmp/$fixture.log" ||
+         ! grep -Fq 'boolDomain unitDomain' "$tmp/$fixture.log"; then
+        echo 'Transitivity diagnostic omitted intermediate witnesses' >&2; cat "$tmp/$fixture.log" >&2; exit 1
+      fi ;;
+  esac
+done
+echo 'Dependent endpoint face environment, admissibility, selected witness, face and intermediate alignment tests passed.'

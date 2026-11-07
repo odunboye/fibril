@@ -326,5 +326,12 @@ path environment, admissibility proof and valuation. Reflexivity and the
 intermediate witnesses in transitivity require explicit path alignment; no
 semantic relation is assumed. Endpoint, application, conditional and unit
 elimination derivations are not yet constructors of this evidence, so this is
-not general higher-order face soundness. In particular, the endpoint alignment
-lemmas above have not yet been integrated into the face derivation theorem.
+not general higher-order face soundness.
+
+A separate `DependentEndpointFaceEvidence` is indexed by the actual path
+environment and admissibility proof. It adds left and right endpoints with a
+uniform provider of structural alignment to the exact extracted endpoint
+witness, plus symmetry, transitivity and restriction; it embeds the original
+structural fragment. Its soundness theorem uses no target semantic relation as
+a premise. Application, conditional and unit elimination congruences remain
+outside this extended evidence, so this is still not general face soundness.

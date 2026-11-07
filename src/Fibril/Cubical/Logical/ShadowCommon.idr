@@ -1870,3 +1870,85 @@ dependentFaceEvidenceSound {ctx} {paths} {a} (DepFaceTrans first alignment secon
       (dependentFaceEvidenceSound second env ps adm valuation holds))
 dependentFaceEvidenceSound (DepFaceRestrict face source check evidence) env ps adm valuation holds =
   dependentFaceEvidenceSound evidence env ps adm valuation (commonFaceValEntailsSound valuation face source check holds)
+
+||| Endpoint evidence is indexed by the actual admissibility proof. The provider
+||| aligns only syntax witnesses, uniformly over environments and face valuations.
+public export
+data DependentEndpointFaceEvidence : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} ->
+  {0 decls : CommonDeclarations ctx paths} -> {0 face : ScopedFace d} ->
+  {0 x, y : CommonPathTerm n k d} -> {a : LogicalType} ->
+  {0 lt : CommonPathHasType ctx paths x a} -> {0 rt : CommonPathHasType ctx paths y a} ->
+  (0 eq : CommonFaceEqual decls face x y a) ->
+  HigherOrderPathTerm ctx paths a d lt -> HigherOrderPathTerm ctx paths a d rt ->
+  (ps : carrier (commonDependentPathEnvironmentSetoid ctx paths)) -> DependentPathAdmissible decls ps -> Type where
+  DepEndpointStructural : DependentFaceEvidence eq l r -> DependentEndpointFaceEvidence eq l r ps adm
+  DepEndpointSym : DependentEndpointFaceEvidence eq l r ps adm ->
+    DependentEndpointFaceEvidence (CommonSym eq) r l ps adm
+  DepEndpointTrans : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} ->
+    {0 decls : CommonDeclarations ctx paths} -> {0 face : ScopedFace d} ->
+    {0 x, y, z : CommonPathTerm n k d} -> {a : LogicalType} ->
+    {0 eq : CommonFaceEqual decls face x y a} -> {0 eq' : CommonFaceEqual decls face y z a} ->
+    {0 lx : CommonPathHasType ctx paths x a} -> {0 rz : CommonPathHasType ctx paths z a} ->
+    {l : HigherOrderPathTerm ctx paths a d lx} -> {r : HigherOrderPathTerm ctx paths a d rz} ->
+    {0 mid, mid' : CommonPathHasType ctx paths y a} ->
+    {m : HigherOrderPathTerm ctx paths a d mid} -> {m' : HigherOrderPathTerm ctx paths a d mid'} ->
+    {ps : carrier (commonDependentPathEnvironmentSetoid ctx paths)} -> {adm : DependentPathAdmissible decls ps} ->
+    DependentEndpointFaceEvidence eq l m ps adm -> HigherOrderPathAlignment m m' ->
+    DependentEndpointFaceEvidence eq' m' r ps adm -> DependentEndpointFaceEvidence (CommonTrans eq eq') l r ps adm
+  DepEndpointRestrict : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} ->
+    {0 x, y : CommonPathTerm n k d} -> {a : LogicalType} ->
+    {0 lt : CommonPathHasType ctx paths x a} -> {0 rt : CommonPathHasType ctx paths y a} ->
+    {l : HigherOrderPathTerm ctx paths a d lt} -> {r : HigherOrderPathTerm ctx paths a d rt} ->
+    {0 decls : CommonDeclarations ctx paths} -> (face, source : ScopedFace d) ->
+    {0 eq : CommonFaceEqual decls source x y a} -> (check : boundedFaceEntails face source = True) ->
+    {ps : carrier (commonDependentPathEnvironmentSetoid ctx paths)} -> {adm : DependentPathAdmissible decls ps} ->
+    DependentEndpointFaceEvidence eq l r ps adm -> DependentEndpointFaceEvidence {face} (CommonRestrict eq check) l r ps adm
+  DepEndpointLeft : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} ->
+    {0 decls : CommonDeclarations ctx paths} -> {face : ScopedFace d} -> {l, r : CommonTerm n} -> {0 typed : CommonHasType ctx l a} ->
+    (p : LogicalVar paths a) -> (i : ScopedInterval d) -> (w : HigherOrderTerm ctx a typed) ->
+    (declared : CommonDeclaredPath decls p l r) -> (check : boundedEndpointEntails face i False = True) ->
+    (ps : carrier (commonDependentPathEnvironmentSetoid ctx paths)) -> (adm : DependentPathAdmissible decls ps) ->
+    ((env : carrier (commonEnvironmentSetoid ctx)) -> (valuation : Fin d -> DM) ->
+      (holds : faceAtVal valuation face = True) ->
+      DependentEndpointAlignment w (dependentDeclaredLeftAtFace declared ps adm env valuation face i check holds)) ->
+    DependentEndpointFaceEvidence {face} (CommonLeft {i} declared check)
+      (HOPAt ctx paths a d p i) (HOPOrdinary ctx paths a d w) ps adm
+  DepEndpointRight : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} ->
+    {0 decls : CommonDeclarations ctx paths} -> {face : ScopedFace d} -> {l, r : CommonTerm n} -> {0 typed : CommonHasType ctx r a} ->
+    (p : LogicalVar paths a) -> (i : ScopedInterval d) -> (w : HigherOrderTerm ctx a typed) ->
+    (declared : CommonDeclaredPath decls p l r) -> (check : boundedEndpointEntails face i True = True) ->
+    (ps : carrier (commonDependentPathEnvironmentSetoid ctx paths)) -> (adm : DependentPathAdmissible decls ps) ->
+    ((env : carrier (commonEnvironmentSetoid ctx)) -> (valuation : Fin d -> DM) ->
+      (holds : faceAtVal valuation face = True) ->
+      DependentEndpointAlignment w (dependentDeclaredRightAtFace declared ps adm env valuation face i check holds)) ->
+    DependentEndpointFaceEvidence {face} (CommonRight {i} declared check)
+      (HOPAt ctx paths a d p i) (HOPOrdinary ctx paths a d w) ps adm
+
+public export
+dependentEndpointFaceEvidenceSound : {d : Nat} -> {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} ->
+  {0 decls : CommonDeclarations ctx paths} -> {face : ScopedFace d} ->
+  {0 x, y : CommonPathTerm n k d} -> {a : LogicalType} ->
+  {0 lt : CommonPathHasType ctx paths x a} -> {0 rt : CommonPathHasType ctx paths y a} ->
+  {0 eq : CommonFaceEqual decls face x y a} ->
+  {l : HigherOrderPathTerm ctx paths a d lt} -> {r : HigherOrderPathTerm ctx paths a d rt} ->
+  {ps : carrier (commonDependentPathEnvironmentSetoid ctx paths)} -> {adm : DependentPathAdmissible decls ps} ->
+  DependentEndpointFaceEvidence eq l r ps adm -> (env : carrier (commonEnvironmentSetoid ctx)) ->
+  (valuation : Fin d -> DM) -> faceAtVal valuation face = True ->
+  related (commonTypeSetoid a) (applyMorphism (dependentPathSemantics l valuation) (env, ps))
+    (applyMorphism (dependentPathSemantics r valuation) (env, ps))
+dependentEndpointFaceEvidenceSound {ps} {adm} (DepEndpointStructural evidence) env valuation holds =
+  dependentFaceEvidenceSound evidence env ps adm valuation holds
+dependentEndpointFaceEvidenceSound {a} (DepEndpointSym evidence) env valuation holds =
+  relationSym (commonTypeSetoid a) (dependentEndpointFaceEvidenceSound evidence env valuation holds)
+dependentEndpointFaceEvidenceSound {ctx} {paths} {a} {ps} (DepEndpointTrans first alignment second) env valuation holds =
+  relationTrans (commonTypeSetoid a) (dependentEndpointFaceEvidenceSound first env valuation holds)
+    (relationTrans (commonTypeSetoid a)
+      (dependentPathAlignedRelated alignment valuation (env, ps) (env, ps)
+        (relationRefl (commonProductSetoid (commonEnvironmentSetoid ctx) (commonDependentPathEnvironmentSetoid ctx paths)) (env, ps)))
+      (dependentEndpointFaceEvidenceSound second env valuation holds))
+dependentEndpointFaceEvidenceSound (DepEndpointRestrict face source check evidence) env valuation holds =
+  dependentEndpointFaceEvidenceSound evidence env valuation (commonFaceValEntailsSound valuation face source check holds)
+dependentEndpointFaceEvidenceSound {face} (DepEndpointLeft p i w declared check ps adm alignment) env valuation holds =
+  dependentDeclaredLeftAlignedAtFace declared ps adm env valuation face i check holds w (alignment env valuation holds)
+dependentEndpointFaceEvidenceSound {face} (DepEndpointRight p i w declared check ps adm alignment) env valuation holds =
+  dependentDeclaredRightAlignedAtFace declared ps adm env valuation face i check holds w (alignment env valuation holds)
