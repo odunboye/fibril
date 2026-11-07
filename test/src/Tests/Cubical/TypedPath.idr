@@ -85,6 +85,33 @@ fourNonBooleanNegative : evalFace (fourValuation (const DNegative))
   (SDisjunction (SEndpoint FZ False) (SEndpoint FZ True)) = False
 fourNonBooleanNegative = Refl
 
+-- Exact correspondence fails: the lattice collapses i ∧ ~i to zero.
+nonBooleanMeetValue : evalInterval (const DPositive) (Meet (Var FZ) (Reverse (Var FZ))) = DZero
+nonBooleanMeetValue = Refl
+
+nonBooleanMeetFace : evalFace (fourValuation (const DPositive))
+  (scopedEndpoint (Meet (Var FZ) (Reverse (Var FZ))) False) = False
+nonBooleanMeetFace = Refl
+
+nonBooleanJoinValue : evalInterval (const DNegative) (Join (Var FZ) (Reverse (Var FZ))) = DOne
+nonBooleanJoinValue = Refl
+
+nonBooleanJoinFace : evalFace (fourValuation (const DNegative))
+  (scopedEndpoint (Join (Var FZ) (Reverse (Var FZ))) True) = False
+nonBooleanJoinFace = Refl
+
+meetRightSemantic : (env : Fin 1 -> Four) ->
+  evalFace (fourValuation env) (SEndpoint FZ True) = True ->
+  evalInterval env (Meet (Var FZ) (Var FZ)) = evalInterval env (Var FZ)
+meetRightSemantic env = intervalEquivalentSound env (SEndpoint FZ True)
+  (Meet (Var FZ) (Var FZ)) (Var FZ) (IMeetRightOne Refl)
+
+meetLeftSemantic : (env : Fin 1 -> Four) ->
+  evalFace (fourValuation env) (SEndpoint FZ True) = True ->
+  evalInterval env (Meet (Var FZ) (Var FZ)) = evalInterval env (Var FZ)
+meetLeftSemantic env = intervalEquivalentSound env (SEndpoint FZ True)
+  (Meet (Var FZ) (Var FZ)) (Var FZ) (IMeetLeftOne Refl)
+
 contradictoryEndpointAssumption : (v : Four) ->
   evalFace (fourValuation (const v))
     (SConjunction (SEndpoint FZ False) (SEndpoint FZ True)) = False

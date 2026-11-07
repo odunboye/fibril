@@ -277,8 +277,19 @@ values). `boundedFaceEntailsSound` lifts the result through the checker's size
 guard. Neither theorem claims completeness: for example, a contradictory pair
 of endpoint assumptions need not entail bottom according to the checker.
 
-The four-element endpoint observations are not a proof about interval operations:
-there is presently no machine-checked correspondence between `scopedEndpoint`
-and an evaluation of meet, join, and reversal, nor a full free De Morgan or CCHM
-soundness theorem. In particular the result does not by itself justify the
-interval-equivalence and endpoint typing rules semantically.
+The four-element model now interprets scoped intervals using the bounded
+distributive diamond, with reversal swapping zero and one and swapping the two
+incomparable signed generators. `scopedEndpointSound` proves that if the
+extracted endpoint face is true under a `fourValuation`, the evaluated interval
+is that endpoint. The converse is false: for `i = DPositive`, `i ∧ ~i`
+evaluates to zero, but its extracted zero face is false. Dually, `i ∨ ~i`
+evaluates to one while its one face is false. These counterexamples are checked
+in `Tests.Cubical.TypedPath`; no exact correspondence is claimed.
+
+`intervalEquivalentSound` uses this sufficient direction and
+`boundedFaceEntailsSound` to prove all three `IntervalEquivalent` constructors
+preserve interval evaluation under a true face. This is only soundness in this
+four-element model, not completeness for free De Morgan algebras, a semantic
+interpretation of the typed path judgments or endpoint rules, or full cubical
+soundness. The four-element quotient identifies `i ∧ ~i` with zero; that
+identity does not hold in the free De Morgan interval.
