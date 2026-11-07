@@ -6,6 +6,8 @@ import Data.Fin
 import Data.Vect
 import Fibril.Cubical.Logical.Shadow
 import Fibril.Cubical.Logical.ShadowPath
+import Fibril.Cubical.Logical.OpenPath
+import Fibril.Cubical.Logical.FaceSoundness
 import Fibril.Foundation.DeMorgan.Interval
 import Fibril.Cubical.Logical.ShadowSubstitution
 import Fibril.Cubical.Logical.ShadowTypedBridge
@@ -18,6 +20,32 @@ import Fibril.Cubical.Logical.PathContext
 import Fibril.Foundation.DeMorgan.Scope
 
 %default total
+
+||| The face solver's independent observations coincide with the pair model's
+||| actual endpoint tests when instantiated by a pair valuation.
+public export
+commonFaceValAgreement : (valuation : Fin d -> DM) -> (face : ScopedFace d) ->
+  evalFace (\i, b => valuation i == (b, b)) face = faceAtVal valuation face
+commonFaceValAgreement valuation SBottom = Refl
+commonFaceValAgreement valuation STop = Refl
+commonFaceValAgreement valuation (SEndpoint i b) = Refl
+commonFaceValAgreement valuation (SConjunction x y) =
+  rewrite commonFaceValAgreement valuation x in rewrite commonFaceValAgreement valuation y in Refl
+commonFaceValAgreement valuation (SDisjunction x y) =
+  rewrite commonFaceValAgreement valuation x in rewrite commonFaceValAgreement valuation y in Refl
+
+||| An accepted bounded endpoint check really fixes the interval to that endpoint
+||| in every satisfying four-pair valuation, including non-Boolean dimensions.
+public export
+commonBoundedEndpointValSound : {d : Nat} -> (valuation : Fin d -> DM) -> (face : ScopedFace d) ->
+  (i : ScopedInterval d) -> (side : Bool) -> boundedEndpointEntails face i side = True ->
+  faceAtVal valuation face = True -> evalDMVal valuation i = (side, side)
+commonBoundedEndpointValSound valuation face i side accepted holds =
+  dmScopedEndpointValSound valuation i side $
+    rewrite sym (commonFaceValAgreement valuation (scopedEndpoint i side)) in
+    boundedFaceEntailsSound (\j, b => valuation j == (b, b)) face (scopedEndpoint i side)
+      (endpointEntailsFace face i side accepted)
+      (rewrite commonFaceValAgreement valuation face in holds)
 
 public export
 data CommonTerm : Nat -> Type where

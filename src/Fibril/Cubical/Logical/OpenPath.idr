@@ -611,6 +611,39 @@ pairEqTrue (True, True) (False, True) pr = absurd pr
 pairEqTrue (True, True) (True, False) pr = absurd pr
 pairEqTrue (True, True) (True, True) pr = Refl
 
+||| Extracted endpoint faces are sufficient in the solver's four-pair model.
+||| They are not necessary: incomparable pair components can meet at zero.
+public export
+dmScopedEndpointValSound : (valuation : Fin n -> DM) -> (r : ScopedInterval n) -> (b : Bool) ->
+  faceAtVal valuation (scopedEndpoint r b) = True -> evalDMVal valuation r = (b, b)
+dmScopedEndpointValSound valuation r b holds = pairEqTrue (evalDMVal valuation r) (b, b) (go r b holds)
+  where
+    go : (i : ScopedInterval n) -> (side : Bool) ->
+      faceAtVal valuation (scopedEndpoint i side) = True ->
+      (evalDMVal valuation i == (side, side)) = True
+    go Zero False p = Refl
+    go Zero True Refl impossible
+    go One False Refl impossible
+    go One True p = Refl
+    go (Var i) side p = p
+    go (Reverse x) side p = dmReverseEndpoint (evalDMVal valuation x) side (go x (not side) p)
+    go (Meet x y) False p = dmMeetFalse (evalDMVal valuation x) (evalDMVal valuation y) $
+      soToEq $ case soOr (eqToSo p) of
+        Left px => orSo (Left (eqToSo (go x False (soToEq px))))
+        Right py => orSo (Right (eqToSo (go y False (soToEq py))))
+    go (Meet x y) True p =
+      let (px, py) = soAnd (eqToSo p) in
+      dmMeetTrue (evalDMVal valuation x) (evalDMVal valuation y) $
+        soToEq (andSo (eqToSo (go x True (soToEq px)), eqToSo (go y True (soToEq py))))
+    go (Join x y) False p =
+      let (px, py) = soAnd (eqToSo p) in
+      dmJoinFalse (evalDMVal valuation x) (evalDMVal valuation y) $
+        soToEq (andSo (eqToSo (go x False (soToEq px)), eqToSo (go y False (soToEq py))))
+    go (Join x y) True p = dmJoinTrue (evalDMVal valuation x) (evalDMVal valuation y) $
+      soToEq $ case soOr (eqToSo p) of
+        Left px => orSo (Left (eqToSo (go x True (soToEq px))))
+        Right py => orSo (Right (eqToSo (go y True (soToEq py))))
+
 appendElemLeft : (xs : List a) -> Elem i xs -> Elem i (xs ++ ys)
 appendElemLeft (i :: xs) Here = Here
 appendElemLeft (x :: xs) (There pr) = There (appendElemLeft xs pr)

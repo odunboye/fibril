@@ -980,3 +980,22 @@ commonIndependentMappedApplication :
 commonIndependentMappedApplication = substituteCommonShadowApplication Tests.Shadow.commonTrueImage
   Tests.Shadow.commonTrueEnvironment Tests.Shadow.commonIndependentAmbientDecls
   Tests.Shadow.commonIndependentAmbientPath Zero
+
+-- The endpoint check is sound even when an unrelated dimension is non-Boolean.
+commonPairValuation : Fin 2 -> DM
+commonPairValuation FZ = (False, False)
+commonPairValuation (FS FZ) = (False, True)
+
+commonPairNonBoolean : evalDMVal Tests.Shadow.commonPairValuation (Var (FS FZ)) = (False, True)
+commonPairNonBoolean = Refl
+
+commonPairEndpointSound : evalDMVal Tests.Shadow.commonPairValuation (Var FZ) = (False, False)
+commonPairEndpointSound = commonBoundedEndpointValSound Tests.Shadow.commonPairValuation
+  (SEndpoint FZ False) (Var FZ) False Refl Refl
+
+commonPairUnjustifiedEndpointRejected : boundedEndpointEntails
+  (the (ScopedFace 2) (SEndpoint FZ False)) (Var (FS FZ)) False = False
+commonPairUnjustifiedEndpointRejected = Refl
+
+commonPairNonBooleanFaceFalse : faceAtVal Tests.Shadow.commonPairValuation (SEndpoint (FS FZ) False) = False
+commonPairNonBooleanFaceFalse = Refl

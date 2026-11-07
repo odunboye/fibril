@@ -159,3 +159,19 @@ usage bound; common typing and equality do not imply usage evidence.
 These results are declarative; they do not establish semantic soundness,
 general PathP, correspondence with production Core or runtime equality,
 resource enforcement at runtime, or an ownership change.
+
+### Pair-model endpoint soundness and remaining gap
+
+`commonBoundedEndpointValSound` proves that an accepted bounded endpoint
+check forces the interpreted interval to the requested endpoint at every
+satisfying valuation in the solver's four-pair De Morgan model. It connects
+`boundedFaceEntailsSound` to the actual `faceAtVal` endpoint observations and
+uses `dmScopedEndpointValSound`; dimensions may take either non-endpoint pair.
+The extracted endpoint face is sufficient, not necessary, for an interval to
+be an endpoint in this model.
+
+This is only the interval-side lemma for the common endpoint rules. There is
+still no independent interpretation of common terms or declared paths and no
+fundamental soundness theorem for `CommonFaceEqual`, including its congruence
+rules. In particular this lemma does not establish semantic equations for
+named paths or claim dependent path, composition, or resource soundness.
