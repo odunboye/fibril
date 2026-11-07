@@ -363,70 +363,55 @@ replacement demand. Its two syntactic copies are alternative executions, so
 `joinUsageIdempotent` preserves even a linear demand rather than adding it twice.
 This is a strictly bounded term shape, not a general induction theorem.
 
-A candidate general invariant must work under an insertion below arbitrary
-binders: given a derivation and a replacement derivation weakened under those
-binders, construct the substituted derivation, preserve each intervening
-binder's exact demand, and relate the remaining output demand by pointwise
-permission to `u + q*w`, where `q` is the removed variable's demand. The
-relation must be permission (`allows`), not numerical order or equality. The
-replacement must still yield internal derivations when `q` is erased, because
-erased application arguments are checked. At alternatives, the candidate bound
-must account for potentially different `q`s and overlapping ambient demands;
-the common-demand equality alone is insufficient. This is a proof plan, not a machine-checked invariant. `DemandLeq a b` is
-`allows b a = True`; reflexivity, transitivity, monotonicity of addition,
-multiplication and join, and both join upper bounds are checked exhaustively.
-`Admits` is its reversed-argument pointwise lift, with transitivity, monotonicity
-of vector addition, scaling and join, and vector join upper bounds. The
-`SingleSubstitution` deletion path represents a replacement under an arbitrary
-retained prefix, and `singleSubstitutionUnder` checks its lifting equation.
-The path projections `deletedDemand` and `retainedDemand` split a source
-usage, and `replacementDemand` clears the retained prefix; `deletedCombine`
-and `retainedCombine` commute with sequential composition. The checked scalar
-`substitutionAddInterchange` and `substitutionScaleInterchange` provide the
-sequential and application arithmetic, lifted pointwise by
-`substitutionCombineUsage` and `substitutionScaleUsage`. `substitutionJoinUsageBound` proves
-that joining separately charged branches is admitted by the joined source
-bound, even when their deleted coefficients differ. These results do not yet
-construct substituted derivations: path laws for scale and join, substitution/renaming commutation, and the constructor
-induction including binders remain open.
-Consequently neither validity nor a counterexample for the full theorem is
-claimed by this intermediate result.
+`substituteUses` now proves the general **single-deletion** graded bound,
+not graded simultaneous substitution. A `SingleSubstitution` records a deletion
+under an arbitrary retained prefix. `ReplacementUses` records the replacement's
+`Uses` derivation at the deletion and its weakening with an erased demand at
+each retained binder. For any source derivation, `substituteUses` constructs a
+derivation for the substituted term and an `Admits` proof bounding its demand by
 
-In this representation the single-linear quantitative theorem **still missing**
-is: given `Uses t (Linear :: u)`, `Uses v w`, and
-`Admits P (combineUsage u w)`, construct some `r` together with
-`Uses (instantiate v t) r` and `Admits P r`. Neither that theorem nor graded
-simultaneous substitution, a Core.Term admission/translation connection,
-reduction preservation, erasure compatibility or ownership soundness is proved.
-The fragment is not a bounded production admission API.
+```text
+retainedDemand s usage + deletedDemand s usage * replacementUsage
+```
+
+where the operations are pointwise. This is a permission bound, not an exact
+vector equation. It handles every constructor, including internal derivations of
+erased arguments, and joins separately charged alternatives using an inequality.
+Under a lambda the replacement has erased demand for the retained binder, so
+the bound at that binder is its original demand. Transitivity of `allows` then
+discharges the binder check; an additional exact-demand invariant is unnecessary.
+The path projections commute with addition, scaling and joining; `DemandLeq`
+and `Admits` provide the permission preorder and its monotonicity laws.
+
+The requested head theorem is exported as `instantiateLinearUses`:
+
+```idris
+{n : Nat} -> {0 context : Vect n Ty} ->
+(value : Term context a) -> (body : Term (a :: context) b) ->
+(u, w, permissions : Usage n) ->
+Uses body (Linear :: u) -> Uses value w ->
+Admits permissions (combineUsage u w) ->
+(r : Usage n ** (Uses (instantiate value body) r, Admits permissions r))
+```
+
+Both `Uses` premises include internal binder checks and derivations for erased
+arguments; the context and vectors are newest first. This theorem concerns only
+the isolated intrinsically typed fragment. Graded simultaneous substitution, a
+`Core.Term` admission/translation connection, checker correspondence, reduction
+preservation, erasure compatibility and ownership soundness remain unproved. The
+fragment is not a bounded production admission API; gate 3 remains open for its
+checker connection.
 
 A stronger *exact* graded substitution formula is false. With context
 `[x:Unit, y:Unit]`, `t = If True x y` has demand `[omega, omega]`;
 substituting `y` for `x` yields `If True y y` with demand `[1]`, whereas
-`u + q*w` predicts `[omega]`. This does not refute the single-linear target:
-its head demand is omega, not 1. It does show that an induction cannot simply
-assert exact equality with a pointwise graded formula across arbitrary joins.
+`u + q*w` predicts `[omega]`. The proved permission bound accommodates this.
 
-The head demand alone is not an induction hypothesis for arbitrary subterms:
-`UseApp` may hide unrestricted head demand under an erased argument, yet still
-requires a valid derivation for that argument. `UseIf` combines branch demands
-with a permission join where 0 and 1 join to omega, not an arithmetic maximum;
-its condition is added separately. Under `UseLam`, lifted substitution must
-preserve the new binder's exact checked demand while weakening the replacement.
-Although insertion weakening is now proved, a general proof still needs a stronger
-substitution statement accounting for arbitrary scaled head demand and joined branches,
-including internal validity even at scale zero. No counterexample to the stated
-theorem is claimed here, and these obstacles do not establish it.
-
-`Tests.Quantitative` checks open substitution under two binders, shadowing,
-outer-index lowering, simultaneous replacements at distinct types and
-function-valued substitution by definitional equalities. It includes direct
-quantitative derivations, a direct weakening derivation with nested binders, captures,
-an erased argument and alternatives, permission-join evidence, positive usage examples,
-rejection of unused/duplicated linear binders and erased extraction, and
-counterexamples to interpreting arbitrary typed renaming/substitution as
-linear-permission preservation. The single-linear substitution examples are
-regressions, not a general proof. Gate 3 remains open.
+`Tests.Quantitative` invokes the general theorem for a checked linear binder,
+an erased argument hiding unrestricted occurrences, and shared linear demand
+across alternatives. It also invokes the graded single-deletion theorem on the
+strict-bound counterexample above. Existing tests cover nested binders, typed
+substitution, weakening, permission joins and rejection of invalid binders.
 
 ## 9. Execution gates
 

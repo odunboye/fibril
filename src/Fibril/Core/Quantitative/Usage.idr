@@ -447,11 +447,77 @@ deletedCombine (SubstituteHere _) (x :: xs) (y :: ys) = Refl
 deletedCombine (SubstituteUnder substitution) (x :: xs) (y :: ys) =
   deletedCombine substitution xs ys
 
+||| Splitting scaled demand preserves both the deleted and retained parts.
+public export
+retainedScale : {0 source : Vect (S n) Ty} -> {0 target : Vect n Ty} ->
+  (substitution : SingleSubstitution source target) -> (q : Quantity) -> (usage : Usage (S n)) ->
+  retainedDemand substitution (scaleUsage q usage) = scaleUsage q (retainedDemand substitution usage)
+retainedScale (SubstituteHere _) q (x :: xs) = Refl
+retainedScale (SubstituteUnder substitution) q (x :: xs) =
+  cong (multiply q x ::) (retainedScale substitution q xs)
+
+public export
+deletedScale : {0 source : Vect (S n) Ty} -> {0 target : Vect n Ty} ->
+  (substitution : SingleSubstitution source target) -> (q : Quantity) -> (usage : Usage (S n)) ->
+  deletedDemand substitution (scaleUsage q usage) = multiply q (deletedDemand substitution usage)
+deletedScale (SubstituteHere _) q (x :: xs) = Refl
+deletedScale (SubstituteUnder substitution) q (x :: xs) = deletedScale substitution q xs
+
+||| Splitting alternative demand preserves both the deleted and retained parts.
+public export
+retainedJoin : {0 source : Vect (S n) Ty} -> {0 target : Vect n Ty} ->
+  (substitution : SingleSubstitution source target) -> (left, right : Usage (S n)) ->
+  retainedDemand substitution (joinUsage left right) =
+    joinUsage (retainedDemand substitution left) (retainedDemand substitution right)
+retainedJoin (SubstituteHere _) (x :: xs) (y :: ys) = Refl
+retainedJoin (SubstituteUnder substitution) (x :: xs) (y :: ys) =
+  cong (joinQuantity x y ::) (retainedJoin substitution xs ys)
+
+public export
+deletedJoin : {0 source : Vect (S n) Ty} -> {0 target : Vect n Ty} ->
+  (substitution : SingleSubstitution source target) -> (left, right : Usage (S n)) ->
+  deletedDemand substitution (joinUsage left right) =
+    joinQuantity (deletedDemand substitution left) (deletedDemand substitution right)
+deletedJoin (SubstituteHere _) (x :: xs) (y :: ys) = Refl
+deletedJoin (SubstituteUnder substitution) (x :: xs) (y :: ys) = deletedJoin substitution xs ys
+
 ||| A replacement's ambient demand is zero at each retained prefix variable.
 public export
 replacementDemand : {0 source : Vect (S n) Ty} -> {0 target : Vect n Ty} -> (substitution : SingleSubstitution source target) -> Usage n -> Usage n
 replacementDemand (SubstituteHere _) usage = usage
 replacementDemand (SubstituteUnder substitution) (q :: rest) = Erased :: replacementDemand substitution rest
+
+||| The replacement derivation follows the deletion path, adding an erased
+||| demand for each retained prefix variable. In particular it remains a
+||| derivation even when an enclosing application erases its argument.
+public export
+data ReplacementUses : {0 source : Vect (S n) Ty} -> {0 target : Vect n Ty} ->
+  SingleSubstitution source target -> Usage n -> Type where
+  ReplacementHere : Uses value usage -> ReplacementUses (SubstituteHere value) usage
+  ReplacementUnder : ReplacementUses substitution usage ->
+    ReplacementUses (SubstituteUnder substitution) (Erased :: usage)
+
+||| The variable selected by the deletion path, at its original type.
+public export
+data DeletedVariable : {0 source : Vect (S n) Ty} -> {0 target : Vect n Ty} ->
+  (substitution : SingleSubstitution source target) -> Var source a -> Type where
+  DeletedHere : DeletedVariable (SubstituteHere value) Here
+  DeletedUnder : DeletedVariable substitution variable ->
+    DeletedVariable (SubstituteUnder substitution) (There variable)
+
+||| Following the selected variable yields exactly the repeatedly weakened
+||| replacement and its corresponding usage derivation.
+public export
+deletedVariableUses : {0 source : Vect (S n) Ty} -> {0 target : Vect n Ty} ->
+  (substitution : SingleSubstitution source target) -> (variable : Var source a) ->
+  (usage : Usage n) -> DeletedVariable substitution variable ->
+  ReplacementUses substitution usage ->
+  Uses (singleSubstitution substitution variable) usage
+deletedVariableUses (SubstituteHere value) Here usage DeletedHere (ReplacementHere derivation) = derivation
+deletedVariableUses (SubstituteUnder substitution) (There variable) (Erased :: usage)
+  (DeletedUnder selected) (ReplacementUnder derivation) =
+    weakenUses (singleSubstitution substitution variable) usage
+      (deletedVariableUses substitution variable usage selected derivation)
 
 ||| Sequential composition distributes the replacement charge over two uses.
 public export
@@ -899,3 +965,204 @@ joinUsageUpperRight : (left, right : Usage n) -> Admits (joinUsage left right) r
 joinUsageUpperRight [] [] = AdmitNil
 joinUsageUpperRight (x :: xs) (y :: ys) =
   AdmitCons (joinUpperRight x y) (joinUsageUpperRight xs ys)
+
+||| The graded upper bound after deleting one source variable.
+public export
+substitutionBound : {0 source : Vect (S n) Ty} -> {0 target : Vect n Ty} ->
+  SingleSubstitution source target -> Usage (S n) -> Usage n -> Usage n
+substitutionBound substitution usage replacement =
+  combineUsage (retainedDemand substitution usage)
+    (scaleUsage (deletedDemand substitution usage) replacement)
+
+public export
+admitRefl : (usage : Usage n) -> Admits usage usage
+admitRefl [] = AdmitNil
+admitRefl (x :: xs) = AdmitCons (demandRefl x) (admitRefl xs)
+
+multiplyZeroRight : (q : Quantity) -> multiply q Erased = Erased
+multiplyZeroRight Erased = Refl
+multiplyZeroRight Linear = Refl
+multiplyZeroRight Unrestricted = Refl
+
+addZeroRight : (q : Quantity) -> add q Erased = q
+addZeroRight Erased = Refl
+addZeroRight Linear = Refl
+addZeroRight Unrestricted = Refl
+
+combineZeroRight : (usage : Usage n) -> combineUsage usage Fibril.Core.Usage.zeroUsage = usage
+combineZeroRight [] = Refl
+combineZeroRight (x :: xs) = rewrite addZeroRight x in cong (x ::) (combineZeroRight xs)
+
+scaleErased : (usage : Usage n) -> scaleUsage Erased usage = Fibril.Core.Usage.zeroUsage
+scaleErased [] = Refl
+scaleErased (x :: xs) = cong (Erased ::) (scaleErased xs)
+
+scaleLinear : (usage : Usage n) -> scaleUsage Linear usage = usage
+scaleLinear [] = Refl
+scaleLinear (Erased :: xs) = cong (Erased ::) (scaleLinear xs)
+scaleLinear (Linear :: xs) = cong (Linear ::) (scaleLinear xs)
+scaleLinear (Unrestricted :: xs) = cong (Unrestricted ::) (scaleLinear xs)
+
+deletedZero : {n : Nat} -> {0 source : Vect (S n) Ty} -> {0 target : Vect n Ty} ->
+  (s : SingleSubstitution source target) -> deletedDemand s Fibril.Core.Usage.zeroUsage = Erased
+deletedZero (SubstituteHere _) = Refl
+deletedZero (SubstituteUnder s) = deletedZero s
+
+retainedZero : {n : Nat} -> {0 source : Vect (S n) Ty} -> {0 target : Vect n Ty} ->
+  (s : SingleSubstitution source target) -> retainedDemand s Fibril.Core.Usage.zeroUsage = Fibril.Core.Usage.zeroUsage
+retainedZero (SubstituteHere _) = Refl
+retainedZero (SubstituteUnder s) = cong (Erased ::) (retainedZero s)
+
+admitZeroCombined : (n : Nat) ->
+  Admits (combineUsage (the (Usage n) Fibril.Core.Usage.zeroUsage) Fibril.Core.Usage.zeroUsage)
+    Fibril.Core.Usage.zeroUsage
+admitZeroCombined Z = AdmitNil
+admitZeroCombined (S k) = AdmitCons Refl (admitZeroCombined k)
+
+||| A recursive result carries a real derivation as well as its graded bound.
+public export
+SubstitutionResult : {n : Nat} -> {0 source : Vect (S n) Ty} -> {0 target : Vect n Ty} ->
+  (s : SingleSubstitution source target) -> (term : Term source a) ->
+  Usage (S n) -> Usage n -> Type
+SubstitutionResult s term usage replacement =
+  (result : Usage n ** (Uses (substitute (singleSubstitution s) term) result,
+                        Admits (substitutionBound s usage replacement) result))
+
+public export
+substituteVariableUses : {n : Nat} -> {0 source : Vect (S n) Ty} -> {0 target : Vect n Ty} ->
+  (s : SingleSubstitution source target) -> (variable : Var source a) ->
+  (replacement : Usage n) -> ReplacementUses s replacement ->
+  SubstitutionResult s (Ref variable) (variableDemand variable) replacement
+substituteVariableUses (SubstituteHere value) Here replacement (ReplacementHere derivation) =
+  (replacement ** (derivation,
+    rewrite scaleLinear replacement in rewrite combineZeroLeft replacement in admitRefl replacement))
+substituteVariableUses (SubstituteHere value) (There variable) replacement (ReplacementHere derivation) =
+  (variableDemand variable ** (UseRef variable,
+    rewrite scaleErased replacement in rewrite combineZeroRight (variableDemand variable) in
+      admitRefl (variableDemand variable)))
+substituteVariableUses {n = S k} (SubstituteUnder s) Here (Erased :: replacement) (ReplacementUnder derivation) =
+  ((Linear :: Fibril.Core.Usage.zeroUsage) ** (UseRef Here,
+    rewrite deletedZero s in rewrite retainedZero s in
+    rewrite scaleErased replacement in AdmitCons Refl (admitZeroCombined k)))
+substituteVariableUses (SubstituteUnder s) (There variable) (Erased :: replacement) (ReplacementUnder derivation) =
+  case substituteVariableUses s variable replacement derivation of
+    (result ** (used, bound)) =>
+      (Erased :: result ** (weakenUses (singleSubstitution s variable) result used,
+        rewrite multiplyZeroRight (deletedDemand s (variableDemand variable)) in AdmitCons Refl bound))
+
+substitutionBoundCombine : {n : Nat} -> {0 source : Vect (S n) Ty} -> {0 target : Vect n Ty} ->
+  (s : SingleSubstitution source target) -> (left, right : Usage (S n)) -> (w : Usage n) ->
+  combineUsage (substitutionBound s left w) (substitutionBound s right w) =
+    substitutionBound s (combineUsage left right) w
+substitutionBoundCombine s left right w =
+  rewrite retainedCombine s left right in rewrite deletedCombine s left right in
+  substitutionCombineUsage (retainedDemand s left) (retainedDemand s right) w
+    (deletedDemand s left) (deletedDemand s right)
+
+substitutionBoundScale : {n : Nat} -> {0 source : Vect (S n) Ty} -> {0 target : Vect n Ty} ->
+  (s : SingleSubstitution source target) -> (q : Quantity) -> (usage : Usage (S n)) -> (w : Usage n) ->
+  scaleUsage q (substitutionBound s usage w) = substitutionBound s (scaleUsage q usage) w
+substitutionBoundScale s q usage w =
+  rewrite retainedScale s q usage in rewrite deletedScale s q usage in
+  substitutionScaleUsage q (deletedDemand s usage) (retainedDemand s usage) w
+
+substitutionBoundJoin : {n : Nat} -> {0 source : Vect (S n) Ty} -> {0 target : Vect n Ty} ->
+  (s : SingleSubstitution source target) -> (left, right : Usage (S n)) -> (w : Usage n) ->
+  Admits (substitutionBound s (joinUsage left right) w)
+         (joinUsage (substitutionBound s left w) (substitutionBound s right w))
+substitutionBoundJoin s left right w =
+  rewrite retainedJoin s left right in rewrite deletedJoin s left right in
+  substitutionJoinUsageBound (retainedDemand s left) (retainedDemand s right) w
+    (deletedDemand s left) (deletedDemand s right)
+
+substitutionBoundZero : {n : Nat} -> {0 source : Vect (S n) Ty} -> {0 target : Vect n Ty} ->
+  (s : SingleSubstitution source target) -> (w : Usage n) ->
+  Admits (substitutionBound s Fibril.Core.Usage.zeroUsage w) Fibril.Core.Usage.zeroUsage
+substitutionBoundZero s w =
+  rewrite deletedZero s in rewrite retainedZero s in rewrite scaleErased w in
+  admitZeroCombined _
+
+substitutionBoundUnder : {n : Nat} -> {0 source : Vect (S n) Ty} -> {0 target : Vect n Ty} ->
+  (s : SingleSubstitution source target) -> (used : Quantity) -> (usage : Usage (S n)) -> (w : Usage n) ->
+  substitutionBound (SubstituteUnder {b} s) (used :: usage) (Erased :: w) = used :: substitutionBound s usage w
+substitutionBoundUnder s used usage w =
+  rewrite multiplyZeroRight (deletedDemand s usage) in rewrite addZeroRight used in Refl
+
+||| Structural substitution with a pointwise graded permission bound. The
+||| replacement is internally valid even in subterms subsequently scaled by 0.
+public export
+substituteUses : {n : Nat} -> {0 source : Vect (S n) Ty} -> {0 target : Vect n Ty} ->
+  (s : SingleSubstitution source target) -> (term : Term source a) ->
+  (usage : Usage (S n)) -> Uses term usage ->
+  (replacement : Usage n) -> ReplacementUses s replacement ->
+  SubstitutionResult s term usage replacement
+substituteUses s (Ref variable) _ (UseRef _) replacement replacementUses =
+  substituteVariableUses s variable replacement replacementUses
+substituteUses s Unit _ UseUnit replacement replacementUses =
+  (Fibril.Core.Usage.zeroUsage ** (UseUnit, substitutionBoundZero s replacement))
+substituteUses s (Boolean value) _ UseBoolean replacement replacementUses =
+  (Fibril.Core.Usage.zeroUsage ** (UseBoolean, substitutionBoundZero s replacement))
+substituteUses s (Lam {a} q body) captures (UseLam {used} derivation permitted) replacement replacementUses =
+  case substituteUses (SubstituteUnder s) body (used :: captures) derivation
+    (Erased :: replacement) (ReplacementUnder replacementUses) of
+    ((actual :: result) ** (bodyUses, bound)) =>
+      case replace {p = \v => Admits v (actual :: result)} (substitutionBoundUnder {b = a} s used captures replacement) bound of
+        AdmitCons headBound tailBound =>
+          (result ** (UseLam bodyUses (demandTrans actual used q headBound permitted), tailBound))
+substituteUses s (App {q} function argument) _ (UseApp {functionUsage} {argumentUsage} fun arg) replacement replacementUses =
+  case substituteUses s function functionUsage fun replacement replacementUses of
+    (funResult ** (funUses, funBound)) =>
+      case substituteUses s argument argumentUsage arg replacement replacementUses of
+        (argResult ** (argUses, argBound)) =>
+          (combineUsage funResult (scaleUsage q argResult) **
+            (UseApp funUses argUses,
+             rewrite sym (substitutionBoundCombine s functionUsage (scaleUsage q argumentUsage) replacement) in
+             rewrite sym (substitutionBoundScale s q argumentUsage replacement) in
+             combineMonotone funResult (substitutionBound s functionUsage replacement)
+               (scaleUsage q argResult) (scaleUsage q (substitutionBound s argumentUsage replacement))
+               funBound (scaleMonotone q q argResult (substitutionBound s argumentUsage replacement) (demandRefl q) argBound)))
+substituteUses s (UnitElim value body) _ (UseUnitElim {valueUsage} {bodyUsage} val bod) replacement replacementUses =
+  case substituteUses s value valueUsage val replacement replacementUses of
+    (valueResult ** (valueUses, valueBound)) =>
+      case substituteUses s body bodyUsage bod replacement replacementUses of
+        (bodyResult ** (bodyUses, bodyBound)) =>
+          (combineUsage valueResult bodyResult **
+            (UseUnitElim valueUses bodyUses,
+             rewrite sym (substitutionBoundCombine s valueUsage bodyUsage replacement) in
+             combineMonotone valueResult (substitutionBound s valueUsage replacement)
+               bodyResult (substitutionBound s bodyUsage replacement) valueBound bodyBound))
+substituteUses s (If condition yes no) _ (UseIf {conditionUsage} {yesUsage} {noUsage} cond y n) replacement replacementUses =
+  case substituteUses s condition conditionUsage cond replacement replacementUses of
+    (conditionResult ** (conditionUses, conditionBound)) =>
+      case substituteUses s yes yesUsage y replacement replacementUses of
+        (yesResult ** (yesUses, yesBound)) =>
+          case substituteUses s no noUsage n replacement replacementUses of
+            (noResult ** (noUses, noBound)) =>
+              (combineUsage conditionResult (joinUsage yesResult noResult) **
+                (UseIf conditionUses yesUses noUses,
+                 rewrite sym (substitutionBoundCombine s conditionUsage (joinUsage yesUsage noUsage) replacement) in
+                 combineMonotone conditionResult (substitutionBound s conditionUsage replacement)
+                   (joinUsage yesResult noResult) (substitutionBound s (joinUsage yesUsage noUsage) replacement)
+                   conditionBound
+                   (admitTrans (substitutionBound s (joinUsage yesUsage noUsage) replacement)
+                     (joinUsage (substitutionBound s yesUsage replacement) (substitutionBound s noUsage replacement))
+                     (joinUsage yesResult noResult)
+                     (substitutionBoundJoin s yesUsage noUsage replacement)
+                     (joinMonotoneUsage yesResult (substitutionBound s yesUsage replacement)
+                       noResult (substitutionBound s noUsage replacement) yesBound noBound))))
+
+||| Single-linear head substitution. Contexts are newest first; both Uses
+||| premises include all internal binder checks, including erased arguments.
+public export
+instantiateLinearUses : {n : Nat} -> {0 context : Vect n Ty} ->
+  (value : Term context a) -> (body : Term (a :: context) b) ->
+  (u, w, permissions : Usage n) ->
+  Uses body (Linear :: u) -> Uses value w ->
+  Admits permissions (combineUsage u w) ->
+  (r : Usage n ** (Uses (instantiate value body) r, Admits permissions r))
+instantiateLinearUses value body u w permissions bodyUses valueUses permitted =
+  case substituteUses (SubstituteHere value) body (Linear :: u) bodyUses w (ReplacementHere valueUses) of
+    (result ** (derivation, bound)) =>
+      (result ** (derivation,
+        admitTrans permissions (combineUsage u w) result permitted
+          (rewrite sym (scaleLinear w) in bound)))

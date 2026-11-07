@@ -96,6 +96,55 @@ zeroScaledHead = UnitElim
 underLinearBinder : Term [UnitTy, UnitTy] (Arrow Linear UnitTy UnitTy)
 underLinearBinder = Lam Linear (UnitElim (Ref Here) (Ref (There Here)))
 
+-- These invoke the general theorem rather than checking a concrete inference.
+zeroScaledSubstitution :
+  (r : Usage 1 ** (Uses (instantiate (the (Term [UnitTy] UnitTy) (Ref Here))
+     Tests.Quantitative.zeroScaledHead) r, Admits [Linear] r))
+zeroScaledSubstitution = instantiateLinearUses (Ref Here) Tests.Quantitative.zeroScaledHead
+  [Erased] [Linear] [Linear]
+  (UseUnitElim (UseApp (UseLam UseUnit Refl)
+    (UseApp (UseLam UseUnit Refl) (UseRef Here))) (UseRef Here))
+  (UseRef Here) (AdmitCons Refl AdmitNil)
+
+binderSubstitution :
+  (r : Usage 1 ** (Uses (instantiate (the (Term [UnitTy] UnitTy) (Ref Here))
+    Tests.Quantitative.underLinearBinder) r, Admits [Linear] r))
+binderSubstitution = instantiateLinearUses (Ref Here) Tests.Quantitative.underLinearBinder
+  [Erased] [Linear] [Linear]
+  (UseLam (UseUnitElim (UseRef Here) (UseRef (There Here))) Refl)
+  (UseRef Here) (AdmitCons Refl AdmitNil)
+
+nestedBinderSubstitution :
+  (r : Usage 1 ** (Uses (instantiate (the (Term [UnitTy] UnitTy) (Ref Here))
+    (Lam Linear (Lam Linear (UnitElim (Ref (There Here))
+      (UnitElim (Ref Here) (Ref (There (There Here)))))))) r, Admits [Linear] r))
+nestedBinderSubstitution = instantiateLinearUses (Ref Here)
+  (Lam Linear (Lam Linear (UnitElim (Ref (There Here))
+    (UnitElim (Ref Here) (Ref (There (There Here)))))))
+  [Erased] [Linear] [Linear]
+  (UseLam (UseLam (UseUnitElim (UseRef (There Here))
+    (UseUnitElim (UseRef Here) (UseRef (There (There Here))))) Refl) Refl)
+  (UseRef Here) (AdmitCons Refl AdmitNil)
+
+generalAlternativeSubstitution :
+  (r : Usage 1 ** (Uses (instantiate (the (Term [UnitTy] UnitTy) (Ref Here))
+    (If (Boolean True) (Ref Here) (Ref Here))) r, Admits [Linear] r))
+generalAlternativeSubstitution = instantiateLinearUses (Ref Here)
+  (If (Boolean True) (Ref Here) (Ref Here)) [Erased] [Linear] [Linear]
+  (UseIf UseBoolean (UseRef Here) (UseRef Here)) (UseRef Here) (AdmitCons Refl AdmitNil)
+
+-- Unequal alternative coefficients give a strict permission bound after
+-- substitution: the exact result is linear while the graded bound is omega.
+gradedAlternativeSubstitution :
+  (r : Usage 1 ** (Uses (substitute (singleSubstitution
+    (SubstituteHere (the (Term [UnitTy] UnitTy) (Ref Here))))
+      (If (Boolean True) (Ref Here) (Ref (There Here)))) r,
+    Admits [Unrestricted] r))
+gradedAlternativeSubstitution = substituteUses (SubstituteHere (Ref Here))
+  (If (Boolean True) (Ref Here) (Ref (There Here))) [Unrestricted, Unrestricted]
+  (UseIf UseBoolean (UseRef Here) (UseRef (There Here))) [Linear]
+  (ReplacementHere (UseRef Here))
+
 branchCommon : combineUsage (joinUsage [Erased, Linear] [Linear, Linear]) [Linear, Linear] =
                joinUsage (combineUsage [Erased, Linear] [Linear, Linear])
                          (combineUsage [Linear, Linear] [Linear, Linear])
@@ -151,7 +200,12 @@ contractReplacements variable = Ref (contract variable)
 export
 checks : List (String, Bool)
 checks =
-  [ ("common replacement demand distributes through unequal alternative joins", case branchCommon of Refl => True)
+  [ ("general substitution handles zero-scaled unrestricted occurrences", case zeroScaledSubstitution of ([Linear] ** _) => True; _ => False)
+  , ("general substitution preserves two nested linear binders", case nestedBinderSubstitution of ([Linear] ** _) => True; _ => False)
+  , ("general substitution preserves a linear lambda binder", case binderSubstitution of ([Linear] ** _) => True; _ => False)
+  , ("general substitution shares linear demand across alternatives", case generalAlternativeSubstitution of ([Linear] ** _) => True; _ => False)
+  , ("general graded substitution permits a strict alternative bound", case gradedAlternativeSubstitution of ([Linear] ** _) => True; _ => False)
+  , ("common replacement demand distributes through unequal alternative joins", case branchCommon of Refl => True)
   , ("joined permission splits into both exact branch permissions", case branchParts of (AdmitCons _ _, AdmitCons _ _) => True)
   , ("quantitative weakening preserves nested binders, captures and erased arguments", case weakenedExampleUses of UseLam _ _ => True)
   , ("typed substitution weakens an open replacement under two binders", case captureSafe of Refl => True)
@@ -293,3 +347,30 @@ nestedReplacementDemand = Refl
 branchSubstitutionBound :
   Admits [Unrestricted] (joinUsage [Linear] [Erased])
 branchSubstitutionBound = substitutionJoinUsageBound [Erased] [Erased] [Linear] Linear Erased
+
+projectionSubstitution : SingleSubstitution [UnitTy, BoolTy, UnitTy] [UnitTy, UnitTy]
+projectionSubstitution = SubstituteUnder (SubstituteHere (Boolean True))
+
+nestedScaleProjection :
+  retainedDemand Tests.Quantitative.projectionSubstitution
+    (scaleUsage Erased [Linear, Unrestricted, Linear]) =
+  scaleUsage Erased (retainedDemand Tests.Quantitative.projectionSubstitution
+    [Linear, Unrestricted, Linear])
+nestedScaleProjection = retainedScale Tests.Quantitative.projectionSubstitution
+  Erased [Linear, Unrestricted, Linear]
+
+nestedJoinProjection :
+  deletedDemand Tests.Quantitative.projectionSubstitution
+    (joinUsage [Linear, Erased, Linear] [Erased, Linear, Linear]) = Unrestricted
+nestedJoinProjection = deletedJoin Tests.Quantitative.projectionSubstitution
+  [Linear, Erased, Linear] [Erased, Linear, Linear]
+
+nestedReplacementUses :
+  Uses (singleSubstitution (SubstituteUnder (SubstituteUnder
+    (SubstituteHere (the (Term [UnitTy] UnitTy) (Ref Here)))))
+      (There (There Here))) [Erased, Erased, Linear]
+nestedReplacementUses = deletedVariableUses
+  (SubstituteUnder (SubstituteUnder (SubstituteHere (Ref Here))))
+  (There (There Here)) [Erased, Erased, Linear]
+  (DeletedUnder (DeletedUnder DeletedHere))
+  (ReplacementUnder (ReplacementUnder (ReplacementHere (UseRef Here))))
