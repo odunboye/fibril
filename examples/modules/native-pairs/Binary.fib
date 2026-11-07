@@ -1,0 +1,6 @@
+module Binary
+import Pairs
+
+main : IO Unit
+main = primUTF8Case Bytes (IO Unit) (primUTF8Encode sample) primRejectBytes
+  (\(1 bytes : Bytes) => primWriteBytes bytes)

@@ -1,0 +1,6 @@
+module Parse
+import Protocol.JSON
+
+-- Measure the pure parser body without the binary client.
+main : (1 input : Bytes) -> JSONResult
+main = parseJSON

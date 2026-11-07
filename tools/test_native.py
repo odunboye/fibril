@@ -384,15 +384,18 @@ int main(void) { return fibril_native_run(entry); }
             self.assertEqual(native.stdout, b'')
             self.assertIn(b'evaluation budget exhausted', native.stderr)
 
-    def test_wider_data_still_fails_closed_without_pair_lowering(self):
+    def test_wider_data_pair_payload_matches_reference(self):
         root = ROOT / 'examples/modules/data'
         args = ['--source-dir', str(root), str(root / 'Main.fib')]
-        reference = run_cli('run', *args, timeout=120)
+        reference = run_cli('run', *args, text=False, timeout=120)
         self.assertEqual(reference.returncode, 0, reference.stdout + reference.stderr)
-        emitted = run_cli('emit-c', *args, timeout=120)
-        self.assertNotEqual(emitted.returncode, 0)
-        self.assertEqual(emitted.stdout, '')
-        self.assertIn('does not support this computational core construct', emitted.stderr)
+        with tempfile.TemporaryDirectory() as directory:
+            code, native = self.compile_and_run(args, directory)
+            self.assertIn('f_pair(', code)
+            self.assertIn('f_pair_case(', code)
+            self.assertEqual((native.returncode, native.stdout, native.stderr),
+                             (0, b'present\nmissing\ndependent package\n', b''))
+            self.assertEqual(native.stdout, reference.stdout)
 
     def test_invalid_import_is_rejected_before_c_emission(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -4,6 +4,7 @@ module Fibril.Elaboration.Expression.Conversion
 
 import Data.Fin
 import Fibril.Core.Term
+import Fibril.Data.Bytes
 import Fibril.Core.Quantity
 import Fibril.Core.Reduction
 import Fibril.Elaboration.Expression.Scope
@@ -37,9 +38,25 @@ mutual
   admit (S budget) (SeqNil ty) = admit budget ty
   admit (S budget) (SeqCons ty h t) = do a <- admit budget ty; b <- admit a h; admit b t
   admit (S budget) (SeqFold p z s x) = do a <- admit budget p; b <- admit a z; c <- admit b s; admit c x
+  admit (S budget) (IterateBinary stateType resultType count step initial) = do a <- admit budget stateType; b <- admit a resultType; c <- admit b count; d <- admit c step; admit d initial
+  admit (S budget) (ReadBytes x) = admit budget x
+  admit (S budget) (WriteBytes x) = admit budget x
+  admit (S budget) RejectBytes = Just budget
+  admit (S budget) FlushBytes = Just budget
   admit (S budget) ReadLine = Just budget
   admit (S budget) (FileHandleValue _ _) = Just budget
   admit (S budget) (ReadInputFile handle) = admit budget handle
+  admit (S budget) (BytesLengthIs a b) = do x <- admit budget a; admit x b
+  admit (S budget) (BytesIndex a b) = do x <- admit budget a; admit x b
+  admit (S budget) (BytesSlice a b c) = do x <- admit budget a; y <- admit x b; admit y c
+  admit (S budget) (UTF8Encode x) = admit budget x
+  admit (S budget) (UTF8Decode x) = admit budget x
+  admit (S budget) BytesType = Just budget
+  admit (S budget) (BytesValue _) = Just budget
+  admit (S budget) (BytesShare x) = admit budget x
+  admit (S budget) (BytesLength x) = admit budget x
+  admit (S budget) (BytesOctet x) = admit budget x
+  admit (S budget) (BytesAppend a b) = do x <- admit budget a; admit x b
   admit (S budget) StringType = Just budget
   admit (S budget) (StringValue _) = Just budget
   admit (S budget) (StringAppend a b) = do x <- admit budget a; admit x b
@@ -137,9 +154,35 @@ mutual
     safeRedexes size payload ty && safeRedexes size payload h && safeRedexes size payload t
   safeRedexes size payload (SeqFold p z s x) =
     safeRedexes size payload p && safeRedexes size payload z && safeRedexes size payload s && safeRedexes size payload x
+  safeRedexes size payload (IterateBinary stateType resultType count step initial) = safeRedexes size payload stateType && safeRedexes size payload resultType && safeRedexes size payload count && safeRedexes size payload step && safeRedexes size payload initial
+  safeRedexes size payload (ReadBytes x) = safeRedexes size payload x
+  safeRedexes size payload (WriteBytes x) = safeRedexes size payload x
+  safeRedexes size payload RejectBytes = True
+  safeRedexes size payload FlushBytes = True
   safeRedexes size payload ReadLine = True
   safeRedexes size payload (FileHandleValue _ _) = True
   safeRedexes size payload (ReadInputFile handle) = safeRedexes size payload handle
+  safeRedexes size payload (BytesIndex index (BytesValue bytes)) =
+    case canonicalNatural index of
+      Nothing => safeRedexes size payload index
+      Just n => case byteAt n bytes of
+        Nothing => True
+        Just octet => size + cast octet + 4 <= inferredResultNodes
+  safeRedexes size payload (BytesLengthIs a b) = safeRedexes size payload a && safeRedexes size payload b
+  safeRedexes size payload (BytesIndex a b) = safeRedexes size payload a && safeRedexes size payload b
+  safeRedexes size payload (BytesSlice a b c) = safeRedexes size payload a && safeRedexes size payload b && safeRedexes size payload c
+  safeRedexes size payload (UTF8Encode (StringValue text)) = size + 6 <= inferredResultNodes && payload + 3 * length text <= payloadLimit
+  safeRedexes size payload (UTF8Encode x) = safeRedexes size payload x
+  safeRedexes size payload (UTF8Decode x) = size + 6 <= inferredResultNodes && safeRedexes size payload x
+  safeRedexes size payload BytesType = True
+  safeRedexes size payload (BytesValue _) = True
+  -- Length expands one literal into a unary natural; admit that allocation
+  -- before contracting rather than relying on the following step's node check.
+  safeRedexes size payload (BytesLength (BytesValue value)) = size + byteLength value <= inferredResultNodes
+  safeRedexes size payload (BytesShare x) = size + 4 <= inferredResultNodes && safeRedexes size payload x
+  safeRedexes size payload (BytesLength x) = safeRedexes size payload x
+  safeRedexes size payload (BytesOctet x) = payload + 1 <= payloadLimit && safeRedexes size payload x
+  safeRedexes size payload (BytesAppend a b) = safeRedexes size payload a && safeRedexes size payload b
   safeRedexes size payload StringType = True
   safeRedexes size payload (StringValue _) = True
   safeRedexes size payload (StringAppend a b) = safeRedexes size payload a && safeRedexes size payload b

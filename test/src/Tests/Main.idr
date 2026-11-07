@@ -46,6 +46,13 @@ import Tests.Console
 import Tests.ConsoleInput
 import Tests.ConsoleScript
 import Tests.ConsoleSequence
+import Tests.Binary
+import Tests.BinaryCount
+import Tests.BinaryDescriptions
+import Tests.CoreBytes
+import Tests.ByteRanges
+import Tests.UTF8Bytes
+import Tests.BinaryBuffer
 import Tests.String
 import Tests.ConsoleArguments
 import Tests.IO
@@ -343,10 +350,13 @@ checks =
 main : IO ()
 main = do
   sequenceChecks <- runSequenceChecks
+  binaryDescriptionChecks <- Tests.BinaryDescriptions.runBinaryDescriptionChecks
+  binaryChecks <- Tests.Binary.runChecks
+  bufferChecks <- Tests.BinaryBuffer.runBufferChecks
   scriptHostChecks <- runScriptHostChecks
   resourceChecks <- runResourceChecks
   projectChecks <- runProjectChecks
-  let failed = filter (not . snd) (Tests.Main.checks ++ Tests.Reduction.checks ++ Tests.Erased.checks ++ Tests.Runtime.checks ++ Tests.Pretty.checks ++ Tests.SourceText.checks ++ Tests.UTF8.checks ++ Tests.Lexer.checks ++ Tests.Frontend.checks ++ Tests.Compatibility.checks ++ Tests.Evaluate.checks ++ Tests.Let.checks ++ Tests.Unit.checks ++ Tests.UnitCase.checks ++ Tests.Boolean.checks ++ Tests.Alternatives.checks ++ Tests.Diagnostic.checks ++ Tests.CheckDiagnostic.checks ++ Tests.CheckReport.checks ++ Tests.Renaming.checks ++ Tests.Substitution.checks ++ Tests.SubstitutionComposition.checks ++ Tests.Beta.checks ++ Tests.Fuel.checks ++ Tests.Declaration.checks ++ Tests.Document.checks ++ Tests.ConstructorPattern.checks ++ Tests.MotiveScope.checks ++ Tests.Manifest.checks ++ Tests.Workspace.checks ++ Tests.DataCaseParser.checks ++ Tests.DataSchema.checks ++ Tests.DataDeclaration.checks ++ Tests.Nominal.checks ++ Tests.Variant.checks ++ Tests.Box.checks ++ Tests.Sigma.checks ++ Tests.Qualified.checks ++ Tests.Rename.checks ++ Tests.Console.checks ++ Tests.ConsoleSequence.checks ++ Tests.ConsoleScript.checks ++ Tests.ConsoleInput.checks ++ Tests.String.checks ++ Tests.ConsoleArguments.checks ++ Tests.IO.checks ++ Tests.ReadLine.checks ++ Tests.HandleOwnership.checks ++ Tests.ScopedOwnership.checks ++ Tests.OwnedRead.checks ++ Tests.ResourceEmission.checks ++ sequenceChecks ++ scriptHostChecks ++ resourceChecks ++ projectChecks)
+  let failed = filter (not . snd) (Tests.Main.checks ++ Tests.Reduction.checks ++ Tests.Erased.checks ++ Tests.Runtime.checks ++ Tests.Pretty.checks ++ Tests.SourceText.checks ++ Tests.UTF8.checks ++ Tests.Lexer.checks ++ Tests.Frontend.checks ++ Tests.Compatibility.checks ++ Tests.Evaluate.checks ++ Tests.Let.checks ++ Tests.Unit.checks ++ Tests.UnitCase.checks ++ Tests.Boolean.checks ++ Tests.Alternatives.checks ++ Tests.Diagnostic.checks ++ Tests.CheckDiagnostic.checks ++ Tests.CheckReport.checks ++ Tests.Renaming.checks ++ Tests.Substitution.checks ++ Tests.SubstitutionComposition.checks ++ Tests.Beta.checks ++ Tests.Fuel.checks ++ Tests.Declaration.checks ++ Tests.Document.checks ++ Tests.ConstructorPattern.checks ++ Tests.MotiveScope.checks ++ Tests.Manifest.checks ++ Tests.Workspace.checks ++ Tests.DataCaseParser.checks ++ Tests.DataSchema.checks ++ Tests.DataDeclaration.checks ++ Tests.Nominal.checks ++ Tests.Variant.checks ++ Tests.Box.checks ++ Tests.Sigma.checks ++ Tests.Qualified.checks ++ Tests.Rename.checks ++ Tests.Console.checks ++ Tests.ConsoleSequence.checks ++ Tests.ConsoleScript.checks ++ Tests.ConsoleInput.checks ++ Tests.String.checks ++ Tests.ConsoleArguments.checks ++ Tests.IO.checks ++ Tests.ReadLine.checks ++ Tests.HandleOwnership.checks ++ Tests.ScopedOwnership.checks ++ Tests.OwnedRead.checks ++ Tests.ResourceEmission.checks ++ Tests.Binary.checks ++ Tests.CoreBytes.checks ++ Tests.ByteRanges.checks ++ Tests.UTF8Bytes.checks ++ Tests.BinaryCount.checks ++ Tests.BinaryDescriptions.checks ++ binaryDescriptionChecks ++ binaryChecks ++ bufferChecks ++ sequenceChecks ++ scriptHostChecks ++ resourceChecks ++ projectChecks)
   case failed of
     [] => do
       putStrLn "Deterministic bootstrap regressions passed."

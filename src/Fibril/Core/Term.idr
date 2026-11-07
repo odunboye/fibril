@@ -6,6 +6,7 @@ module Fibril.Core.Term
 
 import Data.Fin
 import Fibril.Core.Quantity
+import Fibril.Data.Bytes
 
 %default total
 
@@ -45,6 +46,21 @@ data Term : Nat -> Type where
   SeqFold : Term n -> Term n -> Term n -> Term n -> Term n
   ||| One-step list matching exposes linear head and tail without recursion.
   SeqCase : Term n -> Term n -> Term n -> Term n -> Term n
+  ||| Pure immutable octets, separate from text and from binary execution.
+  UTF8Encode : Term n -> Term n
+  UTF8Decode : Term n -> Term n
+  BytesType : Term n
+  BytesValue : Bytes -> Term n
+  BytesAppend : Term n -> Term n -> Term n
+  ||| Data-specific copyability: consume immutable bytes into an unrestricted box.
+  BytesShare : Term n -> Term n
+  BytesLength : Term n -> Term n
+  ||| Compare length without constructing a unary natural result.
+  BytesLengthIs : Term n -> Term n -> Term n
+  BytesIndex : Term n -> Term n -> Term n
+  BytesSlice : Term n -> Term n -> Term n -> Term n
+  ||| Low eight bits of a canonical natural, explicitly modulo 256.
+  BytesOctet : Term n -> Term n
   ||| Primitive String : Type0, literal data, pure concatenation/comparison.
   StringType : Term n
   StringValue : String -> Term n
@@ -80,6 +96,14 @@ data Term : Nat -> Type where
   WriteLine : Term n -> Term n
   ||| Inert input request. EOF/line/error are positional alternatives in readResultType.
   ReadLine : Term n
+  ||| Inert borrowed-stdio binary requests; only an explicit binary runner acts.
+  ReadBytes : Term n -> Term n
+  WriteBytes : Term n -> Term n
+  FlushBytes : Term n
+  ||| Represented binary protocol rejection; no transport request is performed.
+  ||| Binary-only bounded iteration. Types erased; callback reusable, state linear.
+  IterateBinary : Term n -> Term n -> Term n -> Term n -> Term n -> Term n
+  RejectBytes : Term n
   ||| Nondependent branches; runtime checking joins their resource permissions.
   BoolCase : Term n -> Term n -> Term n -> Term n
   Sigma : Quantity -> Quantity -> Term n -> Term (S n) -> Term n
@@ -90,6 +114,71 @@ data Term : Nat -> Type where
   Apply : Term n -> Term n -> Term n
   ||| Consume a Unit scrutinee, then return a body with no new pattern binders.
   UnitCase : Term n -> Term n -> Term n
+
+||| Canonical unary natural; construction itself performs no external effect.
+public export
+naturalTerm : Nat -> Term n
+naturalTerm Z = NatZero
+naturalTerm (S n) = NatSucc (naturalTerm n)
+
+public export
+canonicalNatural : Term n -> Maybe Nat
+canonicalNatural NatZero = Just Z
+canonicalNatural (NatSucc n) = map S (canonicalNatural n)
+canonicalNatural _ = Nothing
+
+||| Tags 0 Done/Finished carry R; tags 1 Continue/Exhausted carry S.
+||| These are structural aliases, not a runtime provenance/refinement guarantee.
+public export
+loopVariantType : Term n -> Term n -> Term n
+loopVariantType stateType resultType = VariantType
+  [Just (Linear, resultType), Just (Linear, stateType)]
+
+||| Missing or found octet (as a natural 0..255), never a sentinel byte.
+public export
+utf8ResultType : Term n -> Term n
+utf8ResultType payload = VariantType [Nothing, Just (Linear, payload)]
+
+public export
+byteReadResultType : Term n
+byteReadResultType = utf8ResultType BytesType
+
+public export
+byteIndexResultType : Term n
+byteIndexResultType = VariantType [Nothing, Just (Linear, NatType)]
+
+public export
+indexBytesValue : Nat -> Bytes -> Term n
+indexBytesValue index bytes = case byteAt index bytes of
+  Nothing => VariantValue byteIndexResultType 0 Nothing
+  Just octet => VariantValue byteIndexResultType 1 (Just (naturalTerm (cast octet)))
+
+public export
+contractBytesLengthIs : Term n -> Term n -> Maybe (Term n)
+contractBytesLengthIs count (BytesValue bytes) = do
+  value <- canonicalNatural count
+  Just (if value == byteLength bytes then BoolTrue else BoolFalse)
+contractBytesLengthIs _ _ = Nothing
+
+public export
+contractBytesIndex : Term n -> Term n -> Maybe (Term n)
+contractBytesIndex index (BytesValue bytes) = map (\n => indexBytesValue n bytes) (canonicalNatural index)
+contractBytesIndex _ _ = Nothing
+
+public export
+contractBytesSlice : Term n -> Term n -> Term n -> Maybe (Term n)
+contractBytesSlice start count (BytesValue bytes) = do
+  offset <- canonicalNatural start
+  capacity <- canonicalNatural count
+  Just (BytesValue (slice offset capacity bytes))
+contractBytesSlice _ _ _ = Nothing
+
+||| Only canonical naturals contract; Bits8 addition deliberately wraps.
+public export
+canonicalOctet : Term n -> Maybe Bits8
+canonicalOctet NatZero = Just 0
+canonicalOctet (NatSucc n) = map (+ 1) (canonicalOctet n)
+canonicalOctet _ = Nothing
 
 ||| Total list selection for raw constructor tags; out-of-range is not an exception.
 public export
@@ -154,9 +243,25 @@ mutual
   rename env (SeqCons ty head tail) = SeqCons (rename env ty) (rename env head) (rename env tail)
   rename env (SeqFold motive base step value) = SeqFold (rename env motive) (rename env base) (rename env step) (rename env value)
   rename env (SeqCase motive value base cons) = SeqCase (rename env motive) (rename env value) (rename env base) (rename env cons)
+  rename env (IterateBinary stateType resultType count step initial) = IterateBinary (rename env stateType) (rename env resultType) (rename env count) (rename env step) (rename env initial)
+  rename env (ReadBytes x) = ReadBytes (rename env x)
+  rename env (WriteBytes x) = WriteBytes (rename env x)
+  rename env RejectBytes = RejectBytes
+  rename env FlushBytes = FlushBytes
   rename env ReadLine = ReadLine
   rename env (FileHandleValue identity generation) = FileHandleValue identity generation
   rename env (ReadInputFile handle) = ReadInputFile (rename env handle)
+  rename env (UTF8Encode x) = UTF8Encode (rename env x)
+  rename env (UTF8Decode x) = UTF8Decode (rename env x)
+  rename env BytesType = BytesType
+  rename env (BytesValue value) = BytesValue value
+  rename env (BytesAppend a b) = BytesAppend (rename env a) (rename env b)
+  rename env (BytesIndex a b) = BytesIndex (rename env a) (rename env b)
+  rename env (BytesSlice a b c) = BytesSlice (rename env a) (rename env b) (rename env c)
+  rename env (BytesShare a) = BytesShare (rename env a)
+  rename env (BytesLengthIs a b) = BytesLengthIs (rename env a) (rename env b)
+  rename env (BytesLength a) = BytesLength (rename env a)
+  rename env (BytesOctet a) = BytesOctet (rename env a)
   rename env StringType = StringType
   rename env (StringValue value) = StringValue value
   rename env (StringAppend left right) = StringAppend (rename env left) (rename env right)
@@ -230,9 +335,25 @@ mutual
   substituteTerm env (SeqCons ty head tail) = SeqCons (substituteTerm env ty) (substituteTerm env head) (substituteTerm env tail)
   substituteTerm env (SeqFold motive base step value) = SeqFold (substituteTerm env motive) (substituteTerm env base) (substituteTerm env step) (substituteTerm env value)
   substituteTerm env (SeqCase motive value base cons) = SeqCase (substituteTerm env motive) (substituteTerm env value) (substituteTerm env base) (substituteTerm env cons)
+  substituteTerm env (IterateBinary stateType resultType count step initial) = IterateBinary (substituteTerm env stateType) (substituteTerm env resultType) (substituteTerm env count) (substituteTerm env step) (substituteTerm env initial)
+  substituteTerm env (ReadBytes x) = ReadBytes (substituteTerm env x)
+  substituteTerm env (WriteBytes x) = WriteBytes (substituteTerm env x)
+  substituteTerm env RejectBytes = RejectBytes
+  substituteTerm env FlushBytes = FlushBytes
   substituteTerm env ReadLine = ReadLine
   substituteTerm env (FileHandleValue identity generation) = FileHandleValue identity generation
   substituteTerm env (ReadInputFile handle) = ReadInputFile (substituteTerm env handle)
+  substituteTerm env (UTF8Encode x) = UTF8Encode (substituteTerm env x)
+  substituteTerm env (UTF8Decode x) = UTF8Decode (substituteTerm env x)
+  substituteTerm env BytesType = BytesType
+  substituteTerm env (BytesValue value) = BytesValue value
+  substituteTerm env (BytesAppend a b) = BytesAppend (substituteTerm env a) (substituteTerm env b)
+  substituteTerm env (BytesIndex a b) = BytesIndex (substituteTerm env a) (substituteTerm env b)
+  substituteTerm env (BytesSlice a b c) = BytesSlice (substituteTerm env a) (substituteTerm env b) (substituteTerm env c)
+  substituteTerm env (BytesShare a) = BytesShare (substituteTerm env a)
+  substituteTerm env (BytesLengthIs a b) = BytesLengthIs (substituteTerm env a) (substituteTerm env b)
+  substituteTerm env (BytesLength a) = BytesLength (substituteTerm env a)
+  substituteTerm env (BytesOctet a) = BytesOctet (substituteTerm env a)
   substituteTerm env StringType = StringType
   substituteTerm env (StringValue value) = StringValue value
   substituteTerm env (StringAppend left right) =
@@ -313,9 +434,25 @@ mutual
   sameSyntax (SeqCons a h t) (SeqCons b x y) = sameSyntax a b && sameSyntax h x && sameSyntax t y
   sameSyntax (SeqFold p z s x) (SeqFold q w t y) = sameSyntax p q && sameSyntax z w && sameSyntax s t && sameSyntax x y
   sameSyntax (SeqCase p x z s) (SeqCase q y w t) = sameSyntax p q && sameSyntax x y && sameSyntax z w && sameSyntax s t
+  sameSyntax (IterateBinary stateType resultType count step initial) (IterateBinary a b c d e) = sameSyntax stateType a && sameSyntax resultType b && sameSyntax count c && sameSyntax step d && sameSyntax initial e
+  sameSyntax (ReadBytes a) (ReadBytes b) = sameSyntax a b
+  sameSyntax (WriteBytes a) (WriteBytes b) = sameSyntax a b
+  sameSyntax RejectBytes RejectBytes = True
+  sameSyntax FlushBytes FlushBytes = True
   sameSyntax ReadLine ReadLine = True
   sameSyntax (FileHandleValue left first) (FileHandleValue right second) = left == right && first == second
   sameSyntax (ReadInputFile left) (ReadInputFile right) = sameSyntax left right
+  sameSyntax (UTF8Encode a) (UTF8Encode b) = sameSyntax a b
+  sameSyntax (UTF8Decode a) (UTF8Decode b) = sameSyntax a b
+  sameSyntax BytesType BytesType = True
+  sameSyntax (BytesValue a) (BytesValue b) = a == b
+  sameSyntax (BytesAppend a b) (BytesAppend c d) = sameSyntax a c && sameSyntax b d
+  sameSyntax (BytesIndex a b) (BytesIndex c d) = sameSyntax a c && sameSyntax b d
+  sameSyntax (BytesSlice a b c) (BytesSlice d e f) = sameSyntax a d && sameSyntax b e && sameSyntax c f
+  sameSyntax (BytesShare a) (BytesShare b) = sameSyntax a b
+  sameSyntax (BytesLengthIs a b) (BytesLengthIs c d) = sameSyntax a c && sameSyntax b d
+  sameSyntax (BytesLength a) (BytesLength b) = sameSyntax a b
+  sameSyntax (BytesOctet a) (BytesOctet b) = sameSyntax a b
   sameSyntax StringType StringType = True
   sameSyntax (StringValue left) (StringValue right) = left == right
   sameSyntax (StringAppend a b) (StringAppend c d) = sameSyntax a c && sameSyntax b d
@@ -397,3 +534,8 @@ scopedInputBodyType result = Pi Erased (Universe 0)
   (Pi Linear (FileHandleType (Variable FZ))
     (IOType (Sigma Linear Linear (FileHandleType (Variable (FS FZ)))
       (weaken (weaken (weaken result))))))
+
+public export
+binaryStepType : Term n -> Term n -> Term n
+binaryStepType stateType resultType = Pi Linear stateType
+  (IOType (loopVariantType (weaken stateType) (weaken resultType)))

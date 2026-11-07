@@ -1,0 +1,30 @@
+module Protocol.Frame
+
+-- One canonical Content-Length frame, decimal 0..4096, no extra headers/JSON.
+record SharedBytes : Type where
+  constructor Shared
+  bytes : Bytes
+
+export
+echoFrame : IO Unit
+echoFrame =
+  let (one : Nat) = Succ Zero in
+  let (three : Nat) = Succ (Succ (Succ Zero)) in
+  let (sixteen : Nat) = Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ Zero))))))))))))))) in
+  let (ascii : (bytes : Bytes) -> String) = \(bytes : Bytes) => primUTF8Case String String (primUTF8Decode bytes) "" (\(1 text : String) => text) in
+  let (classify : (text : String) -> (cr : IO Unit) -> (digit : (value : Nat) -> (spelling : String) -> IO Unit) -> IO Unit) = \(text : String) => \(cr : IO Unit) => \(digit : (value : Nat) -> (spelling : String) -> IO Unit) => if equalString text "0" then digit Zero "0" else if equalString text "1" then digit one "1" else if equalString text "2" then digit (Succ one) "2" else if equalString text "3" then digit three "3" else if equalString text "4" then digit (Succ three) "4" else if equalString text "5" then digit (Succ (Succ three)) "5" else if equalString text "6" then digit (Succ (Succ (Succ three))) "6" else if equalString text "7" then digit (Succ (Succ (Succ (Succ three)))) "7" else if equalString text "8" then digit (Succ (Succ (Succ (Succ (Succ three))))) "8" else if equalString text "9" then digit (Succ (Succ (Succ (Succ (Succ (Succ three)))))) "9" else if equalString text "\r" then cr else primRejectBytes in
+  let (readCode : (cr : IO Unit) -> (digit : (value : Nat) -> (spelling : String) -> IO Unit) -> IO Unit) = \(cr : IO Unit) => \(digit : (value : Nat) -> (spelling : String) -> IO Unit) => bind ByteReadResult Unit (primReadBytes one) (\(1 r : ByteReadResult) => primByteReadCase (IO Unit) r primRejectBytes (\(1 b : Bytes) => case primBytesShare b of Shared value => classify (ascii value) cr digit)) in
+  let (sameText : (expected : String) -> (1 bytes : Bytes) -> Bool) = \(expected : String) => \(1 bytes : Bytes) => primUTF8Case String Bool (primUTF8Decode bytes) False (\(1 text : String) => equalString text expected) in
+  let (digitBytes : (value : Nat) -> Bytes) = \(value : Nat) => natRec (\(0 n : Nat) => Bytes) primBytesEmpty (\(0 n : Nat) => \(1 old : Bytes) => primBytesAppend old (primBytesOctetMod256 Zero)) value in
+  let (tenBytes : (value : Bytes) -> Bytes) = \(value : Bytes) => let (twice : Bytes) = primBytesAppend value value in let (four : Bytes) = primBytesAppend twice twice in let (eight : Bytes) = primBytesAppend four four in primBytesAppend eight twice in
+  let (complete : (bytes : Bytes) -> IO Unit) = \(bytes : Bytes) => bind Unit Unit (primWriteBytes bytes) (\(1 done : Unit) => case done of () => primFlushBytes) in
+  let (body : (count : Nat) -> (bytes : Bytes) -> IO Unit) = \(count : Nat) => \(saved : Bytes) => if primBytesLengthIs count primBytesEmpty then complete saved else bind ByteReadResult Unit (primReadBytes count) (\(1 r : ByteReadResult) => primByteReadCase (IO Unit) r primRejectBytes (\(1 b : Bytes) => case primBytesShare b of Shared value => if primBytesLengthIs count value then complete (primBytesAppend saved value) else primRejectBytes)) in
+  let (encodedBody : (count : Nat) -> (header : String) -> IO Unit) = \(count : Nat) => \(header : String) => primUTF8Case Bytes (IO Unit) (primUTF8Encode header) primRejectBytes (\(1 b : Bytes) => case primBytesShare b of Shared value => body count value) in
+  let (finish : (count : Nat) -> (header : String) -> IO Unit) = \(count : Nat) => \(header : String) => bind ByteReadResult Unit (primReadBytes three) (\(1 r : ByteReadResult) => primByteReadCase (IO Unit) r primRejectBytes (\(1 b : Bytes) => if sameText "\n\r\n" b then encodedBody count header else primRejectBytes)) in
+  let (header : (spelling : String) -> String) = \(spelling : String) => appendString "Content-Length: " (appendString spelling "\r\n\r\n") in
+  let (safeFourth : (a : String) -> (b : String) -> (c : String) -> (d : String) -> Bool) = \(a : String) => \(b : String) => \(c : String) => \(d : String) => if orBool (equalString a "1") (orBool (equalString a "2") (equalString a "3")) then True else if equalString a "4" then if equalString b "0" then if equalString c "9" then if orBool (equalString d "7") (orBool (equalString d "8") (equalString d "9")) then False else True else True else False else False in
+  let (fourth : (a : String) -> (b : String) -> (c : String) -> (saved : Bytes) -> IO Unit) = \(a : String) => \(b : String) => \(c : String) => \(saved : Bytes) => readCode (finish (primBytesLength saved) (header (appendString a (appendString b c)))) (\(value : Nat) => \(d : String) => if safeFourth a b c d then case primBytesShare (primBytesAppend (tenBytes saved) (digitBytes value)) of Shared next => readCode (finish (primBytesLength next) (header (appendString a (appendString b (appendString c d))))) (\(n : Nat) => \(s : String) => primRejectBytes) else primRejectBytes) in
+  let (third : (a : String) -> (b : String) -> (saved : Bytes) -> IO Unit) = \(a : String) => \(b : String) => \(saved : Bytes) => readCode (finish (primBytesLength saved) (header (appendString a b))) (\(value : Nat) => \(c : String) => case primBytesShare (primBytesAppend (tenBytes saved) (digitBytes value)) of Shared next => fourth a b c next) in
+  let (second : (a : String) -> (saved : Bytes) -> IO Unit) = \(a : String) => \(saved : Bytes) => readCode (finish (primBytesLength saved) (header a)) (\(value : Nat) => \(b : String) => if equalString a "0" then primRejectBytes else case primBytesShare (primBytesAppend (tenBytes saved) (digitBytes value)) of Shared next => third a b next) in
+  let (first : IO Unit) = readCode primRejectBytes (\(value : Nat) => \(a : String) => case primBytesShare (digitBytes value) of Shared next => second a next) in
+  bind ByteReadResult Unit (primReadBytes sixteen) (\(1 r : ByteReadResult) => primByteReadCase (IO Unit) r primRejectBytes (\(1 b : Bytes) => if sameText "Content-Length: " b then first else primRejectBytes))

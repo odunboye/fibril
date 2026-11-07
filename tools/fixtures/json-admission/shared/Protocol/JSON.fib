@@ -1,0 +1,126 @@
+module Protocol.JSON
+
+record SharedBytes : Type where
+  constructor Shared
+  bytes : Bytes
+
+record Scan : Type where
+  constructor Scanning
+  eliminator consumeScan
+  rest : Bytes
+  stack : Bytes
+  mode : String
+  tokens : Bytes
+
+export
+data JSONResult : Type where
+  InvalidJSON : JSONResult
+  JSONTokens : (1 tokens : Bytes) -> JSONResult
+
+-- Success contains source-order tagged tokens; strings/numbers retain raw lexemes.
+-- State annotations refer to S, not the expanded four-field record.
+parseJSONKernel : (0 S : Type) ->
+  (scanning : (rest : Bytes) -> (stack : Bytes) -> (mode : String) -> (tokens : Bytes) -> S) ->
+  (eliminate : (0 R : Type) -> (1 state : S) ->
+    (fields : (rest : Bytes) -> (stack : Bytes) -> (mode : String) -> (tokens : Bytes) -> R) -> R) ->
+  (1 input : Bytes) -> JSONResult
+parseJSONKernel S scanning eliminate input = case primBytesShare input of Shared original =>
+  let (sameText : (1 left : String) -> (1 right : String) -> Bool) = equalString in
+  let (bytesLimit : Bytes) = primUTF8Case Bytes Bytes (primUTF8Encode "................................................................") primBytesEmpty (\(1 b : Bytes) => b) in
+  let (one : Nat) = Succ (Zero) in
+  let (limit : Nat) = primBytesLength (bytesLimit) in
+  let (nine : Nat) = Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ (Zero))))))))) in
+  let (ascii : (b : Bytes) -> String) = \(b : Bytes) => primUTF8Case String String (primUTF8Decode b) "" (\(1 text : String) => text) in
+  let (bytes : (text : String) -> Bytes) = \(text : String) => primUTF8Case Bytes Bytes (primUTF8Encode text) primBytesEmpty (\(1 b : Bytes) => b) in
+  let (head : (b : Bytes) -> Bytes) = \(b : Bytes) => primBytesSlice Zero one b in
+  let (tail : (b : Bytes) -> Bytes) = \(b : Bytes) => primBytesSlice one limit b in
+  let (zero : Bytes) = primBytesOctetMod256 Zero in
+  let (controls : Bytes) = bytes "................................" in
+  let (control : (b : Bytes) -> Bool) = \(b : Bytes) => primBytesIndexCase Bool (primBytesIndex Zero b) True (\(1 octet : Nat) => primBytesLengthIs one (primBytesSlice octet one controls)) in
+  let (digit : (c : String) -> Bool) = \(c : String) => orBool (sameText c "0") ( orBool (sameText c "1") ( orBool (sameText c "2") ( orBool (sameText c "3") ( orBool (sameText c "4") ( orBool (sameText c "5") ( orBool (sameText c "6") ( orBool (sameText c "7") ( orBool (sameText c "8") (sameText c "9"))))))))) in
+  let (hex : (c : String) -> Bool) = \(c : String) => orBool (sameText c "0") ( orBool (sameText c "1") ( orBool (sameText c "2") ( orBool (sameText c "3") ( orBool (sameText c "4") ( orBool (sameText c "5") ( orBool (sameText c "6") ( orBool (sameText c "7") ( orBool (sameText c "8") ( orBool (sameText c "9") ( orBool (sameText c "a") ( orBool (sameText c "b") ( orBool (sameText c "c") ( orBool (sameText c "d") ( orBool (sameText c "e") ( orBool (sameText c "f") ( orBool (sameText c "A") ( orBool (sameText c "B") ( orBool (sameText c "C") ( orBool (sameText c "D") ( orBool (sameText c "E") (sameText c "F"))))))))))))))))))))) in
+  let (space : (c : String) -> Bool) = \(c : String) => orBool (sameText c " ") ( orBool (sameText c "\t") ( orBool (sameText c "\r") (sameText c "\n"))) in
+  let (done : (stack : Bytes) -> Bytes) = \(stack : Bytes) => primBytesAppend (bytes (if sameText (ascii (head stack)) "r" then "z" else if sameText (ascii (head stack)) "w" then "d" else "b")) (tail stack) in
+  let (step : (1 state : S) -> S) = \(1 state : S) => eliminate S state (\(rest : Bytes) => \(stack : Bytes) => \(mode : String) => \(tokens : Bytes) =>
+    case primBytesShare (head rest) of Shared octet =>
+    let (c : String) = ascii octet in
+    let (r : Bytes) = tail rest in
+    let (bad : S) = scanning r stack "!" tokens in
+    let (keep : (m : String) -> S) = \(m : String) => scanning r stack m (primBytesAppend tokens octet) in
+    let (lex : (m : String) -> S) = \(m : String) => scanning r stack m tokens in
+    let (structural : (st : Bytes) -> (out : Bytes) -> S) = \(st : Bytes) => \(out : Bytes) =>
+      let (expect : String) = ascii (head st) in
+      let (emit : (next : Bytes) -> (mark : String) -> (m : String) -> S) = \(next : Bytes) => \(mark : String) => \(m : String) => scanning r next m (primBytesAppend out (bytes mark)) in
+      if space c then scanning r st "" out
+      else if orBool (sameText expect "r") (orBool (sameText expect "a") (orBool (sameText expect "v") (sameText expect "w"))) then
+        if sameText c "{" then if primBytesLengthIs nine st then bad else emit (primBytesAppend (bytes "o") (done st)) "{" ""
+        else if sameText c "[" then if primBytesLengthIs nine st then bad else emit (primBytesAppend (bytes "a") (done st)) "[" ""
+        else if sameText c "\"" then emit (done st) "S\"" "s"
+        else if sameText c "t" then emit (done st) "T" "t1"
+        else if sameText c "f" then emit (done st) "F" "f1"
+        else if sameText c "n" then emit (done st) "N" "n1"
+        else if sameText c "-" then emit (done st) "#-" "minus"
+        else if digit c then emit (done st) (appendString "#" c) (if sameText c "0" then "zero" else "int")
+        else if andBool (sameText expect "a") (sameText c "]") then emit (tail st) "]" "" else bad
+      else if orBool (sameText expect "o") (sameText expect "k") then
+        if sameText c "\"" then emit (primBytesAppend (bytes "c") (tail st)) "S\"" "s"
+        else if andBool (sameText expect "o") (sameText c "}") then emit (tail st) "}" "" else bad
+      else if andBool (sameText expect "c") (sameText c ":") then emit (primBytesAppend (bytes "w") (tail st)) ":" ""
+      else if sameText expect "b" then if sameText c "," then emit (primBytesAppend (bytes "v") (tail st)) "," "" else if sameText c "]" then emit (tail st) "]" "" else bad
+      else if sameText expect "d" then if sameText c "," then emit (primBytesAppend (bytes "k") (tail st)) "," "" else if sameText c "}" then emit (tail st) "}" "" else bad
+      else bad in
+    if sameText mode "!" then bad
+    else if sameText mode "" then structural stack tokens
+    else if sameText mode "s" then if control octet then bad else if sameText c "\"" then scanning r stack "" (primBytesAppend (primBytesAppend tokens octet) zero) else if sameText c "\\" then keep "escape" else keep "s"
+    else if sameText mode "escape" then if sameText c "u" then keep "u" else if orBool (sameText c "\"") (orBool (sameText c "\\") (orBool (sameText c "/") (orBool (sameText c "b") (orBool (sameText c "f") (orBool (sameText c "n") (orBool (sameText c "r") (sameText c "t"))))))) then keep "s" else bad
+    else if sameText mode "u" then if hex c then if orBool (sameText c "d") (sameText c "D") then keep "ud" else keep "u3" else bad
+    else if sameText mode "ud" then if hex c then if orBool (sameText c "8") (orBool (sameText c "9") (orBool (sameText c "a") (orBool (sameText c "A") (orBool (sameText c "b") (sameText c "B"))))) then keep "h2" else if orBool (sameText c "c") (orBool (sameText c "C") (orBool (sameText c "d") (orBool (sameText c "D") (orBool (sameText c "e") (orBool (sameText c "E") (orBool (sameText c "f") (sameText c "F"))))))) then bad else keep "u2" else bad
+    else if sameText mode "u3" then if hex c then keep "u2" else bad
+    else if sameText mode "u2" then if hex c then keep "u1" else bad
+    else if sameText mode "u1" then if hex c then keep "s" else bad
+    else if sameText mode "h2" then if hex c then keep "h1" else bad
+    else if sameText mode "h1" then if hex c then keep "hs" else bad
+    else if sameText mode "hs" then if sameText c "\\" then keep "hu" else bad
+    else if sameText mode "hu" then if sameText c "u" then keep "hd" else bad
+    else if sameText mode "hd" then if orBool (sameText c "d") (sameText c "D") then keep "hl" else bad
+    else if sameText mode "hl" then if orBool (sameText c "c") (orBool (sameText c "C") (orBool (sameText c "d") (orBool (sameText c "D") (orBool (sameText c "e") (orBool (sameText c "E") (orBool (sameText c "f") (sameText c "F"))))))) then keep "l2" else bad
+    else if sameText mode "l2" then if hex c then keep "l1" else bad
+    else if sameText mode "l1" then if hex c then keep "s" else bad
+    else if sameText mode "minus" then if digit c then keep (if sameText c "0" then "zero" else "int") else bad
+    else if sameText mode "zero" then if sameText c "." then keep "dot" else if orBool (sameText c "e") (sameText c "E") then keep "exp" else structural stack (primBytesAppend tokens zero)
+    else if sameText mode "int" then if digit c then keep "int" else if sameText c "." then keep "dot" else if orBool (sameText c "e") (sameText c "E") then keep "exp" else structural stack (primBytesAppend tokens zero)
+    else if sameText mode "dot" then if digit c then keep "frac" else bad
+    else if sameText mode "frac" then if digit c then keep "frac" else if orBool (sameText c "e") (sameText c "E") then keep "exp" else structural stack (primBytesAppend tokens zero)
+    else if sameText mode "exp" then if digit c then keep "en" else if orBool (sameText c "+") (sameText c "-") then keep "sign" else bad
+    else if sameText mode "sign" then if digit c then keep "en" else bad
+    else if sameText mode "en" then if digit c then keep "en" else structural stack (primBytesAppend tokens zero)
+    else if sameText mode "t1" then if sameText c "r" then lex "t2" else bad
+    else if sameText mode "t2" then if sameText c "u" then lex "t3" else bad
+    else if sameText mode "t3" then if sameText c "e" then lex "" else bad
+    else if sameText mode "f1" then if sameText c "a" then lex "f2" else bad
+    else if sameText mode "f2" then if sameText c "l" then lex "f3" else bad
+    else if sameText mode "f3" then if sameText c "s" then lex "f4" else bad
+    else if sameText mode "f4" then if sameText c "e" then lex "" else bad
+    else if sameText mode "n1" then if sameText c "u" then lex "n2" else bad
+    else if sameText mode "n2" then if sameText c "l" then lex "n3" else bad
+    else if sameText mode "n3" then if sameText c "l" then lex "" else bad
+    else bad) in
+  if primBytesLengthIs one (primBytesSlice limit one original) then InvalidJSON else
+  primUTF8Case String JSONResult (primUTF8Decode original) InvalidJSON (\(1 text : String) =>
+    case primBytesShare (primUTF8Case Bytes Bytes (primUTF8Encode text) primBytesEmpty (\(1 b : Bytes) => b)) of Shared validated =>
+    eliminate JSONResult
+      (natRec (\(0 n : Nat) => S) (scanning validated (bytes "r") "" primBytesEmpty) (\(0 n : Nat) => \(1 state : S) => step state) (primBytesLength validated))
+      (\(rest : Bytes) => \(stack : Bytes) => \(mode : String) => \(tokens : Bytes) =>
+        if sameText (ascii stack) "z" then
+          if sameText mode "" then JSONTokens tokens
+          else if orBool (sameText mode "zero") (orBool (sameText mode "int") (orBool (sameText mode "frac") (sameText mode "en"))) then JSONTokens (primBytesAppend tokens zero)
+          else InvalidJSON
+        else InvalidJSON))
+
+-- Instantiate the abstract kernel once; the eliminator is nondependent in R.
+export
+parseJSON : (1 input : Bytes) -> JSONResult
+parseJSON input = parseJSONKernel Scan Scanning
+  (\(0 R : Type) => \(1 state : Scan) =>
+    \(fields : (rest : Bytes) -> (stack : Bytes) -> (mode : String) -> (tokens : Bytes) -> R) =>
+      consumeScan (\(0 self : Scan) => R) state fields) input

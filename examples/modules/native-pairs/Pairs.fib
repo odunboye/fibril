@@ -1,0 +1,44 @@
+module Pairs
+
+export
+record Mixed : Type 0 where
+  constructor MkMixed
+  eliminator useMixed
+  0 erased : String
+  1 payload : String
+  suffix : String
+
+export
+record TailErased : Type 0 where
+  constructor MkTailErased
+  eliminator useTailErased
+  1 payload : String
+  0 erased : String
+
+export
+record Nested : Type 0 where
+  constructor MkNested
+  eliminator useNested
+  1 left : Mixed
+  1 right : TailErased
+
+export
+renderMixed : (1 item : Mixed) -> String
+renderMixed item = useMixed (\(0 self : Mixed) => String) item
+  (\(0 erased : String) => \(1 payload : String) => \(suffix : String) =>
+    appendString payload (appendString suffix suffix))
+
+export
+renderTail : (1 item : TailErased) -> String
+renderTail item = useTailErased (\(0 self : TailErased) => String) item
+  (\(1 payload : String) => \(0 erased : String) => payload)
+
+export
+render : (1 item : Nested) -> String
+render item = useNested (\(0 self : Nested) => String) item
+  (\(1 left : Mixed) => \(1 right : TailErased) =>
+    appendString (renderMixed left) (renderTail right))
+
+export
+sample : String
+sample = render (MkNested (MkMixed "unused-first" "pair" "!") (MkTailErased "tail" "unused-second"))

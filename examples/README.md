@@ -1,5 +1,29 @@
 # Examples
 
+The [512-bind native stress fixture](core/binary-many-binds.fib) exercises the
+binary continuation stack. Its compiled native execution succeeds; the hosted
+default currently exhausts reduction fuel. See [runtime scalability](../docs/binary-runtime-scalability.md).
+
+The [binary frame library/client](modules/binary-frame/Main.fib) parses and echoes
+one canonical Content-Length frame with a 0..4096-byte body, entirely in Fibril.
+Use explicit binary `--source-dir` execution/emission; see [framing](../docs/binary-framing.md).
+
+The [binary chunk echo](core/binary-echo.fib) and [bounded sequence echo](core/binary-echo-loop.fib)
+require explicit hosted `fibril run-binary` or native `emit-c-binary`. They
+preserve arbitrary bytes through stdio; the separate framing example supplies a
+small canonical Content-Length layer.
+Native binary C links `fibril_binary_runtime.c`, not the legacy runtime alone.
+
+The [UTF-8 bytes example](core/utf8-bytes.fib) explicitly handles encoding and
+decoding outcomes, with hosted/native text output. It does not grant binary IO.
+
+The [pure bytes example](core/bytes-pure.fib) constructs a NUL octet, appends
+another byte and computes length. It performs no binary IO; use `fibril eval`.
+The [native pure bytes example](core/bytes-native.fib) feeds a byte-derived length
+into text output and supports checked C emission; it is not binary transport.
+The [byte ranges example](core/bytes-ranges.fib) uses truncating slice and explicit
+missing/found indexing in both hosted and compiled execution.
+
 Strict YAML inspection fixtures live in [manifests/](manifests/README.md). They are
 not executable workspace projects or source-checking examples.
 

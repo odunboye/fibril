@@ -1,0 +1,4 @@
+module ParseBinary
+import Protocol.JSON
+main : (1 input : Bytes) -> IO JSONResult
+main = parseJSONBinary

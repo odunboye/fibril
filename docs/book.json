@@ -204,6 +204,10 @@
         "path": "docs/native-c.md"
       },
       {
+        "title": "Experimental native pure pairs",
+        "path": "docs/native-pure-pairs.md"
+      },
+      {
         "title": "Hello world and hosted console execution",
         "path": "docs/console-runner.md"
       },
@@ -242,6 +246,14 @@
       {
         "title": "Non-recursive source data",
         "path": "docs/data.md"
+      },
+      {
+        "title": "Pure byte values",
+        "path": "docs/bytes.md"
+      },
+      {
+        "title": "Explicit UTF-8 conversion",
+        "path": "docs/utf8-values.md"
       },
       {
         "title": "Finite-variant kernel",
@@ -351,6 +363,19 @@
       { "title": "Ownership-returning reads", "path": "docs/io-owned-file-reads.md" },
       { "title": "Native resource runtime", "path": "docs/io-native-resources.md" },
       { "title": "Checked resource emission", "path": "docs/io-resource-emission.md" },
+      { "title": "Binary transport pilot", "path": "docs/io-binary.md" },
+      { "title": "Checked binary IO", "path": "docs/io-binary-source.md" },
+      { "title": "Fibril-written bounded framing", "path": "docs/binary-framing.md" },
+      { "title": "Numeric probes and 4 KiB framing", "path": "docs/binary-numbers.md" },
+      { "title": "Protocol foundations checkpoint", "path": "docs/protocol-foundations.md" },
+      { "title": "LSP workload and scaling proposal", "path": "docs/lsp-workload-scaling.md" },
+      { "title": "Bounded LSP cost audit", "path": "docs/lsp-cost-audit.md" },
+      { "title": "Header parser blockers", "path": "docs/header-parser-blockers.md" },
+      { "title": "JSON admission and state sharing", "path": "docs/binary-json-blockers.md" },
+      { "title": "JSON buffered binary iteration", "path": "docs/json-iteration-adoption.md" },
+      { "title": "Bounded binary iteration proposal", "path": "docs/bounded-binary-iteration-proposal.md" },
+      { "title": "Checked bounded binary iteration", "path": "docs/bounded-binary-iteration.md" },
+      { "title": "Native binary continuation stack", "path": "docs/binary-runtime-scalability.md" },
       { "title": "IO build validation", "path": "docs/io-build-validation.md" },
       { "title": "QTT merge validation", "path": "docs/io-merge-validation.md" }
     ]

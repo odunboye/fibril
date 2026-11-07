@@ -1,0 +1,9 @@
+-- Pure byte computation feeding text output; this is NOT binary transport.
+renderLength : (1 count : Nat) -> String
+renderLength = \(1 count : Nat) => natRec (\(0 n : Nat) => String) "" (\(0 n : Nat) => \(1 rest : String) => appendString "x" rest) count
+
+packet : Bytes
+packet = primBytesAppend (primBytesOctetMod256 Zero) (primBytesAppend primBytesEmpty (primBytesOctetMod256 (Succ Zero)))
+
+main : IO Unit
+main = putStrLn (renderLength (primBytesLength packet))

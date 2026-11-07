@@ -28,12 +28,20 @@ The generated homepage separates teaching chapters, references, and project reco
 
 - [Bare Type](bare-type.md): notation for Type 0, with explicit higher universes unchanged.
 
+- [Explicit UTF-8 conversion](utf8-values.md): checked fallible text/byte conversion with native parity; console NUL policy is unchanged.
+- [Pure byte values](bytes.md): checked immutable octets, append, length and explicit modulo construction; not source binary IO.
 - [Pure String values](strings.md): ordinary typing/data and the separate console effect boundary.
 
 - [Fibril LSP server](lsp.md): standard editor services, unsaved buffers, checked project/package navigation, and thin Neovim setup.
 - [Legacy Vim/Neovim commands](editor-highlighting.md): retained runtime setup and optional compatibility tests.
 
 - [Hello world / hosted console](console-runner.md): first run command and its explicit effect boundary.
+- [Protocol foundations checkpoint](protocol-foundations.md): reviewed pair lowering/state sharing, corrected oracle, and explicit remaining runtime blockers.
+- [Native binary continuation stack](binary-runtime-scalability.md): bounded iterative IO traversal; measured 4 KiB framing policy, unchanged hosted reduction budget.
+- [Numeric probes and 4 KiB framing](binary-numbers.md): measured source-level decimal strategy, unchanged runner budgets.
+- [Fibril-written bounded framing](binary-framing.md): canonical Content-Length echo with one-/two-frame clients, checked hosted/native, strict 0..4096-byte body limit; not an LSP server.
+- [Checked binary IO](io-binary-source.md): explicit hosted/native source runners, conservative mode gates and bounded echo examples.
+- [Binary transport pilot](io-binary.md): internal byte-preserving hosted/native IO, accounting contracts and source API gates.
 
 - [Source-ordered declarations](declarations.md): explicit headers lowered to typed lets, not transparent globals.
 

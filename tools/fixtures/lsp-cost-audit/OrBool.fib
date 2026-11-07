@@ -1,0 +1,4 @@
+module OrBool
+-- OFFLINE helper expansion inventory only.
+main : (1 left : Bool) -> (1 right : Bool) -> Bool
+main = orBool

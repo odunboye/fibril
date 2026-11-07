@@ -1,0 +1,30 @@
+module Main
+
+-- NON-PRODUCTION diagnostic checkpoint; see docs/header-parser-blockers.md.
+record SharedBytes : Type where
+  constructor Shared
+  bytes : Bytes
+main : IO Unit
+main =
+  let (one : Nat) = Succ (Zero) in
+  let (three : Nat) = Succ (Succ (Succ (Zero))) in
+  let (ascii : (bytes : Bytes) -> String) = \(bytes : Bytes) => primUTF8Case String String (primUTF8Decode bytes) "" (\(1 text : String) => text) in
+  let (encode : (text : String) -> Bytes) = \(text : String) => primUTF8Case Bytes Bytes (primUTF8Encode text) primBytesEmpty (\(1 bytes : Bytes) => bytes) in
+  let (lowerTable : Bytes) = encode "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t !\"#$%&'()*+,-./0123456789:;<=>?@abcdefghijklmnopqrstuvwxyz[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~" in
+  let (lower : (bytes : Bytes) -> String) = \(bytes : Bytes) => primBytesIndexCase String (primBytesIndex Zero bytes) "" (\(1 code : Nat) => primUTF8Case String String (primUTF8Decode (primBytesSlice code one lowerTable)) "" (\(1 text : String) => text)) in
+  let (limit : Nat) = primBytesLength (encode "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx") in
+
+  let (finish : (active : Bool) -> (saved : Bytes) -> IO Unit) = \(active : Bool) => \(saved : Bytes) => if active then primRejectBytes else primWriteBytes saved in
+  let (step : (0 n : Nat) -> (1 next : (active : Bool) -> (saved : Bytes) -> IO Unit) -> (active : Bool) -> (saved : Bytes) -> IO Unit) = \(0 n : Nat) => \(1 next : (active : Bool) -> (saved : Bytes) -> IO Unit) => \(active : Bool) => \(saved : Bytes) =>
+    if active then bind ByteReadResult Unit (primReadBytes one) (\(1 r : ByteReadResult) =>
+      (primByteReadCase ((1 k : (active : Bool) -> (saved : Bytes) -> IO Unit) -> IO Unit) r
+        (\(1 k : (active : Bool) -> (saved : Bytes) -> IO Unit) => bind Unit Unit primRejectBytes (\(1 done : Unit) => case done of () => k False saved))
+        (\(1 b : Bytes) => case primBytesShare b of Shared raw =>
+          let (folded : String) = lower raw in
+          case primBytesShare (primBytesAppend saved (encode folded)) of Shared value =>
+          \(1 k : (active : Bool) -> (saved : Bytes) -> IO Unit) =>
+          if equalString (ascii raw) ":" then k False saved else
+          if orBool (equalString folded "") (equalString folded "\t") then bind Unit Unit primRejectBytes (\(1 done : Unit) => case done of () => k False saved) else
+          k True value)) next)
+    else bind Unit Unit (pure Unit ()) (\(1 done : Unit) => case done of () => next False saved) in
+  (natRec (\(0 n : Nat) => (active : Bool) -> (saved : Bytes) -> IO Unit) finish step limit) True primBytesEmpty

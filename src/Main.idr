@@ -9,10 +9,13 @@ import Fibril.Driver.Check
 import Fibril.Driver.CheckReport
 import Fibril.Driver.Evaluate
 import Fibril.Driver.Run
+import Fibril.Driver.Binary
 import Fibril.Driver.Interactive.Run
 -- Keep the experimental resource library in the application package's build
 -- closure so installed test dependencies include it; no CLI command exposes it.
 import Fibril.Driver.Resource
+-- Internal byte transport is built/installed, not exposed as a source primitive.
+import Fibril.Runtime.Binary
 import Fibril.Driver.Native
 import Fibril.Driver.Test
 import Fibril.Driver.ModuleGraph
@@ -63,6 +66,8 @@ Usage:
   fibril test                  Check all listed modules, evaluate tests main : Bool
   fibril test --package PATH   Same pure test workflow for an explicit package
   fibril emit-c PATH           Check and emit experimental C source to stdout
+  fibril emit-c-binary PATH      Emit explicit binary-only C (standalone)
+  fibril emit-c-binary --source-dir ROOT ENTRY  Emit checked binary project C
   fibril emit-c-interactive PATH  Emit incremental C with stdin support (standalone)
   fibril emit-c --source-dir ROOT ENTRY  Check modules and emit C
   fibril emit-c --package PATH  Check a local package and emit C
@@ -75,6 +80,8 @@ Usage:
   fibril check --json PATH      JSON runtime-check report (no effect execution)
   fibril check --erased PATH    Check only the erased ordinary fragment
   fibril run PATH              Check main : IO Unit, then execute prepared stdout requests
+  fibril run-binary PATH       Execute checked borrowed binary stdio (standalone)
+  fibril run-binary --source-dir ROOT ENTRY  Execute checked binary project
   fibril run-interactive PATH  Execute incremental stdin/stdout IO (standalone)
   fibril run --source-dir ROOT ENTRY  Check modules, then execute the complete IO plan
   fibril eval --source-dir ROOT ENTRY  Checked module reference normalization
@@ -174,7 +181,11 @@ main = do
     ["emit-c", "--package", manifest] => emitCPackage manifest >>= printC
     ["emit-c", "--source-dir", root, entry] => emitCProject root entry >>= printC
     ["emit-c", path] => emitCFile path >>= printC
+    ["emit-c-binary", "--source-dir", root, entry] => emitBinaryCProject root entry >>= printC
+    ["run-binary", "--source-dir", root, entry] => runBinaryProject root entry >>= printExecution
+    ["emit-c-binary", path] => emitBinaryCFile path >>= printC
     ["emit-c-interactive", path] => emitInteractiveCFile path >>= printC
+    ["run-binary", path] => runBinaryFile path >>= printExecution
     ["run-interactive", path] => runInteractiveFile path >>= printExecution
     ["module-graph"] => packageGraph "fibril.yaml"
     ["module-graph", "--package", manifest] => packageGraph manifest

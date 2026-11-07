@@ -1,0 +1,4214 @@
+{
+  "scope": "64-byte diagnostic, not 4096-byte delivery",
+  "rows": [
+    {
+      "case": "grammar-0",
+      "backend": "hosted",
+      "input_hex": "",
+      "expected_hex": "00",
+      "stdout_hex": "",
+      "category": "reader_eof",
+      "callbacks": 0,
+      "metrics": [
+        1,
+        0,
+        0,
+        0,
+        0
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nMETRICS 1 0 0 0 0\nOUTPUT []\nERROR Binary program rejected input"
+    },
+    {
+      "case": "grammar-0",
+      "backend": "native",
+      "input_hex": "",
+      "expected_hex": "00",
+      "stdout_hex": "",
+      "category": "reader_eof",
+      "callbacks": 0,
+      "metrics": [
+        1,
+        0,
+        0,
+        0,
+        0
+      ],
+      "observation": "METRICS 1 0 0 0 0\nOUTPUT []\nERROR Binary program rejected input\nBUDGET 1 65\nNATIVE 288 12 9744 0"
+    },
+    {
+      "case": "grammar-1",
+      "backend": "hosted",
+      "input_hex": "20",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 2,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 1\nOUTPUT [0]\nOK"
+    },
+    {
+      "case": "grammar-1",
+      "backend": "native",
+      "input_hex": "20",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 2,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "METRICS 1 1 1 0 1\nOUTPUT [0]\nOK\nBUDGET 2 66\nNATIVE 1758 61 60289 2"
+    },
+    {
+      "case": "grammar-2",
+      "backend": "hosted",
+      "input_hex": "30",
+      "expected_hex": "233000",
+      "stdout_hex": "233000",
+      "category": "valid_transfer",
+      "callbacks": 2,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        3
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 3\nOUTPUT [35, 48, 0]\nOK"
+    },
+    {
+      "case": "grammar-2",
+      "backend": "native",
+      "input_hex": "30",
+      "expected_hex": "233000",
+      "stdout_hex": "233000",
+      "category": "valid_transfer",
+      "callbacks": 2,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        3
+      ],
+      "observation": "METRICS 1 1 1 0 3\nOUTPUT [35, 48, 0]\nOK\nBUDGET 2 68\nNATIVE 2757 75 90697 2"
+    },
+    {
+      "case": "grammar-3",
+      "backend": "hosted",
+      "input_hex": "31",
+      "expected_hex": "233100",
+      "stdout_hex": "233100",
+      "category": "valid_transfer",
+      "callbacks": 2,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        3
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 3\nOUTPUT [35, 49, 0]\nOK"
+    },
+    {
+      "case": "grammar-3",
+      "backend": "native",
+      "input_hex": "31",
+      "expected_hex": "233100",
+      "stdout_hex": "233100",
+      "category": "valid_transfer",
+      "callbacks": 2,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        3
+      ],
+      "observation": "METRICS 1 1 1 0 3\nOUTPUT [35, 49, 0]\nOK\nBUDGET 2 68\nNATIVE 2757 75 90697 2"
+    },
+    {
+      "case": "grammar-4",
+      "backend": "hosted",
+      "input_hex": "2d31",
+      "expected_hex": "232d3100",
+      "stdout_hex": "232d3100",
+      "category": "valid_transfer",
+      "callbacks": 3,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        4
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 4\nOUTPUT [35, 45, 49, 0]\nOK"
+    },
+    {
+      "case": "grammar-4",
+      "backend": "native",
+      "input_hex": "2d31",
+      "expected_hex": "232d3100",
+      "stdout_hex": "232d3100",
+      "category": "valid_transfer",
+      "callbacks": 3,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        4
+      ],
+      "observation": "METRICS 1 1 1 0 4\nOUTPUT [35, 45, 49, 0]\nOK\nBUDGET 2 69\nNATIVE 3576 79 115899 3"
+    },
+    {
+      "case": "grammar-5",
+      "backend": "hosted",
+      "input_hex": "312e30",
+      "expected_hex": "23312e3000",
+      "stdout_hex": "23312e3000",
+      "category": "valid_transfer",
+      "callbacks": 4,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        5
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 5\nOUTPUT [35, 49, 46, 48, 0]\nOK"
+    },
+    {
+      "case": "grammar-5",
+      "backend": "native",
+      "input_hex": "312e30",
+      "expected_hex": "23312e3000",
+      "stdout_hex": "23312e3000",
+      "category": "valid_transfer",
+      "callbacks": 4,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        5
+      ],
+      "observation": "METRICS 1 1 1 0 5\nOUTPUT [35, 49, 46, 48, 0]\nOK\nBUDGET 2 70\nNATIVE 5099 82 164146 4"
+    },
+    {
+      "case": "grammar-6",
+      "backend": "hosted",
+      "input_hex": "316532",
+      "expected_hex": "2331653200",
+      "stdout_hex": "2331653200",
+      "category": "valid_transfer",
+      "callbacks": 4,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        5
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 5\nOUTPUT [35, 49, 101, 50, 0]\nOK"
+    },
+    {
+      "case": "grammar-6",
+      "backend": "native",
+      "input_hex": "316532",
+      "expected_hex": "2331653200",
+      "stdout_hex": "2331653200",
+      "category": "valid_transfer",
+      "callbacks": 4,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        5
+      ],
+      "observation": "METRICS 1 1 1 0 5\nOUTPUT [35, 49, 101, 50, 0]\nOK\nBUDGET 2 70\nNATIVE 5184 84 166850 4"
+    },
+    {
+      "case": "grammar-7",
+      "backend": "hosted",
+      "input_hex": "74727565",
+      "expected_hex": "54",
+      "stdout_hex": "54",
+      "category": "valid_transfer",
+      "callbacks": 5,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 1\nOUTPUT [84]\nOK"
+    },
+    {
+      "case": "grammar-7",
+      "backend": "native",
+      "input_hex": "74727565",
+      "expected_hex": "54",
+      "stdout_hex": "54",
+      "category": "valid_transfer",
+      "callbacks": 5,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "METRICS 1 1 1 0 1\nOUTPUT [84]\nOK\nBUDGET 2 66\nNATIVE 5310 79 168722 5"
+    },
+    {
+      "case": "grammar-8",
+      "backend": "hosted",
+      "input_hex": "66616c7365",
+      "expected_hex": "46",
+      "stdout_hex": "46",
+      "category": "valid_transfer",
+      "callbacks": 6,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 1\nOUTPUT [70]\nOK"
+    },
+    {
+      "case": "grammar-8",
+      "backend": "native",
+      "input_hex": "66616c7365",
+      "expected_hex": "46",
+      "stdout_hex": "46",
+      "category": "valid_transfer",
+      "callbacks": 6,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "METRICS 1 1 1 0 1\nOUTPUT [70]\nOK\nBUDGET 2 66\nNATIVE 6613 83 209058 6"
+    },
+    {
+      "case": "grammar-9",
+      "backend": "hosted",
+      "input_hex": "6e756c6c",
+      "expected_hex": "4e",
+      "stdout_hex": "4e",
+      "category": "valid_transfer",
+      "callbacks": 5,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 1\nOUTPUT [78]\nOK"
+    },
+    {
+      "case": "grammar-9",
+      "backend": "native",
+      "input_hex": "6e756c6c",
+      "expected_hex": "4e",
+      "stdout_hex": "4e",
+      "category": "valid_transfer",
+      "callbacks": 5,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "METRICS 1 1 1 0 1\nOUTPUT [78]\nOK\nBUDGET 2 66\nNATIVE 5747 86 182338 5"
+    },
+    {
+      "case": "grammar-10",
+      "backend": "hosted",
+      "input_hex": "5b5d",
+      "expected_hex": "5b5d",
+      "stdout_hex": "5b5d",
+      "category": "valid_transfer",
+      "callbacks": 3,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        2
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 2\nOUTPUT [91, 93]\nOK"
+    },
+    {
+      "case": "grammar-10",
+      "backend": "native",
+      "input_hex": "5b5d",
+      "expected_hex": "5b5d",
+      "stdout_hex": "5b5d",
+      "category": "valid_transfer",
+      "callbacks": 3,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        2
+      ],
+      "observation": "METRICS 1 1 1 0 2\nOUTPUT [91, 93]\nOK\nBUDGET 2 67\nNATIVE 3729 74 120022 3"
+    },
+    {
+      "case": "grammar-11",
+      "backend": "hosted",
+      "input_hex": "7b7d",
+      "expected_hex": "7b7d",
+      "stdout_hex": "7b7d",
+      "category": "valid_transfer",
+      "callbacks": 3,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        2
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 2\nOUTPUT [123, 125]\nOK"
+    },
+    {
+      "case": "grammar-11",
+      "backend": "native",
+      "input_hex": "7b7d",
+      "expected_hex": "7b7d",
+      "stdout_hex": "7b7d",
+      "category": "valid_transfer",
+      "callbacks": 3,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        2
+      ],
+      "observation": "METRICS 1 1 1 0 2\nOUTPUT [123, 125]\nOK\nBUDGET 2 67\nNATIVE 3368 70 108342 3"
+    },
+    {
+      "case": "grammar-12",
+      "backend": "hosted",
+      "input_hex": "5b205d",
+      "expected_hex": "5b5d",
+      "stdout_hex": "5b5d",
+      "category": "valid_transfer",
+      "callbacks": 4,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        2
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 2\nOUTPUT [91, 93]\nOK"
+    },
+    {
+      "case": "grammar-12",
+      "backend": "native",
+      "input_hex": "5b205d",
+      "expected_hex": "5b5d",
+      "stdout_hex": "5b5d",
+      "category": "valid_transfer",
+      "callbacks": 4,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        2
+      ],
+      "observation": "METRICS 1 1 1 0 2\nOUTPUT [91, 93]\nOK\nBUDGET 2 67\nNATIVE 4368 74 139910 4"
+    },
+    {
+      "case": "grammar-13",
+      "backend": "hosted",
+      "input_hex": "5b315d",
+      "expected_hex": "5b2331005d",
+      "stdout_hex": "5b2331005d",
+      "category": "valid_transfer",
+      "callbacks": 4,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        5
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 5\nOUTPUT [91, 35, 49, 0, 93]\nOK"
+    },
+    {
+      "case": "grammar-13",
+      "backend": "native",
+      "input_hex": "5b315d",
+      "expected_hex": "5b2331005d",
+      "stdout_hex": "5b2331005d",
+      "category": "valid_transfer",
+      "callbacks": 4,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        5
+      ],
+      "observation": "METRICS 1 1 1 0 5\nOUTPUT [91, 35, 49, 0, 93]\nOK\nBUDGET 2 70\nNATIVE 5689 83 180677 4"
+    },
+    {
+      "case": "grammar-14",
+      "backend": "hosted",
+      "input_hex": "5b312c325d",
+      "expected_hex": "5b2331002c2332005d",
+      "stdout_hex": "5b2331002c2332005d",
+      "category": "valid_transfer",
+      "callbacks": 6,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        9
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 9\nOUTPUT [91, 35, 49, 0, 44, 35, 50, 0, 93]\nOK"
+    },
+    {
+      "case": "grammar-14",
+      "backend": "native",
+      "input_hex": "5b312c325d",
+      "expected_hex": "5b2331002c2332005d",
+      "stdout_hex": "5b2331002c2332005d",
+      "category": "valid_transfer",
+      "callbacks": 6,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        9
+      ],
+      "observation": "METRICS 1 1 1 0 9\nOUTPUT [91, 35, 49, 0, 44, 35, 50, 0, 93]\nOK\nBUDGET 2 74\nNATIVE 9040 83 283779 6"
+    },
+    {
+      "case": "grammar-15",
+      "backend": "hosted",
+      "input_hex": "7b2261223a317d",
+      "expected_hex": "7b53226122003a2331007d",
+      "stdout_hex": "7b53226122003a2331007d",
+      "category": "valid_transfer",
+      "callbacks": 8,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        11
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 11\nOUTPUT [123, 83, 34, 97, 34, 0, 58, 35, 49, 0, 125]\nOK"
+    },
+    {
+      "case": "grammar-15",
+      "backend": "native",
+      "input_hex": "7b2261223a317d",
+      "expected_hex": "7b53226122003a2331007d",
+      "stdout_hex": "7b53226122003a2331007d",
+      "category": "valid_transfer",
+      "callbacks": 8,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        11
+      ],
+      "observation": "METRICS 1 1 1 0 11\nOUTPUT [123, 83, 34, 97, 34, 0, 58, 35, 49, 0, 125]\nOK\nBUDGET 2 76\nNATIVE 9402 83 297188 8"
+    },
+    {
+      "case": "grammar-16",
+      "backend": "hosted",
+      "input_hex": "7b2261223a312c2261223a327d",
+      "expected_hex": "7b53226122003a2331002c53226122003a2332007d",
+      "stdout_hex": "7b53226122003a2331002c53226122003a2332007d",
+      "category": "valid_transfer",
+      "callbacks": 14,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        21
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 21\nOUTPUT [123, 83, 34, 97, 34, 0, 58, 35, 49, 0, 44, 83, 34, 97, 34, 0, 58, 35, 50, 0, 125]\nOK"
+    },
+    {
+      "case": "grammar-16",
+      "backend": "native",
+      "input_hex": "7b2261223a312c2261223a327d",
+      "expected_hex": "7b53226122003a2331002c53226122003a2332007d",
+      "stdout_hex": "7b53226122003a2331002c53226122003a2332007d",
+      "category": "valid_transfer",
+      "callbacks": 14,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        21
+      ],
+      "observation": "METRICS 1 1 1 0 21\nOUTPUT [123, 83, 34, 97, 34, 0, 58, 35, 49, 0, 44, 83, 34, 97, 34, 0, 58, 35, 50, 0, 125]\nOK\nBUDGET 2 86\nNATIVE 16421 83 516341 14"
+    },
+    {
+      "case": "grammar-17",
+      "backend": "hosted",
+      "input_hex": "2222",
+      "expected_hex": "53222200",
+      "stdout_hex": "53222200",
+      "category": "valid_transfer",
+      "callbacks": 3,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        4
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 4\nOUTPUT [83, 34, 34, 0]\nOK"
+    },
+    {
+      "case": "grammar-17",
+      "backend": "native",
+      "input_hex": "2222",
+      "expected_hex": "53222200",
+      "stdout_hex": "53222200",
+      "category": "valid_transfer",
+      "callbacks": 3,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        4
+      ],
+      "observation": "METRICS 1 1 1 0 4\nOUTPUT [83, 34, 34, 0]\nOK\nBUDGET 2 69\nNATIVE 3022 70 98475 3"
+    },
+    {
+      "case": "grammar-18",
+      "backend": "hosted",
+      "input_hex": "226122",
+      "expected_hex": "5322612200",
+      "stdout_hex": "5322612200",
+      "category": "valid_transfer",
+      "callbacks": 4,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        5
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 5\nOUTPUT [83, 34, 97, 34, 0]\nOK"
+    },
+    {
+      "case": "grammar-18",
+      "backend": "native",
+      "input_hex": "226122",
+      "expected_hex": "5322612200",
+      "stdout_hex": "5322612200",
+      "category": "valid_transfer",
+      "callbacks": 4,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        5
+      ],
+      "observation": "METRICS 1 1 1 0 5\nOUTPUT [83, 34, 97, 34, 0]\nOK\nBUDGET 2 70\nNATIVE 3871 70 128080 4"
+    },
+    {
+      "case": "grammar-19",
+      "backend": "hosted",
+      "input_hex": "225c6e22",
+      "expected_hex": "53225c6e2200",
+      "stdout_hex": "53225c6e2200",
+      "category": "valid_transfer",
+      "callbacks": 5,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        6
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 6\nOUTPUT [83, 34, 92, 110, 34, 0]\nOK"
+    },
+    {
+      "case": "grammar-19",
+      "backend": "native",
+      "input_hex": "225c6e22",
+      "expected_hex": "53225c6e2200",
+      "stdout_hex": "53225c6e2200",
+      "category": "valid_transfer",
+      "callbacks": 5,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        6
+      ],
+      "observation": "METRICS 1 1 1 0 6\nOUTPUT [83, 34, 92, 110, 34, 0]\nOK\nBUDGET 2 71\nNATIVE 4670 70 152934 5"
+    },
+    {
+      "case": "grammar-20",
+      "backend": "hosted",
+      "input_hex": "225c753030343122",
+      "expected_hex": "53225c75303034312200",
+      "stdout_hex": "53225c75303034312200",
+      "category": "valid_transfer",
+      "callbacks": 9,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        10
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 10\nOUTPUT [83, 34, 92, 117, 48, 48, 52, 49, 34, 0]\nOK"
+    },
+    {
+      "case": "grammar-20",
+      "backend": "native",
+      "input_hex": "225c753030343122",
+      "expected_hex": "53225c75303034312200",
+      "stdout_hex": "53225c75303034312200",
+      "category": "valid_transfer",
+      "callbacks": 9,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        10
+      ],
+      "observation": "METRICS 1 1 1 0 10\nOUTPUT [83, 34, 92, 117, 48, 48, 52, 49, 34, 0]\nOK\nBUDGET 2 75\nNATIVE 9488 106 306328 9"
+    },
+    {
+      "case": "grammar-21",
+      "backend": "hosted",
+      "input_hex": "225c75443833345c754444314522",
+      "expected_hex": "53225c75443833345c75444431452200",
+      "stdout_hex": "53225c75443833345c75444431452200",
+      "category": "valid_transfer",
+      "callbacks": 15,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        16
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 16\nOUTPUT [83, 34, 92, 117, 68, 56, 51, 52, 92, 117, 68, 68, 49, 69, 34, 0]\nOK"
+    },
+    {
+      "case": "grammar-21",
+      "backend": "native",
+      "input_hex": "225c75443833345c754444314522",
+      "expected_hex": "53225c75443833345c75444431452200",
+      "stdout_hex": "53225c75443833345c75444431452200",
+      "category": "valid_transfer",
+      "callbacks": 15,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        16
+      ],
+      "observation": "METRICS 1 1 1 0 16\nOUTPUT [83, 34, 92, 117, 68, 56, 51, 52, 92, 117, 68, 68, 49, 69, 34, 0]\nOK\nBUDGET 2 81\nNATIVE 15867 114 506649 15"
+    },
+    {
+      "case": "grammar-22",
+      "backend": "hosted",
+      "input_hex": "22c3a922",
+      "expected_hex": "5322c3a92200",
+      "stdout_hex": "5322c3a92200",
+      "category": "valid_transfer",
+      "callbacks": 5,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        6
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 6\nOUTPUT [83, 34, 195, 169, 34, 0]\nOK"
+    },
+    {
+      "case": "grammar-22",
+      "backend": "native",
+      "input_hex": "22c3a922",
+      "expected_hex": "5322c3a92200",
+      "stdout_hex": "5322c3a92200",
+      "category": "valid_transfer",
+      "callbacks": 5,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        6
+      ],
+      "observation": "METRICS 1 1 1 0 6\nOUTPUT [83, 34, 195, 169, 34, 0]\nOK\nBUDGET 2 71\nNATIVE 5058 70 173782 5"
+    },
+    {
+      "case": "grammar-23",
+      "backend": "hosted",
+      "input_hex": "22f09d849e22",
+      "expected_hex": "5322f09d849e2200",
+      "stdout_hex": "5322f09d849e2200",
+      "category": "valid_transfer",
+      "callbacks": 7,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        8
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 8\nOUTPUT [83, 34, 240, 157, 132, 158, 34, 0]\nOK"
+    },
+    {
+      "case": "grammar-23",
+      "backend": "native",
+      "input_hex": "22f09d849e22",
+      "expected_hex": "5322f09d849e2200",
+      "stdout_hex": "5322f09d849e2200",
+      "category": "valid_transfer",
+      "callbacks": 7,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        8
+      ],
+      "observation": "METRICS 1 1 1 0 8\nOUTPUT [83, 34, 240, 157, 132, 158, 34, 0]\nOK\nBUDGET 2 73\nNATIVE 7012 70 245157 7"
+    },
+    {
+      "case": "grammar-24",
+      "backend": "hosted",
+      "input_hex": "225c756438303022",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 9,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 1\nOUTPUT [0]\nOK"
+    },
+    {
+      "case": "grammar-24",
+      "backend": "native",
+      "input_hex": "225c756438303022",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 9,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "METRICS 1 1 1 0 1\nOUTPUT [0]\nOK\nBUDGET 2 66\nNATIVE 9574 108 307541 9"
+    },
+    {
+      "case": "grammar-25",
+      "backend": "hosted",
+      "input_hex": "225c756463303022",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 6,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 1\nOUTPUT [0]\nOK"
+    },
+    {
+      "case": "grammar-25",
+      "backend": "native",
+      "input_hex": "225c756463303022",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 6,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "METRICS 1 1 1 0 1\nOUTPUT [0]\nOK\nBUDGET 2 66\nNATIVE 6440 103 208640 6"
+    },
+    {
+      "case": "grammar-26",
+      "backend": "hosted",
+      "input_hex": "225c75443830305c753030343122",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 11,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 1\nOUTPUT [0]\nOK"
+    },
+    {
+      "case": "grammar-26",
+      "backend": "native",
+      "input_hex": "225c75443830305c753030343122",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 11,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "METRICS 1 1 1 0 1\nOUTPUT [0]\nOK\nBUDGET 2 66\nNATIVE 11161 108 356504 11"
+    },
+    {
+      "case": "grammar-27",
+      "backend": "hosted",
+      "input_hex": "225c7822",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 4,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 1\nOUTPUT [0]\nOK"
+    },
+    {
+      "case": "grammar-27",
+      "backend": "native",
+      "input_hex": "225c7822",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 4,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "METRICS 1 1 1 0 1\nOUTPUT [0]\nOK\nBUDGET 2 66\nNATIVE 3794 70 124199 4"
+    },
+    {
+      "case": "grammar-28",
+      "backend": "hosted",
+      "input_hex": "220122",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 3,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 1\nOUTPUT [0]\nOK"
+    },
+    {
+      "case": "grammar-28",
+      "backend": "native",
+      "input_hex": "220122",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 3,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "METRICS 1 1 1 0 1\nOUTPUT [0]\nOK\nBUDGET 2 66\nNATIVE 2737 70 87956 3"
+    },
+    {
+      "case": "grammar-29",
+      "backend": "hosted",
+      "input_hex": "22ff22",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 0,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nMETRICS 1 1 1 0 1\nOUTPUT [0]\nOK"
+    },
+    {
+      "case": "grammar-29",
+      "backend": "native",
+      "input_hex": "22ff22",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 0,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "METRICS 1 1 1 0 1\nOUTPUT [0]\nOK\nBUDGET 2 66\nNATIVE 716 43 25217 0"
+    },
+    {
+      "case": "grammar-30",
+      "backend": "hosted",
+      "input_hex": "22c08022",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 0,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nMETRICS 1 1 1 0 1\nOUTPUT [0]\nOK"
+    },
+    {
+      "case": "grammar-30",
+      "backend": "native",
+      "input_hex": "22c08022",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 0,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "METRICS 1 1 1 0 1\nOUTPUT [0]\nOK\nBUDGET 2 66\nNATIVE 717 43 25217 0"
+    },
+    {
+      "case": "grammar-31",
+      "backend": "hosted",
+      "input_hex": "22eda08022",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 0,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nMETRICS 1 1 1 0 1\nOUTPUT [0]\nOK"
+    },
+    {
+      "case": "grammar-31",
+      "backend": "native",
+      "input_hex": "22eda08022",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 0,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "METRICS 1 1 1 0 1\nOUTPUT [0]\nOK\nBUDGET 2 66\nNATIVE 718 43 25217 0"
+    },
+    {
+      "case": "grammar-32",
+      "backend": "hosted",
+      "input_hex": "3031",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 3,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 1\nOUTPUT [0]\nOK"
+    },
+    {
+      "case": "grammar-32",
+      "backend": "native",
+      "input_hex": "3031",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 3,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "METRICS 1 1 1 0 1\nOUTPUT [0]\nOK\nBUDGET 2 66\nNATIVE 3803 81 123222 3"
+    },
+    {
+      "case": "grammar-33",
+      "backend": "hosted",
+      "input_hex": "2d",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 2,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 1\nOUTPUT [0]\nOK"
+    },
+    {
+      "case": "grammar-33",
+      "backend": "native",
+      "input_hex": "2d",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 2,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "METRICS 1 1 1 0 1\nOUTPUT [0]\nOK\nBUDGET 2 66\nNATIVE 2418 70 79684 2"
+    },
+    {
+      "case": "grammar-34",
+      "backend": "hosted",
+      "input_hex": "312e",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 3,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 1\nOUTPUT [0]\nOK"
+    },
+    {
+      "case": "grammar-34",
+      "backend": "native",
+      "input_hex": "312e",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 3,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "METRICS 1 1 1 0 1\nOUTPUT [0]\nOK\nBUDGET 2 66\nNATIVE 3904 80 126777 3"
+    },
+    {
+      "case": "grammar-35",
+      "backend": "hosted",
+      "input_hex": "3165",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 3,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 1\nOUTPUT [0]\nOK"
+    },
+    {
+      "case": "grammar-35",
+      "backend": "native",
+      "input_hex": "3165",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 3,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "METRICS 1 1 1 0 1\nOUTPUT [0]\nOK\nBUDGET 2 66\nNATIVE 3953 80 128329 3"
+    },
+    {
+      "case": "grammar-36",
+      "backend": "hosted",
+      "input_hex": "31652b",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 4,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 1\nOUTPUT [0]\nOK"
+    },
+    {
+      "case": "grammar-36",
+      "backend": "native",
+      "input_hex": "31652b",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 4,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "METRICS 1 1 1 0 1\nOUTPUT [0]\nOK\nBUDGET 2 66\nNATIVE 5210 83 167773 4"
+    },
+    {
+      "case": "grammar-37",
+      "backend": "hosted",
+      "input_hex": "2b31",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 2,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 1\nOUTPUT [0]\nOK"
+    },
+    {
+      "case": "grammar-37",
+      "backend": "native",
+      "input_hex": "2b31",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 2,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "METRICS 1 1 1 0 1\nOUTPUT [0]\nOK\nBUDGET 2 66\nNATIVE 2252 74 75969 2"
+    },
+    {
+      "case": "grammar-38",
+      "backend": "hosted",
+      "input_hex": "2e31",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 2,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 1\nOUTPUT [0]\nOK"
+    },
+    {
+      "case": "grammar-38",
+      "backend": "native",
+      "input_hex": "2e31",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 2,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "METRICS 1 1 1 0 1\nOUTPUT [0]\nOK\nBUDGET 2 66\nNATIVE 2252 74 75969 2"
+    },
+    {
+      "case": "grammar-39",
+      "backend": "hosted",
+      "input_hex": "54727565",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 2,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 1\nOUTPUT [0]\nOK"
+    },
+    {
+      "case": "grammar-39",
+      "backend": "native",
+      "input_hex": "54727565",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 2,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "METRICS 1 1 1 0 1\nOUTPUT [0]\nOK\nBUDGET 2 66\nNATIVE 2260 74 76161 2"
+    },
+    {
+      "case": "grammar-40",
+      "backend": "hosted",
+      "input_hex": "4e614e",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 2,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 1\nOUTPUT [0]\nOK"
+    },
+    {
+      "case": "grammar-40",
+      "backend": "native",
+      "input_hex": "4e614e",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 2,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "METRICS 1 1 1 0 1\nOUTPUT [0]\nOK\nBUDGET 2 66\nNATIVE 2256 74 76065 2"
+    },
+    {
+      "case": "grammar-41",
+      "backend": "hosted",
+      "input_hex": "6e756c6c78",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 6,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 1\nOUTPUT [0]\nOK"
+    },
+    {
+      "case": "grammar-41",
+      "backend": "native",
+      "input_hex": "6e756c6c78",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 6,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "METRICS 1 1 1 0 1\nOUTPUT [0]\nOK\nBUDGET 2 66\nNATIVE 6531 86 206867 6"
+    },
+    {
+      "case": "grammar-42",
+      "backend": "hosted",
+      "input_hex": "747275652066616c7365",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 7,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 1\nOUTPUT [0]\nOK"
+    },
+    {
+      "case": "grammar-42",
+      "backend": "native",
+      "input_hex": "747275652066616c7365",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 7,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "METRICS 1 1 1 0 1\nOUTPUT [0]\nOK\nBUDGET 2 66\nNATIVE 6749 79 213523 7"
+    },
+    {
+      "case": "grammar-43",
+      "backend": "hosted",
+      "input_hex": "5b5d78",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 4,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 1\nOUTPUT [0]\nOK"
+    },
+    {
+      "case": "grammar-43",
+      "backend": "native",
+      "input_hex": "5b5d78",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 4,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "METRICS 1 1 1 0 1\nOUTPUT [0]\nOK\nBUDGET 2 66\nNATIVE 4513 74 144551 4"
+    },
+    {
+      "case": "grammar-44",
+      "backend": "hosted",
+      "input_hex": "5b312c5d",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 5,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 1\nOUTPUT [0]\nOK"
+    },
+    {
+      "case": "grammar-44",
+      "backend": "native",
+      "input_hex": "5b312c5d",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 5,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "METRICS 1 1 1 0 1\nOUTPUT [0]\nOK\nBUDGET 2 66\nNATIVE 6818 83 216536 5"
+    },
+    {
+      "case": "grammar-45",
+      "backend": "hosted",
+      "input_hex": "7b2261223a7d",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 7,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 1\nOUTPUT [0]\nOK"
+    },
+    {
+      "case": "grammar-45",
+      "backend": "native",
+      "input_hex": "7b2261223a7d",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 7,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "METRICS 1 1 1 0 1\nOUTPUT [0]\nOK\nBUDGET 2 66\nNATIVE 7161 74 229347 7"
+    },
+    {
+      "case": "grammar-46",
+      "backend": "hosted",
+      "input_hex": "7b613a317d",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 3,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 1\nOUTPUT [0]\nOK"
+    },
+    {
+      "case": "grammar-46",
+      "backend": "native",
+      "input_hex": "7b613a317d",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 3,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "METRICS 1 1 1 0 1\nOUTPUT [0]\nOK\nBUDGET 2 66\nNATIVE 3105 70 101621 3"
+    },
+    {
+      "case": "grammar-47",
+      "backend": "hosted",
+      "input_hex": "7b22612220317d",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 7,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 1\nOUTPUT [0]\nOK"
+    },
+    {
+      "case": "grammar-47",
+      "backend": "native",
+      "input_hex": "7b22612220317d",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 7,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "METRICS 1 1 1 0 1\nOUTPUT [0]\nOK\nBUDGET 2 66\nNATIVE 6420 70 207050 7"
+    },
+    {
+      "case": "grammar-48",
+      "backend": "hosted",
+      "input_hex": "5b2c5d",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 3,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 1\nOUTPUT [0]\nOK"
+    },
+    {
+      "case": "grammar-48",
+      "backend": "native",
+      "input_hex": "5b2c5d",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 3,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "METRICS 1 1 1 0 1\nOUTPUT [0]\nOK\nBUDGET 2 66\nNATIVE 3458 74 113109 3"
+    },
+    {
+      "case": "grammar-49",
+      "backend": "hosted",
+      "input_hex": "5b7d",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 3,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 1\nOUTPUT [0]\nOK"
+    },
+    {
+      "case": "grammar-49",
+      "backend": "native",
+      "input_hex": "5b7d",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 3,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "METRICS 1 1 1 0 1\nOUTPUT [0]\nOK\nBUDGET 2 66\nNATIVE 3454 74 113013 3"
+    },
+    {
+      "case": "grammar-50",
+      "backend": "hosted",
+      "input_hex": "7b7d7b7d",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 4,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 1\nOUTPUT [0]\nOK"
+    },
+    {
+      "case": "grammar-50",
+      "backend": "native",
+      "input_hex": "7b7d7b7d",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 4,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "METRICS 1 1 1 0 1\nOUTPUT [0]\nOK\nBUDGET 2 66\nNATIVE 4156 70 132967 4"
+    },
+    {
+      "case": "number-length-1",
+      "backend": "hosted",
+      "input_hex": "31",
+      "expected_hex": "233100",
+      "stdout_hex": "233100",
+      "category": "valid_transfer",
+      "callbacks": 2,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        3
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 3\nOUTPUT [35, 49, 0]\nOK"
+    },
+    {
+      "case": "number-length-1",
+      "backend": "native",
+      "input_hex": "31",
+      "expected_hex": "233100",
+      "stdout_hex": "233100",
+      "category": "valid_transfer",
+      "callbacks": 2,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        3
+      ],
+      "observation": "METRICS 1 1 1 0 3\nOUTPUT [35, 49, 0]\nOK\nBUDGET 2 68\nNATIVE 2757 75 90697 2"
+    },
+    {
+      "case": "number-length-2",
+      "backend": "hosted",
+      "input_hex": "3131",
+      "expected_hex": "23313100",
+      "stdout_hex": "23313100",
+      "category": "valid_transfer",
+      "callbacks": 3,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        4
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 4\nOUTPUT [35, 49, 49, 0]\nOK"
+    },
+    {
+      "case": "number-length-2",
+      "backend": "native",
+      "input_hex": "3131",
+      "expected_hex": "23313100",
+      "stdout_hex": "23313100",
+      "category": "valid_transfer",
+      "callbacks": 3,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        4
+      ],
+      "observation": "METRICS 1 1 1 0 4\nOUTPUT [35, 49, 49, 0]\nOK\nBUDGET 2 69\nNATIVE 3910 81 126845 3"
+    },
+    {
+      "case": "number-length-3",
+      "backend": "hosted",
+      "input_hex": "313131",
+      "expected_hex": "2331313100",
+      "stdout_hex": "2331313100",
+      "category": "valid_transfer",
+      "callbacks": 4,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        5
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 5\nOUTPUT [35, 49, 49, 49, 0]\nOK"
+    },
+    {
+      "case": "number-length-3",
+      "backend": "native",
+      "input_hex": "313131",
+      "expected_hex": "2331313100",
+      "stdout_hex": "2331313100",
+      "category": "valid_transfer",
+      "callbacks": 4,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        5
+      ],
+      "observation": "METRICS 1 1 1 0 5\nOUTPUT [35, 49, 49, 49, 0]\nOK\nBUDGET 2 70\nNATIVE 5063 81 162994 4"
+    },
+    {
+      "case": "number-length-4",
+      "backend": "hosted",
+      "input_hex": "31313131",
+      "expected_hex": "233131313100",
+      "stdout_hex": "233131313100",
+      "category": "valid_transfer",
+      "callbacks": 5,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        6
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 6\nOUTPUT [35, 49, 49, 49, 49, 0]\nOK"
+    },
+    {
+      "case": "number-length-4",
+      "backend": "native",
+      "input_hex": "31313131",
+      "expected_hex": "233131313100",
+      "stdout_hex": "233131313100",
+      "category": "valid_transfer",
+      "callbacks": 5,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        6
+      ],
+      "observation": "METRICS 1 1 1 0 6\nOUTPUT [35, 49, 49, 49, 49, 0]\nOK\nBUDGET 2 71\nNATIVE 6216 81 199144 5"
+    },
+    {
+      "case": "number-length-5",
+      "backend": "hosted",
+      "input_hex": "3131313131",
+      "expected_hex": "23313131313100",
+      "stdout_hex": "23313131313100",
+      "category": "valid_transfer",
+      "callbacks": 6,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        7
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 7\nOUTPUT [35, 49, 49, 49, 49, 49, 0]\nOK"
+    },
+    {
+      "case": "number-length-5",
+      "backend": "native",
+      "input_hex": "3131313131",
+      "expected_hex": "23313131313100",
+      "stdout_hex": "23313131313100",
+      "category": "valid_transfer",
+      "callbacks": 6,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        7
+      ],
+      "observation": "METRICS 1 1 1 0 7\nOUTPUT [35, 49, 49, 49, 49, 49, 0]\nOK\nBUDGET 2 72\nNATIVE 7369 81 235295 6"
+    },
+    {
+      "case": "number-length-6",
+      "backend": "hosted",
+      "input_hex": "313131313131",
+      "expected_hex": "2331313131313100",
+      "stdout_hex": "2331313131313100",
+      "category": "valid_transfer",
+      "callbacks": 7,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        8
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 8\nOUTPUT [35, 49, 49, 49, 49, 49, 49, 0]\nOK"
+    },
+    {
+      "case": "number-length-6",
+      "backend": "native",
+      "input_hex": "313131313131",
+      "expected_hex": "2331313131313100",
+      "stdout_hex": "2331313131313100",
+      "category": "valid_transfer",
+      "callbacks": 7,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        8
+      ],
+      "observation": "METRICS 1 1 1 0 8\nOUTPUT [35, 49, 49, 49, 49, 49, 49, 0]\nOK\nBUDGET 2 73\nNATIVE 8522 81 271447 7"
+    },
+    {
+      "case": "number-length-7",
+      "backend": "hosted",
+      "input_hex": "31313131313131",
+      "expected_hex": "233131313131313100",
+      "stdout_hex": "233131313131313100",
+      "category": "valid_transfer",
+      "callbacks": 8,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        9
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 9\nOUTPUT [35, 49, 49, 49, 49, 49, 49, 49, 0]\nOK"
+    },
+    {
+      "case": "number-length-7",
+      "backend": "native",
+      "input_hex": "31313131313131",
+      "expected_hex": "233131313131313100",
+      "stdout_hex": "233131313131313100",
+      "category": "valid_transfer",
+      "callbacks": 8,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        9
+      ],
+      "observation": "METRICS 1 1 1 0 9\nOUTPUT [35, 49, 49, 49, 49, 49, 49, 49, 0]\nOK\nBUDGET 2 74\nNATIVE 9675 81 307600 8"
+    },
+    {
+      "case": "number-length-8",
+      "backend": "hosted",
+      "input_hex": "3131313131313131",
+      "expected_hex": "23313131313131313100",
+      "stdout_hex": "23313131313131313100",
+      "category": "valid_transfer",
+      "callbacks": 9,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        10
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 10\nOUTPUT [35, 49, 49, 49, 49, 49, 49, 49, 49, 0]\nOK"
+    },
+    {
+      "case": "number-length-8",
+      "backend": "native",
+      "input_hex": "3131313131313131",
+      "expected_hex": "23313131313131313100",
+      "stdout_hex": "23313131313131313100",
+      "category": "valid_transfer",
+      "callbacks": 9,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        10
+      ],
+      "observation": "METRICS 1 1 1 0 10\nOUTPUT [35, 49, 49, 49, 49, 49, 49, 49, 49, 0]\nOK\nBUDGET 2 75\nNATIVE 10828 81 343754 9"
+    },
+    {
+      "case": "string-length-2",
+      "backend": "hosted",
+      "input_hex": "2222",
+      "expected_hex": "53222200",
+      "stdout_hex": "53222200",
+      "category": "valid_transfer",
+      "callbacks": 3,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        4
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 4\nOUTPUT [83, 34, 34, 0]\nOK"
+    },
+    {
+      "case": "string-length-2",
+      "backend": "native",
+      "input_hex": "2222",
+      "expected_hex": "53222200",
+      "stdout_hex": "53222200",
+      "category": "valid_transfer",
+      "callbacks": 3,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        4
+      ],
+      "observation": "METRICS 1 1 1 0 4\nOUTPUT [83, 34, 34, 0]\nOK\nBUDGET 2 69\nNATIVE 3022 70 98475 3"
+    },
+    {
+      "case": "string-length-3",
+      "backend": "hosted",
+      "input_hex": "226122",
+      "expected_hex": "5322612200",
+      "stdout_hex": "5322612200",
+      "category": "valid_transfer",
+      "callbacks": 4,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        5
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 5\nOUTPUT [83, 34, 97, 34, 0]\nOK"
+    },
+    {
+      "case": "string-length-3",
+      "backend": "native",
+      "input_hex": "226122",
+      "expected_hex": "5322612200",
+      "stdout_hex": "5322612200",
+      "category": "valid_transfer",
+      "callbacks": 4,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        5
+      ],
+      "observation": "METRICS 1 1 1 0 5\nOUTPUT [83, 34, 97, 34, 0]\nOK\nBUDGET 2 70\nNATIVE 3871 70 128080 4"
+    },
+    {
+      "case": "string-length-4",
+      "backend": "hosted",
+      "input_hex": "22616122",
+      "expected_hex": "532261612200",
+      "stdout_hex": "532261612200",
+      "category": "valid_transfer",
+      "callbacks": 5,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        6
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 6\nOUTPUT [83, 34, 97, 97, 34, 0]\nOK"
+    },
+    {
+      "case": "string-length-4",
+      "backend": "native",
+      "input_hex": "22616122",
+      "expected_hex": "532261612200",
+      "stdout_hex": "532261612200",
+      "category": "valid_transfer",
+      "callbacks": 5,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        6
+      ],
+      "observation": "METRICS 1 1 1 0 6\nOUTPUT [83, 34, 97, 97, 34, 0]\nOK\nBUDGET 2 71\nNATIVE 4720 70 157686 5"
+    },
+    {
+      "case": "string-length-5",
+      "backend": "hosted",
+      "input_hex": "2261616122",
+      "expected_hex": "53226161612200",
+      "stdout_hex": "53226161612200",
+      "category": "valid_transfer",
+      "callbacks": 6,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        7
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 7\nOUTPUT [83, 34, 97, 97, 97, 34, 0]\nOK"
+    },
+    {
+      "case": "string-length-5",
+      "backend": "native",
+      "input_hex": "2261616122",
+      "expected_hex": "53226161612200",
+      "stdout_hex": "53226161612200",
+      "category": "valid_transfer",
+      "callbacks": 6,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        7
+      ],
+      "observation": "METRICS 1 1 1 0 7\nOUTPUT [83, 34, 97, 97, 97, 34, 0]\nOK\nBUDGET 2 72\nNATIVE 5569 70 187293 6"
+    },
+    {
+      "case": "string-length-6",
+      "backend": "hosted",
+      "input_hex": "226161616122",
+      "expected_hex": "5322616161612200",
+      "stdout_hex": "5322616161612200",
+      "category": "valid_transfer",
+      "callbacks": 7,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        8
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 8\nOUTPUT [83, 34, 97, 97, 97, 97, 34, 0]\nOK"
+    },
+    {
+      "case": "string-length-6",
+      "backend": "native",
+      "input_hex": "226161616122",
+      "expected_hex": "5322616161612200",
+      "stdout_hex": "5322616161612200",
+      "category": "valid_transfer",
+      "callbacks": 7,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        8
+      ],
+      "observation": "METRICS 1 1 1 0 8\nOUTPUT [83, 34, 97, 97, 97, 97, 34, 0]\nOK\nBUDGET 2 73\nNATIVE 6418 70 216901 7"
+    },
+    {
+      "case": "string-length-7",
+      "backend": "hosted",
+      "input_hex": "22616161616122",
+      "expected_hex": "532261616161612200",
+      "stdout_hex": "532261616161612200",
+      "category": "valid_transfer",
+      "callbacks": 8,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        9
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 9\nOUTPUT [83, 34, 97, 97, 97, 97, 97, 34, 0]\nOK"
+    },
+    {
+      "case": "string-length-7",
+      "backend": "native",
+      "input_hex": "22616161616122",
+      "expected_hex": "532261616161612200",
+      "stdout_hex": "532261616161612200",
+      "category": "valid_transfer",
+      "callbacks": 8,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        9
+      ],
+      "observation": "METRICS 1 1 1 0 9\nOUTPUT [83, 34, 97, 97, 97, 97, 97, 34, 0]\nOK\nBUDGET 2 74\nNATIVE 7267 70 246510 8"
+    },
+    {
+      "case": "string-length-8",
+      "backend": "hosted",
+      "input_hex": "2261616161616122",
+      "expected_hex": "53226161616161612200",
+      "stdout_hex": "53226161616161612200",
+      "category": "valid_transfer",
+      "callbacks": 9,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        10
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 10\nOUTPUT [83, 34, 97, 97, 97, 97, 97, 97, 34, 0]\nOK"
+    },
+    {
+      "case": "string-length-8",
+      "backend": "native",
+      "input_hex": "2261616161616122",
+      "expected_hex": "53226161616161612200",
+      "stdout_hex": "53226161616161612200",
+      "category": "valid_transfer",
+      "callbacks": 9,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        10
+      ],
+      "observation": "METRICS 1 1 1 0 10\nOUTPUT [83, 34, 97, 97, 97, 97, 97, 97, 34, 0]\nOK\nBUDGET 2 75\nNATIVE 8116 70 276120 9"
+    },
+    {
+      "case": "string-length-9",
+      "backend": "hosted",
+      "input_hex": "226161616161616122",
+      "expected_hex": "5322616161616161612200",
+      "stdout_hex": "5322616161616161612200",
+      "category": "valid_transfer",
+      "callbacks": 10,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        11
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 11\nOUTPUT [83, 34, 97, 97, 97, 97, 97, 97, 97, 34, 0]\nOK"
+    },
+    {
+      "case": "string-length-9",
+      "backend": "native",
+      "input_hex": "226161616161616122",
+      "expected_hex": "5322616161616161612200",
+      "stdout_hex": "5322616161616161612200",
+      "category": "valid_transfer",
+      "callbacks": 10,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        11
+      ],
+      "observation": "METRICS 1 1 1 0 11\nOUTPUT [83, 34, 97, 97, 97, 97, 97, 97, 97, 34, 0]\nOK\nBUDGET 2 76\nNATIVE 8965 70 305731 10"
+    },
+    {
+      "case": "string-length-10",
+      "backend": "hosted",
+      "input_hex": "22616161616161616122",
+      "expected_hex": "532261616161616161612200",
+      "stdout_hex": "532261616161616161612200",
+      "category": "valid_transfer",
+      "callbacks": 11,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        12
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 12\nOUTPUT [83, 34, 97, 97, 97, 97, 97, 97, 97, 97, 34, 0]\nOK"
+    },
+    {
+      "case": "string-length-10",
+      "backend": "native",
+      "input_hex": "22616161616161616122",
+      "expected_hex": "532261616161616161612200",
+      "stdout_hex": "532261616161616161612200",
+      "category": "valid_transfer",
+      "callbacks": 11,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        12
+      ],
+      "observation": "METRICS 1 1 1 0 12\nOUTPUT [83, 34, 97, 97, 97, 97, 97, 97, 97, 97, 34, 0]\nOK\nBUDGET 2 77\nNATIVE 9814 70 335343 11"
+    },
+    {
+      "case": "string-length-11",
+      "backend": "hosted",
+      "input_hex": "2261616161616161616122",
+      "expected_hex": "53226161616161616161612200",
+      "stdout_hex": "53226161616161616161612200",
+      "category": "valid_transfer",
+      "callbacks": 12,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        13
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 13\nOUTPUT [83, 34, 97, 97, 97, 97, 97, 97, 97, 97, 97, 34, 0]\nOK"
+    },
+    {
+      "case": "string-length-11",
+      "backend": "native",
+      "input_hex": "2261616161616161616122",
+      "expected_hex": "53226161616161616161612200",
+      "stdout_hex": "53226161616161616161612200",
+      "category": "valid_transfer",
+      "callbacks": 12,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        13
+      ],
+      "observation": "METRICS 1 1 1 0 13\nOUTPUT [83, 34, 97, 97, 97, 97, 97, 97, 97, 97, 97, 34, 0]\nOK\nBUDGET 2 78\nNATIVE 10663 70 364956 12"
+    },
+    {
+      "case": "string-length-12",
+      "backend": "hosted",
+      "input_hex": "226161616161616161616122",
+      "expected_hex": "5322616161616161616161612200",
+      "stdout_hex": "5322616161616161616161612200",
+      "category": "valid_transfer",
+      "callbacks": 13,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        14
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 14\nOUTPUT [83, 34, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 34, 0]\nOK"
+    },
+    {
+      "case": "string-length-12",
+      "backend": "native",
+      "input_hex": "226161616161616161616122",
+      "expected_hex": "5322616161616161616161612200",
+      "stdout_hex": "5322616161616161616161612200",
+      "category": "valid_transfer",
+      "callbacks": 13,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        14
+      ],
+      "observation": "METRICS 1 1 1 0 14\nOUTPUT [83, 34, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 34, 0]\nOK\nBUDGET 2 79\nNATIVE 11512 70 394570 13"
+    },
+    {
+      "case": "string-length-13",
+      "backend": "hosted",
+      "input_hex": "22616161616161616161616122",
+      "expected_hex": "532261616161616161616161612200",
+      "stdout_hex": "532261616161616161616161612200",
+      "category": "valid_transfer",
+      "callbacks": 14,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        15
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 15\nOUTPUT [83, 34, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 34, 0]\nOK"
+    },
+    {
+      "case": "string-length-13",
+      "backend": "native",
+      "input_hex": "22616161616161616161616122",
+      "expected_hex": "532261616161616161616161612200",
+      "stdout_hex": "532261616161616161616161612200",
+      "category": "valid_transfer",
+      "callbacks": 14,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        15
+      ],
+      "observation": "METRICS 1 1 1 0 15\nOUTPUT [83, 34, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 34, 0]\nOK\nBUDGET 2 80\nNATIVE 12361 70 424185 14"
+    },
+    {
+      "case": "input-bytes-63",
+      "backend": "hosted",
+      "input_hex": "202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202031",
+      "expected_hex": "233100",
+      "stdout_hex": "233100",
+      "category": "valid_transfer",
+      "callbacks": 64,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        3
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 3\nOUTPUT [35, 49, 0]\nOK"
+    },
+    {
+      "case": "input-bytes-63",
+      "backend": "native",
+      "input_hex": "202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202031",
+      "expected_hex": "233100",
+      "stdout_hex": "233100",
+      "category": "valid_transfer",
+      "callbacks": 64,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        3
+      ],
+      "observation": "METRICS 1 1 1 0 3\nOUTPUT [35, 49, 0]\nOK\nBUDGET 2 68\nNATIVE 42375 75 1323753 64"
+    },
+    {
+      "case": "input-bytes-64",
+      "backend": "hosted",
+      "input_hex": "20202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202031",
+      "expected_hex": "233100",
+      "stdout_hex": "233100",
+      "category": "valid_transfer",
+      "callbacks": 65,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        3
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 3\nOUTPUT [35, 49, 0]\nOK"
+    },
+    {
+      "case": "input-bytes-64",
+      "backend": "native",
+      "input_hex": "20202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202031",
+      "expected_hex": "233100",
+      "stdout_hex": "233100",
+      "category": "valid_transfer",
+      "callbacks": 65,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        3
+      ],
+      "observation": "METRICS 1 1 1 0 3\nOUTPUT [35, 49, 0]\nOK\nBUDGET 2 68\nNATIVE 43014 75 1343641 65"
+    },
+    {
+      "case": "input-bytes-65",
+      "backend": "hosted",
+      "input_hex": "2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202031",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 0,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nMETRICS 1 1 1 0 1\nOUTPUT [0]\nOK"
+    },
+    {
+      "case": "input-bytes-65",
+      "backend": "native",
+      "input_hex": "2020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202031",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 0,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "METRICS 1 1 1 0 1\nOUTPUT [0]\nOK\nBUDGET 2 66\nNATIVE 689 43 24417 0"
+    },
+    {
+      "case": "depth-1",
+      "backend": "hosted",
+      "input_hex": "5b5d",
+      "expected_hex": "5b5d",
+      "stdout_hex": "5b5d",
+      "category": "valid_transfer",
+      "callbacks": 3,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        2
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 2\nOUTPUT [91, 93]\nOK"
+    },
+    {
+      "case": "depth-1",
+      "backend": "native",
+      "input_hex": "5b5d",
+      "expected_hex": "5b5d",
+      "stdout_hex": "5b5d",
+      "category": "valid_transfer",
+      "callbacks": 3,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        2
+      ],
+      "observation": "METRICS 1 1 1 0 2\nOUTPUT [91, 93]\nOK\nBUDGET 2 67\nNATIVE 3729 74 120022 3"
+    },
+    {
+      "case": "depth-2",
+      "backend": "hosted",
+      "input_hex": "5b5b5d5d",
+      "expected_hex": "5b5b5d5d",
+      "stdout_hex": "5b5b5d5d",
+      "category": "valid_transfer",
+      "callbacks": 5,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        4
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 4\nOUTPUT [91, 91, 93, 93]\nOK"
+    },
+    {
+      "case": "depth-2",
+      "backend": "native",
+      "input_hex": "5b5b5d5d",
+      "expected_hex": "5b5b5d5d",
+      "stdout_hex": "5b5b5d5d",
+      "category": "valid_transfer",
+      "callbacks": 5,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        4
+      ],
+      "observation": "METRICS 1 1 1 0 4\nOUTPUT [91, 91, 93, 93]\nOK\nBUDGET 2 69\nNATIVE 6017 74 188594 5"
+    },
+    {
+      "case": "depth-8",
+      "backend": "hosted",
+      "input_hex": "5b5b5b5b5b5b5b5b5d5d5d5d5d5d5d5d",
+      "expected_hex": "5b5b5b5b5b5b5b5b5d5d5d5d5d5d5d5d",
+      "stdout_hex": "5b5b5b5b5b5b5b5b5d5d5d5d5d5d5d5d",
+      "category": "valid_transfer",
+      "callbacks": 17,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        16
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 16\nOUTPUT [91, 91, 91, 91, 91, 91, 91, 91, 93, 93, 93, 93, 93, 93, 93, 93]\nOK"
+    },
+    {
+      "case": "depth-8",
+      "backend": "native",
+      "input_hex": "5b5b5b5b5b5b5b5b5d5d5d5d5d5d5d5d",
+      "expected_hex": "5b5b5b5b5b5b5b5b5d5d5d5d5d5d5d5d",
+      "stdout_hex": "5b5b5b5b5b5b5b5b5d5d5d5d5d5d5d5d",
+      "category": "valid_transfer",
+      "callbacks": 17,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        16
+      ],
+      "observation": "METRICS 1 1 1 0 16\nOUTPUT [91, 91, 91, 91, 91, 91, 91, 91, 93, 93, 93, 93, 93, 93, 93, 93]\nOK\nBUDGET 2 81\nNATIVE 19745 74 600152 17"
+    },
+    {
+      "case": "depth-9",
+      "backend": "hosted",
+      "input_hex": "5b5b5b5b5b5b5b5b5b5d5d5d5d5d5d5d5d5d",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 10,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 1\nOUTPUT [0]\nOK"
+    },
+    {
+      "case": "depth-9",
+      "backend": "native",
+      "input_hex": "5b5b5b5b5b5b5b5b5b5d5d5d5d5d5d5d5d5d",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 10,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "METRICS 1 1 1 0 1\nOUTPUT [0]\nOK\nBUDGET 2 66\nNATIVE 11565 70 355845 10"
+    },
+    {
+      "case": "token-count-2",
+      "backend": "hosted",
+      "input_hex": "5b5d",
+      "expected_hex": "5b5d",
+      "stdout_hex": "5b5d",
+      "category": "valid_transfer",
+      "callbacks": 3,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        2
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 2\nOUTPUT [91, 93]\nOK"
+    },
+    {
+      "case": "token-count-2",
+      "backend": "native",
+      "input_hex": "5b5d",
+      "expected_hex": "5b5d",
+      "stdout_hex": "5b5d",
+      "category": "valid_transfer",
+      "callbacks": 3,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        2
+      ],
+      "observation": "METRICS 1 1 1 0 2\nOUTPUT [91, 93]\nOK\nBUDGET 2 67\nNATIVE 3729 74 120022 3"
+    },
+    {
+      "case": "token-count-3",
+      "backend": "hosted",
+      "input_hex": "5b305d",
+      "expected_hex": "5b2330005d",
+      "stdout_hex": "5b2330005d",
+      "category": "valid_transfer",
+      "callbacks": 4,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        5
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 5\nOUTPUT [91, 35, 48, 0, 93]\nOK"
+    },
+    {
+      "case": "token-count-3",
+      "backend": "native",
+      "input_hex": "5b305d",
+      "expected_hex": "5b2330005d",
+      "stdout_hex": "5b2330005d",
+      "category": "valid_transfer",
+      "callbacks": 4,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        5
+      ],
+      "observation": "METRICS 1 1 1 0 5\nOUTPUT [91, 35, 48, 0, 93]\nOK\nBUDGET 2 70\nNATIVE 5396 81 171061 4"
+    },
+    {
+      "case": "token-count-5",
+      "backend": "hosted",
+      "input_hex": "5b302c305d",
+      "expected_hex": "5b2330002c2330005d",
+      "stdout_hex": "5b2330002c2330005d",
+      "category": "valid_transfer",
+      "callbacks": 6,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        9
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 9\nOUTPUT [91, 35, 48, 0, 44, 35, 48, 0, 93]\nOK"
+    },
+    {
+      "case": "token-count-5",
+      "backend": "native",
+      "input_hex": "5b302c305d",
+      "expected_hex": "5b2330002c2330005d",
+      "stdout_hex": "5b2330002c2330005d",
+      "category": "valid_transfer",
+      "callbacks": 6,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        9
+      ],
+      "observation": "METRICS 1 1 1 0 9\nOUTPUT [91, 35, 48, 0, 44, 35, 48, 0, 93]\nOK\nBUDGET 2 74\nNATIVE 8454 81 264547 6"
+    },
+    {
+      "case": "token-count-63",
+      "backend": "hosted",
+      "input_hex": "5b302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c305d",
+      "expected_hex": "5b2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330005d",
+      "stdout_hex": "5b2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330005d",
+      "category": "valid_transfer",
+      "callbacks": 64,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        125
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 125\nOUTPUT [91, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 93]\nOK"
+    },
+    {
+      "case": "token-count-63",
+      "backend": "native",
+      "input_hex": "5b302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c305d",
+      "expected_hex": "5b2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330005d",
+      "stdout_hex": "5b2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330005d",
+      "category": "valid_transfer",
+      "callbacks": 64,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        125
+      ],
+      "observation": "METRICS 1 1 1 0 125\nOUTPUT [91, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 93]\nOK\nBUDGET 2 190\nNATIVE 97136 81 2980861 64"
+    },
+    {
+      "case": "short-product-0",
+      "backend": "hosted",
+      "input_hex": "2030",
+      "expected_hex": "233000",
+      "stdout_hex": "233000",
+      "category": "valid_transfer",
+      "callbacks": 3,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        3
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 3\nOUTPUT [35, 48, 0]\nOK"
+    },
+    {
+      "case": "short-product-0",
+      "backend": "native",
+      "input_hex": "2030",
+      "expected_hex": "233000",
+      "stdout_hex": "233000",
+      "category": "valid_transfer",
+      "callbacks": 3,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        3
+      ],
+      "observation": "METRICS 1 1 1 0 3\nOUTPUT [35, 48, 0]\nOK\nBUDGET 2 68\nNATIVE 3396 75 110585 3"
+    },
+    {
+      "case": "short-product-1",
+      "backend": "hosted",
+      "input_hex": "205b5d",
+      "expected_hex": "5b5d",
+      "stdout_hex": "5b5d",
+      "category": "valid_transfer",
+      "callbacks": 4,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        2
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 2\nOUTPUT [91, 93]\nOK"
+    },
+    {
+      "case": "short-product-1",
+      "backend": "native",
+      "input_hex": "205b5d",
+      "expected_hex": "5b5d",
+      "stdout_hex": "5b5d",
+      "category": "valid_transfer",
+      "callbacks": 4,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        2
+      ],
+      "observation": "METRICS 1 1 1 0 2\nOUTPUT [91, 93]\nOK\nBUDGET 2 67\nNATIVE 4368 74 139910 4"
+    },
+    {
+      "case": "short-product-2",
+      "backend": "hosted",
+      "input_hex": "207b7d",
+      "expected_hex": "7b7d",
+      "stdout_hex": "7b7d",
+      "category": "valid_transfer",
+      "callbacks": 4,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        2
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 2\nOUTPUT [123, 125]\nOK"
+    },
+    {
+      "case": "short-product-2",
+      "backend": "native",
+      "input_hex": "207b7d",
+      "expected_hex": "7b7d",
+      "stdout_hex": "7b7d",
+      "category": "valid_transfer",
+      "callbacks": 4,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        2
+      ],
+      "observation": "METRICS 1 1 1 0 2\nOUTPUT [123, 125]\nOK\nBUDGET 2 67\nNATIVE 4007 66 128230 4"
+    },
+    {
+      "case": "short-product-3",
+      "backend": "hosted",
+      "input_hex": "206e756c6c",
+      "expected_hex": "4e",
+      "stdout_hex": "4e",
+      "category": "valid_transfer",
+      "callbacks": 6,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 1\nOUTPUT [78]\nOK"
+    },
+    {
+      "case": "short-product-3",
+      "backend": "native",
+      "input_hex": "206e756c6c",
+      "expected_hex": "4e",
+      "stdout_hex": "4e",
+      "category": "valid_transfer",
+      "callbacks": 6,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "METRICS 1 1 1 0 1\nOUTPUT [78]\nOK\nBUDGET 2 66\nNATIVE 6386 86 202226 6"
+    },
+    {
+      "case": "short-product-4",
+      "backend": "hosted",
+      "input_hex": "0930",
+      "expected_hex": "233000",
+      "stdout_hex": "233000",
+      "category": "valid_transfer",
+      "callbacks": 3,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        3
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 3\nOUTPUT [35, 48, 0]\nOK"
+    },
+    {
+      "case": "short-product-4",
+      "backend": "native",
+      "input_hex": "0930",
+      "expected_hex": "233000",
+      "stdout_hex": "233000",
+      "category": "valid_transfer",
+      "callbacks": 3,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        3
+      ],
+      "observation": "METRICS 1 1 1 0 3\nOUTPUT [35, 48, 0]\nOK\nBUDGET 2 68\nNATIVE 3396 75 110585 3"
+    },
+    {
+      "case": "short-product-5",
+      "backend": "hosted",
+      "input_hex": "095b5d",
+      "expected_hex": "5b5d",
+      "stdout_hex": "5b5d",
+      "category": "valid_transfer",
+      "callbacks": 4,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        2
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 2\nOUTPUT [91, 93]\nOK"
+    },
+    {
+      "case": "short-product-5",
+      "backend": "native",
+      "input_hex": "095b5d",
+      "expected_hex": "5b5d",
+      "stdout_hex": "5b5d",
+      "category": "valid_transfer",
+      "callbacks": 4,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        2
+      ],
+      "observation": "METRICS 1 1 1 0 2\nOUTPUT [91, 93]\nOK\nBUDGET 2 67\nNATIVE 4368 74 139910 4"
+    },
+    {
+      "case": "short-product-6",
+      "backend": "hosted",
+      "input_hex": "097b7d",
+      "expected_hex": "7b7d",
+      "stdout_hex": "7b7d",
+      "category": "valid_transfer",
+      "callbacks": 4,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        2
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 2\nOUTPUT [123, 125]\nOK"
+    },
+    {
+      "case": "short-product-6",
+      "backend": "native",
+      "input_hex": "097b7d",
+      "expected_hex": "7b7d",
+      "stdout_hex": "7b7d",
+      "category": "valid_transfer",
+      "callbacks": 4,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        2
+      ],
+      "observation": "METRICS 1 1 1 0 2\nOUTPUT [123, 125]\nOK\nBUDGET 2 67\nNATIVE 4007 66 128230 4"
+    },
+    {
+      "case": "short-product-7",
+      "backend": "hosted",
+      "input_hex": "096e756c6c",
+      "expected_hex": "4e",
+      "stdout_hex": "4e",
+      "category": "valid_transfer",
+      "callbacks": 6,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 1\nOUTPUT [78]\nOK"
+    },
+    {
+      "case": "short-product-7",
+      "backend": "native",
+      "input_hex": "096e756c6c",
+      "expected_hex": "4e",
+      "stdout_hex": "4e",
+      "category": "valid_transfer",
+      "callbacks": 6,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "METRICS 1 1 1 0 1\nOUTPUT [78]\nOK\nBUDGET 2 66\nNATIVE 6386 86 202226 6"
+    },
+    {
+      "case": "short-product-8",
+      "backend": "hosted",
+      "input_hex": "0a30",
+      "expected_hex": "233000",
+      "stdout_hex": "233000",
+      "category": "valid_transfer",
+      "callbacks": 3,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        3
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 3\nOUTPUT [35, 48, 0]\nOK"
+    },
+    {
+      "case": "short-product-8",
+      "backend": "native",
+      "input_hex": "0a30",
+      "expected_hex": "233000",
+      "stdout_hex": "233000",
+      "category": "valid_transfer",
+      "callbacks": 3,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        3
+      ],
+      "observation": "METRICS 1 1 1 0 3\nOUTPUT [35, 48, 0]\nOK\nBUDGET 2 68\nNATIVE 3394 75 110553 3"
+    },
+    {
+      "case": "short-product-9",
+      "backend": "hosted",
+      "input_hex": "0a5b5d",
+      "expected_hex": "5b5d",
+      "stdout_hex": "5b5d",
+      "category": "valid_transfer",
+      "callbacks": 4,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        2
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 2\nOUTPUT [91, 93]\nOK"
+    },
+    {
+      "case": "short-product-9",
+      "backend": "native",
+      "input_hex": "0a5b5d",
+      "expected_hex": "5b5d",
+      "stdout_hex": "5b5d",
+      "category": "valid_transfer",
+      "callbacks": 4,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        2
+      ],
+      "observation": "METRICS 1 1 1 0 2\nOUTPUT [91, 93]\nOK\nBUDGET 2 67\nNATIVE 4366 74 139878 4"
+    },
+    {
+      "case": "short-product-10",
+      "backend": "hosted",
+      "input_hex": "0a7b7d",
+      "expected_hex": "7b7d",
+      "stdout_hex": "7b7d",
+      "category": "valid_transfer",
+      "callbacks": 4,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        2
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 2\nOUTPUT [123, 125]\nOK"
+    },
+    {
+      "case": "short-product-10",
+      "backend": "native",
+      "input_hex": "0a7b7d",
+      "expected_hex": "7b7d",
+      "stdout_hex": "7b7d",
+      "category": "valid_transfer",
+      "callbacks": 4,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        2
+      ],
+      "observation": "METRICS 1 1 1 0 2\nOUTPUT [123, 125]\nOK\nBUDGET 2 67\nNATIVE 4005 66 128198 4"
+    },
+    {
+      "case": "short-product-11",
+      "backend": "hosted",
+      "input_hex": "0a6e756c6c",
+      "expected_hex": "4e",
+      "stdout_hex": "4e",
+      "category": "valid_transfer",
+      "callbacks": 6,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 1\nOUTPUT [78]\nOK"
+    },
+    {
+      "case": "short-product-11",
+      "backend": "native",
+      "input_hex": "0a6e756c6c",
+      "expected_hex": "4e",
+      "stdout_hex": "4e",
+      "category": "valid_transfer",
+      "callbacks": 6,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "METRICS 1 1 1 0 1\nOUTPUT [78]\nOK\nBUDGET 2 66\nNATIVE 6384 86 202194 6"
+    },
+    {
+      "case": "duplicate-invalid-first",
+      "backend": "hosted",
+      "input_hex": "7b2261223a225c7564383030222c2261223a307d",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 14,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 1\nOUTPUT [0]\nOK"
+    },
+    {
+      "case": "duplicate-invalid-first",
+      "backend": "native",
+      "input_hex": "7b2261223a225c7564383030222c2261223a307d",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 14,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "METRICS 1 1 1 0 1\nOUTPUT [0]\nOK\nBUDGET 2 66\nNATIVE 14522 108 462937 14"
+    },
+    {
+      "case": "duplicate-invalid-last",
+      "backend": "hosted",
+      "input_hex": "7b2261223a302c2261223a225c7564383030227d",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 20,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 1\nOUTPUT [0]\nOK"
+    },
+    {
+      "case": "duplicate-invalid-last",
+      "backend": "native",
+      "input_hex": "7b2261223a302c2261223a225c7564383030227d",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 20,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "METRICS 1 1 1 0 1\nOUTPUT [0]\nOK\nBUDGET 2 66\nNATIVE 21225 108 671970 20"
+    },
+    {
+      "case": "duplicate-invalid-nested",
+      "backend": "hosted",
+      "input_hex": "7b2261223a7b2278223a225c7564383030227d2c2261223a307d",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 19,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 1\nOUTPUT [0]\nOK"
+    },
+    {
+      "case": "duplicate-invalid-nested",
+      "backend": "native",
+      "input_hex": "7b2261223a7b2278223a225c7564383030227d2c2261223a307d",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 19,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "METRICS 1 1 1 0 1\nOUTPUT [0]\nOK\nBUDGET 2 66\nNATIVE 19414 108 616586 19"
+    },
+    {
+      "case": "raw-nul",
+      "backend": "hosted",
+      "input_hex": "220022",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 3,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 1\nOUTPUT [0]\nOK"
+    },
+    {
+      "case": "raw-nul",
+      "backend": "native",
+      "input_hex": "220022",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 3,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "METRICS 1 1 1 0 1\nOUTPUT [0]\nOK\nBUDGET 2 66\nNATIVE 2735 70 87860 3"
+    },
+    {
+      "case": "escaped-nul",
+      "backend": "hosted",
+      "input_hex": "225c753030303022",
+      "expected_hex": "53225c75303030302200",
+      "stdout_hex": "53225c75303030302200",
+      "category": "valid_transfer",
+      "callbacks": 9,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        10
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 10\nOUTPUT [83, 34, 92, 117, 48, 48, 48, 48, 34, 0]\nOK"
+    },
+    {
+      "case": "escaped-nul",
+      "backend": "native",
+      "input_hex": "225c753030303022",
+      "expected_hex": "53225c75303030302200",
+      "stdout_hex": "53225c75303030302200",
+      "category": "valid_transfer",
+      "callbacks": 9,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        10
+      ],
+      "observation": "METRICS 1 1 1 0 10\nOUTPUT [83, 34, 92, 117, 48, 48, 48, 48, 34, 0]\nOK\nBUDGET 2 75\nNATIVE 9488 106 306328 9"
+    },
+    {
+      "case": "all-short-escapes",
+      "backend": "hosted",
+      "input_hex": "225c225c5c5c2f5c625c665c6e5c725c7422",
+      "expected_hex": "53225c225c5c5c2f5c625c665c6e5c725c742200",
+      "stdout_hex": "53225c225c5c5c2f5c625c665c6e5c725c742200",
+      "category": "valid_transfer",
+      "callbacks": 19,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        20
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 20\nOUTPUT [83, 34, 92, 34, 92, 92, 92, 47, 92, 98, 92, 102, 92, 110, 92, 114, 92, 116, 34, 0]\nOK"
+    },
+    {
+      "case": "all-short-escapes",
+      "backend": "native",
+      "input_hex": "225c225c5c5c2f5c625c665c6e5c725c7422",
+      "expected_hex": "53225c225c5c5c2f5c625c665c6e5c725c742200",
+      "stdout_hex": "53225c225c5c5c2f5c625c665c6e5c725c742200",
+      "category": "valid_transfer",
+      "callbacks": 19,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        20
+      ],
+      "observation": "METRICS 1 1 1 0 20\nOUTPUT [83, 34, 92, 34, 92, 92, 92, 47, 92, 98, 92, 102, 92, 110, 92, 114, 92, 116, 34, 0]\nOK\nBUDGET 2 85\nNATIVE 16204 70 534227 19"
+    },
+    {
+      "case": "number-exact",
+      "backend": "hosted",
+      "input_hex": "2d302e31323030452b3032",
+      "expected_hex": "232d302e31323030452b303200",
+      "stdout_hex": "232d302e31323030452b303200",
+      "category": "valid_transfer",
+      "callbacks": 12,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        13
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 13\nOUTPUT [35, 45, 48, 46, 49, 50, 48, 48, 69, 43, 48, 50, 0]\nOK"
+    },
+    {
+      "case": "number-exact",
+      "backend": "native",
+      "input_hex": "2d302e31323030452b3032",
+      "expected_hex": "232d302e31323030452b303200",
+      "stdout_hex": "232d302e31323030452b303200",
+      "category": "valid_transfer",
+      "callbacks": 12,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        13
+      ],
+      "observation": "METRICS 1 1 1 0 13\nOUTPUT [35, 45, 48, 46, 49, 50, 48, 48, 69, 43, 48, 50, 0]\nOK\nBUDGET 2 78\nNATIVE 14166 86 447628 12"
+    },
+    {
+      "case": "negative-zero",
+      "backend": "hosted",
+      "input_hex": "2d30",
+      "expected_hex": "232d3000",
+      "stdout_hex": "232d3000",
+      "category": "valid_transfer",
+      "callbacks": 3,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        4
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 4\nOUTPUT [35, 45, 48, 0]\nOK"
+    },
+    {
+      "case": "negative-zero",
+      "backend": "native",
+      "input_hex": "2d30",
+      "expected_hex": "232d3000",
+      "stdout_hex": "232d3000",
+      "category": "valid_transfer",
+      "callbacks": 3,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        4
+      ],
+      "observation": "METRICS 1 1 1 0 4\nOUTPUT [35, 45, 48, 0]\nOK\nBUDGET 2 69\nNATIVE 3576 79 115899 3"
+    },
+    {
+      "case": "noncharacter-escape",
+      "backend": "hosted",
+      "input_hex": "225c756666666622",
+      "expected_hex": "53225c75666666662200",
+      "stdout_hex": "53225c75666666662200",
+      "category": "valid_transfer",
+      "callbacks": 9,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        10
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 10\nOUTPUT [83, 34, 92, 117, 102, 102, 102, 102, 34, 0]\nOK"
+    },
+    {
+      "case": "noncharacter-escape",
+      "backend": "native",
+      "input_hex": "225c756666666622",
+      "expected_hex": "53225c75666666662200",
+      "stdout_hex": "53225c75666666662200",
+      "category": "valid_transfer",
+      "callbacks": 9,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        10
+      ],
+      "observation": "METRICS 1 1 1 0 10\nOUTPUT [83, 34, 92, 117, 102, 102, 102, 102, 34, 0]\nOK\nBUDGET 2 75\nNATIVE 9488 106 306328 9"
+    },
+    {
+      "case": "noncharacter-raw",
+      "backend": "hosted",
+      "input_hex": "22efbfbf22",
+      "expected_hex": "5322efbfbf2200",
+      "stdout_hex": "5322efbfbf2200",
+      "category": "valid_transfer",
+      "callbacks": 6,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        7
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 7\nOUTPUT [83, 34, 239, 191, 191, 34, 0]\nOK"
+    },
+    {
+      "case": "noncharacter-raw",
+      "backend": "native",
+      "input_hex": "22efbfbf22",
+      "expected_hex": "5322efbfbf2200",
+      "stdout_hex": "5322efbfbf2200",
+      "category": "valid_transfer",
+      "callbacks": 6,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        7
+      ],
+      "observation": "METRICS 1 1 1 0 7\nOUTPUT [83, 34, 239, 191, 191, 34, 0]\nOK\nBUDGET 2 72\nNATIVE 6226 70 218637 6"
+    },
+    {
+      "case": "noncharacter-pair",
+      "backend": "hosted",
+      "input_hex": "225c75444246465c754446464622",
+      "expected_hex": "53225c75444246465c75444646462200",
+      "stdout_hex": "53225c75444246465c75444646462200",
+      "category": "valid_transfer",
+      "callbacks": 15,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        16
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 16\nOUTPUT [83, 34, 92, 117, 68, 66, 70, 70, 92, 117, 68, 70, 70, 70, 34, 0]\nOK"
+    },
+    {
+      "case": "noncharacter-pair",
+      "backend": "native",
+      "input_hex": "225c75444246465c754446464622",
+      "expected_hex": "53225c75444246465c75444646462200",
+      "stdout_hex": "53225c75444246465c75444646462200",
+      "category": "valid_transfer",
+      "callbacks": 15,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        16
+      ],
+      "observation": "METRICS 1 1 1 0 16\nOUTPUT [83, 34, 92, 117, 68, 66, 70, 70, 92, 117, 68, 70, 70, 70, 34, 0]\nOK\nBUDGET 2 81\nNATIVE 15855 113 506457 15"
+    },
+    {
+      "case": "utf8-overlong-four",
+      "backend": "hosted",
+      "input_hex": "22f080808022",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 0,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nMETRICS 1 1 1 0 1\nOUTPUT [0]\nOK"
+    },
+    {
+      "case": "utf8-overlong-four",
+      "backend": "native",
+      "input_hex": "22f080808022",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 0,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "METRICS 1 1 1 0 1\nOUTPUT [0]\nOK\nBUDGET 2 66\nNATIVE 719 43 25217 0"
+    },
+    {
+      "case": "utf8-too-large",
+      "backend": "hosted",
+      "input_hex": "22f490808022",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 0,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nMETRICS 1 1 1 0 1\nOUTPUT [0]\nOK"
+    },
+    {
+      "case": "utf8-too-large",
+      "backend": "native",
+      "input_hex": "22f490808022",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 0,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "METRICS 1 1 1 0 1\nOUTPUT [0]\nOK\nBUDGET 2 66\nNATIVE 719 43 25217 0"
+    },
+    {
+      "case": "utf8-truncated",
+      "backend": "hosted",
+      "input_hex": "22e28222",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 0,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nMETRICS 1 1 1 0 1\nOUTPUT [0]\nOK"
+    },
+    {
+      "case": "utf8-truncated",
+      "backend": "native",
+      "input_hex": "22e28222",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 0,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "METRICS 1 1 1 0 1\nOUTPUT [0]\nOK\nBUDGET 2 66\nNATIVE 717 43 25217 0"
+    },
+    {
+      "case": "raw-control-31",
+      "backend": "hosted",
+      "input_hex": "221f22",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 3,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 1\nOUTPUT [0]\nOK"
+    },
+    {
+      "case": "raw-control-31",
+      "backend": "native",
+      "input_hex": "221f22",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 3,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "METRICS 1 1 1 0 1\nOUTPUT [0]\nOK\nBUDGET 2 66\nNATIVE 2797 70 90836 3"
+    },
+    {
+      "case": "array-required-value",
+      "backend": "hosted",
+      "input_hex": "5b302c5d",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 5,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 1\nOUTPUT [0]\nOK"
+    },
+    {
+      "case": "array-required-value",
+      "backend": "native",
+      "input_hex": "5b302c5d",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 5,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "METRICS 1 1 1 0 1\nOUTPUT [0]\nOK\nBUDGET 2 66\nNATIVE 6525 81 206920 5"
+    },
+    {
+      "case": "object-required-key",
+      "backend": "hosted",
+      "input_hex": "7b2261223a302c7d",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 9,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 1\nOUTPUT [0]\nOK"
+    },
+    {
+      "case": "object-required-key",
+      "backend": "native",
+      "input_hex": "7b2261223a302c7d",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 9,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "METRICS 1 1 1 0 1\nOUTPUT [0]\nOK\nBUDGET 2 66\nNATIVE 9895 81 312343 9"
+    },
+    {
+      "case": "members-10",
+      "backend": "hosted",
+      "input_hex": "7b2261223a302c2261223a302c2261223a302c2261223a302c2261223a302c2261223a302c2261223a302c2261223a302c2261223a302c2261223a307d",
+      "expected_hex": "7b53226122003a2330002c53226122003a2330002c53226122003a2330002c53226122003a2330002c53226122003a2330002c53226122003a2330002c53226122003a2330002c53226122003a2330002c53226122003a2330002c53226122003a2330007d",
+      "stdout_hex": "7b53226122003a2330002c53226122003a2330002c53226122003a2330002c53226122003a2330002c53226122003a2330002c53226122003a2330002c53226122003a2330002c53226122003a2330002c53226122003a2330002c53226122003a2330007d",
+      "category": "valid_transfer",
+      "callbacks": 62,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        101
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 101\nOUTPUT [123, 83, 34, 97, 34, 0, 58, 35, 48, 0, 44, 83, 34, 97, 34, 0, 58, 35, 48, 0, 44, 83, 34, 97, 34, 0, 58, 35, 48, 0, 44, 83, 34, 97, 34, 0, 58, 35, 48, 0, 44, 83, 34, 97, 34, 0, 58, 35, 48, 0, 44, 83, 34, 97, 34, 0, 58, 35, 48, 0, 44, 83, 34, 97, 34, 0, 58, 35, 48, 0, 44, 83, 34, 97, 34, 0, 58, 35, 48, 0, 44, 83, 34, 97, 34, 0, 58, 35, 48, 0, 44, 83, 34, 97, 34, 0, 58, 35, 48, 0, 125]\nOK"
+    },
+    {
+      "case": "members-10",
+      "backend": "native",
+      "input_hex": "7b2261223a302c2261223a302c2261223a302c2261223a302c2261223a302c2261223a302c2261223a302c2261223a302c2261223a302c2261223a307d",
+      "expected_hex": "7b53226122003a2330002c53226122003a2330002c53226122003a2330002c53226122003a2330002c53226122003a2330002c53226122003a2330002c53226122003a2330002c53226122003a2330002c53226122003a2330002c53226122003a2330007d",
+      "stdout_hex": "7b53226122003a2330002c53226122003a2330002c53226122003a2330002c53226122003a2330002c53226122003a2330002c53226122003a2330002c53226122003a2330002c53226122003a2330002c53226122003a2330002c53226122003a2330007d",
+      "category": "valid_transfer",
+      "callbacks": 62,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        101
+      ],
+      "observation": "METRICS 1 1 1 0 101\nOUTPUT [123, 83, 34, 97, 34, 0, 58, 35, 48, 0, 44, 83, 34, 97, 34, 0, 58, 35, 48, 0, 44, 83, 34, 97, 34, 0, 58, 35, 48, 0, 44, 83, 34, 97, 34, 0, 58, 35, 48, 0, 44, 83, 34, 97, 34, 0, 58, 35, 48, 0, 44, 83, 34, 97, 34, 0, 58, 35, 48, 0, 44, 83, 34, 97, 34, 0, 58, 35, 48, 0, 44, 83, 34, 97, 34, 0, 58, 35, 48, 0, 44, 83, 34, 97, 34, 0, 58, 35, 48, 0, 44, 83, 34, 97, 34, 0, 58, 35, 48, 0, 125]\nOK\nBUDGET 2 166\nNATIVE 69643 81 2176285 62"
+    },
+    {
+      "case": "tokens-64",
+      "backend": "hosted",
+      "input_hex": "5b5b5d2c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c305d",
+      "expected_hex": "5b5b5d2c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330005d",
+      "stdout_hex": "5b5b5d2c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330005d",
+      "category": "valid_transfer",
+      "callbacks": 65,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        124
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 124\nOUTPUT [91, 91, 93, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 93]\nOK"
+    },
+    {
+      "case": "tokens-64",
+      "backend": "native",
+      "input_hex": "5b5b5d2c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c305d",
+      "expected_hex": "5b5b5d2c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330005d",
+      "stdout_hex": "5b5b5d2c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330005d",
+      "category": "valid_transfer",
+      "callbacks": 65,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        124
+      ],
+      "observation": "METRICS 1 1 1 0 124\nOUTPUT [91, 91, 93, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 44, 35, 48, 0, 93]\nOK\nBUDGET 2 189\nNATIVE 97768 81 2998705 65"
+    },
+    {
+      "case": "tokens-65-byte-denial",
+      "backend": "hosted",
+      "input_hex": "5b302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c305d",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 0,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nMETRICS 1 1 1 0 1\nOUTPUT [0]\nOK"
+    },
+    {
+      "case": "tokens-65-byte-denial",
+      "backend": "native",
+      "input_hex": "5b302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c305d",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 0,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "METRICS 1 1 1 0 1\nOUTPUT [0]\nOK\nBUDGET 2 66\nNATIVE 689 43 24417 0"
+    },
+    {
+      "case": "string-bytes-64",
+      "backend": "hosted",
+      "input_hex": "22616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616122",
+      "expected_hex": "532261616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161612200",
+      "stdout_hex": "532261616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161612200",
+      "category": "valid_transfer",
+      "callbacks": 65,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        66
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 66\nOUTPUT [83, 34, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 34, 0]\nOK"
+    },
+    {
+      "case": "string-bytes-64",
+      "backend": "native",
+      "input_hex": "22616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616122",
+      "expected_hex": "532261616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161612200",
+      "stdout_hex": "532261616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161612200",
+      "category": "valid_transfer",
+      "callbacks": 65,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        66
+      ],
+      "observation": "METRICS 1 1 1 0 66\nOUTPUT [83, 34, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 34, 0]\nOK\nBUDGET 2 131\nNATIVE 55660 70 1935876 65"
+    },
+    {
+      "case": "number-bytes-64",
+      "backend": "hosted",
+      "input_hex": "31313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131",
+      "expected_hex": "233131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313100",
+      "stdout_hex": "233131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313100",
+      "category": "valid_transfer",
+      "callbacks": 65,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        66
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 66\nOUTPUT [35, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 0]\nOK"
+    },
+    {
+      "case": "number-bytes-64",
+      "backend": "native",
+      "input_hex": "31313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131",
+      "expected_hex": "233131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313100",
+      "stdout_hex": "233131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313131313100",
+      "category": "valid_transfer",
+      "callbacks": 65,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        66
+      ],
+      "observation": "METRICS 1 1 1 0 66\nOUTPUT [35, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 49, 0]\nOK\nBUDGET 2 131\nNATIVE 75396 81 2369974 65"
+    },
+    {
+      "case": "string-high-utf8-64",
+      "backend": "hosted",
+      "input_hex": "22c3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bf22",
+      "expected_hex": "5322c3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bf2200",
+      "stdout_hex": "5322c3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bf2200",
+      "category": "valid_transfer",
+      "callbacks": 65,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        66
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 66\nOUTPUT [83, 34, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 34, 0]\nOK"
+    },
+    {
+      "case": "string-high-utf8-64",
+      "backend": "native",
+      "input_hex": "22c3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bf22",
+      "expected_hex": "5322c3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bf2200",
+      "stdout_hex": "5322c3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bf2200",
+      "category": "valid_transfer",
+      "callbacks": 65,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        66
+      ],
+      "observation": "METRICS 1 1 1 0 66\nOUTPUT [83, 34, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 195, 191, 34, 0]\nOK\nBUDGET 2 131\nNATIVE 67502 70 2500324 65"
+    },
+    {
+      "case": "string-four-byte-utf8-62",
+      "backend": "hosted",
+      "input_hex": "22f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f988022",
+      "expected_hex": "5322f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f98802200",
+      "stdout_hex": "5322f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f98802200",
+      "category": "valid_transfer",
+      "callbacks": 63,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        64
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 64\nOUTPUT [83, 34, 240, 159, 152, 128, 240, 159, 152, 128, 240, 159, 152, 128, 240, 159, 152, 128, 240, 159, 152, 128, 240, 159, 152, 128, 240, 159, 152, 128, 240, 159, 152, 128, 240, 159, 152, 128, 240, 159, 152, 128, 240, 159, 152, 128, 240, 159, 152, 128, 240, 159, 152, 128, 240, 159, 152, 128, 240, 159, 152, 128, 34, 0]\nOK"
+    },
+    {
+      "case": "string-four-byte-utf8-62",
+      "backend": "native",
+      "input_hex": "22f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f988022",
+      "expected_hex": "5322f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f98802200",
+      "stdout_hex": "5322f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f98802200",
+      "category": "valid_transfer",
+      "callbacks": 63,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        64
+      ],
+      "observation": "METRICS 1 1 1 0 64\nOUTPUT [83, 34, 240, 159, 152, 128, 240, 159, 152, 128, 240, 159, 152, 128, 240, 159, 152, 128, 240, 159, 152, 128, 240, 159, 152, 128, 240, 159, 152, 128, 240, 159, 152, 128, 240, 159, 152, 128, 240, 159, 152, 128, 240, 159, 152, 128, 240, 159, 152, 128, 240, 159, 152, 128, 240, 159, 152, 128, 240, 159, 152, 128, 34, 0]\nOK\nBUDGET 2 129\nNATIVE 62632 70 2288865 63"
+    },
+    {
+      "case": "trailing-invalid-64",
+      "backend": "hosted",
+      "input_hex": "30202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202078",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 65,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 1\nOUTPUT [0]\nOK"
+    },
+    {
+      "case": "trailing-invalid-64",
+      "backend": "native",
+      "input_hex": "30202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202078",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 65,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "METRICS 1 1 1 0 1\nOUTPUT [0]\nOK\nBUDGET 2 66\nNATIVE 43443 75 1357050 65"
+    },
+    {
+      "case": "early-invalid-64",
+      "backend": "hosted",
+      "input_hex": "78202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 2,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "SIZE 8002 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 1\nOUTPUT [0]\nOK"
+    },
+    {
+      "case": "early-invalid-64",
+      "backend": "native",
+      "input_hex": "78202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 2,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "METRICS 1 1 1 0 1\nOUTPUT [0]\nOK\nBUDGET 2 66\nNATIVE 2500 74 81921 2"
+    },
+    {
+      "case": "admission-Parse.fib",
+      "core_nodes": 6205,
+      "literal_payload": 892
+    },
+    {
+      "case": "admission-ParseBinary.fib",
+      "core_nodes": 7467,
+      "literal_payload": 1037
+    },
+    {
+      "case": "admission-PureRead65.fib",
+      "core_nodes": 6674,
+      "literal_payload": 1005
+    },
+    {
+      "case": "admission-Read65.fib",
+      "core_nodes": 8002,
+      "literal_payload": 1198
+    },
+    {
+      "case": "diagnostic-control-bypass-string64",
+      "backend": "hosted",
+      "input_hex": "22616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616122",
+      "expected_hex": "532261616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161612200",
+      "stdout_hex": "532261616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161612200",
+      "category": "valid_transfer",
+      "callbacks": 65,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        66
+      ],
+      "observation": "SIZE 7879 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 1 1 1 0 66\nOUTPUT [83, 34, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 34, 0]\nOK"
+    },
+    {
+      "case": "diagnostic-control-bypass-string64",
+      "backend": "native",
+      "input_hex": "22616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616122",
+      "expected_hex": "532261616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161612200",
+      "stdout_hex": "532261616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161612200",
+      "category": "valid_transfer",
+      "callbacks": 65,
+      "metrics": [
+        1,
+        1,
+        1,
+        0,
+        66
+      ],
+      "observation": "METRICS 1 1 1 0 66\nOUTPUT [83, 34, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 34, 0]\nOK\nBUDGET 2 131\nNATIVE 39786 70 1230228 65"
+    },
+    {
+      "case": "direct-empty",
+      "backend": "hosted",
+      "input_hex": "",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 1,
+      "metrics": [
+        0,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "SIZE 7678 1133\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nMETRICS 0 1 1 0 1\nOUTPUT [0]\nOK"
+    },
+    {
+      "case": "direct-empty",
+      "backend": "native",
+      "input_hex": "",
+      "expected_hex": "00",
+      "stdout_hex": "00",
+      "category": "invalid_json",
+      "callbacks": 1,
+      "metrics": [
+        0,
+        1,
+        1,
+        0,
+        1
+      ],
+      "observation": "METRICS 0 1 1 0 1\nOUTPUT [0]\nOK\nBUDGET 1 1\nNATIVE 832 43 30641 1"
+    },
+    {
+      "case": "exhaustion-Zero",
+      "backend": "hosted",
+      "observation": "SIZE 7995 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nMETRICS 1 1 1 0 1\nOUTPUT [1]\nOK"
+    },
+    {
+      "case": "exhaustion-Zero",
+      "backend": "native",
+      "observation": "METRICS 1 1 1 0 1\nOUTPUT [1]\nOK\nBUDGET 2 66\nNATIVE 874 43 32017 0"
+    },
+    {
+      "case": "exhaustion-Succ Zero",
+      "backend": "hosted",
+      "observation": "SIZE 8006 1198\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nMETRICS 1 1 1 0 1\nOUTPUT [1]\nOK"
+    },
+    {
+      "case": "exhaustion-Succ Zero",
+      "backend": "native",
+      "observation": "METRICS 1 1 1 0 1\nOUTPUT [1]\nOK\nBUDGET 2 66\nNATIVE 2168 70 72085 1"
+    },
+    {
+      "case": "no-parser-transport",
+      "observation": "SIZE 7781 1136\nINTERACTIVE_GATE rejected\nRESOURCE_GATE rejected\nCALLBACK\nCALLBACK\nCALLBACK\nCALLBACK\nMETRICS 0 0 1 0 0\nOUTPUT []\nOK"
+    },
+    {
+      "case": "no-parser-transport",
+      "observation": "METRICS 0 0 1 0 0\nOUTPUT []\nOK\nBUDGET 0 0\nNATIVE 5454 83 172549 4"
+    }
+  ],
+  "validation_runs": [
+    {
+      "command": "make -j8 json-iteration-test IDRIS2=<pinned>",
+      "status": "passed",
+      "groups": 7
+    },
+    {
+      "command": "CC='cc -fsanitize=address,undefined -fno-omit-frame-pointer' make -j8 json-iteration-test IDRIS2=<pinned>",
+      "status": "passed",
+      "groups": 7
+    }
+  ],
+  "sanitized_rows_identical": true
+}

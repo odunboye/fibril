@@ -1,0 +1,6 @@
+module Main
+import Protocol.Frame
+
+-- Exactly one canonical frame with a body of 0..4096 bytes; not an LSP server.
+main : IO Unit
+main = Protocol.Frame.echoFrame
