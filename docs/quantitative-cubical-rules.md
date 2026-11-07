@@ -660,12 +660,14 @@ bounded term and dimension indices. Path families and abstractions bind a
 dimension; endpoints do not. The family can mention its bound dimension, so
 this permits PathP-shaped dimension-dependent candidates. It does not provide
 dependent PathP typing or any surface parser syntax. Dimension substitution
-lifts under these binders, and term substitution weakens replacements there. The module proves both
-substitution identity laws for all scoped expressions. These are syntactic
+lifts under these binders, and term substitution weakens replacements there. The module proves both substitution identity laws, dimension and term
+substitution composition, and their interaction for all scoped expressions.
+The interaction substitutes dimensions in each term replacement; the
+composition laws act on environments simultaneously. Pointwise congruence and
+lifting/weakening lemmas justify the binder cases. Term renaming composes, is
+substitution by variables, and commutes with dimension substitution. These are syntactic
 candidates only: scope is not typing, and neither a dependent context nor typed
 endpoint boundaries, face-restricted conversion, checking, resource accounting,
 or soundness is provided. No constructor supplies checked evidence or a runtime
 path. Existing first-order checkers are unchanged; no admission guarantee is
-claimed for the unbounded structural syntax operations. Composition and
-interaction laws remain to be established before using this syntax as a basis
-for a checker.
+claimed for the unbounded structural syntax operations. These structural equations do not establish typing preservation or a checker.

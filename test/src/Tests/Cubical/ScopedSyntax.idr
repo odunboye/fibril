@@ -88,3 +88,69 @@ simultaneousTermReplacement : substituteTerms Tests.Cubical.ScopedSyntax.replace
        (Apply (Variable (FS FZ)) (Var FZ))
        (Apply (Variable FZ) (Reverse (Var FZ)))
 simultaneousTermReplacement = Refl
+
+-- A family under Path and Abstract sees two fresh indices; endpoints see only
+-- the outer index. Both substitution environments are deliberately nonidentity.
+nestedPath : Expr 2 1
+nestedPath = Path
+  (Abstract (Apply (Variable FZ) (Meet (Var FZ) (Var (FS (FS FZ))))))
+  (Variable (FS FZ))
+  (Apply (Variable FZ) (Var FZ))
+
+reverseDimension : Fin 1 -> ScopedInterval 1
+reverseDimension FZ = Reverse (Var FZ)
+
+closeDimension : Fin 1 -> ScopedInterval 0
+closeDimension FZ = One
+
+nestedDimensionComposition :
+  substituteDimensions Tests.Cubical.ScopedSyntax.closeDimension
+    (substituteDimensions Tests.Cubical.ScopedSyntax.reverseDimension Tests.Cubical.ScopedSyntax.nestedPath) =
+  Path (Abstract (Apply (Variable FZ) (Meet (Var FZ) (Reverse One))))
+       (Variable (FS FZ)) (Apply (Variable FZ) (Reverse One))
+nestedDimensionComposition = Refl
+
+nestedDimensionCompositionLaw :
+  substituteDimensions Tests.Cubical.ScopedSyntax.closeDimension
+    (substituteDimensions Tests.Cubical.ScopedSyntax.reverseDimension Tests.Cubical.ScopedSyntax.nestedPath) =
+  substituteDimensions (substituteScoped Tests.Cubical.ScopedSyntax.closeDimension . Tests.Cubical.ScopedSyntax.reverseDimension) Tests.Cubical.ScopedSyntax.nestedPath
+nestedDimensionCompositionLaw = dimensionSubstitutionComposition Tests.Cubical.ScopedSyntax.reverseDimension Tests.Cubical.ScopedSyntax.closeDimension Tests.Cubical.ScopedSyntax.nestedPath
+
+nestedTermCompositionLaw :
+  substituteTerms Tests.Cubical.ScopedSyntax.replaceBoth
+    (substituteTerms Tests.Cubical.ScopedSyntax.replaceBoth Tests.Cubical.ScopedSyntax.nestedPath) =
+  substituteTerms (substituteTerms Tests.Cubical.ScopedSyntax.replaceBoth . Tests.Cubical.ScopedSyntax.replaceBoth) Tests.Cubical.ScopedSyntax.nestedPath
+nestedTermCompositionLaw = termSubstitutionComposition Tests.Cubical.ScopedSyntax.replaceBoth Tests.Cubical.ScopedSyntax.replaceBoth Tests.Cubical.ScopedSyntax.nestedPath
+
+nestedInteractionLaw :
+  substituteDimensions Tests.Cubical.ScopedSyntax.reverseDimension
+    (substituteTerms Tests.Cubical.ScopedSyntax.replaceBoth Tests.Cubical.ScopedSyntax.nestedPath) =
+  substituteTerms (substituteDimensions Tests.Cubical.ScopedSyntax.reverseDimension . Tests.Cubical.ScopedSyntax.replaceBoth)
+    (substituteDimensions Tests.Cubical.ScopedSyntax.reverseDimension Tests.Cubical.ScopedSyntax.nestedPath)
+nestedInteractionLaw = termDimensionSubstitution Tests.Cubical.ScopedSyntax.replaceBoth Tests.Cubical.ScopedSyntax.reverseDimension Tests.Cubical.ScopedSyntax.nestedPath
+
+nestedInteractionResult :
+  substituteDimensions Tests.Cubical.ScopedSyntax.reverseDimension
+    (substituteTerms Tests.Cubical.ScopedSyntax.replaceBoth Tests.Cubical.ScopedSyntax.nestedPath) =
+  Path (Abstract (Apply (Apply (Variable (FS FZ)) (Reverse (Var (FS (FS FZ)))))
+                        (Meet (Var FZ) (Reverse (Var (FS (FS FZ)))))))
+       (Apply (Variable FZ) (Reverse (Reverse (Var FZ))))
+       (Apply (Apply (Variable (FS FZ)) (Reverse (Var FZ))) (Reverse (Var FZ)))
+nestedInteractionResult = Refl
+
+swapTerms : Fin 2 -> Fin 2
+swapTerms FZ = FS FZ
+swapTerms (FS FZ) = FZ
+
+nestedRenameDimensionLaw :
+  renameTerms Tests.Cubical.ScopedSyntax.swapTerms
+    (substituteDimensions Tests.Cubical.ScopedSyntax.reverseDimension Tests.Cubical.ScopedSyntax.nestedPath) =
+  substituteDimensions Tests.Cubical.ScopedSyntax.reverseDimension
+    (renameTerms Tests.Cubical.ScopedSyntax.swapTerms Tests.Cubical.ScopedSyntax.nestedPath)
+nestedRenameDimensionLaw = renameTermsDimensionSubstitution Tests.Cubical.ScopedSyntax.swapTerms Tests.Cubical.ScopedSyntax.reverseDimension Tests.Cubical.ScopedSyntax.nestedPath
+
+nestedRenameResult :
+  renameTerms Tests.Cubical.ScopedSyntax.swapTerms Tests.Cubical.ScopedSyntax.nestedPath =
+  Path (Abstract (Apply (Variable (FS FZ)) (Meet (Var FZ) (Var (FS (FS FZ))))))
+       (Variable FZ) (Apply (Variable (FS FZ)) (Var FZ))
+nestedRenameResult = Refl
