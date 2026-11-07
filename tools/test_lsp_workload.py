@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 """OFFLINE corpus/evidence checks; recorded cap denials are not parser passes."""
+from contextlib import contextmanager
+import errno
 import hashlib
 import json
 import os
@@ -9,13 +11,14 @@ import socket
 import subprocess
 import sys
 import tempfile
+from types import SimpleNamespace
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from generate_lsp_workload import (DESTINATION, ROOT, SOURCE, ObjectMembers, artifacts,
                                    bodies, describe, frame)
 from observe_json_state_sharing import oracle
-from probe_lsp_workload import checked, observation, run_process
+from probe_lsp_workload import ProbeProcessCleanupError, checked, observation, run_process
 
 
 class LSPWorkload(unittest.TestCase):
@@ -170,6 +173,8 @@ class LSPWorkload(unittest.TestCase):
 PROCESS_TREE = r'''
 import signal, subprocess, sys
 signal.signal(signal.SIGTERM, signal.SIG_IGN)
+sys.stdout.write('tree-output'); sys.stdout.flush()
+sys.stderr.write('tree-error'); sys.stderr.flush()
 child = r"""
 import json, os, signal, socket, sys
 signal.signal(signal.SIGTERM, signal.SIG_IGN)
@@ -188,8 +193,9 @@ signal.pause()
 
 class ProbeProcessScope(unittest.TestCase):
     def exercise_tree(self, *, exited_leader=False, cancellation=None):
-        real_popen, real_killpg = subprocess.Popen, os.killpg
-        processes, connections, signals = [], [], []
+        real_popen, real_killpg, real_waitid = subprocess.Popen, os.killpg, os.waitid
+        processes, files, connections, ordering = [], [], [], []
+        handshake_done = False
         with tempfile.TemporaryDirectory(prefix='lsp-probe-process-', dir='/tmp') as temporary:
             # macOS Unix sockets have a short path limit; /tmp avoids long TMPDIR.
             path = str(Path(temporary) / 'ready.sock')
@@ -200,66 +206,103 @@ class ProbeProcessScope(unittest.TestCase):
 
                 def launch(*args, **kwargs):
                     self.assertTrue(kwargs['start_new_session'])
+                    files.extend(kwargs[key] for key in ('stdin', 'stdout', 'stderr'))
                     process = real_popen(*args, **kwargs)
                     processes.append(process)
-                    communicate = process.communicate
+                    reap = process.wait
 
-                    def after_handshake(**options):
+                    def only_after_final_signal(**options):
+                        self.assertEqual(ordering[-1], signal.SIGKILL)
+                        ordering.append('reap')
+                        return reap(**options)
+
+                    process.wait = only_after_final_signal
+                    process.poll = lambda: self.fail('poll would reap before final signaling')
+                    process.communicate = lambda **_: self.fail('communicate would reap before final signaling')
+                    return process
+
+                def nonreaping(kind, pid, flags):
+                    nonlocal handshake_done
+                    self.assertEqual((kind, pid), (os.P_PID, processes[0].pid))
+                    self.assertEqual(flags, os.WEXITED | os.WNOWAIT | os.WNOHANG)
+                    if not handshake_done:
                         connection, _ = listener.accept()
                         connections.append(connection)
                         connection.settimeout(5)
                         with connection.makefile('rb') as stream:
                             ready = json.loads(stream.readline(1024))
-                        self.assertNotEqual(ready['pid'], process.pid)
-                        self.assertEqual(ready['group'], process.pid)
-                        if exited_leader:
-                            self.assertEqual(process.wait(timeout=5), 0)
+                        self.assertNotEqual(ready['pid'], pid)
+                        self.assertEqual(ready['group'], pid)
+                        handshake_done = True
                         if cancellation is not None:
                             raise cancellation
-                        return communicate(**options)
-
-                    process.communicate = after_handshake
-                    return process
+                    state = real_waitid(kind, pid, flags)
+                    ordering.append('exited-unreaped' if state is not None else 'running-unreaped')
+                    return state
 
                 def signal_owned(group, signum):
                     self.assertEqual(group, processes[0].pid)
                     self.assertNotEqual(group, os.getpgrp())
-                    signals.append(signum)
+                    self.assertIsNone(processes[0].returncode)
+                    # This syscall would raise ECHILD if the anchor was reaped;
+                    # observing WNOWAIT again does not release its PID/group id.
+                    state = real_waitid(os.P_PID, group, os.WEXITED | os.WNOWAIT | os.WNOHANG)
+                    if exited_leader:
+                        self.assertIsNotNone(state)
+                        if signum == signal.SIGKILL:
+                            # Its socket is still live AFTER TERM and leader
+                            # exit; only the following group KILL may close it.
+                            connections[0].setblocking(False)
+                            try:
+                                with self.assertRaises(BlockingIOError):
+                                    connections[0].recv(1)
+                            finally:
+                                connections[0].settimeout(5)
+                    self.assertNotIn('reap', ordering)
+                    ordering.append(signum)
                     real_killpg(group, signum)
 
                 command = [sys.executable, '-c', PROCESS_TREE, path, 'exit' if exited_leader else 'wait']
                 cleanup_verified = False
                 try:
                     with patch('probe_lsp_workload.subprocess.Popen', side_effect=launch), \
+                         patch('probe_lsp_workload.os.waitid', side_effect=nonreaping), \
                          patch('probe_lsp_workload.os.killpg', side_effect=signal_owned):
                         if cancellation is not None:
                             with self.assertRaises(type(cancellation)) as raised:
                                 run_process(command, timeout=0.05)
                             self.assertIs(raised.exception, cancellation)
                         elif exited_leader:
-                            self.assertEqual(run_process(command, timeout=1).returncode, 0)
+                            result = run_process(command, timeout=1)
+                            self.assertEqual((result.returncode, result.stdout, result.stderr),
+                                             (0, b'tree-output', b'tree-error'))
                         else:
-                            with self.assertRaises(subprocess.TimeoutExpired):
+                            with self.assertRaises(subprocess.TimeoutExpired) as raised:
                                 run_process(command, timeout=0.05)
-                    self.assertEqual(signals, [signal.SIGTERM, signal.SIGKILL])
+                            self.assertEqual((raised.exception.output, raised.exception.stderr),
+                                             (b'tree-output', b'tree-error'))
+                    self.assertEqual([entry for entry in ordering if isinstance(entry, signal.Signals)],
+                                     [signal.SIGTERM, signal.SIGKILL])
+                    self.assertEqual(ordering[-2:], [signal.SIGKILL, 'reap'])
                     self.assertEqual(connections[0].recv(1), b'')
-                    self.assertIsNotNone(processes[0].returncode)
-                    self.assertEqual(processes[0].wait(timeout=1), 0 if exited_leader else -signal.SIGKILL)
+                    self.assertEqual(processes[0].returncode, 0 if exited_leader else -signal.SIGKILL)
                     cleanup_verified = True
-                    self.assertTrue(all(stream.closed for stream in
-                                        (processes[0].stdin, processes[0].stdout, processes[0].stderr)))
+                    self.assertTrue(all(stream.closed for stream in files))
                 finally:
-                    # Fallback only when termination/reaping was not verified;
-                    # do not signal a completed, reaped group's old id again.
+                    # Never signal a group after the helper already reaped its
+                    # leader, even when an assertion fails after that point.
                     for process in processes:
-                        if not cleanup_verified:
+                        if not cleanup_verified and process.returncode is None:
                             try:
-                                real_killpg(process.pid, signal.SIGKILL)
-                            except ProcessLookupError:
-                                pass
-                        process.wait(timeout=2)
-                        for stream in (process.stdin, process.stdout, process.stderr):
-                            stream.close()
+                                real_waitid(os.P_PID, process.pid, os.WEXITED | os.WNOWAIT | os.WNOHANG)
+                            except ChildProcessError:
+                                pass  # Ownership lost: do not signal this number.
+                            else:
+                                try:
+                                    real_killpg(process.pid, signal.SIGKILL)
+                                except ProcessLookupError:
+                                    pass
+                                subprocess.Popen.wait(process, timeout=2)
                     for connection in connections:
                         connection.close()
 
@@ -277,10 +320,15 @@ class ProbeProcessScope(unittest.TestCase):
                 self.exercise_tree(cancellation=cancellation)
 
     def test_success_and_failure_preserve_process_results(self):
-        result = run_process([sys.executable, '-c',
-                              'import sys; sys.stdout.buffer.write(sys.stdin.buffer.read()); '
-                              'sys.stderr.write("diagnostic"); sys.exit(7)'], input=b'payload', timeout=5)
-        self.assertEqual((result.returncode, result.stdout, result.stderr), (7, b'payload', b'diagnostic'))
+        # Real exited anchors without descendants exercise macOS's EPERM case.
+        for status in (0, 7):
+            with self.subTest(status=status):
+                result = run_process([sys.executable, '-c',
+                                      'import sys; sys.stdout.buffer.write(sys.stdin.buffer.read()); '
+                                      f'sys.stderr.write("diagnostic"); sys.exit({status})'],
+                                     input=b'payload', timeout=5)
+                self.assertEqual((result.returncode, result.stdout, result.stderr),
+                                 (status, b'payload', b'diagnostic'))
         with patch('probe_lsp_workload.subprocess.Popen', side_effect=OSError('launch failed')), \
              patch('probe_lsp_workload.os.killpg') as signal_group:
             with self.assertRaisesRegex(OSError, 'launch failed'):
@@ -295,6 +343,134 @@ class ProbeProcessScope(unittest.TestCase):
             scoped.reset_mock()
             self.assertEqual(observation(['runner'], b'input', 4), (0, b'result', '', None))
             scoped.assert_called_once_with(['runner'], input=b'input', timeout=4)
+
+
+    @contextmanager
+    def controlled_anchor(self, *, observations=(), running=False, platform='darwin',
+                          signal_error=None, reap_error=None):
+        """No real process: expose ordering/error paths without leaking a child."""
+        process = Mock(pid=1234567, returncode=None)
+        events = []
+        states = iter(observations)
+        ready = None if running else SimpleNamespace(si_pid=process.pid)
+
+        def observe(kind, pid, flags):
+            self.assertEqual((kind, pid, flags),
+                             (os.P_PID, process.pid, os.WEXITED | os.WNOWAIT | os.WNOHANG))
+            events.append('observe')
+            state = next(states, ready)
+            if isinstance(state, BaseException):
+                raise state
+            return state
+
+        def signal_owned(pid, signum):
+            self.assertEqual(pid, process.pid)
+            self.assertEqual(events[-1], 'observe')
+            self.assertIsNone(process.returncode)
+            events.append(signum)
+            if signal_error is not None:
+                raise signal_error
+
+        def reap(*, timeout):
+            self.assertEqual(events[-1], signal.SIGKILL)
+            self.assertEqual(timeout, 2)
+            events.append('reap')
+            if reap_error is not None:
+                raise reap_error
+            process.returncode = 0
+            return 0
+
+        process.wait.side_effect = reap
+        process.poll.side_effect = AssertionError('poll would release the anchor')
+        process.communicate.side_effect = AssertionError('communicate would release the anchor')
+        with patch('probe_lsp_workload.subprocess.Popen', return_value=process), \
+             patch('probe_lsp_workload.os.waitid', side_effect=observe), \
+             patch('probe_lsp_workload.os.killpg', side_effect=signal_owned), \
+             patch('probe_lsp_workload.sys.platform', platform):
+            yield process, events
+
+    def test_cleanup_order_keeps_anchor_until_final_signal(self):
+        with self.controlled_anchor() as (process, events):
+            self.assertEqual(run_process(['fake'], timeout=1).returncode, 0)
+            self.assertEqual(events, ['observe', 'observe', signal.SIGTERM, 'observe',
+                                      'observe', signal.SIGKILL, 'reap'])
+            process.poll.assert_not_called()
+            process.communicate.assert_not_called()
+
+    def test_unsupported_platform_and_sigchld_fail_before_launch(self):
+        for missing in ('waitid', 'WNOWAIT', 'WNOHANG'):
+            with self.subTest(missing=missing), \
+                 patch('probe_lsp_workload.os.' + missing, None), \
+                 patch('probe_lsp_workload.subprocess.Popen') as launch:
+                with self.assertRaisesRegex(RuntimeError, 'requires POSIX waitid'):
+                    run_process(['not-started'])
+                launch.assert_not_called()
+        with patch('probe_lsp_workload.os.name', 'nt'), \
+             patch('probe_lsp_workload.subprocess.Popen') as launch:
+            with self.assertRaisesRegex(RuntimeError, 'requires POSIX waitid'):
+                run_process(['not-started'])
+            launch.assert_not_called()
+        for handler in (signal.SIG_IGN, lambda *_: None):
+            with self.subTest(handler=handler), \
+                 patch('probe_lsp_workload.signal.getsignal', return_value=handler), \
+                 patch('probe_lsp_workload.subprocess.Popen') as launch:
+                with self.assertRaisesRegex(RuntimeError, 'requires default SIGCHLD'):
+                    run_process(['not-started'])
+                launch.assert_not_called()
+
+    def test_macos_exited_anchor_signal_refusal_still_precedes_reap(self):
+        with self.controlled_anchor(signal_error=PermissionError(errno.EPERM, 'refused')) as (process, events):
+            self.assertEqual(run_process(['fake'], timeout=1).returncode, 0)
+            self.assertEqual([event for event in events if event != 'observe'],
+                             [signal.SIGTERM, signal.SIGKILL, 'reap'])
+            process.wait.assert_called_once_with(timeout=2)
+
+    def test_other_signal_errors_fail_closed(self):
+        for options, failure in [
+            ({'running': True}, PermissionError(errno.EPERM, 'running anchor refused')),
+            ({'platform': 'linux'}, PermissionError(errno.EPERM, 'non-mac refused')),
+            ({}, OSError(errno.EIO, 'other failure')),
+            ({}, PermissionError(errno.EACCES, 'not EPERM')),
+        ]:
+            with self.subTest(options=options, failure=failure), \
+                 self.controlled_anchor(signal_error=failure, **options):
+                with self.assertRaises(type(failure)) as raised:
+                    run_process(['fake'], timeout=0)
+                self.assertIs(raised.exception, failure)
+
+    def test_lost_anchor_stops_further_numeric_group_signals(self):
+        ready = SimpleNamespace(si_pid=1234567)
+        for states, expected_signals in [
+            ([ChildProcessError()], []),
+            ([ready, ready, ChildProcessError()], [signal.SIGTERM]),
+            ([ready, ready, ready, ChildProcessError()], [signal.SIGTERM]),
+        ]:
+            with self.subTest(states=states), \
+                 self.controlled_anchor(observations=states,
+                                        signal_error=PermissionError(errno.EPERM, 'mac refusal')) as (process, events):
+                with self.assertRaisesRegex(ProbeProcessCleanupError, 'anchor lost'):
+                    run_process(['fake'], timeout=1)
+                self.assertEqual([entry for entry in events if isinstance(entry, signal.Signals)], expected_signals)
+                process.wait.assert_not_called()
+
+    def test_interrupted_nonreaping_observations_keep_deadline(self):
+        for timeout, expected_timeout in ((0.5, True), (5, False)):
+            with self.subTest(timeout=timeout), \
+                 self.controlled_anchor(observations=[InterruptedError()]), \
+                 patch('probe_lsp_workload.time.monotonic', side_effect=range(100)), \
+                 patch('probe_lsp_workload.threading.Event') as event:
+                if expected_timeout:
+                    with self.assertRaises(subprocess.TimeoutExpired):
+                        run_process(['fake'], timeout=timeout)
+                else:
+                    self.assertEqual(run_process(['fake'], timeout=timeout).returncode, 0)
+                for invocation in event.return_value.wait.call_args_list:
+                    self.assertLessEqual(invocation.args[0], 0.01)
+
+    def test_final_reap_deadline_is_cleanup_failure_not_success(self):
+        with self.controlled_anchor(reap_error=subprocess.TimeoutExpired('fake', 2)):
+            with self.assertRaisesRegex(ProbeProcessCleanupError, 'cleanup failed'):
+                run_process(['fake'], timeout=1)
 
 
 if __name__ == '__main__':
