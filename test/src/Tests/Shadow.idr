@@ -1482,3 +1482,80 @@ indiscreteTransitiveDistinct :
   applyMorphism Tests.Shadow.indiscreteConstantTrue False =
   applyMorphism Tests.Shadow.indiscreteConstantTrue True
 indiscreteTransitiveDistinct = Tests.Shadow.indiscreteConstantsTransitive False True ()
+
+-- The two environments contain different, extensionally related functions.
+commonLookupRelatedEnvironments :
+  related (commonTypeSetoid (LArrow LBool LBool))
+    (applyMorphism (commonEnvironmentLookup [LArrow LBool LBool] (LArrow LBool LBool) LHere)
+      (Tests.Shadow.setoidIdentity, ()))
+    (applyMorphism (commonEnvironmentLookup [LArrow LBool LBool] (LArrow LBool LBool) LHere)
+      (Tests.Shadow.setoidConditionalIdentity, ()))
+commonLookupRelatedEnvironments = respectsRelation
+  (commonEnvironmentLookup [LArrow LBool LBool] (LArrow LBool LBool) LHere)
+  {x = (Tests.Shadow.setoidIdentity, ())} {y = (Tests.Shadow.setoidConditionalIdentity, ())}
+  (Tests.Shadow.setoidIdentityEquivalent, Refl)
+
+commonCapturedLookup :
+  applyMorphism (commonEnvironmentLookup [LUnit, LBool] LBool (LThere LHere))
+    ((), (True, ())) = True
+commonCapturedLookup = Refl
+
+commonCurriedCapture :
+  applyMorphism (applyMorphism
+    (commonCurry {env = commonEnvironmentSetoid [LBool]}
+      {a = commonTypeSetoid LUnit} {b = commonTypeSetoid LBool}
+      (commonEnvironmentLookup [LUnit, LBool] LBool (LThere LHere)))
+    (True, ())) () = True
+commonCurriedCapture = Refl
+
+-- Curried bodies can use related, extensionally distinct captured functions,
+-- while accepting different values related by the indiscrete input setoid.
+curriedCapturedFunctionBody : CommonMorphism
+  (commonProductSetoid Tests.Shadow.indiscreteBoolSetoid
+    (commonArrowSetoid Fibril.Cubical.Logical.ShadowCommon.commonBoolSetoid
+      Fibril.Cubical.Logical.ShadowCommon.commonBoolSetoid))
+  Fibril.Cubical.Logical.ShadowCommon.commonBoolSetoid
+curriedCapturedFunctionBody = MkCommonMorphism
+  (\pair => applyMorphism (snd pair) True)
+  (\rel => snd rel True True Refl)
+
+curriedCapturedFunction : CommonMorphism
+  (commonArrowSetoid Fibril.Cubical.Logical.ShadowCommon.commonBoolSetoid
+    Fibril.Cubical.Logical.ShadowCommon.commonBoolSetoid)
+  (commonArrowSetoid Tests.Shadow.indiscreteBoolSetoid
+    Fibril.Cubical.Logical.ShadowCommon.commonBoolSetoid)
+curriedCapturedFunction = commonCurry Tests.Shadow.curriedCapturedFunctionBody
+
+curriedDistinctEnvironmentsAndInputs :
+  applyMorphism (applyMorphism Tests.Shadow.curriedCapturedFunction Tests.Shadow.setoidIdentity) False =
+  applyMorphism (applyMorphism Tests.Shadow.curriedCapturedFunction Tests.Shadow.setoidConditionalIdentity) True
+curriedDistinctEnvironmentsAndInputs = respectsRelation Tests.Shadow.curriedCapturedFunction
+  {x = Tests.Shadow.setoidIdentity} {y = Tests.Shadow.setoidConditionalIdentity}
+  Tests.Shadow.setoidIdentityEquivalent False True ()
+
+indiscreteIdentity : CommonMorphism Tests.Shadow.indiscreteBoolSetoid Tests.Shadow.indiscreteBoolSetoid
+indiscreteIdentity = MkCommonMorphism (\x => x) (\_ => ())
+
+constantIndiscreteFunction : CommonMorphism Tests.Shadow.indiscreteBoolSetoid
+  (commonArrowSetoid Tests.Shadow.indiscreteBoolSetoid
+    Fibril.Cubical.Logical.ShadowCommon.commonBoolSetoid)
+constantIndiscreteFunction = commonConstant Tests.Shadow.indiscreteConstantTrue
+
+constantPreservesDistinctEnvironments :
+  applyMorphism (applyMorphism Tests.Shadow.constantIndiscreteFunction False) False =
+  applyMorphism (applyMorphism Tests.Shadow.constantIndiscreteFunction True) True
+constantPreservesDistinctEnvironments = respectsRelation Tests.Shadow.constantIndiscreteFunction
+  {x = False} {y = True} () False True ()
+
+appliedIndiscreteFunction : CommonMorphism Tests.Shadow.indiscreteBoolSetoid
+  Fibril.Cubical.Logical.ShadowCommon.commonBoolSetoid
+appliedIndiscreteFunction = commonApply Tests.Shadow.constantIndiscreteFunction Tests.Shadow.indiscreteIdentity
+
+appliedFunctionPreservesDistinctEnvironments :
+  applyMorphism Tests.Shadow.appliedIndiscreteFunction False =
+  applyMorphism Tests.Shadow.appliedIndiscreteFunction True
+appliedFunctionPreservesDistinctEnvironments = respectsRelation Tests.Shadow.appliedIndiscreteFunction
+  {x = False} {y = True} ()
+
+appliedFunctionResult : applyMorphism Tests.Shadow.appliedIndiscreteFunction False = True
+appliedFunctionResult = Refl

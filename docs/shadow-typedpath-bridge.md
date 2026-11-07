@@ -219,9 +219,20 @@ laws. `commonApplicationCongruence` is the resulting application rule. This
 is constructive and does not assume equality of Idris functions.
 
 This is a foundation, not yet an interpretation of `CommonHasType` or
-`CommonPathHasType`: environments, lambda/application interpretation,
-derivation coherence, arbitrary-DM named-path interpretation and semantic
+`CommonPathHasType`: lambda/application interpretation, derivation coherence,
+arbitrary-DM named-path interpretation and semantic
 endpoint admissibility, and structural `CommonFaceEqual` soundness remain
 unproved. In particular the existing first-order interpretation is not extended
 by this construction. It makes no claim about runtime behavior, ownership,
 or a general HoTT or cubical model.
+
+The higher-order setoid foundation now also has pointwise product and typed
+context setoids, extensional variable lookup, constants, currying (with the
+bound value at the head of the context), and application. These are semantic
+combinators only: they do not inspect `CommonHasType`, and do not constitute a
+term interpreter. In particular, the erased type indices needed at lambda
+and application nodes must be supplied by an appropriate runtime-accessible
+interpretation witness or an explicitly revised typing API. Conditional and
+unit-elimination interpretation, a general total `commonTermSemantics`, and
+higher-order path interpretation and soundness remain unproved. No runtime or
+ownership property follows from these combinators.

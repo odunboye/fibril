@@ -1131,3 +1131,51 @@ commonApplicationCongruence : {a, b : CommonSetoid} ->
   {f, g : CommonMorphism a b} -> {x, y : carrier a} ->
   morphismsRelated f g -> related a x y -> related b (applyMorphism f x) (applyMorphism g y)
 commonApplicationCongruence fg xy = fg _ _ xy
+
+||| Product setoids retain pointwise evidence, including for arrow-valued entries.
+public export
+commonProductSetoid : CommonSetoid -> CommonSetoid -> CommonSetoid
+commonProductSetoid a b = MkCommonSetoid (carrier a, carrier b)
+  (\x, y => (related a (fst x) (fst y), related b (snd x) (snd y)))
+  (\(x, y) => (relationRefl a x, relationRefl b y))
+  (\(p, q) => (relationSym a p, relationSym b q))
+  (\(p, q), (r, s) => (relationTrans a p r, relationTrans b q s))
+
+||| A typed environment is a nested product, related pointwise.
+public export
+commonEnvironmentSetoid : Vect n LogicalType -> CommonSetoid
+commonEnvironmentSetoid [] = commonUnitSetoid
+commonEnvironmentSetoid (a :: ctx) =
+  commonProductSetoid (commonTypeSetoid a) (commonEnvironmentSetoid ctx)
+
+||| Lookup is extensional for every typed variable, including arrow variables.
+public export
+commonEnvironmentLookup : (ctx : Vect n LogicalType) -> (a : LogicalType) ->
+  LogicalVar ctx a -> CommonMorphism (commonEnvironmentSetoid ctx) (commonTypeSetoid a)
+commonEnvironmentLookup (a :: ctx) a LHere = MkCommonMorphism (\env => fst env) (\rel => fst rel)
+commonEnvironmentLookup (b :: ctx) a (LThere v) =
+  MkCommonMorphism (\env => applyMorphism (commonEnvironmentLookup ctx a v) (snd env))
+    (\rel => respectsRelation (commonEnvironmentLookup ctx a v) (snd rel))
+
+||| Currying preserves both related environments and related arguments.
+public export
+commonCurry : {env, a, b : CommonSetoid} ->
+  CommonMorphism (commonProductSetoid a env) b ->
+  CommonMorphism env (commonArrowSetoid a b)
+commonCurry body = MkCommonMorphism
+  (\e => MkCommonMorphism (\x => applyMorphism body (x, e))
+    (\xy => respectsRelation body (xy, relationRefl env e)))
+  (\ee, x, y, xy => respectsRelation body (xy, ee))
+
+||| Application is extensional in both its function and argument.
+public export
+commonApply : {env, a, b : CommonSetoid} ->
+  CommonMorphism env (commonArrowSetoid a b) -> CommonMorphism env a ->
+  CommonMorphism env b
+commonApply f x = MkCommonMorphism
+  (\e => applyMorphism (applyMorphism f e) (applyMorphism x e))
+  (\ee => commonApplicationCongruence (respectsRelation f ee) (respectsRelation x ee))
+
+public export
+commonConstant : {env, a : CommonSetoid} -> carrier a -> CommonMorphism env a
+commonConstant value = MkCommonMorphism (\_ => value) (\_ => relationRefl a value)
