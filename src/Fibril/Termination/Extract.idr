@@ -129,6 +129,13 @@ mutual
     c <- walk k env base
     d <- walkCons k env (tailRow k env value) cons
     Right (a ++ b ++ c ++ d)
+  -- Recursors and folds may be used (a helper inlined from a global), but not
+  -- recursed through: the step is a lambda, so a self call inside it is refused
+  -- below. Motive, base and value are ordinary evaluation positions.
+  walk k env (NatRec motive base step value) = walk4 k env motive base step value
+  walk k env (NatRecRuntime motive base step value) = walk4 k env motive base step value
+  walk k env (RecFold motive base step value) = walk4 k env motive base step value
+  walk k env (SeqFold motive base step value) = walk4 k env motive base step value
   walk k env (NatCase motive value base more) = do
     a <- walk k env motive
     b <- walk k env value
@@ -145,6 +152,14 @@ mutual
     ex <- walk k env x
     walkApp k env f [argRow k env x] ex
   walk _ _ other = Left ("unsupported term form in a recursive body: " ++ pack (take 48 (unpack (renderTerm other))))
+
+  walk4 : Nat -> List Row -> Term m -> Term m -> Term m -> Term m -> Either String (List Call)
+  walk4 k env a b c d = do
+    w <- walk k env a
+    x <- walk k env b
+    y <- walk k env c
+    z <- walk k env d
+    Right (w ++ x ++ y ++ z)
 
   -- The cons arm binds the head, then the tail as the newest variable.
   walkCons : Nat -> List Row -> Row -> Term m -> Either String (List Call)

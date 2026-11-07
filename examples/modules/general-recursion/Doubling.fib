@@ -1,0 +1,23 @@
+module Doubling
+
+-- A helper built with natRec. Globals are inlined, so the recursive function below
+-- contains a recursor term. Using a recursor is fine; recursing through one is not.
+double : (1 n : Nat) -> Nat
+double n = natRec (\(0 k : Nat) => Nat) Zero
+  (\(0 k : Nat) => \(1 result : Nat) => Succ (Succ result)) n
+
+-- Steps down by two and feeds each recursive result to the natRec helper.
+-- Accepted because b is strictly smaller than the input.
+grow : (1 n : Nat) -> Nat
+grow n = case n of
+  Zero => Succ Zero
+  Succ a => case a of
+    Zero => Succ Zero
+    Succ b => double (grow b)
+
+marks : (1 count : Nat) -> String
+marks count = natRec (\(0 k : Nat) => String) ""
+  (\(0 k : Nat) => \(1 result : String) => appendString result "!") count
+
+main : IO Unit
+main = putStrLn (marks (grow (Succ (Succ (Succ (Succ Zero))))))

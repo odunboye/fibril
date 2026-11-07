@@ -2404,13 +2404,13 @@ main = first Zero
             scoped = short(source).replace('reverseOnto :', helpers + 'reverseOnto :')
             safe_global = scoped.replace(original, 'reverseOnto tail (Data.Items.Prepend (appendString head (consume other)) acc)')
             safe_implicit = scoped.replace(original, 'reverseOnto tail (stamp {other} head acc)')
-            for valid in [safe_global, safe_global.replace('consume other', 'consume Main.other'), safe_implicit]:
+            for valid in [safe_global, safe_global.replace('consume other', 'consume Main.other'),
+                          safe_global.replace('consume other', 'consume Main.tail'), safe_implicit]:
                 checked = project(valid)
                 self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
                 self.assertEqual(checked.stdout, 'checked\n')
             invalid = [safe_global.replace('consume other', 'consume tail'),
                        safe_global.replace('consume other', 'consume items'),
-                       safe_global.replace('consume other', 'consume Main.tail'),
                        with_globals.replace(original, 'reverseOnto tail (Data.Items.Prepend head tail)'),
                        with_globals.replace(original, 'reverseOnto tail (Data.Items.Prepend head items)'),
                        short(source).replace(original, 'reverseOnto tail (Data.Items.Prepend head (reverseOnto tail acc))'),
@@ -2523,10 +2523,14 @@ main = first Zero
             checked = project(safe)
             self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
             self.assertEqual(checked.stdout, 'checked\n')
-            for collision in ['items', 'Matches.items']:
+            for collision in ['items']:
                 rejected = project(safe.replace('consume other', 'consume ' + collision))
                 self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
                 self.assertNotIn('Expanded core construction budget exhausted', rejected.stderr)
+            # A qualified name denotes the global, not the pattern variable, so it is valid.
+            qualified = project(safe.replace('consume other', 'consume Matches.items'))
+            self.assertEqual(qualified.returncode, 0, qualified.stdout + qualified.stderr)
+            self.assertEqual(qualified.stdout, 'checked\n')
             invalid = [source.replace(base, 'Data.Items.Empty => True'),
                        source.replace(base, 'Data.Items.Empty => equalString acc acc'),
                        source.replace(base, 'Data.Items.Empty => matchesOnto items acc')]
@@ -2592,10 +2596,14 @@ main = first Zero
             safe = short.replace(recursive, 'matchesFrom (appendString acc (appendString head (consume other))) tail')
             checked = project(safe)
             self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
-            for collision in ['items', 'tail', 'AccumulatorFirst.tail']:
+            for collision in ['items', 'tail']:
                 rejected = project(safe.replace('consume other', 'consume ' + collision))
                 self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
                 self.assertNotIn('Expanded core construction budget exhausted', rejected.stderr)
+            # A qualified name denotes the global, not the pattern variable, so it is valid.
+            qualified = project(safe.replace('consume other', 'consume AccumulatorFirst.tail'))
+            self.assertEqual(qualified.returncode, 0, qualified.stdout + qualified.stderr)
+            self.assertEqual(qualified.stdout, 'checked\n')
             invalid = [source.replace(recursive, 'matchesFrom (appendString acc head) items'),
                        source.replace(recursive, 'matchesFrom tail (appendString acc head)'),
                        source.replace(recursive, 'matchesFrom (appendString acc acc) tail'),
@@ -2782,6 +2790,11 @@ main = first Zero
         chain = run('run', '--source-dir', str(root), str(root / 'Chain.fib'))
         self.assertEqual(chain.returncode, 0, chain.stdout + chain.stderr)
         self.assertEqual(chain.stdout, 'xxx\n')
+        # A helper built with natRec is inlined as a recursor term; calling it from a
+        # recursive function is fine, so this is admitted and evaluates to 4.
+        doubling = run('run', '--source-dir', str(root), str(root / 'Doubling.fib'))
+        self.assertEqual(doubling.returncode, 0, doubling.stdout + doubling.stderr)
+        self.assertEqual(doubling.stdout, '!!!!\n')
 
     def test_accumulator_equations_reject_dependent_types(self):
         fixture = ROOT / 'examples/modules/linear-accumulator'

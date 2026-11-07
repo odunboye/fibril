@@ -32,8 +32,10 @@ value can only be strictly smaller than a parameter when it is the tail of a
 `SeqCase`, the field of a `RecCase`, or the predecessor of a `NatCase` on a value
 that is already no larger than that parameter. Values built by constructors are
 unknown. The extractor refuses a self reference that is not the head of a
-saturated call, a call under a lambda that is not one of the leading parameters,
-and any term form it does not handle. A `Fix` may not capture a linear outer
+saturated call, a call under a lambda that is not one of the leading parameters
+(which includes a call inside the step of a recursor or fold), and any term form it
+does not handle. A recursor or fold may be *used*, for example from an inlined
+helper, as long as the recursion does not go through its step. A `Fix` may not capture a linear outer
 variable, because unfolding copies its closure.
 
 Conversion treats `Fix` as neutral and never unfolds it. Run-mode evaluation

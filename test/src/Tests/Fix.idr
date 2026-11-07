@@ -168,6 +168,23 @@ ackFix = Fix ackSig (Lambda Unrestricted NatType (Lambda Unrestricted NatType
                  (Apply (Apply (Variable (FS (FS (FS (FS FZ))))) (Variable (FS (FS (FS FZ)))))
                         (Variable FZ)))))))))
 
+-- A recursor used as a helper: double (grow p). Cons-arm environment: predecessor, parameter, self.
+doubleStep : Term n
+doubleStep = Lambda Erased NatType (Lambda Linear NatType (NatSucc (NatSucc (Variable FZ))))
+
+growFix : Term 0
+growFix = Fix natToNat (Lambda Linear NatType
+  (NatCase natMotive (Variable FZ) (NatSucc NatZero)
+    (Lambda Linear NatType
+      (NatRec natMotive NatZero doubleStep (Apply (Variable (FS (FS FZ))) (Variable FZ))))))
+
+-- Recursing THROUGH the recursor: the self call sits inside its step lambda.
+throughStep : Term 1
+throughStep = Lambda Linear NatType
+  (NatRec natMotive NatZero
+    (Lambda Erased NatType (Lambda Linear NatType (Apply (Variable (FS (FS (FS FZ)))) (Variable FZ))))
+    (Variable FZ))
+
 normalIs : ReductionResult n -> Term n -> Bool
 normalIs (Normal t) expected = sameSyntax t expected
 normalIs _ _ = False
@@ -205,7 +222,7 @@ checks =
         (Lambda Linear NatType (Apply (Lambda Linear NatType (Apply (Variable (FS (FS FZ))) (Variable FZ))) (Variable FZ)))))
   , ("unsupported syntax in a recursive body fails closed",
       isLeft (extractFix (natToNat {n = 0})
-        (Lambda Linear NatType (NatRec (Lambda Erased NatType NatType) NatZero (Lambda Erased NatType (Lambda Linear NatType (Variable FZ))) (Variable FZ)))))
+        (Lambda Linear NatType (IOPure (Variable FZ)))))
   , ("a fix capturing a linear outer variable fails runtime usage checking",
       isRejected (inferRuntime 512 128 (Extend Empty Linear NatType)
         capturing))
@@ -259,6 +276,20 @@ checks =
         Right () => False)
   , ("a decreasing recursion is admitted with no message",
       isRight (admitFix reverseSig reverseBody))
+  , ("a recursor used as a helper no longer blocks admission",
+      isRight (inferErased 512 128 Empty growFix))
+  , ("a recursor helper passes runtime usage checking too",
+      isRight (inferRuntime 512 128 Empty growFix))
+  , ("the recursive call inside a recursor's value position is still extracted",
+      case extractFix natToNat (case growFix of
+                                  Fix _ body => body
+                                  _ => NatZero) of
+        Right edges => length edges == 1
+        Left _ => False)
+  , ("recursing through a recursor step is still refused",
+      isLeft (extractFix (natToNat {n = 0}) throughStep))
+  , ("run-mode evaluation unfolds a fix feeding a recursor: grow 2 is 4",
+      normalIs (normalizeRun 500 (Apply growFix two)) (NatSucc (NatSucc (NatSucc (NatSucc NatZero)))))
   , ("fix is neutral: conversion never unfolds it",
       normalIs (normalize 64 (Apply looping NatZero)) (Apply looping NatZero))
   , ("fix normalization still reduces inside its body",
