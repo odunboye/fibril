@@ -2365,3 +2365,66 @@ higherOrderCommonPathBoundary {face} (HOCommonAbstract bw lw rw zero one) False 
   dependentPathBoundaryRelated face False (pathWitness bw) (pathWitness lw) zero env valuation holds
 higherOrderCommonPathBoundary {face} (HOCommonAbstract bw lw rw zero one) True env valuation holds =
   dependentPathBoundaryRelated face True (pathWitness bw) (pathWitness rw) one env valuation holds
+
+||| Rebuild a computational witness for application of this exact abstraction.
+||| The fresh de Bruijn coordinate is replaced; older coordinates are retained.
+public export
+higherOrderCommonPathApplication : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} ->
+  {a : LogicalType} -> {d : Nat} -> {0 decls : CommonDeclarations ctx paths} ->
+  {0 face : ScopedFace d} -> {0 left, right : CommonPathTerm n k d} ->
+  {0 path : CommonShadowPath {ctx} {paths} {d} decls face left right a} ->
+  {ps : carrier (commonDependentPathEnvironmentSetoid ctx paths)} -> {adm : DependentPathAdmissible decls ps} ->
+  HigherOrderCommonShadowPath path ps adm -> (i : ScopedInterval d) ->
+  HigherOrderPathWitness ctx paths a d (applyCommonShadowPath path i)
+higherOrderCommonPathApplication (HOCommonAbstract bw lw rw zero one) i =
+  mapHigherOrderPathDimensions (atDimension i) (pathWitness bw)
+
+||| Pointwise identity substitution evaluation, not equality of functions.
+public export
+commonApplicationValuation : (i : ScopedInterval d) -> (valuation : Fin d -> DM) ->
+  (v : Fin (S d)) -> evalDMVal valuation (atDimension i v) =
+    extendCommonValuation (evalDMVal valuation i) valuation v
+commonApplicationValuation i valuation FZ = Refl
+commonApplicationValuation i valuation (FS v) = Refl
+
+||| Interpretation of the actual mapped application agrees with its body at the
+||| arbitrary four-pair value of the application coordinate. No face is needed.
+public export
+higherOrderCommonPathApplicationRelated : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} ->
+  {a : LogicalType} -> {d : Nat} -> {0 decls : CommonDeclarations ctx paths} ->
+  {0 face : ScopedFace d} -> {0 left, right : CommonPathTerm n k d} ->
+  {0 path : CommonShadowPath {ctx} {paths} {d} decls face left right a} ->
+  {ps : carrier (commonDependentPathEnvironmentSetoid ctx paths)} -> {adm : DependentPathAdmissible decls ps} ->
+  (w : HigherOrderCommonShadowPath path ps adm) -> (i : ScopedInterval d) ->
+  (env : carrier (commonEnvironmentSetoid ctx)) -> (valuation : Fin d -> DM) ->
+  related (commonTypeSetoid a)
+    (applyMorphism (dependentPathSemantics (pathWitness (higherOrderCommonPathApplication w i)) valuation) (env, ps))
+    (applyMorphism (higherOrderCommonPathBody w (extendCommonValuation (evalDMVal valuation i) valuation)) (env, ps))
+higherOrderCommonPathApplicationRelated {ctx} {paths} {a} {ps} (HOCommonAbstract bw lw rw zero one) i env valuation =
+  let reflexive = relationRefl (commonProductSetoid (commonEnvironmentSetoid ctx) (commonDependentPathEnvironmentSetoid ctx paths)) (env, ps) in
+  relationTrans (commonTypeSetoid a)
+    (dependentPathDimensionsRelated (pathWitness bw) (atDimension i) valuation (env, ps) (env, ps) reflexive)
+    (dependentPathValuationCongruence (pathWitness bw)
+      (\v => evalDMVal valuation (atDimension i v))
+      (extendCommonValuation (evalDMVal valuation i) valuation)
+      (commonApplicationValuation i valuation) (env, ps) (env, ps) reflexive)
+
+||| Endpoint semantics for the exact application witness, using the actual
+||| abstraction's boundary evidence under its ambient face.
+public export
+higherOrderCommonPathApplicationBoundary : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} ->
+  {a : LogicalType} -> {d : Nat} -> {face : ScopedFace d} ->
+  {0 decls : CommonDeclarations ctx paths} -> {0 left, right : CommonPathTerm n k d} ->
+  {0 path : CommonShadowPath {ctx} {paths} {d} decls face left right a} ->
+  {ps : carrier (commonDependentPathEnvironmentSetoid ctx paths)} -> {adm : DependentPathAdmissible decls ps} ->
+  (w : HigherOrderCommonShadowPath path ps adm) -> (side : Bool) ->
+  (env : carrier (commonEnvironmentSetoid ctx)) -> (valuation : Fin d -> DM) -> faceAtVal valuation face = True ->
+  related (commonTypeSetoid a)
+    (applyMorphism (dependentPathSemantics (pathWitness (higherOrderCommonPathApplication w (if side then One else Zero))) valuation) (env, ps))
+    (applyMorphism (higherOrderCommonPathEndpoint w side valuation) (env, ps))
+higherOrderCommonPathApplicationBoundary {a} w False env valuation holds =
+  relationTrans (commonTypeSetoid a) (higherOrderCommonPathApplicationRelated w Zero env valuation)
+    (higherOrderCommonPathBoundary w False env valuation holds)
+higherOrderCommonPathApplicationBoundary {a} w True env valuation holds =
+  relationTrans (commonTypeSetoid a) (higherOrderCommonPathApplicationRelated w One env valuation)
+    (higherOrderCommonPathBoundary w True env valuation holds)

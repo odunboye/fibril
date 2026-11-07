@@ -382,23 +382,52 @@ proof composes face-evidence soundness with weakening preservation; it does not
 require the desired relation as a premise. This is one evidence-indexed boundary,
 not a general interpretation of every `CommonShadowPath`.
 
-The remaining path boundary theorem is: for an actual `CommonAbstract` and
-selected witnesses for its typed body and both endpoints, its interpreted body
-at each fresh endpoint is related to the corresponding original endpoint at
-every ambient valuation satisfying its face and every admissible dependent path
-environment. To package that theorem as a `CommonShadowPath` interpretation still
-requires structural evidence for **both actual boundary derivations**, aligned
-with the selected mapped endpoint witnesses. General `CommonFaceEqual` soundness
-is not proved, so that evidence cannot currently be extracted for arbitrary
-`CommonAbstract` boundaries. Nor is dimension substitution/application
-interpretation packaged for `applyCommonShadowPath` yet. The new mapping and
-boundary transport remove the computational weakening gap, not these remaining
-evidence/interpretation gaps.
+`HigherOrderCommonShadowPath path ps adm` now packages computational body and
+endpoint witnesses with `DependentEndpointFaceEvidence` for **both actual
+boundary derivations** of the exact `CommonAbstract`. Its path, dependent path
+environment and admissibility proof are indices, not interchangeable premises.
+`higherOrderCommonPathBody` and `higherOrderCommonPathEndpoint` interpret these
+selected witnesses; `higherOrderCommonPathBoundary` proves their endpoint
+relation at every ambient valuation satisfying the abstraction's face.
+
+`higherOrderCommonPathApplication w i` computes a `HigherOrderPathWitness` indexed
+by **`applyCommonShadowPath path i` itself**, by mapping the retained body witness
+with `atDimension i`. Fresh de Bruijn `FZ` becomes `i`; every older `FS v` becomes
+`Var v`. `higherOrderCommonPathApplicationRelated` proves that interpreting this
+exact application under the original valuation is related to
+`higherOrderCommonPathBody w (extendCommonValuation (evalDMVal valuation i)
+valuation)`. It uses `dependentPathDimensionsRelated`, then pointwise identity
+substitution evaluation (`commonApplicationValuation`) and valuation congruence,
+not function equality or function extensionality. The coordinate may evaluate
+to any of the four De Morgan pairs; no ambient face is required for agreement.
+
+`higherOrderCommonPathApplicationBoundary w side` specializes application to
+`Zero`/`One` and composes that agreement, in the application-to-body direction,
+with the actual abstraction boundary theorem using setoid transitivity. Under
+`faceAtVal valuation face = True`, the actual application interpretation is
+related to the selected original left/right endpoint at the original valuation.
+This includes arrow values via setoid relations, not equality of functions.
+
+These are application and boundary semantics **only with explicit semantic
+evidence**. General `CommonFaceEqual` soundness is not proved, so this evidence
+cannot currently be extracted for arbitrary `CommonAbstract` boundaries. Nothing
+here proves cubical naturality, composition, univalence, transport, or a runtime
+authority; production conversion and execution are unchanged.
 
 Regression proofs in `Tests.Shadow` cover an exact transformed lambda/app/if
 witness, a nonconstant ordinary-environment-dependent named path, related but
 distinct path/function environments, non-Boolean substitutions, all application
 result types, unit elimination, the actual linear source witness, fresh-index
-weakening, and left/right evidence-indexed boundary transport. The negative
+weakening, and left/right evidence-indexed boundary transport. Application
+regressions additionally cover a nonconstant conditional path with actual linear
+Bool If endpoints in both ordinary environments, non-Boolean interiors distinct
+from the endpoints, CPAt endpoints retaining an older dimension under a
+nontrivial ambient face, and a lambda/arrow-valued path. Their conclusions use
+the generic exact-application theorems. The negative
 `HigherOrderDimensionWrongIndex` fixture checks that weakening cannot be
 misindexed at the fresh dimension instead of the older `FS FZ` dimension.
+`CommonApplicationWrongCoordinate`, `CommonApplicationWrongFace`, and
+`CommonApplicationWrongPathWitness` require specific diagnostics for a changed
+application coordinate, a false ambient face, and evidence for a different exact
+path, respectively. `tools/test_cubical_worktree.sh` checks these in the fresh
+worktree-package suite, rejecting unrelated type/import errors.

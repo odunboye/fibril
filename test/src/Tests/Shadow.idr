@@ -2932,3 +2932,223 @@ semanticIndependentTrueTrue : applyMorphism
     (extendCommonValuation (True, True) (\_ => (True, False))))
   ((True, ()), Tests.Shadow.dependentLinearPaths) = False
 semanticIndependentTrueTrue = trans (Tests.Shadow.semanticIndependentBoundary True True) Refl
+
+-- These witnesses are indexed by actual application syntax, not just the body.
+semanticLinearApplication : (i : ScopedInterval 2) ->
+  HigherOrderPathWitness [LBool] [LBool] LBool 2
+    (applyCommonShadowPath Tests.Shadow.semanticLinearAbstraction i)
+semanticLinearApplication = higherOrderCommonPathApplication Tests.Shadow.semanticLinearAbstractionWitness
+
+semanticLinearApplicationSyntax : HigherOrderPathWitness [LBool] [LBool] LBool 2
+  (CPAt FZ (Meet (Var FZ) (Reverse (Var FZ))))
+semanticLinearApplicationSyntax = Tests.Shadow.semanticLinearApplication (Meet (Var FZ) (Reverse (Var FZ)))
+
+semanticLinearApplicationAgreement : (i : ScopedInterval 2) -> (b : Bool) ->
+  applyMorphism (dependentPathSemantics (pathWitness (Tests.Shadow.semanticLinearApplication i))
+    Tests.Shadow.semanticAbstractionValuation) ((b, ()), Tests.Shadow.dependentLinearPaths) =
+  applyMorphism (higherOrderCommonPathBody Tests.Shadow.semanticLinearAbstractionWitness
+    (extendCommonValuation (evalDMVal Tests.Shadow.semanticAbstractionValuation i) Tests.Shadow.semanticAbstractionValuation))
+    ((b, ()), Tests.Shadow.dependentLinearPaths)
+semanticLinearApplicationAgreement i b = higherOrderCommonPathApplicationRelated
+  Tests.Shadow.semanticLinearAbstractionWitness i (b, ()) Tests.Shadow.semanticAbstractionValuation
+
+semanticLinearApplicationBoundary : (side, b : Bool) ->
+  applyMorphism (dependentPathSemantics (pathWitness (Tests.Shadow.semanticLinearApplication (if side then One else Zero)))
+    Tests.Shadow.semanticAbstractionValuation) ((b, ()), Tests.Shadow.dependentLinearPaths) =
+  applyMorphism (higherOrderCommonPathEndpoint Tests.Shadow.semanticLinearAbstractionWitness side
+    Tests.Shadow.semanticAbstractionValuation) ((b, ()), Tests.Shadow.dependentLinearPaths)
+semanticLinearApplicationBoundary False b = higherOrderCommonPathApplicationBoundary
+  Tests.Shadow.semanticLinearAbstractionWitness False (b, ()) Tests.Shadow.semanticAbstractionValuation Refl
+semanticLinearApplicationBoundary True b = higherOrderCommonPathApplicationBoundary
+  Tests.Shadow.semanticLinearAbstractionWitness True (b, ()) Tests.Shadow.semanticAbstractionValuation Refl
+
+semanticApplicationLeftFalse : applyMorphism (dependentPathSemantics
+  (pathWitness (Tests.Shadow.semanticLinearApplication Zero)) Tests.Shadow.semanticAbstractionValuation)
+  ((False, ()), Tests.Shadow.dependentLinearPaths) = False
+semanticApplicationLeftFalse = trans (Tests.Shadow.semanticLinearApplicationBoundary False False) Refl
+
+semanticApplicationLeftTrue : applyMorphism (dependentPathSemantics
+  (pathWitness (Tests.Shadow.semanticLinearApplication Zero)) Tests.Shadow.semanticAbstractionValuation)
+  ((True, ()), Tests.Shadow.dependentLinearPaths) = True
+semanticApplicationLeftTrue = trans (Tests.Shadow.semanticLinearApplicationBoundary False True) Refl
+
+semanticApplicationRightFalse : applyMorphism (dependentPathSemantics
+  (pathWitness (Tests.Shadow.semanticLinearApplication One)) Tests.Shadow.semanticAbstractionValuation)
+  ((False, ()), Tests.Shadow.dependentLinearPaths) = False
+semanticApplicationRightFalse = trans (Tests.Shadow.semanticLinearApplicationBoundary True False) Refl
+
+semanticApplicationRightTrue : applyMorphism (dependentPathSemantics
+  (pathWitness (Tests.Shadow.semanticLinearApplication One)) Tests.Shadow.semanticAbstractionValuation)
+  ((True, ()), Tests.Shadow.dependentLinearPaths) = True
+semanticApplicationRightTrue = trans (Tests.Shadow.semanticLinearApplicationBoundary True True) Refl
+
+-- Both non-Boolean values differ from the diagonal endpoint at this environment.
+semanticApplicationInteriorTF : applyMorphism (dependentPathSemantics
+  (pathWitness (Tests.Shadow.semanticLinearApplication (Meet (Var FZ) (Reverse (Var FZ)))))
+  Tests.Shadow.semanticAbstractionValuation) ((False, ()), Tests.Shadow.dependentLinearPaths) = True
+semanticApplicationInteriorTF = trans (Tests.Shadow.semanticLinearApplicationAgreement (Meet (Var FZ) (Reverse (Var FZ))) False) Refl
+
+-- Reverse fixes both off-diagonal pairs; FT must be supplied explicitly.
+semanticApplicationFTValuation : Fin 2 -> DM
+semanticApplicationFTValuation FZ = (False, True)
+semanticApplicationFTValuation (FS FZ) = (False, False)
+
+semanticApplicationFTCoordinate : evalDMVal Tests.Shadow.semanticApplicationFTValuation (Var FZ) = (False, True)
+semanticApplicationFTCoordinate = Refl
+
+semanticApplicationInteriorFT : applyMorphism (dependentPathSemantics
+  (pathWitness (Tests.Shadow.semanticLinearApplication (Var FZ)))
+  Tests.Shadow.semanticApplicationFTValuation) ((True, ()), Tests.Shadow.dependentLinearPaths) = False
+semanticApplicationInteriorFT = trans (higherOrderCommonPathApplicationRelated
+  Tests.Shadow.semanticLinearAbstractionWitness (Var FZ) (True, ()) Tests.Shadow.semanticApplicationFTValuation) Refl
+
+-- The same ambient valuation gives True at both diagonals: the FT result above
+-- observes the fresh application coordinate, not an older ambient dimension.
+semanticApplicationFTEndpoints : (side : Bool) -> applyMorphism (dependentPathSemantics
+  (pathWitness (Tests.Shadow.semanticLinearApplication (if side then One else Zero)))
+  Tests.Shadow.semanticApplicationFTValuation) ((True, ()), Tests.Shadow.dependentLinearPaths) = True
+semanticApplicationFTEndpoints False = trans (higherOrderCommonPathApplicationBoundary
+  Tests.Shadow.semanticLinearAbstractionWitness False (True, ()) Tests.Shadow.semanticApplicationFTValuation Refl) Refl
+semanticApplicationFTEndpoints True = trans (higherOrderCommonPathApplicationBoundary
+  Tests.Shadow.semanticLinearAbstractionWitness True (True, ()) Tests.Shadow.semanticApplicationFTValuation Refl) Refl
+
+-- Ambient face is nontrivial, endpoints observe an older non-Boolean dimension.
+semanticAmbientApplicationPath : CommonShadowPath Tests.Shadow.dependentLinearDeclarations
+  Tests.Shadow.semanticAbstractionFace (CPAt FZ (Var FZ)) (CPAt FZ (Var FZ)) LBool
+semanticAmbientApplicationPath = CommonAbstract (CPAtType LHere) (CPAtType LHere)
+  (CPAt FZ (Var (FS FZ))) (CPAtType LHere)
+  (CommonRefl (CPAtType LHere)) (CommonRefl (CPAtType LHere))
+
+semanticAmbientApplicationWitness : HigherOrderCommonShadowPath Tests.Shadow.semanticAmbientApplicationPath
+  Tests.Shadow.dependentLinearPaths Tests.Shadow.dependentLinearAdmissible
+semanticAmbientApplicationWitness = HOCommonAbstract
+  (MkHigherOrderPathWitness (CPAtType LHere) (HOPAt [LBool] [LBool] LBool 3 LHere (Var (FS FZ))))
+  (MkHigherOrderPathWitness (CPAtType LHere) (HOPAt [LBool] [LBool] LBool 2 LHere (Var FZ)))
+  (MkHigherOrderPathWitness (CPAtType LHere) (HOPAt [LBool] [LBool] LBool 2 LHere (Var FZ)))
+  (DepEndpointStructural (DepFaceRefl (AlignPathAt [LBool] [LBool] LBool 3 LHere (Var (FS FZ)))))
+  (DepEndpointStructural (DepFaceRefl (AlignPathAt [LBool] [LBool] LBool 3 LHere (Var (FS FZ)))))
+
+semanticAmbientApplicationBoundary : (side, b : Bool) ->
+  applyMorphism (dependentPathSemantics (pathWitness (higherOrderCommonPathApplication
+    Tests.Shadow.semanticAmbientApplicationWitness (if side then One else Zero))) Tests.Shadow.semanticAbstractionValuation)
+    ((b, ()), Tests.Shadow.dependentLinearPaths) =
+  applyMorphism (higherOrderCommonPathEndpoint Tests.Shadow.semanticAmbientApplicationWitness side
+    Tests.Shadow.semanticAbstractionValuation) ((b, ()), Tests.Shadow.dependentLinearPaths)
+semanticAmbientApplicationBoundary side b = higherOrderCommonPathApplicationBoundary
+  Tests.Shadow.semanticAmbientApplicationWitness side (b, ()) Tests.Shadow.semanticAbstractionValuation Refl
+
+semanticAmbientApplicationResult : (side : Bool) -> applyMorphism (dependentPathSemantics
+  (pathWitness (higherOrderCommonPathApplication Tests.Shadow.semanticAmbientApplicationWitness (if side then One else Zero)))
+  Tests.Shadow.semanticAbstractionValuation) ((False, ()), Tests.Shadow.dependentLinearPaths) = True
+semanticAmbientApplicationResult False = trans (Tests.Shadow.semanticAmbientApplicationBoundary False False) Refl
+semanticAmbientApplicationResult True = trans (Tests.Shadow.semanticAmbientApplicationBoundary True False) Refl
+
+-- Arrow-valued abstraction: dimension substitution also traverses a lambda and
+-- pulls dependent paths back along its ordinary binder, without extensionality.
+semanticArrowApplicationPath : CommonShadowPath Tests.Shadow.dependentLinearDeclarations
+  (the (ScopedFace 1) STop) (CPLam (CPAt FZ (Var FZ))) (CPLam (CPAt FZ (Var FZ))) (LArrow LBool LBool)
+semanticArrowApplicationPath = CommonAbstract (CPLamType (CPAtType LHere)) (CPLamType (CPAtType LHere))
+  (CPLam (CPAt FZ (Var (FS FZ)))) (CPLamType (CPAtType LHere))
+  (CommonRefl (CPLamType (CPAtType LHere))) (CommonRefl (CPLamType (CPAtType LHere)))
+
+semanticArrowApplicationWitness : HigherOrderCommonShadowPath Tests.Shadow.semanticArrowApplicationPath
+  Tests.Shadow.dependentLinearPaths Tests.Shadow.dependentLinearAdmissible
+semanticArrowApplicationWitness = HOCommonAbstract
+  (MkHigherOrderPathWitness (CPLamType (CPAtType LHere))
+    (HOPLambda [LBool] [LBool] LBool LBool 2 (HOPAt [LBool, LBool] [LBool] LBool 2 LHere (Var (FS FZ)))))
+  (MkHigherOrderPathWitness (CPLamType (CPAtType LHere))
+    (HOPLambda [LBool] [LBool] LBool LBool 1 (HOPAt [LBool, LBool] [LBool] LBool 1 LHere (Var FZ))))
+  (MkHigherOrderPathWitness (CPLamType (CPAtType LHere))
+    (HOPLambda [LBool] [LBool] LBool LBool 1 (HOPAt [LBool, LBool] [LBool] LBool 1 LHere (Var FZ))))
+  (DepEndpointStructural (DepFaceRefl (AlignPathLambda (AlignPathAt [LBool, LBool] [LBool] LBool 2 LHere (Var (FS FZ))))))
+  (DepEndpointStructural (DepFaceRefl (AlignPathLambda (AlignPathAt [LBool, LBool] [LBool] LBool 2 LHere (Var (FS FZ))))))
+
+-- Check the fresh value directly: this arrow body's older-coordinate lookup
+-- would otherwise mask an incorrect fresh pair in the agreement's RHS.
+semanticArrowApplicationCoordinate : evalDMVal (the (Fin 1 -> DM) (\_ => (True, False)))
+  (Reverse (Var FZ)) = (True, False)
+semanticArrowApplicationCoordinate = Refl
+
+semanticArrowApplicationAgreement : related (commonTypeSetoid (LArrow LBool LBool))
+  (applyMorphism (dependentPathSemantics (pathWitness (higherOrderCommonPathApplication
+    Tests.Shadow.semanticArrowApplicationWitness (Reverse (Var FZ)))) (\_ => (True, False)))
+    ((False, ()), Tests.Shadow.dependentLinearPaths))
+  (applyMorphism (higherOrderCommonPathBody Tests.Shadow.semanticArrowApplicationWitness
+    (extendCommonValuation (True, False) (\_ => (True, False))))
+    ((False, ()), Tests.Shadow.dependentLinearPaths))
+semanticArrowApplicationAgreement = higherOrderCommonPathApplicationRelated
+  Tests.Shadow.semanticArrowApplicationWitness (Reverse (Var FZ)) (False, ()) (\_ => (True, False))
+
+semanticArrowApplicationBoundary : (side : Bool) -> related (commonTypeSetoid (LArrow LBool LBool))
+  (applyMorphism (dependentPathSemantics (pathWitness (higherOrderCommonPathApplication
+    Tests.Shadow.semanticArrowApplicationWitness (if side then One else Zero))) (\_ => (True, False)))
+    ((False, ()), Tests.Shadow.dependentLinearPaths))
+  (applyMorphism (higherOrderCommonPathEndpoint Tests.Shadow.semanticArrowApplicationWitness side (\_ => (True, False)))
+    ((False, ()), Tests.Shadow.dependentLinearPaths))
+semanticArrowApplicationBoundary side = higherOrderCommonPathApplicationBoundary
+  Tests.Shadow.semanticArrowApplicationWitness side (False, ()) (\_ => (True, False)) Refl
+
+semanticArrowApplicationResult : (side : Bool) -> applyMorphism
+  (applyMorphism (dependentPathSemantics (pathWitness (higherOrderCommonPathApplication
+    Tests.Shadow.semanticArrowApplicationWitness (if side then One else Zero))) (\_ => (True, False)))
+    ((False, ()), Tests.Shadow.dependentLinearPaths)) True = True
+semanticArrowApplicationResult False = trans (Tests.Shadow.semanticArrowApplicationBoundary False True True Refl) Refl
+semanticArrowApplicationResult True = trans (Tests.Shadow.semanticArrowApplicationBoundary True True True Refl) Refl
+
+-- A genuinely conditional application body, with the actual linear Bool If
+-- source in each endpoint. Neither the path nor the ordinary environment is
+-- semantically constant; endpoint evidence traverses the conditional itself.
+semanticIfApplicationPath : CommonShadowPath Tests.Shadow.dependentLinearDeclarations
+  Tests.Shadow.semanticAbstractionFace
+  (CPIf (CPOrdinary (commonTerm (shadowTerm Tests.Shadow.linearSource))) (CPOrdinary (CBool True)) (CPOrdinary (CBool False)))
+  (CPIf (CPOrdinary (commonTerm (shadowTerm Tests.Shadow.linearSource))) (CPOrdinary (CBool True)) (CPOrdinary (CBool False))) LBool
+semanticIfApplicationPath = CommonAbstract
+  (CPIfType (CPOrdinaryType (sourceCommonTyped Tests.Shadow.linearSource)) (CPOrdinaryType CBoolType) (CPOrdinaryType CBoolType))
+  (CPIfType (CPOrdinaryType (sourceCommonTyped Tests.Shadow.linearSource)) (CPOrdinaryType CBoolType) (CPOrdinaryType CBoolType))
+  (CPIf (CPAt FZ (Var FZ)) (CPOrdinary (CBool True)) (CPOrdinary (CBool False)))
+  (CPIfType (CPAtType LHere) (CPOrdinaryType CBoolType) (CPOrdinaryType CBoolType))
+  (CommonIfEqual (CommonLeft CommonDeclaredHere Refl) (CommonRefl (CPOrdinaryType CBoolType)) (CommonRefl (CPOrdinaryType CBoolType)))
+  (CommonIfEqual (CommonRight CommonDeclaredHere Refl) (CommonRefl (CPOrdinaryType CBoolType)) (CommonRefl (CPOrdinaryType CBoolType)))
+
+semanticIfApplicationWitness : HigherOrderCommonShadowPath Tests.Shadow.semanticIfApplicationPath
+  Tests.Shadow.dependentLinearPaths Tests.Shadow.dependentLinearAdmissible
+semanticIfApplicationWitness = HOCommonAbstract
+  (MkHigherOrderPathWitness (CPIfType (CPAtType LHere) (CPOrdinaryType CBoolType) (CPOrdinaryType CBoolType))
+    (HOPIf [LBool] [LBool] LBool 3 (HOPAt [LBool] [LBool] LBool 3 LHere (Var FZ))
+      (HOPOrdinary [LBool] [LBool] LBool 3 (HOBool [LBool] True)) (HOPOrdinary [LBool] [LBool] LBool 3 (HOBool [LBool] False))))
+  (MkHigherOrderPathWitness (CPIfType (CPOrdinaryType (sourceCommonTyped Tests.Shadow.linearSource)) (CPOrdinaryType CBoolType) (CPOrdinaryType CBoolType))
+    (HOPIf [LBool] [LBool] LBool 2 (HOPOrdinary [LBool] [LBool] LBool 2 Tests.Shadow.higherOrderLinearIfAgain)
+      (HOPOrdinary [LBool] [LBool] LBool 2 (HOBool [LBool] True)) (HOPOrdinary [LBool] [LBool] LBool 2 (HOBool [LBool] False))))
+  (MkHigherOrderPathWitness (CPIfType (CPOrdinaryType (sourceCommonTyped Tests.Shadow.linearSource)) (CPOrdinaryType CBoolType) (CPOrdinaryType CBoolType))
+    (HOPIf [LBool] [LBool] LBool 2 (HOPOrdinary [LBool] [LBool] LBool 2 Tests.Shadow.higherOrderLinearIfAgain)
+      (HOPOrdinary [LBool] [LBool] LBool 2 (HOBool [LBool] True)) (HOPOrdinary [LBool] [LBool] LBool 2 (HOBool [LBool] False))))
+  (DepEndpointIf
+    (DepEndpointLeft LHere (Var FZ) Tests.Shadow.higherOrderLinearIfAgain CommonDeclaredHere Refl
+      Tests.Shadow.dependentLinearPaths Tests.Shadow.dependentLinearAdmissible
+      (\env, valuation, holds => Tests.Shadow.higherOrderLinearAlignment))
+    (DepEndpointStructural (DepFaceRefl (AlignPathOrdinary (AlignBool [LBool] True))))
+    (DepEndpointStructural (DepFaceRefl (AlignPathOrdinary (AlignBool [LBool] False)))))
+  (DepEndpointIf
+    (DepEndpointRight LHere (Var FZ) Tests.Shadow.higherOrderLinearIfAgain CommonDeclaredHere Refl
+      Tests.Shadow.dependentLinearPaths Tests.Shadow.dependentLinearAdmissible
+      (\env, valuation, holds => Tests.Shadow.higherOrderLinearAlignment))
+    (DepEndpointStructural (DepFaceRefl (AlignPathOrdinary (AlignBool [LBool] True))))
+    (DepEndpointStructural (DepFaceRefl (AlignPathOrdinary (AlignBool [LBool] False)))))
+
+semanticIfApplicationBoundary : (side, b : Bool) -> applyMorphism (dependentPathSemantics
+  (pathWitness (higherOrderCommonPathApplication Tests.Shadow.semanticIfApplicationWitness (if side then One else Zero)))
+  Tests.Shadow.semanticAbstractionValuation) ((b, ()), Tests.Shadow.dependentLinearPaths) = b
+semanticIfApplicationBoundary False False = trans (higherOrderCommonPathApplicationBoundary
+  Tests.Shadow.semanticIfApplicationWitness False (False, ()) Tests.Shadow.semanticAbstractionValuation Refl) Refl
+semanticIfApplicationBoundary False True = trans (higherOrderCommonPathApplicationBoundary
+  Tests.Shadow.semanticIfApplicationWitness False (True, ()) Tests.Shadow.semanticAbstractionValuation Refl) Refl
+semanticIfApplicationBoundary True False = trans (higherOrderCommonPathApplicationBoundary
+  Tests.Shadow.semanticIfApplicationWitness True (False, ()) Tests.Shadow.semanticAbstractionValuation Refl) Refl
+semanticIfApplicationBoundary True True = trans (higherOrderCommonPathApplicationBoundary
+  Tests.Shadow.semanticIfApplicationWitness True (True, ()) Tests.Shadow.semanticAbstractionValuation Refl) Refl
+
+semanticIfApplicationInterior : applyMorphism (dependentPathSemantics
+  (pathWitness (higherOrderCommonPathApplication Tests.Shadow.semanticIfApplicationWitness (Var FZ)))
+  Tests.Shadow.semanticAbstractionValuation) ((False, ()), Tests.Shadow.dependentLinearPaths) = True
+semanticIfApplicationInterior = trans (higherOrderCommonPathApplicationRelated
+  Tests.Shadow.semanticIfApplicationWitness (Var FZ) (False, ()) Tests.Shadow.semanticAbstractionValuation) Refl

@@ -809,3 +809,19 @@ for fixture in HigherOrderCommonPathWrongBoundary HigherOrderCommonPathWrongDime
   fi
 done
 echo 'Common path semantic witness exact boundary, dimension and face tests passed.'
+for fixture in CommonApplicationWrongCoordinate CommonApplicationWrongFace CommonApplicationWrongPathWitness; do
+  "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1 || true
+  case "$fixture" in
+    CommonApplicationWrongCoordinate) expected='Mismatch between: Var FZ and Zero.' ;;
+    CommonApplicationWrongFace) expected='Mismatch between: True and False.' ;;
+    CommonApplicationWrongPathWitness) expected='Mismatch between: CommonRight CommonDeclaredHere Refl and CommonRefl (CPAtType LHere).' ;;
+  esac
+  if [[ $(grep -c '^Error:' "$tmp/$fixture.log") -ne 1 ]] ||
+     ! grep -Fq 'Error: While processing right hand side of bad.' "$tmp/$fixture.log" ||
+     ! grep -Fq "$expected" "$tmp/$fixture.log" ||
+     grep -Eq 'Undefined name|While processing type of' "$tmp/$fixture.log"; then
+    echo "Common application semantic negative test failed: $fixture" >&2
+    cat "$tmp/$fixture.log" >&2; exit 1
+  fi
+done
+echo 'Common application wrong coordinate, false ambient face and exact path witness tests passed.'
