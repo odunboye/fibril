@@ -913,3 +913,70 @@ commonQuantitativeIndependentTest :
 commonQuantitativeIndependentTest =
   snd (sourceIndependentCommonQuantitative [BoolTy] (SubstituteHere (Boolean True)) Tests.Shadow.linearSource
     [Linear] Tests.Shadow.linearSourceUses [] (ReplacementHere UseBoolean))
+
+commonMappedAmbientPath : CommonShadowPath
+  (the (CommonDeclarations [] [LBool]) (CommonDeclarePath (CIf (CBool True) (CBool True) (CBool False)) (CBool False)
+    (CConditionalType CBoolType CBoolType CBoolType) CBoolType CommonNoPaths))
+  (the (ScopedFace 1) (SEndpoint FZ False))
+  (CPOrdinary (CIf (CBool True) (CBool True) (CBool False))) (CPOrdinary (CBool False)) LBool
+commonMappedAmbientPath = substituteCommonShadowPath Tests.Shadow.commonTrueImage Tests.Shadow.commonTrueEnvironment
+  (commonDeclarations Tests.Shadow.shadowDeclarations) Tests.Shadow.commonLinearAmbientPath
+
+commonMappedAmbientApplication : applyCommonShadowPath Tests.Shadow.commonMappedAmbientPath (Var FZ) = CPAt FZ (Var FZ)
+commonMappedAmbientApplication = substituteCommonShadowApplication Tests.Shadow.commonTrueImage Tests.Shadow.commonTrueEnvironment
+  (commonDeclarations Tests.Shadow.shadowDeclarations) Tests.Shadow.commonLinearAmbientPath (Var FZ)
+
+commonMappedEndpoint : CommonFaceEqual
+  (the (CommonDeclarations [] [LBool]) (CommonDeclarePath (CIf (CBool True) (CBool True) (CBool False)) (CIf (CBool True) (CBool True) (CBool False))
+    (CConditionalType CBoolType CBoolType CBoolType) (CConditionalType CBoolType CBoolType CBoolType) CommonNoPaths))
+  (the (ScopedFace 1) (SEndpoint FZ False)) (CPAt FZ (Var FZ))
+  (CPOrdinary (CIf (CBool True) (CBool True) (CBool False))) LBool
+commonMappedEndpoint = substituteCommonFaceEqual Tests.Shadow.commonTrueImage Tests.Shadow.commonTrueEnvironment
+  (commonDeclarations (DeclarePath (shadowTerm Tests.Shadow.linearSource) (shadowTerm Tests.Shadow.linearSource) NoPaths))
+  Tests.Shadow.commonLinearIfEndpoint
+
+commonMappedTransRestrict : CommonFaceEqual
+  (the (CommonDeclarations [] [LBool]) (CommonDeclarePath (CIf (CBool True) (CBool True) (CBool False)) (CIf (CBool True) (CBool True) (CBool False))
+    (CConditionalType CBoolType CBoolType CBoolType) (CConditionalType CBoolType CBoolType CBoolType) CommonNoPaths))
+  (the (ScopedFace 1) (SEndpoint FZ False)) (CPAt FZ (Var FZ)) (CPAt FZ (Var FZ)) LBool
+commonMappedTransRestrict = substituteCommonFaceEqual Tests.Shadow.commonTrueImage Tests.Shadow.commonTrueEnvironment
+  (commonDeclarations (DeclarePath (shadowTerm Tests.Shadow.linearSource) (shadowTerm Tests.Shadow.linearSource) NoPaths))
+  (CommonRestrict (CommonTrans Tests.Shadow.commonLinearIfEndpoint (CommonSym Tests.Shadow.commonLinearIfEndpoint)) Refl)
+
+commonPairedIndependent : SubstitutionResult (SubstituteHere (Boolean True)) Tests.Shadow.linearSource [Linear] []
+commonPairedIndependent = case commonQuantitativeIndependentPath [BoolTy] (SubstituteHere (Boolean True))
+  Tests.Shadow.linearSource [Linear] Tests.Shadow.linearSourceUses [] (ReplacementHere UseBoolean)
+  (commonDeclarations Tests.Shadow.shadowDeclarations) Tests.Shadow.commonLinearAmbientPath of
+    (result, _, _) => result
+
+-- Constructed directly in common syntax: the endpoint depends on the ambient
+-- dimension, which must move from FZ to FS FZ under the abstraction binder.
+commonIndependentAmbientDecls : CommonDeclarations [LBool] [LBool]
+commonIndependentAmbientDecls = CommonDeclarePath (CVar FZ) (CBool False)
+  (CVariable LHere) CBoolType CommonNoPaths
+
+commonIndependentAmbientPath : CommonShadowPath Tests.Shadow.commonIndependentAmbientDecls
+  (the (ScopedFace 1) STop) (CPAt FZ (Var FZ)) (CPAt FZ (Var FZ)) LBool
+commonIndependentAmbientPath = CommonAbstract (CPAtType LHere) (CPAtType LHere)
+  (CPAt FZ (Var (FS FZ))) (CPAtType LHere)
+  (CommonRefl (CPAtType LHere)) (CommonRefl (CPAtType LHere))
+
+commonIndependentMappedPath : CommonShadowPath
+  (the (CommonDeclarations [] [LBool])
+    (CommonDeclarePath (CBool True) (CBool False) CBoolType CBoolType CommonNoPaths))
+  (the (ScopedFace 1) STop) (CPAt FZ (Var FZ)) (CPAt FZ (Var FZ)) LBool
+commonIndependentMappedPath = substituteCommonShadowPath Tests.Shadow.commonTrueImage
+  Tests.Shadow.commonTrueEnvironment Tests.Shadow.commonIndependentAmbientDecls
+  Tests.Shadow.commonIndependentAmbientPath
+
+commonIndependentMappedBoundaries : Tests.Shadow.commonIndependentMappedPath =
+  CommonAbstract (CPAtType LHere) (CPAtType LHere)
+    (CPAt FZ (Var (FS FZ))) (CPAtType LHere)
+    (CommonRefl (CPAtType LHere)) (CommonRefl (CPAtType LHere))
+commonIndependentMappedBoundaries = Refl
+
+commonIndependentMappedApplication :
+  applyCommonShadowPath Tests.Shadow.commonIndependentMappedPath Zero = CPAt FZ (Var FZ)
+commonIndependentMappedApplication = substituteCommonShadowApplication Tests.Shadow.commonTrueImage
+  Tests.Shadow.commonTrueEnvironment Tests.Shadow.commonIndependentAmbientDecls
+  Tests.Shadow.commonIndependentAmbientPath Zero

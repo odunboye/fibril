@@ -398,6 +398,17 @@ data CommonDeclarations : Vect n LogicalType -> Vect k LogicalType -> Type where
     (0 leftType : CommonHasType ctx left a) -> (0 rightType : CommonHasType ctx right a) ->
     CommonDeclarations ctx paths -> CommonDeclarations ctx (a :: paths)
 
+||| Substitute every actual endpoint with the same typed environment.
+public export
+substituteCommonDeclarations : {0 source : Vect n LogicalType} -> {0 target : Vect m LogicalType} ->
+  (sigma : Fin n -> CommonTerm m) -> CommonSubstitutionTyped source target sigma ->
+  CommonDeclarations source paths -> CommonDeclarations target paths
+substituteCommonDeclarations sigma env CommonNoPaths = CommonNoPaths
+substituteCommonDeclarations sigma env (CommonDeclarePath l r lt rt rest) =
+  CommonDeclarePath (substituteCommon sigma l) (substituteCommon sigma r)
+    (substituteCommonTyped sigma env lt) (substituteCommonTyped sigma env rt)
+    (substituteCommonDeclarations sigma env rest)
+
 public export
 commonDeclarations : (decls : PathDeclarations ctx paths) -> CommonDeclarations ctx paths
 commonDeclarations NoPaths = CommonNoPaths
@@ -409,6 +420,16 @@ data CommonDeclaredPath : {0 ctx : Vect n LogicalType} -> {0 paths : Vect k Logi
   CommonDeclaredHere : CommonDeclaredPath (CommonDeclarePath l r lt rt rest) LHere l r
   CommonDeclaredThere : CommonDeclaredPath rest p l r ->
     CommonDeclaredPath (CommonDeclarePath x y xt yt rest) (LThere p) l r
+
+public export
+substituteCommonDeclaredPath : {0 source : Vect n LogicalType} -> {0 target : Vect m LogicalType} ->
+  (sigma : Fin n -> CommonTerm m) -> (env : CommonSubstitutionTyped source target sigma) ->
+  (decls : CommonDeclarations source paths) ->
+  CommonDeclaredPath decls p l r ->
+  CommonDeclaredPath (substituteCommonDeclarations sigma env decls) p (substituteCommon sigma l) (substituteCommon sigma r)
+substituteCommonDeclaredPath sigma env (CommonDeclarePath l r lt rt rest) CommonDeclaredHere = CommonDeclaredHere
+substituteCommonDeclaredPath sigma env (CommonDeclarePath x y xt yt rest) (CommonDeclaredThere p) =
+  CommonDeclaredThere (substituteCommonDeclaredPath sigma env rest p)
 
 public export
 commonDeclaredPath : {0 decls : PathDeclarations ctx paths} ->
@@ -436,6 +457,23 @@ data CommonFaceEqual : {0 ctx : Vect n LogicalType} -> {0 paths : Vect k Logical
     CommonFaceEqual decls face f f' a -> CommonFaceEqual decls face (CPIf c t f) (CPIf c' t' f') a
   CommonUnitElimEqual : CommonFaceEqual decls face x y LUnit -> CommonFaceEqual decls face b b' a ->
     CommonFaceEqual decls face (CPUnitElim x b) (CPUnitElim y b') a
+
+public export
+substituteCommonFaceEqual : {0 source : Vect n LogicalType} -> {0 target : Vect m LogicalType} ->
+  (sigma : Fin n -> CommonTerm m) -> (env : CommonSubstitutionTyped source target sigma) ->
+  (decls : CommonDeclarations source paths) ->
+  CommonFaceEqual decls face x y a ->
+  CommonFaceEqual (substituteCommonDeclarations sigma env decls) face
+    (substituteCommonPath sigma x) (substituteCommonPath sigma y) a
+substituteCommonFaceEqual sigma env decls (CommonRefl typed) = CommonRefl (substituteCommonPathTyped sigma env typed)
+substituteCommonFaceEqual sigma env decls (CommonSym eq) = CommonSym (substituteCommonFaceEqual sigma env decls eq)
+substituteCommonFaceEqual sigma env decls (CommonTrans x y) = CommonTrans (substituteCommonFaceEqual sigma env decls x) (substituteCommonFaceEqual sigma env decls y)
+substituteCommonFaceEqual sigma env decls (CommonLeft p check) = CommonLeft (substituteCommonDeclaredPath sigma env decls p) check
+substituteCommonFaceEqual sigma env decls (CommonRight p check) = CommonRight (substituteCommonDeclaredPath sigma env decls p) check
+substituteCommonFaceEqual sigma env decls (CommonRestrict eq check) = CommonRestrict (substituteCommonFaceEqual sigma env decls eq) check
+substituteCommonFaceEqual sigma env decls (CommonAppEqual f x) = CommonAppEqual (substituteCommonFaceEqual sigma env decls f) (substituteCommonFaceEqual sigma env decls x)
+substituteCommonFaceEqual sigma env decls (CommonIfEqual c t f) = CommonIfEqual (substituteCommonFaceEqual sigma env decls c) (substituteCommonFaceEqual sigma env decls t) (substituteCommonFaceEqual sigma env decls f)
+substituteCommonFaceEqual sigma env decls (CommonUnitElimEqual x b) = CommonUnitElimEqual (substituteCommonFaceEqual sigma env decls x) (substituteCommonFaceEqual sigma env decls b)
 
 public export
 commonDeclaredEndpoint : {0 decls : PathDeclarations ctx paths} -> {0 face : ScopedFace d} ->
@@ -475,6 +513,19 @@ data CommonShadowPath : {0 ctx : Vect n LogicalType} -> {0 paths : Vect k Logica
     CommonShadowPath decls face left right a
 
 public export
+substituteCommonShadowPath : {0 source : Vect n LogicalType} -> {0 target : Vect m LogicalType} ->
+  (sigma : Fin n -> CommonTerm m) -> (env : CommonSubstitutionTyped source target sigma) ->
+  (decls : CommonDeclarations source paths) -> {0 left, right : CommonPathTerm n k d} ->
+  CommonShadowPath decls face left right a ->
+  CommonShadowPath (substituteCommonDeclarations sigma env decls) face
+    (substituteCommonPath sigma left) (substituteCommonPath sigma right) a
+substituteCommonShadowPath sigma env decls {left} {right} (CommonAbstract lt rt body bt zero one) =
+  CommonAbstract (substituteCommonPathTyped sigma env lt) (substituteCommonPathTyped sigma env rt)
+    (substituteCommonPath sigma body) (substituteCommonPathTyped sigma env bt)
+    (rewrite commonPathMixedSubstitution sigma (Var . FS) left in substituteCommonFaceEqual sigma env decls zero)
+    (rewrite commonPathMixedSubstitution sigma (Var . FS) right in substituteCommonFaceEqual sigma env decls one)
+
+public export
 commonDeclaredShadowPath : {0 decls : PathDeclarations ctx paths} -> {0 face : ScopedFace d} ->
   {0 left, right : PathBody ctx paths d a} ->
   DeclaredShadowPath decls face left right ->
@@ -491,6 +542,16 @@ applyCommonShadowPath : {0 ctx : Vect n LogicalType} -> {0 paths : Vect k Logica
   {0 left, right : CommonPathTerm n k d} ->
   CommonShadowPath decls face left right a -> ScopedInterval d -> CommonPathTerm n k d
 applyCommonShadowPath (CommonAbstract _ _ body _ _ _) i = mapCommonPathDimensions (atDimension i) body
+
+public export
+substituteCommonShadowApplication : {0 source : Vect n LogicalType} -> {0 target : Vect m LogicalType} ->
+  (sigma : Fin n -> CommonTerm m) -> (env : CommonSubstitutionTyped source target sigma) ->
+  (decls : CommonDeclarations source paths) -> {0 left, right : CommonPathTerm n k d} ->
+  (path : CommonShadowPath decls face left right a) -> (i : ScopedInterval d) ->
+  applyCommonShadowPath (substituteCommonShadowPath sigma env decls path) i =
+    substituteCommonPath sigma (applyCommonShadowPath path i)
+substituteCommonShadowApplication sigma env decls (CommonAbstract lt rt body bt zero one) i =
+  commonPathMixedSubstitution sigma (atDimension i) body
 
 public export
 commonShadowApplicationCommutes : {0 decls : PathDeclarations ctx paths} -> {0 face : ScopedFace d} ->
@@ -538,3 +599,27 @@ commonQuantitativeSubstitution source s term usage used replacement replacementU
   (substituteUses s term usage used replacement replacementUsed,
    sourceCommonTyped (substitute (singleSubstitution s) term),
    commonDeclaredShadowPath (substituteDeclaredShadowPath (imageSubstitution source (singleSubstitution s)) path))
+
+||| Source usage and the independent common path use the same substitution.
+public export
+commonQuantitativeIndependentPath : {n : Nat} ->
+  (source : Vect (S n) Ty) -> {0 target : Vect n Ty} ->
+  (s : SingleSubstitution source target) -> (term : Term source a) ->
+  (usage : Usage (S n)) -> Uses term usage ->
+  (replacement : Usage n) -> ReplacementUses s replacement ->
+  (decls : CommonDeclarations (shadowContext source) paths) ->
+  {0 face : ScopedFace d} -> {0 left, right : CommonPathTerm (S n) k d} ->
+  CommonShadowPath decls face left right b ->
+  (SubstitutionResult s term usage replacement,
+   commonTerm (shadowTerm (substitute (singleSubstitution s) term)) =
+     substituteCommon (commonImageSubstitution (shadowContext source) (imageSubstitution source (singleSubstitution s))) (commonTerm (shadowTerm term)),
+   CommonShadowPath
+     (substituteCommonDeclarations (commonImageSubstitution (shadowContext source) (imageSubstitution source (singleSubstitution s)))
+       (commonImageSubstitutionTyped (shadowContext source) (imageSubstitution source (singleSubstitution s))) decls) face
+     (substituteCommonPath (commonImageSubstitution (shadowContext source) (imageSubstitution source (singleSubstitution s))) left)
+     (substituteCommonPath (commonImageSubstitution (shadowContext source) (imageSubstitution source (singleSubstitution s))) right) b)
+commonQuantitativeIndependentPath source s term usage used replacement replacementUsed decls path =
+  (substituteUses s term usage used replacement replacementUsed,
+   sourceIndependentCommonSubstitution source (singleSubstitution s) term,
+   substituteCommonShadowPath (commonImageSubstitution (shadowContext source) (imageSubstitution source (singleSubstitution s)))
+     (commonImageSubstitutionTyped (shadowContext source) (imageSubstitution source (singleSubstitution s))) decls path)

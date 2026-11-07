@@ -108,11 +108,11 @@ if [[ $(grep -c '^Error:' "$tmp/$fixture.log") -ne 1 ]] ||
   cat "$tmp/$fixture.log" >&2; exit 1
 fi
 echo 'Common substitution wrong scope negative test passed.'
-for fixture in PairedSubstitutionWrongEndpoint PairedSubstitutionWrongContext; do
+for fixture in PairedSubstitutionWrongEndpoint PairedSubstitutionWrongContext IndependentSubstitutionWrongEndpoint IndependentSubstitutionWrongContext; do
   "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1 || true
   case "$fixture" in
-    PairedSubstitutionWrongEndpoint) expected='Mismatch between: CIf (CBool True) (CBool True) (CBool False) and CBool True.' ;;
-    PairedSubstitutionWrongContext) expected='Mismatch between: 0 and 1.' ;;
+    PairedSubstitutionWrongEndpoint|IndependentSubstitutionWrongEndpoint) expected='Mismatch between: CIf (CBool True) (CBool True) (CBool False) and CBool True.' ;;
+    PairedSubstitutionWrongContext|IndependentSubstitutionWrongContext) expected='Mismatch between: 0 and 1.' ;;
   esac
   if [[ $(grep -c '^Error:' "$tmp/$fixture.log") -ne 1 ]] ||
      ! grep -Fq 'Error: While processing right hand side of bad. When unifying:' "$tmp/$fixture.log" ||
@@ -124,11 +124,11 @@ for fixture in PairedSubstitutionWrongEndpoint PairedSubstitutionWrongContext; d
   fi
 done
 echo 'Paired substitution wrong endpoint and context tests passed.'
-for fixture in CommonFaceWrongFace CommonFaceWrongIndex CommonFaceWrongType CommonFaceUsesReflection; do
+for fixture in CommonFaceWrongFace CommonFaceWrongIndex CommonFaceWrongType CommonFaceUsesReflection IndependentSubstitutionWrongFace IndependentSubstitutionWrongIndex; do
   "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1 || true
   case "$fixture" in
-    CommonFaceWrongFace) expected='boundedFaceEntails (the (ScopedFace 1) (SEndpoint FZ True)) (scopedEndpoint (Var FZ) False)' ;;
-    CommonFaceWrongIndex) expected='Mismatch between: FZ and FS FZ.' ;;
+    CommonFaceWrongFace|IndependentSubstitutionWrongFace) expected='boundedFaceEntails (the (ScopedFace 1) (SEndpoint FZ True)) (scopedEndpoint (Var FZ) False)' ;;
+    CommonFaceWrongIndex|IndependentSubstitutionWrongIndex) expected='Mismatch between: FZ and FS FZ.' ;;
     CommonFaceWrongType) expected='Mismatch between: LBool and LUnit.' ;;
     CommonFaceUsesReflection) expected='Uses (the (Term [BoolTy] BoolTy) (Ref Here)) [Erased]' ;;
   esac

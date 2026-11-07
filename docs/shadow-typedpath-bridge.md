@@ -125,6 +125,37 @@ fixtures reject a changed substituted endpoint and a mismatched ordinary context
 This result translates an already-substituted logical path. Separately,
 `commonSubstitutionCommutes` and `commonPathSubstitutionCommutes` relate
 independent common substitution to translation of logical terms and path bodies.
-They do not establish independent substitution preservation of declared path
-abstractions or their face equalities. There is no claim of correspondence with
-production Core or runtime behavior.
+
+## Independent common substitution preservation
+
+`CommonSubstitutionTyped` relates arbitrary source and target ordinary contexts
+by typing each image at the exact source variable's type. It does not require a
+logical substitution or recover quantitative evidence. Under one such
+common environment, `substituteCommonDeclarations` maps each declaration's
+actual endpoints and typing evidence, and `substituteCommonDeclaredPath`
+preserves the exact path name, type, and mapped endpoints. Path names and
+dimensions are not substituted by this operation.
+
+`substituteCommonFaceEqual` recursively preserves every common equality
+constructor, including endpoint checks, restriction, transitivity, and
+congruences. Its face is unchanged, so the existing solver equations are
+reused at precisely their original arguments. `substituteCommonShadowPath`
+maps an independently supplied common abstraction, its actual body and both
+boundaries at the weakened ambient face. `commonPathMixedSubstitution` supplies
+the needed commutation between term substitution and dimension weakening;
+`substituteCommonShadowApplication` proves application commutation. A test
+constructs a common abstraction directly, with endpoints depending on an
+ambient dimension, and checks its mapped declaration, both weakened boundaries,
+and application. These proofs do not wrap a source equality derivation.
+
+`commonQuantitativeIndependentPath` pairs the existing source substitution
+result and source-to-common substitution commutation with preservation of an
+independently supplied common path. It uses the common image of the same source
+substitution, and explicitly requires the original `Uses` and `ReplacementUses`
+evidence. The independent path need not be translated from a source path or
+have the source term as an endpoint. The result retains the existing source
+usage bound; common typing and equality do not imply usage evidence.
+
+These results are declarative; they do not establish semantic soundness,
+general PathP, correspondence with production Core or runtime equality,
+resource enforcement at runtime, or an ownership change.
