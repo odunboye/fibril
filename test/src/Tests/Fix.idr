@@ -2,6 +2,7 @@ module Tests.Fix
 
 import Data.Fin
 import Data.String
+import Fibril.Core.FixAdmission
 import Fibril.Core.Context
 import Fibril.Core.Erased
 import Fibril.Core.Evaluation
@@ -252,6 +253,12 @@ checks =
       isRight (inferErased 512 128 Empty ackFix))
   , ("ackermann evaluates: ack 1 1 is 3",
       normalIs (normalizeRun 2000 (Apply (Apply ackFix one) one)) (NatSucc (NatSucc (NatSucc NatZero))))
+  , ("a refusal names the offending call and why",
+      case admitFix (natToNat {n = 0}) loopBody of
+        Left message => isInfixOf "recursive call 1 of 1" message && isInfixOf "no argument decreases" message
+        Right () => False)
+  , ("a decreasing recursion is admitted with no message",
+      isRight (admitFix reverseSig reverseBody))
   , ("fix is neutral: conversion never unfolds it",
       normalIs (normalize 64 (Apply looping NatZero)) (Apply looping NatZero))
   , ("fix normalization still reduces inside its body",

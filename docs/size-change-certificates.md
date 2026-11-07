@@ -10,13 +10,38 @@ with extraction and a separate graph check over a small synthetic Nat/list body
 representation, described below. `Fibril.Termination.GroupCalls` and
 `GroupCheck` additionally extract and recheck calls from the restricted actual
 Nat/Bool recursive-group representation; see the [group design](recursive-groups-design.md).
-These are useful for exercising the graph criterion and a future boundary. No
-Fibril parser, elaborator, ordinary recursive term, evaluator, CLI or backend
-uses them to accept recursion. **They do not authorize any new recursive Fibril
-program.** Existing structural equations continue to lower to independently
-checked recursors.
+The graph algebra is also used by one real admission path:
+[`Fix` admission](#fix-admission). The synthetic, group and single-shape core
+experiments above remain isolated; none of them authorizes a program. Existing
+structural equations continue to lower to independently checked recursors.
 
 ![Abstract size-change trust boundary](diagrams/size-change-certificates.svg)
+
+## Fix admission
+
+`Fibril.Core.Term.Fix` binds an unrestricted self variable around a function body.
+The erased checker types the body against the declared function type under that
+self, then calls `Fibril.Core.FixAdmission.admitFix`, which runs
+`Fibril.Termination.Extract.extractFix` and `SizeChange.produce`. A `Fix` is
+accepted only when the verdict is `GraphAccepted`; every other outcome, including
+an inconclusive limit and unsupported syntax, refuses it. The term carries no
+certificate, so nothing can be forged: the checker re-derives the graph each time.
+
+Extraction is conservative. Matrices are over the function's own parameters. A
+value can only be strictly smaller than a parameter when it is the tail of a
+`SeqCase`, the field of a `RecCase`, or the predecessor of a `NatCase` on a value
+that is already no larger than that parameter. Values built by constructors are
+unknown. The extractor refuses a self reference that is not the head of a
+saturated call, a call under a lambda that is not one of the leading parameters,
+and any term form it does not handle. A `Fix` may not capture a linear outer
+variable, because unfolding copies its closure.
+
+Conversion treats `Fix` as neutral and never unfolds it. Run-mode evaluation
+(`Fibril.Core.Evaluation`) unfolds it only after the ordinary reducer is stuck,
+and only at binder-free positions of closed terms, so an open call cannot unfold
+forever. Fix-free terms evaluate exactly as before. The C emitter does not support
+`Fix` and fails closed. Termination is a property of the checked graph under these
+rules; it is not a mechanized proof of the extractor or the evaluator.
 
 ## Graph and certificate
 

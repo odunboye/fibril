@@ -2757,7 +2757,12 @@ main = first Zero
         self.assertNotEqual(spin.returncode, 0, spin.stdout + spin.stderr)
         self.assertIn('Recursion:', spin.stderr)
         self.assertIn('no argument decreases', spin.stderr)
+        self.assertIn('recursive call 1 of 1', spin.stderr)
         self.assertEqual(spin.stdout, '')
+        # Swapping the arguments decreases neither alone; the composite of two calls does.
+        drain = run('run', '--source-dir', str(root), str(root / 'Swap.fib'))
+        self.assertEqual(drain.returncode, 0, drain.stdout + drain.stderr)
+        self.assertEqual(drain.stdout, '!\n')
 
     def test_accumulator_equations_reject_dependent_types(self):
         fixture = ROOT / 'examples/modules/linear-accumulator'

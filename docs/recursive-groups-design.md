@@ -9,8 +9,11 @@ explicit saturated member calls. A restricted Nat/Bool subset is checked, its
 calls and closure are rechecked against the same group, and the non-erased
 subset can run in a separate fuelled reference machine. This syntax is not an
 ordinary `Term` constructor and is not accepted from source or integrated into
-ordinary evaluation. Fibril does not yet support general recursive definitions
-or source termination checking. The existing
+ordinary evaluation. General recursive source definitions are separate: they
+elaborate as a core `Fix` and are admitted by size-change checking (see
+[Fix admission](size-change-certificates.md#fix-admission) and
+[general recursion](function-equations.md#general-recursion)); they do not use
+this group representation. The existing
 [structural equations](function-equations.md) lower to checked recursors. The
 [size-change experiment](size-change-certificates.md) checks synthetic bodies,
 not Fibril programs. Isolated experiments also check and run a tightly

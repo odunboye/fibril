@@ -1,0 +1,16 @@
+module Swap
+
+-- Each call swaps the arguments, so neither parameter shrinks on its own. The
+-- accepted reason is the combination: after two calls the first parameter is
+-- strictly smaller (the size-change composite, not a single-call decrease).
+drain : (1 left : Nat) -> (1 right : Nat) -> Nat
+drain left right = case left of
+  Zero => right
+  Succ smaller => drain right smaller
+
+marks : (1 count : Nat) -> String
+marks count = natRec (\(0 k : Nat) => String) ""
+  (\(0 k : Nat) => \(1 result : String) => appendString result "!") count
+
+main : IO Unit
+main = putStrLn (marks (drain (Succ (Succ Zero)) (Succ (Succ (Succ Zero)))))

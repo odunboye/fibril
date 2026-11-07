@@ -358,6 +358,44 @@ tokens, including in unsaved buffers. The signature's copied elaboration input
 is not presented as an invented second source use. The formatter preserves the
 equation and verifies the re-parsed shape; `elaborate` remains unchecked named IR.
 
+## General recursion
+
+When none of the structural forms above applies and an equation refers to itself,
+Fibril elaborates it as a `Fix` over its own name and checks it with the
+[size-change gate](size-change-certificates.md#fix-admission). The structural
+forms still run first and are unchanged.
+
+~~~fibril
+half : (1 n : Nat) -> Nat
+half n = case n of
+  Zero => Zero
+  Succ a => case a of
+    Zero => Zero
+    Succ b => Succ (half b)
+~~~
+
+This steps down by two, which no single-step recursor expresses. It is accepted
+because `b` is strictly smaller than `n`. The [swap example](../examples/modules/general-recursion/Swap.fib)
+is accepted only because two calls together decrease. A call that rebuilds its
+input is refused, naming the call:
+
+~~~text
+Recursion: no argument decreases: recursive call 1 of 1 passes nothing smaller than a parameter
+~~~
+
+Limits: only list, recursive-data and Nat case tails count as smaller, so
+recursion on other data is refused. A visible global with the declaration's own
+name, such as two ambiguous imports, blocks the fallback rather than being replaced
+by a self reference. Because source `Succ p` patterns bind a linear predecessor,
+recursion that passes it to an unrestricted parameter (for example Ackermann) is
+refused by usage checking until unrestricted patterns exist. The fallback inherits
+the general elaborator's pattern resolution, which resolves a `Zero` pattern to
+the built-in constructor even when an identical `Zero` is imported. Mutual
+recursion beyond the bounded Nat/Bool pairs, native C emission and navigation from
+a call to its definition are not supported. Runnable examples:
+[Half.fib](../examples/modules/general-recursion/Half.fib) (accepted) and
+[Loop.fib](../examples/modules/general-recursion/Loop.fib) (refused).
+
 Tests cover dependent renamed binders, ordinary/erased/linear quantities,
 excess/duplicate parameters, invalid patterns and multiple clauses, accidental
 recursion, an unchecked redex-headed signature, source navigation/rename,
