@@ -66,6 +66,7 @@ mutual
   renameAfterSubstitution env sigma (BytesLength x) = cong BytesLength (renameAfterSubstitution env sigma x)
   renameAfterSubstitution env sigma (BytesOctet x) = cong BytesOctet (renameAfterSubstitution env sigma x)
   renameAfterSubstitution env sigma (BytesAppend x y) = rewrite renameAfterSubstitution env sigma x in rewrite renameAfterSubstitution env sigma y in Refl
+  renameAfterSubstitution env sigma (WithRegion x y) = rewrite renameAfterSubstitution env sigma x in rewrite renameAfterSubstitution env sigma y in Refl
   renameAfterSubstitution env sigma StringType = Refl
   renameAfterSubstitution env sigma (StringValue _) = Refl
   renameAfterSubstitution env sigma (WithInputFile result path body) = rewrite renameAfterSubstitution env sigma result in rewrite renameAfterSubstitution env sigma path in rewrite renameAfterSubstitution env sigma body in Refl
@@ -191,6 +192,7 @@ mutual
   substituteAfterRenaming env sigma (BytesLength x) = cong BytesLength (substituteAfterRenaming env sigma x)
   substituteAfterRenaming env sigma (BytesOctet x) = cong BytesOctet (substituteAfterRenaming env sigma x)
   substituteAfterRenaming env sigma (BytesAppend x y) = rewrite substituteAfterRenaming env sigma x in rewrite substituteAfterRenaming env sigma y in Refl
+  substituteAfterRenaming env sigma (WithRegion x y) = rewrite substituteAfterRenaming env sigma x in rewrite substituteAfterRenaming env sigma y in Refl
   substituteAfterRenaming env sigma StringType = Refl
   substituteAfterRenaming env sigma (StringValue _) = Refl
   substituteAfterRenaming env sigma (WithInputFile result path body) = rewrite substituteAfterRenaming env sigma result in rewrite substituteAfterRenaming env sigma path in rewrite substituteAfterRenaming env sigma body in Refl
@@ -326,6 +328,7 @@ mutual
   substituteComposition first second (BytesLength x) = cong BytesLength (substituteComposition first second x)
   substituteComposition first second (BytesOctet x) = cong BytesOctet (substituteComposition first second x)
   substituteComposition first second (BytesAppend x y) = rewrite substituteComposition first second x in rewrite substituteComposition first second y in Refl
+  substituteComposition first second (WithRegion x y) = rewrite substituteComposition first second x in rewrite substituteComposition first second y in Refl
   substituteComposition first second StringType = Refl
   substituteComposition first second (StringValue _) = Refl
   substituteComposition first second (WithInputFile result path body) = rewrite substituteComposition first second result in rewrite substituteComposition first second path in rewrite substituteComposition first second body in Refl

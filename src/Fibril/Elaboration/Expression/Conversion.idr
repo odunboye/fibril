@@ -58,6 +58,7 @@ mutual
   admit (S budget) (BytesLength x) = admit budget x
   admit (S budget) (BytesOctet x) = admit budget x
   admit (S budget) (BytesAppend a b) = do x <- admit budget a; admit x b
+  admit (S budget) (WithRegion a b) = do x <- admit budget a; admit x b
   admit (S budget) StringType = Just budget
   admit (S budget) (StringValue _) = Just budget
   admit (S budget) (StringAppend a b) = do x <- admit budget a; admit x b
@@ -186,6 +187,7 @@ mutual
   safeRedexes size payload (BytesLength x) = safeRedexes size payload x
   safeRedexes size payload (BytesOctet x) = payload + 1 <= payloadLimit && safeRedexes size payload x
   safeRedexes size payload (BytesAppend a b) = safeRedexes size payload a && safeRedexes size payload b
+  safeRedexes size payload (WithRegion a b) = safeRedexes size payload a && safeRedexes size payload b
   safeRedexes size payload StringType = True
   safeRedexes size payload (StringValue _) = True
   safeRedexes size payload (StringAppend a b) = safeRedexes size payload a && safeRedexes size payload b

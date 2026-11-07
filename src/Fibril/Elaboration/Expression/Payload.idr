@@ -66,6 +66,7 @@ mutual
   payloadWeight env (BytesLength x) = payloadWeight env x
   payloadWeight env (BytesOctet x) = payloadWeight env x
   payloadWeight env (BytesAppend a b) = cap (payloadWeight env a + payloadWeight env b)
+  payloadWeight env (WithRegion a b) = cap (payloadWeight env a + payloadWeight env b)
   payloadWeight env StringType = 0
   payloadWeight env (StringValue value) = cap (length value)
   payloadWeight env (StringAppend a b) = cap (payloadWeight env a + payloadWeight env b)

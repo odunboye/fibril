@@ -243,6 +243,8 @@ mutual
   stepWith (UTF8Decode x) = mapStep UTF8Decode (stepWith x)
   stepWith BytesType = pure Nothing
   stepWith (BytesValue _) = pure Nothing
+  -- Pure semantics: the region is a fresh erased type; the native runtime also frees a sub-arena.
+  stepWith (WithRegion _ body) = pure (Just (Apply body UnitType))
   stepWith (BytesAppend (BytesValue a) (BytesValue b)) = pure (Just (BytesValue (append a b)))
   stepWith (BytesAppend a b) = do
     reduced <- stepWith a

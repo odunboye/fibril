@@ -45,6 +45,7 @@ mutual
   scan _ BytesType = False
   scan _ (BytesValue _) = False
   scan b (BytesAppend x y) = scan b x || scan b y
+  scan b (WithRegion x y) = scan b x || scan b y
   scan b (BytesShare x) = scan b x
   scan b (BytesLength x) = scan b x
   scan b (BytesOctet x) = scan b x

@@ -9,6 +9,7 @@ import Fibril.Data.Bytes
 import Fibril.Core.Quantity
 import Fibril.Core.Context
 import Fibril.Core.Runtime
+import Fibril.Core.Erased
 import Fibril.Core.WeakHead
 import Fibril.Core.ResourceAdmission
 import Fibril.Core.Limits
@@ -165,6 +166,11 @@ mutual
                                name a.root ++ ", " ++ name b.root ++ ");")
         Right (Output n b.next (code :: (a.definitions ++ b.definitions)))
       HeadForm _ => Left "Native pair annotation did not expose Sigma"
+  generate mode n (WithRegion resultType body) =
+    -- The entry checker may see this node already reduced, so the emitter enforces copyable results itself.
+    case checkRegionResult typeReductionFuel resultType of
+      Left err => Left ("Native region result: " ++ show err)
+      Right () => unary mode n "f_with_region" body
   generate mode n _ = Left "C backend does not support this computational core construct"
 
   generateBranches : NativeMode -> Nat -> List (Term n) -> Either String (Nat, List Nat, List String)

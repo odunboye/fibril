@@ -102,6 +102,7 @@ stepHeadWith (BytesSlice a b c) = do
           case reduced of
             Just next => pure (Just (BytesSlice a next c))
             Nothing => mapStep (BytesSlice a b) (stepHeadWith c)
+stepHeadWith (WithRegion _ body) = pure (Just (Apply body UnitType))
 stepHeadWith (BytesAppend (BytesValue a) (BytesValue b)) = pure (Just (BytesValue (append a b)))
 stepHeadWith (BytesAppend a b) = do
   reduced <- stepHeadWith a

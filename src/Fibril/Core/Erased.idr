@@ -21,6 +21,7 @@ data CheckError : Type where
   RecursiveDataError : String -> CheckError
   NominalError : String -> CheckError
   VariantError : String -> CheckError
+  RegionError : String -> CheckError
   CheckingLimit : CheckError
   ReductionLimit : CheckError
   ExpectedUniverse : {0 n : Nat} -> (found : Term n) -> CheckError
@@ -40,6 +41,7 @@ Show CheckError where
   show (RecursiveDataError message) = "Recursive data: " ++ message
   show (NominalError message) = "Nominal: " ++ message
   show (VariantError message) = "Variant: " ++ message
+  show (RegionError message) = "Region: " ++ message
   show CheckingLimit = "Checking recursion budget exhausted"
   show ReductionLimit = "Reduction budget exhausted"
   show (ExpectedUniverse found) = "Expected a universe; found: " ++ renderTerm found
@@ -62,6 +64,18 @@ exposeType budget term =
   case weakHead budget term of
     HeadForm result => Right result
     HeadLimit _ => Left ReductionLimit
+
+||| A region result is copied to the parent arena, so it must be first-order data.
+||| Shared with the runtime checker, which sees globals already expanded.
+public export
+checkRegionResult : Nat -> Term n -> Either CheckError ()
+checkRegionResult budget resultType = do
+  exposed <- exposeType budget resultType
+  case exposed of
+    Pi _ _ _ => Left (RegionError "result must be copyable data, not a function")
+    IOType _ => Left (RegionError "result must be copyable data, not an IO description")
+    FileHandleType _ => Left (RegionError "result must be copyable data, not a file handle")
+    _ => Right ()
 
 requireCompatible : Nat -> Term n -> Term n -> Either CheckError ()
 requireCompatible budget actual expected =
@@ -320,6 +334,14 @@ mutual
     Right (utf8ResultType StringType)
   infer (S depth) reduction context BytesType = Right (Universe 0)
   infer (S depth) reduction context (BytesValue _) = Right BytesType
+  infer (S depth) reduction context (WithRegion resultType body) = do
+    resultSort <- infer depth reduction context resultType
+    requireCompatible reduction resultSort (Universe 0)
+    -- The result cannot mention the bound region, so it cannot escape it.
+    checkRegionResult reduction resultType
+    bodyType <- infer depth reduction context body
+    requireCompatible reduction bodyType (Pi Erased (Universe 0) (weaken resultType))
+    Right resultType
   infer (S depth) reduction context (BytesAppend a b) = do
     aType <- infer depth reduction context a
     requireCompatible reduction aType BytesType

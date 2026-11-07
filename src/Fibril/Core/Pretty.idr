@@ -57,6 +57,7 @@ mutual
   renderTerm (BytesLength x) = "(BytesLength " ++ renderTerm x ++ ")"
   renderTerm (BytesOctet x) = "(BytesOctet " ++ renderTerm x ++ ")"
   renderTerm (BytesAppend a b) = "(BytesAppend " ++ renderTerm a ++ " " ++ renderTerm b ++ ")"
+  renderTerm (WithRegion a b) = "(WithRegion " ++ renderTerm a ++ " " ++ renderTerm b ++ ")"
   renderTerm StringType = "String"
   renderTerm (StringValue value) = show value
   renderTerm (StringAppend left right) = "(StringAppend " ++ renderTerm left ++ " " ++ renderTerm right ++ ")"

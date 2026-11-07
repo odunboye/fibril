@@ -62,6 +62,7 @@ mutual
   renameCongruent left right agree (BytesLength x) = cong BytesLength (renameCongruent left right agree x)
   renameCongruent left right agree (BytesOctet x) = cong BytesOctet (renameCongruent left right agree x)
   renameCongruent left right agree (BytesAppend x y) = rewrite renameCongruent left right agree x in rewrite renameCongruent left right agree y in Refl
+  renameCongruent left right agree (WithRegion x y) = rewrite renameCongruent left right agree x in rewrite renameCongruent left right agree y in Refl
   renameCongruent left right agree StringType = Refl
   renameCongruent left right agree (StringValue _) = Refl
   renameCongruent left right agree (WithInputFile result path body) = rewrite renameCongruent left right agree result in rewrite renameCongruent left right agree path in rewrite renameCongruent left right agree body in Refl
@@ -175,6 +176,7 @@ mutual
   renameIdentity (BytesLength x) = cong BytesLength (renameIdentity x)
   renameIdentity (BytesOctet x) = cong BytesOctet (renameIdentity x)
   renameIdentity (BytesAppend x y) = rewrite renameIdentity x in rewrite renameIdentity y in Refl
+  renameIdentity (WithRegion x y) = rewrite renameIdentity x in rewrite renameIdentity y in Refl
   renameIdentity StringType = Refl
   renameIdentity (StringValue _) = Refl
   renameIdentity (WithInputFile result path body) = rewrite renameIdentity result in rewrite renameIdentity path in rewrite renameIdentity body in Refl
@@ -294,6 +296,7 @@ mutual
   renameComposition first second (BytesLength x) = cong BytesLength (renameComposition first second x)
   renameComposition first second (BytesOctet x) = cong BytesOctet (renameComposition first second x)
   renameComposition first second (BytesAppend x y) = rewrite renameComposition first second x in rewrite renameComposition first second y in Refl
+  renameComposition first second (WithRegion x y) = rewrite renameComposition first second x in rewrite renameComposition first second y in Refl
   renameComposition first second StringType = Refl
   renameComposition first second (StringValue _) = Refl
   renameComposition first second (WithInputFile result path body) = rewrite renameComposition first second result in rewrite renameComposition first second path in rewrite renameComposition first second body in Refl

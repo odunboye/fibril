@@ -125,6 +125,7 @@ mutual
   match position mapping prune (BytesLength x) (BytesLength y) solutions = match position mapping prune x y solutions
   match position mapping prune (BytesOctet x) (BytesOctet y) solutions = match position mapping prune x y solutions
   match position mapping prune (BytesAppend x y) (BytesAppend u v) solutions = pair position mapping prune x y u v solutions
+  match position mapping prune (WithRegion x y) (WithRegion u v) solutions = pair position mapping prune x y u v solutions
   match position mapping prune StringType StringType solutions = Right solutions
   match position mapping prune (StringValue x) (StringValue y) solutions =
     if x == y then Right solutions else failure position
@@ -324,6 +325,7 @@ implicitArgumentType position (S fuel) context (WriteBytes _) = Right (Just (IOT
 implicitArgumentType position (S fuel) context RejectBytes = Right (Just (IOType UnitType))
 implicitArgumentType position (S fuel) context FlushBytes = Right (Just (IOType UnitType))
 implicitArgumentType position (S fuel) context BytesType = Right (Just (Universe 0))
+implicitArgumentType position (S fuel) context (WithRegion resultType _) = Right (Just resultType)
 implicitArgumentType position (S fuel) context (BytesAppend _ _) = Right (Just BytesType)
 implicitArgumentType position (S fuel) context (BytesOctet _) = Right (Just BytesType)
 implicitArgumentType position (S fuel) context (BytesShare _) = Right (Just (BoxType Unrestricted BytesType))

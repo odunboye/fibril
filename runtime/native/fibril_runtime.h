@@ -30,6 +30,8 @@ FValue *f_nat_rec_runtime(FRuntime *r, FEnv *env, FEval base, FEval step, FEval 
 FValue *f_rec_fold(FRuntime *r, FEnv *env, FEval base, FEval step, FEval value);
 FValue *f_seq_fold(FRuntime *r, FEnv *env, FEval base, FEval step, FEval value);
 FValue *f_erased(FRuntime *r);
+/* Evaluate body in a sub-arena; first-order data is copied out, then the arena is freed. */
+FValue *f_with_region(FRuntime *r, FEnv *env, FEval body);
 FValue *f_literal(FRuntime *r, const unsigned char *bytes, size_t length);
 FValue *f_variable(FRuntime *r, FEnv *env, size_t index);
 FValue *f_lambda(FRuntime *r, FEnv *env, int erased, FEval body);

@@ -65,6 +65,7 @@ mutual
   substituteCongruent left right agree (BytesLength x) = cong BytesLength (substituteCongruent left right agree x)
   substituteCongruent left right agree (BytesOctet x) = cong BytesOctet (substituteCongruent left right agree x)
   substituteCongruent left right agree (BytesAppend x y) = rewrite substituteCongruent left right agree x in rewrite substituteCongruent left right agree y in Refl
+  substituteCongruent left right agree (WithRegion x y) = rewrite substituteCongruent left right agree x in rewrite substituteCongruent left right agree y in Refl
   substituteCongruent left right agree StringType = Refl
   substituteCongruent left right agree (StringValue _) = Refl
   substituteCongruent left right agree (WithInputFile result path body) = rewrite substituteCongruent left right agree result in rewrite substituteCongruent left right agree path in rewrite substituteCongruent left right agree body in Refl
@@ -181,6 +182,7 @@ mutual
   renameAsSubstitution env (BytesLength x) = cong BytesLength (renameAsSubstitution env x)
   renameAsSubstitution env (BytesOctet x) = cong BytesOctet (renameAsSubstitution env x)
   renameAsSubstitution env (BytesAppend x y) = rewrite renameAsSubstitution env x in rewrite renameAsSubstitution env y in Refl
+  renameAsSubstitution env (WithRegion x y) = rewrite renameAsSubstitution env x in rewrite renameAsSubstitution env y in Refl
   renameAsSubstitution env StringType = Refl
   renameAsSubstitution env (StringValue _) = Refl
   renameAsSubstitution env (WithInputFile result path body) = rewrite renameAsSubstitution env result in rewrite renameAsSubstitution env path in rewrite renameAsSubstitution env body in Refl

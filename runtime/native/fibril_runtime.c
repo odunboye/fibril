@@ -13,9 +13,12 @@
 /* Keep every payload suitably aligned for all C object types. */
 typedef union FAllocation { union FAllocation *next; max_align_t alignment; } FAllocation;
 typedef struct FThunk FThunk;
+/* A sub-arena owns allocations made while it is current; the run-wide arena
+   (FRuntime.allocations) is the root, and a NULL region means the root. */
+typedef struct FRegion { FAllocation *allocations; size_t bytes; } FRegion;
 typedef struct FAction { const unsigned char *bytes; size_t length; struct FAction *next; } FAction;
 typedef struct FInput { size_t identity, generation; FILE *file; const char *close_error; struct FInput *next; } FInput;
-struct FRuntime { FAllocation *allocations; size_t bytes, steps, depth, actions; const char *error; FAction *head, *tail; FInput *inputs; size_t next_input; };
+struct FRuntime { FAllocation *allocations; FRegion *current; size_t bytes, steps, depth, actions; const char *error; FAction *head, *tail; FInput *inputs; size_t next_input; };
 struct FEnv { FThunk *value; FEnv *tail; };
 typedef enum { V_UNIT, V_ERASED, V_BOOL, V_STRING, V_BYTES, V_CLOSURE, V_NOMINAL, V_VARIANT,
                V_NAT_ZERO, V_NAT_SUCC, V_REC_END, V_REC_MORE, V_SEQ_NIL, V_SEQ_CONS,
@@ -44,6 +47,7 @@ struct FThunk {
   FValue *value;
   int state, is_fold;
   FFoldKind fold_kind;
+  FRegion *owner;
   FThunk *input;
   FEval base, step;
 };
@@ -52,6 +56,10 @@ static FValue *evaluate_fold(FRuntime *r, FFoldKind kind, FEnv *env,
                              FEval base, FEval step, FThunk *input);
 
 static void fail(FRuntime *r, const char *message) { if (!r->error) r->error = message; }
+static void release_region(FRuntime *r, FRegion *region) {
+  while (region->allocations) { FAllocation *next = region->allocations->next; free(region->allocations); region->allocations = next; }
+  r->bytes -= region->bytes; region->bytes = 0;
+}
 static void *allocate(FRuntime *r, size_t size) {
   if (r->error) return NULL;
   if (size > SIZE_MAX - sizeof(FAllocation) || size > F_MAX_BYTES || r->bytes > F_MAX_BYTES - size) {
@@ -59,7 +67,9 @@ static void *allocate(FRuntime *r, size_t size) {
   }
   FAllocation *p = malloc(sizeof(FAllocation) + size);
   if (!p) { fail(r, "native allocation failed"); return NULL; }
-  p->next = r->allocations; r->allocations = p; r->bytes += size;
+  if (r->current) { p->next = r->current->allocations; r->current->allocations = p; r->current->bytes += size; }
+  else { p->next = r->allocations; r->allocations = p; }
+  r->bytes += size;
   return (void *)(p + 1);
 }
 static int enter(FRuntime *r) {
@@ -79,7 +89,7 @@ static FValue *new_value(FRuntime *r, FTag tag) {
 }
 static FThunk *thunk(FRuntime *r, FEval code, FEnv *env) {
   FThunk *t = allocate(r, sizeof(*t));
-  if (t) { memset(t, 0, sizeof(*t)); t->code = code; t->env = env; }
+  if (t) { memset(t, 0, sizeof(*t)); t->code = code; t->env = env; t->owner = r->current; }
   return t;
 }
 static FThunk *ready(FRuntime *r, FValue *value) {
@@ -93,8 +103,12 @@ static FValue *force(FRuntime *r, FThunk *t) {
   if (t->state == 2) return t->value;
   if (t->state == 1) { fail(r, "cyclic native thunk"); return NULL; }
   t->state = 1;
+  /* Memoize in the owner's region: a region exit must not leave this thunk dangling. */
+  FRegion *caller = r->current;
+  r->current = t->owner;
   FValue *value = t->is_fold ? evaluate_fold(r, t->fold_kind, t->env, t->base, t->step, t->input)
                              : evaluate(r, t->code, t->env);
+  r->current = caller;
   if (!value) return NULL;
   t->value = value; t->state = 2; return value;
 }
@@ -249,6 +263,70 @@ FValue *f_apply(FRuntime *r, FEnv *env, FEval function, FEval argument) {
   FThunk *arg = fun->as.closure.erased ? NULL : thunk(r, argument, env);
   if (!fun->as.closure.erased && !arg) return NULL;
   return apply_thunk(r, fun, arg);
+}
+/* Deep-copy first-order data out of a dying region. Tails of list-like chains are
+   iterated, so long Nat/sequence values do not consume C stack. */
+static FThunk *copy_thunk(FRuntime *r, FThunk *source, size_t depth);
+static FValue *copy_value(FRuntime *r, FValue *source, size_t depth) {
+  FValue *first = NULL, **slot = &first;
+  for (;;) {
+    if (!source || r->error) return NULL;
+    if (depth >= F_MAX_DEPTH || !byte_work(r)) { fail(r, "native region copy budget exhausted"); return NULL; }
+    FValue *copy = new_value(r, source->tag);
+    if (!copy) return NULL;
+    *slot = copy;
+    FThunk *tail = NULL;
+    switch (source->tag) {
+    case V_UNIT: case V_ERASED: case V_NAT_ZERO: case V_REC_END: case V_SEQ_NIL: break;
+    case V_BOOL: copy->as.boolean = source->as.boolean; break;
+    case V_STRING: case V_BYTES: {
+      size_t n = source->as.string.length;
+      unsigned char *data = allocate(r, n ? n : 1);
+      if (!data) return NULL;
+      if (n) memcpy(data, source->as.string.bytes, n);
+      copy->as.string.bytes = data; copy->as.string.length = n; break;
+    }
+    case V_NOMINAL: copy->as.nominal = copy_thunk(r, source->as.nominal, depth + 1); if (!copy->as.nominal) return NULL; break;
+    case V_VARIANT:
+      copy->as.variant.tag = source->as.variant.tag;
+      if (source->as.variant.payload && !(copy->as.variant.payload = copy_thunk(r, source->as.variant.payload, depth + 1))) return NULL;
+      break;
+    case V_PAIR:
+      if (source->as.pair.first && !(copy->as.pair.first = copy_thunk(r, source->as.pair.first, depth + 1))) return NULL;
+      if (source->as.pair.second && !(copy->as.pair.second = copy_thunk(r, source->as.pair.second, depth + 1))) return NULL;
+      break;
+    case V_NAT_SUCC: case V_REC_MORE: case V_SEQ_CONS:
+      if (source->as.recursive.head && !(copy->as.recursive.head = copy_thunk(r, source->as.recursive.head, depth + 1))) return NULL;
+      tail = source->as.recursive.tail; break;
+    default: fail(r, "native region result must be first-order data"); return NULL;
+    }
+    if (!tail) return first;
+    /* Iterate along the tail: force it, then store a ready thunk in the copy. */
+    FValue *next = force(r, tail);
+    FThunk *holder = thunk(r, NULL, NULL);
+    if (!next || !holder) return NULL;
+    holder->state = 2; copy->as.recursive.tail = holder;
+    source = next; slot = &holder->value;
+  }
+}
+static FThunk *copy_thunk(FRuntime *r, FThunk *source, size_t depth) {
+  FValue *value = force(r, source);
+  return ready(r, value ? copy_value(r, value, depth) : NULL);
+}
+FValue *f_with_region(FRuntime *r, FEnv *env, FEval body) {
+  if (!body) { fail(r, "missing native region body"); return NULL; }
+  FRegion *parent = r->current;
+  FRegion child = {0};
+  r->current = &child;
+  FValue *function = evaluate(r, body, env);
+  FValue *inner = NULL, *result = NULL;
+  if (function && (function->tag != V_CLOSURE || !function->as.closure.erased)) fail(r, "native region body expects an erased region binder");
+  else if (function) inner = apply_thunk(r, function, NULL);
+  /* Copy into the parent while the source region is still alive. */
+  r->current = parent;
+  if (inner) result = copy_value(r, inner, 0);
+  release_region(r, &child);
+  return result;
 }
 static FThunk *fold_thunk(FRuntime *r, FFoldKind kind, FEnv *env,
                           FEval base, FEval step, FThunk *input) {

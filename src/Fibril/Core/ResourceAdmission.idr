@@ -51,6 +51,7 @@ mutual
   containsFileReference (BytesLength x) = containsFileReference x
   containsFileReference (BytesOctet x) = containsFileReference x
   containsFileReference (BytesAppend a b) = containsFileReference a || containsFileReference b
+  containsFileReference (WithRegion a b) = containsFileReference a || containsFileReference b
   containsFileReference StringType = False
   containsFileReference (StringValue _) = False
   containsFileReference (StringAppend a b) = containsFileReference a || containsFileReference b

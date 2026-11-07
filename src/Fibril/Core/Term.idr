@@ -53,6 +53,8 @@ data Term : Nat -> Type where
   BytesType : Term n
   BytesValue : Bytes -> Term n
   BytesAppend : Term n -> Term n -> Term n
+  ||| Scoped sub-arena: result type and body taking an erased region type.
+  WithRegion : Term n -> Term n -> Term n
   ||| Data-specific copyability: consume immutable bytes into an unrestricted box.
   BytesShare : Term n -> Term n
   BytesLength : Term n -> Term n
@@ -258,6 +260,7 @@ mutual
   rename env BytesType = BytesType
   rename env (BytesValue value) = BytesValue value
   rename env (BytesAppend a b) = BytesAppend (rename env a) (rename env b)
+  rename env (WithRegion a b) = WithRegion (rename env a) (rename env b)
   rename env (BytesIndex a b) = BytesIndex (rename env a) (rename env b)
   rename env (BytesSlice a b c) = BytesSlice (rename env a) (rename env b) (rename env c)
   rename env (BytesShare a) = BytesShare (rename env a)
@@ -351,6 +354,7 @@ mutual
   substituteTerm env BytesType = BytesType
   substituteTerm env (BytesValue value) = BytesValue value
   substituteTerm env (BytesAppend a b) = BytesAppend (substituteTerm env a) (substituteTerm env b)
+  substituteTerm env (WithRegion a b) = WithRegion (substituteTerm env a) (substituteTerm env b)
   substituteTerm env (BytesIndex a b) = BytesIndex (substituteTerm env a) (substituteTerm env b)
   substituteTerm env (BytesSlice a b c) = BytesSlice (substituteTerm env a) (substituteTerm env b) (substituteTerm env c)
   substituteTerm env (BytesShare a) = BytesShare (substituteTerm env a)
@@ -451,6 +455,7 @@ mutual
   sameSyntax BytesType BytesType = True
   sameSyntax (BytesValue a) (BytesValue b) = a == b
   sameSyntax (BytesAppend a b) (BytesAppend c d) = sameSyntax a c && sameSyntax b d
+  sameSyntax (WithRegion a b) (WithRegion c d) = sameSyntax a c && sameSyntax b d
   sameSyntax (BytesIndex a b) (BytesIndex c d) = sameSyntax a c && sameSyntax b d
   sameSyntax (BytesSlice a b c) (BytesSlice d e f) = sameSyntax a d && sameSyntax b e && sameSyntax c f
   sameSyntax (BytesShare a) (BytesShare b) = sameSyntax a b

@@ -92,6 +92,10 @@ primitiveGlobals =
   , Global "primBytesAppend" (Pi Linear BytesType (Pi Linear BytesType BytesType))
       (Lambda Linear BytesType (Lambda Linear BytesType
         (BytesAppend (Variable (FS FZ)) (Variable FZ))))
+  -- Scoped sub-arena; B is a Type0 first-order result that cannot mention the region.
+  , Global "primWithRegion" (Pi Erased (Universe 0) (Pi Linear (Pi Erased (Universe 0) (Variable (FS FZ))) (Variable (FS FZ))))
+      (Lambda Erased (Universe 0) (Lambda Linear (Pi Erased (Universe 0) (Variable (FS FZ)))
+        (WithRegion (Variable (FS FZ)) (Variable FZ))))
   , GlobalWithQuantity Erased "Nat" (Universe 0) NatType
   , Global "Zero" NatType NatZero
   , Global "Succ" (Pi Linear NatType NatType) (Lambda Linear NatType (NatSucc (Variable FZ)))

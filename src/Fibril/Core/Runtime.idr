@@ -134,6 +134,10 @@ mutual
   analyze (S depth) reduction context (BytesShare x) = analyze depth reduction context x
   analyze (S depth) reduction context (BytesLength x) = analyze depth reduction context x
   analyze (S depth) reduction context (BytesOctet x) = analyze depth reduction context x
+  -- The body is applied exactly once, so its permissions are not scaled.
+  analyze (S depth) reduction context (WithRegion resultType body) = do
+    liftTyping (checkRegionResult reduction resultType)
+    analyze depth reduction context body
   analyze (S depth) reduction context (BytesAppend a b) = do
     leftUsage <- analyze depth reduction context a
     rightUsage <- analyze depth reduction context b
