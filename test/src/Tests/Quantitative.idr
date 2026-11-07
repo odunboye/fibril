@@ -59,6 +59,25 @@ alternativeDerivation : Uses Tests.Quantitative.alternative [Linear]
 alternativeDerivation = UseIf UseBoolean (UseUnitElim (UseRef Here) UseUnit)
                                        (UseUnitElim (UseRef Here) UseUnit)
 
+-- The theorem itself, rather than inference alone, checks captures under two
+-- binders, an erased application argument, and joined alternatives.
+weakeningExample : Term [UnitTy] (Arrow Linear UnitTy (Arrow Linear UnitTy UnitTy))
+weakeningExample = Lam Linear (Lam Linear
+  (UnitElim (Ref (There Here))
+    (UnitElim (Ref Here)
+      (If (Boolean True) (Ref (There (There Here)))
+        (App (Lam Erased (Ref (There (There (There Here))))) (Ref Here))))))
+
+weakeningExampleUses : Uses Tests.Quantitative.weakeningExample [Linear]
+weakeningExampleUses = UseLam (UseLam
+  (UseUnitElim (UseRef (There Here))
+    (UseUnitElim (UseRef Here)
+      (UseIf UseBoolean (UseRef (There (There Here)))
+        (UseApp (UseLam (UseRef (There (There (There Here)))) Refl) (UseRef Here))))) Refl) Refl
+
+weakenedExampleUses : Uses (weaken {b=BoolTy} Tests.Quantitative.weakeningExample) [Erased, Linear]
+weakenedExampleUses = weakenUses Tests.Quantitative.weakeningExample [Linear] weakeningExampleUses
+
 headCase : (r : Usage 1 ** (Uses (instantiate (the (Term [UnitTy] UnitTy) (Ref Here)) (Ref Here)) r,
                              Admits [Linear] r))
 headCase = instantiateHeadUsage (Ref Here) [Linear] [Linear]
@@ -122,7 +141,8 @@ contractReplacements variable = Ref (contract variable)
 export
 checks : List (String, Bool)
 checks =
-  [ ("typed substitution weakens an open replacement under two binders", case captureSafe of Refl => True)
+  [ ("quantitative weakening preserves nested binders, captures and erased arguments", case weakenedExampleUses of UseLam _ _ => True)
+  , ("typed substitution weakens an open replacement under two binders", case captureSafe of Refl => True)
   , ("typed head substitution preserves the shadowing binder", case boundVariableUnchanged of Refl => True)
   , ("typed head substitution lowers untouched outer variables", case tailVariableLowered of Refl => True)
   , ("typed simultaneous substitution maps distinct variable types", case simultaneousTyped of Refl => True)

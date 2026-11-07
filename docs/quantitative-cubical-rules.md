@@ -332,6 +332,15 @@ both alternatives require internal quantitative derivations, including arguments
 scaled by zero. This is deliberately stricter than `Core.Runtime`, which skips
 runtime analysis of erased arguments; no checker correspondence is established.
 
+`weakenUses` proves, for every typed term and `Uses term usage`, the exact
+judgment `Uses (weaken term) (Erased :: usage)`. Its stronger helper
+`insertUses` inserts exactly one unused variable at any binder depth, preserving
+all other demand components. This is not arbitrary renaming: the insertion
+cannot contract variables. The proof covers lambdas, application (including
+internally checked erased arguments), unit elimination and alternatives. The
+`Uses` constructors retain their intermediate usage vectors as explicit
+implicit data to support this structural induction.
+
 `usageUnique` proves that any two `Uses` derivations for the same term have
 identical vectors. `instantiateHeadUsage` proves the head-reference case of
 quantitative substitution: for any typed `v`, derivation `Uses v w` and
@@ -353,15 +362,16 @@ requires a valid derivation for that argument. `UseIf` combines branch demands
 with a permission join where 0 and 1 join to omega, not an arithmetic maximum;
 its condition is added separately. Under `UseLam`, lifted substitution must
 preserve the new binder's exact checked demand while weakening the replacement.
-A general proof therefore needs quantitative weakening/lift and a stronger
-statement accounting for arbitrary scaled head demand and joined branches,
+Although insertion weakening is now proved, a general proof still needs a stronger
+substitution statement accounting for arbitrary scaled head demand and joined branches,
 including internal validity even at scale zero. No counterexample to the stated
 theorem is claimed here, and these obstacles do not establish it.
 
 `Tests.Quantitative` checks open substitution under two binders, shadowing,
 outer-index lowering, simultaneous replacements at distinct types and
 function-valued substitution by definitional equalities. It includes direct
-quantitative derivations, permission-join evidence, positive usage examples,
+quantitative derivations, a direct weakening derivation with nested binders, captures,
+an erased argument and alternatives, permission-join evidence, positive usage examples,
 rejection of unused/duplicated linear binders and erased extraction, and
 counterexamples to interpreting arbitrary typed renaming/substitution as
 linear-permission preservation. The single-linear substitution examples are
