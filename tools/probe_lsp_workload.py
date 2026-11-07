@@ -5,6 +5,7 @@ Exit zero means the observations matched baseline policy, not LSP decoding succe
 Python JSON is used only as fixture oracle/evidence serialization.
 """
 import argparse
+import errno
 import hashlib
 import json
 import os
@@ -14,7 +15,10 @@ import shlex
 import shutil
 import signal
 import subprocess
+import sys
 import tempfile
+import threading
+import time
 
 from generate_lsp_workload import ROOT, artifacts, bodies, frame
 from observe_json_state_sharing import oracle
@@ -26,51 +30,118 @@ METRICS = ['steps', 'peak_pure_depth', 'arena_payload', 'callbacks', 'reads', 'w
            'consumed_bytes', 'accepted_bytes', 'flushes', 'requests', 'reserved_capacity']
 
 
-def run_process(command, *, input=None, timeout=120):
-    """POSIX probe scope: own one session/group; never search for descendants.
+class ProbeProcessCleanupError(RuntimeError):
+    """The probe cannot claim completed cleanup or continuing anchor ownership."""
 
-    Always signal the owned group, even after its leader exits: descendants may
-    ignore TERM or close their output pipes. Reap the immediate child, not other
-    processes. Escaped sessions and repeated interruption of cleanup are outside
-    the tested contract.
+
+def run_process(command, *, input=None, timeout=120):
+    """Whole-buffer+EOF probe only; keep the owned leader unreaped until KILL.
+
+    Requires default SIGCHLD and no external child reaper. Non-reaping waitid
+    observations and Event.wait intervals are foreground and deadline-bounded;
+    no waiter thread, live stdin protocol, or unsafe platform fallback is used.
     """
+    required = ('P_PID', 'WEXITED', 'WNOWAIT', 'WNOHANG')
+    if (os.name != 'posix' or not callable(getattr(os, 'waitid', None)) or
+            any(getattr(os, name, None) is None for name in required)):
+        raise RuntimeError('probe requires POSIX waitid with WNOWAIT and WNOHANG')
+    if signal.getsignal(signal.SIGCHLD) != signal.SIG_DFL:
+        raise RuntimeError('probe requires default SIGCHLD and no external child reaper')
     args = list(map(str, command))
     process = None
+    anchor_lost = False
+    interval = threading.Event()  # Used only by this foreground thread.
+    flags = os.WEXITED | os.WNOWAIT | os.WNOHANG
+
+    def observe_anchor():
+        nonlocal anchor_lost
+        try:
+            state = os.waitid(os.P_PID, process.pid, flags)
+        except ChildProcessError as failure:
+            anchor_lost = True
+            raise ProbeProcessCleanupError(
+                'owned unreaped anchor lost; no further group signals are safe') from failure
+        if state is not None and state.si_pid != process.pid:
+            anchor_lost = True
+            raise ProbeProcessCleanupError('non-reaping observation did not identify the owned anchor')
+        return state
+
+    def wait_exit(seconds):
+        deadline = time.monotonic() + seconds
+        while True:
+            try:
+                exited = observe_anchor()
+            except InterruptedError:
+                exited = None  # Retry without resetting the deadline.
+            if exited is not None:
+                return True
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return False
+            interval.wait(min(0.01, remaining))
 
     def signal_group(signum):
-        # The group id comes only from this new-session Popen, never a caller or
-        # process-tree search. Refuse to signal our own group even on a bad seam.
-        if process.pid <= 1 or process.pid == os.getpgrp():
-            raise RuntimeError('probe did not acquire a private process group')
+        if anchor_lost or process.pid <= 1 or process.pid == os.getpgrp():
+            raise ProbeProcessCleanupError('probe has no safe owned group anchor')
+        deadline = time.monotonic() + 0.25
+        while True:
+            try:
+                anchor = observe_anchor()  # Confirm WNOWAIT ownership before EACH signal.
+                break
+            except InterruptedError:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise ProbeProcessCleanupError('probe could not confirm its unreaped anchor')
+                interval.wait(min(0.01, remaining))
         try:
             os.killpg(process.pid, signum)
         except ProcessLookupError:
-            pass
+            pass  # An exited anchor may have no signalable group members.
+        except PermissionError as refusal:
+            if sys.platform != 'darwin' or anchor is None or refusal.errno != errno.EPERM:
+                raise
+            # macOS may refuse signals to an exited, unreaped anchor. This is
+            # tolerated only for ordinary same-credential probe groups; EPERM
+            # does NOT prove an empty group or cleanup of protected descendants.
 
-    try:
-        process = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                   stderr=subprocess.PIPE, start_new_session=True)
-        output, error = process.communicate(input=input, timeout=timeout)
-        return subprocess.CompletedProcess(args, process.returncode, output, error)
-    finally:
-        if process is not None:
+    with tempfile.TemporaryFile() as source, tempfile.TemporaryFile() as output, tempfile.TemporaryFile() as error:
+        source.write(input or b'')
+        source.seek(0)
+
+        def captured(stream):
+            stream.seek(0)
+            return stream.read()
+
+        try:
             try:
-                signal_group(signal.SIGTERM)
-                try:
-                    process.wait(timeout=0.25)
-                except subprocess.TimeoutExpired:
-                    pass
+                process = subprocess.Popen(args, stdin=source, stdout=output,
+                                           stderr=error, start_new_session=True)
+                if not wait_exit(timeout):
+                    raise subprocess.TimeoutExpired(args, timeout)
             finally:
-                try:
-                    # Do not condition escalation on poll()/wait(): an exited
-                    # leader says nothing about descendants in its owned group.
-                    signal_group(signal.SIGKILL)
-                finally:
+                if process is not None and not anchor_lost:
                     try:
-                        process.wait(timeout=2)
+                        signal_group(signal.SIGTERM)
+                        wait_exit(0.25)  # Observe only; NEVER reap between signals.
                     finally:
-                        for stream in (process.stdin, process.stdout, process.stderr):
-                            stream.close()
+                        if not anchor_lost:
+                            try:
+                                signal_group(signal.SIGKILL)
+                            finally:
+                                if not anchor_lost:
+                                    try:
+                                        # First reaping operation, after FINAL signaling.
+                                        process.wait(timeout=2)
+                                    except subprocess.TimeoutExpired as failure:
+                                        raise ProbeProcessCleanupError(
+                                            'probe cleanup failed: immediate child did not reap within 2 seconds') from failure
+        except subprocess.TimeoutExpired as failure:
+            # Read only after cleanup; seeking shared temporary-file offsets
+            # while a child still writes would corrupt the captured streams.
+            failure.output = captured(output)
+            failure.stderr = captured(error)
+            raise
+        return subprocess.CompletedProcess(args, process.returncode, captured(output), captured(error))
 
 
 def checked(command, timeout=120):

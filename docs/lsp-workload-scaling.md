@@ -341,7 +341,7 @@ header/JSON-iteration matrices and editor integration were not rerun by this
 lane; prior foundation acceptance and read-only inspection are not relabeled as
 this task's executions.
 
-### Review-only corrections after the evidence checkpoint
+### First review-only correction (`2edfb0e`; superseded cleanup below)
 
 Review found that the former `subprocess.run(timeout=...)` killed only its direct
 wrapper, allowing its Chez child to survive. Every probe launch now uses one
@@ -350,8 +350,9 @@ and native execution. Each launch owns a new POSIX session/process group through
 `start_new_session=True`. A `finally` scope sends TERM only to that group's id,
 waits at most0.25 seconds for its immediate child, then **always** sends group
 KILL, even if the leader already exited. It waits at most2 seconds to reap the
-immediate child and closes its pipes. It never searches or signals unrelated
-process groups. Timeout and BaseException paths retain failure/cancellation, not
+immediate child and closes its pipes. That first version did not search other
+process groups, but its stale-id ownership gap was found in the second review
+below. Timeout and BaseException paths retain failure/cancellation, not
 successful observations. Cleanup bounds are additional to the execution deadline.
 
 Five new offline regression groups extend the original seven: real timeout with
@@ -384,3 +385,83 @@ after descendant termination and leader reaping were already verified. Teardown
 now performs fallback group KILL only if that verification did not complete.
 Three subsequent complete twelve-test runs passed; the failed run is not counted
 as success.
+
+### Unreaped group-anchor correction
+
+A second review found that the first fix's `communicate()` and intermediate
+`wait()` could reap the group leader before signaling finished. Its numeric PID/
+group id could then be reused; comparing it to our own group or looking up a PID
+would not close that race. The helper now **retains its owned unreaped leader
+through the final group KILL attempt, then reaps**, including already-exited
+leaders. There is no `poll()`, `communicate()`, `waitpid()` or other reaping
+operation before final signaling. No process/group scan or existence-based
+ownership substitution is used.
+
+The scope remains a single offline probe command. stdin, stdout and stderr are
+private temporary files: input is a complete buffer followed by EOF. This helper
+is **not** suitable for live fragmented input/open-stdin protocol evidence. After
+cleanup it returns captured byte stdout/stderr and the reaped child's status;
+execution timeout still raises `TimeoutExpired`, with captured byte `output` and
+`stderr` read after cleanup (possibly including termination-time writes). Seeking
+shared file offsets while children write is deliberately avoided. Historical
+protocol observations were not rerun with this changed IO harness.
+
+Within the foreground command, `waitid(P_PID, pid, WEXITED|WNOWAIT|WNOHANG)` observes
+exit without releasing the leader. A monotonic deadline and at-most0.01-second
+`Event.wait` intervals bound that foreground observation loop. This is **not** an
+external sleeping/background test-poll loop; there is no waiter thread, daemon,
+`preexec_fn` or hidden anchor process. Interrupted non-reaping observations retry
+without renewing their deadline. Non-reaping ownership confirmation immediately
+precedes each signal attempt, with its own at-most0.25-second deadline. TERM is
+followed by up to0.25 seconds of non-reaping exit observation, then an unconditional
+final KILL attempt while ownership remains valid. Only afterward does the helper
+call `wait(timeout=2)`. A final reap timeout reports `ProbeProcessCleanupError`,
+not successful cleanup or an ordinary parser timeout/result.
+
+Requirements are checked **before launch**: POSIX, callable `os.waitid`, the
+`P_PID/WEXITED/WNOWAIT/WNOHANG` constants, and default `SIGCHLD`. SIG_IGN and known
+custom SIGCHLD handlers are rejected. That disposition must remain default and
+no external child reaper may run during the scope. Unexpected `ChildProcessError`
+from any non-reaping check reports lost ownership and disables all further numeric
+group signals/reaping by the helper. Python3.10+ syntax is retained, but builds
+without these facilities fail explicitly with **no unsafe fallback**; this fix was
+executed on the available macOS27.2/Python3.15, not every Python/macOS combination.
+
+A pinned-macOS compatibility detail was measured during these tests: signaling an
+exited, unreaped no-descendant anchor can return EPERM. On macOS **only**, EPERM is
+tolerated when WNOWAIT confirmed the owned anchor exited immediately before that
+signal attempt. It is a **tolerated signal refusal**, not proof of an empty group
+or universal descendant cleanup. Final KILL is still attempted before reap.
+Running-anchor EPERM, non-macOS EPERM, EACCES/other errors and lost ownership remain
+failures. Support is restricted to ordinary same-credential probe groups;
+protected, setuid/credential-changing or sandbox-denied descendants are outside
+the contract. No general cancellation safety is claimed for those cases, escaped
+sessions, external reapers, interruption before Popen returns, repeated cleanup
+interruption, or an uninterruptible kernel child that exceeds the final reap bound.
+
+The original twelve test groups are retained and seven focused groups added:
+explicit observe/TERM/observe/KILL/**then reap** ordering; unsupported facilities
+and SIGCHLD rejection before launch; macOS exited-anchor EPERM handling; refusal
+of running/non-macOS/other signal errors; lost-anchor failure at initial, TERM-wait
+and pre-KILL checks; interrupted-observation deadlines; and final reap failure.
+Real zero/nonzero no-descendant commands exercise the macOS case. The existing
+Unix-socket handshake also proves a TERM-ignoring descendant is still live **after
+its leader exits and TERM is attempted**, and that the subsequent KILL closes its
+socket. Both signal hooks confirm an unreaped anchor; attempts to call poll or
+communicate fail the regression. Real handshake descendants all terminated after
+group KILL; EPERM was not observed to mask a surviving ordinary same-credential
+descendant.
+
+One initial anchor-fix run failed **11/12 passed, one error** because it treated the
+macOS exited-anchor EPERM as fatal. That failed experiment is retained here; only
+a separately approved narrow compatibility correction was then applied. No
+historical observation, launcher digest, image-hash provenance, source/API/cap or
+runtime policy changed. Final focused validation results are recorded with this
+fix; the prior successful matrices do not retroactively validate the new helper.
+
+Final validation: all19 workload groups passed in two consecutive runs; the8
+JSON oracle tests,14-pair generator check, Python compilation, handbook/local-link
+build and16 handbook tests passed. A direct diff against `2edfb0e` confirms both
+historical evidence JSON files are byte-for-byte unchanged, as are production,
+runtime, framer and64-byte JSON diagnostic sources. These are helper/corpus tests
+and historical-data checks, not fresh production/LSP or scaling observations.
