@@ -1,9 +1,15 @@
+-- Current size reports count reachable shared syntax; historical tree records are separate.
 -- Test-only adapters for checked source, not a source-language callback API.
 module Hosted
 
 import Data.IORef
 import Data.List
 import System
+import Fibril.Core.Quantity
+import Fibril.Core.Term
+import Fibril.Core.Runtime
+import Fibril.Core.Erased
+import Fibril.Core.SharedProgram
 import Fibril.Core.Size
 import Fibril.Data.Bytes
 import Fibril.Runtime.Binary
@@ -50,7 +56,10 @@ main = do
   case checked of
     Left err => do putStrLn (renderGraphError err); exitFailure
     Right project => do
-      result <- runBinaryTermWith 4096 4096 4096 8388608 host project.term
+      declarations <- case reachableGlobals project.globals project.term of
+        Left message => do putStrLn message; exitFailure
+        Right declarations => pure declarations
+      result <- runBinaryTermWithGlobals project.globals 4096 4096 4096 8388608 host project.term
       r <- readIORef reads
       w <- readIORef writes
       f <- readIORef flushes
@@ -60,7 +69,7 @@ main = do
       case views of
         True => do
           putStrLn ("OUTPUT " ++ show out)
-          putStrLn ("NODES " ++ show (coreNodes project.term))
+          putStrLn ("NODES " ++ show (sharedProgramNodes project.term declarations))
         False => pure ()
       case result of
         Left err => putStrLn ("ERROR " ++ show err)

@@ -17,7 +17,7 @@ executeProject : Nat -> Either GraphError CheckedProject -> IO (Either String ()
 executeProject fuel checked =
   case checked of
     Left err => pure (Left (renderGraphError err))
-    Right project => case prepareIO 128 fuel project.term of
+    Right project => case prepareIOGlobals project.globals 128 fuel project.term of
       Left err => pure (Left (renderFileError project.graph.entry (show (ConsoleFailure err))))
       Right actions => do
         result <- executeConsoleActions actions

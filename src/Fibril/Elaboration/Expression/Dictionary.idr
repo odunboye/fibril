@@ -18,33 +18,33 @@ import Fibril.Source.Resolve.Error
 
 %default total
 
-expose : Position -> Term n -> Either ResolveError (Term n)
-expose position ty = case weakHead typeReductionFuel ty of
+exposeGlobals : GlobalContext -> Position -> Term n -> Either ResolveError (Term n)
+exposeGlobals shared position ty = case weakHeadGlobals (globalValue shared) typeReductionFuel ty of
   HeadForm result => Right result
   HeadLimit _ => Left (CannotElaborate position "Dictionary type exposure exhausted its reduction budget")
 
 public export
-dictionaryType : Position -> Term n -> Either ResolveError ()
-dictionaryType position ty = do
-  head <- expose position ty
+dictionaryTypeGlobals : GlobalContext -> Position -> Term n -> Either ResolveError ()
+dictionaryTypeGlobals shared position ty = do
+  head <- exposeGlobals shared position ty
   case head of
     BoxType _ _ => Right ()
     Sigma _ _ _ _ => Right ()
     _ => Left (CannotElaborate position "Constraint/selection requires a dictionary-shaped unary or dependent-pair type")
 
 public export
-constraintType : Position -> Quantity -> Term n -> Either ResolveError ()
-constraintType position Erased ty = Left (CannotElaborate position "Dictionary constraints require linear or unrestricted runtime permission")
-constraintType position _ ty = dictionaryType position ty
+constraintTypeGlobals : GlobalContext -> Position -> Quantity -> Term n -> Either ResolveError ()
+constraintTypeGlobals shared position Erased ty = Left (CannotElaborate position "Dictionary constraints require linear or unrestricted runtime permission")
+constraintTypeGlobals shared position _ ty = dictionaryTypeGlobals shared position ty
 
-nextDictionary : Position -> Context n -> Term n -> Either ResolveError (Term n)
-nextDictionary position context function = do
-  ty <- case inferErased checkingDepth typeReductionFuel context function of
+nextDictionaryGlobals : GlobalContext -> Position -> Context n -> Term n -> Either ResolveError (Term n)
+nextDictionaryGlobals shared position context function = do
+  ty <- case inferErasedGlobals shared checkingDepth typeReductionFuel context function of
     Left err => Left (CannotElaborate position ("Cannot infer dictionary function type: " ++ show err))
-    Right ty => expose position ty
+    Right ty => exposeGlobals shared position ty
   case ty of
     Pi q domain _ => do
-      constraintType position q domain
+      constraintTypeGlobals shared position q domain
       Right domain
     _ => Left (CannotElaborate position "Dictionary selection requires a function with a dictionary argument")
 
@@ -52,49 +52,49 @@ entries : Vect n String -> List (String, Fin n)
 entries [] = []
 entries (name :: rest) = (name, FZ) :: map (\(name, index) => (name, FS index)) (entries rest)
 
-candidates : Position -> Context n -> Term n -> List String -> List (String, Fin n) ->
+candidatesGlobals : GlobalContext -> Position -> Context n -> Term n -> List String -> List (String, Fin n) ->
              Either ResolveError (List (Fin n))
-candidates position context expected seen [] = Right []
-candidates position context expected seen ((name, index) :: rest) =
-  if name == "_" || elem name seen then candidates position context expected seen rest else do
+candidatesGlobals shared position context expected seen [] = Right []
+candidatesGlobals shared position context expected seen ((name, index) :: rest) =
+  if name == "_" || elem name seen then candidatesGlobals shared position context expected seen rest else do
     let following = name :: seen
     if not (allows (lookupQuantity index context) Linear)
-       then candidates position context expected following rest else do
-         ty <- expose position (lookupType index context)
+       then candidatesGlobals shared position context expected following rest else do
+         ty <- exposeGlobals shared position (lookupType index context)
          eligible <- case ty of
            BoxType _ _ => Right True
            Sigma _ _ _ _ => Right True
            _ => Right False
-         matches <- if eligible then case betaCompare typeReductionFuel ty expected of
+         matches <- if eligible then case betaCompareGlobals (globalValue shared) typeReductionFuel ty expected of
            EqualNormalForms => Right True
            DifferentNormalForms => Right False
            Inconclusive => Left (CannotElaborate position "Local dictionary comparison exhausted its reduction budget")
            else Right False
-         remaining <- candidates position context expected following rest
+         remaining <- candidatesGlobals shared position context expected following rest
          Right (if matches then index :: remaining else remaining)
 
-globalCandidates : Position -> Term n -> List String -> List GlobalDefinition ->
+globalCandidatesGlobals : GlobalContext -> Position -> Term n -> List String -> List GlobalDefinition ->
                    Either ResolveError (List GlobalDefinition)
-globalCandidates position expected seen [] = Right []
-globalCandidates position expected seen (entry :: rest) = case entry.provider of
-  Nothing => globalCandidates position expected seen rest
+globalCandidatesGlobals shared position expected seen [] = Right []
+globalCandidatesGlobals shared position expected seen (entry :: rest) = case entry.provider of
+  Nothing => globalCandidatesGlobals shared position expected seen rest
   Just identity =>
     if elem identity seen || entry.quantity /= Unrestricted
-       then globalCandidates position expected seen rest else do
-         matches <- case betaCompare typeReductionFuel (rename absurd entry.declaredType) expected of
+       then globalCandidatesGlobals shared position expected seen rest else do
+         matches <- case betaCompareGlobals (globalValue shared) typeReductionFuel (rename absurd entry.declaredType) expected of
            EqualNormalForms => Right True
            DifferentNormalForms => Right False
            Inconclusive => Left (CannotElaborate position "Visible implementation comparison exhausted its reduction budget")
-         remaining <- globalCandidates position expected (identity :: seen) rest
+         remaining <- globalCandidatesGlobals shared position expected (identity :: seen) rest
          Right (if matches then entry :: remaining else remaining)
 
 ||| Opt-in finite lookup of already checked visible named implementation values.
 public export
-selectImplementation : Position -> List GlobalDefinition -> Context n -> Term n ->
+selectImplementationGlobals : GlobalContext -> Position -> List GlobalDefinition -> Context n -> Term n ->
                        Either ResolveError (Term n)
-selectImplementation position globals context function = do
-  expected <- nextDictionary position context function
-  available <- globalCandidates position expected [] globals
+selectImplementationGlobals shared position globals context function = do
+  expected <- nextDictionaryGlobals shared position context function
+  available <- globalCandidatesGlobals shared position expected [] globals
   case available of
     [entry] => case lookupGlobal entry.name [entry] of
       Nothing => Left (CannotElaborate position "Visible implementation has no runtime occurrence")
@@ -103,23 +103,42 @@ selectImplementation position globals context function = do
     _ => Left (CannotElaborate position "Ambiguous visible named implementations; supply @{dictionary} explicitly")
 
 public export
-selectDictionary : Position -> Context n -> Vect n String -> Term n -> Maybe (Term n) ->
+selectDictionaryGlobals : GlobalContext -> Position -> Context n -> Vect n String -> Term n -> Maybe (Term n) ->
                    Either ResolveError (Term n)
-selectDictionary position context names function explicit = do
-  expected <- nextDictionary position context function
+selectDictionaryGlobals shared position context names function explicit = do
+  expected <- nextDictionaryGlobals shared position context function
   argument <- case explicit of
     Just value => do
-      actual <- case inferErased checkingDepth typeReductionFuel context value of
+      actual <- case inferErasedGlobals shared checkingDepth typeReductionFuel context value of
         Left err => Left (CannotElaborate position ("Invalid explicit dictionary: " ++ show err))
         Right ty => Right ty
-      case compatibleTypes typeReductionFuel actual expected of
+      case compatibleTypesGlobals (globalValue shared) typeReductionFuel actual expected of
         Compatible => Right value
         Incompatible => Left (CannotElaborate position "Explicit dictionary does not match the required type")
         CompatibilityLimit => Left (CannotElaborate position "Explicit dictionary comparison exhausted its reduction budget")
     Nothing => do
-      available <- candidates position context expected [] (entries names)
+      available <- candidatesGlobals shared position context expected [] (entries names)
       case available of
         [index] => Right (Variable index)
         [] => Left (CannotElaborate position "No matching visible local dictionary; supply @{dictionary} explicitly")
         _ => Left (CannotElaborate position "Ambiguous local dictionaries; supply @{dictionary} explicitly")
   Right (Apply function argument)
+
+-- Closed-syntax compatibility APIs. Shared programs pass their checked context explicitly.
+public export
+constraintType : Position -> Quantity -> Term n -> Either ResolveError ()
+constraintType = constraintTypeGlobals emptyGlobals
+
+public export
+dictionaryType : Position -> Term n -> Either ResolveError ()
+dictionaryType = dictionaryTypeGlobals emptyGlobals
+
+public export
+selectDictionary : Position -> Context n -> Vect n String -> Term n -> Maybe (Term n) ->
+                   Either ResolveError (Term n)
+selectDictionary = selectDictionaryGlobals emptyGlobals
+
+public export
+selectImplementation : Position -> List GlobalDefinition -> Context n -> Term n ->
+                       Either ResolveError (Term n)
+selectImplementation = selectImplementationGlobals emptyGlobals

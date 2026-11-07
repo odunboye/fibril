@@ -24,6 +24,7 @@ mutual
   ||| String length is host-defined work, not a portable byte/time bound.
   public export
   payloadWeight : (Fin n -> Nat) -> Term n -> Nat
+  payloadWeight env (GlobalRef _) = 0
   payloadWeight env (Variable i) = cap (env i)
   payloadWeight env (Universe _) = 0
   payloadWeight env UnitType = 0

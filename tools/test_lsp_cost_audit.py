@@ -29,6 +29,10 @@ class LSPCostAudit(unittest.TestCase):
         self.assertIn('fieldRole ty index', source)
         self.assertNotIn('Fibril.Driver.Native.Emit', source)
 
+    def test_compatibility_tree_cannot_be_reported_as_shared_admission(self):
+        with self.assertRaisesRegex(ValueError, 'shared-graph admission'):
+            summarize({'representation': 'bounded-global-expansion'})
+
     def test_disjoint_roles_and_list_cell_accounting(self):
         def node(tag, role='computational', children=None, literal=0, nominal=0):
             return dict(tag=tag, role=role, children=children or [], literal=literal, nominal=nominal)

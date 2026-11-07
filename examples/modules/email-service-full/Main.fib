@@ -1,0 +1,14 @@
+-- Pure simulation: no email, network or storage operations are performed.
+module Main
+import Delivery
+
+main : IO Unit
+main = do
+  putStrLn (Delivery.transitionText (Delivery.advance Delivery.Queued Delivery.Dispatch))
+  putStrLn (Delivery.transitionText (Delivery.advance Delivery.Sending Delivery.TemporaryFailure))
+  putStrLn (Delivery.transitionText (Delivery.advance Delivery.Deferred Delivery.RetryDue))
+  putStrLn (Delivery.transitionText (Delivery.advance Delivery.Sending Delivery.PermanentFailure))
+  putStrLn (Delivery.transitionText (Delivery.advance Delivery.AcceptedByRelay Delivery.DeliveryConfirmed))
+  putStrLn (Delivery.transitionText (Delivery.advance Delivery.AcceptedByRelay Delivery.BounceReported))
+  putStrLn (Delivery.transitionText (Delivery.advance Delivery.Sending Delivery.AcknowledgementLost))
+  putStrLn (Delivery.transitionText (Delivery.advance Delivery.SubmissionUnknown Delivery.RetryDue))

@@ -8,6 +8,8 @@ typedef struct FEnv FEnv;
 typedef struct FValue FValue;
 typedef FValue *(*FEval)(FRuntime *, FEnv *);
 
+/* Enter a checked closed global under the ordinary step/depth budget. */
+FValue *f_global(FRuntime *r, FEval body);
 FValue *f_unit(FRuntime *r);
 FValue *f_bool(FRuntime *r, int value);
 FValue *f_bool_case(FRuntime *r, FEnv *env, FEval scrutinee, FEval yes, FEval no);

@@ -5,9 +5,12 @@ import Data.Fin
 import Data.List
 import Fibril.Driver.ModuleCheck
 import Fibril.Driver.ModuleGraph
+import Fibril.Core.GlobalTraversal
+import Fibril.Core.Reduction.Work
 import Fibril.Core.Term
 import Fibril.Core.Context
 import Fibril.Core.Quantity
+import Fibril.Core.Runtime
 import Fibril.Core.Erased
 import Fibril.Core.WeakHead
 import Fibril.Core.Size
@@ -52,6 +55,7 @@ node tag role detail literal nominal children =
 
 mutual
   dump : {n : Nat} -> Context n -> String -> Term n -> String
+  dump context role (GlobalRef key) = node "GlobalRef" role [key] 0 0 []
   dump context role (Variable index) = node "Variable" role [finToNat index] (0) (0) ([])
   dump context role (Universe level) = node "Universe" "metadata" [level] (0) (0) ([])
   dump context role UnitType = node "UnitType" "metadata" [] (0) (0) ([])
@@ -121,6 +125,7 @@ mutual
   dump context role (PairValue ty a b) = node "PairValue" role [] (0) (0) ([dump context "metadata" ty] ++ [dump context (fieldRole ty 0) a] ++ [dump context (fieldRole ty 1) b])
   dump context role (Pi q a b) = node "Pi" "metadata" [quantityCode q] (0) (0) ([dump context "metadata" a] ++ [dump (Extend context q a) "metadata" b])
   dump context role (Lambda q a b) = node "Lambda" role [quantityCode q] (0) (0) ([dump context "metadata" a] ++ [dump (Extend context q a) "computational" b])
+  dump context role (Fix ty body) = node "Fix" role [] 0 0 [dump context "metadata" ty, dump (Extend context Unrestricted ty) "computational" body]
   dump context role (Apply a b) = node "Apply" role [] (0) (0) ([dump context "computational" a] ++ [dump context (applicationRole context a) b])
   dump context role (UnitCase a b) = node "UnitCase" role [] (0) (0) ([dump context "computational" a] ++ [dump context "computational" b])
 
@@ -133,11 +138,29 @@ mutual
   arms context role (Nothing :: xs) = node "ListCell" role [0] 0 0 [] :: arms context role xs
   arms context role (Just (q, ty) :: xs) = node "ListCell" role [1, quantityCode q] 0 0 [dump context "metadata" ty] :: arms context role xs
 
-inventory : Term 0 -> String
-inventory term =
-  "{\"core_nodes\":" ++ show (coreNodes term) ++
+inventoryView : String -> Term 0 -> String
+inventoryView representation term =
+  "{\"representation\":\"" ++ representation ++ "\",\"core_nodes\":" ++ show (coreNodes term) ++
   ",\"payload_estimate\":" ++ show (payloadSize term) ++
   ",\"tree\":" ++ dump Empty "computational" term ++ "}"
+
+inventory : Term 0 -> String
+inventory = inventoryView "raw-tree"
+
+-- OFFLINE compatibility adapter for this historical tree-schema observer.
+-- The real compiler/runtime retain shared references. Reserve the complete
+-- immediate syntax before rebuilding it, and cap both depth and cumulative work.
+expandGlobals : Nat -> GlobalContext -> Term n -> CountWork (Term n)
+expandGlobals Z globals term = CountAction (\_ => Nothing)
+expandGlobals (S depth) globals term = do
+  reserveNatural (coreNodes term) (\_ => ())
+  traverseGlobalRefs resolve term
+  where
+    resolve : Nat -> CountWork (Term 0)
+    resolve key = case globalEntry globals key of
+      Nothing => CountAction (\_ => Nothing)
+      Just (q, ty, body) => expandGlobals depth globals
+        (Apply (Lambda (if q == Erased then Erased else Linear) ty (Variable FZ)) body)
 
 -- NatCase itself binds nothing; its successor function carries its own quantity
 -- and Lambda extends the context. The inner erased application needs that context.
@@ -168,5 +191,8 @@ main = do
       checked <- checkProject root entry
       case checked of
         Left err => die (renderGraphError err)
-        Right project => putStrLn (inventory project.term)
+        Right project => case runCountWork
+          (expandGlobals 128 (erasedGlobals project.globals) project.term) 200000 of
+            Nothing => die "Legacy tree audit expansion exhausted its explicit compatibility budget"
+            Just (_, expanded) => putStrLn (inventoryView "bounded-global-expansion" expanded)
     _ => die "usage: audit ROOT ENTRY | audit --nat-case-regression | audit --with-region-regression"

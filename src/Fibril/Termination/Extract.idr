@@ -75,6 +75,10 @@ mutual
     SelfSlot => Left "the recursive function is used other than as the head of a saturated call"
     Partial _ => Left "the recursive function is used other than as the head of a saturated call"
     _ => Right []
+  -- A global is closed and cannot contain this Fix's locally bound self.
+  -- Typing validates its identity against an earlier acyclic environment before
+  -- admission. No decrease is inferred from a global-headed result.
+  walk k env (GlobalRef _) = Right []
   walk k env (Universe _) = Right []
   walk k env UnitType = Right []
   walk k env UnitValue = Right []
@@ -261,3 +265,10 @@ extractFix ty body = case arityOf ty of
   Z => Left "recursive definition must have a function type"
   k => if k > 8 then Left "recursive definition has more than 8 arguments"
        else peel k k [] body
+
+||| Preserve the extractor's supported closed-syntax boundary when a helper is
+||| stored in a checked global environment instead of being embedded at its use.
+||| Global references here are checked separately by the caller's acyclic walk.
+public export
+checkClosedGlobalSyntax : Term 0 -> Either String ()
+checkClosedGlobalSyntax term = () <$ walk 0 [] term

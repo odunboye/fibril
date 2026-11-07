@@ -14,7 +14,7 @@ import Fibril.Core.Term
 ||| Ordinary checking still validates the entire resulting term; these are not axioms.
 public export
 record GlobalDefinition where
-  constructor GlobalEntry
+  constructor StoredGlobalEntry
   provider : Maybe String
   canonicalName : Maybe String
   implicitPrefix : Nat
@@ -22,6 +22,18 @@ record GlobalDefinition where
   name : String
   declaredType : Term 0
   value : Term 0
+  sharedKey : Maybe Nat
+
+||| Compatibility constructor for raw, expanded source globals.
+public export
+GlobalEntry : Maybe String -> Maybe String -> Nat -> Quantity -> String -> Term 0 -> Term 0 -> GlobalDefinition
+GlobalEntry provider canonical count quantity name ty value =
+  StoredGlobalEntry provider canonical count quantity name ty value Nothing
+
+||| Resolver metadata only. The core still requires an independently checked environment.
+public export
+sharedGlobal : Nat -> GlobalDefinition -> GlobalDefinition
+sharedGlobal key entry = { sharedKey := Just key } entry
 
 ||| Compatibility constructors do not opt ordinary globals into provider lookup.
 public export
@@ -51,11 +63,13 @@ lookupGlobal : String -> List GlobalDefinition -> Maybe (Term 0)
 lookupGlobal name [] = Nothing
 lookupGlobal name (entry :: rest) =
   if name == entry.name
-     then case entry.quantity of
+     then case (entry.sharedKey, entry.quantity) of
+       (Just key, Erased) => Just (GlobalRef key)
+       (Just key, Unrestricted) => Just (GlobalRef key)
        -- The erased identity is valid in erased checking, but its body uses its
        -- erased binder once at runtime. Runtime analysis rejects that original
        -- occurrence before any normalization can remove the stage barrier.
-       Erased => Just (Apply (Lambda Erased entry.declaredType (Variable FZ)) entry.value)
-       Unrestricted => Just (Apply (Lambda Linear entry.declaredType (Variable FZ)) entry.value)
-       Linear => Nothing -- No linear global ownership/initialization protocol.
+       (Nothing, Erased) => Just (Apply (Lambda Erased entry.declaredType (Variable FZ)) entry.value)
+       (Nothing, Unrestricted) => Just (Apply (Lambda Linear entry.declaredType (Variable FZ)) entry.value)
+       (_, Linear) => Nothing -- No linear global ownership/initialization protocol.
      else lookupGlobal name rest

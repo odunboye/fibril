@@ -14,6 +14,7 @@ mutual
 
   public export
   thin : (Fin n -> Maybe (Fin m)) -> Term n -> Maybe (Term m)
+  thin env (GlobalRef key) = Just (GlobalRef key)
   thin env (Variable i) = Variable <$> env i
   thin env (Universe level) = Just (Universe level)
   thin env UnitType = Just UnitType
@@ -103,6 +104,7 @@ mutual
   ||| Saturated size of a substitution tree, before building it.
   public export
   substitutionNodes : (Fin n -> Nat) -> Term n -> Nat
+  substitutionNodes env (GlobalRef _) = 1
   substitutionNodes env (Variable i) = min (S inferredResultNodes) (env i)
   substitutionNodes env (Universe _) = 1
   substitutionNodes env UnitType = 1

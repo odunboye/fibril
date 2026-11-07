@@ -1,9 +1,15 @@
+-- Current size reports count reachable shared syntax; historical tree records are separate.
 -- Test adapter only: checks actual source and runs the real binary driver.
 module Harness
 
 import Data.IORef
 import Data.List
 import System
+import Fibril.Core.Quantity
+import Fibril.Core.Term
+import Fibril.Core.Runtime
+import Fibril.Core.Erased
+import Fibril.Core.SharedProgram
 import Fibril.Core.Size
 import Fibril.Elaboration.Expression.Payload
 import Fibril.Data.Bytes
@@ -21,7 +27,10 @@ main = do
   case checked of
     Left err => do putStrLn (renderGraphError err); exitFailure
     Right project => do
-      putStrLn ("SIZE " ++ show (coreNodes project.term) ++ " " ++ show (payloadSize project.term))
+      declarations <- case reachableGlobals project.globals project.term of
+        Left message => do putStrLn message; exitFailure
+        Right declarations => pure declarations
+      putStrLn ("SIZE " ++ show (sharedProgramNodes project.term declarations) ++ " " ++ show (sharedProgramPayload project.term declarations))
       if mode == "measure" then pure () else do
         reads <- newIORef (the Nat 0)
         writes <- newIORef (the Nat 0)
@@ -38,7 +47,7 @@ main = do
               (do
                 modifyIORef flushes S
                 pure (the (Either BinaryError ()) (Right ())))
-        result <- runBinaryTermWith 4096 4096 4096 8388608 host project.term
+        result <- runBinaryTermWithGlobals project.globals 4096 4096 4096 8388608 host project.term
         r <- readIORef reads
         w <- readIORef writes
         f <- readIORef flushes

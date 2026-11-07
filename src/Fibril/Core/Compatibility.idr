@@ -24,3 +24,14 @@ compatibleTypes fuel inferred expected =
     (Normal actual, Normal wanted) =>
       if sameSyntax actual wanted then Compatible else Incompatible
     _ => CompatibilityLimit
+
+||| As above, but transparent globals unfold within the same conversion fuel.
+public export
+compatibleTypesGlobals : (Nat -> Maybe (Term 0)) -> Nat -> Term n -> Term n -> CompatibilityResult
+compatibleTypesGlobals globals fuel inferred expected =
+  case (normalizeGlobals globals fuel inferred, normalizeGlobals globals fuel expected) of
+    (Normal (Universe i), Normal (Universe j)) =>
+      if i <= j then Compatible else Incompatible
+    (Normal actual, Normal wanted) =>
+      if sameSyntax actual wanted then Compatible else Incompatible
+    _ => CompatibilityLimit

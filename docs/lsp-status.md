@@ -11,6 +11,11 @@ bounded parser/lifecycle diagnostics and historical performance evidence. Mergin
 them does not turn those diagnostics into production APIs or rerun historical
 performance measurements on the current compiler.
 
+The [shared checked-global representation](shared-checked-globals.md) is now
+implemented for named modules and their hosted/native execution paths. This does
+not rerun the historical measurements below or deliver a wire-level server;
+composed workloads must be measured again under the explicit shared-graph policy.
+
 ## Implemented Fibril-written foundations
 
 - Checked hosted/native binary IO, immutable Bytes and fallible strict UTF-8
@@ -66,8 +71,8 @@ verification. Those results are not execution evidence for this newer integratio
 
 ## Next work for a Fibril-written server
 
-1. Design and review compiler/source representation and retained-allocation
-   improvements against actual composed entries, while preserving whole-syntax
+1. Re-measure actual composed entries with shared checked globals, then prioritize
+   retained-allocation work from that evidence while preserving whole-syntax
    capability checks, quantities, laziness and count-accounting contracts.
 2. Resolve the proposed byte-span operations' hosted metering, lowering,
    construction and composition gates **before implementation**. The accepted

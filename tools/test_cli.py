@@ -1790,11 +1790,13 @@ main = first Zero
             self.assertEqual(rejected.stdout, '')
             # A large transparent constructor alias is rejected by guarded
             # conversion; naming the original constructor remains available.
+            # Shared bodies fit the syntax cap; spend an extra local beta step
+            # per call to test conversion exhaustion below the parser depth cap.
             expression = 'More value'
             for _ in range(50):
                 expression = 'identity (' + expression + ')'
             budgeted = ('module Main\ndata Chain : Type where\n  Empty : Chain\n  More : (1 rest : Chain) -> Chain\n'
-                        'identity : (1 x : Chain) -> Chain\nidentity x = x\n'
+                        'identity : (1 x : Chain) -> Chain\nidentity x = let (1 copy : Chain) = x in copy\n'
                         'alias : (1 value : Chain) -> Chain\nalias value = ' + expression + '\n'
                         'inspect : (1 value : Chain) -> Chain\ninspect value = case value of\n'
                         '  Empty => Empty\n  alias rest => rest\nmain : IO Unit\nmain = putStrLn "ok"\n')
@@ -3166,10 +3168,11 @@ main = first Zero
             self.assertNotEqual(rejected.returncode, 0)
             self.assertIn('result independent', rejected.stderr)
             self.assertEqual(rejected.stdout, '')
+            # Keep this an actual conversion-budget test with shared bodies.
             expression = 'Prepend h t'
             for _ in range(50):
                 expression = 'identity (' + expression + ')'
-            large = ('identity : (1 value : Items String) -> Items String\nidentity value = value\n'
+            large = ('identity : (1 value : Items String) -> Items String\nidentity value = let (1 copy : Items String) = value in copy\n'
                      'large : (1 h : String) -> (1 t : Items String) -> Items String\nlarge h t = ' + expression + '\n')
             guarded = source.replace('join :', large + 'join :').replace('  Prepend head tail =>', '  large head tail =>')
             path.write_text(guarded)
@@ -3247,10 +3250,12 @@ main = first Zero
             self.assertIn('result independent', rejected.stderr)
             self.assertEqual(rejected.stdout, '')
             # An oversized transparent alias cannot serve as constructor evidence.
+            # Shared bodies fit the syntax cap; spend an extra local beta step
+            # per call to test conversion exhaustion below the parser depth cap.
             expression = 'More value'
             for _ in range(50):
                 expression = 'identity (' + expression + ')'
-            large = ('identity : (1 value : Chain) -> Chain\nidentity value = value\n'
+            large = ('identity : (1 value : Chain) -> Chain\nidentity value = let (1 copy : Chain) = value in copy\n'
                      'large : (1 value : Chain) -> Chain\nlarge value = ' + expression + '\n')
             guarded = source.replace('marks :', large + 'marks :').replace('  More rest =>', '  large rest =>')
             path.write_text(guarded)
@@ -5641,7 +5646,7 @@ main = first Zero
             result = run("check", "--source-dir", str(root), str(entry))
             self.assertNotEqual(result.returncode, 0)
 
-    def test_module_expansion_budget(self):
+    def test_shared_module_reference_chain_does_not_expand(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / "M0.fib").write_text(
@@ -5654,9 +5659,8 @@ main = first Zero
             entry = root / "Main.fib"
             entry.write_text("module Main\nimport M15\nmain : Bool\nmain = M15.f True\n", encoding="utf-8")
             result = run("check", "--source-dir", str(root), str(entry))
-            self.assertNotEqual(result.returncode, 0)
-            self.assertEqual(result.stdout, "")
-            self.assertIn("Expanded core construction budget", result.stderr)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("Module checking: accepted", result.stdout)
 
     def test_qualified_reference_syntax(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -6924,10 +6928,9 @@ main = first Zero
             body = ('choose : (1 x : Choice) -> String\nchoose x = case ((\\(1 y : Choice) => y) x) of\n'
                     '  A => v9\n  B => v9\nmain : IO Unit\nmain = putStrLn "never"\n')
             path.write_text(data + values + body)
-            rejected = run('run', '--source-dir', directory, str(path))
-            self.assertNotEqual(rejected.returncode, 0)
-            self.assertIn('Expanded core construction budget exhausted', rejected.stderr)
-            self.assertEqual(rejected.stdout, '')
+            accepted = run('run', '--source-dir', directory, str(path))
+            self.assertEqual(accepted.returncode, 0, accepted.stdout + accepted.stderr)
+            self.assertEqual(accepted.stdout, 'never\n')
             depth = 15
             nested = data + 'choose : (1 x : Choice) -> String\nchoose x = case x of\n'
             for level in range(depth):

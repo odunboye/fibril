@@ -26,10 +26,13 @@ AcknowledgementLost). It rejects further dispatch from SubmissionUnknown.
 Transition functions consume each status/event once. This is not a proof of the
 complete mail protocol or of the authenticity of incoming events.
 
-A larger state/event model hit current expanded-core admission. We did not raise
-the limit to hide that issue. Shared global references and bounded checking of
-non-inlined programs are application prerequisites. The reduced model is only
-submission handling, not the entire proposed lifecycle below.
+A larger state/event model previously hit expanded-core admission.
+[Shared checked globals](../shared-checked-globals.md) now support the separate
+[eight-state/eight-event model](../../examples/modules/email-service-full/Delivery.fib)
+through hosted execution and generated C without raising the numeric budgets.
+That model includes deferral/retry, failure, delivery, bounce and uncertain
+submission; these are modeled input events, not verified remote outcomes.
+The original reduced demonstration remains a submission-only example.
 
 Use a hosted mail provider directly if you only need to send a few messages and
 do not need a separate gateway, queue, audit workflow or administrative UI.
@@ -182,7 +185,8 @@ execution.
 ## Language/runtime blockers and assurance
 
 - Direct data cases, practical implicit elaboration and recursion/collections.
-- Shared checked globals so ordinary application models do not expand repeatedly.
+- Shared checked globals are implemented for named modules; application-scale
+  normalization, memory behavior and throughput still need measurements.
 - Extend the experimental C backend to the application and establish reproducible build/deployment/runtime contracts.
 - Explicit native ABI, ownership/lifetimes, buffers/strings, allocation/failure and
   cancellation policies; narrow fallible network/storage adapters.

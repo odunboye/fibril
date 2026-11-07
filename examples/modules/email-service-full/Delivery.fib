@@ -1,0 +1,145 @@
+-- Pure state model; input events are not authenticated delivery evidence.
+module Delivery
+
+export
+data Status : Type 0 where
+  eliminator useStatus
+  Queued : Status
+  Sending : Status
+  AcceptedByRelay : Status
+  SubmissionUnknown : Status
+  Deferred : Status
+  Failed : Status
+  Delivered : Status
+  Bounced : Status
+
+export
+data Event : Type 0 where
+  eliminator useEvent
+  Dispatch : Event
+  RelayAccepted : Event
+  AcknowledgementLost : Event
+  TemporaryFailure : Event
+  PermanentFailure : Event
+  DeliveryConfirmed : Event
+  BounceReported : Event
+  RetryDue : Event
+
+export
+data Transition : Type 0 where
+  eliminator useTransition
+  Updated : (1 status : Status) -> Transition
+  Rejected : (1 reason : String) -> Transition
+
+rejected : Transition
+rejected = Rejected "transition rejected"
+
+queued : (1 event : Event) -> Transition
+queued = \(1 event : Event) =>
+  useEvent
+    (\(0 self : Event) =>
+      Transition) event
+    (Updated Sending)
+  rejected
+  rejected
+    rejected
+    rejected
+    rejected
+    rejected
+    rejected
+
+sending : (1 event : Event) -> Transition
+sending = \(1 event : Event) =>
+  useEvent
+    (\(0 self : Event) =>
+      Transition) event
+  rejected
+    (Updated AcceptedByRelay)
+    (Updated SubmissionUnknown)
+    (Updated Deferred)
+    (Updated Failed)
+    rejected
+    rejected
+    rejected
+
+accepted : (1 event : Event) -> Transition
+accepted = \(1 event : Event) =>
+  useEvent
+    (\(0 self : Event) =>
+      Transition) event
+  rejected
+  rejected
+  rejected
+  rejected
+    rejected
+    (Updated Delivered)
+    (Updated Bounced)
+    rejected
+
+deferred : (1 event : Event) -> Transition
+deferred = \(1 event : Event) =>
+  useEvent
+    (\(0 self : Event) =>
+      Transition) event
+  rejected
+  rejected
+  rejected
+  rejected
+    rejected
+    rejected
+    rejected
+    (Updated Queued)
+
+terminal : (1 event : Event) -> Transition
+terminal = \(1 event : Event) =>
+  useEvent
+    (\(0 self : Event) =>
+      Transition) event
+  rejected
+  rejected
+  rejected
+  rejected
+    rejected
+    rejected
+    rejected
+    rejected
+
+export
+advance : (1 status : Status) -> (1 event : Event) -> Transition
+advance = \(1 status : Status) =>
+  \(1 event : Event) =>
+    useStatus
+      (\(0 self : Status) =>
+        ((1 next : Event) -> Transition)) status
+    queued
+      sending
+      accepted
+      terminal
+      deferred
+      terminal
+      terminal
+      terminal
+      event
+
+export
+statusText : (1 status : Status) -> String
+statusText = \(1 status : Status) =>
+  useStatus
+    (\(0 self : Status) =>
+      String) status
+  "queued" "sending" "accepted by relay"
+    "submission unknown"
+    "deferred"
+    "failed"
+    "delivered"
+    "bounced"
+
+export
+transitionText : (1 result : Transition) -> String
+transitionText = \(1 result : Transition) =>
+  useTransition
+    (\(0 self : Transition) =>
+      String) result
+  statusText
+    (\(1 reason : String) =>
+      reason)

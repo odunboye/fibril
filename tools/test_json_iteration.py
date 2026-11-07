@@ -81,7 +81,7 @@ class JSONIteration(unittest.TestCase):
         env['IDRIS2_PACKAGE_PATH'] = str(installed.parent) + os.pathsep + env['IDRIS2_PACKAGE_PATH']
         # Exact observer insertion, no rewritten evaluator decisions or budgets.
         driver = (ROOT / 'src/Fibril/Driver/Binary.idr').read_text()
-        needle = '        response <- execute depth fuel transport (Apply step ready)'
+        needle = '        response <- executeGlobals globals depth fuel transport (Apply step ready)'
         assert driver.count(needle) == 1
         driver = driver.replace('module Fibril.Driver.Binary\n', 'module ObservedBinaryDriver\n', 1)
         driver = driver.replace(needle, '        putStrLn "CALLBACK"\n' + needle)

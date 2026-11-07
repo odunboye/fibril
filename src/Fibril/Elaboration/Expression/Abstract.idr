@@ -13,6 +13,7 @@ mutual
     if sameSyntax target term then Variable hole else descend env hole target term
 
   descend : (Fin n -> Fin m) -> Fin m -> Term n -> Term n -> Term m
+  descend env hole target (GlobalRef key) = GlobalRef key
   descend env hole target (Variable i) = Variable (env i)
   descend env hole target (Universe l) = Universe l
   descend env hole target UnitType = UnitType

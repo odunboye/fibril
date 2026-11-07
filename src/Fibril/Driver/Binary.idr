@@ -2,8 +2,12 @@
 module Fibril.Driver.Binary
 
 import Data.IORef
+import Data.List
+import Fibril.Core.Erased
+import Fibril.Core.SharedProgram
 import System.File
 import Fibril.Data.Bytes
+import Fibril.Core.Quantity
 import Fibril.Core.Term
 import Fibril.Core.Context
 import Fibril.Core.Runtime
@@ -51,22 +55,26 @@ Show BinaryRunError where
   show BinaryUnsupported = "Unsupported binary IO description"
   show (BinaryTransportFailure err) = show err
 
-validate : Term 0 -> Term 0 -> Either BinaryRunError ()
-validate term ty = case checkRuntime checkingDepth typeReductionFuel Empty term ty of
+validateGlobals : RuntimeGlobals -> Term 0 -> Term 0 -> Either BinaryRunError ()
+validateGlobals globals term ty = case checkRuntimeGlobals globals checkingDepth typeReductionFuel Empty term ty of
   Left err => Left (BinaryTyping err)
   Right _ => Right ()
 
-normal : Nat -> Term 0 -> Either BinaryRunError (Term 0)
-normal fuel term = case normalize fuel term of
+normalGlobals : RuntimeGlobals -> Nat -> Term 0 -> Either BinaryRunError (Term 0)
+normalGlobals globals fuel term = case normalizeGlobals (globalValue (erasedGlobals globals)) fuel term of
   OutOfFuel _ => Left BinaryReductionLimit
   Normal value => Right value
 
 public export
-prepareBinary : Term 0 -> Either BinaryRunError ()
-prepareBinary term = do
-  if containsNonBinaryIO term || coreNodes term > 8192 || payloadSize term > payloadLimit
+prepareBinaryGlobals : RuntimeGlobals -> Term 0 -> Either BinaryRunError ()
+prepareBinaryGlobals globals term = do
+  declarations <- case reachableGlobals globals term of
+    Left _ => Left BinaryEntryAdmission
+    Right declarations => Right declarations
+  let syntax : List (Term 0) = term :: concatMap (\(_, _, ty, body) => [ty, body]) declarations
+  if any (containsNonBinaryIO . maskGlobalRefs) syntax || sharedProgramNodes term declarations > 8192 || sharedProgramPayload term declarations > payloadLimit
     then Left BinaryEntryAdmission else Right ()
-  validate term (IOType UnitType)
+  validateGlobals globals term (IOType UnitType)
 
 responseValue : Maybe Bytes -> Term 0
 responseValue Nothing = VariantValue byteReadResultType 0 Nothing
@@ -78,36 +86,36 @@ liftTransport (Right value) = Right value
 
 -- prepareBinary checks the original compact syntax. Re-inferring a decoded
 -- unary count here would impose checkingDepth on an execution representation.
-checkDescription : Term 0 -> Either BinaryRunError ()
-checkDescription (IterateBinary _ _ _ _ _) = Right ()
-checkDescription head = case inferRuntime checkingDepth typeReductionFuel Empty head of
+checkDescriptionGlobals : RuntimeGlobals -> Term 0 -> Either BinaryRunError ()
+checkDescriptionGlobals globals (IterateBinary _ _ _ _ _) = Right ()
+checkDescriptionGlobals globals head = case inferRuntimeGlobals globals checkingDepth typeReductionFuel Empty head of
   Left err => Left (BinaryTyping err)
   Right _ => Right ()
 
 mutual
   covering
-  execute : Nat -> Nat -> BinaryTransport -> Term 0 -> IO (Either BinaryRunError (Term 0))
-  execute Z fuel transport term = pure (Left BinaryDepthLimit)
-  execute (S depth) fuel transport term = case weakHead fuel term of
+  executeGlobals : RuntimeGlobals -> Nat -> Nat -> BinaryTransport -> Term 0 -> IO (Either BinaryRunError (Term 0))
+  executeGlobals globals Z fuel transport term = pure (Left BinaryDepthLimit)
+  executeGlobals globals (S depth) fuel transport term = case weakHeadGlobals (globalValue (erasedGlobals globals)) fuel term of
     HeadLimit _ => pure (Left BinaryReductionLimit)
-    HeadForm head => case checkDescription head of
+    HeadForm head => case checkDescriptionGlobals globals head of
       Left err => pure (Left err)
       Right () => case head of
-        IterateBinary stateType resultType count step initial => case decodeBinaryCount fuel count of
+        IterateBinary stateType resultType count step initial => case decodeBinaryCountGlobals (globalValue (erasedGlobals globals)) fuel count of
           Left CountReductionLimit => pure (Left BinaryReductionLimit)
           Left CountExpectedNat => pure (Left BinaryExpectedNat)
-          Right limit => iterate depth fuel transport stateType resultType limit step initial
+          Right limit => iterateGlobals globals depth fuel transport stateType resultType limit step initial
         IOPure value => pure (Right value)
-        ReadBytes capacity => case normal fuel capacity >>= maybe (Left BinaryExpectedNat) Right . canonicalNatural of
+        ReadBytes capacity => case normalGlobals globals fuel capacity >>= maybe (Left BinaryExpectedNat) Right . canonicalNatural of
           Left err => pure (Left err)
           Right size => do
             result <- readBytes size transport
             pure $ do
               bytes <- liftTransport result
               let value = responseValue bytes
-              validate value byteReadResultType
+              validateGlobals globals value byteReadResultType
               Right value
-        WriteBytes dataTerm => case normal fuel dataTerm of
+        WriteBytes dataTerm => case normalGlobals globals fuel dataTerm of
           Left err => pure (Left err)
           Right (BytesValue bytes) => do
             result <- writeBytes bytes transport
@@ -118,33 +126,33 @@ mutual
           result <- flushBytes transport
           pure (UnitValue <$ liftTransport result)
         IOBind a b action next => do
-          first <- execute depth fuel transport action
-          case first >>= (\value => value <$ validate value a) of
+          first <- executeGlobals globals depth fuel transport action
+          case first >>= (\value => value <$ validateGlobals globals value a) of
             Left err => pure (Left err)
             Right value => do
-              following <- execute depth fuel transport (Apply next value)
-              pure (following >>= (\result => result <$ validate result b))
+              following <- executeGlobals globals depth fuel transport (Apply next value)
+              pure (following >>= (\result => result <$ validateGlobals globals result b))
         _ => pure (Left BinaryUnsupported)
 
   covering
-  iterate : Nat -> Nat -> BinaryTransport -> Term 0 -> Term 0 -> Nat -> Term 0 -> Term 0 ->
+  iterateGlobals : RuntimeGlobals -> Nat -> Nat -> BinaryTransport -> Term 0 -> Term 0 -> Nat -> Term 0 -> Term 0 ->
             IO (Either BinaryRunError (Term 0))
-  iterate depth fuel transport stateType resultType Z step state =
+  iterateGlobals globals depth fuel transport stateType resultType Z step state =
     pure (Right (VariantValue (loopVariantType stateType resultType) 1 (Just state)))
-  iterate Z fuel transport stateType resultType (S limit) step state = pure (Left BinaryDepthLimit)
-  iterate (S depth) fuel transport stateType resultType (S limit) step state =
-    case weakHead fuel state of
+  iterateGlobals globals Z fuel transport stateType resultType (S limit) step state = pure (Left BinaryDepthLimit)
+  iterateGlobals globals (S depth) fuel transport stateType resultType (S limit) step state =
+    case weakHeadGlobals (globalValue (erasedGlobals globals)) fuel state of
       HeadLimit _ => pure (Left BinaryReductionLimit)
       HeadForm ready => do
-        response <- execute depth fuel transport (Apply step ready)
+        response <- executeGlobals globals depth fuel transport (Apply step ready)
         case response of
           Left err => pure (Left err)
-          Right value => case weakHead fuel value of
+          Right value => case weakHeadGlobals (globalValue (erasedGlobals globals)) fuel value of
             HeadLimit _ => pure (Left BinaryReductionLimit)
             HeadForm (VariantValue _ 0 (Just result)) =>
               pure (Right (VariantValue (loopVariantType stateType resultType) 0 (Just result)))
             HeadForm (VariantValue _ 1 (Just next)) =>
-              iterate depth fuel transport stateType resultType limit step next
+              iterateGlobals globals depth fuel transport stateType resultType limit step next
             _ => pure (Left BinaryExpectedLoopStep)
 
 ||| The optional driver error carries non-transport failure across the trusted
@@ -152,19 +160,19 @@ mutual
 ||| Physical errors remain BinaryError values, including consumed read prefixes.
 public export
 covering
-runBinaryTermWith : Nat -> Nat -> Nat -> Nat -> BinaryAdapters -> Term 0 -> IO (Either BinaryRunError ())
-runBinaryTermWith depth fuel requests capacity host term =
+runBinaryTermWithGlobals : RuntimeGlobals -> Nat -> Nat -> Nat -> Nat -> BinaryAdapters -> Term 0 -> IO (Either BinaryRunError ())
+runBinaryTermWithGlobals globals depth fuel requests capacity host term =
   if depth > 8192 || fuel > 100000 then pure (Left BinaryEntryAdmission) else
-  case prepareBinary term of
+  case prepareBinaryGlobals globals term of
     Left err => pure (Left err)
     Right () => do
       driverFailure <- newIORef Nothing
       result <- withBinaryAdapters requests capacity host $ \transport => do
-        interpreted <- execute depth fuel transport term
+        interpreted <- executeGlobals globals depth fuel transport term
         let completed = do
               value <- interpreted
-              value <- normal fuel value
-              validate value UnitType
+              value <- normalGlobals globals fuel value
+              validateGlobals globals value UnitType
               case value of
                 UnitValue => Right ()
                 _ => Left BinaryExpectedUnit
@@ -181,6 +189,18 @@ runBinaryTermWith depth fuel requests capacity host term =
           Left err => Left (BinaryTransportFailure err)
           Right () => Right ()
 
+
+public export
+covering
+prepareBinary : Term 0 -> Either BinaryRunError ()
+prepareBinary = prepareBinaryGlobals emptyRuntimeGlobals
+
+
+public export
+covering
+runBinaryTermWith : Nat -> Nat -> Nat -> Nat -> BinaryAdapters -> Term 0 -> IO (Either BinaryRunError ())
+runBinaryTermWith = runBinaryTermWithGlobals emptyRuntimeGlobals
+
 public export
 covering
 runBinaryProject : String -> String -> IO (Either String ())
@@ -189,7 +209,7 @@ runBinaryProject root entry = do
   case checked of
     Left err => pure (Left (renderGraphError err))
     Right project => do
-      result <- runBinaryTermWith 4096 4096 4096 8388608 (stdioBinary stdin stdout) project.term
+      result <- runBinaryTermWithGlobals project.globals 4096 4096 4096 8388608 (stdioBinary stdin stdout) project.term
       pure $ case result of
         Left err => Left (show err)
         Right () => Right ()

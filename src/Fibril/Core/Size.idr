@@ -11,6 +11,7 @@ mutual
   ||| This is a structural counter, not an allocation/time bound.
   public export
   coreNodes : Term n -> Nat
+  coreNodes (GlobalRef _) = 1
   coreNodes (Variable _) = 1
   coreNodes (Universe _) = 1
   coreNodes UnitType = 1
@@ -99,6 +100,7 @@ mutual
   ||| Does not resolve globals, inspect variable meanings or establish positivity.
   public export
   mentionsNominal : String -> Term n -> Bool
+  mentionsNominal key (GlobalRef _) = True
   mentionsNominal key (Variable _) = False
   mentionsNominal key (Universe _) = False
   mentionsNominal key UnitType = False

@@ -82,6 +82,11 @@ static FValue *evaluate(FRuntime *r, FEval code, FEnv *env) {
   FValue *result = code(r, env);
   r->depth--; return result;
 }
+
+FValue *f_global(FRuntime *r, FEval body) {
+  if (!body) { fail(r, "missing native global body"); return NULL; }
+  return evaluate(r, body, NULL);
+}
 static FValue *new_value(FRuntime *r, FTag tag) {
   FValue *v = allocate(r, sizeof(*v));
   if (v) { memset(v, 0, sizeof(*v)); v->tag = tag; }

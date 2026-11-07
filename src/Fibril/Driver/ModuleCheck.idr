@@ -92,7 +92,7 @@ validImplicitPrefix _ _ _ = False
 referenceCost : List Weighted -> String -> Nat
 referenceCost [] name = 1
 referenceCost (entry :: rest) name =
-  if entry.global.name == name then entry.size else referenceCost rest name
+  if entry.global.name == name then (case entry.global.sharedKey of Just _ => 1; Nothing => entry.size) else referenceCost rest name
 
 providerCost : List Weighted -> Nat
 providerCost [] = 0
@@ -222,6 +222,7 @@ record Compiled where
   exports : List Weighted
   sites : List RecursiveSite
   remaining : Nat
+  checkedGlobals : RuntimeGlobals
 
 public export
 record CheckedProject where
@@ -232,6 +233,7 @@ record CheckedProject where
   recursiveSites : List RecursiveSite
   ||| Checked visible export spelling and canonical origin for dependency modules.
   checkedExports : List (List String, List (String, String))
+  globals : RuntimeGlobals
 
 exportIndex : List Interface -> List (List String, List (String, String))
 exportIndex interfaces = map (\entry => (entry.name, mapMaybe exportedName entry.bindings)) interfaces
@@ -246,8 +248,8 @@ problem snapshot point message =
 moduleText : List String -> String
 moduleText names = concat (intersperse "." names)
 
-resolve : ModuleSnapshot -> List Weighted -> Expr -> Either GraphError (Term 0)
-resolve snapshot globals expression = case elaborateClosedWith (map global globals) expression of
+resolveGlobals : RuntimeGlobals -> ModuleSnapshot -> List Weighted -> Expr -> Either GraphError (Term 0)
+resolveGlobals shared snapshot globals expression = case elaborateClosedWithGlobals (erasedGlobals shared) (map global globals) expression of
   Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
   Right term => Right term
 
@@ -304,19 +306,19 @@ checkFailure snapshot decl value stage label detail =
                   concat (intersperse ", " (map (\call => showPoint call.span.start) calls)) ++ ")")
 
 -- True identifies a closed dictionary value; factories are explicit-only.
-dictionarySignature : Nat -> Term n -> Either String Bool
-dictionarySignature Z ty = Left "Implementation signature checking depth exhausted"
-dictionarySignature (S depth) ty = case weakHead typeReductionFuel ty of
+dictionarySignatureGlobals : RuntimeGlobals -> Nat -> Term n -> Either String Bool
+dictionarySignatureGlobals shared Z ty = Left "Implementation signature checking depth exhausted"
+dictionarySignatureGlobals shared (S depth) ty = case weakHeadGlobals (globalValue (erasedGlobals shared)) typeReductionFuel ty of
   HeadLimit _ => Left "Implementation dictionary type reduction budget exhausted"
   HeadForm (BoxType _ _) => Right True
   HeadForm (Sigma _ _ _ _) => Right True
   HeadForm (Pi q domain result) => do
-    if q == Erased then Right () else case weakHead typeReductionFuel domain of
+    if q == Erased then Right () else case weakHeadGlobals (globalValue (erasedGlobals shared)) typeReductionFuel domain of
       HeadForm (BoxType _ _) => Right ()
       HeadForm (Sigma _ _ _ _) => Right ()
       HeadLimit _ => Left "Implementation factory parameter type reduction budget exhausted"
       _ => Left "Runtime implementation factory parameters must be dictionary-shaped"
-    _ <- dictionarySignature depth result
+    _ <- dictionarySignatureGlobals shared depth result
     Right False
   HeadForm _ => Left "Implementation signature must be a dictionary-shaped unary or dependent-pair type, or a factory returning one"
 
@@ -515,8 +517,8 @@ structuralCallPresent name predecessor (NIf _ condition yes no) =
 structuralCallPresent _ _ _ = False
 
 private
-natRecursiveEquation : List Weighted -> String -> Term 0 -> Expr -> Either ResolveError (Maybe (Term 0))
-natRecursiveEquation globals name ty (NEquationLambda _ [argument] _
+natRecursiveEquationGlobals : RuntimeGlobals -> List Weighted -> String -> Term 0 -> Expr -> Either ResolveError (Maybe (Term 0))
+natRecursiveEquationGlobals shared globals name ty (NEquationLambda _ [argument] _
   (NDataCase span (NRef _ scrutinee) Nothing [(first, firstBinder, firstBody), (second, secondBinder, secondBody)])) = do
   if name == "Zero" || name == "Succ" || argument.spelling == "_" || argument.spelling == name ||
      argument.spelling == "Zero" || argument.spelling == "Succ" ||
@@ -532,7 +534,7 @@ natRecursiveEquation globals name ty (NEquationLambda _ [argument] _
   if not hasCall then Right Nothing else do
   -- Never reduce an unchecked signature without the guarded node/payload
   -- admission used by speculative conversion. Exhaustion is inconclusive.
-  case guardedNormal typeReductionFuel ty of
+  case guardedNormalGlobals (erasedGlobals shared) typeReductionFuel ty of
     Just (Pi Linear NatType result) => case dropNewest result of
       Nothing => Left (CannotElaborate span.start "Structural Nat equations require a result independent of the argument")
       Just resultType => do
@@ -550,24 +552,24 @@ natRecursiveEquation globals name ty (NEquationLambda _ [argument] _
           Just (True, value) => Right value
           _ => Left (CannotElaborate (extent body).start "Structural successor arm needs direct calls on the predecessor along exclusive paths and supported binder-free syntax")
         let checkedGlobals = map global globals
-        zero <- elaborateExpected checkedGlobals Empty [] resultType baseExpr
+        zero <- elaborateExpectedGlobals (erasedGlobals shared) checkedGlobals Empty [] resultType baseExpr
         let stepContext = Extend (Extend Empty Erased NatType) Linear (weaken resultType)
-        successor <- elaborateExpected checkedGlobals stepContext [recursiveResultName, "$nat.predecessor"]
+        successor <- elaborateExpectedGlobals (erasedGlobals shared) checkedGlobals stepContext [recursiveResultName, "$nat.predecessor"]
                         (weaken (weaken resultType)) stepExpr
         let motive : Term 1 = Lambda Erased NatType (weaken (weaken resultType))
         let branch : Term 1 = weaken (Lambda Erased NatType (Lambda Linear (weaken resultType) successor))
         Right (Just (Lambda Linear NatType (NatRec motive (weaken zero) branch (Variable FZ))))
     _ => Right Nothing
-natRecursiveEquation _ _ _ _ = Right Nothing
+natRecursiveEquationGlobals shared _ _ _ _ = Right Nothing
 
 -- Constructor spelling and schema metadata are not evidence: use only visible
 -- unrestricted checked globals whose normalized values match this exact family.
 private
-recursiveConstructorTag : List Weighted -> String -> String -> Maybe Nat
-recursiveConstructorTag globals key name = do
+recursiveConstructorTagGlobals : RuntimeGlobals -> List Weighted -> String -> String -> Maybe Nat
+recursiveConstructorTagGlobals shared globals key name = do
   entry <- find (\item => item.global.name == name) globals
   if entry.global.quantity /= Unrestricted then Nothing else do
-    value <- guardedNormal typeReductionFuel entry.global.value
+    value <- guardedNormalGlobals (erasedGlobals shared) typeReductionFuel entry.global.value
     if sameSyntax value (RecEnd (RecType key)) then Just 0 else
       if sameSyntax value (Lambda Linear (RecType key) (RecMore (RecType key) (Variable FZ)))
         then Just 1 else Nothing
@@ -589,16 +591,16 @@ polymorphicCallPresent _ _ _ = False
 
 
 private
-unaryRecursiveEquation : List Weighted -> String -> Term 0 -> Expr -> Either ResolveError (Maybe (Term 0))
-unaryRecursiveEquation globals name ty (NEquationLambda _ [argument] _
+unaryRecursiveEquationGlobals : RuntimeGlobals -> List Weighted -> String -> Term 0 -> Expr -> Either ResolveError (Maybe (Term 0))
+unaryRecursiveEquationGlobals shared globals name ty (NEquationLambda _ [argument] _
   (NDataCase span (NRef _ scrutinee) Nothing [(first, firstBinder, firstBody), (second, secondBinder, secondBody)])) = do
   if argument.spelling == "_" || argument.spelling == name || scrutinee /= argument.spelling ||
      isJust (find (\entry => entry.global.name == name) globals) ||
      not (null (qualifiedCandidates name (map global globals))) then Right Nothing else do
-  case guardedNormal typeReductionFuel ty of
+  case guardedNormalGlobals (erasedGlobals shared) typeReductionFuel ty of
     Just (Pi Linear family@(RecType key) result) =>
-      case (recursiveConstructorTag globals key first.spelling, firstBinder,
-            recursiveConstructorTag globals key second.spelling, secondBinder) of
+      case (recursiveConstructorTagGlobals shared globals key first.spelling, firstBinder,
+            recursiveConstructorTagGlobals shared globals key second.spelling, secondBinder) of
         (Just 0, [], Just 1, [predecessor]) => lower family result firstBody predecessor secondBody
         (Just 1, [predecessor], Just 0, []) => lower family result secondBody predecessor firstBody
         _ => Right Nothing
@@ -619,36 +621,36 @@ unaryRecursiveEquation globals name ty (NEquationLambda _ [argument] _
             Nothing => Left (CannotElaborate span.start "Structural recursive equations require a result independent of the argument")
             Just resultType => Right resultType
           let checkedGlobals = map global globals
-          baseTerm <- elaborateExpected checkedGlobals Empty [] resultType baseExpr
+          baseTerm <- elaborateExpectedGlobals (erasedGlobals shared) checkedGlobals Empty [] resultType baseExpr
           let stepContext = Extend (Extend Empty Erased family) Linear (weaken resultType)
-          stepTerm <- elaborateExpected checkedGlobals stepContext [recursiveResultName, "$rec.predecessor"]
+          stepTerm <- elaborateExpectedGlobals (erasedGlobals shared) checkedGlobals stepContext [recursiveResultName, "$rec.predecessor"]
                         (weaken (weaken resultType)) stepExpr
           let motive : Term 1 = Lambda Erased (weaken family) (weaken (weaken resultType))
           let branch : Term 1 = weaken (Lambda Erased family (Lambda Linear (weaken resultType) stepTerm))
           Right (Just (Lambda Linear family (RecFold motive (weaken baseTerm) branch (Variable FZ))))
         _ => Right Nothing
-unaryRecursiveEquation _ _ _ _ = Right Nothing
+unaryRecursiveEquationGlobals shared _ _ _ _ = Right Nothing
 
 -- Share the exact guarded comparison used for direct sequence cases.
 private
-sequenceConstructorTag : List Weighted -> Context n -> Term n -> Term n -> Token -> Maybe Nat
-sequenceConstructorTag globals context family element name = do
+sequenceConstructorTagGlobals : RuntimeGlobals -> List Weighted -> Context n -> Term n -> Term n -> Token -> Maybe Nat
+sequenceConstructorTagGlobals shared globals context family element name = do
   entry <- find (\item => item.global.name == name.spelling) globals
-  case checkedSequenceConstructor name.span.start context family element entry.global of
+  case checkedSequenceConstructorGlobals (erasedGlobals shared) name.span.start context family element entry.global of
     Right tag => Just tag
     Left _ => Nothing
 
 private
-sequenceRecursiveEquation : List Weighted -> String -> Term 0 -> Expr -> Either ResolveError (Maybe (Term 0))
-sequenceRecursiveEquation globals name ty (NEquationLambda _ [argument] _
+sequenceRecursiveEquationGlobals : RuntimeGlobals -> List Weighted -> String -> Term 0 -> Expr -> Either ResolveError (Maybe (Term 0))
+sequenceRecursiveEquationGlobals shared globals name ty (NEquationLambda _ [argument] _
   (NDataCase span (NRef _ scrutinee) Nothing [(first, firstBinder, firstBody), (second, secondBinder, secondBody)])) = do
   if argument.spelling == "_" || argument.spelling == name || scrutinee /= argument.spelling ||
      isJust (find (\entry => entry.global.name == name) globals) ||
      not (null (qualifiedCandidates name (map global globals))) then Right Nothing else do
-  case guardedNormal typeReductionFuel ty of
+  case guardedNormalGlobals (erasedGlobals shared) typeReductionFuel ty of
     Just (Pi Linear family@(SeqType _ element) result) =>
-      case (sequenceConstructorTag globals Empty family element first, firstBinder,
-            sequenceConstructorTag globals Empty family element second, secondBinder) of
+      case (sequenceConstructorTagGlobals shared globals Empty family element first, firstBinder,
+            sequenceConstructorTagGlobals shared globals Empty family element second, secondBinder) of
         (Just 0, [], Just 1, [head, tail]) => lower family element result firstBody head tail secondBody
         (Just 1, [head, tail], Just 0, []) => lower family element result secondBody head tail firstBody
         _ => Right Nothing
@@ -672,31 +674,31 @@ sequenceRecursiveEquation globals name ty (NEquationLambda _ [argument] _
             Nothing => Left (CannotElaborate span.start "Structural sequence equations require a result independent of the argument")
             Just resultType => Right resultType
           let checkedGlobals = map global globals
-          baseTerm <- elaborateExpected checkedGlobals Empty [] resultType baseExpr
+          baseTerm <- elaborateExpectedGlobals (erasedGlobals shared) checkedGlobals Empty [] resultType baseExpr
           let stepContext = Extend (Extend (Extend Empty Linear element) Erased (weaken family)) Linear (weaken (weaken resultType))
-          stepTerm <- elaborateExpected checkedGlobals stepContext [recursiveResultName, "$seq.tail", head.spelling]
+          stepTerm <- elaborateExpectedGlobals (erasedGlobals shared) checkedGlobals stepContext [recursiveResultName, "$seq.tail", head.spelling]
                         (weaken (weaken (weaken resultType))) stepExpr
           let motive : Term 1 = Lambda Erased (weaken family) (weaken (weaken resultType))
           let step : Term 0 = Lambda Linear element (Lambda Erased (weaken family)
                                 (Lambda Linear (weaken (weaken resultType)) stepTerm))
           Right (Just (Lambda Linear family (SeqFold motive (weaken baseTerm) (weaken step) (Variable FZ))))
         _ => Right Nothing
-sequenceRecursiveEquation _ _ _ _ = Right Nothing
+sequenceRecursiveEquationGlobals shared _ _ _ _ = Right Nothing
 
 private
-polymorphicSequenceEquation : List Weighted -> String -> Bool -> Term 0 -> Expr -> Either ResolveError (Maybe (Term 0))
-polymorphicSequenceEquation globals name inferred ty (NEquationLambda _ [param, argument] _
+polymorphicSequenceEquationGlobals : RuntimeGlobals -> List Weighted -> String -> Bool -> Term 0 -> Expr -> Either ResolveError (Maybe (Term 0))
+polymorphicSequenceEquationGlobals shared globals name inferred ty (NEquationLambda _ [param, argument] _
   (NDataCase span (NRef _ scrutinee) Nothing [(first, firstBinder, firstBody), (second, secondBinder, secondBody)])) = do
   if param.spelling == "_" || argument.spelling == "_" ||
      param.spelling == name || argument.spelling == name || param.spelling == argument.spelling ||
      scrutinee /= argument.spelling || isJust (find (\entry => entry.global.name == name) globals) ||
      not (null (qualifiedCandidates name (map global globals))) then Right Nothing else do
-  case guardedNormal typeReductionFuel ty of
+  case guardedNormalGlobals (erasedGlobals shared) typeReductionFuel ty of
     Just (Pi Erased (Universe 0) (Pi Linear family@(SeqType _ (Variable FZ)) result)) =>
       let context = Extend Empty Erased (Universe 0)
           element = Variable FZ in
-      case (sequenceConstructorTag globals context family element first, firstBinder,
-            sequenceConstructorTag globals context family element second, secondBinder) of
+      case (sequenceConstructorTagGlobals shared globals context family element first, firstBinder,
+            sequenceConstructorTagGlobals shared globals context family element second, secondBinder) of
         (Just 0, [], Just 1, [head, tail]) => lower context family element result firstBody head tail secondBody
         (Just 1, [head, tail], Just 0, []) => lower context family element result secondBody head tail firstBody
         _ => Right Nothing
@@ -721,9 +723,9 @@ polymorphicSequenceEquation globals name inferred ty (NEquationLambda _ [param, 
             Nothing => Left (CannotElaborate span.start "Structural sequence equations require a result independent of the argument")
             Just resultType => Right resultType
           let checkedGlobals = map global globals
-          baseTerm <- elaborateExpected checkedGlobals context [param.spelling] resultType baseExpr
+          baseTerm <- elaborateExpectedGlobals (erasedGlobals shared) checkedGlobals context [param.spelling] resultType baseExpr
           let stepContext = Extend (Extend (Extend context Linear element) Erased (weaken family)) Linear (weaken (weaken resultType))
-          stepTerm <- elaborateExpected checkedGlobals stepContext [recursiveResultName, "$seq.tail", head.spelling, param.spelling]
+          stepTerm <- elaborateExpectedGlobals (erasedGlobals shared) checkedGlobals stepContext [recursiveResultName, "$seq.tail", head.spelling, param.spelling]
                         (weaken (weaken (weaken resultType))) stepExpr
           let motive : Term 2 = Lambda Erased (weaken family) (weaken (weaken resultType))
           let step : Term 1 = Lambda Linear element (Lambda Erased (weaken family)
@@ -731,17 +733,17 @@ polymorphicSequenceEquation globals name inferred ty (NEquationLambda _ [param, 
           let body : Term 1 = Lambda Linear family (SeqFold motive (weaken baseTerm) (weaken step) (Variable FZ))
           Right (Just (Lambda Erased (Universe 0) body))
         _ => Right Nothing
-polymorphicSequenceEquation _ _ _ _ _ = Right Nothing
+polymorphicSequenceEquationGlobals shared _ _ _ _ _ = Right Nothing
 
 -- A deliberately bounded accumulator form. It elaborates the authored update
 -- into an ordinary function-valued fold; no termination graph is trusted.
 private
-accumulatorCall : Bool -> String -> List (Bool, String) -> String -> Expr -> Maybe Expr
-accumulatorCall True name reversed tail (NApply _ (NApply _ function (NRef _ suppliedTail)) update) =
+accumulatorCallGlobals : RuntimeGlobals -> Bool -> String -> List (Bool, String) -> String -> Expr -> Maybe Expr
+accumulatorCallGlobals shared True name reversed tail (NApply _ (NApply _ function (NRef _ suppliedTail)) update) =
   if suppliedTail == tail && isJust (peelUniformCall name reversed function) then Just update else Nothing
-accumulatorCall False name reversed tail (NApply _ (NApply _ function update) (NRef _ suppliedTail)) =
+accumulatorCallGlobals shared False name reversed tail (NApply _ (NApply _ function update) (NRef _ suppliedTail)) =
   if suppliedTail == tail && isJust (peelUniformCall name reversed function) then Just update else Nothing
-accumulatorCall _ _ _ _ _ = Nothing
+accumulatorCallGlobals shared _ _ _ _ _ = Nothing
 
 -- Do not let a removed input/tail/self binder resolve to a same-named global.
 -- Binder-containing or otherwise unsupported source forms fail closed.
@@ -776,8 +778,8 @@ accumulatorScope (FS FZ) = FS (FS (FS FZ))
 accumulatorScope (FS (FS index)) = FS (FS (FS (FS index)))
 
 private
-accumulatorSequenceEquation : List Weighted -> String -> Nat -> Term 0 -> Expr -> Either ResolveError (Maybe (Term 0))
-accumulatorSequenceEquation globals name implicitCount ty (NEquationLambda _ names _
+accumulatorSequenceEquationGlobals : RuntimeGlobals -> List Weighted -> String -> Nat -> Term 0 -> Expr -> Either ResolveError (Maybe (Term 0))
+accumulatorSequenceEquationGlobals shared globals name implicitCount ty (NEquationLambda _ names _
   (NDataCase _ (NRef _ scrutinee) Nothing [(first, firstBinder, firstBody), (second, secondBinder, secondBody)])) =
   case reverse names of
     secondArg :: firstArg :: reversedParams =>
@@ -787,7 +789,7 @@ accumulatorSequenceEquation globals name implicitCount ty (NEquationLambda _ nam
          any (== "_") initial || length (nub initial) /= length initial ||
          isJust (find (\entry => entry.global.name == name) globals) ||
          not (null (qualifiedCandidates name (map global globals))) then Right Nothing else
-        case guardedNormal typeReductionFuel ty of
+        case guardedNormalGlobals (erasedGlobals shared) typeReductionFuel ty of
           Just exposed => walk firstArg secondArg params Empty [] params (prefixModes implicitCount params) exposed
           Nothing => Right Nothing
     _ => Right Nothing
@@ -800,7 +802,7 @@ accumulatorSequenceEquation globals name implicitCount ty (NEquationLambda _ nam
       if any (== "_") names || length (nub names) /= length names ||
          any (\entry => entry == first.spelling || entry == second.spelling) names
         then Right Nothing else do
-      case accumulatorCall listFirst name reversed tail.spelling body of
+      case accumulatorCallGlobals shared listFirst name reversed tail.spelling body of
         Just update =>
           if not (accumulatorUpdateSafe [name, argument.spelling, recursiveResultName] base) ||
              not (accumulatorUpdateSafe [name, argument.spelling, tail.spelling, recursiveResultName] update)
@@ -808,17 +810,17 @@ accumulatorSequenceEquation globals name implicitCount ty (NEquationLambda _ nam
               -- Elaborate both authored expressions under exactly the locals
               -- available to their generated continuations, then check usage.
               let baseContext = Extend context Linear accType
-              baseBody <- elaborateExpected (map global globals) baseContext (accumulator.spelling :: env)
+              baseBody <- elaborateExpectedGlobals (erasedGlobals shared) (map global globals) baseContext (accumulator.spelling :: env)
                             (weaken resultType) base
-              case checkRuntime checkingDepth typeReductionFuel baseContext baseBody (weaken resultType) of
+              case checkRuntimeGlobals shared checkingDepth typeReductionFuel baseContext baseBody (weaken resultType) of
                 Left (TypingError CheckingLimit) => Left (CannotElaborate (extent base).start "Accumulator base checking budget exhausted")
                 Left (TypingError ReductionLimit) => Left (CannotElaborate (extent base).start "Accumulator base reduction budget exhausted")
                 Left _ => Right Nothing
                 Right _ => do
                   let updateContext = Extend (Extend context Linear element) Linear (weaken accType)
-                  updateTerm <- elaborateExpected (map global globals) updateContext (accumulator.spelling :: head.spelling :: env)
+                  updateTerm <- elaborateExpectedGlobals (erasedGlobals shared) (map global globals) updateContext (accumulator.spelling :: head.spelling :: env)
                                   (weaken (weaken accType)) update
-                  case checkRuntime checkingDepth typeReductionFuel updateContext updateTerm (weaken (weaken accType)) of
+                  case checkRuntimeGlobals shared checkingDepth typeReductionFuel updateContext updateTerm (weaken (weaken accType)) of
                     Left (TypingError CheckingLimit) => Left (CannotElaborate (extent update).start "Accumulator update checking budget exhausted")
                     Left (TypingError ReductionLimit) => Left (CannotElaborate (extent update).start "Accumulator update reduction budget exhausted")
                     Left _ => Right Nothing
@@ -840,8 +842,8 @@ accumulatorSequenceEquation globals name implicitCount ty (NEquationLambda _ nam
 
     select : {n : Nat} -> Bool -> Token -> Token -> List Token -> Context n -> Vect n String -> Term n -> Term n -> Term n -> Either ResolveError (Maybe (Term n))
     select listFirst argument accumulator params context env family@(SeqType _ element) accType resultType =
-      case (sequenceConstructorTag globals context family element first, firstBinder,
-            sequenceConstructorTag globals context family element second, secondBinder) of
+      case (sequenceConstructorTagGlobals shared globals context family element first, firstBinder,
+            sequenceConstructorTagGlobals shared globals context family element second, secondBinder) of
         (Just 0, [], Just 1, [head, tail]) => lower listFirst argument accumulator params context env family element accType resultType firstBody head tail secondBody
         (Just 1, [head, tail], Just 0, []) => lower listFirst argument accumulator params context env family element accType resultType secondBody head tail firstBody
         _ => Right Nothing
@@ -864,16 +866,16 @@ accumulatorSequenceEquation globals name implicitCount ty (NEquationLambda _ nam
       following <- walk firstArg secondArg params (Extend context Unrestricted domain) (token.spelling :: env) rest modes result
       Right (map (Lambda Unrestricted domain) following)
     walk _ _ _ _ _ _ _ _ = Right Nothing
-accumulatorSequenceEquation _ _ _ _ _ = Right Nothing
+accumulatorSequenceEquationGlobals shared _ _ _ _ _ = Right Nothing
 
 -- Scope-indexed prefix peeling. Erased and unrestricted parameters are held
 -- fixed across each recursive call; the final linear input is a checked
 -- sequence, unary recursive value or Nat.
 private
-uniformStructuralCandidate : List Weighted -> String -> Nat -> Term 0 -> SourceSpan -> String ->
+uniformStructuralCandidateGlobals : RuntimeGlobals -> List Weighted -> String -> Nat -> Term 0 -> SourceSpan -> String ->
   Token -> List Token -> Expr -> Token -> List Token -> Expr -> Token -> List Token ->
   Either ResolveError (Maybe (Term 0))
-uniformStructuralCandidate globals name implicitCount ty span scrutinee first firstBinder firstBody second secondBinder secondBody argument params =
+uniformStructuralCandidateGlobals shared globals name implicitCount ty span scrutinee first firstBinder firstBody second secondBinder secondBody argument params =
   let reversed = reverse (prefixModes implicitCount params)
       candidate = case (firstBinder, secondBinder) of
         ([], [_, tail]) => uniformCallPresent name reversed tail.spelling secondBody
@@ -887,7 +889,7 @@ uniformStructuralCandidate globals name implicitCount ty span scrutinee first fi
      isJust (find (\entry => entry.global.name == name) globals) ||
      not (null (qualifiedCandidates name (map global globals)))
     then Right Nothing else
-    case guardedNormal typeReductionFuel ty of
+    case guardedNormalGlobals (erasedGlobals shared) typeReductionFuel ty of
       Nothing => Right Nothing
       Just exposed => walk Empty [] params (prefixModes implicitCount params) exposed
   where
@@ -907,9 +909,9 @@ uniformStructuralCandidate globals name implicitCount ty span scrutinee first fi
             Nothing => Left (CannotElaborate span.start "Structural sequence equations require a result independent of the input")
             Just resultType => Right resultType
           let checkedGlobals = map global globals
-          baseTerm <- elaborateExpected checkedGlobals context env resultType baseExpr
+          baseTerm <- elaborateExpectedGlobals (erasedGlobals shared) checkedGlobals context env resultType baseExpr
           let stepContext = Extend (Extend (Extend context Linear element) Erased (weaken family)) Linear (weaken (weaken resultType))
-          stepTerm <- elaborateExpected checkedGlobals stepContext (recursiveResultName :: "$seq.tail" :: head.spelling :: env)
+          stepTerm <- elaborateExpectedGlobals (erasedGlobals shared) checkedGlobals stepContext (recursiveResultName :: "$seq.tail" :: head.spelling :: env)
                         (weaken (weaken (weaken resultType))) stepExpr
           let motive = Lambda Erased (weaken family) (weaken (weaken resultType))
           let step = Lambda Linear element (Lambda Erased (weaken family)
@@ -934,9 +936,9 @@ uniformStructuralCandidate globals name implicitCount ty span scrutinee first fi
             Nothing => Left (CannotElaborate span.start "Structural recursive equations require a result independent of the input")
             Just resultType => Right resultType
           let checkedGlobals = map global globals
-          baseTerm <- elaborateExpected checkedGlobals context env resultType baseExpr
+          baseTerm <- elaborateExpectedGlobals (erasedGlobals shared) checkedGlobals context env resultType baseExpr
           let stepContext = Extend (Extend context Erased family) Linear (weaken resultType)
-          stepTerm <- elaborateExpected checkedGlobals stepContext (recursiveResultName :: "$structural.predecessor" :: env)
+          stepTerm <- elaborateExpectedGlobals (erasedGlobals shared) checkedGlobals stepContext (recursiveResultName :: "$structural.predecessor" :: env)
                         (weaken (weaken resultType)) stepExpr
           let motive = Lambda Erased (weaken family) (weaken (weaken resultType))
           let step = Lambda Erased family (Lambda Linear (weaken resultType) stepTerm)
@@ -953,14 +955,14 @@ uniformStructuralCandidate globals name implicitCount ty span scrutinee first fi
           ("Succ", [predecessor], "Zero", []) => lowerUnary True context env NatType result secondBody predecessor firstBody
           _ => Right Nothing
     walk context env [] [] (Pi Linear family@(RecType key) result) =
-      case (recursiveConstructorTag globals key first.spelling, firstBinder,
-            recursiveConstructorTag globals key second.spelling, secondBinder) of
+      case (recursiveConstructorTagGlobals shared globals key first.spelling, firstBinder,
+            recursiveConstructorTagGlobals shared globals key second.spelling, secondBinder) of
         (Just 0, [], Just 1, [predecessor]) => lowerUnary False context env family result firstBody predecessor secondBody
         (Just 1, [predecessor], Just 0, []) => lowerUnary False context env family result secondBody predecessor firstBody
         _ => Right Nothing
     walk context env [] [] (Pi Linear family@(SeqType _ element) result) =
-      case (sequenceConstructorTag globals context family element first, firstBinder,
-            sequenceConstructorTag globals context family element second, secondBinder) of
+      case (sequenceConstructorTagGlobals shared globals context family element first, firstBinder,
+            sequenceConstructorTagGlobals shared globals context family element second, secondBinder) of
         (Just 0, [], Just 1, [head, tail]) => lower context env family element result firstBody head tail secondBody
         (Just 1, [head, tail], Just 0, []) => lower context env family element result secondBody head tail firstBody
         _ => Right Nothing
@@ -972,14 +974,14 @@ uniformStructuralCandidate globals name implicitCount ty span scrutinee first fi
       Right (map (Lambda Unrestricted domain) following)
     walk _ _ _ _ _ = Right Nothing
 private
-uniformStructuralEquation : List Weighted -> String -> Nat -> Term 0 -> Expr -> Either ResolveError (Maybe (Term 0))
-uniformStructuralEquation globals name implicitCount ty (NEquationLambda _ names _
+uniformStructuralEquationGlobals : RuntimeGlobals -> List Weighted -> String -> Nat -> Term 0 -> Expr -> Either ResolveError (Maybe (Term 0))
+uniformStructuralEquationGlobals shared globals name implicitCount ty (NEquationLambda _ names _
   (NDataCase span (NRef _ scrutinee) Nothing [(first, firstBinder, firstBody), (second, secondBinder, secondBody)])) =
   case reverse names of
     [] => Right Nothing
     argument :: backwards =>
-      uniformStructuralCandidate globals name implicitCount ty span scrutinee first firstBinder firstBody second secondBinder secondBody argument (reverse backwards)
-uniformStructuralEquation _ _ _ _ _ = Right Nothing
+      uniformStructuralCandidateGlobals shared globals name implicitCount ty span scrutinee first firstBinder firstBody second secondBinder secondBody argument (reverse backwards)
+uniformStructuralEquationGlobals shared _ _ _ _ _ = Right Nothing
 
 private
 legacyRecursiveEquationReserve : String -> Expr -> Nat
@@ -1025,8 +1027,8 @@ uniformEquationReserve name (NEquationLambda _ names signature (NDataCase _ _ No
 uniformEquationReserve _ _ = 0
 
 private
-recursiveEquationReserve : String -> Expr -> Nat
-recursiveEquationReserve name expression =
+recursiveEquationReserveGlobals : RuntimeGlobals -> String -> Expr -> Nat
+recursiveEquationReserveGlobals shared name expression =
   max (accumulatorReserve name expression) (max (legacyRecursiveEquationReserve name expression) (uniformEquationReserve name expression))
   where
     -- Reserve guarded copies for family, element, accumulator, result,
@@ -1040,10 +1042,10 @@ recursiveEquationReserve name expression =
               count = implicitPrefixCount signature
               reversed = reverse (prefixModes count params)
               shape = case (firstBinder, secondBinder) of
-                ([], [head, tail]) => isJust (accumulatorCall True name reversed tail.spelling secondBody) ||
-                                      isJust (accumulatorCall False name reversed tail.spelling secondBody)
-                ([head, tail], []) => isJust (accumulatorCall True name reversed tail.spelling firstBody) ||
-                                      isJust (accumulatorCall False name reversed tail.spelling firstBody)
+                ([], [head, tail]) => isJust (accumulatorCallGlobals shared True name reversed tail.spelling secondBody) ||
+                                      isJust (accumulatorCallGlobals shared False name reversed tail.spelling secondBody)
+                ([head, tail], []) => isJust (accumulatorCallGlobals shared True name reversed tail.spelling firstBody) ||
+                                      isJust (accumulatorCallGlobals shared False name reversed tail.spelling firstBody)
                 _ => False in
             if length params <= 64 && count <= length params && shape
               then 64 + (20 + length params) * 513 else 0
@@ -1299,8 +1301,8 @@ planMutualValues snapshot globals members group =
           else worker plan0.whenTrue plan1.whenTrue plan0.target plan1.target False
     Right (MutualValuesPlan value0 value1 plan0.site plan0.target plan1.site plan1.target)
 
-compileMutual : ModuleSnapshot -> List String -> List Weighted -> MutualDeclaration -> Nat -> Either GraphError Compiled
-compileMutual snapshot moduleName globals group remaining = do
+compileMutualGlobals : RuntimeGlobals -> ModuleSnapshot -> List String -> List Weighted -> MutualDeclaration -> Nat -> Either GraphError Compiled
+compileMutualGlobals shared snapshot moduleName globals group remaining = do
   -- Worst-case payload template: 55 nodes/worker + 5/signature = 120.
   let reservation : Nat = 128
   if remaining < reservation then Left (problem snapshot (Just group.span.start) "Expanded core construction budget exhausted (200000)") else Right ()
@@ -1321,16 +1323,23 @@ compileMutual snapshot moduleName globals group remaining = do
     then Left (problem snapshot Nothing "Internal mutual construction reservation was insufficient") else Right ()
   checked group.first value0 ty0
   checked group.second value1 ty1
-  let one = definition group.first ty0 value0
-  let two = definition group.second ty1 value1
+  let firstKey = length (globalDeclarations (erasedGlobals shared))
+  next0 <- case extendRuntimeGlobals checkingDepth typeReductionFuel shared firstKey Unrestricted ty0 value0 of
+    Left err => Left (declarationFailure snapshot group.first "runtime-checking" "Mutual global admission:" (show err))
+    Right next => Right next
+  next1 <- case extendRuntimeGlobals checkingDepth typeReductionFuel next0 (S firstKey) Unrestricted ty1 value1 of
+    Left err => Left (declarationFailure snapshot group.second "runtime-checking" "Mutual global admission:" (show err))
+    Right next => Right next
+  let one = { global := sharedGlobal firstKey (definition group.first ty0 value0).global } (definition group.first ty0 value0)
+  let two = { global := sharedGlobal (S firstKey) (definition group.second ty1 value1).global } (definition group.second ty1 value1)
   let sites = [StructuralSite snapshot.path (callToken planned.firstCall) (if planned.firstTarget then group.first.definitionNameSpan else group.second.definitionNameSpan),
                StructuralSite snapshot.path (callToken planned.secondCall) (if planned.secondTarget then group.first.definitionNameSpan else group.second.definitionNameSpan)]
-  Right (Definitions [one, two] (if group.exported then [qualify one, qualify two] else []) sites (minus remaining reservation))
+  Right (Definitions [one, two] (if group.exported then [qualify one, qualify two] else []) sites (minus remaining reservation) next1)
   where
     signature : Declaration -> Either GraphError (Term 0)
-    signature decl = case elaborateSignatureWith False (map global globals) (Just Empty) [] decl.expected of
+    signature decl = case elaborateSignatureWithGlobals (erasedGlobals shared) False (map global globals) (Just Empty) [] decl.expected of
       Left err => Left (problem snapshot (Just err.position) (show err))
-      Right ty => case guardedNormal typeReductionFuel ty of
+      Right ty => case guardedNormalGlobals (erasedGlobals shared) typeReductionFuel ty of
         Just normalized => if sameSyntax normalized
           (case forwardOrder decl.expected of
              Just False => Pi Linear BoolType (Pi Linear NatType BoolType)
@@ -1340,7 +1349,7 @@ compileMutual snapshot moduleName globals group remaining = do
         Nothing => Left (problem snapshot (Just decl.nameSpan.start) "Mutual signature normalization admission exhausted")
 
     checked : Declaration -> Term 0 -> Term 0 -> Either GraphError ()
-    checked decl value ty = case checkRuntime checkingDepth typeReductionFuel Empty value ty of
+    checked decl value ty = case checkRuntimeGlobals shared checkingDepth typeReductionFuel Empty value ty of
       Left err => Left (declarationFailure snapshot decl "runtime-checking" "Mutual worker checking:" (show err))
       Right _ => Right ()
 
@@ -1356,29 +1365,29 @@ compileMutual snapshot moduleName globals group remaining = do
         Just token => token.span
         Nothing => span
 
-compileDeclarations : ModuleSnapshot -> List String -> List Weighted -> List LoweredItem -> Nat ->
+compileDeclarationsGlobals : RuntimeGlobals -> ModuleSnapshot -> List String -> List Weighted -> List LoweredItem -> Nat ->
                       Either GraphError Compiled
-compileDeclarations snapshot name globals [] remaining = Right (Definitions [] [] [] remaining)
-compileDeclarations snapshot name globals (MutualNatBool group :: rest) remaining = do
-  own <- compileMutual snapshot name globals group remaining
+compileDeclarationsGlobals shared snapshot name globals [] remaining = Right (Definitions [] [] [] remaining shared)
+compileDeclarationsGlobals shared snapshot name globals (MutualNatBool group :: rest) remaining = do
+  own <- compileMutualGlobals shared snapshot name globals group remaining
   let qualified = map (\entry => { global := { name := moduleText name ++ "." ++ entry.global.name } entry.global } entry) own.locals
-  following <- compileDeclarations snapshot name (own.locals ++ qualified ++ globals) rest own.remaining
+  following <- compileDeclarationsGlobals own.checkedGlobals snapshot name (own.locals ++ qualified ++ globals) rest own.remaining
   Right (Definitions (own.locals ++ following.locals) (own.exports ++ following.exports)
-    (own.sites ++ following.sites) following.remaining)
-compileDeclarations snapshot name globals (Single decl :: rest) remaining = do
+    (own.sites ++ following.sites) following.remaining following.checkedGlobals)
+compileDeclarationsGlobals shared snapshot name globals (Single decl :: rest) remaining = do
   if decl.quantity == Linear || decl.name == "_"
      then Left (problem snapshot (Just decl.nameSpan.start)
                 "Module globals require erased/unrestricted quantities and referenceable names")
      else Right ()
   if decl.dictionary && decl.quantity /= Unrestricted
      then Left (problem snapshot (Just decl.nameSpan.start) "Implementations require unrestricted named dictionary values") else Right ()
-  let estimate = cost remaining globals [] decl.expected + cost remaining globals [] decl.value + recursiveEquationReserve decl.name decl.value
+  let estimate = cost remaining globals [] decl.expected + cost remaining globals [] decl.value + recursiveEquationReserveGlobals shared decl.name decl.value
   if estimate > remaining then Left (problem snapshot (Just decl.nameSpan.start)
                                      "Expanded core construction budget exhausted (200000)")
      else Right ()
   let implicitPrefix = implicitPrefixCount decl.expected
   if implicitPrefix > 64 then Left (problem snapshot (Just decl.nameSpan.start) "Implicit telescope admission exhausted (64)") else Right ()
-  ty <- case elaborateSignatureWith decl.generated (map global globals) (Just Empty) [] decl.expected of
+  ty <- case elaborateSignatureWithGlobals (erasedGlobals shared) decl.generated (map global globals) (Just Empty) [] decl.expected of
     Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
     Right ty => Right ty
   if implicitPrefix > 0 && not (validImplicitPrefix decl.generated implicitPrefix ty)
@@ -1390,32 +1399,32 @@ compileDeclarations snapshot name globals (Single decl :: rest) remaining = do
         NEquationLambda span [argument] _ _ =>
           if argument.spelling == "$clauseScrutinee" then NRef span "$clauseScrutinee" else decl.value
         _ => decl.value
-  recursive <- case natRecursiveEquation globals decl.name ty recursionValue of
+  recursive <- case natRecursiveEquationGlobals shared globals decl.name ty recursionValue of
     Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
     Right candidate => Right candidate
   recursive <- the (Either GraphError (Maybe (Term 0))) $ case recursive of
     Just result => Right (Just result)
-    Nothing => case unaryRecursiveEquation globals decl.name ty recursionValue of
+    Nothing => case unaryRecursiveEquationGlobals shared globals decl.name ty recursionValue of
       Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
       Right candidate => Right candidate
   recursive <- the (Either GraphError (Maybe (Term 0))) $ case recursive of
     Just result => Right (Just result)
-    Nothing => case sequenceRecursiveEquation globals decl.name ty recursionValue of
+    Nothing => case sequenceRecursiveEquationGlobals shared globals decl.name ty recursionValue of
       Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
       Right candidate => Right candidate
   recursive <- the (Either GraphError (Maybe (Term 0))) $ case recursive of
     Just result => Right (Just result)
-    Nothing => case accumulatorSequenceEquation globals decl.name implicitPrefix ty recursionValue of
+    Nothing => case accumulatorSequenceEquationGlobals shared globals decl.name implicitPrefix ty recursionValue of
       Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
       Right candidate => Right candidate
   recursive <- the (Either GraphError (Maybe (Term 0))) $ case recursive of
     Just result => Right (Just result)
-    Nothing => case polymorphicSequenceEquation globals decl.name (implicitPrefix == 1) ty recursionValue of
+    Nothing => case polymorphicSequenceEquationGlobals shared globals decl.name (implicitPrefix == 1) ty recursionValue of
       Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
       Right candidate => Right candidate
   recursive <- the (Either GraphError (Maybe (Term 0))) $ case recursive of
     Just result => Right (Just result)
-    Nothing => case uniformStructuralEquation globals decl.name implicitPrefix ty recursionValue of
+    Nothing => case uniformStructuralEquationGlobals shared globals decl.name implicitPrefix ty recursionValue of
       Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
       Right candidate => Right candidate
   -- No structural recognizer matched. A self-referencing equation elaborates as a
@@ -1423,14 +1432,14 @@ compileDeclarations snapshot name globals (Single decl :: rest) remaining = do
   -- Without a self reference the ordinary non-recursive path is unchanged.
   value <- case recursive of
     Just recursive => Right recursive
-    Nothing => case elaborateExpected (map global globals) Empty [] ty decl.value of
+    Nothing => case elaborateExpectedGlobals (erasedGlobals shared) (map global globals) Empty [] ty decl.value of
       Right value => Right value
       Left plain =>
         let refuse = Left ({ stage := if plain.elaborating then "elaboration" else "resolution" } (problem snapshot (Just plain.position) (show plain)))
         -- A visible global with the same name (for example two ambiguous imports) is
         -- never silently replaced by a self reference.
          in if any (\entry => entry.global.name == decl.name || isSuffixOf ("." ++ decl.name) entry.global.name) globals then refuse
-            else case elaborateExpected (map global globals) (Extend Empty Unrestricted ty) [decl.name] (weaken ty) decl.value of
+            else case elaborateExpectedGlobals (erasedGlobals shared) (map global globals) (Extend Empty Unrestricted ty) [decl.name] (weaken ty) decl.value of
               Right body => Right (Fix ty body)
               -- The first attempt failed only because the name was unbound, which every recursive
               -- definition does. This is the error that is actually about the program.
@@ -1439,29 +1448,28 @@ compileDeclarations snapshot name globals (Single decl :: rest) remaining = do
   if nodes ty + nodes value > estimate
      then Left (problem snapshot Nothing "Internal module expansion estimate was insufficient")
      else Right ()
-  case decl.quantity of
-    Erased => case checkErased checkingDepth typeReductionFuel Empty value ty of
-      Left err => Left (checkFailure snapshot decl value "erased-checking" "Module erased checking:" (show err))
-      Right () => Right ()
-    _ => case checkRuntime checkingDepth typeReductionFuel Empty value ty of
-      Left err => Left (checkFailure snapshot decl value "runtime-checking" "Module checking:" (show err))
-      Right _ => Right ()
-  provider <- if decl.dictionary then case dictionarySignature checkingDepth ty of
+  let key = length (globalDeclarations (erasedGlobals shared))
+  next <- case extendRuntimeGlobals checkingDepth typeReductionFuel shared key decl.quantity ty value of
+    Left err => Left (checkFailure snapshot decl value
+      (if decl.quantity == Erased then "erased-checking" else "runtime-checking")
+      (if decl.quantity == Erased then "Module erased checking:" else "Module checking:") (show err))
+    Right next => Right next
+  provider <- if decl.dictionary then case dictionarySignatureGlobals shared checkingDepth ty of
     Right closed => Right closed
     Left message => Left ({ stage := "runtime-checking" } (problem snapshot (Just decl.nameSpan.start) message))
     else Right False
   let identity = moduleText name ++ "." ++ decl.name
-  let definition = GlobalEntry (if provider then Just identity else Nothing) (Just identity) implicitPrefix decl.quantity decl.name ty value
+  let definition = sharedGlobal key (GlobalEntry (if provider then Just identity else Nothing) (Just identity) implicitPrefix decl.quantity decl.name ty value)
   let local = weighted definition
   let qualified = Weight ({ name := identity } definition) local.size
-  following <- compileDeclarations snapshot name (local :: qualified :: globals) rest (minus remaining estimate)
+  following <- compileDeclarationsGlobals next snapshot name (local :: qualified :: globals) rest (minus remaining estimate)
   let ownSites = case recursive of
         Just _ => structuralSites snapshot decl
         Nothing => map (\call => StructuralSite snapshot.path call.span decl.definitionNameSpan)
                        (validatedSelfCalls snapshot decl value)
   Right (Definitions (local :: following.locals)
            (if decl.exported then qualified :: following.exports else following.exports)
-           (ownSites ++ following.sites) following.remaining)
+           (ownSites ++ following.sites) following.remaining following.checkedGlobals)
 
 shortName : String -> String
 shortName name = case reverse (forget (Data.String.split (== '.') name)) of
@@ -1621,8 +1629,8 @@ elaborateAt snapshot schemas imported authored = case elaborateDeclarationsInWit
   Left err => Left ({ stage := "elaboration" } (problem snapshot (Just err.position) err.message))
   Right declarations => Right declarations
 
-anonymous : ModuleSnapshot -> List InterfaceSchema -> List Weighted -> Nat -> Either GraphError (Term 0)
-anonymous snapshot schemas globals remaining = do
+anonymousGlobals : RuntimeGlobals -> ModuleSnapshot -> List InterfaceSchema -> List Weighted -> Nat -> Either GraphError (Term 0)
+anonymousGlobals shared snapshot schemas globals remaining = do
   expression <- case snapshot.document.body of
     EmptyDocument => Left (problem snapshot Nothing "Entry requires an expression or main")
     ExpressionDocument expression => Right expression
@@ -1634,17 +1642,17 @@ anonymous snapshot schemas globals remaining = do
   if cost remaining globals [] expression > remaining
      then Left (problem snapshot Nothing "Expanded core construction budget exhausted (200000)")
      else do
-       term <- resolve snapshot globals expression
+       term <- resolveGlobals shared snapshot globals expression
        if nodes term > cost remaining globals [] expression
           then Left (problem snapshot Nothing "Internal entry expansion estimate was insufficient")
           else Right term
 
-compileGraph : Bool -> ModuleGraph -> List Weighted -> List Interface -> Nat -> List RecursiveSite -> List ModuleSnapshot ->
+compileGraphGlobals : RuntimeGlobals -> Bool -> ModuleGraph -> List Weighted -> List Interface -> Nat -> List RecursiveSite -> List ModuleSnapshot ->
                Either GraphError (Maybe CheckedProject, List (List String, List (String, String)), List RecursiveSite)
-compileGraph requireEntry graph prelude interfaces remaining sites [] =
+compileGraphGlobals shared requireEntry graph prelude interfaces remaining sites [] =
   if requireEntry then Left (GraphFailure graph.entry "" Nothing "No entry snapshot in graph")
     else Right (Nothing, exportIndex interfaces, sites)
-compileGraph requireEntry graph prelude interfaces remaining sites (snapshot :: rest) = do
+compileGraphGlobals shared requireEntry graph prelude interfaces remaining sites (snapshot :: rest) = do
   if requireEntry && snapshot.path == graph.entry && not (null rest)
      then Left (problem snapshot Nothing "Entry snapshot must be last in dependency order")
      else Right ()
@@ -1660,10 +1668,10 @@ compileGraph requireEntry graph prelude interfaces remaining sites (snapshot :: 
   let globals = imported ++ qualifiedImportAliases snapshot visibleInterfaces ++ aliases ++ visiblePrelude
   case snapshot.document.moduleHeader of
     Nothing => if not requireEntry || snapshot.path /= graph.entry then Left (problem snapshot Nothing "Anonymous dependency") else do
-      term <- anonymous snapshot schemas globals remaining
-      case inferRuntime checkingDepth typeReductionFuel Empty term of
+      term <- anonymousGlobals shared snapshot schemas globals remaining
+      case inferRuntimeGlobals shared checkingDepth typeReductionFuel Empty term of
         Left err => Left ({ stage := "runtime-checking" } (problem snapshot Nothing ("Entry checking: " ++ show err)))
-        Right checked => Right (Just (Project graph term checked.inferredType sites (exportIndex interfaces)), exportIndex interfaces, sites)
+        Right checked => Right (Just (Project graph term checked.inferredType sites (exportIndex interfaces) shared), exportIndex interfaces, sites)
     Just header => do
       if any (\entry => entry.name == header.components) interfaces
          then Left (problem snapshot (Just header.nameSpan.start) "Duplicate checked module identity")
@@ -1674,7 +1682,7 @@ compileGraph requireEntry graph prelude interfaces remaining sites (snapshot :: 
           Right items => Right items
         EmptyDocument => Right []
         _ => Left (problem snapshot Nothing "Named modules require declarations")
-      compiled <- compileDeclarations snapshot header.components globals declarations remaining
+      compiled <- compileDeclarationsGlobals shared snapshot header.components globals declarations remaining
       published <- publicBindings snapshot visibleInterfaces compiled.exports
       if length published + length compiled.exports > 4096
         then Left (problem snapshot Nothing "Export binding budget exhausted (4096)") else Right ()
@@ -1695,15 +1703,15 @@ compileGraph requireEntry graph prelude interfaces remaining sites (snapshot :: 
             if main.global.quantity /= Unrestricted
                then Left (problem snapshot Nothing "Entry main must be unrestricted, not erased")
                else Right ()
-            if main.size > compiled.remaining
+            if 1 > compiled.remaining
                then Left (problem snapshot Nothing "Expanded core construction budget exhausted (200000)")
                else Right ()
             term <- case lookupGlobal "main" [main.global] of
               Nothing => Left (problem snapshot Nothing "Missing main binding")
               Just term => Right term
-            case inferRuntime checkingDepth typeReductionFuel Empty term of
+            case inferRuntimeGlobals compiled.checkedGlobals checkingDepth typeReductionFuel Empty term of
               Left err => Left ({ stage := "runtime-checking" } (problem snapshot Nothing ("Entry checking: " ++ show err)))
-              Right checked => Right (Just (Project graph term checked.inferredType (sites ++ compiled.sites) (exportIndex interfaces)), exportIndex interfaces, sites ++ compiled.sites)
+              Right checked => Right (Just (Project graph term checked.inferredType (sites ++ compiled.sites) (exportIndex interfaces) compiled.checkedGlobals), exportIndex interfaces, sites ++ compiled.sites)
          else let visible = case snapshot.document.body of
                     DeclarationDocument authored => exportedSchemas (moduleText header.components) authored
                     _ => []
@@ -1711,39 +1719,39 @@ compileGraph requireEntry graph prelude interfaces remaining sites (snapshot :: 
                         DeclarationDocument authored => exportedDataSchemas (moduleText header.components) authored
                         _ => []
                    in let publishedSchemas = publicSchemas header.components snapshot visibleInterfaces (compiled.exports ++ rebased)
-                   in compileGraph requireEntry graph prelude (Exports header.components (compiled.exports ++ rebased) (visible ++ publishedSchemas) dataHints :: interfaces)
+                   in compileGraphGlobals compiled.checkedGlobals requireEntry graph prelude (Exports header.components (compiled.exports ++ rebased) (visible ++ publishedSchemas) dataHints :: interfaces)
                            compiled.remaining (sites ++ compiled.sites) rest
 
 ||| Check every dependency declaration before exposing its qualified exports.
 ||| Expansion budget concerns elaboration, not normalization/allocation/time bounds.
 public export
-checkModuleGraph : ModuleGraph -> Either GraphError CheckedProject
-checkModuleGraph graph = do
+checkModuleGraphGlobals : RuntimeGlobals -> ModuleGraph -> Either GraphError CheckedProject
+checkModuleGraphGlobals shared graph = do
   prelude <- case preludeGlobals of
     Left err => Left ({ stage := "prelude" } (GraphFailure graph.entry "" Nothing ("Bundled prelude: " ++ err)))
     Right globals => Right (map weighted globals)
-  (checked, _, _) <- compileGraph True graph prelude [] 200000 [] graph.modules
+  (checked, _, _) <- compileGraphGlobals shared True graph prelude [] 200000 [] graph.modules
   case checked of
     Just project => Right project
     Nothing => Left (GraphFailure graph.entry "" Nothing "Missing checked entry")
 
 ||| Inventory checking retains checked exports and structural recursion sites.
 public export
-checkInventoryNavigation : ModuleGraph -> Either GraphError (List (List String, List (String, String)), List RecursiveSite)
-checkInventoryNavigation graph = do
+checkInventoryNavigationGlobals : RuntimeGlobals -> ModuleGraph -> Either GraphError (List (List String, List (String, String)), List RecursiveSite)
+checkInventoryNavigationGlobals shared graph = do
   prelude <- case preludeGlobals of
     Left err => Left ({ stage := "prelude" } (GraphFailure graph.root "" Nothing (show err)))
     Right globals => Right (map weighted globals)
-  (_, exports, sites) <- compileGraph False graph prelude [] 200000 [] graph.modules
+  (_, exports, sites) <- compileGraphGlobals shared False graph prelude [] 200000 [] graph.modules
   Right (exports, sites)
 
 public export
-checkInventoryExports : ModuleGraph -> Either GraphError (List (List String, List (String, String)))
-checkInventoryExports graph = map fst (checkInventoryNavigation graph)
+checkInventoryExportsGlobals : RuntimeGlobals -> ModuleGraph -> Either GraphError (List (List String, List (String, String)))
+checkInventoryExportsGlobals shared graph = map fst (checkInventoryNavigationGlobals shared graph)
 
 public export
-checkInventoryGraph : ModuleGraph -> Either GraphError ()
-checkInventoryGraph graph = map (const ()) (checkInventoryExports graph)
+checkInventoryGraphGlobals : RuntimeGlobals -> ModuleGraph -> Either GraphError ()
+checkInventoryGraphGlobals shared graph = map (const ()) (checkInventoryExportsGlobals shared graph)
 
 public export
 data ProjectOutcome
@@ -1753,19 +1761,19 @@ data ProjectOutcome
 
 ||| Preserve loaded snapshots on a checking failure for source-aware consumers.
 public export
-prepareProject : String -> String -> IO ProjectOutcome
-prepareProject root entry = do
+prepareProjectGlobals : RuntimeGlobals -> String -> String -> IO ProjectOutcome
+prepareProjectGlobals shared root entry = do
   loaded <- loadModuleGraph root entry
   pure $ case loaded of
     Left err => GraphUnavailable err
-    Right graph => case checkModuleGraph graph of
+    Right graph => case checkModuleGraphGlobals shared graph of
       Left err => ProjectRejected graph err
       Right project => ProjectAccepted project
 
 public export
-checkProject : String -> String -> IO (Either GraphError CheckedProject)
-checkProject root entry = do
-  outcome <- prepareProject root entry
+checkProjectGlobals : RuntimeGlobals -> String -> String -> IO (Either GraphError CheckedProject)
+checkProjectGlobals shared root entry = do
+  outcome <- prepareProjectGlobals shared root entry
   pure $ case outcome of
     GraphUnavailable err => Left err
     ProjectRejected _ err => Left err
@@ -1773,10 +1781,10 @@ checkProject root entry = do
 
 ||| Local package closure loading still passes the ordinary independent checker.
 public export
-checkPackage : String -> IO (Either GraphError CheckedProject)
-checkPackage manifest = do
+checkPackageGlobals : RuntimeGlobals -> String -> IO (Either GraphError CheckedProject)
+checkPackageGlobals shared manifest = do
   loaded <- loadPackageModuleGraph manifest
-  pure (loaded >>= checkModuleGraph)
+  pure (loaded >>= checkModuleGraphGlobals shared)
 
 public export
 projectReport : CheckedProject -> List String
@@ -1786,12 +1794,44 @@ projectReport project =
    "Type: " ++ renderType project.inferredType]
 
 public export
-checkLocalPackage : String -> IO (Either GraphError (List String))
-checkLocalPackage manifest = do
+checkLocalPackageGlobals : RuntimeGlobals -> String -> IO (Either GraphError (List String))
+checkLocalPackageGlobals shared manifest = do
   loaded <- loadLocalPackageGraph CheckInventory manifest
   pure $ do
     graph <- loaded
     if graph.entry == "" then do
-      checkInventoryGraph graph
+      checkInventoryGraphGlobals shared graph
       Right ["Library checking: accepted (no runtime entry)", "Modules: " ++ show (length graph.modules)]
-       else projectReport <$> checkModuleGraph graph
+       else projectReport <$> checkModuleGraphGlobals shared graph
+
+public export
+checkInventoryExports : ModuleGraph -> Either GraphError (List (List String, List (String, String)))
+checkInventoryExports = checkInventoryExportsGlobals emptyRuntimeGlobals
+
+public export
+checkInventoryGraph : ModuleGraph -> Either GraphError ()
+checkInventoryGraph = checkInventoryGraphGlobals emptyRuntimeGlobals
+
+public export
+checkInventoryNavigation : ModuleGraph -> Either GraphError (List (List String, List (String, String)), List RecursiveSite)
+checkInventoryNavigation = checkInventoryNavigationGlobals emptyRuntimeGlobals
+
+public export
+checkLocalPackage : String -> IO (Either GraphError (List String))
+checkLocalPackage = checkLocalPackageGlobals emptyRuntimeGlobals
+
+public export
+checkModuleGraph : ModuleGraph -> Either GraphError CheckedProject
+checkModuleGraph = checkModuleGraphGlobals emptyRuntimeGlobals
+
+public export
+checkPackage : String -> IO (Either GraphError CheckedProject)
+checkPackage = checkPackageGlobals emptyRuntimeGlobals
+
+public export
+checkProject : String -> String -> IO (Either GraphError CheckedProject)
+checkProject = checkProjectGlobals emptyRuntimeGlobals
+
+public export
+prepareProject : String -> String -> IO ProjectOutcome
+prepareProject = prepareProjectGlobals emptyRuntimeGlobals
