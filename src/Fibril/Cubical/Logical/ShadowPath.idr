@@ -3,6 +3,9 @@ module Fibril.Cubical.Logical.ShadowPath
 import Data.Fin
 import Data.Vect
 import Fibril.Cubical.Logical.Shadow
+import Fibril.Cubical.Logical.TypedPath
+import Fibril.Cubical.Logical.OpenPath
+
 import Fibril.Foundation.DeMorgan.Interval
 import Fibril.Foundation.DeMorgan.Scope
 
@@ -95,3 +98,82 @@ substitutePathApplication : {0 context : Vect n LogicalType} -> {0 target : Vect
   (p : ExactPath {context} {paths} {d} {a} left right) -> (r : ScopedInterval d) ->
   applyExactPath (substituteExactPath sigma p) r = mapPathTerms sigma (applyExactPath p r)
 substitutePathApplication sigma (PathAbstract body zero one) r = pathMixedSubstitution sigma (atDimension r) body
+
+||| Endpoints are ordinary typed terms in the entire term context, and cannot
+||| mention path names. Declarations are independent of dimension variables.
+public export
+data PathDeclarations : Vect n LogicalType -> Vect k LogicalType -> Type where
+  NoPaths : PathDeclarations context []
+  DeclarePath : LogicalTerm context a -> LogicalTerm context a ->
+    PathDeclarations context paths -> PathDeclarations context (a :: paths)
+
+public export
+data DeclaredPath : PathDeclarations context paths -> LogicalVar paths a ->
+                    LogicalTerm context a -> LogicalTerm context a -> Type where
+  DeclaredHere : DeclaredPath (DeclarePath left right rest) LHere left right
+  DeclaredThere : DeclaredPath rest p left right ->
+    DeclaredPath (DeclarePath l r rest) (LThere p) left right
+
+public export
+substitutePathDeclarations : LogicalSubstitution context target ->
+  PathDeclarations context paths -> PathDeclarations target paths
+substitutePathDeclarations sigma NoPaths = NoPaths
+substitutePathDeclarations sigma (DeclarePath l r rest) =
+  DeclarePath (substituteLogical sigma l) (substituteLogical sigma r)
+    (substitutePathDeclarations sigma rest)
+
+public export
+substituteDeclaredPath : {0 context : Vect n LogicalType} -> {0 target : Vect m LogicalType} ->
+  {0 paths : Vect k LogicalType} -> {0 a : LogicalType} ->
+  {0 declarations : PathDeclarations context paths} ->
+  {0 p : LogicalVar paths a} -> {0 left, right : LogicalTerm context a} -> (sigma : LogicalSubstitution context target) ->
+  DeclaredPath declarations p left right ->
+  DeclaredPath (substitutePathDeclarations sigma declarations) p
+    (substituteLogical sigma left) (substituteLogical sigma right)
+substituteDeclaredPath sigma DeclaredHere = DeclaredHere
+substituteDeclaredPath sigma (DeclaredThere p) = DeclaredThere (substituteDeclaredPath sigma p)
+
+||| Preflight the interval before extracting its endpoint face. A False result
+||| includes exhaustion and is not a proof that entailment fails. This bounds
+||| the admitted interval and face input sizes, not all evaluation work.
+public export
+boundedEndpointEntails : {d : Nat} -> ScopedFace d -> ScopedInterval d -> Bool -> Bool
+boundedEndpointEntails face i endpoint =
+  case intervalNodes 12 i of
+    Nothing => False
+    Just _ => boundedFaceEntails face (scopedEndpoint i endpoint)
+
+||| A declarative endpoint equation, valid only under the displayed face.
+||| This is not runtime equality or a quantitative resource theorem.
+public export
+data DeclaredEndpoint : PathDeclarations context paths -> ScopedFace d ->
+  PathBody context paths d a -> PathBody context paths d a -> Type where
+  DeclaredLeft : DeclaredPath declarations p left right ->
+    boundedEndpointEntails face i False = True ->
+    DeclaredEndpoint declarations face (NeutralAt p i) (Embed left)
+  DeclaredRight : DeclaredPath declarations p left right ->
+    boundedEndpointEntails face i True = True ->
+    DeclaredEndpoint declarations face (NeutralAt p i) (Embed right)
+
+public export
+substituteDeclaredEndpoint : {0 context : Vect n LogicalType} -> {0 target : Vect m LogicalType} ->
+  {0 paths : Vect k LogicalType} -> {0 a : LogicalType} -> {0 d : Nat} ->
+  {0 declarations : PathDeclarations context paths} -> {0 face : ScopedFace d} ->
+  {0 x, y : PathBody context paths d a} -> (sigma : LogicalSubstitution context target) ->
+  DeclaredEndpoint declarations face x y ->
+  DeclaredEndpoint (substitutePathDeclarations sigma declarations) face
+    (mapPathTerms sigma x) (mapPathTerms sigma y)
+substituteDeclaredEndpoint sigma (DeclaredLeft p entails) = DeclaredLeft (substituteDeclaredPath sigma p) entails
+substituteDeclaredEndpoint sigma (DeclaredRight p entails) = DeclaredRight (substituteDeclaredPath sigma p) entails
+
+||| ExactPath application may be used at a declared neutral endpoint only when
+||| its computed body is literally that neutral application.
+public export
+declaredExactApplicationLeft : (path : ExactPath {context} {paths} {d} {a} x y) ->
+  (i : ScopedInterval d) -> (p : LogicalVar paths a) ->
+  applyExactPath path i = NeutralAt p i ->
+  DeclaredPath declarations p left right ->
+  boundedEndpointEntails face i False = True ->
+  DeclaredEndpoint declarations face (applyExactPath path i) (Embed left)
+declaredExactApplicationLeft path i p eq declared entails =
+  rewrite eq in DeclaredLeft declared entails

@@ -314,3 +314,21 @@ if ! grep -Fq 'Mismatch between: True and False' "$tmp/shadow-path.log"; then
   exit 1
 fi
 echo 'Shadow path endpoint negative test passed.'
+for fixture in ShadowFaceEscape ShadowDeclaredWrongEndpoint ShadowDeclaredCapture ShadowErasedReflection; do
+  "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1 || true
+  case "$fixture" in
+    ShadowFaceEscape) expected='Mismatch between: True and False.' ;;
+    ShadowDeclaredWrongEndpoint) expected='Mismatch between: LBoolean True and LRef LHere.' ;;
+    ShadowDeclaredCapture) expected='Mismatch between: LBool :: ?context and [].' ;;
+    ShadowErasedReflection) expected='Mismatch between: LogicalTerm (shadowContext [BoolTy]) (shadowType BoolTy) and Uses' ;;
+  esac
+  if ! grep -Fq 'While processing right hand side of bad' "$tmp/$fixture.log" ||
+     ! grep -Fq "$expected" "$tmp/$fixture.log" ||
+     [[ $(grep -c '^Error:' "$tmp/$fixture.log") -ne 1 ]] ||
+     grep -Eq 'Undefined name|While processing type of bad|While processing (type|right hand side) of decls' "$tmp/$fixture.log"; then
+    echo "Negative shadow bridge test $fixture failed for an unrelated reason:" >&2
+    cat "$tmp/$fixture.log" >&2
+    exit 1
+  fi
+done
+echo 'Shadow bridge adversarial tests passed.'

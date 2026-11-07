@@ -716,3 +716,35 @@ would be required for that connection. There is no formal ordinary
 computation-equation preservation theorem, abstract-base interpretation,
 logical-to-runtime reflection, or erasure/execution correspondence. No ordinary
 checker or conversion changes.
+
+### Declared shadow endpoints (restricted bridge)
+
+`ShadowPath.PathDeclarations` associates each intrinsically typed neutral path
+name with two `LogicalTerm` endpoints in the same ordinary logical context.
+Endpoints cannot refer to path names or dimensions. `DeclaredPath` selects the
+endpoints by a typed de Bruijn name; `DeclaredEndpoint` derives a left or
+right equation only with a proof that `boundedEndpointEntails` accepts. It
+preflights the interval (12 nodes) before extracting the endpoint face, then
+uses `boundedFaceEntails`; `False` includes exhaustion, not just failure of
+entailment. These input-size caps do not bound total work or make the
+declarative judgment a resource-bounded runtime checker. `declaredExactApplicationLeft` connects a
+literal `ExactPath` application to such an equation. The shadow test uses a
+nontrivial conditional from a source context with a checked linear usage.
+Term substitution maps both declarations and endpoint derivations, and lifting
+by a logical substitution supports capture-avoiding context weakening.
+Existing `ExactPath` application and mixed-substitution theorems remain in force.
+
+This is deliberately a restricted declarative interface: endpoint equations
+are only for direct neutral applications, not congruence under arbitrary
+bodies or lambda binders. Declarations are dimension-independent, and no
+face/dimension-substitution preservation theorem for these equations is
+claimed (bounded entailment is not automatically preserved by substitution).
+`ExactPath` introduction still requires literal endpoint equality, not the new
+face equations. General dependent paths, binder-indexed path telescopes,
+face-based introduction, dependent contexts, and effects remain unintegrated.
+The shadow forgets quantities: none of these judgments establishes runtime
+conversion, semantics, resource preservation, or reflection of erased uses.
+
+There is no API reflecting a `shadowTerm` into a source `Uses` derivation;
+the negative fixture checks the corresponding type mismatch, not a semantic
+nonexistence theorem.
