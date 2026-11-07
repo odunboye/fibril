@@ -396,8 +396,8 @@ scrutinee, and in pattern clauses, the predecessor stays linear and must be
 consumed exactly once. The fallback inherits
 the general elaborator's pattern resolution, which resolves a `Zero` pattern to
 the built-in constructor even when an identical `Zero` is imported. Mutual
-recursion beyond the bounded Nat/Bool pairs is not supported. Native C emission works
-but stays inside the runtime's fixed evaluation budget; on the hosted path
+recursion is limited to the groups described under [mutual groups](#mutual-groups).
+Native C emission works but stays inside the runtime's fixed evaluation budget; on the hosted path
 `run --fuel` and `test --fuel` widen the evaluation budget.
 
 A refusal for a missing decrease is reported at the recursive call itself when the
@@ -411,6 +411,47 @@ reported, so navigation answers `null` rather than a wrong target. Runnable exam
 [Half.fib](../examples/modules/general-recursion/Half.fib) and
 [Chain.fib](../examples/modules/general-recursion/Chain.fib) (accepted), and
 [Loop.fib](../examples/modules/general-recursion/Loop.fib) (refused).
+
+### Mutual groups
+
+A `mutual where` block that is not the bounded two-worker Nat/Bool form is a general
+mutual group: two to four members that share one signature, over any types and with any
+number of parameters.
+
+~~~fibril
+mutual where
+  isEven : (1 c : Chain) -> Bool
+  isEven c = case c of
+    Empty => True
+    More rest => isOdd rest
+
+  isOdd : (1 c : Chain) -> Bool
+  isOdd c = case c of
+    Empty => False
+    More rest => isEven rest
+~~~
+
+Runnable examples: [MutualChain.fib](../examples/modules/general-recursion/MutualChain.fib)
+(two members over user data) and [MutualRing.fib](../examples/modules/general-recursion/MutualRing.fib)
+(three members, two parameters, a threaded accumulator).
+
+The group is rewritten before checking into a hidden dispatcher that takes the member's
+name as a string tag followed by the shared parameters, plus one definition per member that
+applies the dispatcher to its tag. Inside the dispatcher each member's body runs with the
+member names bound to the dispatcher partially applied to their tags, so the termination
+check sees one ordinary recursive function. Consequences and limits:
+
+- **Every call must itself shrink something.** The check treats the group as a single
+  function, so a call that only forwards its arguments to another member (as in the bounded
+  form's forwarding workers) is refused even when the next member would shrink them. Use
+  the bounded form for that shape, or make each call shrink.
+- All members share one signature; members that disagree are rejected and the error names
+  the group. Members must be function equations naming their parameters exactly as the
+  signature does, take the same number of arguments, and be unrestricted ordinary names. No
+  implicit parameters, at most four members.
+- The tag is compared with `equalString`, so shadowing that prelude name changes how a
+  group behaves. Members of mutually recursive *data* are not supported.
+- Navigation and the formatter see the group exactly as written, including every member.
 
 Tests cover dependent renamed binders, ordinary/erased/linear quantities,
 excess/duplicate parameters, invalid patterns and multiple clauses, accidental

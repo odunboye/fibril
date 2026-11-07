@@ -258,6 +258,14 @@ declarationFailure snapshot decl stage label detail =
     (label ++ " While checking " ++ (if decl.generated then "generated declaration " else "declaration ") ++
       show decl.name ++ " (declaration-level location): " ++ detail))
 
+-- The hidden dispatcher of a general mutual group fails when members disagree about their
+-- signature or result, which the generated code reports as an ordinary type error.
+mutualHint : Declaration -> String
+mutualHint decl =
+  if decl.generated && isPrefixOf "mutual(" decl.name
+    then " (in the mutual group " ++ decl.name ++ "; its members must share one signature)"
+    else ""
+
 -- Name tokens spelled like the declaration, strictly after its equation head and inside
 -- it: candidate self references. A shadowing binder would also match, so callers validate
 -- the count against the self-calls found in the checked core term before trusting them.
@@ -1424,7 +1432,10 @@ compileDeclarations snapshot name globals (Single decl :: rest) remaining = do
          in if any (\entry => entry.global.name == decl.name || isSuffixOf ("." ++ decl.name) entry.global.name) globals then refuse
             else case elaborateExpected (map global globals) (Extend Empty Unrestricted ty) [decl.name] (weaken ty) decl.value of
               Right body => Right (Fix ty body)
-              Left _ => refuse
+              -- The first attempt failed only because the name was unbound, which every recursive
+              -- definition does. This is the error that is actually about the program.
+              Left bound => Left ({ stage := if bound.elaborating then "elaboration" else "resolution" }
+                                   (problem snapshot (Just bound.position) (show bound ++ mutualHint decl)))
   if nodes ty + nodes value > estimate
      then Left (problem snapshot Nothing "Internal module expansion estimate was insufficient")
      else Right ()

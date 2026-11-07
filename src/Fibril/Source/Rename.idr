@@ -84,7 +84,8 @@ ambiguousClauseTouches old name decl = case decl.value of
 ambiguousItemTouches : String -> String -> AuthoredDeclaration -> Bool
 ambiguousItemTouches old name (Ordinary decl) = ambiguousClauseTouches old name decl
 ambiguousItemTouches old name (ImplementationItem decl) = ambiguousClauseTouches old name decl
-ambiguousItemTouches old name (MutualItem group) = ambiguousClauseTouches old name group.first || ambiguousClauseTouches old name group.second
+ambiguousItemTouches old name (MutualItem group) =
+  any (ambiguousClauseTouches old name) (group.first :: group.second :: group.others)
 ambiguousItemTouches _ _ _ = False
 
 ||| Validate a new ASCII identifier, propose all declaration/use edits, and reject

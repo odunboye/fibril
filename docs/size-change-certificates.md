@@ -35,8 +35,12 @@ unknown. The extractor refuses a self reference that is not the head of a
 saturated call, a call under a lambda that is not one of the leading parameters
 (which includes a call inside the step of a recursor or fold), and any term form it
 does not handle. A recursor or fold may be *used*, for example from an inlined
-helper, as long as the recursion does not go through its step. A `Fix` may not capture a linear outer
-variable, because unfolding copies its closure.
+helper, as long as the recursion does not go through its step. A `let` (a lambda applied
+at once) is followed: its body runs once, the bound variable inherits the size relation of a
+variable it copies, and a variable bound to a partial application of the recursive function
+is an alias that is callable once its arguments are complete. That is how a
+[mutual group](function-equations.md#mutual-groups) is checked, as one function with a
+member tag. A `Fix` may not capture a linear outer variable, because unfolding copies its closure.
 
 Conversion treats `Fix` as neutral and never unfolds it. Run-mode evaluation
 (`Fibril.Core.Evaluation`) unfolds it only after the ordinary reducer is stuck,

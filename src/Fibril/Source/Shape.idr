@@ -1,6 +1,7 @@
 -- Structural parser-result comparison, deliberately ignoring source positions.
 module Fibril.Source.Shape
 
+import Data.List
 import Fibril.Core.Quantity
 import Fibril.Source.Lexer
 import Fibril.Source.Syntax
@@ -86,7 +87,8 @@ sameDeclaration a b = a.name == b.name && a.quantity == b.quantity &&
 
 sameAuthored : AuthoredDeclaration -> AuthoredDeclaration -> Bool
 sameAuthored (MutualItem a) (MutualItem b) =
-  a.exported == b.exported && sameDeclaration a.first b.first && sameDeclaration a.second b.second
+  a.exported == b.exported && sameDeclaration a.first b.first && sameDeclaration a.second b.second &&
+  length a.others == length b.others && all (\pair => sameDeclaration (fst pair) (snd pair)) (zip a.others b.others)
 sameAuthored (ImplementationBlock a) (ImplementationBlock b) =
   a.name.spelling == b.name.spelling && a.exported == b.exported && sameExpr a.target b.target &&
     sameList (\x, y => x.name.spelling == y.name.spelling && sameExpr x.value y.value) a.methods b.methods

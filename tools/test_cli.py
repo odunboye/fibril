@@ -2985,6 +2985,81 @@ main = first Zero
             self.assertIn('n = Succ (Succ 12)', formatted.stdout)
             self.assertIn('m = 256', formatted.stdout)
 
+    def test_general_mutual_groups(self):
+        root = ROOT / 'examples/modules/general-recursion'
+        # Two members over user data, and a three-member ring with two parameters: both are outside
+        # the bounded Nat/Bool form and are checked by the ordinary size-change gate.
+        chain = run('run', '--source-dir', str(root), '--fuel', '4096', str(root / 'MutualChain.fib'))
+        self.assertEqual(chain.returncode, 0, chain.stdout + chain.stderr)
+        self.assertEqual(chain.stdout, 'zero links: even\ntwo links: even\nthree links: odd\n')
+        ring = run('run', '--source-dir', str(root), '--fuel', '4096', str(root / 'MutualRing.fib'))
+        self.assertEqual(ring.returncode, 0, ring.stdout + ring.stderr)
+        self.assertEqual(ring.stdout, '.\nrgbrg.\nbr.\n')
+        header = 'module Main\n\ndata Chain : Type where\n  Empty : Chain\n  More : (1 tail : Chain) -> Chain\n\n'
+        tail = '\nmain : IO Unit\nmain = putStrLn "x"\n'
+        def member(name, nxt, arm='Empty => True', result='Bool'):
+            return (f'  {name} : (1 c : Chain) -> {result}\n  {name} c = case c of\n    {arm}\n'
+                    f'    More r => {nxt}\n\n')
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            path = work / 'Main.fib'
+            def check(source):
+                path.write_text(source)
+                return run('check', '--source-dir', directory, str(path))
+            # A call that does not make its argument smaller is refused, whatever the group shape.
+            refused = check(header + 'mutual where\n' + member('isEven', 'isOdd c') + member('isOdd', 'isEven r', 'Empty => False') + tail)
+            self.assertNotEqual(refused.returncode, 0)
+            self.assertIn('no argument decreases', refused.stderr)
+            # Every call rebuilding its input is refused too.
+            rebuilt = check(header + 'mutual where\n' + member('isEven', 'isOdd (More r)') + member('isOdd', 'isEven (More r)', 'Empty => False') + tail)
+            self.assertNotEqual(rebuilt.returncode, 0)
+            # Members must share one signature; the error names the group.
+            different = check(header + 'mutual where\n' + member('isEven', 'isOdd r') +
+                              '  isOdd : (1 c : Chain) -> String\n  isOdd c = case c of\n    Empty => "n"\n    More r => "m"\n\n' + tail)
+            self.assertNotEqual(different.returncode, 0)
+            self.assertIn('must share one signature', different.stderr)
+            self.assertNotIn('Unbound', different.stderr)
+            # At most four members.
+            five = ''.join(member(f'm{i}', f'm{(i + 1) % 5} r') for i in range(5))
+            over = check(header + 'mutual where\n' + five + tail)
+            self.assertNotEqual(over.returncode, 0)
+            self.assertIn('at most four', over.stderr)
+            # Members must be equations that name their parameters as the signature does.
+            lam = check(header + 'mutual where\n  isEven : (1 c : Chain) -> Bool\n  isEven = \\(1 c : Chain) => True\n\n' + member('isOdd', 'isEven r', 'Empty => False') + tail)
+            self.assertNotEqual(lam.returncode, 0)
+            self.assertIn('function equations', lam.stderr)
+            renamed = check(header + 'mutual where\n  isEven : (1 c : Chain) -> Bool\n  isEven d = case d of\n    Empty => True\n    More r => isOdd r\n\n' + member('isOdd', 'isEven r', 'Empty => False') + tail)
+            self.assertNotEqual(renamed.returncode, 0)
+            self.assertIn('name their parameters', renamed.stderr)
+            # The bounded Nat/Bool pair keeps its own lowering and its own diagnostics.
+            nat_bool = work / 'Parity.fib'
+            nat_bool.write_text('module Parity\n\nmutual where\n  isEven : (1 n : Nat) -> Bool\n  isEven n = case n of\n'
+                                '    Zero => True\n    Succ p => isOdd p\n\n  isOdd : (1 n : Nat) -> Bool\n  isOdd n = case n of\n'
+                                '    Zero => False\n    Succ p => isEven p\n\nmain : IO Unit\nmain = putStrLn (if isEven 4 then "even" else "odd")\n')
+            bounded = run('run', '--source-dir', directory, str(nat_bool))
+            self.assertEqual((bounded.returncode, bounded.stdout), (0, 'even\n'), bounded.stderr)
+            # The formatter keeps all members and its structure guard covers the extra ones.
+            ring_path = work / 'MutualRing.fib'
+            ring_path.write_text((root / 'MutualRing.fib').read_text())
+            formatted = run('format', str(ring_path))
+            self.assertEqual(formatted.returncode, 0, formatted.stderr)
+            for name in ('red', 'green', 'blue'):
+                self.assertIn(f'  {name} : (1 c : Chain)', formatted.stdout)
+            # Navigation reaches a member from a call in another member, including the third.
+            ring_text = (root / 'MutualRing.fib').read_text()
+            lines = ring_text.split('\n')
+            call = next(i for i, l in enumerate(lines, 1) if 'blue rest' in l)
+            column = lines[call - 1].index('blue') + 1
+            located = run('definition', '--source-dir', directory, '--entry', str(ring_path), str(call), str(column), str(ring_path))
+            self.assertEqual(located.returncode, 0, located.stdout + located.stderr)
+            target = json.loads(located.stdout)['definition']['range']['start']
+            self.assertEqual(lines[target['line'] - 1].split()[0], 'blue')
+            # A recursive function with a real type error reports it, not an unbound recursive name.
+            wrong = check('module Main\n\nhalf : (1 n : Nat) -> Nat\nhalf n = case n of\n  Zero => "text"\n'
+                          '  Succ a => case a of\n    Zero => Zero\n    Succ b => Succ (half b)\n' + tail)
+            self.assertNotEqual(wrong.returncode, 0)
+            self.assertNotIn('Unbound name "half"', wrong.stderr)
+
     def test_accumulator_equations_reject_dependent_types(self):
         fixture = ROOT / 'examples/modules/linear-accumulator'
         examples = [
@@ -3010,7 +3085,10 @@ main = first Zero
                                 '  Data.Items.Prepend head tail => ' + call + '\n' + main)
                 rejected = run('check', '--source-dir', str(root), str(path))
                 self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
-                self.assertIn('Unbound', rejected.stderr)
+                # A dependent result needs an explicit motive; the real reason is reported,
+                # not a phantom unbound name for the recursive function itself.
+                self.assertIn('motive', rejected.stderr)
+                self.assertNotIn('Unbound', rejected.stderr)
 
     def test_structural_sequence_recursive_equations(self):
         source = ('module Main\ndata Items {0 A : Type} : Type where\n  Empty : Items A\n'

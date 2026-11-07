@@ -73,7 +73,9 @@ class NativeTests(unittest.TestCase):
         # agree with the hosted evaluator; the fuel only widens the hosted planning budget.
         root = ROOT / 'examples/modules/general-recursion'
         expected = {'Half': b'!!!\n', 'Chain': b'xxx\n', 'Swap': b'!\n', 'Doubling': b'!!!!\n',
-                    'Fibonacci': b'!!!\n', 'Ackermann': b'!!!\n'}
+                    'Fibonacci': b'!!!\n', 'Ackermann': b'!!!\n',
+                    'MutualChain': b'zero links: even\ntwo links: even\nthree links: odd\n',
+                    'MutualRing': b'.\nrgbrg.\nbr.\n'}
         for name, output in expected.items():
             with self.subTest(program=name), tempfile.TemporaryDirectory() as directory:
                 args = ['--source-dir', str(root), str(root / (name + '.fib'))]

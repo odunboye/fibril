@@ -2,9 +2,14 @@
 
 ## Status and source contract
 
-Named modules support **exactly two** workers in an explicit `mutual where`
-block. This is finite equation-to-recursor sugar, not general mutual recursion
-or size-change-based admission. See `examples/modules/mutual-parity/Main.fib`.
+This page describes the **bounded form**: exactly two workers over `Nat`/`Bool` in an
+explicit `mutual where` block, lowered to existing checked recursors. It is finite
+equation-to-recursor sugar and does not use the size-change check. See
+`examples/modules/mutual-parity/Main.fib`.
+
+Any other `mutual where` block (two to four members of any shared signature, over any
+type) is a [general mutual group](function-equations.md#mutual-groups), which is checked
+by the ordinary size-change gate instead.
 
 ```fibril
 export

@@ -46,8 +46,9 @@ it; other self-referential equations are checked as
 decrease exists, and fail otherwise. A separate
 [unary recursive-data slice](data.md#unary-recursive-declarations) admits one
 terminal and one direct linear self field, alongside a restricted parameterized
-list shape. General positivity checking and mutual recursion beyond the bounded
-Nat/Bool pairs remain future work. `natRec` gives the step an erased predecessor and a
+list shape. General positivity checking remains future work; mutual recursion is covered
+by the [bounded pairs](mutual-structural-equations.md) and
+[general mutual groups](function-equations.md#mutual-groups). `natRec` gives the step an erased predecessor and a
 runtime recursive result. `natRecWith` additionally allows the step to inspect
 the predecessor, at the cost of requiring an unrestricted count. General
 structural recursion through other user types requires later work. The

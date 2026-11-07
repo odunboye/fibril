@@ -394,13 +394,26 @@ parseMutual budget end (keyword :: marker :: tokens@(first :: _)) = do
     then Left (ParseFailure keyword.span.start "Expected mutual where followed by two indented declarations") else Right ()
   let indent = first.span.start.column
   (one, rest) <- parsePairFramed indent indent budget end tokens
-  (two, remaining) <- parsePairFramed indent indent budget end rest
-  case remaining of
-    next :: _ => if next.span.start.column > 1
-      then Left (ParseFailure next.span.start "Mutual groups require exactly two ordinary declarations") else Right ()
-    [] => Right ()
-  Right (MutualItem (MutualSyntax (Between keyword.span.start two.span.finish) one two False), remaining)
-parseMutual _ end _ = Left (ParseFailure end "Expected mutual where and two declarations")
+  (two, afterTwo) <- parsePairFramed indent indent budget end rest
+  (others, remaining) <- moreMembers indent 2 afterTwo
+  let finish = case reverse others of
+        last :: _ => last.span.finish
+        [] => two.span.finish
+  Right (MutualItem (MutualSyntax (Between keyword.span.start finish) one two others False), remaining)
+  where
+    -- A group has two to four members. The fuel counts the extra members still allowed, so
+    -- the recursion shrinks; an indented declaration beyond the limit is an error.
+    moreMembers : Nat -> Nat -> List Token -> Either ParseError (List Declaration, List Token)
+    moreMembers indent fuel [] = Right ([], [])
+    moreMembers indent fuel tokens@(next :: _) =
+      if next.span.start.column <= 1 then Right ([], tokens) else
+      case fuel of
+        Z => Left (ParseFailure next.span.start "Mutual groups take at most four declarations")
+        S remainingFuel => do
+          (member, rest) <- parsePairFramed indent indent budget end tokens
+          (more, remaining) <- moreMembers indent remainingFuel rest
+          Right (member :: more, remaining)
+parseMutual _ end _ = Left (ParseFailure end "Expected mutual where and at least two declarations")
 
 parseOne : Nat -> Position -> List Token -> Either ParseError (AuthoredDeclaration, List Token)
 parseOne budget end tokens@(token :: rest) =

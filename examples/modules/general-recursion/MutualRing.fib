@@ -1,0 +1,29 @@
+module MutualRing
+
+data Chain : Type where
+  Empty : Chain
+  More : (1 tail : Chain) -> Chain
+
+-- Three members sharing one signature, calling around a ring and threading a String
+-- through every call. They take two arguments and return String, so no Nat/Bool form fits.
+mutual where
+  red : (1 c : Chain) -> (1 trail : String) -> String
+  red c trail = case c of
+    Empty => appendString trail "."
+    More rest => green rest (appendString trail "r")
+
+  green : (1 c : Chain) -> (1 trail : String) -> String
+  green c trail = case c of
+    Empty => appendString trail "."
+    More rest => blue rest (appendString trail "g")
+
+  blue : (1 c : Chain) -> (1 trail : String) -> String
+  blue c trail = case c of
+    Empty => appendString trail "."
+    More rest => red rest (appendString trail "b")
+
+main : IO Unit
+main = do
+  putStrLn (red Empty "")
+  putStrLn (red (More (More (More (More (More Empty))))) "")
+  putStrLn (blue (More (More Empty)) "")

@@ -239,7 +239,7 @@ clauseHeaders context decl = case decl.value of
 declarations : Walker destination -> Environment destination -> List AuthoredDeclaration -> List (ReferenceTo destination)
 declarations context env [] = []
 declarations context env (MutualItem group :: rest) =
-  let members = [group.first, group.second]
+  let members = group.first :: group.second :: group.others
       scope = foldl (\scope, decl => (decl.name, Just (context.localTarget decl.definitionNameSpan)) :: scope) env members
       refs = concatMap (\decl =>
         [RefersTo decl.nameSpan (context.localTarget decl.definitionNameSpan),

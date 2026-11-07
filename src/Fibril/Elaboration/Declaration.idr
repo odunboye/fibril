@@ -32,6 +32,127 @@ qualifiedMatches target (name :: rest) =
     short :: _ :: _ => if short == target then name :: following else following
     _ => following
 
+-- General mutual groups -------------------------------------------------------------
+-- A `mutual where` block that is not the bounded two-member Nat/Bool form is rewritten
+-- into ordinary declarations that the usual checker, size-change gate and evaluator
+-- already handle:
+--
+--   * one hidden dispatcher  mutual(f,g,..) : (tag : String) -> <shared signature>  whose
+--     parameters are the tag followed by the members' shared parameters. A chain of ifs
+--     compares the tag with each member's name (a string tag keeps the elaboration-size
+--     estimate linear; nested case expressions multiply it); each arm binds every member's
+--     name with a let to the dispatcher applied to that member's tag, renames the shared
+--     parameters to the member's own, and runs the member's body;
+--   * each member, defined as the dispatcher applied to its tag.
+--
+-- All members share one signature. Termination is the ordinary size-change check on the
+-- dispatcher, so every call in the group must itself make some argument smaller.
+
+piBinders : Expr -> List (Quantity, String, Expr)
+piBinders (NPi _ q name domain codomain) = (q, name, domain) :: piBinders codomain
+piBinders _ = []
+
+piResult : Expr -> Expr
+piResult (NPi _ _ _ _ codomain) = piResult codomain
+piResult other = other
+
+-- The bounded form is exactly two members whose parameters are Nat or Bool (at least one
+-- Nat) and whose result is Bool. It keeps its dedicated, verified lowering.
+boundedNatBoolShape : Expr -> Bool
+boundedNatBoolShape signature =
+  let binders = piBinders signature
+      domains = map (\(_, _, domain) => domain) binders
+      isNat : Expr -> Bool
+      isNat (NRef _ "Nat") = True
+      isNat _ = False
+      isBool : Expr -> Bool
+      isBool (NBoolType _) = True
+      isBool _ = False
+      resultIsBool = isBool (piResult signature)
+   in (length binders == 1 || length binders == 2) && resultIsBool && any isNat domains &&
+      all (\domain => isNat domain || isBool domain) domains
+
+public export
+boundedNatBoolGroup : MutualDeclaration -> Bool
+boundedNatBoolGroup group =
+  null group.others && boundedNatBoolShape group.first.expected && boundedNatBoolShape group.second.expected
+
+-- if tag == "f" then <f's arm> else if tag == "g" then ... else <last arm>. The last arm is
+-- reached for the last member's tag, the only tag left; the tags are the member names.
+dispatchTree : SourceSpan -> String -> List (String, Expr) -> Maybe Expr
+dispatchTree span scrutinee [] = Nothing
+dispatchTree span scrutinee [(_, arm)] = Just arm
+dispatchTree span scrutinee ((name, arm) :: rest) =
+  let sameTag = NApply span (NApply span (NRef span "equalString") (NRef span scrutinee)) (NStringValue span name)
+   in map (\other => NIf span sameTag arm other) (dispatchTree span scrutinee rest)
+
+-- let (q name : domain) = $p<index> in body, for each shared parameter, outermost first.
+renameParameters : SourceSpan -> Nat -> List (Quantity, String, Expr) -> Expr -> Expr
+renameParameters span index [] body = body
+renameParameters span index ((q, name, domain) :: rest) body =
+  NLet span q name domain (NRef span ("$p" ++ show index)) (renameParameters span (S index) rest body)
+
+memberNamesLets : SourceSpan -> String -> List Declaration -> Expr -> Expr
+memberNamesLets span dispatcher [] body = body
+memberNamesLets span dispatcher (member :: rest) body =
+  NLet span Unrestricted member.name member.expected
+       (NApply span (NRef span dispatcher) (NStringValue span member.name))
+       (memberNamesLets span dispatcher rest body)
+
+memberEquation : Declaration -> Either ElaborationError (List Token, Expr)
+memberEquation decl = case decl.value of
+  NEquationLambda _ names _ body => Right (names, body)
+  _ => Left (ElaborationFailure decl.nameSpan.start
+        "General mutual members must be written as function equations (f x = ...)")
+
+-- A member is the dispatcher applied to its tag; it keeps its authored signature and spans.
+memberDefinition : String -> Bool -> Declaration -> Declaration
+memberDefinition dispatcher exported member =
+  Defined member.span member.nameSpan member.definitionNameSpan exported member.quantity member.name member.expected
+    (NApply member.span (NRef member.span dispatcher) (NStringValue member.span member.name))
+
+public export
+generalMutual : MutualDeclaration -> Either ElaborationError (List Declaration)
+generalMutual group = do
+  let members = group.first :: group.second :: group.others
+  let names = map name members
+  let span = group.span
+  if length (nub names) /= length names
+    then Left (ElaborationFailure group.first.nameSpan.start "Mutual members need distinct names") else Right ()
+  case find (\member => member.quantity /= Unrestricted || member.dictionary || member.generated ||
+                        elem member.name ["_", "Nat", "Zero", "Succ"]) members of
+    Just member => Left (ElaborationFailure member.nameSpan.start "Mutual members need unrestricted ordinary names")
+    Nothing => Right ()
+  equations <- traverse memberEquation members
+  let arity = length (piBinders group.first.expected)
+  case find (\(member, parts) => length (fst parts) /= arity || length (piBinders member.expected) /= arity)
+            (zip members equations) of
+    Just (member, _) => Left (ElaborationFailure member.nameSpan.start
+      "Mutual members must take the same number of arguments, each named in the equation")
+    Nothing => Right ()
+  case find (\(member, parts) =>
+               any (\((_, binderName, _), token) => binderName /= token.spelling)
+                   (zip (piBinders member.expected) (fst parts)))
+            (zip members equations) of
+    Just (member, _) => Left (ElaborationFailure member.nameSpan.start
+      "Mutual members must name their parameters as their signature does")
+    Nothing => Right ()
+  let dispatcher = "mutual(" ++ concat (intersperse "," names) ++ ")"
+  let tagToken = Located Name "$tag" span
+  let parameterTokens = map (\index => Located Name ("$p" ++ show index) span) (take arity [1, 2, 3, 4, 5, 6, 7, 8])
+  let dispatcherSignature = NPi span Unrestricted "$tag" (NStringType span) group.first.expected
+  let arms = map (\(member, parts) =>
+                    (member.name, memberNamesLets span dispatcher members
+                      (renameParameters span 1 (piBinders member.expected) (snd parts))))
+                 (zip members equations)
+  case dispatchTree span "$tag" arms of
+    Nothing => Left (ElaborationFailure group.first.nameSpan.start "Mutual groups need at least two members")
+    Just tree =>
+      let body = NEquationLambda span (tagToken :: parameterTokens) dispatcherSignature tree
+          dispatcherDecl = Declared True span group.first.nameSpan group.first.definitionNameSpan False
+                             Unrestricted dispatcher dispatcherSignature body
+       in Right (dispatcherDecl :: map (memberDefinition dispatcher group.exported) members)
+
 mutual
   fieldPis : SourceSpan -> List RecordField -> Expr -> Expr
   fieldPis region [] body = body
@@ -544,7 +665,10 @@ mutual
     (used, declarations, lowered) <- case item of
       MutualItem group => case moduleName of
         Nothing => Left (ElaborationFailure group.span.start "Mutual groups require a named module")
-        Just _ => Right (0, [group.first, group.second], [MutualNatBool group])
+        Just _ =>
+          if boundedNatBoolGroup group then Right (0, [group.first, group.second], [MutualNatBool group]) else do
+            declarations <- generalMutual group
+            Right (0, declarations, map Single declarations)
       _ => do
         (used, declarations) <- lowerItem moduleName schemas imported seen nodes item
         Right (used, declarations, map Single declarations)

@@ -1,0 +1,25 @@
+module MutualChain
+
+-- A user-defined data type, so this group is outside the bounded Nat/Bool form.
+data Chain : Type where
+  Empty : Chain
+  More : (1 tail : Chain) -> Chain
+
+-- Mutual recursion: each member calls the other on the tail. Every call makes the
+-- argument smaller, which is what the termination check requires of the whole group.
+mutual where
+  isEven : (1 c : Chain) -> Bool
+  isEven c = case c of
+    Empty => True
+    More rest => isOdd rest
+
+  isOdd : (1 c : Chain) -> Bool
+  isOdd c = case c of
+    Empty => False
+    More rest => isEven rest
+
+main : IO Unit
+main = do
+  putStrLn (if isEven Empty then "zero links: even" else "wrong")
+  putStrLn (if isEven (More (More Empty)) then "two links: even" else "wrong")
+  putStrLn (if isOdd (More (More (More Empty))) then "three links: odd" else "wrong")

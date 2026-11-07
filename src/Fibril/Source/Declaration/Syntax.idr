@@ -125,6 +125,9 @@ record MutualDeclaration where
   span : SourceSpan
   first : Declaration
   second : Declaration
+  ||| Further members (at most two more). Only the general mutual lowering reads these;
+  ||| the bounded Nat/Bool lowering is for exactly two members.
+  others : List Declaration
   exported : Bool
 
 public export
@@ -184,8 +187,8 @@ recordSites sourceRecord =
 public export
 bindingSites : AuthoredDeclaration -> List BindingSite
 bindingSites (MutualItem group) =
-  [Binding group.first.name group.first.quantity group.first.span group.first.nameSpan group.first.definitionNameSpan group.exported,
-   Binding group.second.name group.second.quantity group.second.span group.second.nameSpan group.second.definitionNameSpan group.exported]
+  map (\member => Binding member.name member.quantity member.span member.nameSpan member.definitionNameSpan group.exported)
+      (group.first :: group.second :: group.others)
 bindingSites (DataItem sourceData) =
   Binding sourceData.name.spelling Erased sourceData.span sourceData.name.span sourceData.name.span sourceData.exported ::
   (map (\ctor => Binding ctor.name.spelling Unrestricted ctor.span ctor.name.span ctor.name.span sourceData.exported) sourceData.constructors ++
