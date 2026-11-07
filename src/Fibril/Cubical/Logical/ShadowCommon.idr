@@ -1329,6 +1329,47 @@ higherOrderAlignedVariableRelated : (ctx : Vect n LogicalType) -> (a : LogicalTy
                               (applyMorphism (higherOrderTermSemantics (HOVar ctx a v)) y)
 higherOrderAlignedVariableRelated ctx a v x y xy = respectsRelation (commonEnvironmentLookup ctx a v) xy
 
+||| Aligned witnesses preserve semantic relatedness across related environments.
+public export
+higherOrderAlignedRelated : {ctx : Vect n LogicalType} -> {a : LogicalType} ->
+  {0 lt, rt : CommonHasType ctx t a} ->
+  {left : HigherOrderTerm ctx a lt} -> {right : HigherOrderTerm ctx a rt} ->
+  HigherOrderAlignment left right -> (x, y : carrier (commonEnvironmentSetoid ctx)) ->
+  related (commonEnvironmentSetoid ctx) x y ->
+  related (commonTypeSetoid a) (applyMorphism (higherOrderTermSemantics left) x)
+    (applyMorphism (higherOrderTermSemantics right) y)
+higherOrderAlignedRelated {a = LUnit} (AlignVar ctx _ v) x y xy = higherOrderAlignedVariableRelated ctx LUnit v x y xy
+higherOrderAlignedRelated {a = LBool} (AlignVar ctx _ v) x y xy = higherOrderAlignedVariableRelated ctx LBool v x y xy
+higherOrderAlignedRelated {a = (LArrow c d)} (AlignVar ctx _ v) x y xy = higherOrderAlignedVariableRelated ctx (LArrow c d) v x y xy
+higherOrderAlignedRelated {a = LUnit} (AlignUnit ctx) x y xy = Refl
+higherOrderAlignedRelated {a = LBool} (AlignBool ctx b) x y xy = Refl
+higherOrderAlignedRelated {a = (LArrow a b)} (AlignLambda body) x y xy =
+  \u, v, uv => higherOrderAlignedRelated body (u, x) (v, y) (uv, xy)
+higherOrderAlignedRelated {a = LUnit} (AlignApplication {a = domain} {leftF} {rightF} {leftX} {rightX} f arg) x y xy =
+  rewrite higherOrderApplicationBetaAt leftF leftX x in
+  rewrite higherOrderApplicationBetaAt rightF rightX y in
+  higherOrderApplicationRelated {arg = domain} {result = LUnit} (higherOrderAlignedRelated f x y xy) (higherOrderAlignedRelated arg x y xy)
+higherOrderAlignedRelated {a = LBool} (AlignApplication {a = domain} {leftF} {rightF} {leftX} {rightX} f arg) x y xy =
+  rewrite higherOrderApplicationBetaAt leftF leftX x in
+  rewrite higherOrderApplicationBetaAt rightF rightX y in
+  higherOrderApplicationRelated {arg = domain} {result = LBool} (higherOrderAlignedRelated f x y xy) (higherOrderAlignedRelated arg x y xy)
+higherOrderAlignedRelated {a = (LArrow c d)} (AlignApplication {a = domain} {leftF} {rightF} {leftX} {rightX} f arg) x y xy =
+  rewrite higherOrderApplicationBetaAt leftF leftX x in
+  rewrite higherOrderApplicationBetaAt rightF rightX y in
+  higherOrderApplicationRelated {arg = domain} {result = (LArrow c d)} (higherOrderAlignedRelated f x y xy) (higherOrderAlignedRelated arg x y xy)
+higherOrderAlignedRelated {a = LUnit} (AlignUnitElim unit body) x y xy = higherOrderAlignedRelated body x y xy
+higherOrderAlignedRelated {a = LBool} (AlignUnitElim unit body) x y xy = higherOrderAlignedRelated body x y xy
+higherOrderAlignedRelated {a = (LArrow c d)} (AlignUnitElim unit body) x y xy = higherOrderAlignedRelated body x y xy
+higherOrderAlignedRelated {a = LUnit} (AlignIf c t f) x y xy =
+  higherOrderChoiceRelated {a = LUnit} _ _ (higherOrderAlignedRelated c x y xy)
+    (higherOrderAlignedRelated t x y xy) (higherOrderAlignedRelated f x y xy)
+higherOrderAlignedRelated {a = LBool} (AlignIf c t f) x y xy =
+  higherOrderChoiceRelated {a = LBool} _ _ (higherOrderAlignedRelated c x y xy)
+    (higherOrderAlignedRelated t x y xy) (higherOrderAlignedRelated f x y xy)
+higherOrderAlignedRelated {a = (LArrow cty dty)} (AlignIf c t f) x y xy =
+  higherOrderChoiceRelated {a = (LArrow cty dty)} _ _ (higherOrderAlignedRelated c x y xy)
+    (higherOrderAlignedRelated t x y xy) (higherOrderAlignedRelated f x y xy)
+
 ||| Dimensions use equality, not a Boolean approximation of the four-pair model.
 public export
 commonDMSetoid : CommonSetoid

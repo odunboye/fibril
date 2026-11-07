@@ -1623,6 +1623,39 @@ higherOrderNestedLinear : HigherOrderTerm [LBool] LBool
 higherOrderNestedLinear = HOApplication [LBool] LBool LBool Tests.Shadow.higherOrderBoolIdentity
   (HOApplication [LBool] LBool LBool Tests.Shadow.higherOrderBoolIdentity Tests.Shadow.higherOrderLinearIf)
 
+higherOrderNestedLinearAlignment : HigherOrderAlignment Tests.Shadow.higherOrderNestedLinear Tests.Shadow.higherOrderNestedLinear
+higherOrderNestedLinearAlignment = AlignApplication
+  (AlignLambda (AlignVar [LBool, LBool] LBool LHere))
+  (AlignApplication (AlignLambda (AlignVar [LBool, LBool] LBool LHere))
+    Tests.Shadow.higherOrderLinearAlignment)
+
+higherOrderNestedLinearAligned :
+  related (commonTypeSetoid LBool)
+    (applyMorphism (higherOrderTermSemantics Tests.Shadow.higherOrderNestedLinear) (True, ()))
+    (applyMorphism (higherOrderTermSemantics Tests.Shadow.higherOrderNestedLinear) (True, ()))
+higherOrderNestedLinearAligned = higherOrderAlignedRelated Tests.Shadow.higherOrderNestedLinearAlignment
+  (True, ()) (True, ()) (Refl, Refl)
+
+higherOrderArrowIfAlignment : HigherOrderAlignment Tests.Shadow.higherOrderArrowIf Tests.Shadow.higherOrderArrowIf
+higherOrderArrowIfAlignment = AlignIf (AlignVar [LBool, LArrow LBool LBool] LBool LHere)
+  (AlignVar [LBool, LArrow LBool LBool] (LArrow LBool LBool) (LThere LHere))
+  (AlignVar [LBool, LArrow LBool LBool] (LArrow LBool LBool) (LThere LHere))
+
+higherOrderArrowIfAlignedDistinct :
+  related (commonTypeSetoid (LArrow LBool LBool))
+    (applyMorphism (higherOrderTermSemantics Tests.Shadow.higherOrderArrowIf) (True, (Tests.Shadow.setoidIdentity, ())))
+    (applyMorphism (higherOrderTermSemantics Tests.Shadow.higherOrderArrowIf) (True, (Tests.Shadow.setoidConditionalIdentity, ())))
+higherOrderArrowIfAlignedDistinct = higherOrderAlignedRelated Tests.Shadow.higherOrderArrowIfAlignment
+  (True, (Tests.Shadow.setoidIdentity, ())) (True, (Tests.Shadow.setoidConditionalIdentity, ()))
+  (Refl, (Tests.Shadow.setoidIdentityEquivalent, Refl))
+
+higherOrderUnitElimAligned :
+  related (commonTypeSetoid LBool)
+    (applyMorphism (higherOrderTermSemantics (HOUnitElim [LBool] LBool (HOUnit [LBool]) (HOVar [LBool] LBool LHere))) (True, ()))
+    (applyMorphism (higherOrderTermSemantics (HOUnitElim [LBool] LBool (HOUnit [LBool]) (HOVar [LBool] LBool LHere))) (True, ()))
+higherOrderUnitElimAligned = higherOrderAlignedRelated
+  (AlignUnitElim (AlignUnit [LBool]) (AlignVar [LBool] LBool LHere)) (True, ()) (True, ()) (Refl, Refl)
+
 higherOrderNestedLinearBeta :
   higherOrderTermSemantics Tests.Shadow.higherOrderNestedLinear =
     commonApply (higherOrderTermSemantics Tests.Shadow.higherOrderBoolIdentity)
@@ -1698,6 +1731,44 @@ higherOrderArrowApplicationPointwiseResult = trans
   (cong (\m => applyMorphism m True)
     (higherOrderApplicationBetaAt Tests.Shadow.higherOrderArrowFunction
       Tests.Shadow.higherOrderUnitArgument (False, ()))) Refl
+
+-- Exercise the alignment proof itself, not just the corresponding beta laws.
+higherOrderAlignedUnitLeafResult :
+  applyMorphism (higherOrderTermSemantics (HOUnit [LBool])) (True, ()) = ()
+higherOrderAlignedUnitLeafResult = trans
+  (higherOrderAlignedRelated (AlignUnit [LBool]) (True, ()) (True, ()) (Refl, Refl)) Refl
+
+higherOrderAlignedFalseIfResult :
+  applyMorphism (higherOrderTermSemantics Tests.Shadow.higherOrderLinearIf) (False, ()) = False
+higherOrderAlignedFalseIfResult = trans
+  (higherOrderAlignedRelated Tests.Shadow.higherOrderLinearAlignment
+    (False, ()) (False, ()) (Refl, Refl))
+  Tests.Shadow.higherOrderLinearFalse
+
+higherOrderUnitApplicationAlignment :
+  HigherOrderAlignment Tests.Shadow.higherOrderUnitApplication Tests.Shadow.higherOrderUnitApplication
+higherOrderUnitApplicationAlignment = AlignApplication
+  (AlignLambda (AlignUnit [LBool, LBool])) (AlignVar [LBool] LBool LHere)
+
+higherOrderAlignedUnitApplicationResult :
+  applyMorphism (higherOrderTermSemantics Tests.Shadow.higherOrderUnitApplication) (True, ()) = ()
+higherOrderAlignedUnitApplicationResult = trans
+  (higherOrderAlignedRelated Tests.Shadow.higherOrderUnitApplicationAlignment
+    (True, ()) (True, ()) (Refl, Refl))
+  Tests.Shadow.higherOrderUnitApplicationResult
+
+higherOrderArrowApplicationAlignment :
+  HigherOrderAlignment Tests.Shadow.higherOrderArrowApplication Tests.Shadow.higherOrderArrowApplication
+higherOrderArrowApplicationAlignment = AlignApplication
+  (AlignLambda (AlignLambda (AlignVar [LBool, LBool, LBool] LBool (LThere LHere))))
+  (AlignVar [LBool] LBool LHere)
+
+higherOrderAlignedArrowApplicationResult :
+  applyMorphism (applyMorphism (higherOrderTermSemantics Tests.Shadow.higherOrderArrowApplication) (True, ())) False = True
+higherOrderAlignedArrowApplicationResult = trans
+  (higherOrderAlignedRelated Tests.Shadow.higherOrderArrowApplicationAlignment
+    (True, ()) (True, ()) (Refl, Refl) False False Refl)
+  Tests.Shadow.higherOrderArrowApplicationResult
 
 higherOrderDistinctApplicationRelated :
   related (commonTypeSetoid LBool)
