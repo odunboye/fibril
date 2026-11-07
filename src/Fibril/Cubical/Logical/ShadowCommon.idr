@@ -68,6 +68,18 @@ commonIntervalValCongruence left right eq (Reverse i) = cong dmReverse (commonIn
 commonIntervalValCongruence left right eq (Meet i j) = cong2 dmMeet (commonIntervalValCongruence left right eq i) (commonIntervalValCongruence left right eq j)
 commonIntervalValCongruence left right eq (Join i j) = cong2 dmJoin (commonIntervalValCongruence left right eq i) (commonIntervalValCongruence left right eq j)
 
+||| Scoped substitution evaluates in the composed actual four-pair valuation.
+public export
+commonIntervalSubstitutionVal : (env : Fin d -> ScopedInterval e) ->
+  (valuation : Fin e -> DM) -> (i : ScopedInterval d) ->
+  evalDMVal valuation (substituteScoped env i) = evalDMVal (\v => evalDMVal valuation (env v)) i
+commonIntervalSubstitutionVal env valuation Zero = Refl
+commonIntervalSubstitutionVal env valuation One = Refl
+commonIntervalSubstitutionVal env valuation (Var i) = Refl
+commonIntervalSubstitutionVal env valuation (Reverse i) = cong dmReverse (commonIntervalSubstitutionVal env valuation i)
+commonIntervalSubstitutionVal env valuation (Meet i j) = cong2 dmMeet (commonIntervalSubstitutionVal env valuation i) (commonIntervalSubstitutionVal env valuation j)
+commonIntervalSubstitutionVal env valuation (Join i j) = cong2 dmJoin (commonIntervalSubstitutionVal env valuation i) (commonIntervalSubstitutionVal env valuation j)
+
 ||| Weakening a face preserves its actual pair-model observation.
 public export
 commonFaceWeakeningVal : (value : DM) -> (valuation : Fin d -> DM) ->
@@ -1475,6 +1487,46 @@ data HigherOrderPathTerm : (ctx : Vect n LogicalType) -> (paths : Vect k Logical
     HigherOrderPathTerm ctx paths LBool d c -> HigherOrderPathTerm ctx paths a d t -> HigherOrderPathTerm ctx paths a d f ->
     HigherOrderPathTerm ctx paths a d (CPIfType c t f)
 
+||| A computational witness retaining its exact syntax and erased typing index.
+public export
+record HigherOrderPathWitness (ctx : Vect n LogicalType) (paths : Vect k LogicalType)
+  (a : LogicalType) (d : Nat) (0 term : CommonPathTerm n k d) where
+  constructor MkHigherOrderPathWitness
+  0 pathTyping : CommonPathHasType ctx paths term a
+  pathWitness : HigherOrderPathTerm ctx paths a d pathTyping
+
+||| Rebuild target typing from retained witness constructors, never by inspecting
+||| an erased derivation. Ordinary witnesses are reused unchanged.
+public export
+mapHigherOrderPathDimensions : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} ->
+  {a : LogicalType} -> {d, e : Nat} -> {0 term : CommonPathTerm n k d} ->
+  {0 typing : CommonPathHasType ctx paths term a} ->
+  (env : Fin d -> ScopedInterval e) -> HigherOrderPathTerm ctx paths a d typing ->
+  HigherOrderPathWitness ctx paths a e (mapCommonPathDimensions env term)
+mapHigherOrderPathDimensions {e} env (HOPOrdinary ctx paths a d {ty} w) =
+  MkHigherOrderPathWitness (CPOrdinaryType ty) (HOPOrdinary ctx paths a e w)
+mapHigherOrderPathDimensions {e} env (HOPAt ctx paths a d p i) =
+  MkHigherOrderPathWitness (CPAtType p) (HOPAt ctx paths a e p (substituteScoped env i))
+mapHigherOrderPathDimensions {e} env (HOPLambda ctx paths a b d body) =
+  let mapped = mapHigherOrderPathDimensions env body in
+  MkHigherOrderPathWitness (CPLamType (pathTyping mapped)) (HOPLambda ctx paths a b e (pathWitness mapped))
+mapHigherOrderPathDimensions {e} env (HOPApplication ctx paths a b d f x) =
+  let mf = mapHigherOrderPathDimensions env f
+      mx = mapHigherOrderPathDimensions env x in
+  MkHigherOrderPathWitness (CPAppType (pathTyping mf) (pathTyping mx))
+    (HOPApplication ctx paths a b e (pathWitness mf) (pathWitness mx))
+mapHigherOrderPathDimensions {e} env (HOPUnitElim ctx paths a d x b) =
+  let mx = mapHigherOrderPathDimensions env x
+      mb = mapHigherOrderPathDimensions env b in
+  MkHigherOrderPathWitness (CPUnitElimType (pathTyping mx) (pathTyping mb))
+    (HOPUnitElim ctx paths a e (pathWitness mx) (pathWitness mb))
+mapHigherOrderPathDimensions {e} env (HOPIf ctx paths a d c t f) =
+  let mc = mapHigherOrderPathDimensions env c
+      mt = mapHigherOrderPathDimensions env t
+      mf = mapHigherOrderPathDimensions env f in
+  MkHigherOrderPathWitness (CPIfType (pathTyping mc) (pathTyping mt) (pathTyping mf))
+    (HOPIf ctx paths a e (pathWitness mc) (pathWitness mt) (pathWitness mf))
+
 ||| Interpret in the product of the ordinary and independent named-path environments.
 public export
 higherOrderPathSemantics : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} -> {a : LogicalType} -> {d : Nat} ->
@@ -1784,6 +1836,80 @@ dependentPathValuationCongruence {a = (LArrow c dty)} (HOPUnitElim ctx paths _ d
 dependentPathValuationCongruence {a = (LArrow c dty)} (HOPIf ctx paths _ d cond yes no) left right eq x y xy =
   higherOrderChoiceRelated {a = (LArrow c dty)} _ _ (dependentPathValuationCongruence cond left right eq x y xy)
     (dependentPathValuationCongruence yes left right eq x y xy) (dependentPathValuationCongruence no left right eq x y xy)
+
+||| Dimension substitution preserves dependent semantics across related ordinary
+||| and dependent named-path environments, at the composed pair valuation.
+public export
+dependentPathDimensionsRelated : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} ->
+  {a : LogicalType} -> {d, e : Nat} -> {0 t : CommonPathTerm n k d} ->
+  {0 typing : CommonPathHasType ctx paths t a} ->
+  (w : HigherOrderPathTerm ctx paths a d typing) -> (env : Fin d -> ScopedInterval e) ->
+  (valuation : Fin e -> DM) ->
+  (x, y : carrier (commonProductSetoid (commonEnvironmentSetoid ctx) (commonDependentPathEnvironmentSetoid ctx paths))) ->
+  related (commonProductSetoid (commonEnvironmentSetoid ctx) (commonDependentPathEnvironmentSetoid ctx paths)) x y ->
+  related (commonTypeSetoid a)
+    (applyMorphism (dependentPathSemantics (pathWitness (mapHigherOrderPathDimensions env w)) valuation) x)
+    (applyMorphism (dependentPathSemantics w (\v => evalDMVal valuation (env v))) y)
+dependentPathDimensionsRelated {a = LUnit} (HOPOrdinary ctx paths _ d w) env valuation x y xy =
+  respectsRelation (higherOrderTermSemantics w) (fst xy)
+dependentPathDimensionsRelated {a = LUnit} (HOPAt ctx paths _ d p i) env valuation x y xy =
+  respectsRelation (commonDependentPathLookup ctx paths LUnit p) (snd xy)
+    (fst x, evalDMVal valuation (substituteScoped env i)) (fst y, evalDMVal (\v => evalDMVal valuation (env v)) i) (fst xy, commonIntervalSubstitutionVal env valuation i)
+dependentPathDimensionsRelated {a = LBool} (HOPOrdinary ctx paths _ d w) env valuation x y xy =
+  respectsRelation (higherOrderTermSemantics w) (fst xy)
+dependentPathDimensionsRelated {a = LBool} (HOPAt ctx paths _ d p i) env valuation x y xy =
+  respectsRelation (commonDependentPathLookup ctx paths LBool p) (snd xy)
+    (fst x, evalDMVal valuation (substituteScoped env i)) (fst y, evalDMVal (\v => evalDMVal valuation (env v)) i) (fst xy, commonIntervalSubstitutionVal env valuation i)
+dependentPathDimensionsRelated {a = (LArrow c dty)} (HOPOrdinary ctx paths _ d w) env valuation x y xy =
+  respectsRelation (higherOrderTermSemantics w) (fst xy)
+dependentPathDimensionsRelated {a = (LArrow c dty)} (HOPAt ctx paths _ d p i) env valuation x y xy =
+  respectsRelation (commonDependentPathLookup ctx paths (LArrow c dty) p) (snd xy)
+    (fst x, evalDMVal valuation (substituteScoped env i)) (fst y, evalDMVal (\v => evalDMVal valuation (env v)) i) (fst xy, commonIntervalSubstitutionVal env valuation i)
+dependentPathDimensionsRelated {a = (LArrow domain result)} (HOPLambda ctx paths _ _ d body) env valuation x y xy =
+  \u, v, uv => dependentPathDimensionsRelated body env valuation
+    ((u, fst x), applyMorphism (weakenDependentPaths ctx paths domain) (snd x))
+    ((v, fst y), applyMorphism (weakenDependentPaths ctx paths domain) (snd y))
+    ((uv, fst xy), respectsRelation (weakenDependentPaths ctx paths domain) (snd xy))
+dependentPathDimensionsRelated {a = LUnit} (HOPApplication ctx paths domain _ d fn arg) env valuation x y xy =
+  rewrite dependentPathApplicationBeta (pathWitness (mapHigherOrderPathDimensions env fn)) (pathWitness (mapHigherOrderPathDimensions env arg)) valuation x in
+  rewrite dependentPathApplicationBeta fn arg (\v => evalDMVal valuation (env v)) y in
+  higherOrderApplicationRelated {arg = domain} {result = LUnit} (dependentPathDimensionsRelated fn env valuation x y xy) (dependentPathDimensionsRelated arg env valuation x y xy)
+dependentPathDimensionsRelated {a = LUnit} (HOPUnitElim ctx paths _ d unit body) env valuation x y xy =
+  dependentPathDimensionsRelated body env valuation x y xy
+dependentPathDimensionsRelated {a = LUnit} (HOPIf ctx paths _ d cond yes no) env valuation x y xy =
+  higherOrderChoiceRelated {a = LUnit} _ _ (dependentPathDimensionsRelated cond env valuation x y xy)
+    (dependentPathDimensionsRelated yes env valuation x y xy) (dependentPathDimensionsRelated no env valuation x y xy)
+dependentPathDimensionsRelated {a = LBool} (HOPApplication ctx paths domain _ d fn arg) env valuation x y xy =
+  rewrite dependentPathApplicationBeta (pathWitness (mapHigherOrderPathDimensions env fn)) (pathWitness (mapHigherOrderPathDimensions env arg)) valuation x in
+  rewrite dependentPathApplicationBeta fn arg (\v => evalDMVal valuation (env v)) y in
+  higherOrderApplicationRelated {arg = domain} {result = LBool} (dependentPathDimensionsRelated fn env valuation x y xy) (dependentPathDimensionsRelated arg env valuation x y xy)
+dependentPathDimensionsRelated {a = LBool} (HOPUnitElim ctx paths _ d unit body) env valuation x y xy =
+  dependentPathDimensionsRelated body env valuation x y xy
+dependentPathDimensionsRelated {a = LBool} (HOPIf ctx paths _ d cond yes no) env valuation x y xy =
+  higherOrderChoiceRelated {a = LBool} _ _ (dependentPathDimensionsRelated cond env valuation x y xy)
+    (dependentPathDimensionsRelated yes env valuation x y xy) (dependentPathDimensionsRelated no env valuation x y xy)
+dependentPathDimensionsRelated {a = (LArrow c dty)} (HOPApplication ctx paths domain _ d fn arg) env valuation x y xy =
+  rewrite dependentPathApplicationBeta (pathWitness (mapHigherOrderPathDimensions env fn)) (pathWitness (mapHigherOrderPathDimensions env arg)) valuation x in
+  rewrite dependentPathApplicationBeta fn arg (\v => evalDMVal valuation (env v)) y in
+  higherOrderApplicationRelated {arg = domain} {result = (LArrow c dty)} (dependentPathDimensionsRelated fn env valuation x y xy) (dependentPathDimensionsRelated arg env valuation x y xy)
+dependentPathDimensionsRelated {a = (LArrow c dty)} (HOPUnitElim ctx paths _ d unit body) env valuation x y xy =
+  dependentPathDimensionsRelated body env valuation x y xy
+dependentPathDimensionsRelated {a = (LArrow c dty)} (HOPIf ctx paths _ d cond yes no) env valuation x y xy =
+  higherOrderChoiceRelated {a = (LArrow c dty)} _ _ (dependentPathDimensionsRelated cond env valuation x y xy)
+    (dependentPathDimensionsRelated yes env valuation x y xy) (dependentPathDimensionsRelated no env valuation x y xy)
+
+||| Fresh-dimension weakening is interpretation-preserving at any new pair value.
+public export
+dependentPathWeakeningRelated : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} ->
+  {a : LogicalType} -> {d : Nat} -> {0 t : CommonPathTerm n k d} ->
+  {0 typing : CommonPathHasType ctx paths t a} ->
+  (w : HigherOrderPathTerm ctx paths a d typing) -> (value : DM) -> (valuation : Fin d -> DM) ->
+  morphismsRelated
+    (dependentPathSemantics (pathWitness (mapHigherOrderPathDimensions (Var . FS) w)) (extendCommonValuation value valuation))
+    (dependentPathSemantics w valuation)
+dependentPathWeakeningRelated w value valuation =
+  dependentPathDimensionsRelated w (Var . FS) (extendCommonValuation value valuation)
+
 
 public export
 data DependentPathAdmissible : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} ->
@@ -2145,3 +2271,27 @@ dependentEndpointFaceEvidenceSound {face} (DepEndpointLeft p i w declared check 
   dependentDeclaredLeftAlignedAtFace declared ps adm env valuation face i check holds w (alignment env valuation holds)
 dependentEndpointFaceEvidenceSound {face} (DepEndpointRight p i w declared check ps adm alignment) env valuation holds =
   dependentDeclaredRightAlignedAtFace declared ps adm env valuation face i check holds w (alignment env valuation holds)
+
+||| Discharge one abstraction boundary using evidence for its actual face
+||| derivation, then remove the fresh dimension from the selected endpoint.
+public export
+dependentPathBoundaryRelated : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} ->
+  {a : LogicalType} -> {d : Nat} -> {0 decls : CommonDeclarations ctx paths} ->
+  (face : ScopedFace d) -> (side : Bool) ->
+  {0 body : CommonPathTerm n k (S d)} -> {0 endpoint : CommonPathTerm n k d} ->
+  {0 bt : CommonPathHasType ctx paths body a} -> {0 et : CommonPathHasType ctx paths endpoint a} ->
+  (bw : HigherOrderPathTerm ctx paths a (S d) bt) -> (ew : HigherOrderPathTerm ctx paths a d et) ->
+  {0 boundary : CommonFaceEqual decls (SConjunction (weakenFace face) (SEndpoint FZ side))
+    body (mapCommonPathDimensions (Var . FS) endpoint) a} ->
+  {ps : carrier (commonDependentPathEnvironmentSetoid ctx paths)} -> {adm : DependentPathAdmissible decls ps} ->
+  DependentEndpointFaceEvidence boundary bw (pathWitness (mapHigherOrderPathDimensions (Var . FS) ew)) ps adm ->
+  (env : carrier (commonEnvironmentSetoid ctx)) -> (valuation : Fin d -> DM) -> faceAtVal valuation face = True ->
+  related (commonTypeSetoid a)
+    (applyMorphism (dependentPathSemantics bw (extendCommonValuation (side, side) valuation)) (env, ps))
+    (applyMorphism (dependentPathSemantics ew valuation) (env, ps))
+dependentPathBoundaryRelated {ctx} {paths} {a} {ps} face side bw ew evidence env valuation holds =
+  relationTrans (commonTypeSetoid a)
+    (dependentEndpointFaceEvidenceSound evidence env (extendCommonValuation (side, side) valuation)
+      (commonEndpointFaceHolds side valuation face holds))
+    (dependentPathWeakeningRelated ew (side, side) valuation (env, ps) (env, ps)
+      (relationRefl (commonProductSetoid (commonEnvironmentSetoid ctx) (commonDependentPathEnvironmentSetoid ctx paths)) (env, ps)))

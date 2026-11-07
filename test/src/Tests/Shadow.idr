@@ -2689,3 +2689,121 @@ dependentBinderValuationCongruence = dependentPathValuationCongruence Tests.Shad
   ((False, ()), Tests.Shadow.dependentLinearPaths)
   ((False, ()), (Tests.Shadow.dependentLinearPathAlternative, ()))
   ((Refl, Refl), Tests.Shadow.dependentLinearPathsRelated)
+
+-- The fresh coordinate differs from the old coordinate: accidentally mapping
+-- to FZ instead of FS FZ changes the nonconstant dependent path's result.
+witnessMixedDimensions : Fin 1 -> ScopedInterval 2
+witnessMixedDimensions _ = Meet (Var (FS FZ)) (Reverse (Var (FS FZ)))
+
+witnessTargetValuation : Fin 2 -> DM
+witnessTargetValuation FZ = (False, False)
+witnessTargetValuation (FS FZ) = (True, False)
+
+mappedCapturedWitness : HigherOrderPathWitness [LBool] [LBool] LBool 2
+  (CPApp (CPLam (CPIf (CPAt FZ (Meet (Var (FS FZ)) (Reverse (Var (FS FZ)))))
+    (CPOrdinary (CVar (FS FZ))) (CPOrdinary (CBool False)))) (CPOrdinary CUnit))
+mappedCapturedWitness = mapHigherOrderPathDimensions Tests.Shadow.witnessMixedDimensions Tests.Shadow.pathCaptured
+
+mappedCapturedNonBoolean : applyMorphism
+  (dependentPathSemantics (pathWitness Tests.Shadow.mappedCapturedWitness) Tests.Shadow.witnessTargetValuation)
+  ((True, ()), Tests.Shadow.dependentLinearPaths) = False
+mappedCapturedNonBoolean = Refl
+
+mappedCapturedRelated : applyMorphism
+  (dependentPathSemantics (pathWitness Tests.Shadow.mappedCapturedWitness) Tests.Shadow.witnessTargetValuation)
+  ((True, ()), Tests.Shadow.dependentLinearPaths) =
+  applyMorphism (dependentPathSemantics Tests.Shadow.pathCaptured
+    (\v => evalDMVal Tests.Shadow.witnessTargetValuation (Tests.Shadow.witnessMixedDimensions v)))
+  ((True, ()), (Tests.Shadow.dependentLinearPathAlternative, ()))
+mappedCapturedRelated = dependentPathDimensionsRelated Tests.Shadow.pathCaptured
+  Tests.Shadow.witnessMixedDimensions Tests.Shadow.witnessTargetValuation
+  ((True, ()), Tests.Shadow.dependentLinearPaths)
+  ((True, ()), (Tests.Shadow.dependentLinearPathAlternative, ()))
+  ((Refl, Refl), Tests.Shadow.dependentLinearPathsRelated)
+
+mappedLinearSource : HigherOrderPathWitness [LBool] [LBool] LBool 2
+  (CPOrdinary (commonTerm (shadowTerm Tests.Shadow.linearSource)))
+mappedLinearSource = mapHigherOrderPathDimensions Tests.Shadow.witnessMixedDimensions Tests.Shadow.pathLinearIf
+
+mappedLinearSourceResult : applyMorphism
+  (dependentPathSemantics (pathWitness Tests.Shadow.mappedLinearSource) Tests.Shadow.witnessTargetValuation)
+  ((True, ()), Tests.Shadow.dependentLinearPaths) = True
+mappedLinearSourceResult = Refl
+
+-- An arbitrary substitution, not just weakening, including all interval nodes.
+mappedIntervalFourPair : (env : Fin d -> ScopedInterval e) -> (valuation : Fin e -> DM) ->
+  (i, j : ScopedInterval d) ->
+  evalDMVal valuation (substituteScoped env (Join (Meet i (Reverse j)) (Meet Zero One))) =
+  evalDMVal (\v => evalDMVal valuation (env v)) (Join (Meet i (Reverse j)) (Meet Zero One))
+mappedIntervalFourPair env valuation i j = commonIntervalSubstitutionVal env valuation
+  (Join (Meet i (Reverse j)) (Meet Zero One))
+
+mappedUnitElimination : applyMorphism
+  (dependentPathSemantics (pathWitness (mapHigherOrderPathDimensions Tests.Shadow.witnessMixedDimensions Tests.Shadow.pathUnitElimination))
+    Tests.Shadow.witnessTargetValuation) ((), (Tests.Shadow.dependentTailPath, ())) = True
+mappedUnitElimination = Refl
+
+-- Lambda weakening preserves older dimensions and ignores its bound argument.
+weakenedBinderNoCapture : related (commonTypeSetoid (LArrow LBool LBool))
+  (applyMorphism (dependentPathSemantics
+    (pathWitness (mapHigherOrderPathDimensions (Var . FS) Tests.Shadow.dependentBinder))
+    (extendCommonValuation (False, False) (\_ => (True, False))))
+    ((False, ()), Tests.Shadow.dependentLinearPaths))
+  (applyMorphism (dependentPathSemantics Tests.Shadow.dependentBinder (\_ => (True, False)))
+    ((False, ()), (Tests.Shadow.dependentLinearPathAlternative, ())))
+weakenedBinderNoCapture = dependentPathWeakeningRelated Tests.Shadow.dependentBinder
+  (False, False) (\_ => (True, False))
+  ((False, ()), Tests.Shadow.dependentLinearPaths)
+  ((False, ()), (Tests.Shadow.dependentLinearPathAlternative, ()))
+  ((Refl, Refl), Tests.Shadow.dependentLinearPathsRelated)
+
+weakenedBinderResult : applyMorphism (applyMorphism (dependentPathSemantics
+  (pathWitness (mapHigherOrderPathDimensions (Var . FS) Tests.Shadow.dependentBinder))
+  (extendCommonValuation (False, False) (\_ => (True, False))))
+  ((False, ()), Tests.Shadow.dependentLinearPaths)) True = True
+weakenedBinderResult = Refl
+
+mappedUnitApplicationRelated : applyMorphism (dependentPathSemantics
+  (pathWitness (mapHigherOrderPathDimensions Tests.Shadow.witnessMixedDimensions Tests.Shadow.alignedUnitApp))
+  Tests.Shadow.witnessTargetValuation)
+  ((Tests.Shadow.setoidIdentity, ()), (Tests.Shadow.alignedEnvPath1, ())) =
+  applyMorphism (dependentPathSemantics Tests.Shadow.alignedUnitApp (\_ => (True, False)))
+  ((Tests.Shadow.setoidConditionalIdentity, ()), (Tests.Shadow.alignedEnvPath2, ()))
+mappedUnitApplicationRelated = dependentPathDimensionsRelated Tests.Shadow.alignedUnitApp
+  Tests.Shadow.witnessMixedDimensions Tests.Shadow.witnessTargetValuation
+  ((Tests.Shadow.setoidIdentity, ()), (Tests.Shadow.alignedEnvPath1, ()))
+  ((Tests.Shadow.setoidConditionalIdentity, ()), (Tests.Shadow.alignedEnvPath2, ()))
+  ((Tests.Shadow.setoidIdentityEquivalent, Refl), Tests.Shadow.alignedEnvPathRelated)
+
+mappedArrowApplicationRelated : related (commonTypeSetoid (LArrow LBool LBool))
+  (applyMorphism (dependentPathSemantics
+    (pathWitness (mapHigherOrderPathDimensions Tests.Shadow.witnessMixedDimensions Tests.Shadow.alignedArrowApp))
+    Tests.Shadow.witnessTargetValuation)
+    ((Tests.Shadow.setoidIdentity, ()), (Tests.Shadow.alignedEnvPath1, ())))
+  (applyMorphism (dependentPathSemantics Tests.Shadow.alignedArrowApp (\_ => (True, False)))
+    ((Tests.Shadow.setoidConditionalIdentity, ()), (Tests.Shadow.alignedEnvPath2, ())))
+mappedArrowApplicationRelated = dependentPathDimensionsRelated Tests.Shadow.alignedArrowApp
+  Tests.Shadow.witnessMixedDimensions Tests.Shadow.witnessTargetValuation
+  ((Tests.Shadow.setoidIdentity, ()), (Tests.Shadow.alignedEnvPath1, ()))
+  ((Tests.Shadow.setoidConditionalIdentity, ()), (Tests.Shadow.alignedEnvPath2, ()))
+  ((Tests.Shadow.setoidIdentityEquivalent, Refl), Tests.Shadow.alignedEnvPathRelated)
+
+-- The boundary theorem consumes actual endpoint derivation evidence and removes
+-- dimension weakening from the linear-source endpoint, not from a constant.
+linearSourceBoundaryRelated : (b : Bool) ->
+  applyMorphism (dependentPathSemantics Tests.Shadow.dependentLinearAt (\_ => (False, False)))
+    ((b, ()), Tests.Shadow.dependentLinearPaths) =
+  applyMorphism (higherOrderTermSemantics Tests.Shadow.higherOrderLinearIf) (b, ())
+linearSourceBoundaryRelated b = dependentPathBoundaryRelated (the (ScopedFace 0) STop) False
+  Tests.Shadow.dependentLinearAt (HOPOrdinary [LBool] [LBool] LBool 0 Tests.Shadow.higherOrderLinearIf)
+  (DepEndpointRestrict (SConjunction STop (SEndpoint FZ False)) (SEndpoint FZ False) Refl
+    Tests.Shadow.dependentLinearEndpointEvidence)
+  (b, ()) (\_ => (True, False)) Refl
+
+rightBoundaryRelated : applyMorphism Tests.Shadow.dependentTailPath ((), (True, True)) = True
+rightBoundaryRelated = dependentPathBoundaryRelated (the (ScopedFace 0) STop) True
+  (HOPAt [] [LBool, LBool] LBool 1 (LThere LHere) (Var FZ))
+  (HOPOrdinary [] [LBool, LBool] LBool 0 (HOBool [] True))
+  (DepEndpointRestrict (SConjunction STop (SEndpoint FZ True)) (SEndpoint FZ True) Refl
+    Tests.Shadow.dependentTailRightEvidence)
+  () (\_ => (False, True)) Refl

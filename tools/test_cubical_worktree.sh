@@ -778,3 +778,16 @@ if [[ $(grep -c '^Error:' "$tmp/$fixture.log") -ne 1 ]] ||
   echo 'Dependent application wrong-domain diagnostic failed:' >&2; cat "$tmp/$fixture.log" >&2; exit 1
 fi
 echo 'Dependent application wrong-domain test passed.'
+
+fixture=HigherOrderDimensionWrongIndex
+if "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1; then
+  echo 'Higher-order dimension mapping wrong-index test unexpectedly succeeded' >&2; exit 1
+fi
+if [[ $(grep -c '^Error:' "$tmp/$fixture.log") -ne 1 ]] ||
+   ! grep -Fxq 'Error: While processing right hand side of bad. When unifying:' "$tmp/$fixture.log" ||
+   ! grep -Fq 'HigherOrderPathWitness [] [LBool] LBool 2' "$tmp/$fixture.log" ||
+   ! grep -Fxq 'Mismatch between: FS FZ and FZ.' "$tmp/$fixture.log" ||
+   grep -Eq 'Undefined name|While processing type of' "$tmp/$fixture.log"; then
+  echo 'Higher-order dimension mapping wrong-index diagnostic failed:' >&2; cat "$tmp/$fixture.log" >&2; exit 1
+fi
+echo 'Higher-order dimension mapping exact transformed-index test passed.'

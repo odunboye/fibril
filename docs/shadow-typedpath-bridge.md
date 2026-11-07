@@ -343,7 +343,62 @@ general face soundness.
 `commonIntervalWeakeningVal` and `commonFaceWeakeningVal` preserve observations
 under a fresh dimension; `commonEndpointFaceHolds` establishes the corresponding
 boundary face. `dependentPathValuationCongruence` relates interpretations of the
-**same witness** at pointwise-equal valuations and related environments. It does
-not compare a witness with its dimension-weakened witness. Computational witness
-weakening, its semantic preservation, a `CommonShadowPath` interpretation, and
-the general semantic abstraction-boundary theorem remain unimplemented.
+**same witness** at pointwise-equal valuations and related environments.
+
+`mapHigherOrderPathDimensions env witness` now computes a
+`HigherOrderPathWitness ctx paths type targetDimensions
+(mapCommonPathDimensions env originalTerm)`. This record contains an erased
+`CommonPathHasType` derivation and its accessible `HigherOrderPathTerm`, indexed
+directly by that exact transformed syntax. No syntax equality or semantic
+conclusion is assumed. Recursion inspects only retained witness constructors,
+not erased typing derivations. Ordinary higher-order witnesses are reused;
+named-path intervals use actual `substituteScoped`; lambda, application,
+conditional and unit elimination rebuild their target derivations and witnesses.
+
+`commonIntervalSubstitutionVal` proves substitution evaluation structurally for
+all four De Morgan pairs. `dependentPathDimensionsRelated` then relates the
+**mapped witness** at a target valuation to the original at the composed
+valuation `\i => evalDMVal targetValuation (env i)`, across related ordinary
+and dependent named-path environments. Lambda cases pull both path environments
+back with `weakenDependentPaths`; application cases cover unit, Boolean and
+arrow results without function equality or function extensionality.
+`dependentPathWeakeningRelated` specializes this to `Var . FS` and
+`extendCommonValuation value valuation`, for any fresh pair value.
+
+`dependentPathBoundaryRelated` consumes `DependentEndpointFaceEvidence` for an
+actual derivation
+
+```text
+CommonFaceEqual decls
+  (SConjunction (weakenFace face) (SEndpoint FZ side))
+  body (mapCommonPathDimensions (Var . FS) endpoint) type
+```
+
+with selected body and mapped endpoint witnesses and the actual dependent path
+environment/admissibility proof. When the ambient face holds, it derives the
+relation between body interpretation at `extendCommonValuation (side, side)
+valuation` and the **unweakened** endpoint interpretation at `valuation`. The
+proof composes face-evidence soundness with weakening preservation; it does not
+require the desired relation as a premise. This is one evidence-indexed boundary,
+not a general interpretation of every `CommonShadowPath`.
+
+The remaining path boundary theorem is: for an actual `CommonAbstract` and
+selected witnesses for its typed body and both endpoints, its interpreted body
+at each fresh endpoint is related to the corresponding original endpoint at
+every ambient valuation satisfying its face and every admissible dependent path
+environment. To package that theorem as a `CommonShadowPath` interpretation still
+requires structural evidence for **both actual boundary derivations**, aligned
+with the selected mapped endpoint witnesses. General `CommonFaceEqual` soundness
+is not proved, so that evidence cannot currently be extracted for arbitrary
+`CommonAbstract` boundaries. Nor is dimension substitution/application
+interpretation packaged for `applyCommonShadowPath` yet. The new mapping and
+boundary transport remove the computational weakening gap, not these remaining
+evidence/interpretation gaps.
+
+Regression proofs in `Tests.Shadow` cover an exact transformed lambda/app/if
+witness, a nonconstant ordinary-environment-dependent named path, related but
+distinct path/function environments, non-Boolean substitutions, all application
+result types, unit elimination, the actual linear source witness, fresh-index
+weakening, and left/right evidence-indexed boundary transport. The negative
+`HigherOrderDimensionWrongIndex` fixture checks that weakening cannot be
+misindexed at the fresh dimension instead of the older `FS FZ` dimension.
