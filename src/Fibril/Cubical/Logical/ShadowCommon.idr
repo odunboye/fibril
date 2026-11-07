@@ -1239,6 +1239,38 @@ higherOrderTermSemantics (HOApplication ctx a b f x) = commonApply (higherOrderT
 higherOrderTermSemantics (HOUnitElim ctx a x body) = commonUnitElimination (higherOrderTermSemantics x) (higherOrderTermSemantics body)
 higherOrderTermSemantics (HOIf ctx a c t f) = commonIf (higherOrderTermSemantics c) (higherOrderTermSemantics t) (higherOrderTermSemantics f)
 
+||| Structural alignment retains the same intermediate type at every application.
+||| It relates actual witnesses, not semantic values or arbitrary typings.
+public export
+data HigherOrderAlignment : {ctx : Vect n LogicalType} -> {a : LogicalType} ->
+  {0 t : CommonTerm n} -> {0 leftTy, rightTy : CommonHasType ctx t a} ->
+  HigherOrderTerm ctx a leftTy -> HigherOrderTerm ctx a rightTy -> Type where
+  AlignVar : (ctx : Vect n LogicalType) -> (a : LogicalType) -> (v : LogicalVar ctx a) ->
+    HigherOrderAlignment (HOVar ctx a v) (HOVar ctx a v)
+  AlignUnit : (ctx : Vect n LogicalType) -> HigherOrderAlignment (HOUnit ctx) (HOUnit ctx)
+  AlignBool : (ctx : Vect n LogicalType) -> (b : Bool) -> HigherOrderAlignment (HOBool ctx b) (HOBool ctx b)
+  AlignLambda : {0 lt, rt : CommonHasType (a :: ctx) tm b} ->
+    {left : HigherOrderTerm (a :: ctx) b lt} -> {right : HigherOrderTerm (a :: ctx) b rt} ->
+    HigherOrderAlignment left right ->
+    HigherOrderAlignment (HOLambda ctx a b left) (HOLambda ctx a b right)
+  AlignApplication : {0 lf, rf : CommonHasType ctx ft (LArrow a b)} ->
+    {0 lx, rx : CommonHasType ctx xt a} ->
+    {leftF : HigherOrderTerm ctx (LArrow a b) lf} -> {rightF : HigherOrderTerm ctx (LArrow a b) rf} ->
+    {leftX : HigherOrderTerm ctx a lx} -> {rightX : HigherOrderTerm ctx a rx} ->
+    HigherOrderAlignment leftF rightF -> HigherOrderAlignment leftX rightX ->
+    HigherOrderAlignment (HOApplication ctx a b leftF leftX) (HOApplication ctx a b rightF rightX)
+  AlignUnitElim : {0 lx, rx : CommonHasType ctx xt LUnit} -> {0 lb, rb : CommonHasType ctx bt a} ->
+    {leftX : HigherOrderTerm ctx LUnit lx} -> {rightX : HigherOrderTerm ctx LUnit rx} ->
+    {leftB : HigherOrderTerm ctx a lb} -> {rightB : HigherOrderTerm ctx a rb} ->
+    HigherOrderAlignment leftX rightX -> HigherOrderAlignment leftB rightB ->
+    HigherOrderAlignment (HOUnitElim ctx a leftX leftB) (HOUnitElim ctx a rightX rightB)
+  AlignIf : {0 lc, rc : CommonHasType ctx ct LBool} -> {0 lt, rt : CommonHasType ctx tt a} -> {0 lf, rf : CommonHasType ctx ft a} ->
+    {leftC : HigherOrderTerm ctx LBool lc} -> {rightC : HigherOrderTerm ctx LBool rc} ->
+    {leftT : HigherOrderTerm ctx a lt} -> {rightT : HigherOrderTerm ctx a rt} ->
+    {leftF : HigherOrderTerm ctx a lf} -> {rightF : HigherOrderTerm ctx a rf} ->
+    HigherOrderAlignment leftC rightC -> HigherOrderAlignment leftT rightT -> HigherOrderAlignment leftF rightF ->
+    HigherOrderAlignment (HOIf ctx a leftC leftT leftF) (HOIf ctx a rightC rightT rightF)
+
 ||| Dimensions use equality, not a Boolean approximation of the four-pair model.
 public export
 commonDMSetoid : CommonSetoid

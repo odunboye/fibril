@@ -601,3 +601,13 @@ for fixture in HigherOrderPathWrongContext HigherOrderPathWrongType HigherOrderP
   fi
 done
 echo 'Higher-order path wrong context, type and dimension tests passed.'
+fixture=HigherOrderAlignmentAmbiguous
+"$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1 || true
+if [[ $(grep -c '^Error:' "$tmp/$fixture.log") -ne 1 ]] ||
+   ! grep -Fq 'Error: While processing right hand side of bad.' "$tmp/$fixture.log" ||
+   ! grep -Fq 'Mismatch between: LUnit and LBool.' "$tmp/$fixture.log" ||
+   grep -Eq 'Undefined name|While processing type of' "$tmp/$fixture.log"; then
+  echo 'Higher-order ambiguous alignment negative test failed:' >&2
+  cat "$tmp/$fixture.log" >&2; exit 1
+fi
+echo 'Higher-order ambiguous alignment negative test passed.'

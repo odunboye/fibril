@@ -1564,6 +1564,13 @@ higherOrderLinearIf : HigherOrderTerm [LBool] LBool (sourceCommonTyped Tests.Sha
 higherOrderLinearIf = HOIf [LBool] LBool (HOVar [LBool] LBool LHere)
   (HOBool [LBool] True) (HOBool [LBool] False)
 
+higherOrderLinearIfAgain : HigherOrderTerm [LBool] LBool (sourceCommonTyped Tests.Shadow.linearSource)
+higherOrderLinearIfAgain = HOIf [LBool] LBool (HOVar [LBool] LBool LHere)
+  (HOBool [LBool] True) (HOBool [LBool] False)
+
+higherOrderLinearAlignment : HigherOrderAlignment Tests.Shadow.higherOrderLinearIf Tests.Shadow.higherOrderLinearIfAgain
+higherOrderLinearAlignment = AlignIf (AlignVar [LBool] LBool LHere) (AlignBool [LBool] True) (AlignBool [LBool] False)
+
 higherOrderLinearTrue : applyMorphism (higherOrderTermSemantics Tests.Shadow.higherOrderLinearIf) (True, ()) = True
 higherOrderLinearTrue = Refl
 
@@ -1575,6 +1582,16 @@ higherOrderCapture : HigherOrderTerm [LBool] LBool
 higherOrderCapture = HOApplication [LBool] LUnit LBool
   (HOLambda [LBool] LUnit LBool (HOVar [LUnit, LBool] LBool (LThere LHere)))
   (HOUnit [LBool])
+
+higherOrderCaptureAgain : HigherOrderTerm [LBool] LBool
+  (CApplicationType (CLambdaType (CVariable (LThere LHere))) CUnitType)
+higherOrderCaptureAgain = HOApplication [LBool] LUnit LBool
+  (HOLambda [LBool] LUnit LBool (HOVar [LUnit, LBool] LBool (LThere LHere)))
+  (HOUnit [LBool])
+
+higherOrderCaptureAlignment : HigherOrderAlignment Tests.Shadow.higherOrderCapture Tests.Shadow.higherOrderCaptureAgain
+higherOrderCaptureAlignment = AlignApplication
+  (AlignLambda (AlignVar [LUnit, LBool] LBool (LThere LHere))) (AlignUnit [LBool])
 
 higherOrderCaptureResult : applyMorphism (higherOrderTermSemantics Tests.Shadow.higherOrderCapture) (True, ()) = True
 higherOrderCaptureResult = Refl

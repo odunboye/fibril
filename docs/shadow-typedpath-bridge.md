@@ -228,6 +228,15 @@ application, Boolean conditionals, and unit elimination. The latter requires
 both typed witnesses even though its semantics returns the body. Conditional
 branches can have arbitrary logical types, including arrows.
 
+`HigherOrderAlignment` is structural evidence indexed by two actual ordinary
+witnesses for the same syntax, context and result type. Its application rule
+requires a shared domain type, recursively, and its lambda, conditional and
+unit-elimination rules align their children. It has no semantic-relation
+premise. This is only the ordinary evidence: a cross-witness interpretation
+theorem and corresponding dependent-path alignment are not yet established.
+In particular this does not assert coherence for differently typed intermediate
+expressions.
+
 This is not a path interpreter or a semantic soundness theorem, nor does it
 establish derivation coherence, endpoint admissibility, runtime behavior,
 ownership, or a general HoTT or cubical model. The existing first-order path
