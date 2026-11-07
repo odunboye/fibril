@@ -2888,6 +2888,53 @@ main = first Zero
                 self.assertNotEqual(rejected.returncode, 0, bad)
                 self.assertIn('Fuel must be decimal 0..4096', rejected.stderr)
 
+    def test_general_recursion_locations_and_navigation(self):
+        root = ROOT / 'examples/modules/general-recursion'
+        # A single refused call is reported at the call itself, not the declaration.
+        loop = run('check', '--source-dir', str(root), str(root / 'Loop.fib'))
+        self.assertNotEqual(loop.returncode, 0)
+        self.assertIn('Loop.fib:7:13:', loop.stderr)
+        self.assertIn('(at its recursive call)', loop.stderr)
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            def definition(path, line, column):
+                result = run('definition', '--source-dir', directory, '--entry', str(path), str(line), str(column), str(path))
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                found = json.loads(result.stdout)['definition']
+                return None if found is None else (found['range']['start']['line'], found['range']['start']['column'])
+            # With several refused calls the error stays at the declaration and lists them all.
+            two = work / 'Two.fib'
+            two.write_text('module Two\n\nspin : (1 n : Nat) -> Nat\nspin n = case n of\n'
+                           '  Zero => spin Zero\n  Succ a => spin (Succ a)\n\nmain : IO Unit\nmain = putStrLn "x"\n')
+            refused = run('check', '--source-dir', directory, str(two))
+            self.assertNotEqual(refused.returncode, 0)
+            self.assertIn('Two.fib:3:1:', refused.stderr)
+            self.assertIn('recursive calls at 5:11, 6:13', refused.stderr)
+            self.assertNotIn('(at its recursive call)', refused.stderr)
+            # An unrelated recursion error is not pinned on a call it has nothing to do with.
+            unsupported = work / 'Unsupported.fib'
+            unsupported.write_text('module Unsupported\n\nf : (1 n : IO Unit) -> IO Unit\nf n = f n\n\nmain : IO Unit\nmain = putStrLn "x"\n')
+            other = run('check', '--source-dir', directory, str(unsupported))
+            self.assertNotEqual(other.returncode, 0)
+            self.assertIn('unsupported term form', other.stderr)
+            self.assertNotIn('(at its recursive call)', other.stderr)
+            # Definition navigation: an admitted recursive call resolves to the equation head.
+            for name, call, head in (('Half', (10, 21), (6, 1)), ('Fibonacci', (14, 20), (10, 1))):
+                source = (root / (name + '.fib')).read_text()
+                copy = work / (name + '.fib')
+                copy.write_text(source)
+                self.assertEqual(definition(copy, *call), head, name)
+            # A binder that shadows the function's name makes the token count disagree with the
+            # checked call count, so no site is invented: the answer is null, never a wrong target.
+            shadow = 'module Shadow\n\nh : (1 n : Nat) -> Nat\nh n = case n of\n  Zero => (\\(1 h : Nat) => h) Zero\n' \
+                     '  Succ a => case a of\n    Zero => Zero\n    Succ b => Succ (h b)\n\nmain : IO Unit\nmain = putStrLn "ok"\n'
+            (work / 'Shadow.fib').write_text(shadow)
+            self.assertEqual(run('run', '--source-dir', directory, str(work / 'Shadow.fib')).stdout, 'ok\n')
+            self.assertIsNone(definition(work / 'Shadow.fib', 8, 21))
+            clean = shadow.replace('(\\(1 h : Nat) => h) Zero', 'Zero').replace('Shadow', 'Clean')
+            (work / 'Clean.fib').write_text(clean)
+            self.assertEqual(definition(work / 'Clean.fib', 8, 21), (4, 1))
+
     def test_accumulator_equations_reject_dependent_types(self):
         fixture = ROOT / 'examples/modules/linear-accumulator'
         examples = [

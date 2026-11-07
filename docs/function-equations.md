@@ -396,9 +396,18 @@ scrutinee, and in pattern clauses, the predecessor stays linear and must be
 consumed exactly once. The fallback inherits
 the general elaborator's pattern resolution, which resolves a `Zero` pattern to
 the built-in constructor even when an identical `Zero` is imported. Mutual
-recursion beyond the bounded Nat/Bool pairs and navigation from a call to its
-definition are not supported. Native C emission works but stays inside the runtime's
-fixed evaluation budget; on the hosted path `run --fuel` widens the planning budget. Runnable examples:
+recursion beyond the bounded Nat/Bool pairs is not supported. Native C emission works
+but stays inside the runtime's fixed evaluation budget; on the hosted path
+`run --fuel` and `test --fuel` widen the evaluation budget.
+
+A refusal for a missing decrease is reported at the recursive call itself when the
+definition has exactly one, and otherwise at the declaration with the position of every
+recursive call. Other recursion errors, such as unsupported syntax in the body, stay at
+the declaration because they are not about one call. Definition navigation resolves an
+admitted recursive call to its equation head. Both rely on the same check: the name
+tokens in the body must match, one for one, the recursive calls found in the checked
+term. If a binder reuses the function's name the counts disagree and no site is
+reported, so navigation answers `null` rather than a wrong target. Runnable examples:
 [Half.fib](../examples/modules/general-recursion/Half.fib) and
 [Chain.fib](../examples/modules/general-recursion/Chain.fib) (accepted), and
 [Loop.fib](../examples/modules/general-recursion/Loop.fib) (refused).

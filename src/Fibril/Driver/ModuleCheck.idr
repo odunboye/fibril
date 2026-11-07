@@ -17,6 +17,8 @@ import Fibril.Core.Erased
 import Fibril.Core.Reduction
 import Fibril.Core.WeakHead
 import Fibril.Core.Pretty
+import Fibril.Termination.Extract
+import Fibril.Termination.SizeChange
 import Fibril.Source.Text
 import Fibril.Source.Lexer
 import Fibril.Source.Syntax
@@ -253,6 +255,43 @@ declarationFailure snapshot decl stage label detail =
   { stage := stage } (problem snapshot (Just decl.nameSpan.start)
     (label ++ " While checking " ++ (if decl.generated then "generated declaration " else "declaration ") ++
       show decl.name ++ " (declaration-level location): " ++ detail))
+
+-- Name tokens spelled like the declaration, strictly after its equation head and inside
+-- it: candidate self references. A shadowing binder would also match, so callers validate
+-- the count against the self-calls found in the checked core term before trusting them.
+selfOccurrences : ModuleSnapshot -> Declaration -> List Token
+selfOccurrences snapshot decl =
+  filter (\token => token.kind == Name && token.spelling == decl.name &&
+                    token.span.start.offset >= decl.definitionNameSpan.finish.offset &&
+                    token.span.finish.offset <= decl.span.finish.offset)
+         snapshot.document.tokens
+
+-- The occurrences are real self-calls exactly when they match the checked term's call sites.
+validatedSelfCalls : ModuleSnapshot -> Declaration -> Term 0 -> List Token
+validatedSelfCalls snapshot decl (Fix ty body) = case extractFix ty body of
+  Right calls =>
+    let occurrences = selfOccurrences snapshot decl in
+      if not (null calls) && length calls == length occurrences then occurrences else []
+  Left _ => []
+validatedSelfCalls _ _ _ = []
+
+showPoint : Position -> String
+showPoint point = show point.line ++ ":" ++ show point.column
+
+-- A refused size-change decrease is reported at the recursive call when there is exactly
+-- one, otherwise at the declaration with every call position. Other recursion errors
+-- (unsupported syntax and so on) are not about a particular call and stay declaration-level.
+checkFailure : ModuleSnapshot -> Declaration -> Term 0 -> String -> String -> String -> GraphError
+checkFailure snapshot decl value stage label detail =
+  if not (isInfixOf "no argument decreases" detail) then declarationFailure snapshot decl stage label detail else
+    case validatedSelfCalls snapshot decl value of
+      [call] => { stage := stage } (problem snapshot (Just call.span.start)
+                  (label ++ " While checking declaration " ++ show decl.name ++
+                   " (at its recursive call): " ++ detail))
+      [] => declarationFailure snapshot decl stage label detail
+      calls => declarationFailure snapshot decl stage label
+                 (detail ++ " (recursive calls at " ++
+                  concat (intersperse ", " (map (\call => showPoint call.span.start) calls)) ++ ")")
 
 -- True identifies a closed dictionary value; factories are explicit-only.
 dictionarySignature : Nat -> Term n -> Either String Bool
@@ -1385,10 +1424,10 @@ compileDeclarations snapshot name globals (Single decl :: rest) remaining = do
      else Right ()
   case decl.quantity of
     Erased => case checkErased checkingDepth typeReductionFuel Empty value ty of
-      Left err => Left (declarationFailure snapshot decl "erased-checking" "Module erased checking:" (show err))
+      Left err => Left (checkFailure snapshot decl value "erased-checking" "Module erased checking:" (show err))
       Right () => Right ()
     _ => case checkRuntime checkingDepth typeReductionFuel Empty value ty of
-      Left err => Left (declarationFailure snapshot decl "runtime-checking" "Module checking:" (show err))
+      Left err => Left (checkFailure snapshot decl value "runtime-checking" "Module checking:" (show err))
       Right _ => Right ()
   provider <- if decl.dictionary then case dictionarySignature checkingDepth ty of
     Right closed => Right closed
@@ -1401,7 +1440,8 @@ compileDeclarations snapshot name globals (Single decl :: rest) remaining = do
   following <- compileDeclarations snapshot name (local :: qualified :: globals) rest (minus remaining estimate)
   let ownSites = case recursive of
         Just _ => structuralSites snapshot decl
-        Nothing => []
+        Nothing => map (\call => StructuralSite snapshot.path call.span decl.definitionNameSpan)
+                       (validatedSelfCalls snapshot decl value)
   Right (Definitions (local :: following.locals)
            (if decl.exported then qualified :: following.exports else following.exports)
            (ownSites ++ following.sites) following.remaining)
