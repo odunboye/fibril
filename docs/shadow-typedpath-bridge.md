@@ -193,8 +193,13 @@ including for arbitrary four-pair valuations. The proof reifies each witness’s
 syntax and uses constructor injectivity rather than inspecting erased typing
 derivations.
 
-These lemmas do not yet prove soundness for `CommonFaceEqual`: first-order
-evidence indexed by its derivations and the congruence and transitivity cases
-remain to be proved.
+`FirstOrderFaceEqual` gives derivation-indexed evidence for reflexivity,
+symmetry, transitivity, restriction, and declared left and right endpoints.
+`firstOrderFaceEqualSound` proves equal interpretations on a satisfying face
+for any admissible path environment. Transitivity uses witness coherence;
+endpoint cases use admissible declaration lookup. This is a restricted fragment:
+conditional and unit-elimination congruence are not yet covered, and
+application congruence is excluded. It is not a soundness theorem for every
+`CommonFaceEqual` derivation.
 This interpretation does not claim higher-order, dependent path, composition,
 resource, or runtime soundness.

@@ -1181,3 +1181,131 @@ coherenceArbitraryDimension : {d : Nat} -> (i : ScopedInterval d) ->
   interpretFirstOrderPath (the (FirstOrderPathTerm (CPAtType {ctx = [LBool]} {i = i} LHere)) (FOAt LHere i)) env ps valuation =
   interpretFirstOrderPath (the (FirstOrderPathTerm (CPAtType {ctx = [LBool]} {i = i} LHere)) (FOAt LHere i)) env ps valuation
 coherenceArbitraryDimension i env ps valuation = firstOrderPathCoherent (FOAt LHere i) (FOAt LHere i) env ps valuation
+
+-- This witness indexes the translated BodyEndpoint derivation itself.
+firstOrderLinearFaceWitness : FirstOrderFaceEqual Tests.Shadow.commonLinearIfEndpoint
+  (FOAt LHere (Var FZ)) (FOOrdinary Tests.Shadow.firstOrderLinearIf)
+firstOrderLinearFaceWitness = FOFaceLeft LHere (Var FZ) Tests.Shadow.firstOrderLinearIf CommonDeclaredHere Refl
+
+firstOrderTestFaceWitness : FirstOrderFaceEqual
+  (the (CommonFaceEqual Tests.Shadow.firstOrderTestDeclarations (the (ScopedFace 2) (SEndpoint FZ False))
+    (CPAt FZ (Var FZ)) (CPOrdinary (CIf (CVar FZ) (CBool True) (CBool False))) LBool)
+    (CommonLeft CommonDeclaredHere Refl))
+  (FOAt LHere (Var FZ)) (FOOrdinary Tests.Shadow.firstOrderLinearIf)
+firstOrderTestFaceWitness = FOFaceLeft LHere (Var FZ) Tests.Shadow.firstOrderLinearIf CommonDeclaredHere Refl
+
+firstOrderFaceSoundExample : Tests.Shadow.firstOrderTestPath (FOCons False FONil)
+  (evalDMVal Tests.Shadow.commonPairValuation (Var FZ)) = False
+firstOrderFaceSoundExample = firstOrderFaceEqualSound Tests.Shadow.firstOrderTestFaceWitness
+  (FOCons False FONil) Tests.Shadow.firstOrderTestPaths Tests.Shadow.firstOrderTestAdmissible
+  Tests.Shadow.commonPairValuation Refl
+
+firstOrderFaceRoundTrip : FirstOrderFaceEqual
+  (CommonTrans Tests.Shadow.commonLinearIfEndpoint (CommonSym Tests.Shadow.commonLinearIfEndpoint))
+  (FOAt LHere (Var FZ)) (FOAt LHere (Var FZ))
+firstOrderFaceRoundTrip = FOFaceTrans Tests.Shadow.firstOrderLinearFaceWitness
+  (FOFaceSym Tests.Shadow.firstOrderLinearFaceWitness)
+
+firstOrderFaceRestricted : FirstOrderFaceEqual
+  (CommonRestrict {face = SEndpoint FZ False} Tests.Shadow.commonLinearIfEndpoint Refl)
+  (FOAt LHere (Var FZ)) (FOOrdinary Tests.Shadow.firstOrderLinearIf)
+firstOrderFaceRestricted = FOFaceRestrict (SEndpoint FZ False) (SEndpoint FZ False) Refl
+  Tests.Shadow.firstOrderLinearFaceWitness
+
+-- Both endpoints of the translated declaration are the actual linear If.
+firstOrderLinearPath : FirstOrderEnv [LBool] -> DM -> Bool
+firstOrderLinearPath (FOCons b FONil) (False, False) = b
+firstOrderLinearPath (FOCons b FONil) (True, True) = b
+firstOrderLinearPath (FOCons b FONil) _ = False
+
+firstOrderLinearPaths : FirstOrderPaths [LBool] [LBool]
+firstOrderLinearPaths = FOPath Tests.Shadow.firstOrderLinearPath FONoPaths
+
+firstOrderLinearBoundaryZero : (env : FirstOrderEnv [LBool]) -> Tests.Shadow.firstOrderLinearPath env (False, False) = interpretFirstOrderTerm Tests.Shadow.firstOrderLinearIf env
+firstOrderLinearBoundaryZero (FOCons False FONil) = Refl
+firstOrderLinearBoundaryZero (FOCons True FONil) = Refl
+
+firstOrderLinearBoundaryOne : (env : FirstOrderEnv [LBool]) -> Tests.Shadow.firstOrderLinearPath env (True, True) = interpretFirstOrderTerm Tests.Shadow.firstOrderLinearIf env
+firstOrderLinearBoundaryOne (FOCons False FONil) = Refl
+firstOrderLinearBoundaryOne (FOCons True FONil) = Refl
+
+firstOrderLinearAdmissible : FirstOrderAdmissible
+  (commonDeclarations (DeclarePath (shadowTerm Tests.Shadow.linearSource) (shadowTerm Tests.Shadow.linearSource) NoPaths))
+  Tests.Shadow.firstOrderLinearPaths
+firstOrderLinearAdmissible = FOAdmissibleCons Tests.Shadow.firstOrderLinearIf Tests.Shadow.firstOrderLinearIf
+  Tests.Shadow.firstOrderLinearBoundaryZero Tests.Shadow.firstOrderLinearBoundaryOne FOAdmissibleNil
+
+-- The source Uses evidence remains separate from this semantic claim.
+firstOrderTranslatedLeftSound : Tests.Shadow.firstOrderLinearPath (FOCons True FONil) (False, False) = True
+firstOrderTranslatedLeftSound = firstOrderFaceEqualSound Tests.Shadow.firstOrderLinearFaceWitness
+  (FOCons True FONil) Tests.Shadow.firstOrderLinearPaths Tests.Shadow.firstOrderLinearAdmissible
+  (\_ => (False, False)) Refl
+
+firstOrderFaceReflWitness : FirstOrderFaceEqual
+  (the (CommonFaceEqual Tests.Shadow.firstOrderTestDeclarations (the (ScopedFace 2) (SEndpoint FZ False))
+    (CPAt FZ (Var (FS FZ))) (CPAt FZ (Var (FS FZ))) LBool)
+    (CommonRefl (CPAtType LHere)))
+  (FOAt LHere (Var (FS FZ))) (FOAt LHere (Var (FS FZ)))
+firstOrderFaceReflWitness = FOFaceRefl (FOAt LHere (Var (FS FZ)))
+
+firstOrderFaceReflSound : Tests.Shadow.firstOrderTestPath (FOCons True FONil) (False, True) = False
+firstOrderFaceReflSound = trans (firstOrderFaceEqualSound Tests.Shadow.firstOrderFaceReflWitness
+  (FOCons True FONil) Tests.Shadow.firstOrderTestPaths Tests.Shadow.firstOrderTestAdmissible
+  Tests.Shadow.commonPairValuation Refl) Refl
+
+firstOrderFaceSymSound : True = Tests.Shadow.firstOrderLinearPath (FOCons True FONil) (False, False)
+firstOrderFaceSymSound = firstOrderFaceEqualSound (FOFaceSym Tests.Shadow.firstOrderLinearFaceWitness)
+  (FOCons True FONil) Tests.Shadow.firstOrderLinearPaths Tests.Shadow.firstOrderLinearAdmissible
+  (\_ => (False, False)) Refl
+
+firstOrderFaceTransSound : Tests.Shadow.firstOrderLinearPath (FOCons True FONil) (False, False) = True
+firstOrderFaceTransSound = trans (firstOrderFaceEqualSound Tests.Shadow.firstOrderFaceRoundTrip
+  (FOCons True FONil) Tests.Shadow.firstOrderLinearPaths Tests.Shadow.firstOrderLinearAdmissible
+  (\_ => (False, False)) Refl) Refl
+
+firstOrderThreeDimLeft : FirstOrderFaceEqual
+  (the (CommonFaceEqual Tests.Shadow.firstOrderTestDeclarations (the (ScopedFace 3) (SEndpoint FZ False))
+    (CPAt FZ (Var FZ)) (CPOrdinary (CIf (CVar FZ) (CBool True) (CBool False))) LBool)
+    (CommonLeft CommonDeclaredHere Refl))
+  (FOAt LHere (Var FZ)) (FOOrdinary Tests.Shadow.firstOrderLinearIf)
+firstOrderThreeDimLeft = FOFaceLeft LHere (Var FZ) Tests.Shadow.firstOrderLinearIf CommonDeclaredHere Refl
+
+firstOrderStrictRestricted : FirstOrderFaceEqual
+  (CommonRestrict {face = Tests.Shadow.commonPairStrictFace}
+    (the (CommonFaceEqual Tests.Shadow.firstOrderTestDeclarations (the (ScopedFace 3) (SEndpoint FZ False))
+      (CPAt FZ (Var FZ)) (CPOrdinary (CIf (CVar FZ) (CBool True) (CBool False))) LBool)
+      (CommonLeft CommonDeclaredHere Refl)) Refl)
+  (FOAt LHere (Var FZ)) (FOOrdinary Tests.Shadow.firstOrderLinearIf)
+firstOrderStrictRestricted = FOFaceRestrict Tests.Shadow.commonPairStrictFace (SEndpoint FZ False) Refl
+  Tests.Shadow.firstOrderThreeDimLeft
+
+firstOrderStrictRestrictedSound : Tests.Shadow.firstOrderTestPath (FOCons False FONil) (False, False) = False
+firstOrderStrictRestrictedSound = firstOrderFaceEqualSound Tests.Shadow.firstOrderStrictRestricted
+  (FOCons False FONil) Tests.Shadow.firstOrderTestPaths Tests.Shadow.firstOrderTestAdmissible
+  Tests.Shadow.commonPairExtendedValuation Tests.Shadow.commonPairStrictFaceHolds
+
+firstOrderTailRightWitness : FirstOrderFaceEqual
+  (the (CommonFaceEqual Tests.Shadow.firstOrderTwoDeclarations (the (ScopedFace 1) (SEndpoint FZ True))
+    (CPAt (FS FZ) (Var FZ)) (CPOrdinary (CBool True)) LBool)
+    (CommonRight (CommonDeclaredThere CommonDeclaredHere) Refl))
+  (FOAt (LThere LHere) (Var FZ)) (FOOrdinary (FOBool True))
+firstOrderTailRightWitness = FOFaceRight (LThere LHere) (Var FZ) (FOBool True)
+  (CommonDeclaredThere CommonDeclaredHere) Refl
+
+firstOrderTailRightSound : Tests.Shadow.firstOrderTestPath (FOCons False FONil) (True, True) = True
+firstOrderTailRightSound = firstOrderFaceEqualSound Tests.Shadow.firstOrderTailRightWitness
+  (FOCons False FONil) Tests.Shadow.firstOrderTwoPaths Tests.Shadow.firstOrderTwoAdmissible
+  Tests.Shadow.firstOrderRightValuation Refl
+
+firstOrderTailLeftWitness : FirstOrderFaceEqual
+  (the (CommonFaceEqual Tests.Shadow.firstOrderTwoDeclarations (the (ScopedFace 2) (SEndpoint FZ False))
+    (CPAt (FS FZ) (Var FZ)) (CPOrdinary (CIf (CVar FZ) (CBool True) (CBool False))) LBool)
+    (CommonLeft (CommonDeclaredThere CommonDeclaredHere) Refl))
+  (FOAt (LThere LHere) (Var FZ)) (FOOrdinary Tests.Shadow.firstOrderLinearIf)
+firstOrderTailLeftWitness = FOFaceLeft (LThere LHere) (Var FZ) Tests.Shadow.firstOrderLinearIf
+  (CommonDeclaredThere CommonDeclaredHere) Refl
+
+firstOrderTailLeftSound : Tests.Shadow.firstOrderTestPath (FOCons True FONil) (False, False) = True
+firstOrderTailLeftSound = firstOrderFaceEqualSound Tests.Shadow.firstOrderTailLeftWitness
+  (FOCons True FONil) Tests.Shadow.firstOrderTwoPaths Tests.Shadow.firstOrderTwoAdmissible
+  Tests.Shadow.commonPairValuation Refl

@@ -963,3 +963,62 @@ firstOrderPathCoherent : {0 t : CommonPathTerm n k d} -> {0 l, r : CommonPathHas
   interpretFirstOrderPath x env ps valuation = interpretFirstOrderPath y env ps valuation
 firstOrderPathCoherent x y env ps valuation = firstOrderPathSyntaxCoherent x y
   (trans (firstOrderPathSyntaxCorrect x) (sym (firstOrderPathSyntaxCorrect y))) env ps valuation
+
+||| First-order evidence for a supported fragment of an actual face derivation.
+||| The endpoint witnesses are explicit because typing derivations are erased.
+public export
+data FirstOrderFaceEqual : {0 ctx : Vect n LogicalType} -> {0 paths : Vect k LogicalType} ->
+  {0 decls : CommonDeclarations ctx paths} -> {0 face : ScopedFace d} ->
+  {0 x, y : CommonPathTerm n k d} -> {0 a : LogicalType} ->
+  {0 lt : CommonPathHasType ctx paths x a} -> {0 rt : CommonPathHasType ctx paths y a} ->
+  (0 eq : CommonFaceEqual decls face x y a) ->
+  FirstOrderPathTerm lt -> FirstOrderPathTerm rt -> Type where
+  FOFaceRefl : (w : FirstOrderPathTerm typed) -> FirstOrderFaceEqual (CommonRefl typed) w w
+  FOFaceSym : FirstOrderFaceEqual eq l r -> FirstOrderFaceEqual (CommonSym eq) r l
+  FOFaceTrans : {0 x, y, z : CommonPathTerm n k d} ->
+    {0 decls : CommonDeclarations ctx paths} -> {0 face : ScopedFace d} ->
+    {0 eq : CommonFaceEqual decls face x y a} -> {0 eq' : CommonFaceEqual decls face y z a} ->
+    {0 lx : CommonPathHasType ctx paths x a} -> {0 rz : CommonPathHasType ctx paths z a} ->
+    {l : FirstOrderPathTerm lx} -> {r : FirstOrderPathTerm rz} ->
+    {0 mid, mid' : CommonPathHasType ctx paths y a} ->
+    {m : FirstOrderPathTerm mid} -> {m' : FirstOrderPathTerm mid'} ->
+    FirstOrderFaceEqual eq l m -> FirstOrderFaceEqual eq' m' r ->
+    FirstOrderFaceEqual (CommonTrans eq eq') l r
+  FOFaceRestrict : {0 x, y : CommonPathTerm n k d} ->
+    {0 lt : CommonPathHasType ctx paths x a} -> {0 rt : CommonPathHasType ctx paths y a} ->
+    {l : FirstOrderPathTerm lt} -> {r : FirstOrderPathTerm rt} ->
+    {0 decls : CommonDeclarations ctx paths} -> (face, source : ScopedFace d) ->
+    {0 eq : CommonFaceEqual decls source x y a} -> (check : boundedFaceEntails face source = True) -> FirstOrderFaceEqual {face = source} eq l r ->
+    FirstOrderFaceEqual {face} (CommonRestrict eq check) l r
+  FOFaceLeft : {face : ScopedFace d} -> {l, r : CommonTerm n} -> {0 typed : CommonHasType ctx l a} ->
+    (p : LogicalVar paths a) -> (i : ScopedInterval d) ->
+    (w : FirstOrderTerm typed) -> (declared : CommonDeclaredPath decls p l r) ->
+    (check : boundedEndpointEntails face i False = True) ->
+    FirstOrderFaceEqual {face} (CommonLeft {i} declared check) (FOAt p i) (FOOrdinary w)
+  FOFaceRight : {face : ScopedFace d} -> {l, r : CommonTerm n} -> {0 typed : CommonHasType ctx r a} ->
+    (p : LogicalVar paths a) -> (i : ScopedInterval d) ->
+    (w : FirstOrderTerm typed) -> (declared : CommonDeclaredPath decls p l r) ->
+    (check : boundedEndpointEntails face i True = True) ->
+    FirstOrderFaceEqual {face} (CommonRight {i} declared check) (FOAt p i) (FOOrdinary w)
+
+public export
+firstOrderFaceEqualSound : {d : Nat} -> {0 decls : CommonDeclarations ctx paths} -> {0 face : ScopedFace d} ->
+  {0 x, y : CommonPathTerm n k d} ->
+  {0 lt : CommonPathHasType ctx paths x a} -> {0 rt : CommonPathHasType ctx paths y a} ->
+  {0 eq : CommonFaceEqual decls face x y a} -> {l : FirstOrderPathTerm lt} -> {r : FirstOrderPathTerm rt} ->
+  FirstOrderFaceEqual eq l r -> (env : FirstOrderEnv ctx) -> (ps : FirstOrderPaths ctx paths) ->
+  FirstOrderAdmissible decls ps -> (valuation : Fin d -> DM) -> faceAtVal valuation face = True ->
+  interpretFirstOrderPath l env ps valuation = interpretFirstOrderPath r env ps valuation
+firstOrderFaceEqualSound (FOFaceRefl w) env ps adm valuation holds = Refl
+firstOrderFaceEqualSound (FOFaceSym eq) env ps adm valuation holds = sym (firstOrderFaceEqualSound eq env ps adm valuation holds)
+firstOrderFaceEqualSound (FOFaceTrans {m} {m'} eq eq') env ps adm valuation holds =
+  trans (firstOrderFaceEqualSound eq env ps adm valuation holds)
+    (trans (firstOrderPathCoherent m m' env ps valuation) (firstOrderFaceEqualSound eq' env ps adm valuation holds))
+firstOrderFaceEqualSound (FOFaceRestrict face source check eq) env ps adm valuation holds =
+  firstOrderFaceEqualSound eq env ps adm valuation (commonFaceValEntailsSound valuation face source check holds)
+firstOrderFaceEqualSound (FOFaceLeft p i w declared check) env ps adm valuation holds =
+  case firstOrderDeclaredLeftAtFace declared ps adm env valuation _ i check holds of
+    FOLeftAtFace left prf => trans prf (firstOrderTermCoherent left w env)
+firstOrderFaceEqualSound (FOFaceRight p i w declared check) env ps adm valuation holds =
+  case firstOrderDeclaredRightAtFace declared ps adm env valuation _ i check holds of
+    FORightAtFace right prf => trans prf (firstOrderTermCoherent right w env)
