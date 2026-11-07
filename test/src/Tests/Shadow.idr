@@ -1363,3 +1363,122 @@ firstOrderIfRestrictedSound = firstOrderFaceEqualSound
   (FOFaceRestrict (SConjunction (SEndpoint FZ False) STop) (SEndpoint FZ False) Refl Tests.Shadow.firstOrderIfCongruence)
   (FOCons True FONil) Tests.Shadow.firstOrderTestPaths Tests.Shadow.firstOrderTestAdmissible
   Tests.Shadow.commonPairValuation Refl
+
+-- The two implementations are definitionally different functions, but are
+-- equal in the arrow setoid without assuming function extensionality.
+setoidIdentity : CommonMorphism Fibril.Cubical.Logical.ShadowCommon.commonBoolSetoid Fibril.Cubical.Logical.ShadowCommon.commonBoolSetoid
+setoidIdentity = MkCommonMorphism (\x => x) (\eq => eq)
+
+conditionalBool : Bool -> Bool
+conditionalBool False = False
+conditionalBool True = True
+
+setoidConditionalIdentity : CommonMorphism Fibril.Cubical.Logical.ShadowCommon.commonBoolSetoid Fibril.Cubical.Logical.ShadowCommon.commonBoolSetoid
+setoidConditionalIdentity = MkCommonMorphism Tests.Shadow.conditionalBool respect
+  where
+    respect : {x, y : Bool} -> x = y ->
+      Tests.Shadow.conditionalBool x = Tests.Shadow.conditionalBool y
+    respect {x = False} Refl = Refl
+    respect {x = True} Refl = Refl
+
+setoidIdentityEquivalent : morphismsRelated Tests.Shadow.setoidIdentity Tests.Shadow.setoidConditionalIdentity
+setoidIdentityEquivalent False False Refl = Refl
+setoidIdentityEquivalent True True Refl = Refl
+
+setoidHigherApplication : related Fibril.Cubical.Logical.ShadowCommon.commonBoolSetoid
+  (applyMorphism Tests.Shadow.setoidIdentity True) (applyMorphism Tests.Shadow.setoidConditionalIdentity True)
+setoidHigherApplication = commonApplicationCongruence {a = Fibril.Cubical.Logical.ShadowCommon.commonBoolSetoid} {b = Fibril.Cubical.Logical.ShadowCommon.commonBoolSetoid} {f = Tests.Shadow.setoidIdentity} {g = Tests.Shadow.setoidConditionalIdentity} Tests.Shadow.setoidIdentityEquivalent Refl
+
+-- An indiscrete domain exposes a function which cannot be made a morphism.
+indiscreteBoolSetoid : CommonSetoid
+indiscreteBoolSetoid = MkCommonSetoid Bool (\_, _ => Builtin.Unit)
+  (\_ => ()) (\_ => ()) (\_, _ => ())
+
+falseNotTrueSetoid : False = True -> Void
+falseNotTrueSetoid Refl impossible
+
+identityNotIndiscreteMorphism :
+  ({x, y : Bool} -> related Tests.Shadow.indiscreteBoolSetoid x y ->
+    related Fibril.Cubical.Logical.ShadowCommon.commonBoolSetoid x y) -> Void
+identityNotIndiscreteMorphism preserves = falseNotTrueSetoid (preserves {x = False} {y = True} ())
+
+unequalSetoidBools : related Fibril.Cubical.Logical.ShadowCommon.commonBoolSetoid False True -> Void
+unequalSetoidBools = falseNotTrueSetoid
+
+higherIdentity : CommonMorphism
+  (commonArrowSetoid Fibril.Cubical.Logical.ShadowCommon.commonBoolSetoid Fibril.Cubical.Logical.ShadowCommon.commonBoolSetoid)
+  (commonArrowSetoid Fibril.Cubical.Logical.ShadowCommon.commonBoolSetoid Fibril.Cubical.Logical.ShadowCommon.commonBoolSetoid)
+higherIdentity = MkCommonMorphism (\f => f) (\eq => eq)
+
+higherIdentityRelated : morphismsRelated
+  (applyMorphism Tests.Shadow.higherIdentity Tests.Shadow.setoidIdentity)
+  (applyMorphism Tests.Shadow.higherIdentity Tests.Shadow.setoidConditionalIdentity)
+higherIdentityRelated = Tests.Shadow.setoidIdentityEquivalent
+
+-- Interpret a nested logical arrow, rather than constructing only its setoid
+-- manually: the carrier is a morphism on Bool-to-Bool morphisms.
+nestedLogicalArrowIdentity : carrier (commonTypeSetoid
+  (LArrow (LArrow LBool LBool) (LArrow LBool LBool)))
+nestedLogicalArrowIdentity = MkCommonMorphism (\f => f) (\fg => fg)
+
+nestedLogicalArrowApplication : morphismsRelated
+  (applyMorphism Tests.Shadow.nestedLogicalArrowIdentity Tests.Shadow.setoidIdentity)
+  (applyMorphism Tests.Shadow.nestedLogicalArrowIdentity Tests.Shadow.setoidConditionalIdentity)
+nestedLogicalArrowApplication = Tests.Shadow.setoidIdentityEquivalent
+
+-- Unlike Bool equality, this domain relates False and True. The two constant
+-- maps preserve even that relation, so the heterogeneous arrow rule applies.
+indiscreteConstantTrue : CommonMorphism Tests.Shadow.indiscreteBoolSetoid
+  Fibril.Cubical.Logical.ShadowCommon.commonBoolSetoid
+indiscreteConstantTrue = MkCommonMorphism (\_ => True) (\_ => Refl)
+
+indiscreteTrueFunction : Bool -> Bool
+indiscreteTrueFunction False = True
+indiscreteTrueFunction True = True
+
+indiscreteConditionalTrue : CommonMorphism Tests.Shadow.indiscreteBoolSetoid
+  Fibril.Cubical.Logical.ShadowCommon.commonBoolSetoid
+indiscreteConditionalTrue = MkCommonMorphism Tests.Shadow.indiscreteTrueFunction (\rel => respect rel)
+  where
+    respect : {x, y : Bool} -> Builtin.Unit ->
+      Tests.Shadow.indiscreteTrueFunction x = Tests.Shadow.indiscreteTrueFunction y
+    respect {x = False} {y = False} _ = Refl
+    respect {x = False} {y = True} _ = Refl
+    respect {x = True} {y = False} _ = Refl
+    respect {x = True} {y = True} _ = Refl
+
+indiscreteConstantsRelated : morphismsRelated Tests.Shadow.indiscreteConstantTrue
+  Tests.Shadow.indiscreteConditionalTrue
+indiscreteConstantsRelated False False _ = Refl
+indiscreteConstantsRelated False True _ = Refl
+indiscreteConstantsRelated True False _ = Refl
+indiscreteConstantsRelated True True _ = Refl
+
+indiscreteDistinctApplication :
+  applyMorphism Tests.Shadow.indiscreteConstantTrue False =
+  applyMorphism Tests.Shadow.indiscreteConditionalTrue True
+indiscreteDistinctApplication = commonApplicationCongruence
+  {a = Tests.Shadow.indiscreteBoolSetoid}
+  {b = Fibril.Cubical.Logical.ShadowCommon.commonBoolSetoid}
+  {f = Tests.Shadow.indiscreteConstantTrue} {g = Tests.Shadow.indiscreteConditionalTrue}
+  {x = False} {y = True} Tests.Shadow.indiscreteConstantsRelated ()
+
+indiscreteConstantsSymmetric : morphismsRelated Tests.Shadow.indiscreteConditionalTrue
+  Tests.Shadow.indiscreteConstantTrue
+indiscreteConstantsSymmetric = relationSym
+  (commonArrowSetoid Tests.Shadow.indiscreteBoolSetoid Fibril.Cubical.Logical.ShadowCommon.commonBoolSetoid)
+  {x = Tests.Shadow.indiscreteConstantTrue} {y = Tests.Shadow.indiscreteConditionalTrue}
+  Tests.Shadow.indiscreteConstantsRelated
+
+indiscreteConstantsTransitive : morphismsRelated Tests.Shadow.indiscreteConstantTrue
+  Tests.Shadow.indiscreteConstantTrue
+indiscreteConstantsTransitive = relationTrans
+  (commonArrowSetoid Tests.Shadow.indiscreteBoolSetoid Fibril.Cubical.Logical.ShadowCommon.commonBoolSetoid)
+  {x = Tests.Shadow.indiscreteConstantTrue} {y = Tests.Shadow.indiscreteConditionalTrue}
+  {z = Tests.Shadow.indiscreteConstantTrue}
+  Tests.Shadow.indiscreteConstantsRelated Tests.Shadow.indiscreteConstantsSymmetric
+
+indiscreteTransitiveDistinct :
+  applyMorphism Tests.Shadow.indiscreteConstantTrue False =
+  applyMorphism Tests.Shadow.indiscreteConstantTrue True
+indiscreteTransitiveDistinct = Tests.Shadow.indiscreteConstantsTransitive False True ()

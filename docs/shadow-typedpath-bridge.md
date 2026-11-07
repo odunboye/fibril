@@ -208,3 +208,20 @@ This interpretation does not claim higher-order, dependent path, composition,
 resource, or runtime soundness.
 The result is not a soundness theorem for the full path calculus and makes no
 claim about higher-order semantics, ownership, or runtime behavior.
+
+### Higher-order setoid foundation
+
+`commonTypeSetoid` assigns Bool and Unit equality setoids and recursively
+assigns arrow types a setoid of relation-preserving morphisms. Arrow relation
+compares outputs on *related*, potentially distinct inputs. Reflexivity uses
+morphism preservation; symmetry and transitivity use the component setoid
+laws. `commonApplicationCongruence` is the resulting application rule. This
+is constructive and does not assume equality of Idris functions.
+
+This is a foundation, not yet an interpretation of `CommonHasType` or
+`CommonPathHasType`: environments, lambda/application interpretation,
+derivation coherence, arbitrary-DM named-path interpretation and semantic
+endpoint admissibility, and structural `CommonFaceEqual` soundness remain
+unproved. In particular the existing first-order interpretation is not extended
+by this construction. It makes no claim about runtime behavior, ownership,
+or a general HoTT or cubical model.

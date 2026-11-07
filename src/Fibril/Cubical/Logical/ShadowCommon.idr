@@ -1072,3 +1072,62 @@ firstOrderFaceEqualSound (FOFaceLeft p i w declared check) env ps adm valuation 
 firstOrderFaceEqualSound (FOFaceRight p i w declared check) env ps adm valuation holds =
   case firstOrderDeclaredRightAtFace declared ps adm env valuation _ i check holds of
     FORightAtFace right prf => trans prf (firstOrderTermCoherent right w env)
+
+||| A constructive setoid; equality of semantic functions is not Idris
+||| function equality.
+public export
+record CommonSetoid where
+  constructor MkCommonSetoid
+  carrier : Type
+  related : carrier -> carrier -> Type
+  relationRefl : (x : carrier) -> related x x
+  relationSym : {x, y : carrier} -> related x y -> related y x
+  relationTrans : {x, y, z : carrier} -> related x y -> related y z -> related x z
+
+||| A semantic function must preserve the input relation.
+public export
+record CommonMorphism (a, b : CommonSetoid) where
+  constructor MkCommonMorphism
+  applyMorphism : carrier a -> carrier b
+  respectsRelation : {x, y : carrier a} -> related a x y ->
+                     related b (applyMorphism x) (applyMorphism y)
+
+||| Heterogeneous pointwise relation gives application congruence directly.
+public export
+morphismsRelated : {a, b : CommonSetoid} -> CommonMorphism a b -> CommonMorphism a b -> Type
+morphismsRelated {a} {b} f g = (x, y : carrier a) -> related a x y ->
+  related b (applyMorphism f x) (applyMorphism g y)
+
+public export
+morphismsTrans : {a, b : CommonSetoid} -> {f, g, h : CommonMorphism a b} ->
+  morphismsRelated f g -> morphismsRelated g h -> morphismsRelated f h
+morphismsTrans {a} {b} fg gh x y xy =
+  relationTrans b (fg x x (relationRefl a x)) (gh x y xy)
+
+public export
+commonArrowSetoid : CommonSetoid -> CommonSetoid -> CommonSetoid
+commonArrowSetoid a b = MkCommonSetoid (CommonMorphism a b) morphismsRelated
+  (\f, x, y, xy => respectsRelation f xy)
+  (\fg, x, y, xy => relationSym b (fg y x (relationSym a xy)))
+  morphismsTrans
+
+public export
+commonBoolSetoid : CommonSetoid
+commonBoolSetoid = MkCommonSetoid Bool (\x, y => x = y) (\x => Refl) (\p => sym p) (\p, q => trans p q)
+
+public export
+commonUnitSetoid : CommonSetoid
+commonUnitSetoid = MkCommonSetoid Builtin.Unit (\x, y => x = y) (\x => Refl) (\p => sym p) (\p, q => trans p q)
+
+||| Setoid interpretation of the logical type grammar.
+public export
+commonTypeSetoid : LogicalType -> CommonSetoid
+commonTypeSetoid LBool = commonBoolSetoid
+commonTypeSetoid LUnit = commonUnitSetoid
+commonTypeSetoid (LArrow a b) = commonArrowSetoid (commonTypeSetoid a) (commonTypeSetoid b)
+
+public export
+commonApplicationCongruence : {a, b : CommonSetoid} ->
+  {f, g : CommonMorphism a b} -> {x, y : carrier a} ->
+  morphismsRelated f g -> related a x y -> related b (applyMorphism f x) (applyMorphism g y)
+commonApplicationCongruence fg xy = fg _ _ xy
