@@ -439,12 +439,16 @@ The group is rewritten before checking into a hidden dispatcher that takes the m
 name as a string tag followed by the shared parameters, plus one definition per member that
 applies the dispatcher to its tag. Inside the dispatcher each member's body runs with the
 member names bound to the dispatcher partially applied to their tags, so the termination
-check sees one ordinary recursive function. Consequences and limits:
+check sees one recursive function whose body is a chain of member tests. Consequences and limits:
 
-- **Every call must itself shrink something.** The check treats the group as a single
-  function, so a call that only forwards its arguments to another member (as in the bounded
-  form's forwarding workers) is refused even when the next member would shrink them. Use
-  the bounded form for that shape, or make each call shrink.
+- **Calls are checked per member.** The termination check reads the dispatcher's tag tests
+  and attributes each call to the member it sits in and the member it names, so a member
+  may forward its arguments unchanged to another member as long as every cycle through the
+  group shrinks something. [MutualForward.fib](../examples/modules/general-recursion/MutualForward.fib)
+  does this. A cycle that shrinks nothing is refused, and the message says the cycle, not
+  one call, is at fault. If a call's target cannot be read as a literal member name, or the
+  group is too large for the finer check, the whole group is judged as one function, where
+  every call must shrink on its own.
 - All members share one signature; members that disagree are rejected and the error names
   the group. Members must be function equations naming their parameters exactly as the
   signature does, take the same number of arguments, and be unrestricted ordinary names. No

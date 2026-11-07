@@ -281,8 +281,10 @@ selfOccurrences snapshot decl =
 -- The occurrences are real self-calls exactly when they match the checked term's call sites.
 validatedSelfCalls : ModuleSnapshot -> Declaration -> Term 0 -> List Token
 validatedSelfCalls snapshot decl (Fix ty body) = case extractFix ty body of
-  Right calls =>
-    let occurrences = selfOccurrences snapshot decl in
+  Right extraction =>
+    -- Both graphs hold one edge per call, so either gives the number of call sites.
+    let calls = extraction.coarse
+        occurrences = selfOccurrences snapshot decl in
       if not (null calls) && length calls == length occurrences then occurrences else []
   Left _ => []
 validatedSelfCalls _ _ _ = []

@@ -2997,6 +2997,8 @@ main = first Zero
         ring = run('run', '--source-dir', str(root), '--fuel', '4096', str(root / 'MutualRing.fib'))
         self.assertEqual(ring.returncode, 0, ring.stdout + ring.stderr)
         self.assertEqual(ring.stdout, '.\nrgbrg.\nbr.\n')
+        forward = run('run', '--source-dir', str(root), '--fuel', '4096', str(root / 'MutualForward.fib'))
+        self.assertEqual((forward.returncode, forward.stdout), (0, '.\nststst.\n'), forward.stderr)
         header = 'module Main\n\ndata Chain : Type where\n  Empty : Chain\n  More : (1 tail : Chain) -> Chain\n\n'
         tail = '\nmain : IO Unit\nmain = putStrLn "x"\n'
         def member(name, nxt, arm='Empty => True', result='Bool'):
@@ -3008,10 +3010,21 @@ main = first Zero
             def check(source):
                 path.write_text(source)
                 return run('check', '--source-dir', directory, str(path))
-            # A call that does not make its argument smaller is refused, whatever the group shape.
-            refused = check(header + 'mutual where\n' + member('isEven', 'isOdd c') + member('isOdd', 'isEven r', 'Empty => False') + tail)
+            # A member may merely forward its argument when another member in the cycle shrinks it.
+            def counting(second):
+                return ('module Main\n\nmutual where\n'
+                        '  isEven : (c : Nat) -> String\n  isEven c = case c of\n    Zero => "even"\n    Succ r => isOdd c\n\n'
+                        '  isOdd : (c : Nat) -> String\n  isOdd c = case c of\n    Zero => "odd"\n'
+                        f'    Succ r => {second}\n\nmain : IO Unit\nmain = putStrLn (isEven 4)\n')
+            forwarding = check(counting('isEven r'))
+            self.assertEqual(forwarding.returncode, 0, forwarding.stdout + forwarding.stderr)
+            ran = run('run', '--source-dir', directory, '--fuel', '4096', str(path))
+            self.assertEqual((ran.returncode, ran.stdout), (0, 'even\n'), ran.stderr)
+            # A cycle in which nothing shrinks is refused, whatever the group shape.
+            refused = check(counting('isEven c'))
             self.assertNotEqual(refused.returncode, 0)
             self.assertIn('no argument decreases', refused.stderr)
+            self.assertIn('cycle', refused.stderr)
             # Every call rebuilding its input is refused too.
             rebuilt = check(header + 'mutual where\n' + member('isEven', 'isOdd (More r)') + member('isOdd', 'isEven (More r)', 'Empty => False') + tail)
             self.assertNotEqual(rebuilt.returncode, 0)

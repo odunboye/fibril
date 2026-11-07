@@ -15,22 +15,44 @@ firstWithoutDecrease _ [] = Nothing
 firstWithoutDecrease i (edge :: rest) =
   if any (any (== Decreases)) edge.matrix then firstWithoutDecrease (S i) rest else Just i
 
-explain : List Call -> String -> String
-explain edges why = case firstWithoutDecrease 1 edges of
-  Just i => "no argument decreases: recursive call " ++ show i ++ " of " ++ show (length edges) ++
-            " passes nothing smaller than a parameter"
-  Nothing => "no argument decreases along every recursive cycle: the calls do not combine into a decrease (" ++ why ++ ")"
+-- With several nodes (the members of a mutual group) one call may legitimately shrink
+-- nothing because it only forwards to a member that does. Blaming such a call would
+-- mislead, so there the failing thing is a cycle of calls, not a call.
+explain : Nat -> List Call -> String -> String
+explain nodes edges why =
+  if nodes > 1
+    then "no argument decreases around every cycle of calls between the members (" ++ why ++ ")"
+    else case firstWithoutDecrease 1 edges of
+      Just i => "no argument decreases: recursive call " ++ show i ++ " of " ++ show (length edges) ++
+                " passes nothing smaller than a parameter"
+      Nothing => "no argument decreases along every recursive cycle: the calls do not combine into a decrease (" ++ why ++ ")"
+
+-- True when the checker gave up on size, not on the program.
+gaveUp : Production -> Bool
+gaveUp (ClosureProduced _ (GraphInconclusive _)) = True
+gaveUp (ProductionInconclusive _) = True
+gaveUp _ = False
+
+decide : Nat -> Nat -> List Call -> Either String ()
+decide nodes arity edges = case produce (replicate nodes arity) edges of
+  ClosureProduced _ GraphAccepted => Right ()
+  ClosureProduced _ (GraphRejected why) => Left (explain nodes edges why)
+  ClosureProduced _ (GraphInconclusive why) => Left ("size-change check inconclusive: " ++ why)
+  ProductionInvalid why => Left why
+  ProductionInconclusive why => Left why
 
 ||| Decide whether a recursive body may be treated as total. The checker has
 ||| already typed the body under a hypothetical unrestricted self; this gate
 ||| supplies the separate termination judgment. Failure is not a divergence proof.
+|||
+||| The finer, member-aware graph is a refinement: it accepts everything the merged one
+||| does. If it only exceeds the checker's size limits, the merged graph decides instead,
+||| so refining can never refuse a function that was admitted before.
 public export
 admitFix : Term n -> Term (S n) -> Either String ()
 admitFix ty body = do
-  edges <- extractFix ty body
-  case produce [arityOf ty] edges of
-    ClosureProduced _ GraphAccepted => Right ()
-    ClosureProduced _ (GraphRejected why) => Left (explain edges why)
-    ClosureProduced _ (GraphInconclusive why) => Left ("size-change check inconclusive: " ++ why)
-    ProductionInvalid why => Left why
-    ProductionInconclusive why => Left why
+  extraction <- extractFix ty body
+  let arity = arityOf ty
+  if extraction.nodes > 1 && gaveUp (produce (replicate extraction.nodes arity) extraction.calls)
+    then decide 1 arity extraction.coarse
+    else decide extraction.nodes arity extraction.calls

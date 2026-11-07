@@ -103,9 +103,46 @@ swapFix = Fix (Pi Linear NatType (Pi Linear NatType NatType))
 reverseEdges : List Call
 reverseEdges = [Edge 0 0 [[Decreases, Unknown], [Unknown, Unknown]]]
 
-extractsTo : List Call -> Either String (List Call) -> Bool
-extractsTo expected (Right actual) = actual == expected
+-- An ordinary function is one node, so its extraction is exactly the list of its calls.
+extractsTo : List Call -> Either String Extraction -> Bool
+extractsTo expected (Right actual) = actual.nodes == 1 && actual.calls == expected
 extractsTo _ _ = False
+
+-- A hand-built dispatcher: parameters tag (1) and count (0), self at 2.
+dispatchSig : Term 0
+dispatchSig = Pi Unrestricted StringType (Pi Unrestricted NatType BoolType)
+
+tagIs : String -> Term (S (S k))
+tagIs name = StringEqual (Variable (FS FZ)) (StringValue name)
+
+-- start c = step c (forwards its argument); step c = case c of Zero => True; Succ p => start p.
+forwardingGroup : Term 1
+forwardingGroup = Lambda Unrestricted StringType (Lambda Unrestricted NatType
+  (BoolCase (tagIs "start")
+    (Apply (Apply (Variable (FS (FS FZ))) (StringValue "step")) (Variable FZ))
+    (NatCase (Lambda Erased NatType BoolType) (Variable FZ) BoolTrue
+      (Lambda Unrestricted NatType
+        (Apply (Apply (Variable (FS (FS (FS FZ)))) (StringValue "start")) (Variable FZ))))))
+
+-- The same shape, but step hands the count back unchanged: a loop between members.
+forwardingLoop : Term 1
+forwardingLoop = Lambda Unrestricted StringType (Lambda Unrestricted NatType
+  (BoolCase (tagIs "start")
+    (Apply (Apply (Variable (FS (FS FZ))) (StringValue "step")) (Variable FZ))
+    (Apply (Apply (Variable (FS (FS FZ))) (StringValue "start")) (Variable FZ))))
+
+-- The forwarding call picks its member with a computed tag, so members cannot be told apart.
+unknownTarget : Term 1
+unknownTarget = Lambda Unrestricted StringType (Lambda Unrestricted NatType
+  (BoolCase (tagIs "start")
+    (Apply (Apply (Variable (FS (FS FZ))) (Variable (FS FZ))) (Variable FZ))
+    (NatCase (Lambda Erased NatType BoolType) (Variable FZ) BoolTrue
+      (Lambda Unrestricted NatType
+        (Apply (Apply (Variable (FS (FS (FS FZ)))) (StringValue "start")) (Variable FZ))))))
+
+nodeCount : Either String Extraction -> Maybe Nat
+nodeCount (Right found) = Just found.nodes
+nodeCount _ = Nothing
 
 -- Returns the outer variable and ignores an erased parameter: only capture is at issue.
 capturing : Term 1
@@ -304,6 +341,16 @@ checks =
       case admitFix (natToNat {n = 0}) loopBody of
         Left message => isInfixOf "recursive call 1 of 1" message && isInfixOf "no argument decreases" message
         Right () => False)
+  , ("a dispatcher reads as two members",
+      nodeCount (extractFix dispatchSig forwardingGroup) == Just 2)
+  , ("a member that only forwards to one that shrinks is admitted",
+      isRight (admitFix dispatchSig forwardingGroup))
+  , ("a forwarding loop between members is refused",
+      case admitFix dispatchSig forwardingLoop of
+        Left message => isInfixOf "no argument decreases" message
+        Right () => False)
+  , ("a computed target falls back to one node and is refused",
+      nodeCount (extractFix dispatchSig unknownTarget) == Just 1 && isLeft (admitFix dispatchSig unknownTarget))
   , ("a decreasing recursion is admitted with no message",
       isRight (admitFix reverseSig reverseBody))
   , ("a recursor used as a helper no longer blocks admission",
@@ -314,7 +361,7 @@ checks =
       case extractFix natToNat (case growFix of
                                   Fix _ body => body
                                   _ => NatZero) of
-        Right edges => length edges == 1
+        Right found => length found.calls == 1
         Left _ => False)
   , ("recursing through a recursor step is still refused",
       isLeft (extractFix (natToNat {n = 0}) throughStep))

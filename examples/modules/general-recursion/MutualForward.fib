@@ -1,0 +1,20 @@
+module MutualForward
+
+-- A member may pass its argument on unchanged, as long as every cycle through the group
+-- shrinks something. `start` only forwards to `step`; `step` is the one that counts down.
+-- The check reads the group member by member, so this is accepted.
+mutual where
+  start : (c : Nat) -> (trail : String) -> String
+  start c trail = case c of
+    Zero => appendString trail "."
+    Succ rest => step c (appendString trail "s")
+
+  step : (c : Nat) -> (trail : String) -> String
+  step c trail = case c of
+    Zero => appendString trail "."
+    Succ rest => start rest (appendString trail "t")
+
+main : IO Unit
+main = do
+  putStrLn (start 0 "")
+  putStrLn (start 3 "")

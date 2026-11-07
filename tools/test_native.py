@@ -75,7 +75,8 @@ class NativeTests(unittest.TestCase):
         expected = {'Half': b'!!!\n', 'Chain': b'xxx\n', 'Swap': b'!\n', 'Doubling': b'!!!!\n',
                     'Fibonacci': b'!!!\n', 'Ackermann': b'!!!\n',
                     'MutualChain': b'zero links: even\ntwo links: even\nthree links: odd\n',
-                    'MutualRing': b'.\nrgbrg.\nbr.\n'}
+                    'MutualRing': b'.\nrgbrg.\nbr.\n',
+                    'MutualForward': b'.\nststst.\n'}
         for name, output in expected.items():
             with self.subTest(program=name), tempfile.TemporaryDirectory() as directory:
                 args = ['--source-dir', str(root), str(root / (name + '.fib'))]

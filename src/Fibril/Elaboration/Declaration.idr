@@ -83,7 +83,7 @@ dispatchTree : SourceSpan -> String -> List (String, Expr) -> Maybe Expr
 dispatchTree span scrutinee [] = Nothing
 dispatchTree span scrutinee [(_, arm)] = Just arm
 dispatchTree span scrutinee ((name, arm) :: rest) =
-  let sameTag = NApply span (NApply span (NRef span "equalString") (NRef span scrutinee)) (NStringValue span name)
+  let sameTag = NApply span (NApply span (NRef span "primStringEqual") (NRef span scrutinee)) (NStringValue span name)
    in map (\other => NIf span sameTag arm other) (dispatchTree span scrutinee rest)
 
 -- let (q name : domain) = $p<index> in body, for each shared parameter, outermost first.

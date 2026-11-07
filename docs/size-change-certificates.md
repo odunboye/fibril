@@ -39,8 +39,12 @@ helper, as long as the recursion does not go through its step. A `let` (a lambda
 at once) is followed: its body runs once, the bound variable inherits the size relation of a
 variable it copies, and a variable bound to a partial application of the recursive function
 is an alias that is callable once its arguments are complete. That is how a
-[mutual group](function-equations.md#mutual-groups) is checked, as one function with a
-member tag. A `Fix` may not capture a linear outer variable, because unfolding copies its closure.
+[mutual group](function-equations.md#mutual-groups) is checked: the dispatcher's chain of
+string-tag tests names the members, each call becomes an edge from the member it sits in to
+the member its literal tag selects, and the same size-change algebra runs over those typed
+edges, so a pure forwarding call is accepted when the cycle it belongs to shrinks. If the
+members cannot be read (a computed tag, 16 or more tests) or the finer closure exceeds the
+checker's limits, the group is judged as one node, which accepts strictly less. A `Fix` may not capture a linear outer variable, because unfolding copies its closure.
 
 Conversion treats `Fix` as neutral and never unfolds it. Run-mode evaluation
 (`Fibril.Core.Evaluation`) unfolds it only after the ordinary reducer is stuck,
