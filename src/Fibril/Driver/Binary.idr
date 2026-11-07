@@ -30,6 +30,7 @@ data BinaryRunError
   | BinaryReductionLimit
   | BinaryExpectedNat
   | BinaryExpectedBytes
+  | BinaryExpectedLoopStep
   | BinaryExpectedUnit
   | BinaryRejected
   | BinaryUnsupported
@@ -43,6 +44,7 @@ Show BinaryRunError where
   show BinaryReductionLimit = "Binary reduction budget exhausted"
   show BinaryExpectedNat = "Binary read capacity did not normalize to Nat"
   show BinaryExpectedBytes = "Binary write did not normalize to Bytes"
+  show BinaryExpectedLoopStep = "Binary loop expects Done/Continue with a payload"
   show BinaryExpectedUnit = "Binary main did not normalize to Unit"
   show BinaryRejected = "Binary program rejected input"
   show BinaryUnsupported = "Unsupported binary IO description"
@@ -73,42 +75,86 @@ liftTransport : Either BinaryError a -> Either BinaryRunError a
 liftTransport (Left err) = Left (BinaryTransportFailure err)
 liftTransport (Right value) = Right value
 
-covering
-execute : Nat -> Nat -> BinaryTransport -> Term 0 -> IO (Either BinaryRunError (Term 0))
-execute Z fuel transport term = pure (Left BinaryDepthLimit)
-execute (S depth) fuel transport term = case weakHead fuel term of
-  HeadLimit _ => pure (Left BinaryReductionLimit)
-  HeadForm head => case inferRuntime checkingDepth typeReductionFuel Empty head of
-    Left err => pure (Left (BinaryTyping err))
-    Right _ => case head of
-      IOPure value => pure (Right value)
-      ReadBytes capacity => case normal fuel capacity >>= maybe (Left BinaryExpectedNat) Right . canonicalNatural of
-        Left err => pure (Left err)
-        Right size => do
-          result <- readBytes size transport
-          pure $ do
-            bytes <- liftTransport result
-            let value = responseValue bytes
-            validate value byteReadResultType
-            Right value
-      WriteBytes dataTerm => case normal fuel dataTerm of
-        Left err => pure (Left err)
-        Right (BytesValue bytes) => do
-          result <- writeBytes bytes transport
-          pure (UnitValue <$ liftTransport result)
-        Right _ => pure (Left BinaryExpectedBytes)
-      RejectBytes => pure (Left BinaryRejected)
-      FlushBytes => do
-        result <- flushBytes transport
-        pure (UnitValue <$ liftTransport result)
-      IOBind a b action next => do
-        first <- execute depth fuel transport action
-        case first >>= (\value => value <$ validate value a) of
+-- A single entry ledger pays for BOTH head contractions and successor visits.
+-- Unlike ordinary weakHead calls, successor traversal never refreshes fuel.
+decodeCount : Nat -> Nat -> Term 0 -> Either BinaryRunError Nat
+decodeCount Z count term = Left BinaryReductionLimit
+decodeCount (S work) count term = case term of
+  NatZero => Right count
+  NatSucc tail => decodeCount work (S count) tail
+  _ => case stepHead term of
+    Nothing => Left BinaryExpectedNat
+    Just next => decodeCount work count next
+
+-- prepareBinary checks the original compact syntax. Re-inferring a decoded
+-- unary count here would impose checkingDepth on an execution representation.
+checkDescription : Term 0 -> Either BinaryRunError ()
+checkDescription (IterateBinary _ _ _ _ _) = Right ()
+checkDescription head = case inferRuntime checkingDepth typeReductionFuel Empty head of
+  Left err => Left (BinaryTyping err)
+  Right _ => Right ()
+
+mutual
+  covering
+  execute : Nat -> Nat -> BinaryTransport -> Term 0 -> IO (Either BinaryRunError (Term 0))
+  execute Z fuel transport term = pure (Left BinaryDepthLimit)
+  execute (S depth) fuel transport term = case weakHead fuel term of
+    HeadLimit _ => pure (Left BinaryReductionLimit)
+    HeadForm head => case checkDescription head of
+      Left err => pure (Left err)
+      Right () => case head of
+        IterateBinary stateType resultType count step initial => case decodeCount fuel 0 count of
           Left err => pure (Left err)
-          Right value => do
-            following <- execute depth fuel transport (Apply next value)
-            pure (following >>= (\result => result <$ validate result b))
-      _ => pure (Left BinaryUnsupported)
+          Right limit => iterate depth fuel transport stateType resultType limit step initial
+        IOPure value => pure (Right value)
+        ReadBytes capacity => case normal fuel capacity >>= maybe (Left BinaryExpectedNat) Right . canonicalNatural of
+          Left err => pure (Left err)
+          Right size => do
+            result <- readBytes size transport
+            pure $ do
+              bytes <- liftTransport result
+              let value = responseValue bytes
+              validate value byteReadResultType
+              Right value
+        WriteBytes dataTerm => case normal fuel dataTerm of
+          Left err => pure (Left err)
+          Right (BytesValue bytes) => do
+            result <- writeBytes bytes transport
+            pure (UnitValue <$ liftTransport result)
+          Right _ => pure (Left BinaryExpectedBytes)
+        RejectBytes => pure (Left BinaryRejected)
+        FlushBytes => do
+          result <- flushBytes transport
+          pure (UnitValue <$ liftTransport result)
+        IOBind a b action next => do
+          first <- execute depth fuel transport action
+          case first >>= (\value => value <$ validate value a) of
+            Left err => pure (Left err)
+            Right value => do
+              following <- execute depth fuel transport (Apply next value)
+              pure (following >>= (\result => result <$ validate result b))
+        _ => pure (Left BinaryUnsupported)
+
+  covering
+  iterate : Nat -> Nat -> BinaryTransport -> Term 0 -> Term 0 -> Nat -> Term 0 -> Term 0 ->
+            IO (Either BinaryRunError (Term 0))
+  iterate depth fuel transport stateType resultType Z step state =
+    pure (Right (VariantValue (loopVariantType stateType resultType) 1 (Just state)))
+  iterate Z fuel transport stateType resultType (S limit) step state = pure (Left BinaryDepthLimit)
+  iterate (S depth) fuel transport stateType resultType (S limit) step state =
+    case weakHead fuel state of
+      HeadLimit _ => pure (Left BinaryReductionLimit)
+      HeadForm ready => do
+        response <- execute depth fuel transport (Apply step ready)
+        case response of
+          Left err => pure (Left err)
+          Right value => case weakHead fuel value of
+            HeadLimit _ => pure (Left BinaryReductionLimit)
+            HeadForm (VariantValue _ 0 (Just result)) =>
+              pure (Right (VariantValue (loopVariantType stateType resultType) 0 (Just result)))
+            HeadForm (VariantValue _ 1 (Just next)) =>
+              iterate depth fuel transport stateType resultType limit step next
+            _ => pure (Left BinaryExpectedLoopStep)
 
 ||| The optional driver error carries non-transport failure across the trusted
 ||| session callback without reporting success (which would trigger final flush).

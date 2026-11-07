@@ -20,7 +20,7 @@ struct FEnv { FThunk *value; FEnv *tail; };
 typedef enum { V_UNIT, V_ERASED, V_BOOL, V_STRING, V_BYTES, V_CLOSURE, V_NOMINAL, V_VARIANT,
                V_NAT_ZERO, V_NAT_SUCC, V_REC_END, V_REC_MORE, V_SEQ_NIL, V_SEQ_CONS,
                V_PURE, V_BIND, V_WRITE, V_READ, V_PAIR, V_INPUT_HANDLE,
-               V_WITH_INPUT, V_READ_INPUT, V_READ_BYTES, V_WRITE_BYTES, V_FLUSH_BYTES, V_REJECT_BYTES } FTag;
+               V_WITH_INPUT, V_READ_INPUT, V_READ_BYTES, V_WRITE_BYTES, V_FLUSH_BYTES, V_REJECT_BYTES, V_ITERATE_BINARY } FTag;
 typedef enum { F_NAT, F_NAT_RUNTIME, F_REC, F_SEQ } FFoldKind;
 struct FValue {
   FTag tag;
@@ -33,6 +33,7 @@ struct FValue {
     struct { FThunk *head, *tail; } recursive;
     struct { FEval body; FEnv *env; int erased; } closure;
     struct { FThunk *first, *second; } io;
+    struct { FThunk *count, *step, *initial; } iteration;
     struct { FThunk *first, *second; } pair;
     struct { size_t identity, generation; } handle;
   } as;
@@ -429,6 +430,15 @@ FValue *f_read_bytes(FRuntime *r, FEnv *env, FEval capacity) {
 FValue *f_write_bytes(FRuntime *r, FEnv *env, FEval bytes) {
   if (!bytes) { fail(r, "missing native binary bytes"); return NULL; }
   return io1(r, env, V_WRITE_BYTES, bytes, NULL);
+}
+FValue *f_iterate_binary(FRuntime *r, FEnv *env, FEval count, FEval step, FEval initial) {
+  if (!count || !step || !initial) { fail(r, "missing native binary iteration field"); return NULL; }
+  FValue *v = new_value(r, V_ITERATE_BINARY);
+  if (!v) return NULL;
+  v->as.iteration.count = thunk(r, count, env);
+  v->as.iteration.step = thunk(r, step, env);
+  v->as.iteration.initial = thunk(r, initial, env);
+  return v->as.iteration.count && v->as.iteration.step && v->as.iteration.initial ? v : NULL;
 }
 FValue *f_reject_bytes(FRuntime *r) { return new_value(r, V_REJECT_BYTES); }
 FValue *f_flush_bytes(FRuntime *r) { return new_value(r, V_FLUSH_BYTES); }

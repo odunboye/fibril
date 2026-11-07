@@ -28,6 +28,8 @@ static int binary_capacity(FRuntime *r, FThunk *input, size_t *out) {
 #define F_MAX_BINARY_PENDING ((size_t)4096)
 typedef struct FBinaryPending {
   FThunk *next;
+  size_t remaining;
+  int loop;
   struct FBinaryPending *tail;
 } FBinaryPending;
 
@@ -47,14 +49,44 @@ static FThunk *interact_binary(FBinaryContext *context, FByteSession *session, F
       if (available) { node = available; available = node->tail; }
       else node = allocate(r, sizeof(*node));
       if (!node) return NULL;
-      node->next = io->as.io.second; node->tail = pending;
+      node->loop = 0; node->next = io->as.io.second; node->tail = pending;
       pending = node; count++;
       io = force(r, io->as.io.first);
       if (!io) return NULL;
       continue;
     }
     FThunk *result = NULL;
-    if (io->tag == V_PURE) result = io->as.io.first;
+    if (io->tag == V_ITERATE_BINARY) {
+      size_t limit;
+      if (!io->as.iteration.count || !io->as.iteration.step || !io->as.iteration.initial) {
+        fail(r, "missing native binary iteration field"); return NULL;
+      }
+      if (!binary_capacity(r, io->as.iteration.count, &limit)) return NULL;
+      if (!limit) {
+        FValue *exhausted = new_value(r, V_VARIANT);
+        if (!exhausted) return NULL;
+        exhausted->as.variant.tag = 1;
+        exhausted->as.variant.payload = io->as.iteration.initial;
+        result = ready(r, exhausted);
+      } else {
+        if (count >= F_MAX_BINARY_PENDING) { fail(r, "native binary continuation budget exhausted"); return NULL; }
+        FBinaryPending *node;
+        if (available) { node = available; available = node->tail; }
+        else node = allocate(r, sizeof(*node));
+        if (!node) return NULL;
+        node->loop = 1; node->remaining = limit - 1;
+        node->next = io->as.iteration.step; node->tail = pending;
+        pending = node; count++;
+        /* New semantics: state WHNF before each actual callback, not on zero
+           or exhausted return. Reuse a ready payload, never a forwarding alias. */
+        FValue *state = force(r, io->as.iteration.initial);
+        FValue *step = state ? force(r, node->next) : NULL;
+        FThunk *input = state ? ready(r, state) : NULL;
+        io = step && input ? apply_thunk(r, step, input) : NULL;
+        if (!io) return NULL;
+        continue;
+      }
+    } else if (io->tag == V_PURE) result = io->as.io.first;
     else if (io->tag == V_READ_BYTES) {
       size_t capacity;
       if (binary_capacity(r, io->as.io.first, &capacity)) {
@@ -81,14 +113,40 @@ static FThunk *interact_binary(FBinaryContext *context, FByteSession *session, F
       else context->fault = status;
     } else fail(r, "native binary runner rejects non-binary IO");
     if (!result || r->error || context->fault != FB_OK) return NULL;
-    if (!pending) return result;
-    FBinaryPending *node = pending;
-    FThunk *continuation = node->next;
-    pending = node->tail; count--;
-    node->tail = available; available = node;
-    FValue *next = force(r, continuation);
-    io = next ? apply_thunk(r, next, result) : NULL;
-    if (!io) return NULL;
+    /* A completed nested loop can itself be a callback result. Unwind only
+       real frames; Done performs no residual applications or state forcing. */
+    for (;;) {
+      if (!pending) return result;
+      FBinaryPending *node = pending;
+      if (node->loop) {
+        if (!byte_work(r)) return NULL;
+        FValue *response = force(r, result);
+        if (!response || response->tag != V_VARIANT || response->as.variant.tag > 1 ||
+            !response->as.variant.payload) {
+          fail(r, "native binary loop expects Done/Continue with a payload"); return NULL;
+        }
+        if (response->as.variant.tag == 1 && node->remaining) {
+          node->remaining--;
+          FValue *state = force(r, response->as.variant.payload);
+          FValue *step = state ? force(r, node->next) : NULL;
+          FThunk *input = state ? ready(r, state) : NULL;
+          io = step && input ? apply_thunk(r, step, input) : NULL;
+          if (!io) return NULL;
+          break;
+        }
+        /* Structural LoopResult uses the same tags/payloads as LoopStep. */
+        pending = node->tail; count--;
+        node->next = NULL; node->tail = available; available = node;
+        continue;
+      }
+      FThunk *continuation = node->next;
+      pending = node->tail; count--;
+      node->next = NULL; node->tail = available; available = node;
+      FValue *next = force(r, continuation);
+      io = next ? apply_thunk(r, next, result) : NULL;
+      if (!io) return NULL;
+      break;
+    }
   }
 }
 

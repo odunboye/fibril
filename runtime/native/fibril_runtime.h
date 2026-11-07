@@ -59,6 +59,9 @@ FValue *f_read_bytes(FRuntime *r, FEnv *env, FEval capacity);
 FValue *f_write_bytes(FRuntime *r, FEnv *env, FEval bytes);
 FValue *f_flush_bytes(FRuntime *r);
 FValue *f_reject_bytes(FRuntime *r);
+/* Inert binary-only iteration; S/R erased. Tags 0 Done/Finished, 1 Continue/
+   Exhausted each require one payload. Not a trusted-fixture type proof. */
+FValue *f_iterate_binary(FRuntime *, FEnv *, FEval count, FEval step, FEval initial);
 /* Link fibril_binary_runtime.c instead of fibril_runtime.c for this runner. */
 int fibril_native_binary_run(FEval entry, size_t requests, size_t capacity);
 int fibril_native_run(FEval entry);
