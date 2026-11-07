@@ -91,6 +91,7 @@ mutual
   walk context env (NUnitValue _) = []
   walk context env (NStringType _) = []
   walk context env (NStringValue _ _) = []
+  walk context env (NNatValue _ _) = []
   walk context env (NBoolType _) = []
   walk context env (NBoolValue _ _) = []
   walk context env (NIf _ condition yes no) =

@@ -20,4 +20,4 @@ marks count = natRec (\(0 k : Nat) => String) ""
   (\(0 k : Nat) => \(1 result : String) => appendString result "!") count
 
 main : IO Unit
-main = putStrLn (marks (grow (Succ (Succ (Succ (Succ Zero))))))
+main = putStrLn (marks (grow 4))

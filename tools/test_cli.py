@@ -2935,6 +2935,56 @@ main = first Zero
             (work / 'Clean.fib').write_text(clean)
             self.assertEqual(definition(work / 'Clean.fib', 8, 21), (4, 1))
 
+    def test_numeric_literals_denote_builtin_nats(self):
+        marks = ('marks : (1 count : Nat) -> String\n'
+                 'marks count = natRec (\\(0 k : Nat) => String) ""\n'
+                 '  (\\(0 k : Nat) => \\(1 result : String) => appendString result "!") count\n')
+        def program(expression, extra=''):
+            return 'module Main\n' + extra + marks + 'main : IO Unit\nmain = putStrLn ' + expression + '\n'
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / 'Main.fib'
+            def go(source, *flags):
+                path.write_text(source)
+                return run('run', '--source-dir', directory, *flags, str(path))
+            # A literal is an ordinary Nat expression, also as an application argument.
+            ok = go(program('(marks 3)'))
+            self.assertEqual((ok.returncode, ok.stdout), (0, '!!!\n'), ok.stderr)
+            self.assertEqual(go(program('(marks 0)')).stdout, '\n')
+            # Values far beyond the old nested-Succ parser limit are one token.
+            big = go(program('(marks 200)'), '--fuel', '4096')
+            self.assertEqual(big.returncode, 0, big.stdout + big.stderr)
+            self.assertEqual(big.stdout, '!' * 200 + '\n')
+            # The largest accepted literal is 256; larger and non-canonical spellings are rejected.
+            self.assertEqual(go(program('(marks 256)'), '--fuel', '4096').returncode, 0)
+            over = go(program('(marks 257)'))
+            self.assertNotEqual(over.returncode, 0)
+            self.assertIn('Numeric literal exceeds 256', over.stderr)
+            zeros = go(program('(marks 007)'))
+            self.assertNotEqual(zeros.returncode, 0)
+            self.assertIn('leading zeros', zeros.stderr)
+            # A literal has type Nat and nothing else.
+            mismatch = go('module Main\nb : Bool\nb = 3\nmain : IO Unit\nmain = putStrLn "x"\n')
+            self.assertNotEqual(mismatch.returncode, 0)
+            self.assertIn('not compatible', mismatch.stderr)
+            # A user binding of Zero or Succ cannot change what a literal means.
+            shadowed = go(program('(marks 2)', 'Zero : Bool\nZero = True\n'))
+            self.assertEqual((shadowed.returncode, shadowed.stdout), (0, '!!\n'), shadowed.stderr)
+            # Literals are expressions; literal patterns are not supported.
+            pattern = go('module Main\nf : (n : Nat) -> Bool\nf n = case n of\n  0 => True\n  Succ p => False\n'
+                         'main : IO Unit\nmain = putStrLn "x"\n')
+            self.assertNotEqual(pattern.returncode, 0)
+            # Type levels and quantity binders keep their meaning.
+            levels = go('module Main\nid : (0 A : Type 0) -> (1 x : A) -> A\nid A x = x\n'
+                        'main : IO Unit\nmain = putStrLn (id String "ok")\n')
+            self.assertEqual((levels.returncode, levels.stdout), (0, 'ok\n'), levels.stderr)
+            # The formatter keeps the spelling and its structure guard accepts the result.
+            path.write_text('module Main\n\nn : Nat\nn =   Succ   (Succ   12)\n\nm : Nat\nm = 256\n')
+            formatted = run('format', str(path))
+            self.assertEqual(formatted.returncode, 0, formatted.stderr)
+            self.assertIn('n = Succ (Succ 12)', formatted.stdout)
+            self.assertIn('m = 256', formatted.stdout)
+
     def test_accumulator_equations_reject_dependent_types(self):
         fixture = ROOT / 'examples/modules/linear-accumulator'
         examples = [

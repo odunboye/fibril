@@ -65,6 +65,7 @@ startsAtom : TokenKind -> Bool
 startsAtom Name = True
 startsAtom TypeKeyword = True
 startsAtom StringToken = True
+startsAtom Number = True
 startsAtom StringKeyword = True
 startsAtom UnitKeyword = True
 startsAtom BoolKeyword = True
@@ -118,6 +119,27 @@ record ParsedBinder where
   name : String
   domain : Expr
   remaining : List Token
+
+||| Largest accepted numeric literal. A literal is a chain of that many successors in the
+||| core, so the bound matches the runtimes' practical limits rather than being unlimited.
+public export
+maxNatLiteral : Nat
+maxNatLiteral = 256
+
+||| A decimal Nat literal: digits only, canonical (no leading zeros) so that formatting can
+||| preserve the authored spelling, and at most maxNatLiteral.
+public export
+natLiteral : Token -> Either ParseError Nat
+natLiteral token =
+  let digits = unpack token.spelling in
+    if not (all isDigit digits) || null digits
+      then Left (ParseFailure token.span.start "Numeric literal must be decimal digits") else
+    if length digits > 1 && head' digits == Just '0'
+      then Left (ParseFailure token.span.start "Numeric literal must not have leading zeros") else
+    let value = foldl (\acc, digit => acc * 10 + cast (ord digit - ord '0')) (the Nat 0) digits in
+      if value > maxNatLiteral
+        then Left (ParseFailure token.span.start ("Numeric literal exceeds " ++ show maxNatLiteral))
+        else Right value
 
 ||| Decode a validated string token, shared by core and console parsing.
 public export
@@ -574,6 +596,9 @@ mutual
       StringToken => do
         value <- literalValue token
         Right (NStringValue token.span value, rest)
+      Number => do
+        value <- natLiteral token
+        Right (NNatValue token.span value, rest)
       StringKeyword => Right (NStringType token.span, rest)
       UnitKeyword => Right (NUnitType token.span, rest)
       BoolKeyword => Right (NBoolType token.span, rest)

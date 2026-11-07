@@ -21,7 +21,23 @@ main = putStrLn (repeat (Succ (Succ Zero)) "receipt")
 
 The [runnable example](../examples/modules/nat-recursion/Main.fib) uses three
 successors and prints `receipt!!!`. `Nat`, `Zero`, `Succ` and `natRec` are
-primitive checked globals; there is no numeric-literal syntax in this slice.
+primitive checked globals. A decimal [numeric literal](#numeric-literals) such as `3` is
+shorthand for the same Nat value.
+
+## Numeric literals
+
+A decimal literal such as `3` is an expression of type `Nat`, equal to `Succ (Succ (Succ Zero))`.
+It is a single token, so it avoids the parser's nesting limit that long chains of `Succ` hit.
+It always denotes the built-in `Nat`, so a user binding of `Zero` or `Succ` cannot change it.
+
+- Digits only, no leading zeros (`007` is rejected; `0` is fine), and at most **256**. A literal
+  stands for that many successors in the core, so the bound follows the runtimes' practical
+  limits; a larger value is a parse error rather than a surprising budget failure later.
+- Literals are expressions, not patterns: write `case n of Zero => ...; Succ p => ...`, not `0 =>`.
+- They work anywhere a `Nat` does, including as an argument (`marks 3`) and in test suites.
+  The hosted evaluator and `test` still need enough fuel for what the program computes
+  (`run --fuel`, `test --fuel`); a large literal does not make a computation cheaper.
+- The formatter keeps the authored spelling.
 
 This recursor is not general recursive function syntax. A narrowly restricted
 [named Nat equation](function-equations.md#structural-nat-equations) lowers to

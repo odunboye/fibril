@@ -18,4 +18,4 @@ marks count = natRec (\(0 k : Nat) => String) ""
   (\(0 k : Nat) => \(1 result : String) => appendString result "!") count
 
 main : IO Unit
-main = putStrLn (marks (fib (Succ (Succ (Succ (Succ Zero))))))
+main = putStrLn (marks (fib 4))

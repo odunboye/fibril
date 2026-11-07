@@ -806,6 +806,9 @@ mutual
   elaborateInWith globals context env (NUnitValue span) = Right UnitValue
   elaborateInWith globals context env (NStringType span) = Right StringType
   elaborateInWith globals context env (NStringValue span value) = Right (StringValue value)
+  -- A numeric literal denotes the built-in Nat value directly, never the names Zero/Succ,
+  -- so a user binding of those names cannot change what a literal means.
+  elaborateInWith globals context env (NNatValue span value) = Right (naturalTerm value)
   elaborateInWith globals context env (NBoolType span) = Right BoolType
   elaborateInWith globals context env (NBoolValue span True) = Right BoolTrue
   elaborateInWith globals context env (NBoolValue span False) = Right BoolFalse
