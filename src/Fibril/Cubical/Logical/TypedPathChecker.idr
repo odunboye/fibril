@@ -473,52 +473,109 @@ checkDependentApplication {m} {k} {n} budget ctx face p i family l r expected de
             Refl => Right (NPathPElim derivation i)
   else Left Exhausted
 
--- Synthesize a neutral path variable's declared type before conversion. Other
--- terms use the exact admitted checking grammar; annotations are not evidence.
-introTyping : {n : Nat} -> (ctx : PathContext m k) -> (face : ScopedFace n) ->
-  (term, ty : NeutralExpr m k n) -> Either CheckError (NeutralHasType ctx face term ty)
-introTyping ctx face (NPath p) ty = do
-  eq <- typeEqualAdmitted ctx face
-    (NPathType NType (NBase (left (index p ctx))) (NBase (right (index p ctx)))) ty
-  Right (NConvert (NPathVar p) eq)
-introTyping ctx face term ty = checkAdmitted ctx face term ty
+-- Choose an endpoint only when the restricted body proves that its declared
+-- path application is at a declared endpoint. The candidate is syntax, not
+-- evidence; exact introduction and type conversion check it independently.
+inferBaseEndpoint : {n : Nat} -> (ctx : PathContext m k) -> (face : ScopedFace n) ->
+  Bool -> NeutralExpr m k (S n) -> NeutralExpr m k n -> NeutralExpr m k n
+inferBaseEndpoint ctx face side (NBase x) fallback = NBase x
+inferBaseEndpoint ctx face side (NApply (NPath p) i) fallback =
+  let restricted = SConjunction (weakenFace face) (SEndpoint FZ side) in
+  if boundedFaceEntails restricted (scopedEndpoint i False)
+    then NBase (left (index p ctx))
+  else if boundedFaceEntails restricted (scopedEndpoint i True)
+    then NBase (right (index p ctx))
+  else fallback
+inferBaseEndpoint ctx face side body fallback = fallback
 
--- Reflexivity is only used after comparing the indexed syntax, and after
--- checking the term at the exact family on the restricted face.
-introBoundary : {n : Nat} -> (ctx : PathContext m k) -> (face : ScopedFace n) ->
-  (x, y, ty : NeutralExpr m k n) -> Either CheckError (NeutralEqual ctx face x y ty)
-introBoundary ctx face x y NType = equalAdmitted ctx face x y
-introBoundary ctx face x y ty = case neutralSame x y of
-  Nothing => Left Unsupported
-  Just Refl => do
-    xp <- introTyping ctx face y ty
-    Right (NRefl xp)
+-- All recursive calls consume depth and re-admit their exact generated inputs.
+mutual
+  introTyping : {m, k, n : Nat} -> Nat -> Nat -> (ctx : PathContext m k) ->
+    (face : ScopedFace n) -> (term, ty : NeutralExpr m k n) ->
+    Either CheckError (NeutralHasType ctx face term ty)
+  introTyping Z budget ctx face term ty = Left Exhausted
+  introTyping (S depth) {m} {k} {n} budget ctx face term ty =
+    if m <= 12 && k <= 12 && n <= 12 then
+      case faceNodes (min 128 budget) face >>= \f => exprNodes f term >>= \g => exprNodes g ty of
+        Nothing => Left Exhausted
+        Just _ => go term ty
+    else Left Exhausted
+    where
+      go : (term, ty : NeutralExpr m k n) -> Either CheckError (NeutralHasType ctx face term ty)
+      go (NAbstract body) (NPathType NType l r) =
+        case introExact depth budget ctx face body NType l r of
+          Right derivation => Right derivation
+          Left Exhausted => Left Exhausted
+          Left original =>
+            let l' = inferBaseEndpoint ctx face False body l
+                r' = inferBaseEndpoint ctx face True body r in
+            case faceNodes (min 128 budget) face >>= \a =>
+                 exprNodes a (NAbstract body) >>= \b =>
+                 exprNodes b (NPathType NType l r) >>= \c =>
+                 exprNodes c (NPathType NType l' r') of
+              Nothing => Left Exhausted
+              Just _ => case typeEqualAdmitted ctx face
+                  (NPathType NType l' r') (NPathType NType l r) of
+                Left _ => Left original
+                Right conversion => case introExact depth budget ctx face body NType l' r' of
+                  Left Exhausted => Left Exhausted
+                  Left _ => Left original
+                  Right derivation => Right (NConvert derivation conversion)
+      go (NAbstract body) (NPathType family l r) =
+        introExact depth budget ctx face body family l r
+      go (NPath p) ty = do
+        eq <- typeEqualAdmitted ctx face
+          (NPathType NType (NBase (left (index p ctx))) (NBase (right (index p ctx)))) ty
+        Right (NConvert (NPathVar p) eq)
+      go term ty = checkAdmitted ctx face term ty
 
-||| Autonomous introduction for admitted base equalities or reflexive syntactic
-||| boundaries. The body may be a declared neutral path converted using checked
-||| face-sensitive equality.
-||| Each generated substitution is preflighted; per-call caps are not a global
-||| work bound. No supplied derivation is used.
+  introExact : {m, k, n : Nat} -> Nat -> Nat -> (ctx : PathContext m k) ->
+    (face : ScopedFace n) -> (body, family : NeutralExpr m k (S n)) ->
+    (l, r : NeutralExpr m k n) ->
+    Either CheckError (NeutralHasType ctx face (NAbstract body) (NPathType family l r))
+  introExact Z budget ctx face body family l r = Left Exhausted
+  introExact (S depth) budget ctx face body family l r = do
+        _ <- boundedInstantiate budget Zero family
+        _ <- boundedInstantiate budget One family
+        fp <- dependentFormation depth budget ctx (weakenFace face) family
+        lp <- introTyping depth budget ctx face l (mapNeutralDimensions TypedPath.faceZero family)
+        rp <- introTyping depth budget ctx face r (mapNeutralDimensions TypedPath.faceOne family)
+        bp <- introTyping depth budget ctx (weakenFace face) body family
+        le <- introBoundary depth budget ctx (SConjunction (weakenFace face) (SEndpoint FZ False)) body (weakenNeutralDimensions l) family
+        re <- introBoundary depth budget ctx (SConjunction (weakenFace face) (SEndpoint FZ True)) body (weakenNeutralDimensions r) family
+        Right (NPathPIntro fp lp rp bp le re)
+
+  introBoundary : {m, k, n : Nat} -> Nat -> Nat -> (ctx : PathContext m k) ->
+    (face : ScopedFace n) -> (x, y, ty : NeutralExpr m k n) ->
+    Either CheckError (NeutralEqual ctx face x y ty)
+  introBoundary Z budget ctx face x y ty = Left Exhausted
+  introBoundary (S depth) {m} {k} {n} budget ctx face x y ty =
+    if m <= 12 && k <= 12 && n <= 12 then
+      case faceNodes (min 128 budget) face >>= \a => exprNodes a x >>= \b =>
+           exprNodes b y >>= \c => exprNodes c ty of
+        Nothing => Left Exhausted
+        Just _ => go x y ty
+    else Left Exhausted
+    where
+      go : (x, y, ty : NeutralExpr m k n) -> Either CheckError (NeutralEqual ctx face x y ty)
+      go x y NType = equalAdmitted ctx face x y
+      go (NAbstract x) (NAbstract y) (NPathType family l r) = do
+        xp <- introTyping depth budget ctx face (NAbstract x) (NPathType family l r)
+        yp <- introTyping depth budget ctx face (NAbstract y) (NPathType family l r)
+        bodies <- introBoundary depth budget ctx (weakenFace face) x y family
+        Right (NPathPAbstractCong xp yp bodies)
+      go x y ty = case neutralSame x y of
+        Nothing => Left Unsupported
+        Just Refl => do
+          xp <- introTyping depth budget ctx face y ty
+          Right (NRefl xp)
+
+||| Autonomous dependent introduction, with depth-bounded recursive typing and
+||| abstraction congruence. Each generated substitution is preflighted.
 public export
 checkDependentIntroduction : {m, k, n : Nat} -> (budget : Nat) -> (ctx : PathContext m k) ->
   (face : ScopedFace n) -> (term, ty : NeutralExpr m k n) ->
   Either CheckError (NeutralHasType ctx face term ty)
-checkDependentIntroduction {m} {k} {n} budget ctx face term ty =
-  if m <= 12 && k <= 12 && n <= 11 then
-    case faceNodes (min 128 budget) face >>= \f => exprNodes f term >>= \g => exprNodes g ty of
-      Nothing => Left Exhausted
-      Just _ => go term ty
-  else Left Exhausted
-  where
-    go : (term, ty : NeutralExpr m k n) -> Either CheckError (NeutralHasType ctx face term ty)
-    go (NAbstract body) (NPathType family l r) = do
-      _ <- boundedInstantiate budget Zero family
-      _ <- boundedInstantiate budget One family
-      fp <- checkDependentFormation budget ctx (weakenFace face) family
-      lp <- introTyping ctx face l (mapNeutralDimensions TypedPath.faceZero family)
-      rp <- introTyping ctx face r (mapNeutralDimensions TypedPath.faceOne family)
-      bp <- introTyping ctx (weakenFace face) body family
-      le <- introBoundary ctx (SConjunction (weakenFace face) (SEndpoint FZ False)) body (weakenNeutralDimensions l) family
-      re <- introBoundary ctx (SConjunction (weakenFace face) (SEndpoint FZ True)) body (weakenNeutralDimensions r) family
-      Right (NPathPIntro fp lp rp bp le re)
-    go _ _ = Left Unsupported
+checkDependentIntroduction budget ctx face (NAbstract body) (NPathType family l r) =
+  introTyping (min 12 budget) budget ctx face (NAbstract body) (NPathType family l r)
+checkDependentIntroduction budget ctx face term ty = Left Unsupported

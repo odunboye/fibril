@@ -248,6 +248,10 @@ checkerSuccess : Either CheckError a -> Bool
 checkerSuccess (Right _) = True
 checkerSuccess _ = False
 
+checkerRejected : Either CheckError a -> Bool
+checkerRejected (Left _) = True
+checkerRejected (Right _) = False
+
 checkerMismatch : Either CheckError a -> Bool
 checkerMismatch (Left Mismatch) = True
 checkerMismatch _ = False
@@ -415,7 +419,49 @@ autoType = NPathType autoFamily (NPath FZ) (NPath FZ)
 public export
 checkerChecks : List (String, Bool)
 checkerChecks =
-  [ ("autonomous varying body top", checkerSuccess
+  [ ("autonomous nested constant top", checkerSuccess
+      (checkDependentIntroduction {n = 0} 128 neutralContext STop
+        (NAbstract (NAbstract (NBase FZ)))
+        (NPathType (NPathType NType (NBase FZ) (NBase FZ))
+          (NAbstract (NBase FZ)) (NAbstract (NBase FZ)))))
+  , ("autonomous nested wrong boundary rejected", checkerMismatch
+      (checkDependentIntroduction {n = 0} 128 neutralContext STop
+        (NAbstract (NAbstract (NBase FZ)))
+        (NPathType (NPathType NType (NBase FZ) (NBase FZ))
+          (NAbstract (NBase FZ)) (NAbstract (NBase (FS FZ))))))
+  , ("autonomous connection square top", checkerSuccess
+      (checkDependentIntroduction {n = 0} 128 neutralContext STop squareTerm
+        (NPathType squareFamily squareLeft squareRight)))
+  , ("autonomous swapped connection square top", checkerSuccess
+      (checkDependentIntroduction {n = 0} 128 neutralContext STop
+        (NAbstract (NAbstract (NApply (NPath FZ) (Meet (Var FZ) (Var (FS FZ))))))
+        (NPathType squareFamily squareLeft squareRight)))
+  , ("autonomous square nonzero path index", checkerSuccess
+      (checkDependentIntroduction {n = 0} 128
+        (the (PathContext 2 2) [PathBetween FZ (FS FZ), PathBetween (FS FZ) FZ]) STop
+        (NAbstract (NAbstract (NApply (NPath (FS FZ)) (Meet (Var (FS FZ)) (Var FZ)))))
+        (NPathType (NPathType NType (NBase (FS FZ)) (NApply (NPath (FS FZ)) (Var FZ)))
+          (NAbstract (NBase (FS FZ))) (NAbstract (NApply (NPath (FS FZ)) (Var FZ))))))
+  , ("autonomous square restricted endpoint does not escape", checkerRejected
+      (checkDependentIntroduction {n = 1} 128 neutralContext STop
+        (NAbstract (NAbstract (NApply (NPath FZ) (Meet (Var (FS FZ)) (Var FZ)))))
+        (NPathType (NPathType NType (NBase FZ) (NApply (NPath FZ) (Var FZ)))
+          (NAbstract (NApply (NPath FZ) (Var (FS FZ))))
+          (NAbstract (NApply (NPath FZ) (Var FZ))))))
+  , ("autonomous square bad left boundary rejected", checkerRejected
+      (checkDependentIntroduction {n = 0} 128 neutralContext STop squareTerm
+        (NPathType squareFamily (NAbstract (NBase (FS FZ))) squareRight)))
+  , ("autonomous square bad right boundary rejected", checkerRejected
+      (checkDependentIntroduction {n = 0} 128 neutralContext STop squareTerm
+        (NPathType squareFamily squareLeft (NAbstract (NBase FZ)))))
+  , ("autonomous square nonboolean boundary rejected", checkerRejected
+      (checkDependentIntroduction {n = 0} 128 neutralContext STop squareTerm
+        (NPathType squareFamily
+          (NAbstract (NApply (NPath FZ) (Meet (Var FZ) (Reverse (Var FZ))))) squareRight)))
+  , ("autonomous square budget exhausted", checkerExhausted
+      (checkDependentIntroduction {n = 0} 8 neutralContext STop squareTerm
+        (NPathType squareFamily squareLeft squareRight)))
+  , ("autonomous varying body top", checkerSuccess
       (checkDependentIntroduction {n = 0} 128 neutralContext STop
         (NAbstract (NApply (NPath FZ) (Var FZ)))
         (NPathType NType (NBase FZ) (NBase (FS FZ)))))

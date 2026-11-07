@@ -225,23 +225,31 @@ it can apply the separately constructed declarative square. The result
 indices contain the original path, face, interval and exact expected type.
 
 `checkDependentIntroduction` synthesizes an `NPathPIntro` directly from the
-raw indexed term and expected type. It checks family formation, both endpoint
-typings and the body, and proves both boundaries independently. Its restricted
-grammar uses the existing exact term checker, plus synthesis of a declared path
-variable followed by checked face-sensitive type conversion. Base boundaries
-use the existing proof-producing base equality checker; other boundaries require
-syntactically identical terms checked at the exact family. Thus a genuinely
-varying family with a path-variable body can be checked on the bottom face,
-and a varying base path body can be checked on the top face. It does not infer
-the nested square, nor does it generally synthesize recursive dependent term
-and equality derivations. It never identifies non-Boolean interval expressions
-by their vertices. Failure to prove an entailment or an unsupported boundary is
-`Unsupported`; definite mismatches in supported forms are `Mismatch`.
+raw indexed term and expected type. Recursive typing accepts abstractions at
+`NPathType` by checking family formation, endpoints, body and both boundaries;
+other terms use the exact admitted checker or declared path-variable conversion.
+Boundary equality supports base equalities, recursively checked abstraction
+congruence at an exact dependent path type, and syntactic reflexivity after
+exact typing. Each recursive typing/equality call consumes depth and re-admits
+its face and expressions. For an abstraction at a base path type, if exact
+checking fails the checker constructs candidate source endpoints: a constant
+base body proposes that base, and a declared path application proposes its
+context endpoint when the solver proves the body interval is at that endpoint
+on the corresponding restricted binder face. Otherwise it retains the requested
+endpoint. These candidates are only syntax: the checker independently derives
+an exact introduction at the source type and `NPathTypeCong` equality to the
+requested type before applying `NConvert`. The raw nested connection square,
+including either ordering of the meet arguments, is accepted at the top face
+without a supplied proof. This does not synthesize arbitrary path types,
+general dependent type equality, or arbitrary abstraction bodies; even a square
+whose left edge uses an externally restricted endpoint can remain unsupported.
+It never identifies non-Boolean interval expressions by their vertices. Unsupported
+cases fail closed.
 
 The entry point admits the face and both input expressions under a shared cap
 of min(budget, 128), caps context sizes at 12 and the result dimension at 11,
 and preflights both endpoint substitutions using `boundedInstantiate` before
-constructing them. Formation has its own depth limit of min(budget, 12), and
+constructing them. Typing, equality, and formation use depth limits of min(budget, 12), and
 all recursive admission and substitution checks re-use rather than globally
 consume the budget; it is not a bound on total work or proof-tree size.
 `Exhausted` reports those admission, dimension, substitution, or formation
