@@ -8,6 +8,8 @@ import Fibril.Cubical.Logical.Telescope
 import Fibril.Cubical.Logical.PathContext
 import Fibril.Cubical.Logical.OpenPath
 import Fibril.Foundation.DeMorgan.Interval
+import Fibril.Foundation.DeMorgan.NormalForm
+
 import Fibril.Foundation.DeMorgan.Face
 import Fibril.Foundation.DeMorgan.Scope
 import Fibril.Foundation.DeMorgan.Restriction
@@ -560,3 +562,21 @@ checks =
   , ("open conversion fails closed on exhaustion", exhausted (convertToVariable {n=2} 0 unrestricted p (AVar FZ) FZ))
   , ("open conversion refuses unsupported neutral equality", not (accepted (convertToVariable {n=2} 12 unrestricted p (At (Var FZ)) FZ)))
   ]
+
+-- These checks instantiate the generic theorems with independent signs,
+-- including the non-Boolean fixed point where both signs are true.
+productLeft : Fibril.Foundation.DeMorgan.NormalForm.DNF
+productLeft = [[(0, False)], [(0, True)]]
+
+productRight : Fibril.Foundation.DeMorgan.NormalForm.DNF
+productRight = [[(1, True)], []]
+
+normalProductSoundExample : (env : SignedAssignment) ->
+  evalDNF env (concatMap (\x => map (\y => x ++ y) Tests.Cubical.OpenPath.productRight) Tests.Cubical.OpenPath.productLeft) =
+  (evalDNF env Tests.Cubical.OpenPath.productLeft && evalDNF env Tests.Cubical.OpenPath.productRight)
+normalProductSoundExample env = evalMeetProduct env Tests.Cubical.OpenPath.productLeft Tests.Cubical.OpenPath.productRight
+
+signedReferenceExample :
+  evalReferenceDM (\_ => signedDM True True) (Meet (Var 0) (Reverse (Var 0))) =
+  signedDM True True
+signedReferenceExample = evalSignedReferenceDM (\_ => \_ => True) (Meet (Var 0) (Reverse (Var 0)))

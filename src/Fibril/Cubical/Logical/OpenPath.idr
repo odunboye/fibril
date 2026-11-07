@@ -8,6 +8,7 @@ import Data.List.Elem
 import Data.So
 import Language.Reflection
 import Fibril.Foundation.DeMorgan.Interval
+import Fibril.Foundation.DeMorgan.NormalForm
 import Fibril.Foundation.DeMorgan.Face
 import Fibril.Foundation.DeMorgan.Scope
 import Fibril.Foundation.DeMorgan.Restriction
@@ -816,3 +817,25 @@ signedDMJoin True True False False = Refl
 signedDMJoin True True False True = Refl
 signedDMJoin True True True False = Refl
 signedDMJoin True True True True = Refl
+
+||| The independent signed interpretation is exactly the four-pair model.
+public export
+evalSignedReferenceDM : (env : SignedAssignment) -> (x : Interval Nat) ->
+  evalReferenceDM (\n => signedDM (env n False) (env n True)) x =
+    signedDM (evalSigned env False x) (evalSigned env True x)
+evalSignedReferenceDM env Zero = Refl
+evalSignedReferenceDM env One = Refl
+evalSignedReferenceDM env (Var n) = Refl
+evalSignedReferenceDM env (Reverse x) =
+  rewrite evalSignedReferenceDM env x in
+  signedDMReverse (evalSigned env False x) (evalSigned env True x)
+evalSignedReferenceDM env (Meet x y) =
+  rewrite evalSignedReferenceDM env x in
+  rewrite evalSignedReferenceDM env y in
+  signedDMMeet (evalSigned env False x) (evalSigned env True x)
+    (evalSigned env False y) (evalSigned env True y)
+evalSignedReferenceDM env (Join x y) =
+  rewrite evalSignedReferenceDM env x in
+  rewrite evalSignedReferenceDM env y in
+  signedDMJoin (evalSigned env False x) (evalSigned env True x)
+    (evalSigned env False y) (evalSigned env True y)
