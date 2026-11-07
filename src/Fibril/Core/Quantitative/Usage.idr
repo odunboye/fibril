@@ -5,6 +5,7 @@ import Decidable.Equality
 import Fibril.Core.Quantity
 import Fibril.Core.Usage
 import Fibril.Core.Quantitative.Syntax
+import Fibril.Core.Quantitative.Substitution
 
 %default total
 
@@ -35,6 +36,26 @@ data Uses : {n : Nat} -> {0 context : Vect n Ty} ->
           Uses (If condition yes no)
                (combineUsage conditionUsage (joinUsage yesUsage noUsage))
 
+||| Exact usage is uniquely determined by a term, independently of the
+||| particular derivation. This does not prove substitution preservation.
+public export
+usageUnique : Uses term left -> Uses term right -> left = right
+usageUnique (UseRef _) (UseRef _) = Refl
+usageUnique UseUnit UseUnit = Refl
+usageUnique UseBoolean UseBoolean = Refl
+usageUnique (UseLam body _) (UseLam body' _) =
+  case usageUnique body body' of Refl => Refl
+usageUnique (UseApp fun arg) (UseApp fun' arg') =
+  case usageUnique fun fun' of
+    Refl => case usageUnique arg arg' of Refl => Refl
+usageUnique (UseUnitElim value body) (UseUnitElim value' body') =
+  case usageUnique value value' of
+    Refl => case usageUnique body body' of Refl => Refl
+usageUnique (UseIf condition yes no) (UseIf condition' yes' no') =
+  case usageUnique condition condition' of
+    Refl => case usageUnique yes yes' of
+      Refl => case usageUnique no no' of Refl => Refl
+
 ||| Pointwise permission, NOT numerical ordering: Linear does not admit Erased.
 public export
 data Admits : Usage n -> Usage n -> Type where
@@ -53,6 +74,22 @@ admitJoin (permission :: permissions) (x :: xs) (y :: ys)
           (AdmitCons px restX) (AdmitCons py restY) =
   AdmitCons (rewrite joinAllows permission x y in rewrite px in py)
             (admitJoin permissions xs ys restX restY)
+
+||| Left identity for the ambient demand vector in head-variable substitution.
+public export
+combineZeroLeft : (usage : Usage n) -> combineUsage Fibril.Core.Usage.zeroUsage usage = usage
+combineZeroLeft [] = Refl
+combineZeroLeft (q :: rest) = cong (q ::) (combineZeroLeft rest)
+
+||| The head-reference case of single-linear substitution, with no restrictions
+||| on the replacement beyond its derivation and the original ambient premise.
+public export
+instantiateHeadUsage : {n : Nat} -> {0 context : Vect n Ty} ->
+  (value : Term context a) -> (w, permissions : Usage n) ->
+  Uses value w -> Admits permissions (combineUsage Fibril.Core.Usage.zeroUsage w) ->
+  (r : Usage n ** (Uses (instantiate value (Ref Here)) r, Admits permissions r))
+instantiateHeadUsage value w permissions derivation admitted =
+  (w ** (derivation, rewrite sym (combineZeroLeft w) in admitted))
 
 public export
 data UsageError

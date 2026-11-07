@@ -59,6 +59,24 @@ alternativeDerivation : Uses Tests.Quantitative.alternative [Linear]
 alternativeDerivation = UseIf UseBoolean (UseUnitElim (UseRef Here) UseUnit)
                                        (UseUnitElim (UseRef Here) UseUnit)
 
+headCase : (r : Usage 1 ** (Uses (instantiate (the (Term [UnitTy] UnitTy) (Ref Here)) (Ref Here)) r,
+                             Admits [Linear] r))
+headCase = instantiateHeadUsage (Ref Here) [Linear] [Linear]
+  (UseRef Here) (AdmitCons Refl AdmitNil)
+
+alternativeUnique : the (Usage 1) [Linear] = [Linear]
+alternativeUnique = usageUnique alternativeDerivation alternativeDerivation
+
+-- The head occurs unrestrictedly in an argument whose overall scale is zero,
+-- and once outside it. The hidden occurrence must still have a derivation.
+zeroScaledHead : Term [UnitTy, UnitTy] UnitTy
+zeroScaledHead = UnitElim
+  (App (Lam Erased Unit) (App (Lam Unrestricted Unit) (Ref Here)))
+  (Ref Here)
+
+underLinearBinder : Term [UnitTy, UnitTy] (Arrow Linear UnitTy UnitTy)
+underLinearBinder = Lam Linear (UnitElim (Ref Here) (Ref (There Here)))
+
 alternativePermission : Admits [Linear] [Linear]
 alternativePermission = admitJoin [Linear] [Linear] [Linear]
   (AdmitCons Refl AdmitNil) (AdmitCons Refl AdmitNil)
@@ -141,6 +159,15 @@ checks =
       acceptedWith [Linear, Linear] [Linear, Linear] separateResources &&
       rejected (checkUsage [Linear] (rename contract separateResources)) &&
       acceptedWith [Unrestricted] [Unrestricted] (rename contract separateResources))
+  , ("head-reference quantitative lemma returns the replacement demand",
+      case headCase of ([Linear] ** _) => True; _ => False)
+  , ("exact usage derivations have unique vectors", case alternativeUnique of Refl => True)
+  , ("zero-scaled unrestricted head occurrences survive substitution safely in this example",
+      acceptedWith [Linear, Erased] [Linear, Erased] zeroScaledHead &&
+      acceptedWith [Linear] [Linear] (instantiate (the (Term [UnitTy] UnitTy) (Ref Here)) zeroScaledHead))
+  , ("head substitution under a checked linear binder retains its demand",
+      acceptedWith [Linear, Erased] [Linear, Erased] underLinearBinder &&
+      acceptedWith [Linear] [Linear] (instantiate (the (Term [UnitTy] UnitTy) (Ref Here)) underLinearBinder))
   , ("quantitative head substitution example retains ambient linear permission",
       acceptedWith [Linear] [Linear]
         (instantiate (the (Term [UnitTy] UnitTy) Unit) separateResources))

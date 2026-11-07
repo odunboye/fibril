@@ -332,6 +332,13 @@ both alternatives require internal quantitative derivations, including arguments
 scaled by zero. This is deliberately stricter than `Core.Runtime`, which skips
 runtime analysis of erased arguments; no checker correspondence is established.
 
+`usageUnique` proves that any two `Uses` derivations for the same term have
+identical vectors. `instantiateHeadUsage` proves the head-reference case of
+quantitative substitution: for any typed `v`, derivation `Uses v w` and
+`Admits P (combineUsage zeroUsage w)`, it returns `r = w` with
+`Uses (instantiate v (Ref Here)) r` and `Admits P r`. This is a genuine
+quantitative case, not the general substitution result.
+
 In this representation the single-linear quantitative theorem **still missing**
 is: given `Uses t (Linear :: u)`, `Uses v w`, and
 `Admits P (combineUsage u w)`, construct some `r` together with
@@ -339,6 +346,17 @@ is: given `Uses t (Linear :: u)`, `Uses v w`, and
 simultaneous substitution, a Core.Term admission/translation connection,
 reduction preservation, erasure compatibility or ownership soundness is proved.
 The fragment is not a bounded production admission API.
+
+The head demand alone is not an induction hypothesis for arbitrary subterms:
+`UseApp` may hide unrestricted head demand under an erased argument, yet still
+requires a valid derivation for that argument. `UseIf` combines branch demands
+with a permission join where 0 and 1 join to omega, not an arithmetic maximum;
+its condition is added separately. Under `UseLam`, lifted substitution must
+preserve the new binder's exact checked demand while weakening the replacement.
+A general proof therefore needs quantitative weakening/lift and a stronger
+statement accounting for arbitrary scaled head demand and joined branches,
+including internal validity even at scale zero. No counterexample to the stated
+theorem is claimed here, and these obstacles do not establish it.
 
 `Tests.Quantitative` checks open substitution under two binders, shadowing,
 outer-index lowering, simultaneous replacements at distinct types and
