@@ -320,6 +320,10 @@
         "path": "docs/typed-logical-paths.md"
       },
       {
+        "title": "Verified DNF reduction",
+        "path": "docs/verified-dnf-reduction.md"
+      },
+      {
         "title": "Theory bibliography",
         "path": "docs/references.md"
       },

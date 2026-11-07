@@ -18,7 +18,8 @@ The generated homepage separates teaching chapters, references, and project reco
 
 - [Cubical alignment](cubical-alignment.md): first checked-path milestone and quantitative safeguards.
 - [Quantitative cubical rules](quantitative-cubical-rules.md): proposed general-path judgments, runtime firewall and execution gates.
-- [Declarative logical paths](typed-logical-paths.md): isolated nondependent typing rules and their limitations.
+- [Declarative logical paths](typed-logical-paths.md): isolated path typing rules and their limitations.
+- [Verified DNF reduction](verified-dnf-reduction.md): an isolated semantically preserving reduction candidate.
 
 - [Implicit arguments](implicit-arguments.md): infer erased prefixes on direct checked global calls.
 

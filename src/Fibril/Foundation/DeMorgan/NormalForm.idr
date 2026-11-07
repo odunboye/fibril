@@ -300,12 +300,14 @@ boolEqualTrue False True eq impossible
 boolEqualTrue True False eq impossible
 boolEqualTrue True True eq = Refl
 
+public export
 literalEqualTrue : (x, y : Literal) -> (x == y) = True -> x = y
 literalEqualTrue (n, a) (m, b) eq with (n == m) proof names
   literalEqualTrue (n, a) (m, b) eq | False impossible
   literalEqualTrue (n, a) (m, b) eq | True =
     cong2 (,) (natEqualTrue n m names) (boolEqualTrue a b eq)
 
+public export
 clauseEqualTrue : (xs, ys : Clause) -> (xs == ys) = True -> xs = ys
 clauseEqualTrue [] [] eq = Refl
 clauseEqualTrue [] (y :: ys) eq impossible
@@ -315,6 +317,7 @@ clauseEqualTrue (x :: xs) (y :: ys) eq with (x == y) proof headEq
   clauseEqualTrue (x :: xs) (y :: ys) eq | True =
     cong2 (::) (literalEqualTrue x y headEq) (clauseEqualTrue xs ys eq)
 
+public export
 evalDNFObserves : (env : SignedAssignment) -> (ds : DNF) ->
   evalDNF env ds = observes (evalClause env) ds
 evalDNFObserves env [] = Refl
@@ -331,6 +334,7 @@ evalDNFCanonicalSorted env ds =
     (\x, y, eq => cong (evalClause env) (clauseEqualTrue x y eq)) ds) $
   sym (evalDNFObserves env (sort ds))
 
+public export
 evalClauseObserves : (env : SignedAssignment) -> (xs : Clause) ->
   evalClause env xs = not (observes (\x => not (evalLiteral env x)) xs)
 evalClauseObserves env [] = Refl

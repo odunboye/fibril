@@ -12,6 +12,7 @@ adjacentUniqueGo previous (next :: rest) =
   if previous == next then adjacentUniqueGo previous rest
   else next :: adjacentUniqueGo next rest
 
+public export
 adjacentUnique : Eq a => List a -> List a
 adjacentUnique [] = []
 adjacentUnique (x :: xs) = x :: adjacentUniqueGo x xs
