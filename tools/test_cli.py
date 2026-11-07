@@ -2830,6 +2830,7 @@ main = first Zero
             default = run('run', '--source-dir', str(root), entry)
             self.assertNotEqual(default.returncode, 0, default.stdout)
             self.assertIn('IO planning reduction budget exhausted', default.stderr)
+            self.assertIn('run --fuel N', default.stderr)
             # The explicit bound admits it; the answer is half of 16 marks.
             raised = run('run', '--source-dir', str(root), '--fuel', '4096', entry)
             self.assertEqual(raised.returncode, 0, raised.stdout + raised.stderr)

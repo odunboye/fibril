@@ -33,7 +33,7 @@ public export
 Show IOPlanError where
   show (PlanTyping err) = "IO planning check: " ++ show err
   show PlanDepthLimit = "IO planning depth budget exhausted"
-  show PlanReductionLimit = "IO planning reduction budget exhausted"
+  show PlanReductionLimit = "IO planning reduction budget exhausted; raise it with run --fuel N (0..4096)"
   show PlanActionLimit = "IO output action count limit exceeded"
   show PlanExpectedString = "IO write argument did not normalize to a String literal"
   show PlanExpectedUnit = "IO main result did not normalize to Unit"
