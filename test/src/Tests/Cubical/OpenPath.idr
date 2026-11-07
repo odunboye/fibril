@@ -1,6 +1,8 @@
 module Tests.Cubical.OpenPath
 
 import Data.Fin
+import Data.List
+import Data.List.Elem
 import Data.Vect
 import Fibril.Cubical.Logical.Square
 import Fibril.Cubical.Logical.ReusablePath
@@ -8,6 +10,7 @@ import Fibril.Cubical.Logical.Telescope
 import Fibril.Cubical.Logical.PathContext
 import Fibril.Cubical.Logical.OpenPath
 import Fibril.Foundation.DeMorgan.Interval
+import Fibril.Foundation.DeMorgan.Sorted
 import Fibril.Foundation.DeMorgan.NormalForm
 
 import Fibril.Foundation.DeMorgan.Face
@@ -580,3 +583,38 @@ signedReferenceExample :
   evalReferenceDM (\_ => signedDM True True) (Meet (Var 0) (Reverse (Var 0))) =
   signedDM True True
 signedReferenceExample = evalSignedReferenceDM (\_ => \_ => True) (Meet (Var 0) (Reverse (Var 0)))
+
+-- The subset check succeeds even with an extra non-Boolean signed literal.
+subsetAbsorptionExample : (env : SignedAssignment) ->
+  evalClause env [(0, False), (0, True)] = True ->
+  evalClause env [(0, False)] = True
+subsetAbsorptionExample env =
+  subsetSortedClauseHolds env [(0, False)] [(0, False), (0, True)] Refl
+
+nonBooleanAbsorptionExample :
+  evalDNF (\_, _ => True) [[(0, False)], [(0, False), (0, True)]] =
+  evalDNF (\_, _ => True) [[(0, False)]]
+nonBooleanAbsorptionExample =
+  evalDNFAbsorb (\_, _ => True) [[(0, False)]] []
+    [(0, False), (0, True)] (\_ => Refl)
+
+-- Both canonicalization passes preserve evaluation up to the actual sort.
+clauseDedupProofExample : (env : SignedAssignment) ->
+  evalClause env (canonicalSorted [(1, True), (0, False), (1, True)]) =
+  evalClause env (sort [(1, True), (0, False), (1, True)])
+clauseDedupProofExample env = evalClauseCanonicalSorted env _
+
+dnfDedupProofExample : (env : SignedAssignment) ->
+  evalDNF env (canonicalSorted [[(0, False)], [(0, True)], [(0, False)]]) =
+  evalDNF env (sort [[(0, False)], [(0, True)], [(0, False)]])
+dnfDedupProofExample env = evalDNFCanonicalSorted env _
+
+-- A removed clause has a distinct subset witness in the original list.
+removedWitnessExample :
+  (d : Fibril.Foundation.DeMorgan.NormalForm.Clause **
+    (Elem d [[(0, False)], [(0, False), (0, True)]],
+     d /= [(0, False), (0, True)] = True,
+     subsetSorted d [(0, False), (0, True)] = True))
+removedWitnessExample =
+  absorptionRemovedWitness [[(0, False)], [(0, False), (0, True)]]
+    [(0, False), (0, True)] Refl
