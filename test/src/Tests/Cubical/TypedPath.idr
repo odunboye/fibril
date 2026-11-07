@@ -6,6 +6,7 @@ import Fibril.Cubical.Logical.PathContext
 import Fibril.Cubical.Logical.OpenPath
 import Fibril.Cubical.Logical.ScopedSyntax
 import Fibril.Cubical.Logical.TypedPath
+import Fibril.Cubical.Logical.FaceSoundness
 import Fibril.Cubical.Logical.TypedPathChecker
 
 import Fibril.Foundation.DeMorgan.Face
@@ -61,6 +62,46 @@ neutralMeetLeft = NEndpointLeft (NPathVar FZ) (NBaseVar FZ) Refl
 nonBooleanFace : boundedFaceEntails {n = 1} STop
   (SDisjunction (SEndpoint FZ False) (SEndpoint FZ True)) = False
 nonBooleanFace = Refl
+
+-- Check each endpoint observation against both endpoint faces.
+fourZeroAtZero : evalFace (fourValuation (const DZero)) (SEndpoint FZ False) = True
+fourZeroAtZero = Refl
+
+fourZeroAtOne : evalFace (fourValuation (const DZero)) (SEndpoint FZ True) = False
+fourZeroAtOne = Refl
+
+fourOneAtZero : evalFace (fourValuation (const DOne)) (SEndpoint FZ False) = False
+fourOneAtZero = Refl
+
+fourOneAtOne : evalFace (fourValuation (const DOne)) (SEndpoint FZ True) = True
+fourOneAtOne = Refl
+
+-- Neither non-endpoint observation satisfies the endpoint disjunction.
+fourNonBooleanPositive : evalFace (fourValuation (const DPositive))
+  (SDisjunction (SEndpoint FZ False) (SEndpoint FZ True)) = False
+fourNonBooleanPositive = Refl
+
+fourNonBooleanNegative : evalFace (fourValuation (const DNegative))
+  (SDisjunction (SEndpoint FZ False) (SEndpoint FZ True)) = False
+fourNonBooleanNegative = Refl
+
+contradictoryEndpointAssumption : (v : Four) ->
+  evalFace (fourValuation (const v))
+    (SConjunction (SEndpoint FZ False) (SEndpoint FZ True)) = False
+contradictoryEndpointAssumption DZero = Refl
+contradictoryEndpointAssumption DOne = Refl
+contradictoryEndpointAssumption DPositive = Refl
+contradictoryEndpointAssumption DNegative = Refl
+
+contradictionNotDetected : boundedFaceEntails {n = 1}
+  (SConjunction (SEndpoint FZ False) (SEndpoint FZ True)) SBottom = False
+contradictionNotDetected = Refl
+
+soundnessExample : (env : Fin 1 -> Bool -> Bool) ->
+  evalFace env (SConjunction (SEndpoint FZ False) (SEndpoint FZ True)) = True ->
+  evalFace env (SEndpoint FZ False) = True
+soundnessExample env = boundedFaceEntailsSound env
+  (SConjunction (SEndpoint FZ False) (SEndpoint FZ True)) (SEndpoint FZ False) Refl
 
 -- Both endpoints vary with the bound dimension.
 varyingFamily : NeutralTypeFormed {n = 1} Tests.Cubical.TypedPath.neutralContext STop

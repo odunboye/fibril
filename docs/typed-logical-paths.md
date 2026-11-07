@@ -265,3 +265,20 @@ entry points must recalibrate budgets: for example, the top connection square
 needs 223 work tokens and returns `Exhausted` at 222. Generated weakening and restricted
 faces are linear in admitted input, and solver limits can fail closed as
 `Unsupported`.
+
+### Face entailment semantics
+
+`Fibril.Cubical.Logical.FaceSoundness` proves, by total recursion over the
+actual `simpleFaceEntails` branches, that acceptance preserves `evalFace` truth
+for every scoped endpoint observation `Fin n -> Bool -> Bool`. The observations
+are independent; therefore this theorem also covers ordinary endpoint valuations
+and valuations induced by `fourValuation` (zero, one, and the two non-Boolean
+values). `boundedFaceEntailsSound` lifts the result through the checker's size
+guard. Neither theorem claims completeness: for example, a contradictory pair
+of endpoint assumptions need not entail bottom according to the checker.
+
+The four-element endpoint observations are not a proof about interval operations:
+there is presently no machine-checked correspondence between `scopedEndpoint`
+and an evaluation of meet, join, and reversal, nor a full free De Morgan or CCHM
+soundness theorem. In particular the result does not by itself justify the
+interval-equivalence and endpoint typing rules semantically.
