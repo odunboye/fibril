@@ -1,0 +1,3174 @@
+{
+  "admission": [
+    {
+      "core_nodes": 8002,
+      "entry": "JSON-Read65",
+      "outcome": "source-check-accepted/native-emission-accepted; NOT execution",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "core_nodes": 7033,
+      "entry": "typed-no-output",
+      "outcome": "source-check-accepted/native-emission-accepted; NOT execution",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "core_nodes": 8467,
+      "entry": "FullIdFour",
+      "outcome": "source-check-accepted/native-admission-blocker",
+      "returncode": 1,
+      "stderr": "Native core admission exceeds 8192 nodes\n"
+    },
+    {
+      "core_nodes": 11403,
+      "entry": "EchoThenTyped",
+      "outcome": "source-check-accepted/native-admission-blocker",
+      "returncode": 1,
+      "stderr": "Native core admission exceeds 8192 nodes\n"
+    },
+    {
+      "core_nodes": null,
+      "entry": "JSONThenTyped",
+      "outcome": "source-construction-blocker; NO closed checked core or native execution",
+      "returncode": 1,
+      "stderr": "<probe-source>/JSONThenTyped.fib:8:1: Expanded core construction budget exhausted (200000)\n  8 | main : IO Unit\n    | ^\n"
+    },
+    {
+      "core_nodes": null,
+      "entry": "EchoJSONThenTyped",
+      "outcome": "source-construction-blocker; NO closed checked core or native execution",
+      "returncode": 1,
+      "stderr": "<probe-source>/LSP.fib:92:1: Expanded core construction budget exhausted (200000)\n  92 | transitionKernel : (0 S : Type) -> (0 M : Type) -> (0 I : Type) -> (0 E : Type) ...\n     | ^\n"
+    }
+  ],
+  "audit_image_sha256": "b837ae3662530c03b67261ee9c29ea2cf6e488f502372002d993810954475754",
+  "audit_launcher_sha256": "547c3d146b7f9347922b5f221749419b7d87248dcc4dbf66e9eceeccf33816f0",
+  "base_commit": "afaf00c4c683a0e05c658a12c80a05d8e123201b",
+  "cc": "cc -fsanitize=address,undefined -fno-omit-frame-pointer",
+  "cc_version": "Apple clang version 21.0.0 (clang-2100.4.1.1)\nTarget: arm64-apple-darwin27.2.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin",
+  "compiler_image_sha256": "ac6ff342e6e580b0dddcf65edac5d7bce31855ae78456ba54cca95257f061f9e",
+  "compiler_launcher_sha256": "8587e4e519ac3367e035c863c845899210988d1ad39551700425b44b1fda6156",
+  "execution_input_contract": "complete buffer + EOF, not live stdin",
+  "idris2": "/Users/odunadeboye/.local/state/pack/install/74b33730b6fea649b15e8d01ab099df9effcc7a0/idris2/bin/idris2",
+  "idris2_launcher_sha256": "d7cbce073c5b304ba71dec71fccdd58526da476637f1a4b88d53fc9ebb116c7c",
+  "idris2_version": "Idris 2, version 0.8.0-74b33730b",
+  "inputs_sha256": {
+    "Makefile": "9bd7c46245beaa5701260145b0d018c451052c53e0878e9739a3b38e959cd22d",
+    "examples/modules/binary-frame/Main.fib": "ab74386567d24630646e03fe4c1e61f857837f99351fa1e1b2148d36412e4bf3",
+    "examples/modules/binary-frame/Protocol/Frame.fib": "7bb933ba31da8978a8e0687329a2ae02a667d1bd9fb4045bc20f272ff6d15384",
+    "examples/modules/binary-frame/Two.fib": "60fcfa6f69dc64477cb65382699bf1d3b2424e1b22b0ec7eda894c11b6c577b2",
+    "fibril.ipkg": "14c3bdc46a8539e14a168150d18c63f0500fcaf41b9a9355ede05e20dbf7adb8",
+    "runtime/native/fibril_binary_runtime.c": "8885a747f2a565da4e7c877cba671b9df4043c6b9d73e84706a18bc27ee0f34e",
+    "runtime/native/fibril_bytes.c": "364c09920c55015602aaa558bf8a473ba55955e3a81ac4a3e05975ba51c43269",
+    "runtime/native/fibril_bytes.h": "b5849d9af058a7d65b62d3cf0ea0ae44af61147e86299d0a0a9095dc6c203a44",
+    "runtime/native/fibril_runtime.c": "bed3df88b9c39819f81a6f0820f78102d068233f086361521d8d669f16dc495c",
+    "runtime/native/fibril_runtime.h": "17c7364f1e206d1b2095898bdf44c35625fd979f7f37c803e646e2a7fb416226",
+    "src/Fibril/Core/Compatibility.idr": "9c7d32cefda4f30cde57208f38387798c0e9735883675b74fb418908b300c183",
+    "src/Fibril/Core/Context.idr": "4506b55657fe16f80e073c934953a33701415cf8cb65930fccefc135f97d2e4d",
+    "src/Fibril/Core/EffectAdmission.idr": "88c4eb6af2c185a3f3a2b4d80cab1360a2f312d88958445b962bb00edacaef12",
+    "src/Fibril/Core/Erased.idr": "1fbb7ba36d497ebfcc5b8748f8e7e5be81eab8eda36d7f66c8dbf1b7cc81469f",
+    "src/Fibril/Core/Limits.idr": "a5d700a7e3723a63336b8aeacd1d1d3c4d52cecf5b1df4a1ace0400343cfd17d",
+    "src/Fibril/Core/Pretty.idr": "d2801cefcc7eb81c60c9fb0bbd429acc71c785539877240ec1074bd512b80b51",
+    "src/Fibril/Core/Quantity.idr": "d66c6c15f8461dc593fc3ae0f9accdb46c4a024f125e85606dabe8c6e8e6046a",
+    "src/Fibril/Core/Reduction.idr": "4898d4611d36384b630d4b76df26bd233f167aaa84b9920c0b8428bd4e24530f",
+    "src/Fibril/Core/Reduction/Beta.idr": "6e6582fc7d87e1ff59f0429f3dfb3b68784e7d20071dff00ac425cc4c83aeab2",
+    "src/Fibril/Core/Reduction/Fuel.idr": "8067205275d6d032f35b336e1a854eb93a51da85814282aeee5d0112dde1ff9f",
+    "src/Fibril/Core/Reduction/Work.idr": "1d66677d71669357e2e4156ad7869f0110216cbadcfe1185cd34d282dec1ef3c",
+    "src/Fibril/Core/Renaming.idr": "326e33586d48ee82535905c1eca952986f57c992cada5ca626cbe6cdcb54abfd",
+    "src/Fibril/Core/ResourceAdmission.idr": "00587cb838eceeceeccf72a8239aa4707259ba510ffe7271ffd9ed1091564189",
+    "src/Fibril/Core/Runtime.idr": "9613ca9247f785efedc6c31dedb29604898fc1e0f7113b306f297e9cf85f8952",
+    "src/Fibril/Core/Size.idr": "9c8a31a7be50a88906cdea0a7ab024cf5d2c95fd4732373d2d686aa751d5d952",
+    "src/Fibril/Core/Substitution.idr": "a9d26e4f98cf80dfe5332372678520aa1a7744dc2cf35bac59221be5ce2b250c",
+    "src/Fibril/Core/Substitution/Composition.idr": "2d7abb1c33222697bb90ab8d9e7f49ae993ec7720585a378e2a3096589690708",
+    "src/Fibril/Core/Substitution/Instantiation.idr": "95bc25e6accc4b4c565c213420bab40c92dc2ad48f7c2f9d1156144353681e97",
+    "src/Fibril/Core/Term.idr": "1f7aea2852eb37f03415ea19821cb45a5d4fd8c8f4db467bab6cfd8bbe77e5b0",
+    "src/Fibril/Core/Usage.idr": "f81b7db7340616773b1a65eba3dc24ebd8bbbe962b888f1f7a67e81bf89ce418",
+    "src/Fibril/Core/WeakHead.idr": "20f793a2230e5177129e2b6a8b2bd7faffcfa2f04b573fd8ac07cc85c6e1f197",
+    "src/Fibril/Data/Bytes.idr": "41d84ccf99fa3c6fbb44d67283b9ee32b30ada11af80c234e46fbc1f2b5e245f",
+    "src/Fibril/Driver/Binary.idr": "fbf97fa884d68d87c437e196c64e2ca13bc9d1ea51c7ef975724c0433d6219a1",
+    "src/Fibril/Driver/Binary/Count.idr": "9f806bd04a08fb4bf56cc6ac1bd0f71b6c262499b4cbb1480f1e3220f67f85d1",
+    "src/Fibril/Driver/Check.idr": "2ef594f77b7756bbc85286cec2ea3649efb7f0a8887b4ade1e5027be0a1f11de",
+    "src/Fibril/Driver/CheckReport.idr": "4c222eb6c315484e25dab96689a17524e376c1dce9e123fc7e72ebf196af51ff",
+    "src/Fibril/Driver/Console.idr": "076a5448bc3772735e502d839c80ad718ec991c6c08ee46d251dc3a514b363fd",
+    "src/Fibril/Driver/Demo.idr": "21b3e77ca119982141b353a46fc4bd99ae1531fe4688805d957a122f4e24c3ec",
+    "src/Fibril/Driver/Elaborate.idr": "aab87b3baad268134416936bb6f57a44341f0324156d414b1cb38f7e30276b3d",
+    "src/Fibril/Driver/Evaluate.idr": "8efc9d9804d02dde5befd5fd0687e30fb7a0bc5ea6be09d0eb21a4b5c72ae726",
+    "src/Fibril/Driver/Format.idr": "49728ff3b6233a3cf957364683ae6cd3c72faed058bdf2ea82c4e9ca23053714",
+    "src/Fibril/Driver/Interactive.idr": "94e6f0ce1178e5127af67cb972dbfb9dc2a4cb32bca415d071b5addf1d17acc3",
+    "src/Fibril/Driver/Interactive/Run.idr": "fcf58c1f83ec7d868003e373eb8c6d3f1d0bdc53632ed1b02e69a7832db32238",
+    "src/Fibril/Driver/JSON.idr": "18ff3d58342460d2f96699b9d1b98b80b32f9241716db1918bf378d32eeadae2",
+    "src/Fibril/Driver/Limits.idr": "54e1d1910070813fa5262794db86e8372a52627ea1ed35df5d8206a2a6c0af4f",
+    "src/Fibril/Driver/Manifest.idr": "22b608467cb072a4de2eb75b3d8912136c092cecbff89a126f84915537623b3c",
+    "src/Fibril/Driver/ModuleCheck.idr": "ac9bd491a8f5efc3526773fd74db9de7ff94a6eda9c28f083938518ad21d48b3",
+    "src/Fibril/Driver/ModuleGraph.idr": "5bfe5b2eff5434a5f81ab67d81dc5a53209d30fc410d53f4623d62f41f6dc267",
+    "src/Fibril/Driver/Native.idr": "bc117287e7aa934daae6e18371a4f0f04493b0fb409c799f6a180291307cf127",
+    "src/Fibril/Driver/Native/Emit.idr": "4331fbe70964bcf954626c8603e6dad8d6fa70b1985805c9a5c4ca996c960a50",
+    "src/Fibril/Driver/Prelude.idr": "d134775d7425d3e93b098fa1a6e8990a45c5fca916ce433e3478789005f15518",
+    "src/Fibril/Driver/PreludeSource.idr": "762893d8e8a601c595c40cf06223435bf900bba2ef8269e5b22aa1b26b59b44d",
+    "src/Fibril/Driver/ProjectNavigation.idr": "25ceda958bd331c1f3029bc49f222b717c8675793c344229a16f8d752d5e2b5e",
+    "src/Fibril/Driver/ProjectReport.idr": "2cc93daedbb676ece2e84f70c70b79d29022892d73a5e59e15701a1a8a0e5b92",
+    "src/Fibril/Driver/Reference.idr": "0e4a974c85e1620e181f7f64a82acbe108d2f7cf0a32fc1abf740cd26732d8df",
+    "src/Fibril/Driver/Resource.idr": "99143f5830422ff86518c2d50c83caaffde320427cf4189763743a012059772b",
+    "src/Fibril/Driver/Run.idr": "b1f2976e62aa7876e12ab46c58d8050eed017947c9aee35a110d9d6f25a03264",
+    "src/Fibril/Driver/Symbols.idr": "c90012c67c532dbf05373fa6d1cedfdf8d31eeb89fea21ad275b43b344ff34e6",
+    "src/Fibril/Driver/Test.idr": "64108936e812cf86055e2148a41f86d47533a790596809579aff4d1b40037268",
+    "src/Fibril/Effect/Console.idr": "aa8c749679adb1f492c07f961e599e47a03ddc120b11f2c7e7bc34c97db27edb",
+    "src/Fibril/Effect/ConsoleProgram.idr": "a879d4457cc3c6f0add141241a14000c1d669d56dfbb660d09496a588c47116f",
+    "src/Fibril/Effect/Resource.idr": "b9aa83424f47e3ac08aac4a084a60f43107bef7e82181a7919dbb6988d990cc2",
+    "src/Fibril/Elaboration/Data.idr": "851dd90133b0789f984ae070251150c90d485d1bb26cb29a59bc2356f792700b",
+    "src/Fibril/Elaboration/DataCase.idr": "d0d36691d4318df7cbbd1cdc8b5546ecca0b2c6ff1e26296896a14dc6d693df8",
+    "src/Fibril/Elaboration/DataSchema.idr": "419507b44b31d0f333b28ac0654d7981c1985ab5658d14ae4e4a5df2b8eca282",
+    "src/Fibril/Elaboration/Declaration.idr": "1a453abbfcfa603cc35d397cc51aea94448c48527805026c8208c1db78a7f88a",
+    "src/Fibril/Elaboration/Expression.idr": "bbf48372e5665c2d736e18543823d4a7aa6e55f3bb443e4196dc74e52f121dcf",
+    "src/Fibril/Elaboration/Expression/Abstract.idr": "5f24963b6698b3229a49cdababd330df0d92088dccdbc0aa5c0c4afc5b868d4f",
+    "src/Fibril/Elaboration/Expression/Constructor.idr": "7c6714daba8f8417e0a73579c6c364be29fff4009382dc99e1bd9bced028391e",
+    "src/Fibril/Elaboration/Expression/Conversion.idr": "953657f2ec29f5c91783ee17c78791586aa45db3c0d5b249812c601e6af923b5",
+    "src/Fibril/Elaboration/Expression/Dictionary.idr": "decb71832b43b1fdbf65b024138d5da09d9ed8a9516342e1e44e140c7d60bfe6",
+    "src/Fibril/Elaboration/Expression/Motive.idr": "54de6bd1d2ec822665dca5786b76233642b73d1b46477ea1bfa2315efa1ce56c",
+    "src/Fibril/Elaboration/Expression/Parameters.idr": "364f2cb0edbb9783c0f5b7cda6655a92cf8a4860c7a46176af23872a325bc417",
+    "src/Fibril/Elaboration/Expression/Payload.idr": "a1b196f3c9862a45fde8e65a905740a97a2db0168cb262e53f2464c127ba2e91",
+    "src/Fibril/Elaboration/Expression/Scope.idr": "dd4b99b9e3127091475f81f9f437bb6faae46d3fc11adb25f8d1096573150f8c",
+    "src/Fibril/Elaboration/Interface.idr": "b80dba2370ae6972a9b930b51b64eea6a1792a3859e55bf0beacbe225f21034f",
+    "src/Fibril/Elaboration/Pretty.idr": "e8257081699e9c43ee2b48727272a8c2ece8d9bddc028735cd8e555960584c40",
+    "src/Fibril/Foundation/DeMorgan/Face.idr": "6c502fe70572768f8c0606b08fc137932140356bee650c87b2c4dc48e6f26d69",
+    "src/Fibril/Foundation/DeMorgan/Interval.idr": "2985f3a08b3050d89a75a83788e0ca6ac31cf1913bfedbe150ced9849474f6a5",
+    "src/Fibril/Foundation/DeMorgan/NormalForm.idr": "ed23c26f10a699579ec5b441c3366ddf3ed99648eb4d558851b413b4f2b551ce",
+    "src/Fibril/Foundation/DeMorgan/Restriction.idr": "d700d990ab772740cb6b29777c9c3db1e845342467c76d087d4f3a04b2dd24ed",
+    "src/Fibril/Foundation/DeMorgan/Scope.idr": "8bf2132fcac927edf85ad1410c968513a98d48dce4e226172ee80468f5870edc",
+    "src/Fibril/Foundation/DeMorgan/Sorted.idr": "9661b3d13bc81f7e957bd5cb9c6e30472f263f79c83932fb0bf3b84f8e056d0a",
+    "src/Fibril/Project/Local.idr": "65917a9616261a6abdebff8e3204e5b0429a5a99070522634e9004b7bc494f0f",
+    "src/Fibril/Project/Manifest.idr": "bf63449452ada4466b12dce26718efc49fd96039a592b0c67574df8c797d725f",
+    "src/Fibril/Project/Name.idr": "332956cf11a3edc39bc7249724714b9013d47101e4cc50456e0cba7abe0e2c40",
+    "src/Fibril/Project/New.idr": "653c57cdcfba03a183ffa45df8595d2393a5c77c03eb9cccc0c33cc6bfcdc341",
+    "src/Fibril/Project/Template.idr": "bf74433d665dee5c1d8a3424b07d9f03cf493d4b288fda46aa6ee4648dac27d4",
+    "src/Fibril/Project/Workspace.idr": "8c64ca44a486a004b1423570e4f9c6a0bb4a84c869298524552d3330dde37c5c",
+    "src/Fibril/Runtime/Binary.idr": "70174e7670202812326f5ebec69fe413b04bde7a26199bd65272404b42d74f72",
+    "src/Fibril/Runtime/Console.idr": "8b5501d73b843d60eac96f4cab9dafa0cc0585c47fc07638ad5a96a54ef5ad6f",
+    "src/Fibril/Runtime/ConsoleInput.idr": "1916cf66a13e599ec61405f5e2a32022c64dd56099671e5b5d4673ca34bcedcd",
+    "src/Fibril/Runtime/InputOwnership.idr": "93a7640563c44e319bdaa3d9b7eb6ed06342a41f7b7f15492d117a1f8657ff9a",
+    "src/Fibril/Runtime/Path.idr": "dd62c2e3e51165e8f03b756ddabcc8f3d65c0cba0a938273b05dc72932c0e983",
+    "src/Fibril/Runtime/Project.idr": "8117d5ba8180d02b607753c836db9415f52a880b7c25d432e18dd732c6032c32",
+    "src/Fibril/Runtime/Resource.idr": "6fdc0a29f9be38270bbcf610ec372c6637d997e18a86b897d606ce1fa0cd6326",
+    "src/Fibril/Runtime/ScopedInput.idr": "d226911f85fcb87bc4005e5cdecc8f35eb912c1525d760db07f944da3052595f",
+    "src/Fibril/Source/Declaration.idr": "c1489833314fec825df25468b4e421a1322da7ab34862c4ebd94913b578c6174",
+    "src/Fibril/Source/Declaration/Syntax.idr": "aefe1af588cbf08e2bce0405cf805e434bd9c4f25398f26375af3915ba62924a",
+    "src/Fibril/Source/Diagnostic.idr": "f7369664b6323ec25124dfa91ac498adcf3689032730b5142f489eeadc133dce",
+    "src/Fibril/Source/Document.idr": "504883a04fb984e4a849daa185ad8627faad6714f9e79891b5313c2a5816d0c3",
+    "src/Fibril/Source/File.idr": "afbc0624f9932c533c4b52e7fbd9b7cc2cf532c76f8dca7ba312ab7ee9fff58f",
+    "src/Fibril/Source/Format.idr": "16fefe92fdea70599a2615df9068ee1df46bf56966c4c203339203451f45621b",
+    "src/Fibril/Source/Global.idr": "653a13183eb987df81e02e0dd6549df086171c5d2ac69bdf873566eb04583d58",
+    "src/Fibril/Source/Lexer.idr": "829cbec1dc6e197a23a6bf021b857ef5ede0b74b30713c9749969ee4ce8b7c97",
+    "src/Fibril/Source/Navigation.idr": "6cc264e62729a7fa5fd74341166bffb62f9191ec7aee82080c2b17c149239449",
+    "src/Fibril/Source/Parser.idr": "49bc5dec69324442474c03c5ebb572e6c060461c59646cba3923c5527b629639",
+    "src/Fibril/Source/Primitive.idr": "bd0c917f806d7d6761723d2e72ba4e2a47ebe43b30231448233e472ff192bdb7",
+    "src/Fibril/Source/Primitive/Binary.idr": "f6bba480c3e1aaadd245510c1b1768627136dbc37c3060b7eed0ddca2e7d2ed2",
+    "src/Fibril/Source/Primitive/Bytes.idr": "9ce4e33dc5bb72fca7c4ea3650e57652baebb2905d2806df31dc262373ca119e",
+    "src/Fibril/Source/Primitive/Input.idr": "3775d116d5869f64b75aedbd049819fcab17185fd0e9285334b4440b1f7fc1eb",
+    "src/Fibril/Source/Primitive/Resource.idr": "01d60e99de374e0c982107ebf62c1ce68f6b5544e0af18d0adf1d098a6ec1ffe",
+    "src/Fibril/Source/Primitive/UTF8.idr": "d4444f05cfe8e84bf41b47ad67aa226c0479d66f8039fe826367df1ac5cc6480",
+    "src/Fibril/Source/Rename.idr": "809843b1661276d88f2bc84271cb07239455dc82ac97d2a1ee42e1127056c95b",
+    "src/Fibril/Source/Resolve.idr": "2a71c08e5be8c7d515c8c6c1f9a79a53789517d261c5f1302f42dc98d87f986e",
+    "src/Fibril/Source/Resolve/Error.idr": "41c526a07204f18ddad5506fc9809c89c9eb2f77324efe2a4adff5935d98d926",
+    "src/Fibril/Source/Shape.idr": "d4e43b7be6c2c57be9c76406986054ef7733a555a323da041cfe8ba4ec454e90",
+    "src/Fibril/Source/StringLiteral.idr": "77391e48526f3da1fe9db638ff8543e36ad81dfc0b9d01d40aa7d6b74b00df8f",
+    "src/Fibril/Source/Symbol.idr": "53075dc38e3e9bf99e580100885c1b644b0507d8eb521cb8b7ebb0d49030cfc6",
+    "src/Fibril/Source/Syntax.idr": "78ce2db4e1a1063128c86ec3de837538e5131f1eb53ab4261249902fd1740004",
+    "src/Fibril/Source/Text.idr": "7c4963ce8a6ba57aa17211886bb00c69e96d117c50fb673d467d623ca569acdf",
+    "src/Fibril/Source/UTF8.idr": "03ec9b43a1352afb57ff2f241889b425d07cfd1675a37ec99e2e9e8ad7c4e644",
+    "src/Main.idr": "471cdc2a0383c6ca306dc2388b9355425ca3821362f00fa7f16fc3cb80c95a16",
+    "stdlib/Prelude.fib": "4047123dfe1c864496850f74e96e47eddd94e258dae5bf2d2c4e2e48685241ee",
+    "tools/fixtures/json-iteration/Hosted.idr": "5d7de86b7e9a64f0ddfe83a492325dda442a76e17aeff5a3cd870f3bdb26bde2",
+    "tools/fixtures/json-iteration/Parse.fib": "7053e1c6a748b0b9a06c2560abc6f4f7d9f0fbaaf5f71b8ffbe01238f0ba691e",
+    "tools/fixtures/json-iteration/ParseBinary.fib": "bb01124fb4fc821dea495e9ef6cd8208f1ece4e86f4ffa97e1a364567ee0d741",
+    "tools/fixtures/json-iteration/Protocol/JSON.fib": "f3519f7b62b859c5174083fad8a4c9d388552c2aa888675626b0eabc6ef3e550",
+    "tools/fixtures/json-iteration/PureRead65.fib": "4936b01183fa7369063a80df49d894013ad96e82d74f7ac49f9571d1820a12f8",
+    "tools/fixtures/json-iteration/README.md": "97f38e10bb717b88cb9440706ab47bdd7bb4d82291943fda5ebf8b37b0220282",
+    "tools/fixtures/json-iteration/Read65.fib": "f06dce42737bd17f707ce1ae40c842f42655e5c5c04c7e66c0b7b98fe74912b8",
+    "tools/fixtures/json-iteration/SourceHarness.c": "a58ac7449c75faeb7bed732e3d7c7b1429615968289dd7eb541aacbc5110b51e",
+    "tools/fixtures/lsp-cost-audit/Audit.idr": "6b79afc4b0e8dd7dbb1de6af76ad356da975b34612e61657c7f6d83e97747a61",
+    "tools/fixtures/lsp-cost-audit/EchoJSONThenTyped.fib": "80be78875b365c4fcbfd2ad253f04fcde9347091766417f3c579bcd8ac3b0585",
+    "tools/fixtures/lsp-cost-audit/EchoThenTyped.fib": "04047d48f407a1655c47f3e2596e480ac010584b9fc6f309e160de6386d51f6c",
+    "tools/fixtures/lsp-cost-audit/EqualString.fib": "fb75ea401d028ef5529d1b5e968e35f88084c93b9af7a38c283df2abd337da4d",
+    "tools/fixtures/lsp-cost-audit/FullIdFour.fib": "41b8d1af7fc226cb7cd70be658b442f9a952c5c87ca9edbeda04196fb94b6158",
+    "tools/fixtures/lsp-cost-audit/JSONThenTyped.fib": "26383d9fb777c3ddb155494842335fadf689ce30e04fb5e1a546036b34d93d24",
+    "tools/fixtures/lsp-cost-audit/OrBool.fib": "c176eba753451cd5e2c816dfc788a05192e753cf8850815a0327509fd5c2e094",
+    "tools/fixtures/lsp-cost-audit/README.md": "17700bfce38830c2ae9fb6941075b04f3bb1f2a8621bbfc5413e4867b91a7e49",
+    "tools/fixtures/lsp-lifecycle/ControlObservation.fib": "6224bf08c75ef4a86f817676a0c28d8acac40941c791fe6b512f4fd2516d3f9d",
+    "tools/fixtures/lsp-lifecycle/Harness.idr": "a6930bca08c926f45cdb1e1a26b7db9361f2c66737e3ba6332c1b94e22e15e71",
+    "tools/fixtures/lsp-lifecycle/LSP.fib": "c4a1423a82c87f9b7c973b9864ba3dd9755bb4eea93e3155452fd86a629beb03",
+    "tools/fixtures/lsp-lifecycle/NoOutput.fib": "5c9bd1d672acdd33a7b917377f48fc1497e31f5502e343cf8a1e563d4c54c023",
+    "tools/fixtures/lsp-lifecycle/Observation.fib": "46f05f20bfa2a305bad3fdef1e102cda546cbe2f69fa76ec9754cb6478fef0bd",
+    "tools/fixtures/lsp-lifecycle/README.md": "5ffe693144f74e2164fc5af72d5da44c8922c1f22998ffb2ef4ff7584897ffc6",
+    "tools/fixtures/lsp-lifecycle/SourceHarness.c": "7c7802847a9ce8f254c63e418073b5bbefedc8cedcf0ca2efae2a97580fe6529",
+    "tools/fixtures/lsp-lifecycle/Transition.fib": "b06b574ef5cd38851ddd333c8a48ec7065acb0a45dc6ee0fe841e13cf766b04e",
+    "tools/fixtures/lsp-lifecycle/evidence.json": "71b36651388b44546ba3defab73230f16c9fc08b3347b1dc196b233b665b0994",
+    "tools/fixtures/lsp-workload-observer.c": "662b890d7c46fc739fe03184a66a9dfa2224675f3724b61121f9798dc28c72ea",
+    "tools/lsp_cost_instrument.py": "995fa2312a5533a14bc48db3616d696944f1c58c9f5e5f2d6befcff14c87c074",
+    "tools/observe_json_state_sharing.py": "35b885833152a91d89aa07d3655a4c0d87d5fbb416aaa8915dbf9d63965c1aab",
+    "tools/probe_lsp_cost_audit.py": "00a31be7a91ab90f487c8cb5f2c8d71a8899e446612facf7c51a8d17ebb49394",
+    "tools/probe_lsp_workload.py": "43586f6aef4018d1df03398f41f8e07c7e804dcad033266066573a2bbd4dda8d",
+    "tools/test_binary_iteration.py": "cddf8492292b1e31fa1a94a466c07c7b3c6afdfa83e8541d28cd6945c0205418",
+    "tools/test_lsp_cost_audit.py": "13882ff0b72fcd3083b2053c5d01770989a33e0f9675927668947ed163661038"
+  },
+  "instrumentation": {
+    "allocation_sites": [
+      "extend",
+      "f_append",
+      "f_bytes_append",
+      "f_bytes_octet",
+      "input_scope",
+      "interact_binary",
+      "new_value",
+      "plan",
+      "read_line_from",
+      "thunk"
+    ],
+    "emitted_operations": {
+      "f_append": 1,
+      "f_apply": 1180,
+      "f_bind": 3,
+      "f_bool": 151,
+      "f_bool_case": 263,
+      "f_bytes_append": 16,
+      "f_bytes_index": 1,
+      "f_bytes_length": 3,
+      "f_bytes_length_is": 6,
+      "f_bytes_literal": 5,
+      "f_bytes_octet": 3,
+      "f_bytes_slice": 4,
+      "f_erased": 32,
+      "f_iterate_binary": 1,
+      "f_lambda": 701,
+      "f_literal": 261,
+      "f_nat_succ": 12,
+      "f_nat_zero": 9,
+      "f_nominal": 13,
+      "f_nominal_case": 7,
+      "f_pair": 3,
+      "f_pair_case": 3,
+      "f_pure": 4,
+      "f_read_bytes": 1,
+      "f_reject_bytes": 1,
+      "f_string_equal": 2,
+      "f_utf8_decode": 2,
+      "f_utf8_encode": 4,
+      "f_variable": 1316,
+      "f_variant": 10,
+      "f_variant_case": 10,
+      "f_write_bytes": 3
+    },
+    "step_buckets": [
+      "f_append",
+      "f_apply",
+      "f_bind",
+      "f_bool",
+      "f_bool_case",
+      "f_bytes_append",
+      "f_bytes_index",
+      "f_bytes_length",
+      "f_bytes_length_is",
+      "f_bytes_literal",
+      "f_bytes_octet",
+      "f_bytes_slice",
+      "f_erased",
+      "f_iterate_binary",
+      "f_lambda",
+      "f_literal",
+      "f_nat_succ",
+      "f_nat_zero",
+      "f_nominal",
+      "f_nominal_case",
+      "f_pair",
+      "f_pair_case",
+      "f_pure",
+      "f_read_bytes",
+      "f_reject_bytes",
+      "f_string_equal",
+      "f_utf8_decode",
+      "f_utf8_encode",
+      "f_variable",
+      "f_variant",
+      "f_variant_case",
+      "f_write_bytes",
+      "unmapped_evaluation",
+      "byte_work",
+      "evaluate_fold",
+      "plan",
+      "interact",
+      "interact_binary",
+      "utf8_validation_charge"
+    ],
+    "value_tags": [
+      "V_UNIT",
+      "V_ERASED",
+      "V_BOOL",
+      "V_STRING",
+      "V_BYTES",
+      "V_CLOSURE",
+      "V_NOMINAL",
+      "V_VARIANT",
+      "V_NAT_ZERO",
+      "V_NAT_SUCC",
+      "V_REC_END",
+      "V_REC_MORE",
+      "V_SEQ_NIL",
+      "V_SEQ_CONS",
+      "V_PURE",
+      "V_BIND",
+      "V_WRITE",
+      "V_READ",
+      "V_PAIR",
+      "V_INPUT_HANDLE",
+      "V_WITH_INPUT",
+      "V_READ_INPUT",
+      "V_READ_BYTES",
+      "V_WRITE_BYTES",
+      "V_FLUSH_BYTES",
+      "V_REJECT_BYTES",
+      "V_ITERATE_BINARY"
+    ]
+  },
+  "native": [
+    {
+      "attribution": {
+        "allocations": {
+          "extend": [
+            26057,
+            416912
+          ],
+          "f_append": [
+            30,
+            60
+          ],
+          "f_bytes_append": [
+            158,
+            5988
+          ],
+          "f_bytes_octet": [
+            1,
+            1
+          ],
+          "input_scope": [
+            0,
+            0
+          ],
+          "interact_binary": [
+            3,
+            96
+          ],
+          "new_value": [
+            30065,
+            962080
+          ],
+          "plan": [
+            0,
+            0
+          ],
+          "read_line_from": [
+            0,
+            0
+          ],
+          "thunk": [
+            25212,
+            1613568
+          ]
+        },
+        "steps": {
+          "byte_work": 8983,
+          "evaluate_fold": 0,
+          "f_append": 30,
+          "f_apply": 24238,
+          "f_bind": 3,
+          "f_bool": 94,
+          "f_bool_case": 2474,
+          "f_bytes_append": 158,
+          "f_bytes_index": 0,
+          "f_bytes_length": 3,
+          "f_bytes_length_is": 260,
+          "f_bytes_literal": 1,
+          "f_bytes_octet": 1,
+          "f_bytes_slice": 320,
+          "f_erased": 0,
+          "f_iterate_binary": 1,
+          "f_lambda": 22475,
+          "f_literal": 2316,
+          "f_nat_succ": 11,
+          "f_nat_zero": 451,
+          "f_nominal": 259,
+          "f_nominal_case": 259,
+          "f_pair": 582,
+          "f_pair_case": 582,
+          "f_pure": 66,
+          "f_read_bytes": 1,
+          "f_reject_bytes": 0,
+          "f_string_equal": 2120,
+          "f_utf8_decode": 193,
+          "f_utf8_encode": 132,
+          "f_variable": 30680,
+          "f_variant": 66,
+          "f_variant_case": 328,
+          "f_write_bytes": 1,
+          "interact": 0,
+          "interact_binary": 72,
+          "plan": 0,
+          "unmapped_evaluation": 0,
+          "utf8_validation_charge": 608
+        },
+        "values": {
+          "V_BIND": 3,
+          "V_BOOL": 2474,
+          "V_BYTES": 613,
+          "V_CLOSURE": 22475,
+          "V_ERASED": 0,
+          "V_FLUSH_BYTES": 0,
+          "V_INPUT_HANDLE": 0,
+          "V_ITERATE_BINARY": 1,
+          "V_NAT_SUCC": 204,
+          "V_NAT_ZERO": 454,
+          "V_NOMINAL": 259,
+          "V_PAIR": 582,
+          "V_PURE": 66,
+          "V_READ": 0,
+          "V_READ_BYTES": 1,
+          "V_READ_INPUT": 0,
+          "V_REC_END": 0,
+          "V_REC_MORE": 0,
+          "V_REJECT_BYTES": 0,
+          "V_SEQ_CONS": 0,
+          "V_SEQ_NIL": 0,
+          "V_STRING": 2539,
+          "V_UNIT": 1,
+          "V_VARIANT": 392,
+          "V_WITH_INPUT": 0,
+          "V_WRITE": 0,
+          "V_WRITE_BYTES": 1
+        }
+      },
+      "baseline_equal": true,
+      "case": "64-token-array",
+      "input_hex": "5b5b5d2c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c302c305d",
+      "metrics": {
+        "accepted_bytes": 124,
+        "arena_payload": 2998705,
+        "callbacks": 65,
+        "consumed_bytes": 64,
+        "flushes": 1,
+        "peak_pure_depth": 81,
+        "reads": 1,
+        "requests": 2,
+        "reserved_capacity": 189,
+        "steps": 97768,
+        "writes": 1
+      },
+      "output_hex": "5b5b5d2c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330002c2330005d",
+      "whole_buffer_scanned": true,
+      "whole_jsonrpc_decoded": false
+    },
+    {
+      "attribution": {
+        "allocations": {
+          "extend": [
+            11766,
+            188256
+          ],
+          "f_append": [
+            0,
+            0
+          ],
+          "f_bytes_append": [
+            66,
+            2211
+          ],
+          "f_bytes_octet": [
+            1,
+            1
+          ],
+          "input_scope": [
+            0,
+            0
+          ],
+          "interact_binary": [
+            3,
+            96
+          ],
+          "new_value": [
+            19747,
+            631904
+          ],
+          "plan": [
+            0,
+            0
+          ],
+          "read_line_from": [
+            0,
+            0
+          ],
+          "thunk": [
+            17397,
+            1113408
+          ]
+        },
+        "steps": {
+          "byte_work": 16967,
+          "evaluate_fold": 0,
+          "f_append": 0,
+          "f_apply": 10134,
+          "f_bind": 3,
+          "f_bool": 1,
+          "f_bool_case": 717,
+          "f_bytes_append": 66,
+          "f_bytes_index": 63,
+          "f_bytes_length": 3,
+          "f_bytes_length_is": 321,
+          "f_bytes_literal": 1,
+          "f_bytes_octet": 1,
+          "f_bytes_slice": 195,
+          "f_erased": 0,
+          "f_iterate_binary": 1,
+          "f_lambda": 10409,
+          "f_literal": 466,
+          "f_nat_succ": 2,
+          "f_nat_zero": 388,
+          "f_nominal": 259,
+          "f_nominal_case": 259,
+          "f_pair": 582,
+          "f_pair_case": 582,
+          "f_pure": 66,
+          "f_read_bytes": 1,
+          "f_reject_bytes": 0,
+          "f_string_equal": 395,
+          "f_utf8_decode": 68,
+          "f_utf8_encode": 7,
+          "f_variable": 13063,
+          "f_variant": 66,
+          "f_variant_case": 141,
+          "f_write_bytes": 1,
+          "interact": 0,
+          "interact_binary": 72,
+          "plan": 0,
+          "unmapped_evaluation": 0,
+          "utf8_validation_charge": 360
+        },
+        "values": {
+          "V_BIND": 3,
+          "V_BOOL": 717,
+          "V_BYTES": 271,
+          "V_CLOSURE": 10409,
+          "V_ERASED": 0,
+          "V_FLUSH_BYTES": 0,
+          "V_INPUT_HANDLE": 0,
+          "V_ITERATE_BINARY": 1,
+          "V_NAT_SUCC": 6243,
+          "V_NAT_ZERO": 454,
+          "V_NOMINAL": 259,
+          "V_PAIR": 582,
+          "V_PURE": 66,
+          "V_READ": 0,
+          "V_READ_BYTES": 1,
+          "V_READ_INPUT": 0,
+          "V_REC_END": 0,
+          "V_REC_MORE": 0,
+          "V_REJECT_BYTES": 0,
+          "V_SEQ_CONS": 0,
+          "V_SEQ_NIL": 0,
+          "V_STRING": 534,
+          "V_UNIT": 1,
+          "V_VARIANT": 205,
+          "V_WITH_INPUT": 0,
+          "V_WRITE": 0,
+          "V_WRITE_BYTES": 1
+        }
+      },
+      "baseline_equal": true,
+      "case": "ASCII-string",
+      "input_hex": "22616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616122",
+      "metrics": {
+        "accepted_bytes": 66,
+        "arena_payload": 1935876,
+        "callbacks": 65,
+        "consumed_bytes": 64,
+        "flushes": 1,
+        "peak_pure_depth": 70,
+        "reads": 1,
+        "requests": 2,
+        "reserved_capacity": 131,
+        "steps": 55660,
+        "writes": 1
+      },
+      "output_hex": "532261616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161612200",
+      "whole_buffer_scanned": true,
+      "whole_jsonrpc_decoded": false
+    },
+    {
+      "attribution": {
+        "allocations": {
+          "extend": [
+            11704,
+            187264
+          ],
+          "f_append": [
+            0,
+            0
+          ],
+          "f_bytes_append": [
+            66,
+            2211
+          ],
+          "f_bytes_octet": [
+            1,
+            1
+          ],
+          "input_scope": [
+            0,
+            0
+          ],
+          "interact_binary": [
+            3,
+            96
+          ],
+          "new_value": [
+            25637,
+            820384
+          ],
+          "plan": [
+            0,
+            0
+          ],
+          "read_line_from": [
+            0,
+            0
+          ],
+          "thunk": [
+            23287,
+            1490368
+          ]
+        },
+        "steps": {
+          "byte_work": 28871,
+          "evaluate_fold": 0,
+          "f_append": 0,
+          "f_apply": 10134,
+          "f_bind": 3,
+          "f_bool": 1,
+          "f_bool_case": 717,
+          "f_bytes_append": 66,
+          "f_bytes_index": 63,
+          "f_bytes_length": 3,
+          "f_bytes_length_is": 321,
+          "f_bytes_literal": 1,
+          "f_bytes_octet": 1,
+          "f_bytes_slice": 195,
+          "f_erased": 0,
+          "f_iterate_binary": 1,
+          "f_lambda": 10347,
+          "f_literal": 528,
+          "f_nat_succ": 2,
+          "f_nat_zero": 388,
+          "f_nominal": 259,
+          "f_nominal_case": 259,
+          "f_pair": 582,
+          "f_pair_case": 582,
+          "f_pure": 66,
+          "f_read_bytes": 1,
+          "f_reject_bytes": 0,
+          "f_string_equal": 395,
+          "f_utf8_decode": 68,
+          "f_utf8_encode": 7,
+          "f_variable": 13001,
+          "f_variant": 66,
+          "f_variant_case": 141,
+          "f_write_bytes": 1,
+          "interact": 0,
+          "interact_binary": 72,
+          "plan": 0,
+          "unmapped_evaluation": 0,
+          "utf8_validation_charge": 360
+        },
+        "values": {
+          "V_BIND": 3,
+          "V_BOOL": 717,
+          "V_BYTES": 271,
+          "V_CLOSURE": 10347,
+          "V_ERASED": 0,
+          "V_FLUSH_BYTES": 0,
+          "V_INPUT_HANDLE": 0,
+          "V_ITERATE_BINARY": 1,
+          "V_NAT_SUCC": 12195,
+          "V_NAT_ZERO": 454,
+          "V_NOMINAL": 259,
+          "V_PAIR": 582,
+          "V_PURE": 66,
+          "V_READ": 0,
+          "V_READ_BYTES": 1,
+          "V_READ_INPUT": 0,
+          "V_REC_END": 0,
+          "V_REC_MORE": 0,
+          "V_REJECT_BYTES": 0,
+          "V_SEQ_CONS": 0,
+          "V_SEQ_NIL": 0,
+          "V_STRING": 534,
+          "V_UNIT": 1,
+          "V_VARIANT": 205,
+          "V_WITH_INPUT": 0,
+          "V_WRITE": 0,
+          "V_WRITE_BYTES": 1
+        }
+      },
+      "baseline_equal": true,
+      "case": "UTF8-string",
+      "input_hex": "22c3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bf22",
+      "metrics": {
+        "accepted_bytes": 66,
+        "arena_payload": 2500324,
+        "callbacks": 65,
+        "consumed_bytes": 64,
+        "flushes": 1,
+        "peak_pure_depth": 70,
+        "reads": 1,
+        "requests": 2,
+        "reserved_capacity": 131,
+        "steps": 67502,
+        "writes": 1
+      },
+      "output_hex": "5322c3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bfc3bf2200",
+      "whole_buffer_scanned": true,
+      "whole_jsonrpc_decoded": false
+    },
+    {
+      "attribution": {
+        "allocations": {
+          "extend": [
+            11711,
+            187376
+          ],
+          "f_append": [
+            1,
+            2
+          ],
+          "f_bytes_append": [
+            3,
+            6
+          ],
+          "f_bytes_octet": [
+            1,
+            1
+          ],
+          "input_scope": [
+            0,
+            0
+          ],
+          "interact_binary": [
+            3,
+            96
+          ],
+          "new_value": [
+            13412,
+            429184
+          ],
+          "plan": [
+            0,
+            0
+          ],
+          "read_line_from": [
+            0,
+            0
+          ],
+          "thunk": [
+            11359,
+            726976
+          ]
+        },
+        "steps": {
+          "byte_work": 4745,
+          "evaluate_fold": 0,
+          "f_append": 1,
+          "f_apply": 10143,
+          "f_bind": 3,
+          "f_bool": 66,
+          "f_bool_case": 802,
+          "f_bytes_append": 3,
+          "f_bytes_index": 0,
+          "f_bytes_length": 3,
+          "f_bytes_length_is": 258,
+          "f_bytes_literal": 1,
+          "f_bytes_octet": 1,
+          "f_bytes_slice": 132,
+          "f_erased": 0,
+          "f_iterate_binary": 1,
+          "f_lambda": 10271,
+          "f_literal": 548,
+          "f_nat_succ": 2,
+          "f_nat_zero": 325,
+          "f_nominal": 259,
+          "f_nominal_case": 259,
+          "f_pair": 582,
+          "f_pair_case": 582,
+          "f_pure": 66,
+          "f_read_bytes": 1,
+          "f_reject_bytes": 0,
+          "f_string_equal": 478,
+          "f_utf8_decode": 68,
+          "f_utf8_encode": 6,
+          "f_variable": 12864,
+          "f_variant": 66,
+          "f_variant_case": 77,
+          "f_write_bytes": 1,
+          "interact": 0,
+          "interact_binary": 72,
+          "plan": 0,
+          "unmapped_evaluation": 0,
+          "utf8_validation_charge": 328
+        },
+        "values": {
+          "V_BIND": 3,
+          "V_BOOL": 802,
+          "V_BYTES": 144,
+          "V_CLOSURE": 10271,
+          "V_ERASED": 0,
+          "V_FLUSH_BYTES": 0,
+          "V_INPUT_HANDLE": 0,
+          "V_ITERATE_BINARY": 1,
+          "V_NAT_SUCC": 195,
+          "V_NAT_ZERO": 328,
+          "V_NOMINAL": 259,
+          "V_PAIR": 582,
+          "V_PURE": 66,
+          "V_READ": 0,
+          "V_READ_BYTES": 1,
+          "V_READ_INPUT": 0,
+          "V_REC_END": 0,
+          "V_REC_MORE": 0,
+          "V_REJECT_BYTES": 0,
+          "V_SEQ_CONS": 0,
+          "V_SEQ_NIL": 0,
+          "V_STRING": 617,
+          "V_UNIT": 1,
+          "V_VARIANT": 141,
+          "V_WITH_INPUT": 0,
+          "V_WRITE": 0,
+          "V_WRITE_BYTES": 1
+        }
+      },
+      "baseline_equal": true,
+      "case": "whitespace-value",
+      "input_hex": "20202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202031",
+      "metrics": {
+        "accepted_bytes": 3,
+        "arena_payload": 1343641,
+        "callbacks": 65,
+        "consumed_bytes": 64,
+        "flushes": 1,
+        "peak_pure_depth": 75,
+        "reads": 1,
+        "requests": 2,
+        "reserved_capacity": 68,
+        "steps": 43014,
+        "writes": 1
+      },
+      "output_hex": "233100",
+      "whole_buffer_scanned": true,
+      "whole_jsonrpc_decoded": false
+    }
+  ],
+  "platform": "macOS-27.2-arm64-arm-64bit-Mach-O",
+  "private_instrumented_sha256": {
+    "fibril_binary_runtime.c": "4e0774f0c12c958b59403765fadfb57f998405680b1074e8f9b9006e128a0fc1",
+    "fibril_runtime.c": "9dd1dbe4547e766c4cca7abbe51bc560fd47243833e6f33f33c209a2e125c415",
+    "observer.c": "349c3793bf5d397bb2308fb96ccdd537aa818489e5e6d632f54258b4487efeda",
+    "program.c": "8c394cd64e37c848e481229d1b3071997a84a6dc7811ac6ed979c64c76ce3d37"
+  },
+  "python": "3.15.0 (main, Oct  9 2026, 11:16:41) [Clang 21.0.0 (clang-2100.3.34.2)]",
+  "scope": "OFFLINE audit; admission probes are NOT wire composition",
+  "syntax": [
+    {
+      "categories": {
+        "Apply": 5,
+        "BoolType": 3,
+        "Lambda": 7,
+        "Pi": 6,
+        "StringEqual": 1,
+        "StringType": 10,
+        "Variable": 7
+      },
+      "core_nodes": 39,
+      "entry": "helper-equalString",
+      "expanded_inventory_sha256": "3bbeddba34a2b0086ca6e1d4a1654def92e160306309084ef3ab7f8ed0447133",
+      "imported_helper_rhs": {
+        "nodes": 31,
+        "syntax_sha256": "936504d062f18dce6bb388aedd0af74af216295a19fee66b6b193d40f553435d"
+      },
+      "named_helper_syntax_occurrences": {},
+      "payload_components": {
+        "literal": 0,
+        "nominal": 0
+      },
+      "payload_estimate": 0,
+      "repeated_shapes_not_dedup_savings": [],
+      "repeated_syntax_not_dedup_savings": [],
+      "role_categories": {
+        "computational": {
+          "Apply": 5,
+          "Lambda": 7,
+          "StringEqual": 1,
+          "Variable": 7
+        },
+        "metadata": {
+          "BoolType": 3,
+          "Pi": 6,
+          "StringType": 10
+        }
+      },
+      "roles": {
+        "computational": 20,
+        "metadata": 19
+      }
+    },
+    {
+      "categories": {
+        "Apply": 2,
+        "BoolCase": 2,
+        "BoolTrue": 2,
+        "BoolType": 8,
+        "Lambda": 4,
+        "Pi": 4,
+        "Variable": 5
+      },
+      "core_nodes": 27,
+      "entry": "helper-orBool",
+      "expanded_inventory_sha256": "d47f8867bbf255da438b1679276b025d8d3cac456a13b473edff5d5def972a0d",
+      "imported_helper_rhs": {
+        "nodes": 19,
+        "syntax_sha256": "fbdaade7ad910119bfcd192feb98711b3d923ad03d69353695b3a7f226634c99"
+      },
+      "named_helper_syntax_occurrences": {
+        "helper-equalString": 0
+      },
+      "payload_components": {
+        "literal": 0,
+        "nominal": 0
+      },
+      "payload_estimate": 0,
+      "repeated_shapes_not_dedup_savings": [],
+      "repeated_syntax_not_dedup_savings": [],
+      "role_categories": {
+        "computational": {
+          "Apply": 2,
+          "BoolCase": 2,
+          "BoolTrue": 2,
+          "Lambda": 4,
+          "Variable": 5
+        },
+        "metadata": {
+          "BoolType": 8,
+          "Pi": 4
+        }
+      },
+      "roles": {
+        "computational": 15,
+        "metadata": 12
+      }
+    },
+    {
+      "categories": {
+        "Apply": 743,
+        "BoolCase": 30,
+        "BoolFalse": 4,
+        "BoolTrue": 11,
+        "BoolType": 69,
+        "BoxCase": 7,
+        "BoxType": 14,
+        "BytesAppend": 9,
+        "BytesLength": 4,
+        "BytesLengthIs": 2,
+        "BytesOctet": 1,
+        "BytesShare": 7,
+        "BytesType": 163,
+        "BytesValue": 2,
+        "FlushBytes": 1,
+        "IOBind": 5,
+        "IOType": 101,
+        "Lambda": 737,
+        "ListCell": 86,
+        "NatRec": 1,
+        "NatSucc": 44,
+        "NatType": 177,
+        "NatZero": 7,
+        "Pi": 416,
+        "ReadBytes": 4,
+        "RejectBytes": 13,
+        "StringAppend": 8,
+        "StringEqual": 22,
+        "StringType": 306,
+        "StringValue": 36,
+        "UTF8Decode": 2,
+        "UTF8Encode": 1,
+        "UnitCase": 1,
+        "UnitType": 54,
+        "Universe": 285,
+        "Variable": 924,
+        "VariantCase": 7,
+        "VariantType": 36,
+        "WriteBytes": 1
+      },
+      "core_nodes": 4341,
+      "entry": "echoFrame",
+      "expanded_inventory_sha256": "d7ad008aa54efdc6f9c4ba327ee5377c2d68cd9f2c0d9dbe63f6b6e588d060e8",
+      "named_helper_syntax_occurrences": {
+        "helper-equalString": 22,
+        "helper-orBool": 4
+      },
+      "payload_components": {
+        "literal": 70,
+        "nominal": 0
+      },
+      "payload_estimate": 70,
+      "repeated_shapes_not_dedup_savings": [
+        {
+          "nodes": 35,
+          "occurrences": 21,
+          "roles": {
+            "computational": 21
+          },
+          "root": "Apply",
+          "shape_sha256": "9f174eb0b89d7f9ce1a839fcca37b732b39e2d16c54b74bdbeae81d98b766f6a"
+        },
+        {
+          "nodes": 33,
+          "occurrences": 22,
+          "roles": {
+            "computational": 22
+          },
+          "root": "Apply",
+          "shape_sha256": "da2d5e5e10d3824a50b3a202093c68f025df1625d71175ca5ecbbf94437dafe6"
+        },
+        {
+          "nodes": 31,
+          "occurrences": 22,
+          "roles": {
+            "computational": 22
+          },
+          "root": "Apply",
+          "shape_sha256": "5989c535033d4bd208c353dd7609050f2521b226fcffc98404179ebf2d703779"
+        },
+        {
+          "nodes": 121,
+          "occurrences": 5,
+          "roles": {
+            "computational": 5
+          },
+          "root": "Apply",
+          "shape_sha256": "9efe6f1ad6726b9af833543d0798c34dd2e0fbd1b3ec56ee6ce689756836b946"
+        },
+        {
+          "nodes": 23,
+          "occurrences": 22,
+          "roles": {
+            "computational": 22
+          },
+          "root": "Lambda",
+          "shape_sha256": "e69876dcd62cce74f55c07b0d73104da29cd9446a5370c5846668ce6c96be64d"
+        },
+        {
+          "nodes": 149,
+          "occurrences": 4,
+          "roles": {
+            "computational": 4
+          },
+          "root": "Apply",
+          "shape_sha256": "d6508419943cb6d7ac0c02dd149627d959ed03f5cf3db539f2076a6cc6267def"
+        },
+        {
+          "nodes": 21,
+          "occurrences": 22,
+          "roles": {
+            "computational": 22
+          },
+          "root": "Lambda",
+          "shape_sha256": "f9a02648a7ddb151a0bee1c8de0b0c4dab7012d19c9c6f44f0e8efdf5c8a225d"
+        },
+        {
+          "nodes": 132,
+          "occurrences": 4,
+          "roles": {
+            "computational": 4
+          },
+          "root": "Apply",
+          "shape_sha256": "949cd45ab666c0921754cc5731bf843c5d04773bdb23e6ef524f5a76f0a27c01"
+        },
+        {
+          "nodes": 130,
+          "occurrences": 4,
+          "roles": {
+            "computational": 4
+          },
+          "root": "Apply",
+          "shape_sha256": "791fedfe5e00f54ca1556f9bef5be6f0afd80f135e3fde2ecfa166a5cb15a083"
+        },
+        {
+          "nodes": 74,
+          "occurrences": 5,
+          "roles": {
+            "computational": 5
+          },
+          "root": "Lambda",
+          "shape_sha256": "c8e97043bd7e2cd57573fa8df3a5fa72d11b5f897969e6d2fadf163162b9222f"
+        }
+      ],
+      "repeated_syntax_not_dedup_savings": [
+        {
+          "nodes": 31,
+          "occurrences": 22,
+          "roles": {
+            "computational": 22
+          },
+          "root": "Apply",
+          "syntax_sha256": "936504d062f18dce6bb388aedd0af74af216295a19fee66b6b193d40f553435d"
+        },
+        {
+          "nodes": 121,
+          "occurrences": 5,
+          "roles": {
+            "computational": 5
+          },
+          "root": "Apply",
+          "syntax_sha256": "8d428d162bff689013d56dd32b1c636c5e96b26a37b4231ae222fdbd32a67a1d"
+        },
+        {
+          "nodes": 23,
+          "occurrences": 22,
+          "roles": {
+            "computational": 22
+          },
+          "root": "Lambda",
+          "syntax_sha256": "b8b77cdcd0b34b1530e7bf77a682961426c174fa66793e4b040b4417d5026476"
+        },
+        {
+          "nodes": 21,
+          "occurrences": 22,
+          "roles": {
+            "computational": 22
+          },
+          "root": "Lambda",
+          "syntax_sha256": "fbb4370a8b5788353602d07333cf424325f969efd945dc6d78b4ca5b024767a1"
+        },
+        {
+          "nodes": 132,
+          "occurrences": 4,
+          "roles": {
+            "computational": 4
+          },
+          "root": "Apply",
+          "syntax_sha256": "c280aafcd15a826981740ebaf4e8fe06b02e88bf4373c8c1b1999625f03085e9"
+        },
+        {
+          "nodes": 130,
+          "occurrences": 4,
+          "roles": {
+            "computational": 4
+          },
+          "root": "Apply",
+          "syntax_sha256": "0e43e0642b4fe51799a0fe73467bb95d2aecb958de96f13eb12c06a65ea2346d"
+        },
+        {
+          "nodes": 33,
+          "occurrences": 12,
+          "roles": {
+            "computational": 12
+          },
+          "root": "Apply",
+          "syntax_sha256": "1f429f1e29581f5154bf64b9cbc4bc12330c7e4883138c04bd2188af67f59bda"
+        },
+        {
+          "nodes": 74,
+          "occurrences": 5,
+          "roles": {
+            "computational": 5
+          },
+          "root": "Lambda",
+          "syntax_sha256": "f1f4c5590d71e8145e0768ea30c2fff36fca53ca1faa62732d6b60c85070903f"
+        },
+        {
+          "nodes": 72,
+          "occurrences": 5,
+          "roles": {
+            "computational": 5
+          },
+          "root": "Lambda",
+          "syntax_sha256": "ab3d9c0d795079ed59d4bce7771f72c1314e0ff61dad224530b2d613af6abd0a"
+        },
+        {
+          "nodes": 70,
+          "occurrences": 5,
+          "roles": {
+            "computational": 5
+          },
+          "root": "Lambda",
+          "syntax_sha256": "69ac4504c648e8f8ae03d6a9f8a1535afadc16d25887aa7e1791d0e52311eb81"
+        }
+      ],
+      "role_categories": {
+        "computational": {
+          "Apply": 563,
+          "BoolCase": 30,
+          "BoolFalse": 4,
+          "BoolTrue": 11,
+          "BoxCase": 7,
+          "BytesAppend": 9,
+          "BytesLength": 4,
+          "BytesLengthIs": 2,
+          "BytesOctet": 1,
+          "BytesShare": 7,
+          "BytesValue": 2,
+          "FlushBytes": 1,
+          "IOBind": 5,
+          "Lambda": 549,
+          "ListCell": 14,
+          "NatRec": 1,
+          "NatSucc": 42,
+          "NatZero": 5,
+          "ReadBytes": 4,
+          "RejectBytes": 13,
+          "StringAppend": 8,
+          "StringEqual": 22,
+          "StringValue": 36,
+          "UTF8Decode": 2,
+          "UTF8Encode": 1,
+          "UnitCase": 1,
+          "Variable": 591,
+          "VariantCase": 7,
+          "WriteBytes": 1
+        },
+        "erased_argument": {
+          "Apply": 17,
+          "BytesType": 6,
+          "IOType": 5,
+          "Lambda": 18,
+          "ListCell": 8,
+          "NatType": 1,
+          "Pi": 5,
+          "UnitType": 5,
+          "Universe": 22,
+          "Variable": 27,
+          "VariantType": 4
+        },
+        "metadata": {
+          "Apply": 163,
+          "BoolType": 69,
+          "BoxType": 14,
+          "BytesType": 157,
+          "IOType": 96,
+          "Lambda": 170,
+          "ListCell": 64,
+          "NatSucc": 2,
+          "NatType": 176,
+          "NatZero": 2,
+          "Pi": 411,
+          "StringType": 306,
+          "UnitType": 49,
+          "Universe": 263,
+          "Variable": 306,
+          "VariantType": 32
+        }
+      },
+      "roles": {
+        "computational": 1943,
+        "erased_argument": 118,
+        "metadata": 2280
+      }
+    },
+    {
+      "categories": {
+        "Apply": 1463,
+        "BoolCase": 263,
+        "BoolFalse": 6,
+        "BoolTrue": 145,
+        "BoolType": 391,
+        "BoxCase": 6,
+        "BoxType": 12,
+        "BytesAppend": 16,
+        "BytesIndex": 1,
+        "BytesLength": 2,
+        "BytesLengthIs": 6,
+        "BytesOctet": 1,
+        "BytesShare": 6,
+        "BytesSlice": 4,
+        "BytesType": 373,
+        "BytesValue": 4,
+        "IOBind": 1,
+        "IOPure": 4,
+        "IOType": 29,
+        "IterateBinary": 1,
+        "Lambda": 989,
+        "ListCell": 207,
+        "NatSucc": 11,
+        "NatType": 90,
+        "NatZero": 7,
+        "NominalType": 24,
+        "NominalValue": 7,
+        "PairCase": 3,
+        "PairValue": 12,
+        "Pi": 522,
+        "Sigma": 64,
+        "StringAppend": 1,
+        "StringEqual": 2,
+        "StringType": 113,
+        "StringValue": 260,
+        "UTF8Decode": 2,
+        "UTF8Encode": 3,
+        "Universe": 471,
+        "Variable": 1847,
+        "VariantCase": 7,
+        "VariantType": 81,
+        "VariantValue": 10
+      },
+      "core_nodes": 7467,
+      "entry": "JSON-binary-API",
+      "expanded_inventory_sha256": "3455ae40d58dcb0f34b73364fbb10965601d52a0afadc7bcfaa41009928faf29",
+      "named_helper_syntax_occurrences": {
+        "helper-equalString": 2,
+        "helper-orBool": 72
+      },
+      "payload_components": {
+        "literal": 461,
+        "nominal": 576
+      },
+      "payload_estimate": 1037,
+      "repeated_shapes_not_dedup_savings": [
+        {
+          "nodes": 25,
+          "occurrences": 72,
+          "roles": {
+            "computational": 72
+          },
+          "root": "Apply",
+          "shape_sha256": "bf59fe2786c4f82caec19ce226cd8fa08db294fedc316664147ded9f3e51448d"
+        },
+        {
+          "nodes": 187,
+          "occurrences": 5,
+          "roles": {
+            "computational": 5
+          },
+          "root": "Apply",
+          "shape_sha256": "2cc9226b8e5f92c01d08ffb9cce835889b8566acecbfe025f7807441bad93818"
+        },
+        {
+          "nodes": 135,
+          "occurrences": 6,
+          "roles": {
+            "computational": 6
+          },
+          "root": "Apply",
+          "shape_sha256": "f8f96abbe19c66cd1154264e53a14fdfb5d07a8b520abe0031f4a4be83bd9e04"
+        },
+        {
+          "nodes": 83,
+          "occurrences": 9,
+          "roles": {
+            "computational": 9
+          },
+          "root": "Apply",
+          "shape_sha256": "4c9c2a96d57232d9c05ac8682bfba38b8144ddffeb39fad1c99d8e2b7915d6d4"
+        },
+        {
+          "nodes": 161,
+          "occurrences": 5,
+          "roles": {
+            "computational": 5
+          },
+          "root": "Apply",
+          "shape_sha256": "fce5d1317ff0639cb1a9407fa79cdc434380026d77176106b869ac38b55fd029"
+        },
+        {
+          "nodes": 109,
+          "occurrences": 6,
+          "roles": {
+            "computational": 6
+          },
+          "root": "Apply",
+          "shape_sha256": "38fbe406a97bb1c029c6c443ecf6c91f5be8c923caa93f902a523aaa40fbd14a"
+        },
+        {
+          "nodes": 31,
+          "occurrences": 16,
+          "roles": {
+            "computational": 16
+          },
+          "root": "Apply",
+          "shape_sha256": "0613edc25c645c1972e6727b23adf28cd3c91461217601e6497b7326c4445210"
+        },
+        {
+          "nodes": 57,
+          "occurrences": 9,
+          "roles": {
+            "computational": 9
+          },
+          "root": "Apply",
+          "shape_sha256": "2d3e8207c3e1498665b6eb61bb7b00ed1f61825a5ae2df5181cbccf3dfff3fc5"
+        },
+        {
+          "nodes": 21,
+          "occurrences": 13,
+          "roles": {
+            "metadata": 13
+          },
+          "root": "Pi",
+          "shape_sha256": "27c6d7e1e5d6f10c86597b4bb8e001e36ad46d27fb808859f139a33777183428"
+        },
+        {
+          "nodes": 239,
+          "occurrences": 2,
+          "roles": {
+            "computational": 2
+          },
+          "root": "Apply",
+          "shape_sha256": "72af2e00b40a59cf6992088c766dcbbb2bd5a47046d6f2e59629e4911dbaf508"
+        }
+      ],
+      "repeated_syntax_not_dedup_savings": [
+        {
+          "nodes": 112,
+          "occurrences": 3,
+          "roles": {
+            "computational": 1,
+            "metadata": 2
+          },
+          "root": "Apply",
+          "syntax_sha256": "999821c204afa1d60d47fdff591dffbdbc06b950dd41d5d967e0448f935ac518"
+        },
+        {
+          "nodes": 23,
+          "occurrences": 10,
+          "roles": {
+            "erased_argument": 2,
+            "metadata": 8
+          },
+          "root": "Apply",
+          "syntax_sha256": "6983c0cd38aa49fafca9b2947c3dcb9bf5d95f82be6c0e6f29f0c42c848b182b"
+        },
+        {
+          "nodes": 187,
+          "occurrences": 2,
+          "roles": {
+            "computational": 2
+          },
+          "root": "Apply",
+          "syntax_sha256": "89d47505142db8aea91a14a4ddb3a6e880e879ad89ee7c81e17528995cd0be4e"
+        },
+        {
+          "nodes": 46,
+          "occurrences": 5,
+          "roles": {
+            "computational": 5
+          },
+          "root": "Apply",
+          "syntax_sha256": "5783635652dcc0b9beb8f775d39e9f474236701b4c65c0afe121c7d30232256b"
+        },
+        {
+          "nodes": 161,
+          "occurrences": 2,
+          "roles": {
+            "computational": 2
+          },
+          "root": "Apply",
+          "syntax_sha256": "409a6b5218220243c0d79fe6b6ca00c7542ef9af7d2da6c184427a884e2e020f"
+        },
+        {
+          "nodes": 50,
+          "occurrences": 4,
+          "roles": {
+            "computational": 4
+          },
+          "root": "Apply",
+          "syntax_sha256": "d3c148c09498cb41ed36e50941ffe85d4514849979b4c9e9e60d0e3183fcd6f1"
+        },
+        {
+          "nodes": 142,
+          "occurrences": 2,
+          "roles": {
+            "metadata": 2
+          },
+          "root": "Pi",
+          "syntax_sha256": "4413e404d6d0d48db15d467e453b0f0e48d99fff214de3aa4538cbbe511470c4"
+        },
+        {
+          "nodes": 136,
+          "occurrences": 2,
+          "roles": {
+            "metadata": 2
+          },
+          "root": "Pi",
+          "syntax_sha256": "ff41b3970b48ba4f0583c7063012978b9d4e8fd73a0f8443c716d230aeb4593a"
+        },
+        {
+          "nodes": 135,
+          "occurrences": 2,
+          "roles": {
+            "computational": 2
+          },
+          "root": "Apply",
+          "syntax_sha256": "bafc49343637b004ee02053e47afc88147033da0ce29710fc633b34979867bf0"
+        },
+        {
+          "nodes": 66,
+          "occurrences": 3,
+          "roles": {
+            "computational": 1,
+            "metadata": 2
+          },
+          "root": "Lambda",
+          "syntax_sha256": "cefb8d72695edda7fa5d28a2c369e44da24b193bd81f15bd379925a07ed5a6b9"
+        }
+      ],
+      "role_categories": {
+        "computational": {
+          "Apply": 1087,
+          "BoolCase": 263,
+          "BoolFalse": 6,
+          "BoolTrue": 145,
+          "BoxCase": 6,
+          "BytesAppend": 16,
+          "BytesIndex": 1,
+          "BytesLength": 2,
+          "BytesLengthIs": 6,
+          "BytesOctet": 1,
+          "BytesShare": 6,
+          "BytesSlice": 4,
+          "BytesValue": 4,
+          "IOBind": 1,
+          "IOPure": 4,
+          "IterateBinary": 1,
+          "Lambda": 602,
+          "ListCell": 14,
+          "NatSucc": 11,
+          "NatZero": 7,
+          "NominalValue": 7,
+          "PairCase": 3,
+          "PairValue": 3,
+          "StringAppend": 1,
+          "StringEqual": 2,
+          "StringValue": 260,
+          "UTF8Decode": 2,
+          "UTF8Encode": 3,
+          "Variable": 1211,
+          "VariantCase": 7,
+          "VariantValue": 10
+        },
+        "erased_argument": {
+          "Apply": 48,
+          "BytesType": 16,
+          "IOType": 5,
+          "Lambda": 49,
+          "ListCell": 20,
+          "NominalType": 4,
+          "Pi": 13,
+          "Sigma": 6,
+          "StringType": 2,
+          "Universe": 61,
+          "Variable": 76,
+          "VariantType": 8
+        },
+        "metadata": {
+          "Apply": 328,
+          "BoolType": 391,
+          "BoxType": 12,
+          "BytesType": 357,
+          "IOType": 24,
+          "Lambda": 338,
+          "ListCell": 173,
+          "NatType": 90,
+          "NominalType": 20,
+          "PairValue": 9,
+          "Pi": 509,
+          "Sigma": 58,
+          "StringType": 111,
+          "Universe": 410,
+          "Variable": 560,
+          "VariantType": 73
+        }
+      },
+      "roles": {
+        "computational": 3696,
+        "erased_argument": 308,
+        "metadata": 3463
+      }
+    },
+    {
+      "categories": {
+        "Apply": 1539,
+        "BoolCase": 263,
+        "BoolFalse": 6,
+        "BoolTrue": 145,
+        "BoolType": 391,
+        "BoxCase": 6,
+        "BoxType": 12,
+        "BytesAppend": 16,
+        "BytesIndex": 1,
+        "BytesLength": 3,
+        "BytesLengthIs": 6,
+        "BytesOctet": 3,
+        "BytesShare": 6,
+        "BytesSlice": 4,
+        "BytesType": 403,
+        "BytesValue": 5,
+        "IOBind": 3,
+        "IOPure": 4,
+        "IOType": 52,
+        "IterateBinary": 1,
+        "Lambda": 1074,
+        "ListCell": 252,
+        "NatSucc": 12,
+        "NatType": 102,
+        "NatZero": 9,
+        "NominalCase": 1,
+        "NominalType": 28,
+        "NominalValue": 8,
+        "PairCase": 3,
+        "PairValue": 12,
+        "Pi": 567,
+        "ReadBytes": 1,
+        "RejectBytes": 1,
+        "Sigma": 64,
+        "StringAppend": 1,
+        "StringEqual": 2,
+        "StringType": 115,
+        "StringValue": 261,
+        "UTF8Decode": 2,
+        "UTF8Encode": 4,
+        "UnitType": 10,
+        "Universe": 521,
+        "Variable": 1963,
+        "VariantCase": 10,
+        "VariantType": 97,
+        "VariantValue": 10,
+        "WriteBytes": 3
+      },
+      "core_nodes": 8002,
+      "entry": "JSON-Read65",
+      "expanded_inventory_sha256": "69d8e90dca4fc20b922364aa8dccb1bee1c83f7e2a0ba1ae3137c5bfcaeff428",
+      "named_helper_syntax_occurrences": {
+        "helper-equalString": 2,
+        "helper-orBool": 72
+      },
+      "payload_components": {
+        "literal": 526,
+        "nominal": 672
+      },
+      "payload_estimate": 1198,
+      "repeated_shapes_not_dedup_savings": [
+        {
+          "nodes": 25,
+          "occurrences": 72,
+          "roles": {
+            "computational": 72
+          },
+          "root": "Apply",
+          "shape_sha256": "bf59fe2786c4f82caec19ce226cd8fa08db294fedc316664147ded9f3e51448d"
+        },
+        {
+          "nodes": 187,
+          "occurrences": 5,
+          "roles": {
+            "computational": 5
+          },
+          "root": "Apply",
+          "shape_sha256": "2cc9226b8e5f92c01d08ffb9cce835889b8566acecbfe025f7807441bad93818"
+        },
+        {
+          "nodes": 135,
+          "occurrences": 6,
+          "roles": {
+            "computational": 6
+          },
+          "root": "Apply",
+          "shape_sha256": "f8f96abbe19c66cd1154264e53a14fdfb5d07a8b520abe0031f4a4be83bd9e04"
+        },
+        {
+          "nodes": 83,
+          "occurrences": 9,
+          "roles": {
+            "computational": 9
+          },
+          "root": "Apply",
+          "shape_sha256": "4c9c2a96d57232d9c05ac8682bfba38b8144ddffeb39fad1c99d8e2b7915d6d4"
+        },
+        {
+          "nodes": 161,
+          "occurrences": 5,
+          "roles": {
+            "computational": 5
+          },
+          "root": "Apply",
+          "shape_sha256": "fce5d1317ff0639cb1a9407fa79cdc434380026d77176106b869ac38b55fd029"
+        },
+        {
+          "nodes": 109,
+          "occurrences": 6,
+          "roles": {
+            "computational": 6
+          },
+          "root": "Apply",
+          "shape_sha256": "38fbe406a97bb1c029c6c443ecf6c91f5be8c923caa93f902a523aaa40fbd14a"
+        },
+        {
+          "nodes": 31,
+          "occurrences": 16,
+          "roles": {
+            "computational": 16
+          },
+          "root": "Apply",
+          "shape_sha256": "0613edc25c645c1972e6727b23adf28cd3c91461217601e6497b7326c4445210"
+        },
+        {
+          "nodes": 57,
+          "occurrences": 9,
+          "roles": {
+            "computational": 9
+          },
+          "root": "Apply",
+          "shape_sha256": "2d3e8207c3e1498665b6eb61bb7b00ed1f61825a5ae2df5181cbccf3dfff3fc5"
+        },
+        {
+          "nodes": 21,
+          "occurrences": 13,
+          "roles": {
+            "metadata": 13
+          },
+          "root": "Pi",
+          "shape_sha256": "27c6d7e1e5d6f10c86597b4bb8e001e36ad46d27fb808859f139a33777183428"
+        },
+        {
+          "nodes": 239,
+          "occurrences": 2,
+          "roles": {
+            "computational": 2
+          },
+          "root": "Apply",
+          "shape_sha256": "72af2e00b40a59cf6992088c766dcbbb2bd5a47046d6f2e59629e4911dbaf508"
+        }
+      ],
+      "repeated_syntax_not_dedup_savings": [
+        {
+          "nodes": 46,
+          "occurrences": 6,
+          "roles": {
+            "computational": 6
+          },
+          "root": "Apply",
+          "syntax_sha256": "5783635652dcc0b9beb8f775d39e9f474236701b4c65c0afe121c7d30232256b"
+        },
+        {
+          "nodes": 112,
+          "occurrences": 3,
+          "roles": {
+            "computational": 1,
+            "metadata": 2
+          },
+          "root": "Apply",
+          "syntax_sha256": "999821c204afa1d60d47fdff591dffbdbc06b950dd41d5d967e0448f935ac518"
+        },
+        {
+          "nodes": 23,
+          "occurrences": 10,
+          "roles": {
+            "erased_argument": 2,
+            "metadata": 8
+          },
+          "root": "Apply",
+          "syntax_sha256": "6983c0cd38aa49fafca9b2947c3dcb9bf5d95f82be6c0e6f29f0c42c848b182b"
+        },
+        {
+          "nodes": 187,
+          "occurrences": 2,
+          "roles": {
+            "computational": 2
+          },
+          "root": "Apply",
+          "syntax_sha256": "89d47505142db8aea91a14a4ddb3a6e880e879ad89ee7c81e17528995cd0be4e"
+        },
+        {
+          "nodes": 58,
+          "occurrences": 4,
+          "roles": {
+            "computational": 4
+          },
+          "root": "Apply",
+          "syntax_sha256": "d6a5470561ce49fb37ace44c8eaaf0038fb3fab9f404ce314f91a6e3b4af7662"
+        },
+        {
+          "nodes": 161,
+          "occurrences": 2,
+          "roles": {
+            "computational": 2
+          },
+          "root": "Apply",
+          "syntax_sha256": "409a6b5218220243c0d79fe6b6ca00c7542ef9af7d2da6c184427a884e2e020f"
+        },
+        {
+          "nodes": 52,
+          "occurrences": 4,
+          "roles": {
+            "computational": 4
+          },
+          "root": "Apply",
+          "syntax_sha256": "025d79ddef13cd9bf169612c2ca168ca6362cfc47d40718c77f710cca7a41b17"
+        },
+        {
+          "nodes": 50,
+          "occurrences": 4,
+          "roles": {
+            "computational": 4
+          },
+          "root": "Apply",
+          "syntax_sha256": "d3c148c09498cb41ed36e50941ffe85d4514849979b4c9e9e60d0e3183fcd6f1"
+        },
+        {
+          "nodes": 142,
+          "occurrences": 2,
+          "roles": {
+            "metadata": 2
+          },
+          "root": "Pi",
+          "syntax_sha256": "4413e404d6d0d48db15d467e453b0f0e48d99fff214de3aa4538cbbe511470c4"
+        },
+        {
+          "nodes": 136,
+          "occurrences": 2,
+          "roles": {
+            "metadata": 2
+          },
+          "root": "Pi",
+          "syntax_sha256": "ff41b3970b48ba4f0583c7063012978b9d4e8fd73a0f8443c716d230aeb4593a"
+        }
+      ],
+      "role_categories": {
+        "computational": {
+          "Apply": 1136,
+          "BoolCase": 263,
+          "BoolFalse": 6,
+          "BoolTrue": 145,
+          "BoxCase": 6,
+          "BytesAppend": 16,
+          "BytesIndex": 1,
+          "BytesLength": 3,
+          "BytesLengthIs": 6,
+          "BytesOctet": 3,
+          "BytesShare": 6,
+          "BytesSlice": 4,
+          "BytesValue": 5,
+          "IOBind": 3,
+          "IOPure": 4,
+          "IterateBinary": 1,
+          "Lambda": 656,
+          "ListCell": 21,
+          "NatSucc": 12,
+          "NatZero": 9,
+          "NominalCase": 1,
+          "NominalValue": 7,
+          "PairCase": 3,
+          "PairValue": 3,
+          "ReadBytes": 1,
+          "RejectBytes": 1,
+          "StringAppend": 1,
+          "StringEqual": 2,
+          "StringValue": 261,
+          "UTF8Decode": 2,
+          "UTF8Encode": 4,
+          "Variable": 1256,
+          "VariantCase": 10,
+          "VariantValue": 10,
+          "WriteBytes": 3
+        },
+        "erased_argument": {
+          "Apply": 56,
+          "BytesType": 20,
+          "IOType": 6,
+          "Lambda": 57,
+          "ListCell": 25,
+          "NominalType": 5,
+          "Pi": 14,
+          "Sigma": 6,
+          "StringType": 2,
+          "UnitType": 1,
+          "Universe": 70,
+          "Variable": 86,
+          "VariantType": 10
+        },
+        "metadata": {
+          "Apply": 347,
+          "BoolType": 391,
+          "BoxType": 12,
+          "BytesType": 383,
+          "IOType": 46,
+          "Lambda": 361,
+          "ListCell": 206,
+          "NatType": 102,
+          "NominalType": 23,
+          "NominalValue": 1,
+          "PairValue": 9,
+          "Pi": 553,
+          "Sigma": 58,
+          "StringType": 113,
+          "UnitType": 9,
+          "Universe": 451,
+          "Variable": 621,
+          "VariantType": 87
+        }
+      },
+      "roles": {
+        "computational": 3871,
+        "erased_argument": 358,
+        "metadata": 3773
+      }
+    },
+    {
+      "categories": {
+        "Apply": 719,
+        "BytesType": 78,
+        "Lambda": 681,
+        "ListCell": 784,
+        "NominalCase": 4,
+        "NominalType": 235,
+        "NominalValue": 22,
+        "PairCase": 1,
+        "PairValue": 2,
+        "Pi": 91,
+        "Sigma": 38,
+        "Universe": 599,
+        "Variable": 822,
+        "VariantCase": 4,
+        "VariantType": 261,
+        "VariantValue": 18
+      },
+      "core_nodes": 4359,
+      "entry": "typed-transition",
+      "expanded_inventory_sha256": "3f7c1692bc2f748066ab2e3308591858e28529930ba64bf8d426b240627497a9",
+      "named_helper_syntax_occurrences": {
+        "helper-equalString": 0,
+        "helper-orBool": 0
+      },
+      "payload_components": {
+        "literal": 0,
+        "nominal": 3209
+      },
+      "payload_estimate": 3209,
+      "repeated_shapes_not_dedup_savings": [
+        {
+          "nodes": 69,
+          "occurrences": 17,
+          "roles": {
+            "erased_argument": 2,
+            "metadata": 15
+          },
+          "root": "VariantType",
+          "shape_sha256": "2246a5b0a692f5926f34292b5f02fa84c5db12d7845e08ee8b188fcee5c656bc"
+        },
+        {
+          "nodes": 78,
+          "occurrences": 14,
+          "roles": {
+            "erased_argument": 2,
+            "metadata": 12
+          },
+          "root": "Apply",
+          "shape_sha256": "7e7cd3930e54106ab6fbe990e238abb6b7f3876cba7bc791fc3ccf458135519b"
+        },
+        {
+          "nodes": 53,
+          "occurrences": 20,
+          "roles": {
+            "erased_argument": 2,
+            "metadata": 18
+          },
+          "root": "Apply",
+          "shape_sha256": "52ee3c930d1e13e9d819b6f0929000466c6bcf7a0962e995be47e96688034f4c"
+        },
+        {
+          "nodes": 49,
+          "occurrences": 21,
+          "roles": {
+            "erased_argument": 2,
+            "metadata": 19
+          },
+          "root": "Sigma",
+          "shape_sha256": "dec52577968da659940e27fdc4502699910cd349dbd2460756b62079b9ee9ec1"
+        },
+        {
+          "nodes": 74,
+          "occurrences": 14,
+          "roles": {
+            "erased_argument": 2,
+            "metadata": 12
+          },
+          "root": "Apply",
+          "shape_sha256": "4f386dc98db26ab74696d343655d48efec61c4df7dc72de9e2d3b5074e241be1"
+        },
+        {
+          "nodes": 70,
+          "occurrences": 14,
+          "roles": {
+            "erased_argument": 2,
+            "metadata": 12
+          },
+          "root": "NominalType",
+          "shape_sha256": "a202694d88125629e651d0941f4917eb1063e21321e021e9e23e471c9a83edae"
+        },
+        {
+          "nodes": 26,
+          "occurrences": 35,
+          "roles": {
+            "erased_argument": 3,
+            "metadata": 32
+          },
+          "root": "Apply",
+          "shape_sha256": "ebd7f1111f78840456bb40b40ee75e924f86019e25e6be7cdd5aaa6b42c89a5a"
+        },
+        {
+          "nodes": 54,
+          "occurrences": 17,
+          "roles": {
+            "erased_argument": 2,
+            "metadata": 15
+          },
+          "root": "ListCell",
+          "shape_sha256": "926317a532a064fd3acaabee41bc70556b889a671b5e15b3436b520d619eb813"
+        },
+        {
+          "nodes": 22,
+          "occurrences": 39,
+          "roles": {
+            "erased_argument": 4,
+            "metadata": 35
+          },
+          "root": "Apply",
+          "shape_sha256": "38cc3c0b227e1a5c23d076d36f6e3930af76738b1b930dae1c98dcccd9c1b09e"
+        },
+        {
+          "nodes": 22,
+          "occurrences": 35,
+          "roles": {
+            "erased_argument": 3,
+            "metadata": 32
+          },
+          "root": "Apply",
+          "shape_sha256": "263f8a50e07208563eb2769bd4b8418d58a07ed71ed5d582dcd80971b2837569"
+        }
+      ],
+      "repeated_syntax_not_dedup_savings": [
+        {
+          "nodes": 69,
+          "occurrences": 17,
+          "roles": {
+            "erased_argument": 2,
+            "metadata": 15
+          },
+          "root": "VariantType",
+          "syntax_sha256": "4067895b23eac2b7f4d7baeaaacec0994161c380aa831ec0edea0b01059700d1"
+        },
+        {
+          "nodes": 78,
+          "occurrences": 14,
+          "roles": {
+            "erased_argument": 2,
+            "metadata": 12
+          },
+          "root": "Apply",
+          "syntax_sha256": "3b4653278cfabd67377a3adabb8a4c35c3ab9a0e6d7d3993dd80296c478ee769"
+        },
+        {
+          "nodes": 53,
+          "occurrences": 20,
+          "roles": {
+            "erased_argument": 2,
+            "metadata": 18
+          },
+          "root": "Apply",
+          "syntax_sha256": "1e500826e0aa38eff5297f3fbfc821616ba1c99dd4a7305d79ca37bb31d5ffba"
+        },
+        {
+          "nodes": 49,
+          "occurrences": 21,
+          "roles": {
+            "erased_argument": 2,
+            "metadata": 19
+          },
+          "root": "Sigma",
+          "syntax_sha256": "475c7900c2f4d62fb4af09d59aa5c3a55b1f7f3ce86b6447bb52509bd107605b"
+        },
+        {
+          "nodes": 74,
+          "occurrences": 14,
+          "roles": {
+            "erased_argument": 2,
+            "metadata": 12
+          },
+          "root": "Apply",
+          "syntax_sha256": "72b3f72b2882e9d89241d2c5b769f7e6e19a33ce941394c61fdbe54b431da317"
+        },
+        {
+          "nodes": 70,
+          "occurrences": 14,
+          "roles": {
+            "erased_argument": 2,
+            "metadata": 12
+          },
+          "root": "NominalType",
+          "syntax_sha256": "ed06a3b0c43074a44bb7518b2ccdd99db5b806dbb7e7afa7c36a8162f00edee6"
+        },
+        {
+          "nodes": 26,
+          "occurrences": 35,
+          "roles": {
+            "erased_argument": 3,
+            "metadata": 32
+          },
+          "root": "Apply",
+          "syntax_sha256": "cd7bf10ee4b9d76de35619b3a70b6617493a9f8bde3ed3a3b6000bf35c834892"
+        },
+        {
+          "nodes": 54,
+          "occurrences": 17,
+          "roles": {
+            "erased_argument": 2,
+            "metadata": 15
+          },
+          "root": "ListCell",
+          "syntax_sha256": "403744c363d5d828bf866eead944b9946de87e8c696648b3863d80a3203763de"
+        },
+        {
+          "nodes": 22,
+          "occurrences": 39,
+          "roles": {
+            "erased_argument": 4,
+            "metadata": 35
+          },
+          "root": "Apply",
+          "syntax_sha256": "d74c8a521b0861cf230cf14a406cce0ba3d82580c5aad1e6fd859d011e743950"
+        },
+        {
+          "nodes": 22,
+          "occurrences": 35,
+          "roles": {
+            "erased_argument": 3,
+            "metadata": 32
+          },
+          "root": "Apply",
+          "syntax_sha256": "a92c3c15c825a2186de5297047e8d54782e07898be67eccfe6907a1870b16c5a"
+        }
+      ],
+      "role_categories": {
+        "computational": {
+          "Apply": 139,
+          "Lambda": 92,
+          "ListCell": 13,
+          "NominalCase": 4,
+          "NominalValue": 18,
+          "PairCase": 1,
+          "PairValue": 2,
+          "Variable": 134,
+          "VariantCase": 4,
+          "VariantValue": 18
+        },
+        "erased_argument": {
+          "Apply": 52,
+          "BytesType": 8,
+          "Lambda": 52,
+          "ListCell": 57,
+          "NominalType": 20,
+          "Sigma": 4,
+          "Universe": 52,
+          "Variable": 58,
+          "VariantType": 20
+        },
+        "metadata": {
+          "Apply": 528,
+          "BytesType": 70,
+          "Lambda": 537,
+          "ListCell": 714,
+          "NominalType": 215,
+          "NominalValue": 4,
+          "Pi": 91,
+          "Sigma": 34,
+          "Universe": 547,
+          "Variable": 630,
+          "VariantType": 241
+        }
+      },
+      "roles": {
+        "computational": 425,
+        "erased_argument": 323,
+        "metadata": 3611
+      }
+    },
+    {
+      "categories": {
+        "Apply": 1148,
+        "BoolCase": 1,
+        "BoolType": 1,
+        "BytesAppend": 7,
+        "BytesLength": 2,
+        "BytesLengthIs": 1,
+        "BytesOctet": 2,
+        "BytesType": 209,
+        "BytesValue": 2,
+        "IOPure": 1,
+        "IOType": 4,
+        "Lambda": 1133,
+        "ListCell": 1192,
+        "NatSucc": 5,
+        "NatType": 24,
+        "NatZero": 1,
+        "NominalCase": 10,
+        "NominalType": 352,
+        "NominalValue": 32,
+        "PairCase": 3,
+        "PairValue": 3,
+        "Pi": 149,
+        "RejectBytes": 1,
+        "Sigma": 58,
+        "StringType": 19,
+        "StringValue": 16,
+        "UTF8Encode": 1,
+        "UnitType": 4,
+        "UnitValue": 1,
+        "Universe": 939,
+        "Variable": 1281,
+        "VariantCase": 11,
+        "VariantType": 398,
+        "VariantValue": 22
+      },
+      "core_nodes": 7033,
+      "entry": "typed-no-output",
+      "expanded_inventory_sha256": "15e33c5e9d63c399966b94d58075e1cd917fb132316d9198af2a5a77fab0ba19",
+      "named_helper_syntax_occurrences": {
+        "helper-equalString": 0,
+        "helper-orBool": 0
+      },
+      "payload_components": {
+        "literal": 36,
+        "nominal": 4792
+      },
+      "payload_estimate": 4828,
+      "repeated_shapes_not_dedup_savings": [
+        {
+          "nodes": 69,
+          "occurrences": 27,
+          "roles": {
+            "erased_argument": 2,
+            "metadata": 25
+          },
+          "root": "VariantType",
+          "shape_sha256": "2246a5b0a692f5926f34292b5f02fa84c5db12d7845e08ee8b188fcee5c656bc"
+        },
+        {
+          "nodes": 53,
+          "occurrences": 32,
+          "roles": {
+            "erased_argument": 2,
+            "metadata": 30
+          },
+          "root": "Apply",
+          "shape_sha256": "52ee3c930d1e13e9d819b6f0929000466c6bcf7a0962e995be47e96688034f4c"
+        },
+        {
+          "nodes": 49,
+          "occurrences": 33,
+          "roles": {
+            "erased_argument": 2,
+            "metadata": 31
+          },
+          "root": "Sigma",
+          "shape_sha256": "dec52577968da659940e27fdc4502699910cd349dbd2460756b62079b9ee9ec1"
+        },
+        {
+          "nodes": 78,
+          "occurrences": 21,
+          "roles": {
+            "erased_argument": 2,
+            "metadata": 19
+          },
+          "root": "Apply",
+          "shape_sha256": "7e7cd3930e54106ab6fbe990e238abb6b7f3876cba7bc791fc3ccf458135519b"
+        },
+        {
+          "nodes": 74,
+          "occurrences": 21,
+          "roles": {
+            "erased_argument": 2,
+            "metadata": 19
+          },
+          "root": "Apply",
+          "shape_sha256": "4f386dc98db26ab74696d343655d48efec61c4df7dc72de9e2d3b5074e241be1"
+        },
+        {
+          "nodes": 70,
+          "occurrences": 22,
+          "roles": {
+            "erased_argument": 2,
+            "metadata": 20
+          },
+          "root": "NominalType",
+          "shape_sha256": "a202694d88125629e651d0941f4917eb1063e21321e021e9e23e471c9a83edae"
+        },
+        {
+          "nodes": 22,
+          "occurrences": 66,
+          "roles": {
+            "erased_argument": 4,
+            "metadata": 62
+          },
+          "root": "Apply",
+          "shape_sha256": "38cc3c0b227e1a5c23d076d36f6e3930af76738b1b930dae1c98dcccd9c1b09e"
+        },
+        {
+          "nodes": 54,
+          "occurrences": 27,
+          "roles": {
+            "erased_argument": 2,
+            "metadata": 25
+          },
+          "root": "ListCell",
+          "shape_sha256": "926317a532a064fd3acaabee41bc70556b889a671b5e15b3436b520d619eb813"
+        },
+        {
+          "nodes": 26,
+          "occurrences": 52,
+          "roles": {
+            "erased_argument": 3,
+            "metadata": 49
+          },
+          "root": "Apply",
+          "shape_sha256": "ebd7f1111f78840456bb40b40ee75e924f86019e25e6be7cdd5aaa6b42c89a5a"
+        },
+        {
+          "nodes": 22,
+          "occurrences": 52,
+          "roles": {
+            "erased_argument": 3,
+            "metadata": 49
+          },
+          "root": "Apply",
+          "shape_sha256": "263f8a50e07208563eb2769bd4b8418d58a07ed71ed5d582dcd80971b2837569"
+        }
+      ],
+      "repeated_syntax_not_dedup_savings": [
+        {
+          "nodes": 69,
+          "occurrences": 27,
+          "roles": {
+            "erased_argument": 2,
+            "metadata": 25
+          },
+          "root": "VariantType",
+          "syntax_sha256": "4067895b23eac2b7f4d7baeaaacec0994161c380aa831ec0edea0b01059700d1"
+        },
+        {
+          "nodes": 53,
+          "occurrences": 32,
+          "roles": {
+            "erased_argument": 2,
+            "metadata": 30
+          },
+          "root": "Apply",
+          "syntax_sha256": "1e500826e0aa38eff5297f3fbfc821616ba1c99dd4a7305d79ca37bb31d5ffba"
+        },
+        {
+          "nodes": 49,
+          "occurrences": 33,
+          "roles": {
+            "erased_argument": 2,
+            "metadata": 31
+          },
+          "root": "Sigma",
+          "syntax_sha256": "475c7900c2f4d62fb4af09d59aa5c3a55b1f7f3ce86b6447bb52509bd107605b"
+        },
+        {
+          "nodes": 78,
+          "occurrences": 21,
+          "roles": {
+            "erased_argument": 2,
+            "metadata": 19
+          },
+          "root": "Apply",
+          "syntax_sha256": "3b4653278cfabd67377a3adabb8a4c35c3ab9a0e6d7d3993dd80296c478ee769"
+        },
+        {
+          "nodes": 74,
+          "occurrences": 21,
+          "roles": {
+            "erased_argument": 2,
+            "metadata": 19
+          },
+          "root": "Apply",
+          "syntax_sha256": "72b3f72b2882e9d89241d2c5b769f7e6e19a33ce941394c61fdbe54b431da317"
+        },
+        {
+          "nodes": 70,
+          "occurrences": 22,
+          "roles": {
+            "erased_argument": 2,
+            "metadata": 20
+          },
+          "root": "NominalType",
+          "syntax_sha256": "ed06a3b0c43074a44bb7518b2ccdd99db5b806dbb7e7afa7c36a8162f00edee6"
+        },
+        {
+          "nodes": 22,
+          "occurrences": 66,
+          "roles": {
+            "erased_argument": 4,
+            "metadata": 62
+          },
+          "root": "Apply",
+          "syntax_sha256": "d74c8a521b0861cf230cf14a406cce0ba3d82580c5aad1e6fd859d011e743950"
+        },
+        {
+          "nodes": 54,
+          "occurrences": 27,
+          "roles": {
+            "erased_argument": 2,
+            "metadata": 25
+          },
+          "root": "ListCell",
+          "syntax_sha256": "403744c363d5d828bf866eead944b9946de87e8c696648b3863d80a3203763de"
+        },
+        {
+          "nodes": 26,
+          "occurrences": 52,
+          "roles": {
+            "erased_argument": 3,
+            "metadata": 49
+          },
+          "root": "Apply",
+          "syntax_sha256": "cd7bf10ee4b9d76de35619b3a70b6617493a9f8bde3ed3a3b6000bf35c834892"
+        },
+        {
+          "nodes": 22,
+          "occurrences": 52,
+          "roles": {
+            "erased_argument": 3,
+            "metadata": 49
+          },
+          "root": "Apply",
+          "syntax_sha256": "a92c3c15c825a2186de5297047e8d54782e07898be67eccfe6907a1870b16c5a"
+        }
+      ],
+      "role_categories": {
+        "computational": {
+          "Apply": 232,
+          "BoolCase": 1,
+          "BytesAppend": 7,
+          "BytesLength": 2,
+          "BytesLengthIs": 1,
+          "BytesOctet": 2,
+          "BytesValue": 2,
+          "IOPure": 1,
+          "Lambda": 193,
+          "ListCell": 33,
+          "NatSucc": 5,
+          "NatZero": 1,
+          "NominalCase": 10,
+          "NominalValue": 22,
+          "PairCase": 3,
+          "PairValue": 3,
+          "RejectBytes": 1,
+          "StringValue": 16,
+          "UTF8Encode": 1,
+          "UnitValue": 1,
+          "Variable": 239,
+          "VariantCase": 11,
+          "VariantValue": 22
+        },
+        "erased_argument": {
+          "Apply": 56,
+          "BytesType": 10,
+          "IOType": 1,
+          "Lambda": 56,
+          "ListCell": 57,
+          "NominalType": 20,
+          "Pi": 1,
+          "Sigma": 4,
+          "UnitType": 1,
+          "Universe": 57,
+          "Variable": 62,
+          "VariantType": 20
+        },
+        "metadata": {
+          "Apply": 860,
+          "BoolType": 1,
+          "BytesType": 199,
+          "IOType": 3,
+          "Lambda": 884,
+          "ListCell": 1102,
+          "NatType": 24,
+          "NominalType": 332,
+          "NominalValue": 10,
+          "Pi": 148,
+          "Sigma": 54,
+          "StringType": 19,
+          "UnitType": 3,
+          "Universe": 882,
+          "Variable": 980,
+          "VariantType": 378
+        }
+      },
+      "roles": {
+        "computational": 809,
+        "erased_argument": 345,
+        "metadata": 5879
+      }
+    },
+    {
+      "categories": {
+        "Apply": 1393,
+        "BytesAppend": 10,
+        "BytesLength": 2,
+        "BytesOctet": 2,
+        "BytesType": 282,
+        "BytesValue": 2,
+        "IOType": 2,
+        "Lambda": 1373,
+        "ListCell": 1395,
+        "NatType": 6,
+        "NominalCase": 10,
+        "NominalType": 419,
+        "NominalValue": 39,
+        "PairCase": 3,
+        "PairValue": 4,
+        "Pi": 183,
+        "Sigma": 74,
+        "StringType": 23,
+        "StringValue": 18,
+        "UTF8Encode": 2,
+        "UnitType": 2,
+        "Universe": 1150,
+        "Variable": 1555,
+        "VariantCase": 12,
+        "VariantType": 476,
+        "VariantValue": 29,
+        "WriteBytes": 1
+      },
+      "core_nodes": 8467,
+      "entry": "FullIdFour",
+      "expanded_inventory_sha256": "3a3ac30f5ced2e9d82ee1c56273e7f2c1902cb0f81df21c4440a852ff4cfcaf0",
+      "named_helper_syntax_occurrences": {
+        "helper-equalString": 0,
+        "helper-orBool": 0
+      },
+      "payload_components": {
+        "literal": 38,
+        "nominal": 5758
+      },
+      "payload_estimate": 5796,
+      "repeated_shapes_not_dedup_savings": [
+        {
+          "nodes": 69,
+          "occurrences": 28,
+          "roles": {
+            "erased_argument": 3,
+            "metadata": 25
+          },
+          "root": "VariantType",
+          "shape_sha256": "2246a5b0a692f5926f34292b5f02fa84c5db12d7845e08ee8b188fcee5c656bc"
+        },
+        {
+          "nodes": 22,
+          "occurrences": 85,
+          "roles": {
+            "erased_argument": 6,
+            "metadata": 79
+          },
+          "root": "Apply",
+          "shape_sha256": "38cc3c0b227e1a5c23d076d36f6e3930af76738b1b930dae1c98dcccd9c1b09e"
+        },
+        {
+          "nodes": 53,
+          "occurrences": 33,
+          "roles": {
+            "erased_argument": 3,
+            "metadata": 30
+          },
+          "root": "Apply",
+          "shape_sha256": "52ee3c930d1e13e9d819b6f0929000466c6bcf7a0962e995be47e96688034f4c"
+        },
+        {
+          "nodes": 78,
+          "occurrences": 22,
+          "roles": {
+            "erased_argument": 3,
+            "metadata": 19
+          },
+          "root": "Apply",
+          "shape_sha256": "7e7cd3930e54106ab6fbe990e238abb6b7f3876cba7bc791fc3ccf458135519b"
+        },
+        {
+          "nodes": 49,
+          "occurrences": 34,
+          "roles": {
+            "erased_argument": 3,
+            "metadata": 31
+          },
+          "root": "Sigma",
+          "shape_sha256": "dec52577968da659940e27fdc4502699910cd349dbd2460756b62079b9ee9ec1"
+        },
+        {
+          "nodes": 74,
+          "occurrences": 22,
+          "roles": {
+            "erased_argument": 3,
+            "metadata": 19
+          },
+          "root": "Apply",
+          "shape_sha256": "4f386dc98db26ab74696d343655d48efec61c4df7dc72de9e2d3b5074e241be1"
+        },
+        {
+          "nodes": 70,
+          "occurrences": 23,
+          "roles": {
+            "erased_argument": 3,
+            "metadata": 20
+          },
+          "root": "NominalType",
+          "shape_sha256": "a202694d88125629e651d0941f4917eb1063e21321e021e9e23e471c9a83edae"
+        },
+        {
+          "nodes": 54,
+          "occurrences": 28,
+          "roles": {
+            "erased_argument": 3,
+            "metadata": 25
+          },
+          "root": "ListCell",
+          "shape_sha256": "926317a532a064fd3acaabee41bc70556b889a671b5e15b3436b520d619eb813"
+        },
+        {
+          "nodes": 26,
+          "occurrences": 53,
+          "roles": {
+            "erased_argument": 4,
+            "metadata": 49
+          },
+          "root": "Apply",
+          "shape_sha256": "ebd7f1111f78840456bb40b40ee75e924f86019e25e6be7cdd5aaa6b42c89a5a"
+        },
+        {
+          "nodes": 56,
+          "occurrences": 22,
+          "roles": {
+            "erased_argument": 2,
+            "metadata": 20
+          },
+          "root": "VariantType",
+          "shape_sha256": "47ef550601f555fe4862b8faef4c1863855eada468398960661107b4de02aa9e"
+        }
+      ],
+      "repeated_syntax_not_dedup_savings": [
+        {
+          "nodes": 69,
+          "occurrences": 28,
+          "roles": {
+            "erased_argument": 3,
+            "metadata": 25
+          },
+          "root": "VariantType",
+          "syntax_sha256": "4067895b23eac2b7f4d7baeaaacec0994161c380aa831ec0edea0b01059700d1"
+        },
+        {
+          "nodes": 22,
+          "occurrences": 85,
+          "roles": {
+            "erased_argument": 6,
+            "metadata": 79
+          },
+          "root": "Apply",
+          "syntax_sha256": "d74c8a521b0861cf230cf14a406cce0ba3d82580c5aad1e6fd859d011e743950"
+        },
+        {
+          "nodes": 53,
+          "occurrences": 33,
+          "roles": {
+            "erased_argument": 3,
+            "metadata": 30
+          },
+          "root": "Apply",
+          "syntax_sha256": "1e500826e0aa38eff5297f3fbfc821616ba1c99dd4a7305d79ca37bb31d5ffba"
+        },
+        {
+          "nodes": 78,
+          "occurrences": 22,
+          "roles": {
+            "erased_argument": 3,
+            "metadata": 19
+          },
+          "root": "Apply",
+          "syntax_sha256": "3b4653278cfabd67377a3adabb8a4c35c3ab9a0e6d7d3993dd80296c478ee769"
+        },
+        {
+          "nodes": 49,
+          "occurrences": 34,
+          "roles": {
+            "erased_argument": 3,
+            "metadata": 31
+          },
+          "root": "Sigma",
+          "syntax_sha256": "475c7900c2f4d62fb4af09d59aa5c3a55b1f7f3ce86b6447bb52509bd107605b"
+        },
+        {
+          "nodes": 74,
+          "occurrences": 22,
+          "roles": {
+            "erased_argument": 3,
+            "metadata": 19
+          },
+          "root": "Apply",
+          "syntax_sha256": "72b3f72b2882e9d89241d2c5b769f7e6e19a33ce941394c61fdbe54b431da317"
+        },
+        {
+          "nodes": 70,
+          "occurrences": 23,
+          "roles": {
+            "erased_argument": 3,
+            "metadata": 20
+          },
+          "root": "NominalType",
+          "syntax_sha256": "ed06a3b0c43074a44bb7518b2ccdd99db5b806dbb7e7afa7c36a8162f00edee6"
+        },
+        {
+          "nodes": 54,
+          "occurrences": 28,
+          "roles": {
+            "erased_argument": 3,
+            "metadata": 25
+          },
+          "root": "ListCell",
+          "syntax_sha256": "403744c363d5d828bf866eead944b9946de87e8c696648b3863d80a3203763de"
+        },
+        {
+          "nodes": 26,
+          "occurrences": 53,
+          "roles": {
+            "erased_argument": 4,
+            "metadata": 49
+          },
+          "root": "Apply",
+          "syntax_sha256": "cd7bf10ee4b9d76de35619b3a70b6617493a9f8bde3ed3a3b6000bf35c834892"
+        },
+        {
+          "nodes": 56,
+          "occurrences": 22,
+          "roles": {
+            "erased_argument": 2,
+            "metadata": 20
+          },
+          "root": "VariantType",
+          "syntax_sha256": "0e07f6700ea29e642e4f44b3822e8cb5301da31e33d20c9f13a24e7de2de950f"
+        }
+      ],
+      "role_categories": {
+        "computational": {
+          "Apply": 273,
+          "BytesAppend": 10,
+          "BytesLength": 2,
+          "BytesOctet": 2,
+          "BytesValue": 2,
+          "Lambda": 228,
+          "ListCell": 35,
+          "NominalCase": 10,
+          "NominalValue": 29,
+          "PairCase": 3,
+          "PairValue": 4,
+          "StringValue": 18,
+          "UTF8Encode": 2,
+          "Variable": 277,
+          "VariantCase": 12,
+          "VariantValue": 29,
+          "WriteBytes": 1
+        },
+        "erased_argument": {
+          "Apply": 86,
+          "BytesType": 17,
+          "Lambda": 86,
+          "ListCell": 90,
+          "NominalType": 31,
+          "Sigma": 7,
+          "Universe": 86,
+          "Variable": 92,
+          "VariantType": 31
+        },
+        "metadata": {
+          "Apply": 1034,
+          "BytesType": 265,
+          "IOType": 2,
+          "Lambda": 1059,
+          "ListCell": 1270,
+          "NatType": 6,
+          "NominalType": 388,
+          "NominalValue": 10,
+          "Pi": 183,
+          "Sigma": 67,
+          "StringType": 23,
+          "UnitType": 2,
+          "Universe": 1064,
+          "Variable": 1186,
+          "VariantType": 445
+        }
+      },
+      "roles": {
+        "computational": 937,
+        "erased_argument": 526,
+        "metadata": 7004
+      }
+    },
+    {
+      "categories": {
+        "Apply": 1893,
+        "BoolCase": 31,
+        "BoolFalse": 4,
+        "BoolTrue": 11,
+        "BoolType": 70,
+        "BoxCase": 7,
+        "BoxType": 14,
+        "BytesAppend": 16,
+        "BytesLength": 6,
+        "BytesLengthIs": 3,
+        "BytesOctet": 3,
+        "BytesShare": 7,
+        "BytesType": 372,
+        "BytesValue": 4,
+        "FlushBytes": 1,
+        "IOBind": 6,
+        "IOPure": 1,
+        "IOType": 109,
+        "Lambda": 1873,
+        "ListCell": 1278,
+        "NatRec": 1,
+        "NatSucc": 49,
+        "NatType": 201,
+        "NatZero": 8,
+        "NominalCase": 10,
+        "NominalType": 352,
+        "NominalValue": 32,
+        "PairCase": 3,
+        "PairValue": 3,
+        "Pi": 570,
+        "ReadBytes": 4,
+        "RejectBytes": 14,
+        "Sigma": 58,
+        "StringAppend": 8,
+        "StringEqual": 22,
+        "StringType": 325,
+        "StringValue": 52,
+        "UTF8Decode": 2,
+        "UTF8Encode": 2,
+        "UnitCase": 2,
+        "UnitType": 60,
+        "UnitValue": 1,
+        "Universe": 1225,
+        "Variable": 2215,
+        "VariantCase": 18,
+        "VariantType": 434,
+        "VariantValue": 22,
+        "WriteBytes": 1
+      },
+      "core_nodes": 11403,
+      "entry": "EchoThenTyped",
+      "expanded_inventory_sha256": "621109210a754c533effdcfa6fb420412ce203fda5ff1d52ba98be5c163e96e3",
+      "named_helper_syntax_occurrences": {
+        "helper-equalString": 22,
+        "helper-orBool": 4
+      },
+      "payload_components": {
+        "literal": 106,
+        "nominal": 4792
+      },
+      "payload_estimate": 4898,
+      "repeated_shapes_not_dedup_savings": [
+        {
+          "nodes": 69,
+          "occurrences": 27,
+          "roles": {
+            "erased_argument": 2,
+            "metadata": 25
+          },
+          "root": "VariantType",
+          "shape_sha256": "2246a5b0a692f5926f34292b5f02fa84c5db12d7845e08ee8b188fcee5c656bc"
+        },
+        {
+          "nodes": 53,
+          "occurrences": 32,
+          "roles": {
+            "erased_argument": 2,
+            "metadata": 30
+          },
+          "root": "Apply",
+          "shape_sha256": "52ee3c930d1e13e9d819b6f0929000466c6bcf7a0962e995be47e96688034f4c"
+        },
+        {
+          "nodes": 49,
+          "occurrences": 33,
+          "roles": {
+            "erased_argument": 2,
+            "metadata": 31
+          },
+          "root": "Sigma",
+          "shape_sha256": "dec52577968da659940e27fdc4502699910cd349dbd2460756b62079b9ee9ec1"
+        },
+        {
+          "nodes": 78,
+          "occurrences": 21,
+          "roles": {
+            "erased_argument": 2,
+            "metadata": 19
+          },
+          "root": "Apply",
+          "shape_sha256": "7e7cd3930e54106ab6fbe990e238abb6b7f3876cba7bc791fc3ccf458135519b"
+        },
+        {
+          "nodes": 74,
+          "occurrences": 21,
+          "roles": {
+            "erased_argument": 2,
+            "metadata": 19
+          },
+          "root": "Apply",
+          "shape_sha256": "4f386dc98db26ab74696d343655d48efec61c4df7dc72de9e2d3b5074e241be1"
+        },
+        {
+          "nodes": 70,
+          "occurrences": 22,
+          "roles": {
+            "erased_argument": 2,
+            "metadata": 20
+          },
+          "root": "NominalType",
+          "shape_sha256": "a202694d88125629e651d0941f4917eb1063e21321e021e9e23e471c9a83edae"
+        },
+        {
+          "nodes": 22,
+          "occurrences": 66,
+          "roles": {
+            "erased_argument": 4,
+            "metadata": 62
+          },
+          "root": "Apply",
+          "shape_sha256": "38cc3c0b227e1a5c23d076d36f6e3930af76738b1b930dae1c98dcccd9c1b09e"
+        },
+        {
+          "nodes": 54,
+          "occurrences": 27,
+          "roles": {
+            "erased_argument": 2,
+            "metadata": 25
+          },
+          "root": "ListCell",
+          "shape_sha256": "926317a532a064fd3acaabee41bc70556b889a671b5e15b3436b520d619eb813"
+        },
+        {
+          "nodes": 26,
+          "occurrences": 52,
+          "roles": {
+            "erased_argument": 3,
+            "metadata": 49
+          },
+          "root": "Apply",
+          "shape_sha256": "ebd7f1111f78840456bb40b40ee75e924f86019e25e6be7cdd5aaa6b42c89a5a"
+        },
+        {
+          "nodes": 22,
+          "occurrences": 52,
+          "roles": {
+            "erased_argument": 3,
+            "metadata": 49
+          },
+          "root": "Apply",
+          "shape_sha256": "263f8a50e07208563eb2769bd4b8418d58a07ed71ed5d582dcd80971b2837569"
+        }
+      ],
+      "repeated_syntax_not_dedup_savings": [
+        {
+          "nodes": 69,
+          "occurrences": 27,
+          "roles": {
+            "erased_argument": 2,
+            "metadata": 25
+          },
+          "root": "VariantType",
+          "syntax_sha256": "4067895b23eac2b7f4d7baeaaacec0994161c380aa831ec0edea0b01059700d1"
+        },
+        {
+          "nodes": 53,
+          "occurrences": 32,
+          "roles": {
+            "erased_argument": 2,
+            "metadata": 30
+          },
+          "root": "Apply",
+          "syntax_sha256": "1e500826e0aa38eff5297f3fbfc821616ba1c99dd4a7305d79ca37bb31d5ffba"
+        },
+        {
+          "nodes": 49,
+          "occurrences": 33,
+          "roles": {
+            "erased_argument": 2,
+            "metadata": 31
+          },
+          "root": "Sigma",
+          "syntax_sha256": "475c7900c2f4d62fb4af09d59aa5c3a55b1f7f3ce86b6447bb52509bd107605b"
+        },
+        {
+          "nodes": 78,
+          "occurrences": 21,
+          "roles": {
+            "erased_argument": 2,
+            "metadata": 19
+          },
+          "root": "Apply",
+          "syntax_sha256": "3b4653278cfabd67377a3adabb8a4c35c3ab9a0e6d7d3993dd80296c478ee769"
+        },
+        {
+          "nodes": 74,
+          "occurrences": 21,
+          "roles": {
+            "erased_argument": 2,
+            "metadata": 19
+          },
+          "root": "Apply",
+          "syntax_sha256": "72b3f72b2882e9d89241d2c5b769f7e6e19a33ce941394c61fdbe54b431da317"
+        },
+        {
+          "nodes": 70,
+          "occurrences": 22,
+          "roles": {
+            "erased_argument": 2,
+            "metadata": 20
+          },
+          "root": "NominalType",
+          "syntax_sha256": "ed06a3b0c43074a44bb7518b2ccdd99db5b806dbb7e7afa7c36a8162f00edee6"
+        },
+        {
+          "nodes": 22,
+          "occurrences": 66,
+          "roles": {
+            "erased_argument": 4,
+            "metadata": 62
+          },
+          "root": "Apply",
+          "syntax_sha256": "d74c8a521b0861cf230cf14a406cce0ba3d82580c5aad1e6fd859d011e743950"
+        },
+        {
+          "nodes": 54,
+          "occurrences": 27,
+          "roles": {
+            "erased_argument": 2,
+            "metadata": 25
+          },
+          "root": "ListCell",
+          "syntax_sha256": "403744c363d5d828bf866eead944b9946de87e8c696648b3863d80a3203763de"
+        },
+        {
+          "nodes": 26,
+          "occurrences": 52,
+          "roles": {
+            "erased_argument": 3,
+            "metadata": 49
+          },
+          "root": "Apply",
+          "syntax_sha256": "cd7bf10ee4b9d76de35619b3a70b6617493a9f8bde3ed3a3b6000bf35c834892"
+        },
+        {
+          "nodes": 22,
+          "occurrences": 52,
+          "roles": {
+            "erased_argument": 3,
+            "metadata": 49
+          },
+          "root": "Apply",
+          "syntax_sha256": "a92c3c15c825a2186de5297047e8d54782e07898be67eccfe6907a1870b16c5a"
+        }
+      ],
+      "role_categories": {
+        "computational": {
+          "Apply": 799,
+          "BoolCase": 31,
+          "BoolFalse": 4,
+          "BoolTrue": 11,
+          "BoxCase": 7,
+          "BytesAppend": 16,
+          "BytesLength": 6,
+          "BytesLengthIs": 3,
+          "BytesOctet": 3,
+          "BytesShare": 7,
+          "BytesValue": 4,
+          "FlushBytes": 1,
+          "IOBind": 6,
+          "IOPure": 1,
+          "Lambda": 747,
+          "ListCell": 47,
+          "NatRec": 1,
+          "NatSucc": 47,
+          "NatZero": 6,
+          "NominalCase": 10,
+          "NominalValue": 22,
+          "PairCase": 3,
+          "PairValue": 3,
+          "ReadBytes": 4,
+          "RejectBytes": 14,
+          "StringAppend": 8,
+          "StringEqual": 22,
+          "StringValue": 52,
+          "UTF8Decode": 2,
+          "UTF8Encode": 2,
+          "UnitCase": 2,
+          "UnitValue": 1,
+          "Variable": 833,
+          "VariantCase": 18,
+          "VariantValue": 22,
+          "WriteBytes": 1
+        },
+        "erased_argument": {
+          "Apply": 73,
+          "BytesType": 16,
+          "IOType": 6,
+          "Lambda": 74,
+          "ListCell": 65,
+          "NatType": 1,
+          "NominalType": 20,
+          "Pi": 6,
+          "Sigma": 4,
+          "UnitType": 6,
+          "Universe": 79,
+          "Variable": 89,
+          "VariantType": 24
+        },
+        "metadata": {
+          "Apply": 1021,
+          "BoolType": 70,
+          "BoxType": 14,
+          "BytesType": 356,
+          "IOType": 103,
+          "Lambda": 1052,
+          "ListCell": 1166,
+          "NatSucc": 2,
+          "NatType": 200,
+          "NatZero": 2,
+          "NominalType": 332,
+          "NominalValue": 10,
+          "Pi": 564,
+          "Sigma": 54,
+          "StringType": 325,
+          "UnitType": 54,
+          "Universe": 1146,
+          "Variable": 1293,
+          "VariantType": 410
+        }
+      },
+      "roles": {
+        "computational": 2766,
+        "erased_argument": 463,
+        "metadata": 8174
+      }
+    }
+  ]
+}

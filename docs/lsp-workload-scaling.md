@@ -465,3 +465,13 @@ build and16 handbook tests passed. A direct diff against `2edfb0e` confirms both
 historical evidence JSON files are byte-for-byte unchanged, as are production,
 runtime, framer and64-byte JSON diagnostic sources. These are helper/corpus tests
 and historical-data checks, not fresh production/LSP or scaling observations.
+
+## Bounded cost-audit follow-up
+
+The [separate cost audit](lsp-cost-audit.md) adds fresh closed-syntax inventories,
+admission-only plumbing blockers and counter-only attribution on the same four
+complete 64-byte JSON controls. It does not reprofile larger messages, implement
+the proposed byte APIs, change admission/budgets or demonstrate frame-body routing.
+Repeated typed metadata and runtime closure/thunk construction remain independent
+blockers alongside byte classification; bulk operations alone are not a solution
+established by those measurements.
