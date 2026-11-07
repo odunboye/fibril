@@ -133,21 +133,51 @@ rightEndpoint ctx face p i x =
       Yes witness => Right (NEndpointRight (NPathVar p) (NBaseVar (right (index p ctx))) witness)
       No _ => Left Unsupported
 
--- Restricted, proof-producing equality for neutral path applications at A.
--- No face or interval normalization is inferred beyond the declarative rules.
-equalAdmitted : {n : Nat} -> (ctx : PathContext m k) -> (face : ScopedFace n) ->
-                (x, y : NeutralExpr m k n) ->
-                Either CheckError (NeutralEqual ctx face x y NType)
-equalAdmitted ctx face (NApply (NPath p) (Meet (Var i) j))
-                       (NApply (NPath q) (Var h)) =
-  case decEq p q of
-    No _ => Left Mismatch
-    Yes Refl => case decEq i h of
-      No _ => Left Mismatch
-      Yes Refl => case decEq (boundedFaceEntails face (scopedEndpoint j True)) True of
-        No _ => Left Unsupported
-        Yes witness => Right (NIntervalApplyCong (NPathVar q) (IMeetRightOne witness))
-equalAdmitted ctx face (NApply (NPath p) i) (NBase x) =
+-- Structural comparison returns propositional equality, never a Boolean witness.
+intervalSame : (x, y : ScopedInterval n) -> Maybe (x = y)
+intervalSame Zero Zero = Just Refl
+intervalSame One One = Just Refl
+intervalSame (Var i) (Var j) = case decEq i j of
+  Yes Refl => Just Refl
+  No _ => Nothing
+intervalSame (Meet a b) (Meet c d) = do
+  Refl <- intervalSame a c
+  Refl <- intervalSame b d
+  Just Refl
+intervalSame (Join a b) (Join c d) = do
+  Refl <- intervalSame a c
+  Refl <- intervalSame b d
+  Just Refl
+intervalSame (Reverse a) (Reverse b) = do
+  Refl <- intervalSame a b
+  Just Refl
+intervalSame _ _ = Nothing
+
+intervalForward : {n : Nat} -> (face : ScopedFace n) -> (x, y : ScopedInterval n) ->
+                  Maybe (IntervalEquivalent face x y)
+intervalForward face x y = case intervalSame x y of
+  Just Refl => Just IRefl
+  Nothing => meetOne x y
+  where
+    meetOne : (a, b : ScopedInterval n) -> Maybe (IntervalEquivalent face a b)
+    meetOne (Meet l r) b = case intervalSame l b of
+      Just Refl => case decEq (boundedFaceEntails face (scopedEndpoint r True)) True of
+        Yes prf => Just (IMeetRightOne prf)
+        No _ => tryLeft b r b
+      Nothing => tryLeft l r b
+      where
+        tryLeft : (l, r, b : ScopedInterval n) -> Maybe (IntervalEquivalent face (Meet l r) b)
+        tryLeft l r b = case intervalSame r b of
+          Just Refl => case decEq (boundedFaceEntails face (scopedEndpoint l True)) True of
+            Yes prf => Just (IMeetLeftOne prf)
+            No _ => Nothing
+          Nothing => Nothing
+    meetOne _ _ = Nothing
+
+endpointEqual : {n : Nat} -> (ctx : PathContext m k) -> (face : ScopedFace n) ->
+                (p : Fin k) -> (i : ScopedInterval n) -> (x : Fin m) ->
+                Either CheckError (NeutralEqual ctx face (NApply (NPath p) i) (NBase x) NType)
+endpointEqual ctx face p i x =
   case decEq x (left (index p ctx)) of
     Yes Refl => case decEq (boundedFaceEntails face (scopedEndpoint i False)) True of
       Yes witness => Right (NEndpointLeft (NPathVar p) (NBaseVar (left (index p ctx))) witness)
@@ -155,6 +185,28 @@ equalAdmitted ctx face (NApply (NPath p) i) (NBase x) =
         Left Mismatch => Left Unsupported
         result => result
     No _ => rightEndpoint ctx face p i x
+
+-- Typed base equality: reflexivity, endpoint rules, and either orientation of
+-- the declarative meet-one congruences for arbitrary admitted intervals.
+equalAdmitted : {n : Nat} -> (ctx : PathContext m k) -> (face : ScopedFace n) ->
+                (x, y : NeutralExpr m k n) ->
+                Either CheckError (NeutralEqual ctx face x y NType)
+equalAdmitted ctx face (NBase x) (NBase y) = case decEq x y of
+  Yes Refl => Right (NRefl (NBaseVar y))
+  No _ => Left Mismatch
+equalAdmitted ctx face (NApply (NPath p) i) (NApply (NPath q) j) =
+  case decEq p q of
+    No _ => Left Mismatch
+    Yes Refl => case intervalForward face i j of
+      Just eq => Right (NIntervalApplyCong (NPathVar q) eq)
+      Nothing => case intervalForward face j i of
+        Just eq => Right (NSym (NIntervalApplyCong (NPathVar q) eq))
+        Nothing => Left Unsupported
+equalAdmitted ctx face (NApply (NPath p) i) (NBase x) = endpointEqual ctx face p i x
+equalAdmitted ctx face (NBase x) (NApply (NPath p) i) =
+  case endpointEqual ctx face p i x of
+    Left e => Left e
+    Right eq => Right (NSym eq)
 equalAdmitted ctx face _ _ = Left Unsupported
 
 ||| Check the restricted application equalities above with a shared input cap.
@@ -168,4 +220,55 @@ checkNeutralEqual {m} {k} {n} budget ctx face x y =
     case faceNodes (min 128 budget) face >>= \f => exprNodes f x >>= \g => exprNodes g y of
       Nothing => Left Exhausted
       Just _ => equalAdmitted ctx face x y
+  else Left Exhausted
+
+typeEqualAdmitted : {n : Nat} -> (ctx : PathContext m k) -> (face : ScopedFace n) ->
+                    (x, y : NeutralExpr m k n) ->
+                    Either CheckError (NeutralTypeEqual ctx face x y)
+typeEqualAdmitted ctx face NType NType = Right (NTypeRefl NBaseForm)
+typeEqualAdmitted ctx face (NPathType NType l r) (NPathType NType l' r') = do
+  lp <- checkAdmitted ctx face l NType
+  rp <- checkAdmitted ctx face r NType
+  lq <- checkAdmitted ctx face l' NType
+  rq <- checkAdmitted ctx face r' NType
+  le <- equalAdmitted ctx face l l'
+  re <- equalAdmitted ctx face r r'
+  Right (NPathTypeCong NBaseForm lp rp lq rq le re)
+typeEqualAdmitted ctx face _ _ = Left Unsupported
+
+||| Face-sensitive equality of base path types, with all four endpoint typings.
+public export
+checkNeutralTypeEqual : {m, k, n : Nat} -> (budget : Nat) -> (ctx : PathContext m k) ->
+                        (face : ScopedFace n) -> (x, y : NeutralExpr m k n) ->
+                        Either CheckError (NeutralTypeEqual ctx face x y)
+checkNeutralTypeEqual {m} {k} {n} budget ctx face x y =
+  if m <= 12 && k <= 12 && n <= 12 then
+    case faceNodes (min 128 budget) face >>= \f => exprNodes f x >>= \g => exprNodes g y of
+      Nothing => Left Exhausted
+      Just _ => typeEqualAdmitted ctx face x y
+  else Left Exhausted
+
+-- Both abstractions are checked at the exact requested path type before their
+-- bodies are compared on the weakened face.
+pathEqualAdmitted : {n : Nat} -> (ctx : PathContext m k) -> (face : ScopedFace n) ->
+                    (x, y : NeutralExpr m k n) -> (ty : NeutralExpr m k n) ->
+                    Either CheckError (NeutralEqual ctx face x y ty)
+pathEqualAdmitted ctx face (NAbstract x) (NAbstract y) (NPathType NType l r) = do
+  xp <- checkAdmitted ctx face (NAbstract x) (NPathType NType l r)
+  yp <- checkAdmitted ctx face (NAbstract y) (NPathType NType l r)
+  bodies <- equalAdmitted ctx (weakenFace face) x y
+  Right (NAbstractCong {a = NType} xp yp bodies)
+pathEqualAdmitted ctx face _ _ _ = Left Unsupported
+
+||| Equality of accepted abstractions at a base path type.
+public export
+checkNeutralPathEqual : {m, k, n : Nat} -> (budget : Nat) -> (ctx : PathContext m k) ->
+                        (face : ScopedFace n) -> (x, y, ty : NeutralExpr m k n) ->
+                        Either CheckError (NeutralEqual ctx face x y ty)
+checkNeutralPathEqual {m} {k} {n} budget ctx face x y ty =
+  if m <= 12 && k <= 12 && n <= 12 then
+    case faceNodes (min 128 budget) face >>= \f => exprNodes f x >>= \g =>
+         exprNodes g y >>= \h => exprNodes h ty of
+      Nothing => Left Exhausted
+      Just _ => pathEqualAdmitted ctx face x y ty
   else Left Exhausted

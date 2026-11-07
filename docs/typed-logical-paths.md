@@ -158,18 +158,25 @@ boundaries are derived under the appropriate restricted faces by endpoint and
 interval congruence rules. Formation accepts `NType` and `Path A l r` when both
 endpoints are accepted terms at `NType`.
 
-`checkNeutralEqual` produces a `NeutralEqual` derivation at `NType` for
-`p (i ∧ r) = p i`, with `i` a dimension variable, if bounded entailment
-establishes `r = 1`; and for `p r = left p` or `p r = right p` if bounded
-entailment establishes the relevant endpoint. Both eligible endpoint rules are
-tried when the declared endpoints coincide. These equality shapes are
-directional, and the retained meet factor must be a variable; no symmetry,
-general reflexivity or general interval normalization is synthesized. In
-particular, Boolean-vertex reasoning does not make `i ∧ ~i` equal zero.
-No type conversion, arbitrary abstractions, nested PathP or full square is
-checked; those remain declarative only. Implementing them requires bounded
-dependent substitution and proof-producing type/equality comparison,
-including face-sensitive path-type congruence.
+`checkNeutralEqual` produces typed base reflexivity, endpoint equalities in
+either orientation, and congruence of applications of the same declared path
+at structurally identical intervals or either meet-one identity (also in
+either orientation). Retained meet factors may be arbitrary scoped intervals.
+Both endpoint rules are tried when the declared endpoints coincide. Different
+declared paths are not identified merely because they have the same endpoints.
+The structural interval comparison recursively returns equality evidence; it
+does not use Boolean vertices or identify `i ∧ ~i` with zero.
+
+`checkNeutralTypeEqual` checks `NType` reflexivity and face-sensitive
+congruence of `Path A` types using four checked endpoint typings and two
+proof-producing base equalities. `checkNeutralPathEqual` checks both abstractions at the exact requested base
+path type and compares their bodies at the weakened face. It is restricted to
+the abstraction forms already accepted by the typing checker. Neither checker
+yet synthesizes conversion into the typing checker. The full nested PathP square is
+therefore still declarative only: its outer boundaries require checking both
+abstractions at a common restricted path type using endpoint type conversion,
+then proving their bodies equal at the weakened restricted face. General PathP
+also requires preflight of dimension-substitution outputs before allocating them.
 
 All syntax, including both annotations and the face, shares an admission
 allowance capped at 128 nodes; base, path, and dimension counts are capped at
@@ -177,7 +184,7 @@ allowance capped at 128 nodes; base, path, and dimension counts are capped at
 formation. Admission happens before comparisons, entailment, or face weakening;
 the latter creates at most the admitted face plus two nodes. No term
 substitution is performed, hence no substitution output is allocated. The
-fixed grammar does bounded comparisons and at most two capped entailment calls;
+fixed grammar does bounded structural comparisons and capped entailment calls;
 equality endpoint and meet goals have size linear in the admitted interval.
 `Exhausted` reports admission failure, `Mismatch` reports a definite mismatch
 within the implemented shapes, and `Unsupported` reports other shapes or an
