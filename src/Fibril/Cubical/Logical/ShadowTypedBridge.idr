@@ -24,25 +24,48 @@ public export
 bridgeContext : {0 context : Vect n LogicalType} -> LogicalVar context a -> LogicalVar context a -> PathContext n 1
 bridgeContext l r = [PathBetween (variableIndex l) (variableIndex r)]
 
-||| Translate a source left endpoint derivation, independently checking the
-||| target's bounded syntactic entailment after the source interval preflight.
+||| Select the actual endpoint constructor, since equal declared endpoints can
+||| admit either constructor under different faces.
+public export
+data LeftEndpointWitness : {0 context : Vect n LogicalType} ->
+  {0 l, r : LogicalVar context a} -> {0 face : ScopedFace d} -> {0 i : ScopedInterval d} ->
+  DeclaredEndpoint (DeclarePath (LRef l) (LRef r) NoPaths) face
+    (NeutralAt LHere i) (Embed (LRef l)) -> Type where
+  IsDeclaredLeft : {0 context : Vect n LogicalType} -> {0 a : LogicalType} ->
+    {0 l, r : LogicalVar context a} -> {face : ScopedFace d} -> {i : ScopedInterval d} ->
+    (check : boundedEndpointEntails face i False = True) ->
+    LeftEndpointWitness {l} {r} {face} {i} (DeclaredLeft DeclaredHere check)
+
+public export
+data RightEndpointWitness : {0 context : Vect n LogicalType} ->
+  {0 l, r : LogicalVar context a} -> {0 face : ScopedFace d} -> {0 i : ScopedInterval d} ->
+  DeclaredEndpoint (DeclarePath (LRef l) (LRef r) NoPaths) face
+    (NeutralAt LHere i) (Embed (LRef r)) -> Type where
+  IsDeclaredRight : {0 context : Vect n LogicalType} -> {0 a : LogicalType} ->
+    {0 l, r : LogicalVar context a} -> {face : ScopedFace d} -> {i : ScopedInterval d} ->
+    (check : boundedEndpointEntails face i True = True) ->
+    RightEndpointWitness {l} {r} {face} {i} (DeclaredRight DeclaredHere check)
+
+||| Translate a source endpoint of the selected constructor.
 public export
 bridgeLeft : {n, d : Nat} -> {0 context : Vect n LogicalType} ->
   (l, r : LogicalVar context a) -> (face : ScopedFace d) -> (i : ScopedInterval d) ->
-  DeclaredEndpoint (DeclarePath (LRef l) (LRef r) NoPaths) face
-    (NeutralAt LHere i) (Embed (LRef l)) ->
-  TypedPath.boundedFaceEntails face (scopedEndpoint i False) = True ->
+  (source : DeclaredEndpoint (DeclarePath (LRef l) (LRef r) NoPaths) face
+    (NeutralAt LHere i) (Embed (LRef l))) ->
+  LeftEndpointWitness source ->
   NeutralEqual (bridgeContext l r) face (NApply (NPath FZ) i) (NBase (variableIndex l)) NType
-bridgeLeft l r face i source check = NEndpointLeft (NPathVar FZ) (NBaseVar (variableIndex l)) check
+bridgeLeft l r face i _ (IsDeclaredLeft check) =
+  NEndpointLeft (NPathVar FZ) (NBaseVar (variableIndex l)) (endpointEntailsFace face i False check)
 
 public export
 bridgeRight : {n, d : Nat} -> {0 context : Vect n LogicalType} ->
   (l, r : LogicalVar context a) -> (face : ScopedFace d) -> (i : ScopedInterval d) ->
-  DeclaredEndpoint (DeclarePath (LRef l) (LRef r) NoPaths) face
-    (NeutralAt LHere i) (Embed (LRef r)) ->
-  TypedPath.boundedFaceEntails face (scopedEndpoint i True) = True ->
+  (source : DeclaredEndpoint (DeclarePath (LRef l) (LRef r) NoPaths) face
+    (NeutralAt LHere i) (Embed (LRef r))) ->
+  RightEndpointWitness source ->
   NeutralEqual (bridgeContext l r) face (NApply (NPath FZ) i) (NBase (variableIndex r)) NType
-bridgeRight l r face i source check = NEndpointRight (NPathVar FZ) (NBaseVar (variableIndex r)) check
+bridgeRight l r face i _ (IsDeclaredRight check) =
+  NEndpointRight (NPathVar FZ) (NBaseVar (variableIndex r)) (endpointEntailsFace face i True check)
 
 ||| Evidence selects exactly the neutral abstraction and its endpoint rules;
 ||| arbitrary BodyEqual derivations are outside this bridge.
@@ -63,19 +86,17 @@ data NeutralShadowWitness : {n, d : Nat} -> {0 context : Vect n LogicalType} ->
         (BodyEndpoint (DeclaredRight DeclaredHere one)))
 
 ||| A nonconstant abstraction is derived from the source's endpoint checks.
-||| The extra checks are target entailment, not target typing assumptions.
+||| Target checks are derived from the selected source endpoint rules.
 public export
 bridgeDeclaredPath : {n, d : Nat} -> {0 context : Vect n LogicalType} ->
   (l, r : LogicalVar context a) -> (face : ScopedFace d) ->
   {0 path : DeclaredShadowPath (DeclarePath (LRef l) (LRef r) NoPaths) face
     (Embed (LRef l)) (Embed (LRef r))} ->
   NeutralShadowWitness l r face path ->
-  TypedPath.boundedFaceEntails (SConjunction (weakenFace face) (SEndpoint FZ False)) (SEndpoint FZ False) = True ->
-  TypedPath.boundedFaceEntails (SConjunction (weakenFace face) (SEndpoint FZ True)) (SEndpoint FZ True) = True ->
   NeutralHasType (bridgeContext l r) face (NAbstract (NApply (NPath FZ) (Var FZ)))
     (NPathType NType (NBase (variableIndex l)) (NBase (variableIndex r)))
-bridgeDeclaredPath l r face (WitnessNeutral zero one) targetZero targetOne =
+bridgeDeclaredPath l r face (WitnessNeutral zero one) =
   NIntro NBaseForm (NBaseVar (variableIndex l)) (NBaseVar (variableIndex r))
     (NElim (NPathVar FZ) (Var FZ))
-    (bridgeLeft l r _ _ (DeclaredLeft DeclaredHere zero) targetZero)
-    (bridgeRight l r _ _ (DeclaredRight DeclaredHere one) targetOne)
+    (bridgeLeft l r _ _ (DeclaredLeft DeclaredHere zero) (IsDeclaredLeft zero))
+    (bridgeRight l r _ _ (DeclaredRight DeclaredHere one) (IsDeclaredRight one))

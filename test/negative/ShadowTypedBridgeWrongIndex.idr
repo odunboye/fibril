@@ -22,4 +22,4 @@ source = DeclaredLeft DeclaredHere Refl
 bad : NeutralEqual (bridgeContext {context = [LBool, LBool]} LHere (LThere LHere))
   (the (ScopedFace 1) (SEndpoint FZ False)) (NApply (NPath FZ) (Var FZ)) (NBase FZ) NType
 bad = bridgeLeft {context = [LBool, LBool]} LHere (LThere LHere) (SEndpoint FZ False) (Var FZ)
-  source Refl
+  source (IsDeclaredLeft Refl)

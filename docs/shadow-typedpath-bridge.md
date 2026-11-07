@@ -8,16 +8,22 @@ single target neutral-path declaration. The target's `NType` is an abstract
 base: this interpretation does not identify its values with booleans, units,
 or functions, and does not interpret the other logical operations.
 
-`bridgeLeft` and `bridgeRight` take the corresponding source `DeclaredEndpoint`
-and independently require the target bounded syntactic entailment check. They
-produce target endpoint equality. The source check additionally preflights the interval, then calls the target
-face check. Source acceptance therefore implies target acceptance at the same
-arguments; the converse is not asserted.
-`NeutralShadowWitness` selects the source abstraction `p @ i` with its two
-endpoint-rule proofs, and `bridgeDeclaredPath` derives the target typing of
-that nonconstant abstraction. It requires the target checks, not target typing
-or equality hypotheses. It is not a translator for arbitrary `BodyEqual` or
-`DeclaredShadowPath` proofs.
+`endpointEntailsFace` proves for every scope, face, interval, and side that
+source endpoint acceptance implies target face acceptance. The proof analyzes
+the interval preflight; it needs no target hypothesis or runtime assumptions.
+The converse is not asserted.
+
+`bridgeLeft` and `bridgeRight` take a source `DeclaredEndpoint` and a
+side-indexed witness selecting its actual constructor, then derive the target
+check. This changes their earlier signatures, which required a separate target
+check. The constructor witness is necessary: if the declared endpoints are
+identical, a right-constructor endpoint proof can inhabit the left endpoint
+judgment even when the left face check fails, and conversely. No arbitrary
+`DeclaredEndpoint` implies acceptance of a chosen side.
+`NeutralShadowWitness` selects the source abstraction `p @ i` and its actual
+endpoint-rule proofs; `bridgeDeclaredPath` derives both target boundary checks
+from those proofs and requires no target judgments. It is not a translator for
+arbitrary `BodyEqual` or `DeclaredShadowPath` proofs.
 
 The tests give a quantitative `Ref Here` with an actual linear `Uses` proof,
 its shadow declaration and abstraction, both endpoint conversions and the

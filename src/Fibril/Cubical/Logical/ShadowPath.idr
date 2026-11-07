@@ -171,6 +171,15 @@ boundedEndpointEntails face i endpoint =
     Nothing => False
     Just _ => boundedFaceEntails face (scopedEndpoint i endpoint)
 
+||| Acceptance after interval preflight entails acceptance by the face solver.
+public export
+endpointEntailsFace : (face : ScopedFace d) -> (i : ScopedInterval d) -> (side : Bool) ->
+  boundedEndpointEntails face i side = True ->
+  boundedFaceEntails face (scopedEndpoint i side) = True
+endpointEntailsFace face i side evidence with (intervalNodes 12 i)
+  endpointEntailsFace face i side Refl | Nothing impossible
+  endpointEntailsFace face i side evidence | Just _ = evidence
+
 ||| A declarative endpoint equation, valid only under the displayed face.
 ||| This is not runtime equality or a quantitative resource theorem.
 public export

@@ -475,14 +475,47 @@ bridgeSourceTyped : NeutralHasType (bridgeContext {context = [LBool]} LHere LHer
   (NAbstract (NApply (NPath FZ) (Var FZ)))
   (NPathType NType (NBase FZ) (NBase FZ))
 bridgeSourceTyped = bridgeDeclaredPath LHere LHere (the (ScopedFace 0) STop)
-  {path = Tests.Shadow.bridgeSourcePath} (WitnessNeutral Refl Refl) Refl Refl
+  {path = Tests.Shadow.bridgeSourcePath} (WitnessNeutral Refl Refl)
 
 bridgeSourceLeft : NeutralEqual (bridgeContext {context = [LBool]} LHere LHere) (the (ScopedFace 1) (SEndpoint FZ False))
   (NApply (NPath FZ) (Var FZ)) (NBase FZ) NType
 bridgeSourceLeft = bridgeLeft {context = [LBool]} LHere LHere (the (ScopedFace 1) (SEndpoint FZ False)) (Var FZ)
-  (DeclaredLeft DeclaredHere Refl) Refl
+  (DeclaredLeft DeclaredHere Refl) (IsDeclaredLeft Refl)
 
 bridgeSourceRight : NeutralEqual (bridgeContext {context = [LBool]} LHere LHere) (the (ScopedFace 1) (SEndpoint FZ True))
   (NApply (NPath FZ) (Var FZ)) (NBase FZ) NType
 bridgeSourceRight = bridgeRight {context = [LBool]} LHere LHere (the (ScopedFace 1) (SEndpoint FZ True)) (Var FZ)
-  (DeclaredRight DeclaredHere Refl) Refl
+  (DeclaredRight DeclaredHere Refl) (IsDeclaredRight Refl)
+
+-- The generic implication needs no target solver hypothesis.
+inferTargetFace : (face : ScopedFace d) -> (i : ScopedInterval d) -> (side : Bool) ->
+  boundedEndpointEntails face i side = True ->
+  TypedPath.boundedFaceEntails face (scopedEndpoint i side) = True
+inferTargetFace = endpointEntailsFace
+
+longReverseCannotSupplyEndpoint :
+  boundedEndpointEntails SBottom (Tests.Shadow.longReverse 32) False = True -> Void
+longReverseCannotSupplyEndpoint Refl impossible
+
+-- Equal endpoints still permit the right constructor at the right face.
+sameEndpointRight : NeutralEqual (bridgeContext {context = [LBool]} LHere LHere)
+  (the (ScopedFace 1) (SEndpoint FZ True))
+  (NApply (NPath FZ) (Var FZ)) (NBase FZ) NType
+sameEndpointRight = bridgeRight {context = [LBool]} LHere LHere _ _
+  (DeclaredRight DeclaredHere Refl) (IsDeclaredRight Refl)
+
+bridgeNonzeroPath : DeclaredShadowPath
+  (DeclarePath (LRef (LThere LHere)) (LRef LHere) NoPaths)
+  (the (ScopedFace 1) (SEndpoint FZ True))
+  (Embed (LRef (LThere LHere))) (Embed (LRef LHere))
+bridgeNonzeroPath = ShadowAbstract (NeutralAt LHere (Var FZ))
+  (BodyEndpoint (DeclaredLeft DeclaredHere Refl))
+  (BodyEndpoint (DeclaredRight DeclaredHere Refl))
+
+bridgeNonzeroTyped : NeutralHasType
+  (bridgeContext {context = [LBool, LBool]} (LThere LHere) LHere)
+  (the (ScopedFace 1) (SEndpoint FZ True))
+  (NAbstract (NApply (NPath FZ) (Var FZ)))
+  (NPathType NType (NBase (FS FZ)) (NBase FZ))
+bridgeNonzeroTyped = bridgeDeclaredPath {context = [LBool, LBool]} (LThere LHere) LHere _
+  {path = Tests.Shadow.bridgeNonzeroPath} (WitnessNeutral Refl Refl)
