@@ -1,9 +1,9 @@
 digraph MutualStructuralEquations {
   rankdir=LR;
   node [shape=box];
-  source [label="Authored mutual where\nexactly two Nat -> Bool workers"];
-  plan [label="Admit both equations\nbase literals + predecessor targets"];
-  core [label="Two closed NatRec workers\nlinear selector + induction result"];
+  source [label="Authored mutual where\ntwo Nat -> Bool workers\noptional unchanged linear Bool payload"];
+  plan [label="Admit both equations\nfinite bases + predecessor targets\ncheck unchanged payload"];
+  core [label="Two closed NatRec workers\nlinear selector + induction result\npayload enters function-valued fold"];
   check [label="Independently check both\ntypes + quantitative usage"];
   publish [label="Publish both atomically\nauthored exports + navigation"];
   run [label="Existing conversion / reference\nexperimental native emission"];

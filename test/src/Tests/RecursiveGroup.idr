@@ -6,6 +6,7 @@ import Data.Vect
 import Fibril.Core.Context
 import Fibril.Core.Reduction
 import Fibril.Core.Renaming
+import Fibril.Core.Size
 import Fibril.Elaboration.MutualNat
 import Fibril.Core.Quantity
 import Fibril.Core.Runtime
@@ -308,6 +309,40 @@ openEquation entry target =
     EqualNormalForms => True
     _ => False
 
+payloadBaseTerm : PayloadBase -> Term 2
+payloadBaseTerm KeepPayload = Variable FZ
+payloadBaseTerm (TruthTable yes no) = BoolCase (Variable FZ)
+  (if yes then BoolTrue else BoolFalse) (if no then BoolTrue else BoolFalse)
+
+payloadEquations : PayloadBase -> PayloadBase -> Bool -> Bool -> Bool
+payloadEquations base0 base1 target0 target1 =
+  let first = payloadWorker base0 base1 target0 target1 True
+      second = payloadWorker base0 base1 target0 target1 False
+      ty = Pi Linear NatType (Pi Linear BoolType BoolType)
+   in accepted (checkRuntime 256 256 Empty first ty) && accepted (checkRuntime 256 256 Empty second ty) &&
+      coreNodes first + coreNodes second + 2 * coreNodes ty <= 128 &&
+      successor first (if target0 then first else second) &&
+      successor second (if target1 then first else second) &&
+      base first base0 && base second base1
+  where
+    successor : Term 0 -> Term 0 -> Bool
+    successor entry target = case betaCompare 256
+      (the (Term 2) (Apply (Apply (weaken (weaken entry)) (NatSucc (Variable (FS FZ)))) (Variable FZ)))
+      (Apply (Apply (weaken (weaken target)) (Variable (FS FZ))) (Variable FZ)) of
+        EqualNormalForms => True
+        _ => False
+
+    base : Term 0 -> PayloadBase -> Bool
+    base entry plan = case betaCompare 256
+      (the (Term 2) (Apply (Apply (weaken (weaken entry)) NatZero) (Variable FZ)))
+      (payloadBaseTerm plan) of
+        EqualNormalForms => True
+        _ => False
+
+payloadBases : List PayloadBase
+payloadBases = [KeepPayload, TruthTable False False, TruthTable False True,
+                TruthTable True False, TruthTable True True]
+
 mutualEquations : Bool -> Bool -> Bool -> Bool -> Bool
 mutualEquations base0 base1 target0 target1 =
   let first = worker base0 base1 target0 target1 True
@@ -321,7 +356,13 @@ mutualEquations base0 base1 target0 target1 =
 public export
 checks : List (String, Bool)
 checks =
-  [ ("mutual structural lowering checks and satisfies open successor equations for all tables",
+  [ ("payload lowering preserves open base/successor equations and quantities for all 100 plans",
+      all (\base0 => all (\base1 => all (\target0 => all (payloadEquations base0 base1 target0)
+        (the (List Bool) [False, True])) (the (List Bool) [False, True])) payloadBases) payloadBases)
+  , ("payload template maximum fixed construction cost is exactly 120 nodes",
+      let term = payloadWorker (TruthTable True False) (TruthTable False True) False True True in
+      2 * coreNodes term + 2 * coreNodes (the (Term 0) (Pi Linear NatType (Pi Linear BoolType BoolType))) == 120)
+  , ("mutual structural lowering checks and satisfies open successor equations for all tables",
       all (\base0 => all (\base1 => all (\target0 => all (mutualEquations base0 base1 target0)
         (the (List Bool) [False, True])) (the (List Bool) [False, True]))
         (the (List Bool) [False, True])) (the (List Bool) [False, True]))

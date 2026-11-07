@@ -1065,9 +1065,67 @@ planMutualMember snapshot globals members decl = do
     declName : String
     declName = case members of first :: _ => first; [] => ""
 
+record MutualWorkerPlan where
+  constructor PlannedMutualWorker
+  payload : Bool
+  whenTrue : Bool
+  basePlan : PayloadBase
+  target : Bool
+  site : SourceSpan
+
+mutualPayloadSignature : Expr -> Bool
+mutualPayloadSignature (NPi _ Linear _ (NRef _ "Nat") (NPi _ Linear _ (NBoolType _) (NBoolType _))) = True
+mutualPayloadSignature _ = False
+
+planMutualWorker : ModuleSnapshot -> List Weighted -> List String -> Declaration -> Either GraphError MutualWorkerPlan
+planMutualWorker snapshot globals members decl =
+  if not (mutualPayloadSignature decl.expected) then do
+    (base, target, site) <- planMutualMember snapshot globals members decl
+    Right (PlannedMutualWorker False base KeepPayload target site)
+  else do
+    if decl.quantity /= Unrestricted || decl.dictionary || decl.generated ||
+       elem decl.name (the (List String) ["_", "Nat", "Zero", "Succ"])
+      then Left (problem snapshot (Just decl.nameSpan.start) "Mutual workers require unrestricted ordinary names") else Right ()
+    case decl.expected of
+      NPi _ Linear first (NRef _ "Nat") (NPi _ Linear second (NBoolType _) (NBoolType _)) =>
+        if first == second || any (\binder => elem binder (members ++ ["_", "Nat", "Zero", "Succ"])) (the (List String) [first, second])
+          then Left (problem snapshot (Just decl.nameSpan.start) "Invalid mutual payload signature binders") else Right ()
+      _ => Left (problem snapshot (Just decl.nameSpan.start) "Mutual payload signatures require linear Nat and Bool parameters")
+    case decl.value of
+      NEquationLambda _ [argument, payload] _ (NDataCase span (NRef _ scrutinee) Nothing [(first, firstBinders, firstBody), (second, secondBinders, secondBody)]) => do
+        if argument.spelling /= scrutinee || argument.spelling == payload.spelling ||
+           any (\binder => elem binder (members ++ ["_", "Nat", "Zero", "Succ"])) (the (List String) [argument.spelling, payload.spelling])
+          then Left (problem snapshot (Just argument.span.start) "Invalid mutual payload equation binders") else Right ()
+        (base, predecessor, successor) <- case (first.spelling, firstBinders, second.spelling, secondBinders) of
+          ("Zero", [], "Succ", [predecessor]) => Right (firstBody, predecessor, secondBody)
+          ("Succ", [predecessor], "Zero", []) => Right (secondBody, predecessor, firstBody)
+          _ => Left (problem snapshot (Just span.start) "Mutual payload equations require exhaustive Zero and Succ predecessor arms")
+        if elem predecessor.spelling (argument.spelling :: payload.spelling :: members ++ ["_", "Nat", "Zero", "Succ"])
+          then Left (problem snapshot (Just predecessor.span.start) "Invalid mutual payload predecessor binder") else Right ()
+        basePlan <- the (Either GraphError PayloadBase) $ case base of
+          NRef _ name => if name == payload.spelling then Right KeepPayload else badBase base
+          NIf _ (NRef _ name) (NBoolValue _ yes) (NBoolValue _ no) =>
+            if name == payload.spelling then Right (TruthTable yes no) else badBase base
+          _ => badBase base
+        case successor of
+          NApply _ (NApply _ (NRef callSpan target) (NRef _ actual)) (NRef _ forwarded) =>
+            if actual == predecessor.spelling && forwarded == payload.spelling && elem target members
+              then Right (PlannedMutualWorker True False basePlan (target == firstMember) callSpan)
+              else Left (problem snapshot (Just (extent successor).start) "Mutual calls require the immediate predecessor and unchanged linear payload")
+          _ => Left (problem snapshot (Just (extent successor).start) "Mutual payload calls must be saturated with predecessor and payload")
+      _ => Left (problem snapshot (Just decl.definitionNameSpan.start) "Mutual payload workers require two parameters and a direct exhaustive Nat case")
+  where
+    badBase : Expr -> Either GraphError PayloadBase
+    badBase base = Left (problem snapshot (Just (extent base).start) "Mutual payload base must consume its payload directly or test it with literal Bool branches")
+
+    firstMember : String
+    firstMember = case members of first :: _ => first; [] => ""
+
 compileMutual : ModuleSnapshot -> List String -> List Weighted -> MutualDeclaration -> Nat -> Either GraphError Compiled
 compileMutual snapshot moduleName globals group remaining = do
-  if remaining < 128 then Left (problem snapshot (Just group.span.start) "Expanded core construction budget exhausted (200000)") else Right ()
+  -- Worst-case payload template: 55 nodes/worker + 5/signature = 120.
+  let reservation : Nat = 128
+  if remaining < reservation then Left (problem snapshot (Just group.span.start) "Expanded core construction budget exhausted (200000)") else Right ()
   let members = [group.first.name, group.second.name]
   if group.first.name == group.second.name || not (natBuiltinsVisible globals) ||
      any (\name => isJust (find (\entry => entry.global.name == name) globals) ||
@@ -1075,28 +1133,35 @@ compileMutual snapshot moduleName globals group remaining = do
     then Left (problem snapshot (Just group.span.start) "Mutual names and Nat constructors must be unshadowed and distinct") else Right ()
   if any (\decl => cost remaining globals [] decl.expected > 32) (the (List Declaration) [group.first, group.second])
     then Left (problem snapshot (Just group.span.start) "Mutual signature expansion admission exhausted (32)") else Right ()
-  (base0, target0, site0) <- planMutualMember snapshot globals members group.first
-  (base1, target1, site1) <- planMutualMember snapshot globals members group.second
+  plan0 <- planMutualWorker snapshot globals members group.first
+  plan1 <- planMutualWorker snapshot globals members group.second
+  if plan0.payload /= plan1.payload
+    then Left (problem snapshot (Just group.span.start) "Mutual workers must agree on their payload calling convention") else Right ()
   -- Canonical admitted signatures cannot clone imported aliases or expand globals.
   ty0 <- signature group.first
   ty1 <- signature group.second
-  let value0 = worker base0 base1 target0 target1 True
-  let value1 = worker base0 base1 target0 target1 False
-  if nodes ty0 + nodes ty1 + nodes value0 + nodes value1 > 128
+  let value0 = if plan0.payload
+        then payloadWorker plan0.basePlan plan1.basePlan plan0.target plan1.target True
+        else worker plan0.whenTrue plan1.whenTrue plan0.target plan1.target True
+  let value1 = if plan0.payload
+        then payloadWorker plan0.basePlan plan1.basePlan plan0.target plan1.target False
+        else worker plan0.whenTrue plan1.whenTrue plan0.target plan1.target False
+  if nodes ty0 + nodes ty1 + nodes value0 + nodes value1 > reservation
     then Left (problem snapshot Nothing "Internal mutual construction reservation was insufficient") else Right ()
   checked group.first value0 ty0
   checked group.second value1 ty1
   let one = definition group.first ty0 value0
   let two = definition group.second ty1 value1
-  let sites = [StructuralSite snapshot.path (callToken site0) (if target0 then group.first.definitionNameSpan else group.second.definitionNameSpan),
-               StructuralSite snapshot.path (callToken site1) (if target1 then group.first.definitionNameSpan else group.second.definitionNameSpan)]
-  Right (Definitions [one, two] (if group.exported then [qualify one, qualify two] else []) sites (minus remaining 128))
+  let sites = [StructuralSite snapshot.path (callToken plan0.site) (if plan0.target then group.first.definitionNameSpan else group.second.definitionNameSpan),
+               StructuralSite snapshot.path (callToken plan1.site) (if plan1.target then group.first.definitionNameSpan else group.second.definitionNameSpan)]
+  Right (Definitions [one, two] (if group.exported then [qualify one, qualify two] else []) sites (minus remaining reservation))
   where
     signature : Declaration -> Either GraphError (Term 0)
     signature decl = case elaborateSignatureWith False (map global globals) (Just Empty) [] decl.expected of
       Left err => Left (problem snapshot (Just err.position) (show err))
       Right ty => case guardedNormal typeReductionFuel ty of
-        Just normalized => if sameSyntax normalized (Pi Linear NatType BoolType) then Right normalized
+        Just normalized => if sameSyntax normalized
+          (if mutualPayloadSignature decl.expected then Pi Linear NatType (Pi Linear BoolType BoolType) else Pi Linear NatType BoolType) then Right normalized
           else Left (problem snapshot (Just decl.nameSpan.start) "Mutual signature must resolve to literal Nat -> Bool")
         Nothing => Left (problem snapshot (Just decl.nameSpan.start) "Mutual signature normalization admission exhausted")
 

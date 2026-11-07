@@ -40,6 +40,97 @@ def run(*args, cwd=ROOT):
 
 
 class CLITests(unittest.TestCase):
+    def test_mutual_nat_payload_tables(self):
+        for bits in range(64):
+            values = [bool(bits & (1 << bit)) for bit in range(6)]
+            bases, targets = [values[:2], values[2:4]], values[4:]
+            boolean = lambda bit: 'True' if bit else 'False'
+            target = lambda bit: 'first' if bit else 'second'
+            observations, expected = [], []
+            for entry, name in enumerate(['first', 'second']):
+                for flag in [False, True]:
+                    for count in range(3):
+                        nat = 'Zero'
+                        for _ in range(count):
+                            nat = f'(Succ {nat})'
+                        observations.append(f'  putStrLn (if {name} {nat} {boolean(flag)} then "T" else "F")')
+                        state = entry
+                        for _ in range(count):
+                            state = 0 if targets[state] else 1
+                        expected.append('T' if bases[state][0 if flag else 1] else 'F')
+            with self.subTest(bits=bits), tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / 'Main.fib'
+                path.write_text(f'''module Main
+mutual where
+  first : (1 n : Nat) -> (1 flag : Bool) -> Bool
+  first n flag = case n of
+    Zero => if flag then {boolean(bases[0][0])} else {boolean(bases[0][1])}
+    Succ previous => {target(targets[0])} previous flag
+  second : (1 m : Nat) -> (1 payload : Bool) -> Bool
+  second m payload = case m of
+    Succ previous => {target(targets[1])} previous payload
+    Zero => if payload then {boolean(bases[1][0])} else {boolean(bases[1][1])}
+main : IO Unit
+main = do
+''' + '\n'.join(observations) + '\n')
+                result = run('run', '--source-dir', directory, str(path))
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(result.stdout, '\n'.join(expected) + '\n')
+
+    def test_mutual_nat_payload_ownership_and_call_boundary(self):
+        fixture = (ROOT / 'examples/modules/mutual-parity/Payload.fib').read_text()
+        mutations = [
+            ('second previous flag', 'second previous True'),
+            ('second previous flag', 'second previous (if flag then False else True)'),
+            ('second previous flag', 'second flag previous'),
+            ('second previous flag', 'second previous'),
+            ('second previous flag', 'second previous flag flag'),
+            ('second previous flag', 'second count flag'),
+            ('second previous flag', 'second (Succ previous) flag'),
+            ('Zero => flag', 'Zero => True'),
+            ('Zero => flag', 'Zero => if True then flag else flag'),
+            ('Zero => flag', 'Zero => if flag then flag else flag'),
+            ('(1 flag : Bool)', '(flag : Bool)'),
+            ('(1 flag : Bool)', '(0 flag : Bool)'),
+            ('first count flag =', 'first count ='),
+            ('first count flag =', 'first count second ='),
+            ('Succ previous => second previous flag', 'Succ flag => second flag flag'),
+            ('second : (1 count : Nat) -> (1 flag : Bool) -> Bool', 'second : (1 count : Nat) -> Bool'),
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Payload.fib'
+            for old, new in mutations:
+                with self.subTest(new=new):
+                    path.write_text(fixture.replace(old, new))
+                    result = run('check', '--source-dir', directory, str(path))
+                    self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+            path.write_text(fixture.replace('second previous flag', '((second) previous) flag'))
+            formatted = run('format', str(path))
+            self.assertEqual(formatted.returncode, 0, formatted.stderr)
+            path.write_text(formatted.stdout)
+            self.assertEqual(run('format', '--check', str(path)).returncode, 0)
+            lines = formatted.stdout.splitlines()
+            line = next(i for i, text in enumerate(lines, 1) if '=> ((second) previous) flag' in text)
+            col = lines[line - 1].index('second') + 1
+            result = run('definition', '--source-dir', directory, '--entry', str(path), str(line), str(col), str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            target_line = next(i for i, text in enumerate(lines, 1) if text.startswith('  second count flag ='))
+            self.assertEqual(json.loads(result.stdout)['definition']['range']['start']['line'], target_line)
+            # Call-site spans must not capture the predecessor/payload references.
+            for token, expected_line in [('previous', line), ('flag', next(i for i, text in enumerate(lines, 1) if text.startswith('  first count flag =')))]:
+                column = lines[line - 1].rindex(token) + 1
+                ref = run('definition', '--source-dir', directory, '--entry', str(path), str(line), str(column), str(path))
+                self.assertEqual(ref.returncode, 0, ref.stdout + ref.stderr)
+                self.assertEqual(json.loads(ref.stdout)['definition']['range']['start']['line'], expected_line)
+            main = Path(directory) / 'Main.fib'
+            main.write_text('module Main\nimport Payload (first)\nmain : IO Unit\nmain = putStrLn (if first (Succ Zero) False then "yes" else "no")\n')
+            imported = run('run', '--source-dir', directory, str(main))
+            self.assertEqual(imported.returncode, 0, imported.stdout + imported.stderr)
+            self.assertEqual(imported.stdout, 'yes\n')
+            source = path.read_text()
+            path.write_text(source.replace('Zero => if flag then False else True', 'Zero => True'))
+            self.assertNotEqual(run('check', '--source-dir', directory, str(main)).returncode, 0)
+
     def test_mutual_nat_selector_tables(self):
         # Every base/transition table, not just the even/odd cross-call case.
         for bits in range(16):

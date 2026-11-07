@@ -1,0 +1,21 @@
+module Payload
+
+-- Both workers forward the same owned Bool across predecessor calls.
+export
+mutual where
+  first : (1 count : Nat) -> (1 flag : Bool) -> Bool
+  first count flag = case count of
+    Zero => flag
+    Succ previous => second previous flag
+
+  second : (1 count : Nat) -> (1 flag : Bool) -> Bool
+  second count flag = case count of
+    Zero => if flag then False else True
+    Succ previous => first previous flag
+
+main : IO Unit
+main = do
+  putStrLn (if first Zero True then "identity" else "wrong")
+  putStrLn (if first (Succ Zero) False then "negated" else "wrong")
+  putStrLn (if first (Succ (Succ Zero)) True then "identity again" else "wrong")
+  putStrLn (if second (Succ Zero) True then "other entry" else "wrong")

@@ -20,7 +20,8 @@ mutual where
     Succ previous => even previous
 ```
 
-The signature/definition pairs must align at an indented column. Each worker:
+The signature/definition pairs must align at an indented column. In the original
+no-payload mode, each worker:
 
 - has an unrestricted global name and exactly one explicit linear `Nat`
   parameter, with literal `Bool` result;
@@ -33,7 +34,7 @@ The signature/definition pairs must align at an indented column. Each worker:
 Names must be distinct, unshadowed and referenceable. Nat constructors must be
 unshadowed checked builtins; spelling alone is not authority. Parameter and
 predecessor binders cannot shadow members or the recognized Nat names.
-Qualification, wrappers, extra parameters, payloads, aliases, captures, effects,
+Qualification, wrappers, extra parameters beyond the payload mode below, aliases, captures, effects,
 dependent results, reconstructed arguments, partial calls and nested recursion
 are rejected. Export applies to the entire group. Without `export`, both
 members are private. Headerless checking and the flat unchecked `elaborate`
@@ -86,6 +87,63 @@ tables, checks both worker types and compares the open successor equations.
 These tests support the construction argument; they are not a formal proof of
 the core checkers, normalization or compiler correctness.
 
+## Unchanged linear Bool payload
+
+Both workers may instead have the exact signature
+`(1 n : Nat) -> (1 payload : Bool) -> Bool`. A group cannot mix the two modes.
+The [payload example](../examples/modules/mutual-parity/Payload.fib) alternates
+an identity base and a negating base. Each successor must pass the immediate
+predecessor and **the same payload variable**, in that order.
+
+The zero arm is exactly one of:
+
+- the payload variable;
+- `if payload then <Bool literal> else <Bool literal>`.
+
+A bare literal would discard the linear payload and is rejected. Equal literal
+branches are allowed: evaluating the condition consumes the payload. Changed,
+reconstructed, discarded or duplicated payloads, arbitrary base expressions,
+erased/unrestricted payload parameters and argument reordering are rejected.
+Signature and equation binders are separate scopes and may have different
+names, but binders within each scope must be distinct; the predecessor may not
+shadow either equation argument or a member.
+
+The complete extension to the construction above is:
+
+```text
+E(KeepPayload, p) = p
+E(TruthTable a b, p) = if p then a else b
+State = (1 selector : Bool) -> (1 payload : Bool) -> Bool
+P = lambda (0 predecessor : Nat). State
+B = lambda (1 selector : Bool). lambda (1 p : Bool).
+      if selector then E(base0,p) else E(base1,p)
+S = lambda (0 predecessor : Nat). lambda (1 ih : State).
+      lambda (1 selector : Bool). lambda (1 p : Bool).
+        if selector then ih (tag t0) p else ih (tag t1) p
+Wi = lambda (1 n : Nat). lambda (1 p : Bool).
+       ((NatRec P B S n) (tag i)) p
+```
+
+Identity remains a distinct base plan: replacing `p` with `if p then True else
+False` would not preserve its open definitional equation because the core has
+no Bool eta rule. Each base consumes `p` once. Each successor alternative
+consumes `ih` and its own payload once, and alternatives join their usages.
+The repeated step references no outer payload; only the function returned by
+the fold receives the caller's owned payload.
+
+For neutral `k` and `p`, existing beta/iota rules give:
+
+```text
+Wi Zero p = E(basei,p)
+Wi (Succ k) p = K k (tag ti) p = Wti k p
+```
+
+Core tests cover all **100** syntactic base/target plans (five bases per member,
+two targets per member), including open base and successor equations and both
+finished worker types. CLI tests cover all 64 conditional-base tables with both
+entries and both Bool values; the example additionally covers direct identity.
+No new core rule or evaluator is involved.
+
 ## Admission, checking and publication
 
 1. Preserve one authored group item, including both members' original spans.
@@ -93,7 +151,9 @@ the core checkers, normalization or compiler correctness.
 3. Validate both finite source shapes without installing assumed globals.
 4. Admit signature expansion (32 nodes per signature) before elaboration and
    reserve 128 aggregate core nodes before template construction. Check actual
-   generated sizes against that reservation. Exhaustion fails closed.
+   generated sizes against that reservation. The largest payload template is
+   55 nodes per worker plus five per signature, 120 aggregate; identity bases
+   are smaller. Core tests assert this count. Exhaustion fails closed.
 5. Resolve signatures only against preceding checked bindings, then verify the
    canonical Nat/Bool signature and independently check both closed workers.
 6. Only then publish both ordinary member bindings and their exports together.
@@ -121,7 +181,7 @@ existing independently checked function-valued SeqFold.
 ## Design gate and stop conditions
 
 The finite contract above is the complete slice. Do not silently widen it when
-an authored group fails. New payloads, aliases, dependent results or nonstructural
+an authored group fails. Further payload types, aliases, dependent results or nonstructural
 calls need their own scoped translation and quantity/correspondence argument.
 Stop if a proposed extension needs duplicated owned values, a recursive knot,
 unconditional open unfolding, unavailable transport, or SCT acceptance as an
