@@ -1,8 +1,12 @@
 module Tests.Cubical.TypedPath
 
 import Data.Fin
+import Data.Vect
+import Fibril.Cubical.Logical.PathContext
+import Fibril.Cubical.Logical.OpenPath
 import Fibril.Cubical.Logical.ScopedSyntax
 import Fibril.Cubical.Logical.TypedPath
+import Fibril.Foundation.DeMorgan.Face
 import Fibril.Foundation.DeMorgan.Interval
 import Fibril.Foundation.DeMorgan.Scope
 
@@ -32,3 +36,23 @@ varying : HasType {m = 1} {n = 0}
                  (Apply (Abstract (Variable FZ)) One))
 varying = PathIntro Base (PathElim constant Zero) (PathElim constant One)
   (PathElim (PathIntro Base (BaseVar FZ) (BaseVar FZ) (BaseVar FZ) Refl Refl) (Var FZ)) Refl Refl
+
+-- A neutral path declaration refers only to base variables.
+neutralContext : PathContext 2 1
+neutralContext = [PathBetween FZ (FS FZ)]
+
+neutralApplication : NeutralHasType Tests.Cubical.TypedPath.neutralContext STop
+  (NApply (NPath FZ) (Var FZ)) NType
+neutralApplication = NElim (NPathVar FZ) (Var FZ)
+
+neutralLeftRestricted : NeutralEqual {n = 1} Tests.Cubical.TypedPath.neutralContext (SEndpoint FZ False)
+  (NApply (NPath FZ) (Var FZ)) (NBase FZ) NType
+neutralLeftRestricted = NEndpointLeft (NPathVar FZ) (NBaseVar FZ) Refl
+
+neutralMeetLeft : NeutralEqual {n = 2} Tests.Cubical.TypedPath.neutralContext (SEndpoint (FS FZ) False)
+  (NApply (NPath FZ) (Meet (Var (FS FZ)) (Var FZ))) (NBase FZ) NType
+neutralMeetLeft = NEndpointLeft (NPathVar FZ) (NBaseVar FZ) Refl
+
+nonBooleanFace : boundedFaceEntails {n = 1} STop
+  (SDisjunction (SEndpoint FZ False) (SEndpoint FZ True)) = False
+nonBooleanFace = Refl

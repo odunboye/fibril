@@ -163,3 +163,26 @@ for fixture in TypedPathBadEndpoint TypedPathNonDimension TypedPathAnnotation Ty
   fi
 done
 echo 'Typed path boundary, annotation, dimension and scope negative tests passed.'
+
+for fixture in TypedNeutralWrongEndpoint TypedNeutralFalseFace; do
+  case $fixture in
+    TypedNeutralWrongEndpoint)
+      expected='Mismatch between: FZ and FS FZ.'
+      context='NeutralEqual [PathBetween FZ (FS FZ)] (SEndpoint FZ False) (NApply (NPath FZ) (Var FZ)) (NBase (FS FZ)) NType'
+      ;;
+    TypedNeutralFalseFace)
+      expected='Mismatch between: True and False.'
+      context='NeutralEqual [PathBetween FZ (FS FZ)] STop (NApply (NPath FZ) (Var FZ)) (NBase FZ) NType'
+      ;;
+  esac
+  "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1 || true
+  if ! grep -Fq 'Error: While processing right hand side of bad.' "$tmp/$fixture.log" ||
+     grep -Fq 'While processing type of bad' "$tmp/$fixture.log" ||
+     ! grep -Fq "$expected" "$tmp/$fixture.log" ||
+     ! grep -Fq "$context" "$tmp/$fixture.log"; then
+    echo "Negative neutral path test $fixture failed for an unrelated reason:" >&2
+    cat "$tmp/$fixture.log" >&2
+    exit 1
+  fi
+done
+echo 'Neutral path wrong-endpoint and false-face negative tests passed.'
