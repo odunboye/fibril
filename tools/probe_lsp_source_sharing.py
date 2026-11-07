@@ -2,7 +2,9 @@
 """Bounded candidate-only source-sharing measurements. No wire pipeline claim."""
 import argparse
 from collections import Counter
+from contextlib import contextmanager
 import hashlib
+import math
 import json
 import os
 import platform
@@ -11,6 +13,7 @@ from pathlib import Path
 import re
 import shlex
 import shutil
+import subprocess
 import tempfile
 import unittest
 
@@ -28,15 +31,71 @@ JSON_ROOT = ROOT / 'tools/fixtures/json-iteration'
 FRAME_ROOT = ROOT / 'examples/modules/binary-frame'
 
 
-def process(command, *, cwd=None, env=None, input=None):
-    command = list(map(str, command))
+def captured_process(command, *, cwd=None, env=None, input=None, timeout=120):
+    if isinstance(command, (str, bytes)):
+        raise TypeError('candidate launches require an argument sequence')
+    if input is not None and not isinstance(input, bytes):
+        raise TypeError('candidate launches require bytes input')
+    if not isinstance(timeout, (int, float)) or not math.isfinite(timeout) or timeout <= 0:
+        raise ValueError('candidate launches require a finite positive timeout')
+    args = list(map(str, command))
     if env is not None:
-        command = ['env'] + [f'{k}={v}' for k,v in env.items()] + command
+        args = ['env', '-i'] + [f'{k}={v}' for k,v in env.items()] + args
     if cwd is not None:
-        command = ['bash', '-c', 'cd -- "$1"; shift; exec "$@"', 'source-sharing-build', str(cwd)] + command
-    result = run_process(command, input=input, timeout=120)
+        args = ['bash', '-c', 'cd -- "$1" || exit; shift; exec "$@"', 'source-sharing-build', str(cwd)] + args
+    result = run_process(args, input=input, timeout=timeout)
+    return subprocess.CompletedProcess(command, result.returncode, result.stdout, result.stderr)
+
+
+def process(command, **kwargs):
+    result = captured_process(command, **kwargs)
     assert result.returncode == 0, (command, result.stdout, result.stderr)
     return result
+
+
+class CapturedSubprocessProxy:
+    """Only the suites' captured-byte run calls change; live Popen stays original."""
+    def __init__(self, original):
+        self.original = original
+
+    def __getattr__(self, name):
+        return getattr(self.original, name)
+
+    def run(self, command, *, capture_output, timeout, input=None, cwd=None, env=None):
+        # Deliberately reject unsupported subprocess.run options rather than
+        # silently losing stream, text, shell or check semantics.
+        if capture_output is not True:
+            raise ValueError('candidate run calls require capture_output=True')
+        return captured_process(command, cwd=cwd, env=env, input=input, timeout=timeout)
+
+
+@contextmanager
+def candidate_suite_routing(evidence):
+    import test_json_iteration as j
+    import test_framing as f
+    saved = [(module, name, getattr(module, name)) for module, names in
+             ((j, ('FIXTURE', 'checked', 'subprocess')),
+              (f, ('SOURCE', 'ENTRY', 'run', 'subprocess'))) for name in names]
+
+    def json_checked(command, **kwargs):
+        result = process(command, **kwargs)
+        if '--install' in command:
+            evidence['compiler_image_after_json_staging_sha256'] = digest(ROOT/'build/exec/fibril_app/fibril.so')
+        return result
+
+    def frame_run(command, data=b''):
+        result = captured_process(command, cwd=f.ROOT, input=data, timeout=90)
+        return result.returncode, result.stdout, result.stderr
+
+    try:
+        j.FIXTURE, j.checked = CANDIDATE, json_checked
+        j.subprocess = CapturedSubprocessProxy(j.subprocess)
+        f.SOURCE, f.ENTRY, f.run = CANDIDATE, CANDIDATE / 'Main.fib', frame_run
+        f.subprocess = CapturedSubprocessProxy(f.subprocess)
+        yield j, f
+    finally:
+        for module, name, original in reversed(saved):
+            setattr(module, name, original)
 
 
 def build_audits():
@@ -163,16 +222,11 @@ def profiles(evidence, work):
 
 
 def suites(evidence):
-    import test_json_iteration as j
-    import test_framing as f
-    # Existing suite logic, explicit candidate root. No standard entry replacement.
-    j.FIXTURE = CANDIDATE
-    def json_checked(command, **kwargs):
-        result = process(command, **kwargs)
-        if '--install' in command:
-            evidence['compiler_image_after_json_staging_sha256'] = digest(ROOT/'build/exec/fibril_app/fibril.so')
-        return result
-    j.checked = json_checked
+    with candidate_suite_routing(evidence) as (j, f):
+        run_candidate_suites(evidence, j, f)
+
+
+def run_candidate_suites(evidence, j, f):
     # setUpClass uses temporary per-program roots, populated only from candidate.
     class CandidateJSON(j.JSONIteration):
         @classmethod
@@ -187,11 +241,6 @@ def suites(evidence):
     totals = {backend:dict(Counter(r['category'] for r in matrix_rows if r['backend'] == backend)) for backend in ('hosted', 'native')}
     assert totals == {backend: {'valid_transfer': 76, 'invalid_json': 43, 'reader_eof': 1} for backend in ('hosted', 'native')}, totals
     evidence['json_matrix_totals'] = totals
-    f.SOURCE, f.ENTRY = CANDIDATE, CANDIDATE / 'Main.fib'
-    def frame_run(command, data=b''):
-        result = run_process(command, input=data, timeout=90)
-        return result.returncode, result.stdout, result.stderr
-    f.run = frame_run  # live fragmentation/flush tests retain their own owned Popen
     result = unittest.TextTestRunner(verbosity=2).run(unittest.defaultTestLoader.loadTestsFromTestCase(f.Framing))
     assert result.wasSuccessful() and result.testsRun == 14
     evidence['framing'] = dict(regressions=result.testsRun, failures=0, explicit_candidate_root=True,

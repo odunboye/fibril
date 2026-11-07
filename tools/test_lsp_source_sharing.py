@@ -5,12 +5,27 @@ import hashlib
 import json
 from pathlib import Path
 import re
+import subprocess
+import sys
+import tempfile
 import unittest
+from unittest import mock
+
+import probe_lsp_source_sharing as probe
 
 from lsp_source_sharing import (ROOT, CANDIDATE, BASELINES, source_preservation,
     bare, closed, expand_closed, expand_introduced, instrument_module_check)
 
 EVIDENCE = ROOT / 'docs/assets/evidence/lsp-source-sharing.json'
+PRE_ROUTING_FIX_COMMIT = '840ba8f'
+HISTORICAL_HARNESS_PATHS = {'tools/probe_lsp_source_sharing.py', 'tools/test_lsp_source_sharing.py'}
+
+
+def historical_bytes(path):
+    result = probe.run_process(['git', '-C', str(ROOT), 'show', f'{PRE_ROUTING_FIX_COMMIT}:{path}'], timeout=10)
+    if result.returncode:
+        raise AssertionError(result.stderr)
+    return result.stdout
 
 
 def node(tag, detail=None, children=None):
@@ -101,8 +116,13 @@ class LSPSourceSharing(unittest.TestCase):
         for key in ('syntax', 'helpers', 'native', 'json_rows', 'json_matrix_totals', 'framing',
                     'inputs_sha256', 'private_checker_sha256', 'source_controls'):
             self.assertEqual(data[key], sanitized[key], key)
+        # Runtime observations predate the harness-only routing fix. Preserve
+        # their hashes and verify those two historical blobs, not rewritten hashes.
+        for path in (EVIDENCE, EVIDENCE.with_name('lsp-source-sharing-sanitized.json')):
+            self.assertEqual(path.read_bytes(), historical_bytes(path.relative_to(ROOT)))
         for path, sha in data['inputs_sha256'].items():
-            self.assertEqual(hashlib.sha256((ROOT/path).read_bytes()).hexdigest(), sha, path)
+            content = historical_bytes(path) if path in HISTORICAL_HARNESS_PATHS else (ROOT/path).read_bytes()
+            self.assertEqual(hashlib.sha256(content).hexdigest(), sha, path)
         rows = {r['entry']: r for r in data['syntax']}
         expected = {'Main.fib': (4341, 3719, 52863, 51509), 'Two.fib': (4364, 3742, 52909, 51555),
             'Parse.fib': (6205, 4935, 145990, 136828), 'ParseBinary.fib': (7467, 6197, 148514, 139352),
@@ -163,6 +183,130 @@ class LSPSourceSharing(unittest.TestCase):
                 self.assertEqual(row['output_sha256'], old['output_sha256'])
         dense = next(r for r in data['native'] if r['entry']=='JSON-candidate' and r['case']=='64-token-array')
         self.assertEqual((dense['metrics']['steps'], dense['metrics']['arena_payload']), (95602,2894705))
+
+
+def routing_attributes(j, f):
+    return [(module, name, getattr(module, name)) for module, names in
+            ((j, ('FIXTURE', 'checked', 'subprocess')),
+             (f, ('SOURCE', 'ENTRY', 'run', 'subprocess'))) for name in names]
+
+
+class LSPSourceSharingRouting(unittest.TestCase):
+    def test_existing_cli_gate_and_three_framing_compilers_delegate(self):
+        import test_json_iteration as j
+        import test_framing as f
+        saved = routing_attributes(j, f)
+        original_run, original_popen = subprocess.run, subprocess.Popen
+        calls = []
+
+        def owned(command, *, input=None, timeout=120):
+            calls.append((command, input, timeout))
+            if 'emit-c-binary' in command:
+                output = b' '.join((b'f_read_bytes(', b'f_write_bytes(', b'f_reject_bytes(',
+                                    b'f_nominal_case(', b'f_bytes_length_is('))
+            elif '-std=c11' in command:
+                output = b''  # All three actual setup call sites, no compiler executed.
+            elif 'run' in command or 'emit-c' in command:
+                return subprocess.CompletedProcess(command, 1, b'', b'Gate rejected input')
+            else:
+                output = b'METRICS 0 0 1 0 0\nOUTPUT []\nOK\n'
+                output += b'CALLBACK\n' * 4 if command[0] == '/routing-hosted' else b'NATIVE 0 0 0 4\n'
+            return subprocess.CompletedProcess(command, 0, output, b'')
+
+        class OfflineJSON(j.JSONIteration):
+            hosted = Path('/routing-hosted')
+            rows = []
+
+            @classmethod
+            def source(cls, entry, module=None):
+                return CANDIDATE  # Routing test only: no source or compiler execution.
+
+        class OfflineFraming(f.Framing):
+            pass
+
+        with mock.patch.object(probe, 'run_process', side_effect=owned):
+            with probe.candidate_suite_routing({}):
+                self.assertIs(j.FIXTURE, CANDIDATE)
+                self.assertIs(f.SOURCE, CANDIDATE)
+                self.assertEqual(f.ENTRY, CANDIDATE / 'Main.fib')
+                self.assertIs(j.subprocess.Popen, original_popen)
+                self.assertIs(f.subprocess.Popen, original_popen)
+                self.assertIs(f.subprocess.PIPE, subprocess.PIPE)
+                self.assertIs(subprocess.run, original_run)
+                self.assertIs(subprocess.Popen, original_popen)
+                OfflineJSON('test_no_parser_transport_and_existing_mode_gates').test_no_parser_transport_and_existing_mode_gates()
+                try:
+                    OfflineFraming.setUpClass()
+                finally:
+                    OfflineFraming.doClassCleanups()
+        self.assertEqual(len(calls), 9)
+        self.assertEqual([timeout for command, _, timeout in calls if 'run' in command or 'emit-c' in command], [30, 30])
+        self.assertEqual([timeout for command, _, timeout in calls if '-std=c11' in command], [90, 90, 90])
+        self.assertEqual([timeout for command, _, timeout in calls if 'emit-c-binary' in command], [90, 90])
+        self.assertEqual([timeout for command, _, timeout in calls if command[0] == '/routing-hosted' or command[0] == str(CANDIDATE / 'native')], [120, 120])
+        for module, name, original in saved:
+            self.assertIs(getattr(module, name), original)
+        self.assertIs(subprocess.run, original_run)
+        self.assertIs(subprocess.Popen, original_popen)
+
+    def test_proxy_preserves_results_and_rejects_unsupported_options(self):
+        result = subprocess.CompletedProcess([], 7, b'output\0', b'error\0')
+        command = ['/candidate-command']
+        with mock.patch.object(probe, 'run_process', return_value=result) as owned:
+            proxy = probe.CapturedSubprocessProxy(subprocess)
+            actual = proxy.run(command, capture_output=True, timeout=30, input=b'input\0',
+                               cwd=ROOT, env={'ROUTING_TEST': 'value'})
+            self.assertIs(actual.args, command)
+            self.assertEqual((actual.returncode, actual.stdout, actual.stderr), (7, b'output\0', b'error\0'))
+            args, kwargs = owned.call_args
+            self.assertEqual(kwargs, {'input': b'input\0', 'timeout': 30})
+            self.assertEqual(args[0][-4:], ['env', '-i', 'ROUTING_TEST=value', '/candidate-command'])
+            self.assertIn(str(ROOT), args[0])
+            with self.assertRaises(AssertionError):
+                probe.process(command)
+            before = owned.call_count
+            for option in ('check', 'shell', 'text', 'stdout', 'stderr', 'stdin'):
+                with self.assertRaises(TypeError):
+                    proxy.run(command, capture_output=True, timeout=30, **{option: True})
+            with self.assertRaises(ValueError):
+                proxy.run(command, capture_output=False, timeout=30)
+            for timeout in (None, 0, float('inf')):
+                with self.assertRaises(ValueError):
+                    proxy.run(command, capture_output=True, timeout=timeout)
+            with self.assertRaises(TypeError):
+                proxy.run(command, capture_output=True, timeout=30, input='not bytes')
+            self.assertEqual(owned.call_count, before)
+        failure = subprocess.TimeoutExpired(command, 30, output=b'partial', stderr=b'diagnostic')
+        with mock.patch.object(probe, 'run_process', side_effect=failure):
+            with self.assertRaises(subprocess.TimeoutExpired) as raised:
+                proxy.run(command, capture_output=True, timeout=30)
+        self.assertIs(raised.exception, failure)
+
+    def test_suite_attributes_restore_on_assertion_and_timeout(self):
+        import test_json_iteration as j
+        import test_framing as f
+        saved = routing_attributes(j, f)
+        original_run, original_popen = subprocess.run, subprocess.Popen
+        for failure in (AssertionError('suite failed'), subprocess.TimeoutExpired(['owned-child'], 30)):
+            with mock.patch.object(probe, 'run_candidate_suites', side_effect=failure):
+                with self.assertRaises(type(failure)):
+                    probe.suites({})
+            for module, name, original in saved:
+                self.assertIs(getattr(module, name), original)
+            self.assertIs(subprocess.run, original_run)
+            self.assertIs(subprocess.Popen, original_popen)
+
+    def test_proxy_tiny_owned_child_captures_bytes_environment_and_cwd(self):
+        proxy = probe.CapturedSubprocessProxy(subprocess)
+        with tempfile.TemporaryDirectory(prefix='fibril-routing-test-') as work:
+            code = ('import os,sys; data=sys.stdin.buffer.read(); '
+                    'os.write(1, data + os.environ["ROUTING_TEST"].encode() + os.getcwd().encode()); '
+                    'os.write(2, b"error\\0"); sys.exit(7)')
+            result = proxy.run([sys.executable, '-c', code], capture_output=True, timeout=5,
+                               input=b'input\0', cwd=work, env={'ROUTING_TEST': 'value'})
+            self.assertEqual(result.returncode, 7)
+            self.assertEqual(result.stdout, b'input\0value' + str(Path(work).resolve()).encode())
+            self.assertEqual(result.stderr, b'error\0')
 
 
 if __name__ == '__main__':
