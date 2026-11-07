@@ -218,3 +218,43 @@ ambientFaceShadowPath : DeclaredShadowPath Tests.Shadow.shadowDeclarations (the 
 ambientFaceShadowPath = ShadowAbstract (NeutralAt LHere (Var (FS FZ)))
   (BodyEndpoint (DeclaredLeft DeclaredHere Refl))
   (BodyEndpoint (DeclaredLeft DeclaredHere Refl))
+
+-- Recertify only the endpoint checks actually used, directly at the ambient face.
+genericNeutralZero : BodyEqual Tests.Shadow.shadowDeclarations (the (ScopedFace 0) STop)
+  (applyDeclaredShadowPath Tests.Shadow.shadowNeutralPath Zero) (Embed (shadowTerm Tests.Shadow.linearSource))
+genericNeutralZero = declaredShadowAtZero {left = Embed (shadowTerm Tests.Shadow.linearSource)} {right = Embed (LBoolean False)} (NeutralAt LHere (Var FZ))
+  (BodyEndpoint (DeclaredLeft DeclaredHere Refl))
+  (BodyEndpoint (DeclaredRight DeclaredHere Refl)) (DimLeft Refl) Refl
+
+genericNeutralOne : BodyEqual Tests.Shadow.shadowDeclarations (the (ScopedFace 0) STop)
+  (applyDeclaredShadowPath Tests.Shadow.shadowNeutralPath One) (Embed (LBoolean False))
+genericNeutralOne = declaredShadowAtOne {left = Embed (shadowTerm Tests.Shadow.linearSource)} {right = Embed (LBoolean False)} (NeutralAt LHere (Var FZ))
+  (BodyEndpoint (DeclaredLeft DeclaredHere Refl))
+  (BodyEndpoint (DeclaredRight DeclaredHere Refl)) (DimRight Refl) Refl
+
+genericAmbientZero : BodyEqual Tests.Shadow.shadowDeclarations (the (ScopedFace 1) (SEndpoint FZ False))
+  (applyDeclaredShadowPath Tests.Shadow.ambientFaceShadowPath Zero) (Embed (shadowTerm Tests.Shadow.linearSource))
+genericAmbientZero = declaredShadowAtZero {left = Embed (shadowTerm Tests.Shadow.linearSource)} {right = Embed (shadowTerm Tests.Shadow.linearSource)} (NeutralAt LHere (Var (FS FZ)))
+  (BodyEndpoint (DeclaredLeft DeclaredHere Refl))
+  (BodyEndpoint (DeclaredLeft DeclaredHere Refl)) (DimLeft Refl) Refl
+
+largeDimension : ScopedInterval 0
+largeDimension = Reverse (Reverse (Reverse (Reverse (Reverse (Reverse (Reverse (Reverse (Reverse (Reverse (Reverse (Reverse Zero)))))))))))
+
+endpointBeforeDimensionSubstitution : boundedEndpointEntails (the (ScopedFace 1) (SEndpoint FZ False)) (Var FZ) False = True
+endpointBeforeDimensionSubstitution = Refl
+
+endpointAfterDimensionSubstitution : boundedEndpointEntails
+  (substituteScopedFace (atDimension Tests.Shadow.largeDimension) (SEndpoint FZ False))
+  (substituteScoped (atDimension Tests.Shadow.largeDimension) (Var FZ)) False = False
+endpointAfterDimensionSubstitution = Refl
+
+pathLevelZero : BodyEqual Tests.Shadow.shadowDeclarations (the (ScopedFace 0) STop)
+  (applyDeclaredShadowPath Tests.Shadow.shadowNeutralPath Zero) (Embed (shadowTerm Tests.Shadow.linearSource))
+pathLevelZero = shadowApplicationZero STop (Embed (shadowTerm Tests.Shadow.linearSource)) (Embed (LBoolean False))
+  Tests.Shadow.shadowNeutralPath (DimLeft Refl, Refl)
+
+pathLevelOne : BodyEqual Tests.Shadow.shadowDeclarations (the (ScopedFace 0) STop)
+  (applyDeclaredShadowPath Tests.Shadow.shadowNeutralPath One) (Embed (LBoolean False))
+pathLevelOne = shadowApplicationOne STop (Embed (shadowTerm Tests.Shadow.linearSource)) (Embed (LBoolean False))
+  Tests.Shadow.shadowNeutralPath (DimRight Refl, Refl)

@@ -213,6 +213,47 @@ substituteBodyEqual sigma (BodyAppEqual f x) = BodyAppEqual (substituteBodyEqual
 substituteBodyEqual sigma (BodyIfEqual c t f) = BodyIfEqual (substituteBodyEqual sigma c) (substituteBodyEqual sigma t) (substituteBodyEqual sigma f)
 substituteBodyEqual sigma (BodyUnitElimEqual x b) = BodyUnitElimEqual (substituteBodyEqual sigma x) (substituteBodyEqual sigma b)
 
+||| Recertify only the bounded checks actually used in an equality derivation.
+public export
+data DimensionEvidence : {0 context : Vect n LogicalType} -> {0 paths : Vect k LogicalType} ->
+  {0 declarations : PathDeclarations context paths} -> {0 face : ScopedFace d} ->
+  {0 x, y : PathBody context paths d a} -> (env : Fin d -> ScopedInterval e) -> (target : ScopedFace e) ->
+  BodyEqual declarations face x y -> Type where
+  DimRefl : DimensionEvidence env target BodyRefl
+  DimSym : DimensionEvidence env target eq -> DimensionEvidence env target (BodySym eq)
+  DimTrans : {0 eq1 : BodyEqual declarations face x y} -> {0 eq2 : BodyEqual declarations face y z} -> DimensionEvidence env target eq1 -> DimensionEvidence env target eq2 ->
+    DimensionEvidence env target (BodyTrans eq1 eq2)
+  DimLeft : {0 context : Vect n LogicalType} -> {0 paths : Vect k LogicalType} -> {0 declarations : PathDeclarations context paths} -> {0 face : ScopedFace d} -> {0 i : ScopedInterval d} -> {0 name : LogicalVar paths a} -> {0 left, right : LogicalTerm context a} -> {0 p : DeclaredPath declarations name left right} ->
+    {0 entails : boundedEndpointEntails face i False = True} -> boundedEndpointEntails target (substituteScoped env i) False = True ->
+    DimensionEvidence env target (BodyEndpoint (DeclaredLeft {face} {i} p entails))
+  DimRight : {0 context : Vect n LogicalType} -> {0 paths : Vect k LogicalType} -> {0 declarations : PathDeclarations context paths} -> {0 face : ScopedFace d} -> {0 i : ScopedInterval d} -> {0 name : LogicalVar paths a} -> {0 left, right : LogicalTerm context a} -> {0 p : DeclaredPath declarations name left right} ->
+    {0 entails : boundedEndpointEntails face i True = True} -> boundedEndpointEntails target (substituteScoped env i) True = True ->
+    DimensionEvidence env target (BodyEndpoint (DeclaredRight {face} {i} p entails))
+  DimRestrict : DimensionEvidence env (substituteScopedFace env source) eq ->
+    boundedFaceEntails target (substituteScopedFace env source) = True ->
+    DimensionEvidence env target (BodyRestrict {face} {source} eq entails)
+  DimApp : {0 f : BodyEqual declarations face f1 f2} -> {0 x : BodyEqual declarations face x1 x2} -> DimensionEvidence env target f -> DimensionEvidence env target x -> DimensionEvidence env target (BodyAppEqual f x)
+  DimIf : {0 c : BodyEqual declarations face c1 c2} -> {0 t : BodyEqual declarations face t1 t2} -> {0 f : BodyEqual declarations face f1 f2} -> DimensionEvidence env target c -> DimensionEvidence env target t -> DimensionEvidence env target f ->
+    DimensionEvidence env target (BodyIfEqual c t f)
+  DimUnitElim : {0 x : BodyEqual declarations face x1 x2} -> {0 b : BodyEqual declarations face b1 b2} -> DimensionEvidence env target x -> DimensionEvidence env target b -> DimensionEvidence env target (BodyUnitElimEqual x b)
+
+public export
+mapBodyEqualDimensions : {0 declarations : PathDeclarations context paths} ->
+  {0 face : ScopedFace d} -> {0 x, y : PathBody context paths d a} ->
+  (env : Fin d -> ScopedInterval e) -> (0 target : ScopedFace e) -> (eq : BodyEqual declarations face x y) ->
+  DimensionEvidence env target eq ->
+  BodyEqual declarations target
+    (mapPathDimensions env x) (mapPathDimensions env y)
+mapBodyEqualDimensions env target BodyRefl DimRefl = BodyRefl
+mapBodyEqualDimensions env target (BodySym eq) (DimSym cert) = BodySym (mapBodyEqualDimensions env target eq cert)
+mapBodyEqualDimensions env target (BodyTrans x y) (DimTrans cx cy) = BodyTrans (mapBodyEqualDimensions env target x cx) (mapBodyEqualDimensions env target y cy)
+mapBodyEqualDimensions env target (BodyEndpoint (DeclaredLeft p entails)) (DimLeft check) = BodyEndpoint (DeclaredLeft p check)
+mapBodyEqualDimensions env target (BodyEndpoint (DeclaredRight p entails)) (DimRight check) = BodyEndpoint (DeclaredRight p check)
+mapBodyEqualDimensions env target (BodyRestrict eq entails) (DimRestrict cert check) = BodyRestrict (mapBodyEqualDimensions env _ eq cert) check
+mapBodyEqualDimensions env target (BodyAppEqual f x) (DimApp cf cx) = BodyAppEqual (mapBodyEqualDimensions env target f cf) (mapBodyEqualDimensions env target x cx)
+mapBodyEqualDimensions env target (BodyIfEqual c t f) (DimIf cc ct cf) = BodyIfEqual (mapBodyEqualDimensions env target c cc) (mapBodyEqualDimensions env target t ct) (mapBodyEqualDimensions env target f cf)
+mapBodyEqualDimensions env target (BodyUnitElimEqual x b) (DimUnitElim cx cb) = BodyUnitElimEqual (mapBodyEqualDimensions env target x cx) (mapBodyEqualDimensions env target b cb)
+
 ||| Both boundaries are checked in the extended dimension scope, under the
 ||| weakened ambient restriction conjoined with the corresponding binder face.
 public export
@@ -231,6 +272,61 @@ applyDeclaredShadowPath : {0 context : Vect n LogicalType} -> {0 paths : Vect k 
   {0 face : ScopedFace d} -> {0 left, right : PathBody context paths d a} ->
   DeclaredShadowPath declarations face left right -> ScopedInterval d -> PathBody context paths d a
 applyDeclaredShadowPath (ShadowAbstract body _ _) i = mapPathDimensions (atDimension i) body
+
+||| Generic boundary transport for any checked abstraction, with explicit
+||| recertification of the checks actually used at the ambient face.
+public export
+declaredShadowAtZero : {0 declarations : PathDeclarations context paths} ->
+  {0 face : ScopedFace d} -> {0 left, right : PathBody context paths d a} ->
+  (body : PathBody context paths (S d) a) ->
+  (zero : BodyEqual declarations (SConjunction (weakenFace face) (SEndpoint FZ False)) body (mapPathDimensions (Var . FS) left)) ->
+  (one : BodyEqual declarations (SConjunction (weakenFace face) (SEndpoint FZ True)) body (mapPathDimensions (Var . FS) right)) ->
+  DimensionEvidence (atDimension Zero) face zero ->
+  mapPathDimensions (atDimension Zero) (mapPathDimensions (Var . FS) left) = left ->
+  BodyEqual declarations face (applyDeclaredShadowPath (the (DeclaredShadowPath declarations face left right) (ShadowAbstract body zero one)) Zero) left
+declaredShadowAtZero body zero one cert endpoint =
+  rewrite sym endpoint in mapBodyEqualDimensions (atDimension Zero) _ zero cert
+
+public export
+declaredShadowAtOne : {0 declarations : PathDeclarations context paths} ->
+  {0 face : ScopedFace d} -> {0 left, right : PathBody context paths d a} ->
+  (body : PathBody context paths (S d) a) ->
+  (zero : BodyEqual declarations (SConjunction (weakenFace face) (SEndpoint FZ False)) body (mapPathDimensions (Var . FS) left)) ->
+  (one : BodyEqual declarations (SConjunction (weakenFace face) (SEndpoint FZ True)) body (mapPathDimensions (Var . FS) right)) ->
+  DimensionEvidence (atDimension One) face one ->
+  mapPathDimensions (atDimension One) (mapPathDimensions (Var . FS) right) = right ->
+  BodyEqual declarations face (applyDeclaredShadowPath (the (DeclaredShadowPath declarations face left right) (ShadowAbstract body zero one)) One) right
+declaredShadowAtOne body zero one cert endpoint =
+  rewrite sym endpoint in mapBodyEqualDimensions (atDimension One) _ one cert
+
+||| Certificate for the actual path and its chosen ambient face.
+public export
+ZeroApplicationEvidence : (face : ScopedFace d) -> (left, right : PathBody context paths d a) ->
+  DeclaredShadowPath declarations face left right -> Type
+ZeroApplicationEvidence face left right (ShadowAbstract body zero one) =
+  (DimensionEvidence (atDimension Zero) face zero,
+   mapPathDimensions (atDimension Zero) (mapPathDimensions (Var . FS) left) = left)
+
+public export
+shadowApplicationZero : (face : ScopedFace d) -> (left, right : PathBody context paths d a) ->
+  (path : DeclaredShadowPath declarations face left right) -> ZeroApplicationEvidence face left right path ->
+  BodyEqual declarations face (applyDeclaredShadowPath path Zero) left
+shadowApplicationZero face left right (ShadowAbstract body zero one) (cert, endpoint) =
+  declaredShadowAtZero body zero one cert endpoint
+
+public export
+OneApplicationEvidence : (face : ScopedFace d) -> (left, right : PathBody context paths d a) ->
+  DeclaredShadowPath declarations face left right -> Type
+OneApplicationEvidence face left right (ShadowAbstract body zero one) =
+  (DimensionEvidence (atDimension One) face one,
+   mapPathDimensions (atDimension One) (mapPathDimensions (Var . FS) right) = right)
+
+public export
+shadowApplicationOne : (face : ScopedFace d) -> (left, right : PathBody context paths d a) ->
+  (path : DeclaredShadowPath declarations face left right) -> OneApplicationEvidence face left right path ->
+  BodyEqual declarations face (applyDeclaredShadowPath path One) right
+shadowApplicationOne face left right (ShadowAbstract body zero one) (cert, endpoint) =
+  declaredShadowAtOne body zero one cert endpoint
 
 public export
 substituteDeclaredShadowPath : {0 context : Vect n LogicalType} -> {0 target : Vect m LogicalType} ->

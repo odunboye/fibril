@@ -354,3 +354,10 @@ for fixture in ShadowBodyFaceEscape ShadowBodyWrongPath ShadowAbstractWrongEndpo
   fi
 done
 echo 'Shadow body equality adversarial tests passed.'
+"$idris" -p fibril --check ShadowMappedFaceEscape.idr > "$tmp/shadow-mapped-face.log" 2>&1 || true
+if ! grep -Fq 'Mismatch between: True and False' "$tmp/shadow-mapped-face.log"; then
+  echo 'Negative mapped shadow face test failed for an unrelated reason:' >&2
+  cat "$tmp/shadow-mapped-face.log" >&2
+  exit 1
+fi
+echo 'Mapped shadow face escape negative test passed.'

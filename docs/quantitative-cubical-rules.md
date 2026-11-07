@@ -755,3 +755,27 @@ semantics, resource preservation, or reflection of erased uses.
 There is no API reflecting a `shadowTerm` into a source `Uses` derivation;
 the negative fixture checks the corresponding type mismatch, not a semantic
 nonexistence theorem.
+
+### Dimension transport of declared shadow boundaries
+
+`mapBodyEqualDimensions` transports any `BodyEqual` derivation along a scoped
+interval environment, directly to a chosen target face. `DimensionEvidence`
+mirrors only the derivation's actual rules: each endpoint is rechecked on the
+target face, and each restriction is rechecked against the mapped source face.
+This does not assume that bounded syntactic entailment is substitution-stable.
+`shadowApplicationZero` and `shadowApplicationOne` apply this to an arbitrary
+`DeclaredShadowPath`, with evidence for its actual boundary derivation and an
+explicit equality that weakening then endpoint substitution restores the
+endpoint body. Their conclusions are `BodyEqual` on the original ambient face,
+not unrestricted runtime equality. The endpoint body equality is an explicit
+premise, not yet a general substitution-composition lemma. Recertification can
+fail even for semantically valid equalities, so this is a conditional generic
+endpoint law, not an unconditional one.
+
+A concrete failure of substitution stability is checked in `Tests.Shadow`:
+`i=0` entails the zero endpoint of `i`, but substituting twelve nested
+reversals of zero exceeds `boundedEndpointEntails`' interval-node budget. Its
+`False` means non-acceptance, not semantic refutation. The negative
+`ShadowMappedFaceEscape` fixture also prevents changing an `i=0` endpoint
+proof into an `STop` proof without the necessary recertification. These shadow
+judgments carry no runtime or quantitative authority.
