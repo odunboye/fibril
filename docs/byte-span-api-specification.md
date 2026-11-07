@@ -15,9 +15,14 @@ split, and a byte-set span returning an immutable prefix/rest pair. Reuse `Bytes
 Bytes-specific sharing, existing Pair lowering, ordinary source variants and
 `primIterateBinary` with a small explicit callback allowance. Do not introduce
 `ByteExtent`, `ByteClass`, a general promotion facility or another iterator yet.
-The choice of 32 bounds work between source control decisions; it is not a body,
-token, header or product quota. All signatures below are proposed contracts in
-binder/structural notation, **not checked `.fib` declarations**.
+Split limits an assigned block to32 bytes; it does not bound all work between
+source control decisions. Generic span accepts arbitrary input and may inspect
+all of it. Bounded span scanning requires the caller to pass the split block,
+not the unsplit input. The existing all-matching4097-byte case in
+`test_maximal_prefix_and_preserved_failing_byte_charge` explicitly exercises that
+distinction. Width32 is not a body, token, header or product quota. All signatures
+below are proposed contracts in binder/structural notation, **not checked `.fib`
+declarations**.
 
 | Candidate | Benefit | Cost / reason not to choose it silently |
 | --- | --- | --- |
@@ -383,12 +388,26 @@ hidden preliminary length test. Repeated class validation and scans are charged
 again; any actual memoization may avoid repeated work, not invent a refund.
 
 Native per-byte work must debit the **existing global100000** steps before each
-inspection (or a safely reserved bound); memory debits existing16MiB arena before
+inspection; successful span scanning must charge exactly I inspected input bytes,
+including a failing first byte. Memory debits existing16MiB arena before
 allocation. No uncharged O(n) C helper under a single evaluator step. Account
 source wrapper reduction, ready byte fields, callback/application, pending-frame
 scheduling, bounds/empty checks, class setup and finalization in addition to I.
 Per-class fixed charges and actual allocations need exact lowering numbers in
 a future cost report; they are not measured by this memo.
+
+**Exact early-exit admission is required on both hosted and native paths.** For a
+long, otherwise-ready input whose first byte fails membership, let F account for
+all noninspection fixture costs (including validation, lookup and result
+metadata). With F+1 work available the operation must admit and publish the
+zero-prefix/original-rest result, charging I=1; with one unit less it must deny
+without publishing a span result. Input length must not affect that boundary.
+Any implementation reservation must preserve this exact debit and admission
+behavior: requiring the full input length up front is forbidden, even if unused
+work would later be refunded. If the existing work protocol cannot express this,
+it is an **IMPLEMENTATION BLOCKER**, not permission to weaken the policy.
+Future hosted/native fixtures must establish both boundaries; offline Python
+inspection counts or arithmetic are not metering/admission proof.
 
 **Blocking design obligation:** ordinary hosted pure reduction currently has no
 general byte-work debit path. Adding a pure O(n) scan as one contraction would
@@ -461,7 +480,7 @@ whole-parser successes. No C/Python protocol parser may replace Fibril source.
 | Loop / progress / suffix | Allowance0, early Done before processing and inside assigned block, Continue then Exhausted, empty buffer, repeated zero-span control, invalid byte first/middle/last; return in-block suffix before outer suffix, no extra callback/read/refill, explicit quota refusal and finalization callback. Distinct S/R payloads; retained fields demanded without deep-strictness claim. |
 | Lifetime / failures | Retain static, append-arena and session views through distinct later reads (mutated scratch negative control), nested callbacks, Done/Exhausted, later rejection and consumer demand; ASan/UBSan no UAF/double free on represented paths. Read/write/explicit/final-flush failure preserves prefixes/poison and skips later work/success flush; cleanup counters distinguish arena/session storage. |
 | Unicode / JSON | Every UTF8 continuation/escape/four-hex/surrogate/CRLF/number split around31/32/33 and4095/4096/4097; overlong, truncated, lone surrogate and >10FFFF; scalar NUL conversion vs raw JSON control vs escapedNUL; quote/backslash/control escapes and decoded serializer round trips, Unicode byte-length framing. Numbers leading zero, signs, fractions/exponents, delimiter retention, partial tokens; nesting and all duplicate values including overwritten invalid Unicode; trailing garbage/second root, complete-body gate. |
-| Resources / admission | Per-inspection fuel denial at failing-byte boundary, repeated/nested scans/loops share required work scope, arena/pending failure after earlier effects; whole-syntax hidden text/file/reference rejection including erased/dormant positions before IO; source rejection of linear capture/duplicate/drop and mismatched variants; actual composed entry construction/node/payload gates. |
+| Resources / admission | Hosted and emitted-native long first-byte-failing input with otherwise-ready operands: admit at noninspection fixture cost F+1, charge I=1 and preserve the failing byte/full suffix; deny at F with no published span result, independent of input length. No full-input reservation prerequisite. Per-inspection fuel denial at other failing-byte boundaries, repeated/nested scans/loops share required work scope, arena/pending failure after earlier effects; whole-syntax hidden text/file/reference rejection including erased/dormant positions before IO; source rejection of linear capture/duplicate/drop and mismatched variants; actual composed entry construction/node/payload gates. |
 | Workload | Preserve all current64-byte oracle cases first; after explicit larger-experiment approval, dense720-token initialize, escape-dense/control/long key strings, whitespace and4k body boundaries, Unicode document messages and two-frame suffix isolation. Require complete-body examination/exact expected fields and serializer output, not opaque echo or Read65 denial. No universal limit claim from samples. |
 | Live framing regression | Existing canonical framer still completes on fragmented complete input with stdin open, two max4096 bodies, early oversize refusal; generalized short complete header + open stdin remains explicitly blocked for wide fill-capacity reads until a separate transport decision. |
 
@@ -475,7 +494,10 @@ evidence; this task does not rerun them.
 
 ### Validation performed for this specification
 
-- `python3 tools/test_byte_span_contract.py -v`: seven offline model tests pass.
+- `python3 tools/test_byte_span_contract.py -v`: seven original offline model
+  tests plus two clarification regressions pass. The added cases distinguish an
+  unsplit4097-byte span from a split32-byte block and retain I=1 for a long
+  first-byte-failing input; neither implements a work ledger or proves admission.
 - `python3 tools/test_json_oracle.py`: eight existing offline oracle tests pass.
 - `python3 tools/generate_lsp_workload.py --check`:14 existing bodies/frames verify.
 - Local checks pass for all memo links, unique handbook registration, the proposal

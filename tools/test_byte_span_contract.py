@@ -110,6 +110,25 @@ class ByteSpanContractModel(unittest.TestCase):
                     self.assertEqual(repeated.inspections, 1)
                     self.assertEqual(repeated.rest, suffix)
 
+    def test_split_bounds_assigned_block_not_generic_span(self):
+        data = b"a" * 4097
+        bits = set_model({97})
+        unsplit = span_set_model(bits, data)
+        block, outer_rest = split32_model(data)
+        bounded = span_set_model(bits, block)
+        self.assertEqual(unsplit.inspections, 4097)
+        self.assertEqual(bounded.inspections, 32)
+        self.assertEqual(bounded.prefix + bounded.rest + outer_rest, data)
+
+    def test_long_first_failure_has_one_inspection_not_input_length(self):
+        # Contract counts only: no work ledger, reservation, denial or result-
+        # publication behavior is implemented/proven by this offline model.
+        bits = set_model({97})
+        for length in (1, 33, 4097, 65536):
+            data = b"!" + b"a" * (length - 1)
+            self.assertEqual(span_set_model(bits, data),
+                             SpanObservation("Spanned", b"", data, 1))
+
     def test_empty_and_full_sets(self):
         data = bytes(range(256))
         self.assertEqual(span_set_model(bytes(32), data),
