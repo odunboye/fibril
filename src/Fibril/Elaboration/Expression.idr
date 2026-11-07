@@ -212,6 +212,17 @@ namedConstructor (NQualifiedRef _ _) = True
 namedConstructor (NApply _ function _) = namedConstructor function
 namedConstructor _ = False
 
+||| The predecessor of a Nat pattern in a written `case` may be unrestricted exactly when
+||| the scrutinee is a variable bound unrestricted, so its resource can be duplicated.
+||| Any other scrutinee keeps the linear predecessor, and so do pattern clauses (their
+||| lowered scrutinee is named $clauseScrutinee): a clause must consume its predecessor
+||| exactly once. The core runtime check validates the choice either way.
+predecessorQuantity : Context n -> Vect n String -> Term n -> Quantity
+predecessorQuantity ctx env (Variable i) =
+  if lookupQuantity i ctx == Unrestricted && index i env /= "$clauseScrutinee"
+    then Unrestricted else Linear
+predecessorQuantity _ _ _ = Linear
+
 mutual
   ||| Visibility is accepted only on a checked module declaration's leading
   ||| erased prefix, followed by a source-authored ordinary Pi.
@@ -460,9 +471,9 @@ mutual
         Right (RecCase selected scrutinee base more)
       _ => Left (CannotElaborate span.start "Recursive case requires exactly two branches")
 
-  natCaseArms : Position -> List GlobalDefinition -> Context n -> Vect n String -> Term n -> Maybe (Term n) -> List (Token, List Token, Expr) -> Either ResolveError (List (Nat, Term n))
-  natCaseArms position globals ctx env ty hint [] = Right []
-  natCaseArms position globals ctx env ty@NatType hint ((name, binder, body) :: rest) = do
+  natCaseArms : Position -> Quantity -> List GlobalDefinition -> Context n -> Vect n String -> Term n -> Maybe (Term n) -> List (Token, List Token, Expr) -> Either ResolveError (List (Nat, Term n))
+  natCaseArms position predQ globals ctx env ty hint [] = Right []
+  natCaseArms position predQ globals ctx env ty@NatType hint ((name, binder, body) :: rest) = do
     if elem '.' (unpack name.spelling) then Right () else case lookupName name.spelling env of
       Just _ => Left (CannotElaborate name.span.start "Data-case constructor is shadowed by a local binder")
       Nothing => Right ()
@@ -489,19 +500,19 @@ mutual
             elaborateExpected globals ctx env result body
       (1, [bound]) => do
         result <- case hint of
-          Nothing => elaborateInWith globals (Just (Extend ctx Linear ty)) (bound.spelling :: env) body
+          Nothing => elaborateInWith globals (Just (Extend ctx predQ ty)) (bound.spelling :: env) body
           Just motive =>
             let actual = NatSucc (Variable FZ)
                 applied = Apply (weaken motive) actual
                 expectedResult = fromMaybe applied (guardedNormal typeReductionFuel applied) in
-              elaborateExpected globals (Extend ctx Linear ty) (bound.spelling :: env) expectedResult body
-        Right (Lambda Linear ty result)
+              elaborateExpected globals (Extend ctx predQ ty) (bound.spelling :: env) expectedResult body
+        Right (Lambda predQ ty result)
       _ => Left (CannotElaborate name.span.start "Nat-case constructor payload arity does not match its branch")
-    following <- natCaseArms position globals ctx env ty hint rest
+    following <- natCaseArms position predQ globals ctx env ty hint rest
     if any (\entry => fst entry == tag) following
       then Left (CannotElaborate name.span.start "Duplicate Nat-case constructor") else Right ()
     Right ((tag, branch) :: following)
-  natCaseArms position _ _ _ _ _ _ = Left (CannotElaborate position "Invalid Nat-case type")
+  natCaseArms position _ _ _ _ _ _ _ = Left (CannotElaborate position "Invalid Nat-case type")
 
   chooseExpectedNatMotive : Position -> Context n -> Term n -> Term n -> Term n -> Term n -> Term n -> Either ResolveError (Term n)
   chooseExpectedNatMotive position ctx ty scrutinee result base more = do
@@ -537,7 +548,7 @@ mutual
     let boundedHint = case hint of
           Just candidate => if typeNodes candidate <= inferredResultNodes && payloadSize candidate <= payloadLimit then Just candidate else Nothing
           Nothing => Nothing
-    checked <- natCaseArms span.start globals ctx env ty boundedHint arms
+    checked <- natCaseArms span.start (predecessorQuantity ctx env scrutinee) globals ctx env ty boundedHint arms
     ordered <- orderDataArms span.start 0 [Nothing, Just (Linear, ty)] checked
     case ordered of
       [base, more] => do
@@ -730,7 +741,7 @@ mutual
           let ctx = Extend context q domain
           let scope = argument.spelling :: env
           motive <- expectedDataMotive span.start NatType result (Variable FZ)
-          checked <- natCaseArms span.start globals ctx scope NatType (Just motive) [(zero, [], base)]
+          checked <- natCaseArms span.start Linear globals ctx scope NatType (Just motive) [(zero, [], base)]
           case checked of
             [(0, baseTerm)] => do
               let successorContext = Extend ctx Unrestricted NatType

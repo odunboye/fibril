@@ -388,9 +388,12 @@ Recursion: no argument decreases: recursive call 1 of 1 passes nothing smaller t
 Limits: only list, recursive-data and Nat case tails count as smaller, so
 recursion on other data is refused. A visible global with the declaration's own
 name, such as two ambiguous imports, blocks the fallback rather than being replaced
-by a self reference. Because source `Succ p` patterns bind a linear predecessor,
-recursion that passes it to an unrestricted parameter (for example Ackermann) is
-refused by usage checking until unrestricted patterns exist. The fallback inherits
+by a self reference. In a written `case`, `Succ p` binds an unrestricted
+predecessor when the scrutinee is an unrestricted variable, so `p` may be used
+twice ([Fibonacci](../examples/modules/general-recursion/Fibonacci.fib),
+[Ackermann](../examples/modules/general-recursion/Ackermann.fib)); on a linear
+scrutinee, and in pattern clauses, the predecessor stays linear and must be
+consumed exactly once. The fallback inherits
 the general elaborator's pattern resolution, which resolves a `Zero` pattern to
 the built-in constructor even when an identical `Zero` is imported. Mutual
 recursion beyond the bounded Nat/Bool pairs, native C emission and navigation from

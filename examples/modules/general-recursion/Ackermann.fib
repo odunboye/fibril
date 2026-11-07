@@ -1,0 +1,17 @@
+module Ackermann
+
+-- Not a structural shape: the inner call is an argument of the outer one, and m is
+-- reused after being matched. Accepted by the lexicographic decrease over (m, n).
+ack : (m : Nat) -> (n : Nat) -> Nat
+ack m n = case m of
+  Zero => Succ n
+  Succ p => case n of
+    Zero => ack p (Succ Zero)
+    Succ q => ack p (ack m q)
+
+marks : (1 count : Nat) -> String
+marks count = natRec (\(0 k : Nat) => String) ""
+  (\(0 k : Nat) => \(1 result : String) => appendString result "!") count
+
+main : IO Unit
+main = putStrLn (marks (ack (Succ Zero) (Succ Zero)))

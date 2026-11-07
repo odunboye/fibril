@@ -2795,6 +2795,20 @@ main = first Zero
         doubling = run('run', '--source-dir', str(root), str(root / 'Doubling.fib'))
         self.assertEqual(doubling.returncode, 0, doubling.stdout + doubling.stderr)
         self.assertEqual(doubling.stdout, '!!!!\n')
+        # An unrestricted scrutinee gives an unrestricted predecessor, so a pattern
+        # variable may be used twice: branching recursion (fib) and Ackermann.
+        for name in ('Fibonacci', 'Ackermann'):
+            unrestricted = run('run', '--source-dir', str(root), '--fuel', '4096', str(root / (name + '.fib')))
+            self.assertEqual(unrestricted.returncode, 0, name + unrestricted.stdout + unrestricted.stderr)
+            self.assertEqual(unrestricted.stdout, '!!!\n', name)
+        # The same Fibonacci with a LINEAR parameter keeps the linear predecessor, which
+        # cannot be used twice: the quantity of the scrutinee decides.
+        with tempfile.TemporaryDirectory() as directory:
+            linear = Path(directory) / 'Fibonacci.fib'
+            linear.write_text((root / 'Fibonacci.fib').read_text().replace('fib : (n : Nat)', 'fib : (1 n : Nat)'))
+            rejected = run('check', '--source-dir', directory, str(linear))
+            self.assertNotEqual(rejected.returncode, 0, rejected.stdout)
+            self.assertIn('Binder usage', rejected.stderr)
 
     def test_run_fuel_option_raises_the_planning_budget(self):
         def nat(n):
@@ -5933,14 +5947,19 @@ main = first Zero
                     rejected = project('run')
                     self.assertNotEqual(rejected.returncode, 0)
                     self.assertEqual(rejected.stdout, '')
-            for changed in [source.replace('(1 count : Nat)', '(count : Nat)', 1),
-                            source.replace('Succ smaller =>', 'Succ double =>'),
+            for changed in [source.replace('Succ smaller =>', 'Succ double =>'),
                             source.replace('double count = case count', 'double Zero = case Zero'),
                             source.replace('Zero => Zero', 'Zero => double Zero')]:
                 path.write_text(changed)
                 rejected = project('run')
                 self.assertNotEqual(rejected.returncode, 0)
                 self.assertEqual(rejected.stdout, '')
+            # An unrestricted count is outside the linear structural form, but its predecessor is
+            # then unrestricted too, so the general recursion path accepts it.
+            path.write_text(source.replace('(1 count : Nat)', '(count : Nat)', 1))
+            unrestricted = project('run')
+            self.assertEqual(unrestricted.returncode, 0, unrestricted.stdout + unrestricted.stderr)
+            self.assertEqual(unrestricted.stdout, '!!!!\n')
             # A visible imported name—even an identical alias—must not be
             # silently reinterpreted as a built-in constructor pattern.
             (root / 'Other.fib').write_text('module Other\nexport\nZero : Nat\nZero = Zero\n')
