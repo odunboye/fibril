@@ -60,6 +60,25 @@ for fixture in CommonAdmissionWrongIndex CommonAdmissionWrongPathIndex CommonAdm
   fi
 done
 echo 'Common admission scope, exact evidence and quantity negatives passed.'
+
+for fixture in CommonEqualityAdmissionWrongFace CommonEqualityAdmissionWrongIntermediate CommonEqualityAdmissionWrongType CommonEqualityAdmissionWrongContext CommonEqualityAdmissionUsesReflection; do
+  "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1 || true
+  case "$fixture" in
+    CommonEqualityAdmissionWrongFace) expected='Mismatch between: STop and SBottom.' ;;
+    CommonEqualityAdmissionWrongIntermediate) expected='Mismatch between: True and False.' ;;
+    CommonEqualityAdmissionWrongType|CommonEqualityAdmissionWrongContext) expected='Mismatch between: LBool and LUnit.' ;;
+    CommonEqualityAdmissionUsesReflection) expected='Mismatch between: CommonFaceEqual' ;;
+  esac
+  if [[ $(grep -c '^Error:' "$tmp/$fixture.log") -ne 1 ]] ||
+     ! grep -Fq 'Error: While processing right hand side of bad.' "$tmp/$fixture.log" ||
+     ! grep -Fq "$expected" "$tmp/$fixture.log" ||
+     grep -Eq 'Undefined name|While processing type of' "$tmp/$fixture.log"; then
+    echo "Common equality admission negative test failed: $fixture" >&2
+    cat "$tmp/$fixture.log" >&2; exit 1
+  fi
+done
+echo 'Common equality admission exact face, intermediate, type, context and quantity negatives passed.'
+
 for fixture in CommonAbstractWrongFace CommonAbstractWrongIndex CommonAbstractWrongBoundary; do
   "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1 || true
   case "$fixture" in

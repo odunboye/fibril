@@ -33,9 +33,9 @@ remain in the source quantitative judgment.
 | --- | --- | --- | --- |
 | Ordinary formation/typing | `CommonTerm`, `CommonHasType` | Scoped variables, Unit/Bool, lambda/application, conditional, unit elimination | `CommonAdmission` admits scoped annotated raw typing; production correspondence remains open |
 | Ordinary substitution | `CommonSubstitutionTyped`, `substituteCommonTyped` | Typed environments preserve ordinary typing; translation commutation | Production checker correspondence |
-| Dimension-scoped bodies | `CommonPathTerm`, `CommonPathHasType` | Ordinary embeddings, named application, lambda/application, if/unit | `CommonAdmission` admits scoped annotated bodies; equality/abstraction admission remains open |
-| Named declarations | `CommonDeclarations`, `CommonDeclaredPath` | Dimension-independent typed ordinary endpoints, exact typed name lookup | Automatic semantic witness construction and admission contract |
-| Face equality | `CommonFaceEqual` | Typed reflexivity, declared endpoints, symmetry/transitivity, stronger-face restriction, app/if/unit congruence | General soundness evidence construction; no lambda equality or beta/eta rule is added |
+| Dimension-scoped bodies | `CommonPathTerm`, `CommonPathHasType` | Ordinary embeddings, named application, lambda/application, if/unit | `CommonAdmission` admits scoped annotated bodies and reflexive-generator equality; endpoint/abstraction admission remains open |
+| Named declarations | `CommonDeclarations`, `CommonDeclaredPath` | Dimension-independent typed ordinary endpoints, exact typed name lookup | `CommonAdmission` checks raw endpoints and constructs witnesses; canonical semantic admissibility remains open |
+| Face equality | `CommonFaceEqual` | Typed reflexivity, declared endpoints, symmetry/transitivity, stronger-face restriction, app/if/unit congruence | `CommonAdmission` constructs reflexive-generator evidence; endpoints/restriction remain unsupported; no lambda equality or beta/eta rule is added |
 | Homogeneous abstraction | `CommonShadowPath` / `CommonAbstract` | Typed body under fresh dimension and both actual face-restricted boundaries | Automatic construction of complete semantic certificates |
 | Application | `applyCommonShadowPath` | Capture-avoiding substitution for fresh dimension | Production elaboration/reduction correspondence |
 | Term substitution of judgments | `substituteCommonDeclarations`, `substituteCommonFaceEqual`, `substituteCommonShadowPath` | Independent typed substitution preserves declarations/equalities/abstractions | Integrated quantitative cubical preservation |
@@ -71,7 +71,8 @@ ownership checks remain separately authoritative for execution.
 
 The selected calculus itself is a declarative Idris proof interface.
 `CommonAdmission` now supplies a bounded, evidence-producing first typing slice
-for scoped annotated raw ordinary/path syntax; see [its exact contract](common-admission.md).
+for scoped annotated raw ordinary/path syntax and a first-order reflexive-generator
+equality certificate slice; see [its exact contract](common-admission.md).
 `TypedPathChecker` is not its checker. No successful common admission API yet
 guarantees construction of all equality/abstraction semantic evidence.
 
@@ -87,7 +88,7 @@ untrusted time/allocation guarantee.
 | Modules | Role after freeze |
 | --- | --- |
 | `ShadowCommon` | Authoritative v0 judgments and selected dependent semantic model |
-| `CommonAdmission` | Isolated scoped annotated typing admission with actual derivations and computational witnesses; no equality/abstraction admission |
+| `CommonAdmission` | Isolated annotated typing, raw declarations and reflexive-generator equality admission with exact computational/semantic evidence; no endpoint/restriction/abstraction admission |
 | `Shadow`, `ShadowSubstitution` | Intrinsic pure source-shadow language and proved source translation dependencies |
 | `ShadowPath` | Source-side path representation and translation/recertification dependency; not a competing production language |
 | `ShadowTypedBridge` | Restricted compatibility bridge; not the type-preserving v0 target |
@@ -114,7 +115,9 @@ execution or ownership soundness theorem follows from v0.
 
 The [first admission slice](common-admission.md) constructs exact ordinary/path
 typing and computational witnesses, without caller-supplied conclusions. It does
-not complete equality, declaration or abstraction admission. Before adding
+not complete non-reflexive equality or abstraction admission. Raw declarations and
+reflexive-generator certificates are now checked automatically; no endpoint or
+restriction requests succeed, and no new conversion equations follow. Before adding
 language rules, complete a raw-input interface that:
 
 1. Admits exact ordinary, named-path, dimension and face contexts.

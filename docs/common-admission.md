@@ -1,12 +1,13 @@
-# CommonAdmission: first evidence-producing slice
+# CommonAdmission: bounded typing and reflexive equality admission
 
-`Fibril.Cubical.Logical.CommonAdmission` admits **typing**, not a new calculus,
+`Fibril.Cubical.Logical.CommonAdmission` admits **typing and a reflexive-generator
+equality certificate slice**, not a new calculus,
 conversion procedure, or production bridge. Common Path v0 in
 `cubical-experiment-contract.md` remains authoritative. No v0 rule changed.
 
 ## Exact input and successful output
 
-The public entry points are:
+The original typing entry points are:
 
 - `admitCommonTerm budget ctx raw expected`
 - `admitCommonPathTerm budget ctx paths dimensions raw expected`
@@ -62,11 +63,13 @@ Named path environments are retained under ordinary binders, as in v0.
    allowance, never a fresh copy of the original fuel.
 
 `Left InputLimit`, `Left CheckingLimit`, and `Left TypeMismatch` are distinct
-fail-closed results. An unsupported language feature has no constructor or
-admission entry point here: in particular equality, abstraction, globals,
-recursion and effects cannot be routed through a fallback. There is no production
+fail-closed results. For these typing entry points, abstraction, globals,
+recursion and effects
+have no constructors or fallback. The equality entry point below separately
+reports unsupported endpoint/restriction requests. There is no production
 checker/runtime fallback and no solver invoked by these entry points. Thus there
-is no face-solver or expansion budget yet. Such budgets must be explicit before
+is no solver invocation or expansion budget in the supported slice. Such budgets
+must be explicit before
 those operations are added, not silently equated with these two allowances.
 
 This is **not** a whole time/allocation/resource theorem. It does not bound the
@@ -83,8 +86,9 @@ context. The chosen `dependentPathSemantics` interprets the returned witness in
 the **environment-dependent** higher-order setoid model. A vector of named-path
 types is not a declaration context and asserts no endpoint equations.
 
-A future declaration/equality/abstraction admission interface must retain and
-construct the following exact v0 evidence, without replacing it with a Boolean:
+The complete declaration/equality/abstraction gate must retain the following
+exact v0 evidence, without replacing it with a Boolean. The reflexive-generator
+slice below now constructs items 1 and 2 for its supported grammar:
 
 1. `CommonDeclarations ctx paths`, each declaration's exact ordinary endpoints,
    their `CommonHasType` derivations and accessible `HigherOrderTerm` witnesses.
@@ -118,8 +122,10 @@ construct the following exact v0 evidence, without replacing it with a Boolean:
    must rebuild the actual judgments and renew checks/evidence, never assume
    unconditional stability of solver acceptance or semantic certificates.
 
-**None of equality, declaration endpoint admission, or abstraction certificate
-construction is automatic in this slice.** Existing witness dimension mapping is
+**Non-reflexive endpoint equality and abstraction certificate construction
+remain unimplemented.** Raw declaration endpoint typing and the bounded
+reflexive-generator equality slice below are automatic. Existing witness
+dimension mapping is
 available, but is not an admission/resource theorem for host substitutions or
 automatic recertification of equality/abstraction boundaries.
 
@@ -153,3 +159,101 @@ bash tools/test_cubical_worktree.sh
 ```
 
 Broader hosted/native/ownership integration remains a separate production gate.
+
+## Raw equality certificate admission (reflexive generators only)
+
+`admitCommonEquality budget ctx declarations face left right expected certificate`
+accepts scoped annotated raw path terms, a finite ordinary type context, raw
+`AdmissionDeclarations`, the actual face and expected result type, and a
+**first-order** `AdmissionEquality` tree. No input is a target typing derivation,
+equality, computational witness, structural alignment, or semantic equation.
+
+`ADCons type left right rest` declares actual annotated ordinary endpoint terms.
+Each endpoint is checked independently against that declared type with the prior
+ordinary checker; each keeps its accessible `AdmittedTerm` witness. Named types
+are derived from those declarations, not supplied as a second unchecked vector.
+`checkedDeclarations` constructs the exact authoritative `CommonDeclarations`.
+Name lookup therefore checks the actual declared type, including nonzero indices.
+
+Supported certificate constructors are `AERefl`, `AESym`, `AETrans middle c1 c2`,
+`AEApp domain cf cx`, `AEIf cc ct cf`, and `AEUnitElim cx cb`. The application domain
+must match the retained raw application annotation and checked witness domain.
+Congruence constructors must match the raw path constructor; ordinary embeddings
+can use reflexivity on arbitrary ordinary lambda/application syntax, but cannot
+pretend to be a path congruence constructor. There is no lambda congruence rule,
+beta/eta reduction, or new calculus.
+
+**These generators prove no new non-reflexive conversion.** This is certificate
+plumbing integrated with the typing checker, not completion of the equality gate.
+All supported conclusions have identical annotated endpoints. Constructive
+`Maybe (left = right)` checks retain application annotations, indices, Boolean
+literals and interval syntax. Every transitivity middle must be that same exact
+annotated raw term. Two independently typable terms with the same erasure but
+different application-domain annotations are rejected with `SyntaxMismatch`.
+A type mismatch reports `TypeMismatch`; neither result proves semantic inequality.
+
+Success, `AdmittedEqualityInput`, retains admitted declarations and
+`AdmittedEquality` indexed by those **same** declarations, face, raw endpoints and
+expected result. It provides an exact `CommonFaceEqual`, both exact typing and
+computational witnesses, and `equalityEvidence`: a function producing
+`DependentEndpointFaceEvidence` for **any actual** dependent semantic path
+environment `ps` and its `DependentPathAdmissible declarations ps`. The checker
+automatically builds self-structural alignments and composes the authoritative
+symmetry/transitivity/app/if/unit evidence constructors. Constructive raw equality
+allows both endpoints and all transitivity middles to reuse the **same admitted
+witness**; no theorem of coherence merely from equal erasure is assumed.
+`dependentEndpointFaceEvidenceSound` is directly callable on this returned evidence.
+Model admissibility is an allowed interpretation assumption, not an assumption of
+the target equality. No manual semantic certificate is needed for success.
+
+### Unsupported endpoint/restriction and the remaining gate
+
+`AEEndpoint name interval side` and `AERestrict source certificate` explicitly
+return `UnsupportedEquality`, including when nested. Their full syntax is still
+preflighted before that status. There is no endpoint entailment solver or
+restriction solver call, and therefore no implicit or uncapped solver fallback.
+Any future such solver must expose independent caps; this API claims no solver
+completeness or total cost bound.
+
+A raw declaration's canonical admitted endpoint witness does **not** force an
+arbitrary `DependentPathAdmissible` proof to select that witness: admissibility
+can select differently annotated computational witnesses of the same erased
+endpoint. Uniform `HigherOrderAlignment` between such witnesses cannot be
+inferred from erasure. Endpoint admission must first index actual admissibility
+by canonical admitted witnesses and construct uniform structural alignment
+providers (or prove an appropriate coherence result). It must not fabricate
+admissibility, request the target semantic equation, or take a manual semantic
+certificate. This slice deliberately leaves endpoints unsupported until then.
+
+Homogeneous abstraction, automatically admitted boundaries, equality dimension
+recertification, non-reflexive open named-path equality, and the full first
+end-to-end path gate remain open. Existing dimension mapping of returned typing
+witnesses is tested, but is not automatic mapping of equality certificates.
+
+### Budgets and evidence
+
+One shared `inputNodes` preflight traverses the ordinary context, declaration
+cells/types/**both** endpoint terms, dimension scope, face, both target terms,
+expected type, and **all** certificate branches, annotations and middle terms,
+including unsupported requests. It finishes before erasure, context derivation,
+constructive comparison, or checking. One shared `checkingNodes` allowance then
+counts declaration cells (including terminator), all independently checked
+endpoint typing nodes, target typing nodes, and certificate nodes. Identical
+right/middle typing reuses constructive equality rather than rechecking with
+fresh fuel. All siblings receive remaining fuel, never a branch reset.
+Structural alignment construction and constructive comparison are bounded by
+preflighted syntax but are not separately metered operations; there is no formal
+combined time/allocation theorem, evaluation or substitution in admission.
+
+`Tests.Cubical.CommonEqualityAdmission` executes both automatically returned
+witnesses of an actual source Boolean `If` with independent `Uses ... [Linear]`,
+and invokes authoritative semantic soundness with returned evidence. It checks
+arbitrary higher-order lambda/application reflexivity, each congruence, exact
+annotation/intermediate/domain/context/name mismatches, unsupported requests and
+preflight exhaustion. Exact runtime fuel boundaries are 3/4 for a leaf, 5/6 for
+transitivity, 11/12 for conditional congruence, and 9/10 for leaf input preflight.
+An open nonconstant named path is observed at both endpoints and after dimension
+substitution; `openSound` typechecks the uniform provider under actual model
+admissibility. These observations do not assert admitted endpoint equality.
+Five new diagnostic-specific compile negatives prevent changing the returned
+face, intermediate/right term, type, context, or reflecting equality into `Uses`.
