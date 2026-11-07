@@ -454,6 +454,10 @@
         "path": "examples/manifests/README.md"
       },
       {
+        "title": "Recursion tour",
+        "path": "examples/modules/recursion-tour/README.md"
+      },
+      {
         "title": "Proposed univalence example",
         "path": "examples/proposed/03-univalence.md"
       },
