@@ -1324,32 +1324,38 @@ compileDeclarations snapshot name globals (Single decl :: rest) remaining = do
   if implicitPrefix > 0 && not (validImplicitPrefix decl.generated implicitPrefix ty)
     then Left (problem snapshot (Just decl.nameSpan.start) "Implicit metadata does not match an erased leading Pi prefix followed by an explicit Pi")
     else Right ()
-  recursive <- case natRecursiveEquation globals decl.name ty decl.value of
+  -- Clause bodies are rejected for self-reference during parsing and must not
+  -- enter the separate, shape-sensitive structural recursion admission.
+  let recursionValue = case decl.value of
+        NEquationLambda span [argument] _ _ =>
+          if argument.spelling == "$clauseScrutinee" then NRef span "$clauseScrutinee" else decl.value
+        _ => decl.value
+  recursive <- case natRecursiveEquation globals decl.name ty recursionValue of
     Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
     Right candidate => Right candidate
   recursive <- the (Either GraphError (Maybe (Term 0))) $ case recursive of
     Just result => Right (Just result)
-    Nothing => case unaryRecursiveEquation globals decl.name ty decl.value of
+    Nothing => case unaryRecursiveEquation globals decl.name ty recursionValue of
       Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
       Right candidate => Right candidate
   recursive <- the (Either GraphError (Maybe (Term 0))) $ case recursive of
     Just result => Right (Just result)
-    Nothing => case sequenceRecursiveEquation globals decl.name ty decl.value of
+    Nothing => case sequenceRecursiveEquation globals decl.name ty recursionValue of
       Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
       Right candidate => Right candidate
   recursive <- the (Either GraphError (Maybe (Term 0))) $ case recursive of
     Just result => Right (Just result)
-    Nothing => case accumulatorSequenceEquation globals decl.name implicitPrefix ty decl.value of
+    Nothing => case accumulatorSequenceEquation globals decl.name implicitPrefix ty recursionValue of
       Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
       Right candidate => Right candidate
   recursive <- the (Either GraphError (Maybe (Term 0))) $ case recursive of
     Just result => Right (Just result)
-    Nothing => case polymorphicSequenceEquation globals decl.name (implicitPrefix == 1) ty decl.value of
+    Nothing => case polymorphicSequenceEquation globals decl.name (implicitPrefix == 1) ty recursionValue of
       Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
       Right candidate => Right candidate
   recursive <- the (Either GraphError (Maybe (Term 0))) $ case recursive of
     Just result => Right (Just result)
-    Nothing => case uniformStructuralEquation globals decl.name implicitPrefix ty decl.value of
+    Nothing => case uniformStructuralEquation globals decl.name implicitPrefix ty recursionValue of
       Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
       Right candidate => Right candidate
   value <- case recursive of

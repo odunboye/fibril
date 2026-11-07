@@ -14,6 +14,7 @@ build: prelude-check
 test: build
 	$(PACK) test fibril
 	python3 tools/test_cli.py
+	python3 tools/test_pattern_clauses.py
 	CC="$(CC)" python3 tools/test_native.py
 	CC="$(CC)" python3 tools/test_io_cli.py
 

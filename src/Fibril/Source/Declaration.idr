@@ -40,6 +40,57 @@ equationArguments (S budget) end line seen tokens@(item :: rest) =
     (later, remaining) <- equationArguments budget end line (item.spelling :: seen) rest
     Right (item :: later, remaining)
 
+-- Only a parsed qualified reference exempts its final name from the
+-- conservative self-reference check. Other name occurrences remain rejected.
+clauseSelfReference : Nat -> Position -> String -> List Token -> Bool
+clauseSelfReference budget end name = scan []
+  where
+    scan : List Token -> List Token -> Bool
+    scan previous [] = False
+    scan previous (token :: rest) =
+      let qualified = case previous of
+            dot :: qualifier :: _ =>
+              if dot.kind == Dot && qualifier.kind == Name then
+                case parseExpression budget end [qualifier, dot, token] of
+                  Right (NQualifiedRef _ _) => True
+                  _ => False
+              else False
+            _ => False in
+      (token.kind == Name && token.spelling == name && not qualified) ||
+      scan (token :: previous) rest
+
+-- This first clause form has exactly one matched argument and flat,
+-- unqualified constructors with at most one payload binder.
+clauseArm : Nat -> String -> Position -> List Token -> Expr -> List Token ->
+            Either ParseError (Token, List Token, Expr)
+clauseArm budget function end arguments body bodyTokens = do
+  if any (\t => t.kind == Name && t.spelling == function) arguments || clauseSelfReference budget end function bodyTokens
+    then Left (ParseFailure (extent body).start "Recursive function clauses are not supported") else Right ()
+  case arguments of
+    [constructor] => Right (constructor, [], body)
+    [constructor, binder] =>
+      if binder.spelling == "_" then Left (ParseFailure binder.span.start "Clause payload must be a named binder")
+      else Right (constructor, [binder], body)
+    _ => Left (ParseFailure end "Function clauses require one flat constructor pattern")
+
+clauseArms : Nat -> Nat -> Nat -> Position -> String -> List Token ->
+             Either ParseError (List (Token, List Token, Expr), List Token)
+clauseArms Z column budget end name tokens = Left (ParseFailure (nextPosition end tokens) "Function clause budget exhausted")
+clauseArms (S fuel) column budget end name tokens = case tokens of
+  next :: following :: rest =>
+    if next.kind == Name && next.spelling == name && next.span.start.column == column && following.kind /= Colon
+    then do
+      (args, beforeEquals) <- equationArguments budget end next.span.start.line [] (following :: rest)
+      (equals, afterEquals) <- expect Equals end beforeEquals
+      if equals.span.start.line /= next.span.start.line then Left (ParseFailure equals.span.start "Clause = must share the definition line") else Right ()
+      let (bodyTokens, remaining) = expressionChunkAt column next.span.start.line afterEquals
+      body <- parseExpression budget (nextPosition end remaining) bodyTokens
+      arm <- clauseArm budget name next.span.start args body bodyTokens
+      (arms, remaining) <- clauseArms fuel column budget end name remaining
+      Right (arm :: arms, remaining)
+    else Right ([], tokens)
+  _ => Right ([], tokens)
+
 parsePairFramed : Nat -> Nat -> Nat -> Position -> List Token ->
            Either ParseError (Declaration, List Token)
 parsePairFramed column definitionColumn expressionBudget end [] = Left (ParseFailure end "Expected declaration signature")
@@ -72,11 +123,33 @@ parsePairFramed column definitionColumn expressionBudget end tokens@(first :: _)
      else Right ()
   let (valueTokens, remaining) = expressionChunkAt definitionColumn definedName.span.start.line afterEquals
   body <- parseExpression expressionBudget (nextPosition end remaining) valueTokens
-  let value = case arguments of
-        [] => body
-        first :: _ => NEquationLambda (Between first.span.start (extent body).finish) arguments expected body
-  Right (Defined (Between first.span.start (extent body).finish)
-                 name.span definedName.span False q name.spelling expected value, remaining)
+  case remaining of
+    next :: following :: _ =>
+      if next.kind == Name && next.spelling == name.spelling &&
+         next.span.start.column == definitionColumn && following.kind /= Colon
+      then if column /= 1 || definitionColumn /= 1
+        then Left (ParseFailure next.span.start "Multiple function clauses are not supported; use a case expression")
+        else do
+          firstArm <- clauseArm expressionBudget name.spelling definedName.span.start arguments body valueTokens
+          (later, remaining) <- clauseArms expressionBudget definitionColumn expressionBudget end name.spelling remaining
+          let finish = case reverse later of
+                (_, _, last) :: _ => (extent last).finish
+                [] => (extent body).finish
+          let synthetic = Located Name "$clauseScrutinee" (Between definedName.span.finish definedName.span.finish)
+          let caseBody = NDataCase (Between definedName.span.start finish)
+                           (NRef synthetic.span synthetic.spelling) Nothing (firstArm :: later)
+          let value = NEquationLambda (Between definedName.span.start finish) [synthetic] expected caseBody
+          Right (Defined (Between first.span.start finish) name.span definedName.span False q name.spelling expected value, remaining)
+      else ordinary name definedName first q expected arguments body remaining
+    _ => ordinary name definedName first q expected arguments body remaining
+  where
+    ordinary : Token -> Token -> Token -> Quantity -> Expr -> List Token -> Expr -> List Token -> Either ParseError (Declaration, List Token)
+    ordinary name definedName first q expected arguments body remaining =
+      let value = case arguments of
+            [] => body
+            first :: _ => NEquationLambda (Between first.span.start (extent body).finish) arguments expected body in
+      Right (Defined (Between first.span.start (extent body).finish)
+                     name.span definedName.span False q name.spelling expected value, remaining)
 
 
 parsePairAt : Nat -> Nat -> Position -> List Token -> Either ParseError (Declaration, List Token)

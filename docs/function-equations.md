@@ -46,15 +46,32 @@ signature. Thus `T` is erased and `item` is linear; using an erased input at
 runtime or duplicating/discarding a linear input is rejected just as with an
 explicit lambda. A plain `A -> B` has the existing unrestricted quantity.
 
-The first slice requires a signature followed by **one** definition equation.
+Ordinary single equations require a signature followed by one definition.
 Parameters are bare names or `_`, occupy the definition header line, and are
-unique except for wildcard `_`. **Every bare name, including an uppercase name,
-is a binder—not a constructor pattern.** `_` does not grant permission to discard
-a linear input. Nested constructor patterns, multiple clauses, guards, inferred signatures,
-general recursive definitions and termination checking are not added. Small
-structural Nat, unary-data and list-shaped equations are the exceptions below. Keep using
-[direct data cases](direct-data-cases.md) in the body for existing nonrecursive
-data matching; constant and supported expected-dependent motives can be [inferred](data-motive-inference.md). Imported qualified function calls retain ordinary visibility rules.
+unique except for wildcard `_`. In a single equation every bare name, including
+an uppercase name, is a binder, not a constructor pattern. `_` does not grant
+permission to discard a linear input.
+
+A named module also admits two or more consecutive column-one equations for the
+same signature as a nonrecursive constructor-clause group. Each clause matches
+exactly one argument with a flat, unqualified constructor and zero or one named
+payload binder; the signature must expose a corresponding explicit Pi. The group lowers to the existing data case, so its constructor shape,
+exhaustiveness, motive inference and linear usage remain subject to those case
+rules. A lone constructor-looking equation remains an ordinary binder equation.
+Nested patterns, wildcard payloads, multiple matched arguments, guards, local or
+mutual clause groups, inferred signatures and general recursive clauses are not
+supported. The conservative clause recursion check rejects the function's bare
+name even in binder positions; qualified references such as `Other.f` are
+ordinary references. Use [direct data cases](direct-data-cases.md) for forms
+outside this slice. Small structural Nat, unary-data and list-shaped equations
+are separate exceptions below, not general termination checking.
+
+Same-file definition and references include every clause header and supported
+constructor and payload occurrences. Rename is capture-checked and same-file
+only, and currently rejects documents with module headers; named modules cannot
+use rename preview. Checked project definition uses the existing project navigation
+rules. Formatting and other tooling do not acquire additional clause-specific
+semantics.
 
 Fewer named parameters than explicit Pis are allowed: the body must itself supply
 the remaining function value and still check. More names than Pis fail at the
