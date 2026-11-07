@@ -342,6 +342,60 @@ boundedShadowFacePreflight {n} {d} bounds env source =
     shadowMappedFaceNodes (outputNodes bounds) env source
   else Nothing
 
+-- All three allowances are threaded left to right across the entire proof.
+shadowProofPreflight : {0 declarations : PathDeclarations context paths} ->
+  {0 face : ScopedFace n} -> {0 x, y : PathBody context paths n a} ->
+  Nat -> Nat -> Nat -> Vect n (ScopedInterval d) ->
+  BodyEqual declarations face x y -> Maybe (Nat, Nat, Nat)
+shadowProofPreflight Z input output env eq = Nothing
+shadowProofPreflight (S fuel) input output env BodyRefl = Just (fuel, input, output)
+shadowProofPreflight (S fuel) input output env (BodySym eq) =
+  shadowProofPreflight fuel input output env eq
+shadowProofPreflight (S fuel) input output env (BodyTrans x y) = do
+  (f, i, o) <- shadowProofPreflight fuel input output env x
+  shadowProofPreflight f i o env y
+shadowProofPreflight (S fuel) input output env (BodyEndpoint (DeclaredLeft {i} p entails)) = do
+  rest <- intervalNodes input i
+  out <- shadowMappedIntervalNodes output env i
+  Just (fuel, rest, out)
+shadowProofPreflight (S fuel) input output env (BodyEndpoint (DeclaredRight {i} p entails)) = do
+  rest <- intervalNodes input i
+  out <- shadowMappedIntervalNodes output env i
+  Just (fuel, rest, out)
+shadowProofPreflight (S fuel) input output env (BodyRestrict {source} eq entails) = do
+  rest <- faceNodes input source
+  out <- shadowMappedFaceNodes output env source
+  out2 <- shadowMappedFaceNodes out env source
+  shadowProofPreflight fuel rest out2 env eq
+shadowProofPreflight (S fuel) input output env (BodyAppEqual x y) = do
+  (f, i, o) <- shadowProofPreflight fuel input output env x
+  shadowProofPreflight f i o env y
+shadowProofPreflight (S fuel) input output env (BodyIfEqual x y z) = do
+  (f, i, o) <- shadowProofPreflight fuel input output env x
+  (f2, i2, o2) <- shadowProofPreflight f i o env y
+  shadowProofPreflight f2 i2 o2 env z
+shadowProofPreflight (S fuel) input output env (BodyUnitElimEqual x y) = do
+  (f, i, o) <- shadowProofPreflight fuel input output env x
+  shadowProofPreflight f i o env y
+
+||| Checks retained proof fields before constructing any substituted syntax.
+||| Input allowance includes the whole environment and target face; output
+||| allowance counts every endpoint and twice every restriction substitution.
+||| This does not bound solver internals, Fin indexing, unary fuel, erased
+||| indices, or the cost of producing or evaluating the supplied inputs.
+public export
+boundedShadowProofPreflight : {n, d : Nat} ->
+  {0 declarations : PathDeclarations context paths} -> {0 face : ScopedFace n} ->
+  {0 x, y : PathBody context paths n a} ->
+  ShadowSubstitutionBounds -> Nat -> Vect n (ScopedInterval d) ->
+  ScopedFace d -> BodyEqual declarations face x y -> Maybe (Nat, Nat, Nat)
+boundedShadowProofPreflight {n} {d} bounds fuel env target eq =
+  if n <= maxScope bounds && d <= maxScope bounds then do
+    rest <- shadowEnvironmentNodes (inputNodes bounds) env
+    rest2 <- faceNodes rest target
+    shadowProofPreflight fuel rest2 (outputNodes bounds) env eq
+  else Nothing
+
 ||| Trusted-host recertification: fuel counts proof nodes, shared left to right.
 ||| Substitution functions and their results are not resource bounded.
 public export
@@ -395,6 +449,21 @@ recertifyDimensionEvidence (S fuel) env target (BodyUnitElimEqual x b) =
     (remaining, Just cx) => case recertifyDimensionEvidence remaining env target b of
       (rest, Nothing) => (rest, Nothing)
       (rest, Just cb) => (rest, Just (DimUnitElim cx cb))
+
+||| Finite admission precedes the existing recertifier. Success carries
+||| evidence for precisely the supplied proof and target, not a time bound.
+public export
+recertifyFiniteDimensionEvidence : {n, d : Nat} ->
+  {0 declarations : PathDeclarations context paths} -> {0 face : ScopedFace n} ->
+  {0 x, y : PathBody context paths n a} ->
+  (bounds : ShadowSubstitutionBounds) -> (fuel : Nat) ->
+  (env : Vect n (ScopedInterval d)) -> (target : ScopedFace d) ->
+  (eq : BodyEqual declarations face x y) ->
+  Maybe (DimensionEvidence (\i => index i env) target eq)
+recertifyFiniteDimensionEvidence bounds fuel env target eq =
+  case boundedShadowProofPreflight bounds fuel env target eq of
+    Nothing => Nothing
+    Just _ => snd (recertifyDimensionEvidence fuel (\i => index i env) target eq)
 
 public export
 mapBodyEqualDimensions : {0 declarations : PathDeclarations context paths} ->

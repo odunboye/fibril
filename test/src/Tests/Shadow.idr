@@ -308,6 +308,19 @@ restrictedEndpoint : BodyEqual Tests.Shadow.shadowDeclarations (the (ScopedFace 
   (NeutralAt LHere (Var FZ)) (Embed (shadowTerm Tests.Shadow.linearSource))
 restrictedEndpoint = BodyRestrict {source = SEndpoint FZ False} Tests.Shadow.bodyEndpointEqual Refl
 
+nestedRestrictedEndpoint : BodyEqual Tests.Shadow.shadowDeclarations (the (ScopedFace 1) (SEndpoint FZ False))
+  (NeutralAt LHere (Var FZ)) (Embed (shadowTerm Tests.Shadow.linearSource))
+nestedRestrictedEndpoint = BodyRestrict {source = SEndpoint FZ False} Tests.Shadow.restrictedEndpoint Refl
+
+allBranchesEndpoint : BodyEqual Tests.Shadow.shadowDeclarations (the (ScopedFace 1) (SEndpoint FZ False))
+  (BodyIf (NeutralAt LHere (Var FZ)) (NeutralAt LHere (Var FZ)) (NeutralAt LHere (Var FZ)))
+  (BodyIf (Embed (shadowTerm Tests.Shadow.linearSource)) (Embed (shadowTerm Tests.Shadow.linearSource)) (Embed (shadowTerm Tests.Shadow.linearSource)))
+allBranchesEndpoint = BodyIfEqual Tests.Shadow.bodyEndpointEqual Tests.Shadow.bodyEndpointEqual Tests.Shadow.bodyEndpointEqual
+
+largeRestriction : BodyEqual Tests.Shadow.shadowDeclarations (the (ScopedFace 1) SBottom)
+  (Embed (LBoolean True)) (Embed (LBoolean True))
+largeRestriction = BodyRestrict {source = SConjunction STop (SConjunction STop STop)} BodyRefl Refl
+
 laterTransEndpoint : BodyEqual Tests.Shadow.shadowDeclarations (the (ScopedFace 1) (SEndpoint FZ False))
   (NeutralAt LHere (Var FZ)) (Embed (shadowTerm Tests.Shadow.linearSource))
 laterTransEndpoint = BodyTrans BodyRefl Tests.Shadow.bodyEndpointEqual
@@ -353,7 +366,38 @@ facePreflightReference fuel source =
 public export
 checks : List (String, Bool)
 checks =
-  [ ("interval preflight matches substitution corpus", all (\fuel => all (intervalPreflightReference fuel) Tests.Shadow.preflightIntervals) (the (List Nat) [0, 1, 2, 3, 4, 5, 8, 12, 20]))
+  [ ("finite endpoint evidence", hasAutomaticBoundary (recertifyFiniteDimensionEvidence {d = 0} (MkShadowSubstitutionBounds 1 10 10) 1 [Zero] STop Tests.Shadow.bodyEndpointEqual))
+  , ("finite linear shadow endpoint evidence", hasAutomaticBoundary (recertifyFiniteDimensionEvidence {d = 0} (MkShadowSubstitutionBounds 1 4 1) 1 [Zero] STop Tests.Shadow.bodyEndpointEqual))
+  , ("finite nested restrictions output below", boundedShadowProofPreflight {d = 0} (MkShadowSubstitutionBounds 1 6 4) 3 [Zero] STop Tests.Shadow.nestedRestrictedEndpoint == Nothing)
+  , ("finite nested restrictions output exact", boundedShadowProofPreflight {d = 0} (MkShadowSubstitutionBounds 1 6 5) 3 [Zero] STop Tests.Shadow.nestedRestrictedEndpoint == Just (0, 0, 0))
+  , ("finite nested restrictions output above", boundedShadowProofPreflight {d = 0} (MkShadowSubstitutionBounds 1 6 6) 3 [Zero] STop Tests.Shadow.nestedRestrictedEndpoint == Just (0, 0, 1))
+  , ("finite nested restrictions evidence", hasAutomaticBoundary (recertifyFiniteDimensionEvidence {d = 0} (MkShadowSubstitutionBounds 1 6 5) 3 [Zero] STop Tests.Shadow.nestedRestrictedEndpoint))
+  , ("finite application later child fuel", boundedShadowProofPreflight {d = 0} (MkShadowSubstitutionBounds 1 4 1) 2 [Zero] STop Tests.Shadow.bodyAppCongruence == Nothing)
+  , ("finite application later child output", boundedShadowProofPreflight {d = 0} (MkShadowSubstitutionBounds 1 4 0) 3 [Zero] STop Tests.Shadow.bodyAppCongruence == Nothing)
+  , ("finite application exact", boundedShadowProofPreflight {d = 0} (MkShadowSubstitutionBounds 1 4 1) 3 [Zero] STop Tests.Shadow.bodyAppCongruence == Just (0, 0, 0))
+  , ("finite application evidence", hasAutomaticBoundary (recertifyFiniteDimensionEvidence {d = 0} (MkShadowSubstitutionBounds 1 4 1) 3 [Zero] STop Tests.Shadow.bodyAppCongruence))
+  , ("finite conditional second child output", boundedShadowProofPreflight {d = 0} (MkShadowSubstitutionBounds 1 6 1) 4 [Zero] STop Tests.Shadow.allBranchesEndpoint == Nothing)
+  , ("finite conditional third child output", boundedShadowProofPreflight {d = 0} (MkShadowSubstitutionBounds 1 6 2) 4 [Zero] STop Tests.Shadow.allBranchesEndpoint == Nothing)
+  , ("finite conditional third child fuel", boundedShadowProofPreflight {d = 0} (MkShadowSubstitutionBounds 1 6 3) 3 [Zero] STop Tests.Shadow.allBranchesEndpoint == Nothing)
+  , ("finite conditional exact", boundedShadowProofPreflight {d = 0} (MkShadowSubstitutionBounds 1 6 3) 4 [Zero] STop Tests.Shadow.allBranchesEndpoint == Just (0, 0, 0))
+  , ("finite conditional evidence", hasAutomaticBoundary (recertifyFiniteDimensionEvidence {d = 0} (MkShadowSubstitutionBounds 1 6 3) 4 [Zero] STop Tests.Shadow.allBranchesEndpoint))
+  , ("finite unit elimination later child fuel", boundedShadowProofPreflight {d = 0} (MkShadowSubstitutionBounds 1 4 1) 2 [Zero] STop Tests.Shadow.bodyUnitElimCongruence == Nothing)
+  , ("finite unit elimination later child input", boundedShadowProofPreflight {d = 0} (MkShadowSubstitutionBounds 1 3 1) 3 [Zero] STop Tests.Shadow.bodyUnitElimCongruence == Nothing)
+  , ("finite unit elimination exact", boundedShadowProofPreflight {d = 0} (MkShadowSubstitutionBounds 1 4 1) 3 [Zero] STop Tests.Shadow.bodyUnitElimCongruence == Just (0, 0, 0))
+  , ("finite unit elimination evidence", hasAutomaticBoundary (recertifyFiniteDimensionEvidence {d = 0} (MkShadowSubstitutionBounds 1 4 1) 3 [Zero] STop Tests.Shadow.bodyUnitElimCongruence))
+  , ("finite wrong target rejected", not (hasAutomaticBoundary (recertifyFiniteDimensionEvidence {d = 1} (MkShadowSubstitutionBounds 1 10 10) 1 [Var FZ] STop Tests.Shadow.bodyEndpointEqual)))
+  , ("finite proof fuel shared", boundedShadowProofPreflight {d = 0} (MkShadowSubstitutionBounds 1 20 20) 3 [Zero] STop Tests.Shadow.bodyTransEndpoint == Nothing)
+  , ("finite proof exact aggregate", boundedShadowProofPreflight {d = 0} (MkShadowSubstitutionBounds 1 5 2) 4 [Zero] STop Tests.Shadow.bodyTransEndpoint == Just (0, 0, 0))
+  , ("finite duplicated output rejected", boundedShadowProofPreflight {d = 0} (MkShadowSubstitutionBounds 1 20 1) 4 [Zero] STop Tests.Shadow.bodyTransEndpoint == Nothing)
+  , ("finite restriction charges both outputs", boundedShadowProofPreflight {d = 0} (MkShadowSubstitutionBounds 1 20 2) 2 [Zero] STop Tests.Shadow.restrictedEndpoint == Nothing)
+  , ("finite oversized environment rejected", boundedShadowProofPreflight {d = 1} (MkShadowSubstitutionBounds 1 10 100) 1 [Tests.Shadow.longReverse 1000] STop Tests.Shadow.bodyEndpointEqual == Nothing)
+  , ("finite target rejected", boundedShadowProofPreflight {d = 0} (MkShadowSubstitutionBounds 1 3 100) 1 [Zero] (SConjunction STop STop) Tests.Shadow.bodyEndpointEqual == Nothing)
+  , ("finite source scope rejected", boundedShadowProofPreflight {d = 0} (MkShadowSubstitutionBounds 0 20 20) 1 [Zero] STop Tests.Shadow.bodyEndpointEqual == Nothing)
+  , ("finite destination scope rejected", boundedShadowProofPreflight {d = 2} (MkShadowSubstitutionBounds 1 20 20) 1 Tests.Shadow.largerDestinationEnv STop Tests.Shadow.bodyEndpointEqual == Nothing)
+  , ("finite restriction source rejected", boundedShadowProofPreflight {d = 0} (MkShadowSubstitutionBounds 1 5 20) 2 [Zero] STop Tests.Shadow.largeRestriction == Nothing)
+  , ("finite later branch budget rejected", boundedShadowProofPreflight {d = 0} (MkShadowSubstitutionBounds 1 3 20) 3 [Zero] STop Tests.Shadow.laterTransEndpoint == Nothing)
+  , ("finite restriction recertified", hasAutomaticBoundary (recertifyFiniteDimensionEvidence {d = 0} (MkShadowSubstitutionBounds 1 20 20) 2 [Zero] STop Tests.Shadow.restrictedEndpoint))
+  , ("interval preflight matches substitution corpus", all (\fuel => all (intervalPreflightReference fuel) Tests.Shadow.preflightIntervals) (the (List Nat) [0, 1, 2, 3, 4, 5, 8, 12, 20]))
   , ("face preflight matches substitution corpus", all (\fuel => all (facePreflightReference fuel) Tests.Shadow.preflightFaces) (the (List Nat) [0, 1, 2, 3, 4, 5, 8, 12, 20]))
   , ("unused large environment rejected", boundedShadowIntervalPreflight (MkShadowSubstitutionBounds 2 20 10) [Zero, Tests.Shadow.longReverse 1000] (the (ScopedInterval 2) (Var FZ)) == Nothing)
   , ("duplicate expansion rejected", boundedShadowIntervalPreflight (MkShadowSubstitutionBounds 2 100 7) Tests.Shadow.preflightEnv (Meet (Var FZ) (Var FZ)) == Nothing)
