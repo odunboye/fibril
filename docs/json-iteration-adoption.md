@@ -149,4 +149,13 @@ copies insert counters only, never change evaluator decisions or budgets. All
 process commands have foreground deadlines; deadlines fail, not count as bounded
 rejection. Earlier draft checks exceeded8192, and early harness runs failed on
 typing/CLI/instrumentation assertions; these are not counted as passes. The final
-normal and sanitizer7-group runs passed. No cold full-repository suite is claimed.
+normal and sanitizer7-group runs passed; the worker did not run a cold full-repository
+suite for that milestone.
+
+Independent review accepted this scoped diagnostic. The parent separately ran the
+oracle8 and direct source-preservation check, recalculated all254 recorded rows
+against normal/sanitized build evidence and current oracle, then reran all7 groups
+normally and with ASan/UBSan on the integration branch. The combined parent
+`make -j8 test editor-test handbook` invocation also passed after integration.
+These are acceptance checks for the diagnostic, not a production/4096-byte or
+composition claim.

@@ -95,9 +95,10 @@ retroactively counted as passes.
 
 No runner limits were raised. Bounded early-completion iteration is now available
 on this isolated foundations branch with explicit state/result and work contracts;
-this is not an implicit natRec strictness change. Header/JSON consumers have not
-been rewritten to use it. Generalized headers, JSON runtime limits and subsequent
-JSON-RPC integration remain separate work.
+this is not an implicit natRec strictness change. A buffered JSON diagnostic now
+uses it as described below; production header/JSON consumers are not delivered.
+Generalized headers, larger JSON runtime limits and subsequent JSON-RPC integration
+remain separate work.
 
 ## Source-only JSON adoption follow-up
 
@@ -110,3 +111,35 @@ named ASan/UBSan checks pass. This is not a production/4096-byte JSON API, full
 grammar proof or header composition result. Native64-token input costs97768 of
 100000 steps. See [JSON iteration adoption](json-iteration-adoption.md) for API,
 effect contract, source-preservation assertions, exact costs and remaining gates.
+
+## Adoption review and parent validation
+
+Independent review accepted the JSON adoption strictly as a 64-byte diagnostic.
+The parent independently ran the eight oracle regressions, direct transition/
+finalizer preservation check and recorded-evidence recomputation: all254 committed
+rows match normal and sanitizer records. Input/token labels and exact outputs were
+recalculated; each backend's120 cases are76 token transfers,43 invalid-data
+results and one reader EOF (the first97 are63/33/1).
+
+After integrating, the parent reran all7 JSON groups normally and with ASan/UBSan,
+all10 header-observer groups, and the named7-test header sanitizer subset. The
+combined `make -j8 test editor-test handbook` gate passed on the integrated code,
+including the newly registered7-group JSON suite and all prior regression groups.
+No timeouts, unexpected failures, mismatches or sanitizer findings were observed
+in these final runs. Header budget observations remain failures to execute the
+requested parser policy, not successful feature acceptance.
+
+The header lane (`a5fee56`, integrated as `1b57595`) is **diagnostic evidence only**.
+Its best semantic-preserving scanner still exhausts native work after182 reads
+for the1024-byte target, and long names expose separate depth/fuel limits. It
+contains no Content-Length/body grammar and exports no `withFrame`. The canonical
+4 KiB Frame library remains byte-for-byte unchanged. Review's documentation note
+is corrected: production accounting coverage is native-only, while the other
+three named production framing methods cover both backends. See
+[header blockers](header-parser-blockers.md#accepted-iteration-adoption-checkpoint).
+
+There is no demonstrated header+JSON composition under8192 initial nodes. A
+proposed unary-free byte-table lookup is not implemented/approved and would not
+alone close the measured per-byte cost gap. Batching, representation/compiler
+work or an explicitly narrower product policy require a separately reviewed
+scaling decision; none is silently substituted here.

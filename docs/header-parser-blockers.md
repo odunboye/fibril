@@ -278,12 +278,13 @@ unit tests, `test_short_ascii_names_values_and_strict_crlf`,
 `test_nonempty_header_line_allowance_15_16_17`. This does not sanitize the hosted
 compiler/FFI or claim sanitizer coverage of every long observation.
 
-Four unchanged production framing regression methods passed on both backends:
-`test_bulk_body_request_and_capacity_accounting`,
-`test_unicode_count_is_encoded_byte_count`,
+Four unchanged production framing regression methods passed.
+`test_bulk_body_request_and_capacity_accounting` uses the instrumented native
+executable only. `test_unicode_count_is_encoded_byte_count`,
 `test_two_frame_sequence_and_later_rejection`, and
-`test_fragmented_open_input_completes_without_eof`. These cover zero/short/max
-body accounting, opaque binary/Unicode, two4096-byte bodies, preserved earlier
+`test_fragmented_open_input_completes_without_eof` exercise hosted and native
+execution. Together these cover native zero/short/max body accounting,
+opaque binary/Unicode, two4096-byte bodies, preserved earlier
 output on later rejection, and live fragmentation/flush. They do not validate
 an undelivered replacement header/body parser. Broad combined gates are deferred.
 
