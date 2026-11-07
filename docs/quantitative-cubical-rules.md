@@ -468,3 +468,35 @@ an iff or a general one-way checker correspondence theorem. No translation
 commutation, general typing/usage preservation, admission from arbitrary Core,
 bounded production admission, erasure compatibility, or ownership theorem is
 claimed. The checker-connection gate remains open.
+
+### Open neutral-path slice
+
+`Fibril.Cubical.Logical.OpenPath` is a separate, experimental fragment with
+one abstract type A, finitely scoped A variables, and one declared neutral path
+`p : Path A a b`. Its A-terms are variables and `p @ r`; it checks an
+abstraction by endpoint conversion and permits restricted endpoint conversion
+on arbitrary scoped faces. Dimension substitution uses the existing scoped
+infrastructure; term renaming also renames the path declaration. Scope is
+indexed, and the negative fixtures reject escaping dimension and term indices.
+The square tests check the two zero faces and the combined one face of a meet;
+they are not a general square or composition judgment.
+
+This is not the complete gate 4: there are no general type contexts, multiple
+path variables, path-valued terms, arbitrary term substitution, general term
+conversion, type normalization, or checker soundness proofs. `Rejected` means
+not accepted by this fragment, not established inequality. Admission limits
+face and interval input to a combined 12 nodes per conversion and bounds the
+existing exponential face solver's input. For a neutral application, the goal
+is the disjunction of the matching endpoint faces (or bottom for a nonmatching
+endpoint), so coincident endpoints work under a disjunction of their faces and
+empty restrictions still entail the goal. Each extracted endpoint face has at
+most as many nodes as the admitted interval; the disjunction therefore has at
+most twice that number plus one. The admitted assumption and interval have at
+most 12 nodes combined, bounding the assumption and generated goal to at most
+24 nodes combined. This bounds solver input size, not its operation count.
+Abstraction checks reuse the caller's allowance for each face, so this is not a
+shared operation budget. Scope sizes
+and Fin index comparison costs are not capped. Substitution
+and renaming utilities themselves are not bounded admission APIs. No Boolean
+vertex enumeration, ordinary Core paths, conversion changes, or runtime or
+ownership authority are involved.
