@@ -364,6 +364,7 @@
       { "title": "Fibril-written bounded framing", "path": "docs/binary-framing.md" },
       { "title": "Numeric probes and 4 KiB framing", "path": "docs/binary-numbers.md" },
       { "title": "Protocol foundations checkpoint", "path": "docs/protocol-foundations.md" },
+      { "title": "Fibril-written LSP status and next gate", "path": "docs/lsp-status.md" },
       { "title": "LSP workload and scaling proposal", "path": "docs/lsp-workload-scaling.md" },
       { "title": "Bounded LSP cost audit", "path": "docs/lsp-cost-audit.md" },
       { "title": "LSP source-sharing candidate", "path": "docs/lsp-source-sharing.md" },
