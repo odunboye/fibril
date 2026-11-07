@@ -853,6 +853,11 @@ The only connection to the existing abstract-base `NeutralHasType` judgment in
 this module is `commonVariableErasure`: a variable position is admitted as an
 `NBase` of `NType`. This deliberately forgets its logical type. It is not a
 translation of the new judgment's general terms, paths, or equalities into
-TypedPath. In particular, nonconstant declared Boolean paths remain supported
-only by the existing intrinsic `ShadowPath` judgment, not by this common-term
-judgment or the TypedPath checker; the type-preserving path bridge is unfinished.
+TypedPath. `CommonPathTerm` additionally admits dimension-scoped named path application,
+ordinary embeddings and term constructors. `commonPathTermTyped` structurally
+translates every intrinsic `PathBody`, including arbitrary embedded logical terms,
+and `commonPathDimensionsCommute` proves syntactic dimension substitution
+commutes with this translation. This is only a term-typing bridge: it does not
+translate declarations, face-restricted equalities, path abstractions or their
+boundaries, and does not connect general common terms to the TypedPath checker.
+The type-preserving declared path bridge remains unfinished.

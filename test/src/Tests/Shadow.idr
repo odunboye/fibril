@@ -671,3 +671,29 @@ linearClosureTyped : NeutralHasType (bridgeContext {context = [LBool]} LHere LHe
 linearClosureTyped = bridgeAbstract {context = [LBool]} LHere LHere STop
   {zero = Tests.Shadow.linearClosureZero} {one = Tests.Shadow.linearStructuralOne}
   (BridgeTrans (BridgeTrans BridgeEndpointLeft (BridgeSym BridgeEndpointLeft)) BridgeEndpointLeft) BridgeEndpointRight
+
+-- Ordinary If and a path application both survive the common translation.
+commonPathLinearIf : CommonPathHasType [LBool] [LBool]
+  (the (CommonPathTerm 1 1 1) (CPOrdinary (CIf (CVar FZ) (CBool True) (CBool False)))) LBool
+commonPathLinearIf = commonPathTermTyped
+  (the (PathBody [LBool] [LBool] 1 LBool) (Embed (shadowTerm Tests.Shadow.linearSource)))
+
+commonPathNonconstantBody : CommonPathHasType [LBool] [LBool]
+  (the (CommonPathTerm 1 1 1) (CPAt FZ (Var FZ))) LBool
+commonPathNonconstantBody = commonPathTermTyped
+  (the (PathBody [LBool] [LBool] 1 LBool) (NeutralAt LHere (Var FZ)))
+
+commonPathBinder : CommonPathHasType [LBool] [LBool]
+  (the (CommonPathTerm 1 1 1) (CPLam (CPApp (CPOrdinary (CLam (CVar FZ))) (CPAt FZ (Var FZ))))) (LArrow LUnit LBool)
+commonPathBinder = commonPathTermTyped
+  (the (PathBody [LBool] [LBool] 1 (LArrow LUnit LBool))
+    (BodyLam (BodyApp (Embed (LLam (LRef LHere))) (NeutralAt LHere (Var FZ)))))
+
+commonPathBinderDimensions :
+  commonPathTerm (mapPathDimensions (atDimension Zero)
+    (the (PathBody [LBool] [LBool] 1 (LArrow LUnit LBool))
+      (BodyLam (BodyApp (Embed (LLam (LRef LHere))) (NeutralAt LHere (Var FZ)))))) =
+  CPLam (CPApp (CPOrdinary (CLam (CVar FZ))) (CPAt FZ Zero))
+commonPathBinderDimensions = commonPathDimensionsCommute (atDimension Zero)
+  (the (PathBody [LBool] [LBool] 1 (LArrow LUnit LBool))
+    (BodyLam (BodyApp (Embed (LLam (LRef LHere))) (NeutralAt LHere (Var FZ)))))
