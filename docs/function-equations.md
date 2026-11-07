@@ -79,8 +79,10 @@ constructor and payload occurrences. Rename is capture-checked and same-file
 only, and currently rejects documents with module headers; named modules cannot
 use rename preview. Checked project definition uses the existing project navigation
 rules. Navigation cannot certify a final bare head as a checked binder: it does
-does not link that head or its binder uses and conservatively suppresses outer-name
+not link that head or its binder uses and conservatively suppresses outer-name
 references with the same spelling in that clause body, even when the head is a constructor.
+Rename rejects changes from or to an ambiguous final head's spelling, but can
+preview unrelated names subject to its usual lexical capture checks.
 Formatting and other tooling do not acquire additional clause-specific semantics.
 
 Fewer named parameters than explicit Pis are allowed: the body must itself supply

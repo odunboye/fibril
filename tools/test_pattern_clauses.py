@@ -149,6 +149,18 @@ main = get ({constructor} Bool Bool True)
                     self.assertNotEqual(result.returncode, 0, result.stdout)
                     self.assertIn('lexical resolution would change', result.stderr)
 
+    def test_rename_unrelated_name_with_ambiguous_final_head(self):
+        source = ('other : Nat\nother = Zero\nf : Nat -> Nat\n'
+                  'f Zero = other\nf item = item\nmain : Nat\nmain = other\n')
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'source.fib'
+            path.write_text(source)
+            result = subprocess.run([str(EXE), 'rename-preview', '1', '1', 'value', str(path)],
+                                    text=True, capture_output=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual([edit['range']['start']['line'] for edit in json.loads(result.stdout)['edits']],
+                             [1, 2, 4, 7])
+
     def test_clause_payload_binders_are_distinct(self):
         source = "f : Bool -> Bool\nf A x = x\nf B x = x\nmain : Bool\nmain = True\n"
         with tempfile.TemporaryDirectory() as directory:
