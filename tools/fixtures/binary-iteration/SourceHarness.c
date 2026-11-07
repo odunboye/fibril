@@ -1,21 +1,38 @@
 /* Observer/adapter harness for genuinely checked/emitted source. All runtime
    files are private copies; only counters are inserted, never budget changes. */
+#include <assert.h>
 #include "fibril_binary_runtime.c"
 #define main checked_main
 #include "program.c"
 #undef main
 
 typedef struct { size_t position, length, writes, flushes; const char *mode; } Host;
+static const unsigned char view_input[] = {126,0,255,195,40,128,254,127,97,98,99};
+static const unsigned char view_payload[] = {0,255,195,40,128};
+static int view_mode(const Host *h) {
+  return !strcmp(h->mode, "views-done") || !strcmp(h->mode, "views-exhausted");
+}
 static int test_read(void *opaque) {
   Host *h = opaque;
   if (!strcmp(h->mode, "read-error") && h->position + 2 >= h->length) return -2;
   if (h->position == h->length) return -1;
+  if (view_mode(h)) {
+    assert(h->position < sizeof(view_input));
+    return view_input[h->position++];
+  }
   h->position++;
   return strcmp(h->mode, "eof") && (h->position == h->length ||
     (!strcmp(h->mode, "two") && h->position == 1024)) ? ':' : 'a';
 }
 static int test_write(void *opaque, unsigned char byte) {
-  Host *h = opaque; (void)byte;
+  Host *h = opaque;
+  if (view_mode(h)) {
+    assert(h->writes <= sizeof(view_payload));
+    unsigned char expected = h->writes ? view_payload[h->writes - 1] :
+      (!strcmp(h->mode, "views-done") ? 'D' : 'E');
+    assert(byte == expected);
+  }
+  (void)byte;
   if (!strcmp(h->mode, "write-error") && h->writes == 1) return -1;
   h->writes++; return 0;
 }

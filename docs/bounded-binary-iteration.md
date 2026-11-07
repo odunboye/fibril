@@ -1,10 +1,14 @@
 # Bounded binary iteration — implementation and count-safety follow-up
 
-Status: **built and checked; independent high-risk reducer review required**.
+Status: **count/reducer independently accepted; payload/lifetime coverage added**.
+The typing/admission/runtime audit found no observed bug, but identified a P2
+coverage gap: prior successful source tests used S=R=Bytes and sanitized raw loops
+used Unit without read/write payloads. The test-only follow-up below addresses
+that gap; reviewed production code is unchanged.
 The earlier d6e034b checkpoint was partial: ordinary head reduction could allocate
 unary naturals before the count ledger charged their visits. The follow-up closes
 that specific gap with a shared policy-parametric reducer, not a second evaluator
-or a top-level preguard. This is not a claim of completed acceptance before review.
+or a top-level preguard. The new coverage milestone remains subject to its test-review gate.
 
 `Core/Reduction/Work.idr` provides an unmetered Identity policy and a bounded
 CountWork policy. Existing `step`/`stepHead` select Identity; count entry selects
@@ -247,10 +251,94 @@ it is not a required parser limit or a new count cap.
 
 The full local-prefix unit/property suite passes, including ordinary full/head
 reduction, byte-range, UTF8 codec, typing and usage checks. The iteration suite
-still passes all11 groups, including max1024 and15 raw native modes both normal
-and ASan/UBSan. Native runtime sources were not changed by this follow-up.
+now has13 groups, including max1024, the distinct-type source fixture,15 original
+raw native modes and9 read-backed lifetime modes, all native fixtures run both
+normally and under ASan/UBSan. The count suite remains5 groups (22 core checks plus
+four checked-source groups). No production source changed in the payload/lifetime
+follow-up; the full unit/source/framing runs above describe the count-policy
+checkpoint and are not claimed as newly rerun for this test-only change.
 
-Not claimed: completed acceptance before independent reducer review, verified
+## Distinct state/result payload and session-view lifetime coverage
+
+`tools/fixtures/binary-iteration/views/Main.fib` is genuinely checked source with
+S=`Phase` and R=`Reply`, not differently named Bytes aliases. Phase has three
+nominal variant arms (Begin0/Middle1/End2), Reply has one (Answer0), and both carry
+another nominal variant, Fragment (Spare0/View1), with a linear Bytes payload.
+The one-arm Reply uses its declared eliminator, `useReply`. Swapping the Finished
+and Exhausted handlers is rejected by source checking. All state/result payloads
+are consumed linearly. The initial slice uses the EXISTING Bytes-specific
+`primBytesShare`/SharedSlice U permission, followed by `primBytesLengthIs`
+(expected length5) on its
+Bytes field BEFORE starting the loop. Sharing alone would leave native payloads
+lazy; the guard demands the slice itself and the same shared field is then used
+once for state transfer. A four-byte slice negative control rejects after the
+initial read, with zero callbacks/extra reads/writes/flushes. No new sharing or
+generic promotion/discard facility is introduced. This is not a claim of globally
+linear Bytes ownership or source-level pointer identity.
+
+The program reads8 octets `7e 00 ff c3 28 80 fe 7f`, slices offset1/length5, and
+retains `00 ff c3 28 80` through two Continue transitions and additional reads.
+The bytes include NUL, FF and malformed UTF8, and are never decoded. Three
+callbacks read the following `61 62 63` and Done transfers the slice through the
+different Reply type. A short allowance2 instead returns Exhausted Phase.End;
+its consumer extracts the same slice. Prefix D/E distinguishes the two routes.
+Pure source helpers are locally shared to remain under the unchanged admission
+limit; the initial transparent-helper draft exceeded8192 nodes and was simplified,
+not admitted by raising a limit.
+
+| Checked-source case | Allowance / callbacks | Read requests / consumed input | Exact stdout hex | Reserved requests / capacity | Core nodes | Native steps / peak / arena payload |
+| --- | --- | --- | --- | --- | --- | --- |
+| Done | 5 / 3 | 4 / 11 | `44 00 ff c3 28 80` | 5 / 17 | 7529 | 816 / 20 / 31606 |
+| Exhausted | 2 / 2 | 3 / 10, one byte unread | `45 00 ff c3 28 80` | 4 / 16 | 7496 | 662 / 17 / 25702 |
+
+Both cases have one write and one success final flush. They run through hosted
+source execution and genuinely emitted native C, with exact binary stdin/stdout
+comparisons, plus adapter counters/output checks. Emitted native also runs under
+ASan/UBSan, both with adapters and real stdin/stdout. Caps are unchanged:
+8192 core nodes, hosted depth/fuel4096, requests4096/capacity8388608, native
+100000 steps/512 pure depth/16MiB arena/shared4096 pending. The allowance5 Done case
+must not execute the two remaining callbacks.
+
+`ViewLifetime.c` is separately labelled **trusted FEval injection**, not source
+typing evidence. It takes the first chunk through the real binary transport,
+uses `f_bytes_slice`, and asserts the retained view pointer equals that session
+chunk's data+1 (not an arena/static copy) on every callback and consumption.
+Nested Phase/Fragment and Reply/Fragment payloads retain it while further reads
+allocate new session blocks. An early marker write+explicit flush makes later
+failure effects observable. Its9 normal and ASan/UBSan modes cover:
+
+| Trusted mode | Callbacks / read requests / consumed bytes | Write requests / accepted bytes | Flush calls |
+| --- | --- | --- | --- |
+| Done success | 3 / 4 / 11 | 2 / 6 | 2 (explicit + final) |
+| Exhausted success | 2 / 3 / 10 | 2 / 6 | 2 |
+| Callback rejection after marker | 3 / 4 / 11 | 1 / 1 | 1, no final flush |
+| Done consumer rejection after retained-view write | 3 / 4 / 11 | 2 / 6 | 1, no final flush |
+| Exhausted consumer rejection after retained-view write | 2 / 3 / 10 | 2 / 6 | 1, no final flush |
+| Physical read failure with consumed prefix1 | 3 / 4 / 11 | 1 / 1 | 1 |
+| Physical view-write failure accepting prefix2 | 3 / 4 / 11 | 2 / 3 (marker + prefix) | 1 |
+| Final-flush failure | 3 / 4 / 11 | 2 / 6 | 2 (second fails) |
+| First explicit-flush failure | 1 / 1 / 8 | 1 / 1 | 1 |
+
+Every physical-failure case before final flush verifies poison prevents further
+adapter reads/writes/flushes. Each mode asserts exact callbacks, payload bytes,
+read/write prefixes where applicable, no rollback, and no successful final flush
+on rejection/failure. Test-only malloc/free counters prove session blocks have
+been released before only arena metadata is walked; after arena teardown, tracked
+live allocations are zero and releases equal allocations. ASan/UBSan report no
+UAF/double-free diagnostics in these scenarios. This does not establish arbitrary
+runtime payload types from erased S/R, universal lifetime safety or total heap
+bounds. No concrete production bug was observed by these added tests.
+
+Reproduce just the new coverage using the pinned/private-staged environment:
+
+```sh
+IDRIS2=/path/to/pinned/idris2 python3 tools/test_binary_iteration.py \
+  BinaryIteration.test_distinct_state_result_nested_variants_retain_read_slice \
+  BinaryIteration.test_native_read_backed_view_lifetimes_and_failure_cleanup -v
+make -j8 binary-iteration-test IDRIS2=/path/to/pinned/idris2
+```
+
+Not claimed: completed acceptance before the coverage review gate, verified
 backend/QTT preservation, world tokens, exactly-once semantics, general exception/
 cancellation safety, total-heap or general CPU bounds, full parser grammar,
 headers, or JSON delivery.

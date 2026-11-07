@@ -1,0 +1,54 @@
+module Main
+
+-- Distinct nominal types, not Bytes aliases. Tags deliberately differ between
+-- loop state, result, and the nested fragment retaining a read-derived slice.
+data Fragment : Type where
+  Spare : (1 bytes : Bytes) -> Fragment
+  View : (1 bytes : Bytes) -> Fragment
+
+data Phase : Type where
+  Begin : (1 fragment : Fragment) -> Phase
+  Middle : (1 fragment : Fragment) -> Phase
+  End : (1 fragment : Fragment) -> Phase
+
+data Reply : Type where
+  eliminator useReply
+  Answer : (1 fragment : Fragment) -> Reply
+
+-- Existing Bytes-specific U permission; guard below demands the shared slice.
+record SharedSlice : Type where
+  constructor ShareSlice
+  bytes : Bytes
+
+encode : (1 text : String) -> Bytes
+encode = \(1 text : String) => primUTF8Case Bytes Bytes (primUTF8Encode text) primBytesEmpty (\(1 bytes : Bytes) => bytes)
+
+main : IO Unit
+main =
+  let (rejectChange : (1 change : LoopStep Phase Reply) -> IO (LoopStep Phase Reply)) = (\(1 change : LoopStep Phase Reply) => primBind Unit (LoopStep Phase Reply) primRejectBytes
+    (\(1 u : Unit) => case u of () => primPure (LoopStep Phase Reply) change)) in
+  let (advance : (1 change : LoopStep Phase Reply) -> IO (LoopStep Phase Reply)) = (\(1 change : LoopStep Phase Reply) => primBind ByteReadResult (LoopStep Phase Reply) (primReadBytes (Succ Zero))
+    (\(1 read : ByteReadResult) =>
+      (primByteReadCase ((1 change : LoopStep Phase Reply) -> IO (LoopStep Phase Reply)) read rejectChange
+        (\(1 chunk : Bytes) => \(1 change : LoopStep Phase Reply) =>
+          if primBytesLengthIs (Succ Zero) chunk then primPure (LoopStep Phase Reply) change else rejectChange change)) change)) in
+  let (step : (1 state : Phase) -> IO (LoopStep Phase Reply)) = (\(1 state : Phase) => case state of
+    Begin fragment => advance (primLoopContinue Phase Reply (Middle fragment))
+    Middle fragment => advance (primLoopContinue Phase Reply (End fragment))
+    End fragment => advance (primLoopDone Phase Reply (Answer fragment))) in
+  let (writeFragment : (prefix : String) -> (1 fragment : Fragment) -> IO Unit) = (\(prefix : String) => \(1 fragment : Fragment) => case fragment of
+    Spare bytes => primWriteBytes (primBytesAppend (encode "X") bytes)
+    View bytes => primWriteBytes (primBytesAppend (encode prefix) bytes)) in
+  let (finished : (1 reply : Reply) -> IO Unit) = (\(1 reply : Reply) => useReply (\(0 self : Reply) => IO Unit) reply (\(1 fragment : Fragment) => writeFragment "D" fragment)) in
+  let (exhausted : (1 state : Phase) -> IO Unit) = (\(1 state : Phase) => case state of
+    Begin fragment => writeFragment "B" fragment
+    Middle fragment => writeFragment "M" fragment
+    End fragment => writeFragment "E" fragment) in
+  primBind ByteReadResult Unit (primReadBytes (Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ Zero)))))))))
+    (\(1 read : ByteReadResult) => primByteReadCase (IO Unit) read primRejectBytes
+      (\(1 chunk : Bytes) => case primBytesShare (primBytesSlice (Succ Zero) (Succ (Succ (Succ (Succ (Succ Zero))))) chunk) of ShareSlice saved =>
+        if primBytesLengthIs (Succ (Succ (Succ (Succ (Succ Zero))))) saved then
+          primBind (LoopResult Phase Reply) Unit
+            (primIterateBinary Phase Reply (Succ (Succ (Succ (Succ (Succ Zero))))) step (Begin (View saved)))
+            (\(1 result : LoopResult Phase Reply) => primLoopResultCase Phase Reply (IO Unit) result finished exhausted)
+        else primRejectBytes))

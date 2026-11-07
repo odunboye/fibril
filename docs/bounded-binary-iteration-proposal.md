@@ -1,7 +1,8 @@
 # Bounded binary iteration: diagnostic milestone / proposal, not implementation
 
-Status: **approved design implemented; independent reducer review pending**.
-The prior partial checkpoint's hosted allocation-before-charge gap is addressed
+Status: **approved design implemented; count/reducer independently reviewed**.
+The test-only distinct-payload/session-view coverage follow-up is recorded in the
+implementation evidence below. The prior partial checkpoint's hosted allocation-before-charge gap is addressed
 by a shared count-work policy, including demanded nested/full-step paths; see
 [implementation, accounting and evidence](bounded-binary-iteration.md).
 The measurements below remain the historical pre-implementation diagnostic.

@@ -4,6 +4,7 @@ module Hosted
 import Data.IORef
 import Data.List
 import System
+import Fibril.Core.Size
 import Fibril.Data.Bytes
 import Fibril.Runtime.Binary
 import Fibril.Driver.Binary
@@ -16,7 +17,9 @@ main : IO ()
 main = do
   [_, root, path, mode, size] <- getArgs | _ => exitFailure
   let n : Nat = cast size
-  let input : List Bits8 = if mode == "two" then replicate 1023 97 ++ [58] ++ replicate 1023 97 ++ [58]
+  let views = mode == "views-done" || mode == "views-exhausted"
+  let input : List Bits8 = if views then [126, 0, 255, 195, 40, 128, 254, 127, 97, 98, 99]
+        else if mode == "two" then replicate 1023 97 ++ [58] ++ replicate 1023 97 ++ [58]
         else if mode == "eof" then replicate n 97 else replicate (minus n 1) 97 ++ [58]
   remaining <- newIORef input
   reads <- newIORef (the Nat 0)
@@ -54,6 +57,11 @@ main = do
       rest <- readIORef remaining
       out <- readIORef accepted
       putStrLn ("METRICS " ++ show r ++ " " ++ show w ++ " " ++ show f ++ " " ++ show (length rest) ++ " " ++ show (length out))
+      case views of
+        True => do
+          putStrLn ("OUTPUT " ++ show out)
+          putStrLn ("NODES " ++ show (coreNodes project.term))
+        False => pure ()
       case result of
         Left err => putStrLn ("ERROR " ++ show err)
         Right () => putStrLn "OK"

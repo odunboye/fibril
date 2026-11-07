@@ -5,6 +5,7 @@ Run after a local compiler build. Installs only into build/test-prefix. Observer
 copies add counters, never rewrite evaluator bodies or any admission/budget.
 """
 import os
+import ast
 import json
 from pathlib import Path
 import re
@@ -321,6 +322,89 @@ main = primBind (LoopResult Bytes Bytes) Unit
         self.assertGreater(native[0][0], 1024, native[2])
         self.assertIn('evaluation budget', native[2])
         self.assertIn('NATIVE 100000 ', native[2])
+
+    def test_distinct_state_result_nested_variants_retain_read_slice(self):
+        template = (FIXTURE / 'views/Main.fib').read_text()
+        supplied = bytes([126, 0, 255, 195, 40, 128, 254, 127, 97, 98, 99])
+        saved = supplied[1:6]  # NUL/FF and malformed UTF8, never decoded.
+        full_limit = 'primIterateBinary Phase Reply (Succ (Succ (Succ (Succ (Succ Zero)))))'
+        self.assertEqual(template.count(full_limit), 1)
+        for mode, limit, prefix, callbacks in [('done', full_limit, b'D', 3),
+                ('exhausted', 'primIterateBinary Phase Reply (Succ (Succ Zero))', b'E', 2)]:
+            with self.subTest(transfer=mode):
+                source = template.replace(full_limit, limit)
+                directory = self.source(source)
+                hosted, native = self.both(directory, 'views-' + mode, len(supplied))
+                expected = prefix + saved
+                metrics = (callbacks + 1, 1, 1, 3 - callbacks, len(expected))
+                for observed, ok, text in (hosted, native):
+                    self.assertTrue(ok, text)
+                    self.assertEqual(observed, metrics, text)
+                output = ast.literal_eval(re.search(r'OUTPUT (\[[^\n]*\])', hosted[2])[1])
+                self.assertEqual(bytes(output), expected)
+                self.assertLessEqual(int(re.search(r'NODES (\d+)', hosted[2])[1]), 8192)
+                self.assertEqual(int(re.search(r'NATIVE \d+ \d+ \d+ (\d+)', native[2])[1]), callbacks)
+                self.assertEqual(tuple(map(int, re.search(r'BUDGET (\d+) (\d+)', native[2]).groups())),
+                    (callbacks + 2, 8 + callbacks + len(expected)))
+                sanitized = directory / 'native-san'
+                checked(self.cc + ['-std=c11', '-Wall', '-Wextra', '-Werror',
+                    '-fsanitize=address,undefined', '-fno-omit-frame-pointer', '-I', directory,
+                    directory / 'harness.c', '-o', sanitized])
+                observed = checked([sanitized, 'views-' + mode, len(supplied)])
+                self.assertEqual(observed.stdout.decode(), native[2])
+                self.assertEqual(observed.stderr, b'')
+                # Real binary stdin/stdout on checked source, not adapter lengths.
+                for command in ([EXE, 'run-binary', '--source-dir', directory, directory / 'Main.fib'],
+                        [directory / 'native'], [sanitized]):
+                    result = checked(command, input=supplied)
+                    self.assertEqual((result.stdout, result.stderr), (expected, b''))
+                # Swapping handlers is a genuine type error, unlike S=R=Bytes.
+                (directory / 'Main.fib').write_text(source.replace('result finished exhausted', 'result exhausted finished'))
+                wrong = run([EXE, 'check', '--source-dir', directory, directory / 'Main.fib'])
+                self.assertNotEqual(wrong.returncode, 0)
+                self.assertIn(b'Inferred type is not compatible', wrong.stdout + wrong.stderr)
+
+        # Negative control: the pure length guard must demand the shared
+        # slice before any callback/extra read, not just its nominal wrapper.
+        slice_five = 'primBytesSlice (Succ Zero) (Succ (Succ (Succ (Succ (Succ Zero))))) chunk'
+        self.assertEqual(template.count(slice_five), 1)
+        directory = self.source(template.replace(slice_five,
+            'primBytesSlice (Succ Zero) (Succ (Succ (Succ (Succ Zero)))) chunk'))
+        guarded = self.both(directory, 'views-done', len(supplied))
+        for metrics, ok, text in guarded:
+            self.assertFalse(ok, text)
+            self.assertEqual(metrics, (1, 0, 0, 3, 0), text)
+            self.assertIn('rejected input', text)
+        self.assertEqual(int(re.search(r'NATIVE \d+ \d+ \d+ (\d+)', guarded[1][2])[1]), 0)
+        self.assertEqual(tuple(map(int, re.search(r'BUDGET (\d+) (\d+)', guarded[1][2]).groups())), (1, 8))
+
+    def test_native_read_backed_view_lifetimes_and_failure_cleanup(self):
+        # Last field is the bridge's latest write accepted count, including
+        # successful writes; it is an error prefix specifically in mode6.
+        expected = [
+            (3, 4, 11, 2, 6, 2, 0, 0, 5),  # Done, explicit plus final flush
+            (2, 3, 10, 2, 6, 2, 0, 0, 5),  # Exhausted, state payload consumed
+            (3, 4, 11, 1, 1, 1, 0, 0, 1),  # callback rejects after marker
+            (3, 4, 11, 2, 6, 1, 0, 0, 5),  # Done consumer rejects after view write
+            (2, 3, 10, 2, 6, 1, 0, 0, 5),  # Exhausted consumer rejects
+            (3, 4, 11, 1, 1, 1, 0, 1, 1),  # physical read error with prefix1
+            (3, 4, 11, 2, 3, 1, 0, 0, 2),  # physical write error accepted prefix2
+            (3, 4, 11, 2, 6, 2, 0, 0, 5),  # final flush failure
+            (1, 1, 8, 1, 1, 1, 0, 0, 1),   # first explicit flush failure
+        ]
+        for sanitize in (False, True):
+            target = self.work / ('view-lifetime-san' if sanitize else 'view-lifetime')
+            flags = ['-fsanitize=address,undefined', '-fno-omit-frame-pointer'] if sanitize else []
+            checked(self.cc + ['-std=c11', '-Wall', '-Wextra', '-Werror', '-I', ROOT / 'runtime/native',
+                *flags, FIXTURE / 'ViewLifetime.c', '-o', target])
+            for mode, counts in enumerate(expected):
+                with self.subTest(sanitize=sanitize, mode=mode):
+                    result = checked([target, mode])
+                    self.assertEqual(result.stderr, b'')
+                    fields = result.stdout.decode().split()
+                    self.assertEqual(fields[:2], ['VIEW_LIFETIME', str(mode)])
+                    self.assertEqual(tuple(map(int, fields[2:])), counts)
+                    print(('SAN ' if sanitize else 'RAW ') + result.stdout.decode(), end='', flush=True)
 
     def test_source_count_parameter_is_unrestricted(self):
         path = self.work / 'linear-count.fib'
