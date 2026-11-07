@@ -2295,3 +2295,73 @@ dependentPathBoundaryRelated {ctx} {paths} {a} {ps} face side bw ew evidence env
       (commonEndpointFaceHolds side valuation face holds))
     (dependentPathWeakeningRelated ew (side, side) valuation (env, ps) (env, ps)
       (relationRefl (commonProductSetoid (commonEnvironmentSetoid ctx) (commonDependentPathEnvironmentSetoid ctx paths)) (env, ps)))
+
+||| Computational evidence for this actual abstraction constructor. Witness
+||| typings may differ from its erased typings, but syntax and boundary
+||| derivations are exact. DepEndpointAlign can structurally align selected
+||| boundary witnesses; no semantic endpoint equation is accepted here.
+public export
+data HigherOrderCommonShadowPath : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} ->
+  {0 decls : CommonDeclarations ctx paths} -> {0 face : ScopedFace d} ->
+  {0 left, right : CommonPathTerm n k d} -> {a : LogicalType} ->
+  (0 path : CommonShadowPath decls face left right a) ->
+  (ps : carrier (commonDependentPathEnvironmentSetoid ctx paths)) -> DependentPathAdmissible decls ps -> Type where
+  HOCommonAbstract : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} ->
+    {0 decls : CommonDeclarations ctx paths} -> {0 face : ScopedFace d} -> {a : LogicalType} ->
+    {0 left, right : CommonPathTerm n k d} -> {0 body : CommonPathTerm n k (S d)} ->
+    {0 lt : CommonPathHasType ctx paths left a} -> {0 rt : CommonPathHasType ctx paths right a} ->
+    {0 bt : CommonPathHasType ctx paths body a} ->
+    {0 zero : CommonFaceEqual decls (SConjunction (weakenFace face) (SEndpoint FZ False))
+      body (mapCommonPathDimensions (Var . FS) left) a} ->
+    {0 one : CommonFaceEqual decls (SConjunction (weakenFace face) (SEndpoint FZ True))
+      body (mapCommonPathDimensions (Var . FS) right) a} ->
+    {ps : carrier (commonDependentPathEnvironmentSetoid ctx paths)} -> {adm : DependentPathAdmissible decls ps} ->
+    (bw : HigherOrderPathWitness ctx paths a (S d) body) ->
+    (lw : HigherOrderPathWitness ctx paths a d left) -> (rw : HigherOrderPathWitness ctx paths a d right) ->
+    DependentEndpointFaceEvidence zero (pathWitness bw)
+      (pathWitness (mapHigherOrderPathDimensions (Var . FS) (pathWitness lw))) ps adm ->
+    DependentEndpointFaceEvidence one (pathWitness bw)
+      (pathWitness (mapHigherOrderPathDimensions (Var . FS) (pathWitness rw))) ps adm ->
+    HigherOrderCommonShadowPath (CommonAbstract {face} lt rt body bt zero one) ps adm
+
+public export
+higherOrderCommonPathBody : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} ->
+  {a : LogicalType} -> {d : Nat} -> {0 decls : CommonDeclarations ctx paths} ->
+  {0 face : ScopedFace d} -> {0 left, right : CommonPathTerm n k d} ->
+  {0 path : CommonShadowPath {ctx} {paths} {d} decls face left right a} ->
+  {ps : carrier (commonDependentPathEnvironmentSetoid ctx paths)} -> {adm : DependentPathAdmissible decls ps} ->
+  HigherOrderCommonShadowPath path ps adm -> (Fin (S d) -> DM) ->
+  CommonMorphism (commonProductSetoid (commonEnvironmentSetoid ctx) (commonDependentPathEnvironmentSetoid ctx paths)) (commonTypeSetoid a)
+higherOrderCommonPathBody (HOCommonAbstract bw lw rw zero one) valuation =
+  dependentPathSemantics (pathWitness bw) valuation
+
+public export
+higherOrderCommonPathEndpoint : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} ->
+  {a : LogicalType} -> {d : Nat} -> {0 decls : CommonDeclarations ctx paths} ->
+  {0 face : ScopedFace d} -> {0 left, right : CommonPathTerm n k d} ->
+  {0 path : CommonShadowPath {ctx} {paths} {d} decls face left right a} ->
+  {ps : carrier (commonDependentPathEnvironmentSetoid ctx paths)} -> {adm : DependentPathAdmissible decls ps} ->
+  HigherOrderCommonShadowPath path ps adm -> Bool -> (Fin d -> DM) ->
+  CommonMorphism (commonProductSetoid (commonEnvironmentSetoid ctx) (commonDependentPathEnvironmentSetoid ctx paths)) (commonTypeSetoid a)
+higherOrderCommonPathEndpoint (HOCommonAbstract bw lw rw zero one) False valuation =
+  dependentPathSemantics (pathWitness lw) valuation
+higherOrderCommonPathEndpoint (HOCommonAbstract bw lw rw zero one) True valuation =
+  dependentPathSemantics (pathWitness rw) valuation
+
+||| Parameterized endpoint law at the actual fresh bound coordinate. This is
+||| valuation-indexed semantics, not a DM-to-value morphism or cubical naturality.
+public export
+higherOrderCommonPathBoundary : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} ->
+  {a : LogicalType} -> {d : Nat} -> {face : ScopedFace d} ->
+  {0 decls : CommonDeclarations ctx paths} -> {0 left, right : CommonPathTerm n k d} ->
+  {0 path : CommonShadowPath {ctx} {paths} decls face left right a} ->
+  {ps : carrier (commonDependentPathEnvironmentSetoid ctx paths)} -> {adm : DependentPathAdmissible decls ps} ->
+  (w : HigherOrderCommonShadowPath path ps adm) -> (side : Bool) ->
+  (env : carrier (commonEnvironmentSetoid ctx)) -> (valuation : Fin d -> DM) -> faceAtVal valuation face = True ->
+  related (commonTypeSetoid a)
+    (applyMorphism (higherOrderCommonPathBody w (extendCommonValuation (side, side) valuation)) (env, ps))
+    (applyMorphism (higherOrderCommonPathEndpoint w side valuation) (env, ps))
+higherOrderCommonPathBoundary {face} (HOCommonAbstract bw lw rw zero one) False env valuation holds =
+  dependentPathBoundaryRelated face False (pathWitness bw) (pathWitness lw) zero env valuation holds
+higherOrderCommonPathBoundary {face} (HOCommonAbstract bw lw rw zero one) True env valuation holds =
+  dependentPathBoundaryRelated face True (pathWitness bw) (pathWitness rw) one env valuation holds

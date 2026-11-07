@@ -791,3 +791,21 @@ if [[ $(grep -c '^Error:' "$tmp/$fixture.log") -ne 1 ]] ||
   echo 'Higher-order dimension mapping wrong-index diagnostic failed:' >&2; cat "$tmp/$fixture.log" >&2; exit 1
 fi
 echo 'Higher-order dimension mapping exact transformed-index test passed.'
+
+for fixture in HigherOrderCommonPathWrongBoundary HigherOrderCommonPathWrongDimension HigherOrderCommonPathWrongFace; do
+  if "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1; then
+    echo "Common path semantic witness negative test unexpectedly succeeded: $fixture" >&2; exit 1
+  fi
+  case "$fixture" in
+    HigherOrderCommonPathWrongBoundary) expected='Mismatch between: CommonSym (CommonRefl ?typed) and CommonRefl (CPAtType LHere).' ;;
+    HigherOrderCommonPathWrongDimension) expected='Mismatch between: FS FZ and FZ.' ;;
+    HigherOrderCommonPathWrongFace) expected='Mismatch between: SEndpoint (FS FZ) False and STop.' ;;
+  esac
+  if [[ $(grep -c '^Error:' "$tmp/$fixture.log") -ne 1 ]] ||
+     ! grep -Fxq 'Error: While processing right hand side of bad. When unifying:' "$tmp/$fixture.log" ||
+     ! grep -Fxq "$expected" "$tmp/$fixture.log" ||
+     grep -Eq 'Undefined name|While processing type of' "$tmp/$fixture.log"; then
+    echo "Common path semantic witness negative diagnostic failed: $fixture" >&2; cat "$tmp/$fixture.log" >&2; exit 1
+  fi
+done
+echo 'Common path semantic witness exact boundary, dimension and face tests passed.'
