@@ -331,7 +331,9 @@ not general higher-order face soundness.
 A separate `DependentEndpointFaceEvidence` is indexed by the actual path
 environment and admissibility proof. It adds left and right endpoints with a
 uniform provider of structural alignment to the exact extracted endpoint
-witness, plus symmetry, transitivity and restriction; it embeds the original
-structural fragment. Its soundness theorem uses no target semantic relation as
-a premise. Application, conditional and unit elimination congruences remain
-outside this extended evidence, so this is still not general face soundness.
+witness, plus symmetry, transitivity, restriction, application, conditional and
+unit elimination congruences; it embeds the original structural fragment.
+`DepEndpointAlign` transports evidence to structurally aligned selected
+witnesses without assuming semantic relations. Its soundness theorem uses no
+target semantic relation as a premise. This remains evidence-indexed, not
+general face soundness.

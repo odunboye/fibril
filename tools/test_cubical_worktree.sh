@@ -727,3 +727,54 @@ for fixture in DependentEndpointFaceWrongEnvironment DependentEndpointFaceWrongA
   esac
 done
 echo 'Dependent endpoint face environment, admissibility, selected witness, face and intermediate alignment tests passed.'
+
+fixture=DependentCongruenceWrongSubproof
+if "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1; then
+  echo "Congruence wrong-subproof test unexpectedly succeeded" >&2; exit 1
+fi
+if [[ $(grep -c '^Error:' "$tmp/$fixture.log") -ne 1 ]] ||
+   ! grep -Fq 'Error: While processing right hand side of bad.' "$tmp/$fixture.log" ||
+   ! grep -Fq 'Mismatch between: CommonRefl' "$tmp/$fixture.log" ||
+   grep -Eq 'Undefined name|While processing type of' "$tmp/$fixture.log"; then
+  echo 'Congruence wrong-subproof diagnostic failed:' >&2; cat "$tmp/$fixture.log" >&2; exit 1
+fi
+echo 'Dependent congruence wrong-subproof test passed.'
+fixture=DependentCongruenceWrongAlignment
+if "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1; then
+  echo "Congruence wrong-alignment test unexpectedly succeeded" >&2; exit 1
+fi
+if [[ $(grep -c '^Error:' "$tmp/$fixture.log") -ne 1 ]] ||
+   ! grep -Fq 'Error: While processing right hand side of bad.' "$tmp/$fixture.log" ||
+   ! grep -Fq 'Mismatch between: LBool and LUnit.' "$tmp/$fixture.log" ||
+   grep -Eq 'Undefined name|While processing type of' "$tmp/$fixture.log"; then
+  echo 'Congruence wrong-alignment diagnostic failed:' >&2; cat "$tmp/$fixture.log" >&2; exit 1
+fi
+echo 'Dependent congruence wrong-alignment test passed.'
+for fixture in DependentCongruenceWrongFace DependentCongruenceWrongAdmission; do
+  if "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1; then
+    echo "Congruence negative test unexpectedly succeeded: $fixture" >&2; exit 1
+  fi
+  case "$fixture" in
+    DependentCongruenceWrongFace) expected='Mismatch between: SEndpoint FZ False and SConjunction (SEndpoint FZ False) (SEndpoint FZ False).' ;;
+    DependentCongruenceWrongAdmission) expected="Can't solve constraint between: Refl and let () = _ in Refl." ;;
+  esac
+  if [[ $(grep -c '^Error:' "$tmp/$fixture.log") -ne 1 ]] ||
+     ! grep -Fq 'Error: While processing right hand side of bad.' "$tmp/$fixture.log" ||
+     ! grep -Fq "$expected" "$tmp/$fixture.log" ||
+     grep -Eq 'Undefined name|While processing type of' "$tmp/$fixture.log"; then
+    echo "Congruence negative diagnostic failed: $fixture" >&2; cat "$tmp/$fixture.log" >&2; exit 1
+  fi
+done
+echo 'Dependent congruence wrong-face and admission tests passed.'
+
+fixture=DependentCongruenceWrongApplicationDomain
+if "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1; then
+  echo 'Dependent application wrong-domain test unexpectedly succeeded' >&2; exit 1
+fi
+if [[ $(grep -c '^Error:' "$tmp/$fixture.log") -ne 1 ]] ||
+   ! grep -Fxq 'Error: While processing right hand side of bad. When unifying:' "$tmp/$fixture.log" ||
+   ! grep -Fxq 'Mismatch between: LUnit and LBool.' "$tmp/$fixture.log" ||
+   grep -Eq 'Undefined name|While processing type of' "$tmp/$fixture.log"; then
+  echo 'Dependent application wrong-domain diagnostic failed:' >&2; cat "$tmp/$fixture.log" >&2; exit 1
+fi
+echo 'Dependent application wrong-domain test passed.'

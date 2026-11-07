@@ -2519,3 +2519,144 @@ dependentLinearRestrictionIsStrict :
    faceAtVal (\_ => (False, False))
      (the (ScopedFace 3) (SConjunction (SEndpoint FZ False) (SEndpoint (FS FZ) True)))) = (True, False)
 dependentLinearRestrictionIsStrict = Refl
+
+-- Congruence consumes the actual endpoint derivations in every conditional slot.
+dependentEndpointIfEvidence : DependentEndpointFaceEvidence
+  (CommonIfEqual Tests.Shadow.commonLinearIfEndpoint Tests.Shadow.commonLinearIfEndpoint Tests.Shadow.commonLinearIfEndpoint)
+  (HOPIf [LBool] [LBool] LBool 1 Tests.Shadow.dependentLinearAt Tests.Shadow.dependentLinearAt Tests.Shadow.dependentLinearAt)
+  (HOPIf [LBool] [LBool] LBool 1 Tests.Shadow.pathLinearIf Tests.Shadow.pathLinearIf Tests.Shadow.pathLinearIf)
+  Tests.Shadow.dependentLinearPaths Tests.Shadow.dependentLinearAdmissible
+dependentEndpointIfEvidence = DepEndpointIf Tests.Shadow.dependentLinearEndpointEvidence
+  Tests.Shadow.dependentLinearEndpointEvidence Tests.Shadow.dependentLinearEndpointEvidence
+
+dependentEndpointIfSound : (b : Bool) ->
+  applyMorphism (dependentPathSemantics (HOPIf [LBool] [LBool] LBool 1 Tests.Shadow.dependentLinearAt Tests.Shadow.dependentLinearAt Tests.Shadow.dependentLinearAt) (\_ => (False, False)))
+    ((b, ()), Tests.Shadow.dependentLinearPaths) =
+  applyMorphism (dependentPathSemantics (HOPIf [LBool] [LBool] LBool 1 Tests.Shadow.pathLinearIf Tests.Shadow.pathLinearIf Tests.Shadow.pathLinearIf) (\_ => (False, False)))
+    ((b, ()), Tests.Shadow.dependentLinearPaths)
+dependentEndpointIfSound b = dependentEndpointFaceEvidenceSound Tests.Shadow.dependentEndpointIfEvidence (b, ()) (\_ => (False, False)) Refl
+
+-- The lambda ignores its Unit argument and returns the environment's value.
+congruenceApplicationEvidence : (a : LogicalType) -> DependentEndpointFaceEvidence
+  {decls = CommonNoPaths} {face = the (ScopedFace 0) STop}
+  (CommonAppEqual (CommonRefl (CPLamType (CPOrdinaryType (CVariable (LThere LHere)))))
+                  (CommonRefl (CPOrdinaryType CUnitType)))
+  (HOPApplication [a] [] LUnit a 0
+    (HOPLambda [a] [] LUnit a 0 (HOPOrdinary [LUnit, a] [] a 0 (HOVar [LUnit, a] a (LThere LHere))))
+    (HOPOrdinary [a] [] LUnit 0 (HOUnit [a])))
+  (HOPApplication [a] [] LUnit a 0
+    (HOPLambda [a] [] LUnit a 0 (HOPOrdinary [LUnit, a] [] a 0 (HOVar [LUnit, a] a (LThere LHere))))
+    (HOPOrdinary [a] [] LUnit 0 (HOUnit [a]))) () DependentAdmissibleNil
+congruenceApplicationEvidence a = DepEndpointApp
+  (DepEndpointStructural (DepFaceRefl (AlignPathLambda (AlignPathOrdinary (AlignVar [LUnit, a] a (LThere LHere))))))
+  (DepEndpointStructural (DepFaceRefl (AlignPathOrdinary (AlignUnit [a]))))
+
+congruenceApplicationSound : (a : LogicalType) -> (v : carrier (commonTypeSetoid a)) ->
+  related (commonTypeSetoid a)
+    (applyMorphism (dependentPathSemantics (HOPApplication [a] [] LUnit a 0
+      (HOPLambda [a] [] LUnit a 0 (HOPOrdinary [LUnit, a] [] a 0 (HOVar [LUnit, a] a (LThere LHere))))
+      (HOPOrdinary [a] [] LUnit 0 (HOUnit [a]))) (\_ => (False, False))) ((v, ()), ()))
+    (applyMorphism (dependentPathSemantics (HOPApplication [a] [] LUnit a 0
+      (HOPLambda [a] [] LUnit a 0 (HOPOrdinary [LUnit, a] [] a 0 (HOVar [LUnit, a] a (LThere LHere))))
+      (HOPOrdinary [a] [] LUnit 0 (HOUnit [a]))) (\_ => (False, False))) ((v, ()), ()))
+congruenceApplicationSound a v = dependentEndpointFaceEvidenceSound (Tests.Shadow.congruenceApplicationEvidence a) (v, ()) (\_ => (False, False)) Refl
+
+congruenceApplicationUnit : () = ()
+congruenceApplicationUnit = congruenceApplicationSound LUnit ()
+
+congruenceApplicationBool : True = True
+congruenceApplicationBool = congruenceApplicationSound LBool True
+
+congruenceApplicationArrow : related (commonTypeSetoid (LArrow LBool LBool)) Tests.Shadow.setoidIdentity Tests.Shadow.setoidIdentity
+congruenceApplicationArrow = congruenceApplicationSound (LArrow LBool LBool) Tests.Shadow.setoidIdentity
+
+congruenceIfTrue : True = True
+congruenceIfTrue = dependentEndpointIfSound True
+
+congruenceIfFalse : False = False
+congruenceIfFalse = dependentEndpointIfSound False
+
+pathLinearIfAgain : HigherOrderPathTerm [LBool] [LBool] LBool 1 (CPOrdinaryType (sourceCommonTyped Tests.Shadow.linearSource))
+pathLinearIfAgain = HOPOrdinary [LBool] [LBool] LBool 1 Tests.Shadow.higherOrderLinearIfAgain
+
+alignedEndpointEvidence : DependentEndpointFaceEvidence
+  Tests.Shadow.commonLinearIfEndpoint Tests.Shadow.dependentLinearAt Tests.Shadow.pathLinearIfAgain
+  Tests.Shadow.dependentLinearPaths Tests.Shadow.dependentLinearAdmissible
+alignedEndpointEvidence = DepEndpointAlign (AlignPathAt [LBool] [LBool] LBool 1 LHere (Var FZ))
+  Tests.Shadow.dependentLinearEndpointEvidence (AlignPathOrdinary Tests.Shadow.higherOrderLinearAlignment)
+
+unitEndpointEvidence : DependentEndpointFaceEvidence
+  (CommonUnitElimEqual (CommonRefl (CPOrdinaryType CUnitType)) Tests.Shadow.commonLinearIfEndpoint)
+  (HOPUnitElim [LBool] [LBool] LBool 1 (HOPOrdinary [LBool] [LBool] LUnit 1 (HOUnit [LBool])) Tests.Shadow.dependentLinearAt)
+  (HOPUnitElim [LBool] [LBool] LBool 1 (HOPOrdinary [LBool] [LBool] LUnit 1 (HOUnit [LBool])) Tests.Shadow.pathLinearIfAgain)
+  Tests.Shadow.dependentLinearPaths Tests.Shadow.dependentLinearAdmissible
+unitEndpointEvidence = DepEndpointUnitElim
+  (DepEndpointStructural (DepFaceRefl (AlignPathOrdinary (AlignUnit [LBool])))) Tests.Shadow.alignedEndpointEvidence
+
+unitEndpointSound : (b : Bool) ->
+  applyMorphism (dependentPathSemantics (HOPUnitElim [LBool] [LBool] LBool 1 (HOPOrdinary [LBool] [LBool] LUnit 1 (HOUnit [LBool])) Tests.Shadow.dependentLinearAt) (\_ => (False, False))) ((b, ()), Tests.Shadow.dependentLinearPaths) =
+  applyMorphism (dependentPathSemantics (HOPUnitElim [LBool] [LBool] LBool 1 (HOPOrdinary [LBool] [LBool] LUnit 1 (HOUnit [LBool])) Tests.Shadow.pathLinearIfAgain) (\_ => (False, False))) ((b, ()), Tests.Shadow.dependentLinearPaths)
+unitEndpointSound b = dependentEndpointFaceEvidenceSound Tests.Shadow.unitEndpointEvidence (b, ()) (\_ => (False, False)) Refl
+
+nonBooleanApplicationEvidence : DependentEndpointFaceEvidence
+  {decls = Tests.Shadow.dependentLinearDeclarations} {face = the (ScopedFace 1) STop}
+  (CommonAppEqual (CommonRefl (CPLamType (CPAtType {i = Var FZ} LHere))) (CommonRefl (CPAtType {i = Var FZ} LHere)))
+  (HOPApplication [LBool] [LBool] LBool LBool 1 Tests.Shadow.dependentBinder Tests.Shadow.dependentLinearAt)
+  (HOPApplication [LBool] [LBool] LBool LBool 1 Tests.Shadow.dependentBinder Tests.Shadow.dependentLinearAt)
+  Tests.Shadow.dependentLinearPaths Tests.Shadow.dependentLinearAdmissible
+nonBooleanApplicationEvidence = DepEndpointApp
+  (DepEndpointStructural (DepFaceRefl (AlignPathLambda (AlignPathAt [LBool, LBool] [LBool] LBool 1 LHere (Var FZ)))))
+  (DepEndpointStructural (DepFaceRefl (AlignPathAt [LBool] [LBool] LBool 1 LHere (Var FZ))))
+
+nonBooleanApplicationSound :
+  applyMorphism (dependentPathSemantics (HOPApplication [LBool] [LBool] LBool LBool 1 Tests.Shadow.dependentBinder Tests.Shadow.dependentLinearAt) (\_ => (True, False)))
+    ((False, ()), Tests.Shadow.dependentLinearPaths) = True
+nonBooleanApplicationSound = trans (dependentEndpointFaceEvidenceSound Tests.Shadow.nonBooleanApplicationEvidence
+  (False, ()) (\_ => (True, False)) Refl) Refl
+
+-- Compose the congruence theorem with the ordinary environment's extensional
+-- relation, without requiring equality of the two function values.
+congruenceApplicationDistinctEnvironments : related (commonTypeSetoid (LArrow LBool LBool))
+  (applyMorphism (dependentPathSemantics (HOPApplication [LArrow LBool LBool] [] LUnit (LArrow LBool LBool) 0
+    (HOPLambda [LArrow LBool LBool] [] LUnit (LArrow LBool LBool) 0
+      (HOPOrdinary [LUnit, LArrow LBool LBool] [] (LArrow LBool LBool) 0 (HOVar [LUnit, LArrow LBool LBool] (LArrow LBool LBool) (LThere LHere))))
+    (HOPOrdinary [LArrow LBool LBool] [] LUnit 0 (HOUnit [LArrow LBool LBool]))) (\_ => (False, False))) ((Tests.Shadow.setoidIdentity, ()), ()))
+  (applyMorphism (dependentPathSemantics (HOPApplication [LArrow LBool LBool] [] LUnit (LArrow LBool LBool) 0
+    (HOPLambda [LArrow LBool LBool] [] LUnit (LArrow LBool LBool) 0
+      (HOPOrdinary [LUnit, LArrow LBool LBool] [] (LArrow LBool LBool) 0 (HOVar [LUnit, LArrow LBool LBool] (LArrow LBool LBool) (LThere LHere))))
+    (HOPOrdinary [LArrow LBool LBool] [] LUnit 0 (HOUnit [LArrow LBool LBool]))) (\_ => (False, False))) ((Tests.Shadow.setoidConditionalIdentity, ()), ()))
+congruenceApplicationDistinctEnvironments x y xy = trans
+  (Tests.Shadow.congruenceApplicationSound (LArrow LBool LBool) Tests.Shadow.setoidIdentity x x Refl)
+  (Tests.Shadow.setoidIdentityEquivalent x y xy)
+
+-- The branches differ observably; the condition is the declared path endpoint.
+dependentEndpointChoiceEvidence : DependentEndpointFaceEvidence
+  (CommonIfEqual Tests.Shadow.commonLinearIfEndpoint
+    (CommonRefl (CPOrdinaryType (CBoolType {b = True})))
+    (CommonRefl (CPOrdinaryType (CBoolType {b = False}))))
+  (HOPIf [LBool] [LBool] LBool 1 Tests.Shadow.dependentLinearAt
+    (HOPOrdinary [LBool] [LBool] LBool 1 (HOBool [LBool] True))
+    (HOPOrdinary [LBool] [LBool] LBool 1 (HOBool [LBool] False)))
+  (HOPIf [LBool] [LBool] LBool 1 Tests.Shadow.pathLinearIf
+    (HOPOrdinary [LBool] [LBool] LBool 1 (HOBool [LBool] True))
+    (HOPOrdinary [LBool] [LBool] LBool 1 (HOBool [LBool] False)))
+  Tests.Shadow.dependentLinearPaths Tests.Shadow.dependentLinearAdmissible
+dependentEndpointChoiceEvidence = DepEndpointIf Tests.Shadow.dependentLinearEndpointEvidence
+  (DepEndpointStructural (DepFaceRefl (AlignPathOrdinary (AlignBool [LBool] True))))
+  (DepEndpointStructural (DepFaceRefl (AlignPathOrdinary (AlignBool [LBool] False))))
+
+dependentEndpointChoiceTrue :
+  applyMorphism (dependentPathSemantics (HOPIf [LBool] [LBool] LBool 1 Tests.Shadow.dependentLinearAt
+    (HOPOrdinary [LBool] [LBool] LBool 1 (HOBool [LBool] True))
+    (HOPOrdinary [LBool] [LBool] LBool 1 (HOBool [LBool] False))) (\_ => (False, False)))
+    ((True, ()), Tests.Shadow.dependentLinearPaths) = True
+dependentEndpointChoiceTrue = trans (dependentEndpointFaceEvidenceSound Tests.Shadow.dependentEndpointChoiceEvidence
+  (True, ()) (\_ => (False, False)) Refl) Refl
+
+dependentEndpointChoiceFalse :
+  applyMorphism (dependentPathSemantics (HOPIf [LBool] [LBool] LBool 1 Tests.Shadow.dependentLinearAt
+    (HOPOrdinary [LBool] [LBool] LBool 1 (HOBool [LBool] True))
+    (HOPOrdinary [LBool] [LBool] LBool 1 (HOBool [LBool] False))) (\_ => (False, False)))
+    ((False, ()), Tests.Shadow.dependentLinearPaths) = False
+dependentEndpointChoiceFalse = trans (dependentEndpointFaceEvidenceSound Tests.Shadow.dependentEndpointChoiceEvidence
+  (False, ()) (\_ => (False, False)) Refl) Refl
