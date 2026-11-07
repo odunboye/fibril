@@ -152,11 +152,24 @@ Accepted terms are base variables at `NType`, declared neutral paths at their
 exact declared base-variable endpoints, applications of declared neutral paths
 at any scoped interval at `NType`, constant base-variable abstractions at
 `Path A x x`, and abstractions `\i => p i` at precisely p's declared
-endpoints. Formation accepts `NType` and `Path A l r` when both endpoints are
-accepted terms at `NType`. No conversion, arbitrary abstractions, nested
-PathP or square is checked; those remain declarative only. Implementing them
-requires bounded dependent substitution and proof-producing type/equality
-comparison, including face-sensitive path-type congruence.
+endpoints. It also accepts the connection inner edge `\j => p (i ∧ j)` at
+`Path A (left p) (p i)` when `i` is an existing dimension variable. Its
+boundaries are derived under the appropriate restricted faces by endpoint and
+interval congruence rules. Formation accepts `NType` and `Path A l r` when both
+endpoints are accepted terms at `NType`.
+
+`checkNeutralEqual` produces a `NeutralEqual` derivation at `NType` for
+`p (i ∧ r) = p i`, with `i` a dimension variable, if bounded entailment
+establishes `r = 1`; and for `p r = left p` or `p r = right p` if bounded
+entailment establishes the relevant endpoint. Both eligible endpoint rules are
+tried when the declared endpoints coincide. These equality shapes are
+directional, and the retained meet factor must be a variable; no symmetry,
+general reflexivity or general interval normalization is synthesized. In
+particular, Boolean-vertex reasoning does not make `i ∧ ~i` equal zero.
+No type conversion, arbitrary abstractions, nested PathP or full square is
+checked; those remain declarative only. Implementing them requires bounded
+dependent substitution and proof-producing type/equality comparison,
+including face-sensitive path-type congruence.
 
 All syntax, including both annotations and the face, shares an admission
 allowance capped at 128 nodes; base, path, and dimension counts are capped at
@@ -164,7 +177,8 @@ allowance capped at 128 nodes; base, path, and dimension counts are capped at
 formation. Admission happens before comparisons, entailment, or face weakening;
 the latter creates at most the admitted face plus two nodes. No term
 substitution is performed, hence no substitution output is allocated. The
-fixed grammar does bounded comparisons and at most two capped entailment calls.
+fixed grammar does bounded comparisons and at most two capped entailment calls;
+equality endpoint and meet goals have size linear in the admitted interval.
 `Exhausted` reports admission failure, `Mismatch` reports a definite mismatch
 within the implemented shapes, and `Unsupported` reports other shapes or an
 endpoint entailment the bounded procedure cannot prove (including its 12

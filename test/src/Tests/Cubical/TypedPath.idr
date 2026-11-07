@@ -43,6 +43,9 @@ varying = PathIntro Base (PathElim constant Zero) (PathElim constant One)
 neutralContext : PathContext 2 1
 neutralContext = [PathBetween FZ (FS FZ)]
 
+coincidentContext : PathContext 2 1
+coincidentContext = [PathBetween FZ FZ]
+
 neutralApplication : NeutralHasType Tests.Cubical.TypedPath.neutralContext STop
   (NApply (NPath FZ) (Var FZ)) NType
 neutralApplication = NElim (NPathVar FZ) (Var FZ)
@@ -260,7 +263,38 @@ checkerUnsupported _ = False
 public export
 checkerChecks : List (String, Bool)
 checkerChecks =
-  [ ("checker open abstraction", checkerSuccess (checkNeutral {n = 0} 32 neutralContext STop
+  [ ("checker connection inner edge", checkerSuccess (checkNeutral {n = 1} 64 neutralContext STop
+      (NAbstract (NApply (NPath FZ) (Meet (Var (FS FZ)) (Var FZ))))
+      (NPathType NType (NBase FZ) (NApply (NPath FZ) (Var FZ)))))
+  , ("checker connection wrong endpoint", checkerMismatch (checkNeutral {n = 1} 64 neutralContext STop
+      (NAbstract (NApply (NPath FZ) (Meet (Var (FS FZ)) (Var FZ))))
+      (NPathType NType (NBase (FS FZ)) (NApply (NPath FZ) (Var FZ)))))
+  , ("checker meet congruence", checkerSuccess (checkNeutralEqual {n = 1} 64 neutralContext STop
+      (NApply (NPath FZ) (Meet (Var FZ) One)) (NApply (NPath FZ) (Var FZ))))
+  , ("checker face escape rejected", checkerUnsupported (checkNeutralEqual {n = 2} 64 neutralContext STop
+      (NApply (NPath FZ) (Meet (Var FZ) (Var (FS FZ)))) (NApply (NPath FZ) (Var FZ))))
+  , ("checker non-boolean meet rejected", checkerUnsupported (checkNeutralEqual {n = 1} 64 neutralContext STop
+      (NApply (NPath FZ) (Meet (Var FZ) (Reverse (Var FZ)))) (NBase FZ)))
+  , ("checker endpoint conversion", checkerSuccess (checkNeutralEqual {n = 1} 64 neutralContext (SEndpoint FZ False)
+      (NApply (NPath FZ) (Var FZ)) (NBase FZ)))
+  , ("checker coincident endpoint zero", checkerSuccess (checkNeutralEqual {n = 0} 32 coincidentContext STop
+      (NApply (NPath FZ) Zero) (NBase FZ)))
+  , ("checker coincident endpoint one", checkerSuccess (checkNeutralEqual {n = 0} 32 coincidentContext STop
+      (NApply (NPath FZ) One) (NBase FZ)))
+  , ("checker coincident disjunctive right goal", checkerSuccess (checkNeutralEqual {n = 2} 64 coincidentContext (SEndpoint FZ True)
+      (NApply (NPath FZ) (Join (Var FZ) (Var (FS FZ)))) (NBase FZ)))
+  , ("checker disjunctive face not entailed", checkerUnsupported (checkNeutralEqual {n = 1} 64 coincidentContext
+      (SDisjunction (SEndpoint FZ False) (SEndpoint FZ True))
+      (NApply (NPath FZ) (Var FZ)) (NBase FZ)))
+  , ("checker coincident endpoint wrong target", checkerMismatch (checkNeutralEqual {n = 0} 32 coincidentContext STop
+      (NApply (NPath FZ) One) (NBase (FS FZ))))
+  , ("checker matching left without entailment", checkerUnsupported (checkNeutralEqual {n = 0} 32 neutralContext STop
+      (NApply (NPath FZ) One) (NBase FZ)))
+  , ("checker coincident endpoint exhausted", checkerExhausted (checkNeutralEqual {n = 0} 1 coincidentContext STop
+      (NApply (NPath FZ) One) (NBase FZ)))
+  , ("checker equality exhausted", checkerExhausted (checkNeutralEqual {n = 1} 2 neutralContext STop
+      (NApply (NPath FZ) (Meet (Var FZ) One)) (NApply (NPath FZ) (Var FZ))))
+  , ("checker open abstraction", checkerSuccess (checkNeutral {n = 0} 32 neutralContext STop
       (NAbstract (NApply (NPath FZ) (Var FZ)))
       (NPathType NType (NBase FZ) (NBase (FS FZ)))))
   , ("checker false face", checkerSuccess (checkNeutral {n = 1} 32 neutralContext SBottom

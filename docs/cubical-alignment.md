@@ -443,3 +443,17 @@ indices. Calling them directly performs no admission or checking and grants no
 witness; bounded witness construction remains exclusively in `applySquare`.
 No runtime conversion or general nested path claim follows. See
 `Tests.Cubical.OpenPath`, `Tests.Cubical.ReusablePath`, and the opacity fixtures.
+
+The proof-producing `TypedPathChecker` also admits the inner connection edge
+`<j> p@(i ∧ j) : Path A (left p) (p@i)` for an existing dimension `i`.
+It constructs endpoint and interval-congruence derivations on the two restricted
+faces. `checkNeutralEqual` separately checks `p@(i ∧ r) = p@i` when its
+bounded face entailment proves `r = 1`, and `p@r = left/right p` when it
+proves the relevant endpoint. The latter equality grammar is directional and
+requires a variable as the retained meet factor. These are sufficient rules,
+not a complete equality decision procedure; in particular they do not identify
+`i ∧ ~i` with zero. The checker does not yet construct the full dependent
+square, perform general recursive PathP checking, or synthesize varying-family
+type conversion. Admission shares a 128-node maximum across inputs and caps
+context and dimension sizes at 12; bounded entailment may still reject an
+admitted case as unsupported.
