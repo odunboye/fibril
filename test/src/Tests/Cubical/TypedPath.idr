@@ -1,6 +1,9 @@
 module Tests.Cubical.TypedPath
 
 import Data.Fin
+import Data.List
+
+import Data.List.Elem
 import Data.Vect
 import Fibril.Cubical.Logical.PathContext
 import Fibril.Cubical.Logical.OpenPath
@@ -503,6 +506,11 @@ checkerChecks : List (String, Bool)
 checkerChecks =
   [ ("pair solver rejects complement", isPairRejected (restrictedIntervalEqual {n = 1} 12 STop (Meet (Var FZ) (Reverse (Var FZ))) Zero))
   , ("pair solver zero face", isPairAccepted (restrictedIntervalEqual {n = 1} 12 (SEndpoint FZ False) (Meet (Var FZ) (Reverse (Var FZ))) Zero))
+  , ("pair solver contradictory face", isPairAccepted (restrictedIntervalEqual {n = 1} 12 (SConjunction (SEndpoint FZ False) (SEndpoint FZ True)) Zero One))
+  , ("pair solver disjunction excludes fixed pairs", isPairAccepted (restrictedIntervalEqual {n = 1} 12 (SDisjunction (SEndpoint FZ False) (SEndpoint FZ True)) (Meet (Var FZ) (Reverse (Var FZ))) Zero))
+  , ("pair solver repeated name", isPairAccepted (restrictedIntervalEqual {n = 1} 12 STop (Meet (Var FZ) (Var FZ)) (Var FZ)))
+  , ("pair lookup missing defaults to zero", lookupDM {n = 1} FZ [] == (False, False))
+  , ("pair lookup first duplicate wins", lookupDM {n = 1} FZ [(FZ, (False, True)), (FZ, (True, False))] == (False, True))
   , ("autonomous square exact shared work budget", checkerSuccess
       (checkDependentIntroduction {n = 0} 223 neutralContext STop squareTerm
         (NPathType squareFamily squareLeft squareRight)))
@@ -782,3 +790,35 @@ pairFaceConsistent = Refl
 pairEndpointTheorem : (env : List (Fin 1, DM)) -> (r : ScopedInterval 1) ->
   faceAt env (scopedEndpoint r True) = True -> (evalDM env r == (True, True)) = True
 pairEndpointTheorem env r p = dmScopedEndpointSound env r True p
+
+-- Exercise the exported theorem with arbitrary valuations, rather than only
+-- calculating the solver result for concrete examples.
+pairDuplicateTheorem : (valuation : Fin 1 -> DM) ->
+  restrictedIntervalEqual {n = 1} 12 STop (Meet (Var FZ) (Var FZ)) (Var FZ) = Accepted ->
+  evalDMVal valuation (Meet (Var FZ) (Var FZ)) = evalDMVal valuation (Var FZ)
+pairDuplicateTheorem valuation accepted =
+  restrictedIntervalEqualValSound {n = 1} 12 STop (Meet (Var FZ) (Var FZ)) (Var FZ) valuation accepted Refl
+
+pairZeroFaceTheorem : (valuation : Fin 1 -> DM) ->
+  restrictedIntervalEqual {n = 1} 12 (SEndpoint FZ False) (Var FZ) Zero = Accepted ->
+  faceAtVal valuation (SEndpoint FZ False) = True ->
+  evalDMVal valuation (Var FZ) = evalDMVal valuation Zero
+pairZeroFaceTheorem valuation accepted faceTrue =
+  restrictedIntervalEqualValSound {n = 1} 12 (SEndpoint FZ False) (Var FZ) Zero valuation accepted faceTrue
+
+pairFalseFaceTheorem : (valuation : Fin 1 -> DM) ->
+  restrictedIntervalEqual {n = 1} 12 SBottom Zero One = Accepted ->
+  faceAtVal valuation SBottom = True -> evalDMVal valuation Zero = evalDMVal valuation One
+pairFalseFaceTheorem valuation accepted faceTrue =
+  restrictedIntervalEqualValSound {n = 1} 12 SBottom Zero One valuation accepted faceTrue
+
+pairNonBooleanValuation : evalDMVal (const (False, True))
+  (Meet (Var (the (Fin 1) FZ)) (Reverse (Var FZ))) = (False, True)
+pairNonBooleanValuation = Refl
+
+-- Membership proof uses the actual library nub, including a repeated name.
+pairNubDuplicateCoverage : Elem (the (Fin 2) FZ) (Data.List.nub [FZ, FS FZ, FZ])
+pairNubDuplicateCoverage = finNubCoverage [FZ, FS FZ, FZ] FZ (There (There Here))
+
+pairNubSecondCoverage : Elem (the (Fin 2) (FS FZ)) (Data.List.nub [FZ, FS FZ, FZ])
+pairNubSecondCoverage = finNubCoverage [FZ, FS FZ, FZ] (FS FZ) (There Here)

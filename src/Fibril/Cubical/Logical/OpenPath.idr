@@ -3,11 +3,15 @@ module Fibril.Cubical.Logical.OpenPath
 
 import Data.Fin
 import Data.List
+import Data.List.Elem
+
 import Data.So
+import Language.Reflection
 import Fibril.Foundation.DeMorgan.Interval
 import Fibril.Foundation.DeMorgan.Scope
 import Fibril.Foundation.DeMorgan.Restriction
 
+%language ElabReflection
 %default total
 
 ||| In a context of m abstract A-variables, there is one neutral path p : Path A left right.
@@ -88,6 +92,7 @@ public export
 DM : Type
 DM = (Bool, Bool)
 
+public export
 intervalNames : ScopedInterval n -> List (Fin n)
 intervalNames Zero = []
 intervalNames One = []
@@ -96,6 +101,7 @@ intervalNames (Reverse x) = intervalNames x
 intervalNames (Meet x y) = intervalNames x ++ intervalNames y
 intervalNames (Join x y) = intervalNames x ++ intervalNames y
 
+public export
 faceNames : ScopedFace n -> List (Fin n)
 faceNames SBottom = []
 faceNames STop = []
@@ -137,6 +143,7 @@ faceAt env (SEndpoint i b) = lookupDM i env == (b, b)
 faceAt env (SConjunction x y) = faceAt env x && faceAt env y
 faceAt env (SDisjunction x y) = faceAt env x || faceAt env y
 
+public export
 allAssignments : List (Fin n) -> List (Fin n, DM) -> ScopedFace n ->
                  ScopedInterval n -> ScopedInterval n -> Bool
 allAssignments [] env face r s = not (faceAt env face) || evalDM env r == evalDM env s
@@ -144,6 +151,7 @@ allAssignments (i :: rest) env face r s =
   all (\v => allAssignments rest ((i, v) :: env) face r s)
       [(False, False), (False, True), (True, False), (True, True)]
 
+public export
 intervalEqual : ScopedFace n -> ScopedInterval n -> ScopedInterval n -> Bool
 intervalEqual face r s =
   allAssignments (nub (faceNames face ++ intervalNames r ++ intervalNames s)) [] face r s
@@ -359,3 +367,336 @@ dmMeetScopedOne : (env : List (Fin n, DM)) -> (x, y : ScopedInterval n) ->
   faceAt env (scopedEndpoint y True) = True -> evalDM env (Meet x y) = evalDM env x
 dmMeetScopedOne env x y p = dmMeetRightEndpoint (evalDM env x) (evalDM env y)
   (dmScopedEndpointSound env y True p)
+
+-- Agreement is only required for names actually read by an expression.
+public export
+DMLookupAgrees : {n : Nat} -> List (Fin n) -> List (Fin n, DM) -> List (Fin n, DM) -> Type
+DMLookupAgrees {n} names left right = (i : Fin n) -> Elem i names -> lookupDM i left = lookupDM i right
+
+leftAgreement : {xs : List (Fin n)} -> DMLookupAgrees (xs ++ ys) env1 env2 -> DMLookupAgrees xs env1 env2
+leftAgreement {xs = []} agree i p impossible
+leftAgreement {xs = i :: xs} agree i Here = agree i Here
+leftAgreement {xs = x :: xs} agree i (There p) = leftAgreement (\j, q => agree j (There q)) i p
+
+rightAgreement : (xs : List (Fin n)) -> DMLookupAgrees (xs ++ ys) env1 env2 -> DMLookupAgrees ys env1 env2
+rightAgreement [] agree = agree
+rightAgreement (_ :: xs) agree = rightAgreement xs (\j, q => agree j (There q))
+
+||| Evaluation depends only on lookup results for the collected interval names.
+public export
+evalDMLocal : (r : ScopedInterval n) -> (left, right : List (Fin n, DM)) ->
+  DMLookupAgrees (intervalNames r) left right -> evalDM left r = evalDM right r
+evalDMLocal Zero left right agree = Refl
+evalDMLocal One left right agree = Refl
+evalDMLocal (Var i) left right agree = agree i Here
+evalDMLocal (Reverse x) left right agree = cong dmReverse (evalDMLocal x left right agree)
+evalDMLocal (Meet x y) left right agree =
+  rewrite evalDMLocal x left right (leftAgreement agree) in
+  rewrite evalDMLocal y left right (rightAgreement (intervalNames x) agree) in Refl
+evalDMLocal (Join x y) left right agree =
+  rewrite evalDMLocal x left right (leftAgreement agree) in
+  rewrite evalDMLocal y left right (rightAgreement (intervalNames x) agree) in Refl
+
+||| Face evaluation depends only on lookup results for the collected face names.
+public export
+faceAtLocal : (face : ScopedFace n) -> (left, right : List (Fin n, DM)) ->
+  DMLookupAgrees (faceNames face) left right -> faceAt left face = faceAt right face
+faceAtLocal SBottom left right agree = Refl
+faceAtLocal STop left right agree = Refl
+faceAtLocal (SEndpoint i b) left right agree = cong (\v => v == (b, b)) (agree i Here)
+faceAtLocal (SConjunction x y) left right agree =
+  rewrite faceAtLocal x left right (leftAgreement agree) in
+  rewrite faceAtLocal y left right (rightAgreement (faceNames x) agree) in Refl
+faceAtLocal (SDisjunction x y) left right agree =
+  rewrite faceAtLocal x left right (leftAgreement agree) in
+  rewrite faceAtLocal y left right (rightAgreement (faceNames x) agree) in Refl
+
+||| Construct the branch selected by a total valuation for a name list.
+public export
+assignmentBranch : (names : List (Fin n)) -> (env : List (Fin n, DM)) ->
+  (valuation : Fin n -> DM) -> List (Fin n, DM)
+assignmentBranch [] env valuation = env
+assignmentBranch (i :: rest) env valuation = assignmentBranch rest ((i, valuation i) :: env) valuation
+
+allFourChoice : (p : DM -> Bool) -> (v : DM) ->
+  all p [(False, False), (False, True), (True, False), (True, True)] = True -> p v = True
+allFourChoice p (False, False) pr = soToEq (fst (soAnd (fst (soAnd (fst (soAnd (eqToSo pr)))))))
+allFourChoice p (False, True) pr = soToEq (snd (soAnd (fst (soAnd (fst (soAnd (eqToSo pr)))))))
+allFourChoice p (True, False) pr = soToEq (snd (soAnd (fst (soAnd (eqToSo pr)))))
+allFourChoice p (True, True) pr = soToEq (snd (soAnd (eqToSo pr)))
+
+||| Enumeration checks the leaf selected by every total valuation, even when
+||| the input name list contains duplicates.
+public export
+allAssignmentsBranch : (names : List (Fin n)) -> (env : List (Fin n, DM)) ->
+  (valuation : Fin n -> DM) -> (face : ScopedFace n) -> (r, s : ScopedInterval n) ->
+  allAssignments names env face r s = True ->
+  (not (faceAt (assignmentBranch names env valuation) face) ||
+    evalDM (assignmentBranch names env valuation) r == evalDM (assignmentBranch names env valuation) s) = True
+allAssignmentsBranch [] env valuation face r s pr = pr
+allAssignmentsBranch (i :: rest) env valuation face r s pr =
+  allAssignmentsBranch rest ((i, valuation i) :: env) valuation face r s
+    (allFourChoice (\v => allAssignments rest ((i, v) :: env) face r s) (valuation i) pr)
+
+finEqTrue : (i, j : Fin n) -> (i == j) = True -> i = j
+finEqTrue FZ FZ pr = Refl
+finEqTrue FZ (FS j) pr = absurd pr
+finEqTrue (FS i) FZ pr = absurd pr
+finEqTrue (FS i) (FS j) pr = cong FS (finEqTrue i j pr)
+
+finEqSelf : (i : Fin n) -> (i == i) = True
+finEqSelf FZ = Refl
+finEqSelf (FS i) = finEqSelf i
+
+lookupConsValuation : (i, j : Fin n) -> (valuation : Fin n -> DM) -> (env : List (Fin n, DM)) ->
+  lookupDM i env = valuation i -> lookupDM i ((j, valuation j) :: env) = valuation i
+lookupConsValuation i j valuation env pr with (i == j) proof eq
+  lookupConsValuation i j valuation env pr | False = pr
+  lookupConsValuation i j valuation env pr | True = cong valuation (sym (finEqTrue i j eq))
+
+branchPreservesLookup : (names : List (Fin n)) -> (i : Fin n) -> (env : List (Fin n, DM)) ->
+  (valuation : Fin n -> DM) -> lookupDM i env = valuation i ->
+  lookupDM i (assignmentBranch names env valuation) = valuation i
+branchPreservesLookup [] i env valuation pr = pr
+branchPreservesLookup (j :: rest) i env valuation pr =
+  branchPreservesLookup rest i ((j, valuation j) :: env) valuation
+    (lookupConsValuation i j valuation env pr)
+
+||| Every listed name has its valuation at the selected branch. Duplicate names
+||| are harmless because each occurrence inserts the same valuation.
+public export
+assignmentBranchLookup : (names : List (Fin n)) -> (i : Fin n) -> Elem i names ->
+  (env : List (Fin n, DM)) -> (valuation : Fin n -> DM) ->
+  lookupDM i (assignmentBranch names env valuation) = valuation i
+assignmentBranchLookup (i :: rest) i Here env valuation =
+  branchPreservesLookup rest i ((i, valuation i) :: env) valuation
+    (rewrite finEqSelf i in Refl)
+assignmentBranchLookup (j :: rest) i (There pr) env valuation =
+  assignmentBranchLookup rest i pr ((j, valuation j) :: env) valuation
+
+trueFaceResult : (f, e : Bool) -> (not f || e) = True -> f = True -> e = True
+trueFaceResult True e pr Refl = pr
+trueFaceResult False e pr Refl impossible
+
+||| Conditional soundness for an environment whose relevant lookup results
+||| agree with the valuation-selected branch. Name coverage supplies these
+||| hypotheses, but is not assumed here to follow from nub.
+public export
+allAssignmentsSoundOnAgreement :
+  (names : List (Fin n)) -> (initial, target : List (Fin n, DM)) ->
+  (valuation : Fin n -> DM) -> (face : ScopedFace n) -> (r, s : ScopedInterval n) ->
+  DMLookupAgrees (faceNames face) (assignmentBranch names initial valuation) target ->
+  DMLookupAgrees (intervalNames r) (assignmentBranch names initial valuation) target ->
+  DMLookupAgrees (intervalNames s) (assignmentBranch names initial valuation) target ->
+  allAssignments names initial face r s = True -> faceAt target face = True ->
+  (evalDM target r == evalDM target s) = True
+allAssignmentsSoundOnAgreement names initial target valuation face r s af ar as checked holds =
+  trueFaceResult (faceAt target face) (evalDM target r == evalDM target s)
+    (rewrite sym (faceAtLocal face (assignmentBranch names initial valuation) target af) in
+     rewrite sym (evalDMLocal r (assignmentBranch names initial valuation) target ar) in
+     rewrite sym (evalDMLocal s (assignmentBranch names initial valuation) target as) in
+       allAssignmentsBranch names initial valuation face r s checked) holds
+
+||| Pair-model interval semantics for an arbitrary total valuation.
+public export
+evalDMVal : (Fin n -> DM) -> ScopedInterval n -> DM
+evalDMVal valuation Zero = (False, False)
+evalDMVal valuation One = (True, True)
+evalDMVal valuation (Var i) = valuation i
+evalDMVal valuation (Reverse x) = dmReverse (evalDMVal valuation x)
+evalDMVal valuation (Meet x y) = dmMeet (evalDMVal valuation x) (evalDMVal valuation y)
+evalDMVal valuation (Join x y) = dmJoin (evalDMVal valuation x) (evalDMVal valuation y)
+
+||| Pair-model face semantics for an arbitrary total valuation.
+public export
+faceAtVal : (Fin n -> DM) -> ScopedFace n -> Bool
+faceAtVal valuation SBottom = False
+faceAtVal valuation STop = True
+faceAtVal valuation (SEndpoint i b) = valuation i == (b, b)
+faceAtVal valuation (SConjunction x y) = faceAtVal valuation x && faceAtVal valuation y
+faceAtVal valuation (SDisjunction x y) = faceAtVal valuation x || faceAtVal valuation y
+
+public export
+DMValAgrees : {n : Nat} -> List (Fin n) -> List (Fin n, DM) -> (Fin n -> DM) -> Type
+DMValAgrees {n} names env valuation = (i : Fin n) -> Elem i names -> lookupDM i env = valuation i
+
+valLeft : {xs : List (Fin n)} -> DMValAgrees (xs ++ ys) env valuation -> DMValAgrees xs env valuation
+valLeft {xs = []} agree i p impossible
+valLeft {xs = i :: xs} agree i Here = agree i Here
+valLeft {xs = x :: xs} agree i (There p) = valLeft (\j, q => agree j (There q)) i p
+
+valRight : (xs : List (Fin n)) -> DMValAgrees (xs ++ ys) env valuation -> DMValAgrees ys env valuation
+valRight [] agree = agree
+valRight (_ :: xs) agree = valRight xs (\j, q => agree j (There q))
+
+||| Relate the solver evaluator to total-valuation semantics on its read names.
+public export
+evalDMValLocal : (r : ScopedInterval n) -> (env : List (Fin n, DM)) -> (valuation : Fin n -> DM) ->
+  DMValAgrees (intervalNames r) env valuation -> evalDM env r = evalDMVal valuation r
+evalDMValLocal Zero env valuation agree = Refl
+evalDMValLocal One env valuation agree = Refl
+evalDMValLocal (Var i) env valuation agree = agree i Here
+evalDMValLocal (Reverse x) env valuation agree = cong dmReverse (evalDMValLocal x env valuation agree)
+evalDMValLocal (Meet x y) env valuation agree =
+  rewrite evalDMValLocal x env valuation (valLeft agree) in
+  rewrite evalDMValLocal y env valuation (valRight (intervalNames x) agree) in Refl
+evalDMValLocal (Join x y) env valuation agree =
+  rewrite evalDMValLocal x env valuation (valLeft agree) in
+  rewrite evalDMValLocal y env valuation (valRight (intervalNames x) agree) in Refl
+
+||| Relate the solver face evaluator to total-valuation semantics on its read names.
+public export
+faceAtValLocal : (face : ScopedFace n) -> (env : List (Fin n, DM)) -> (valuation : Fin n -> DM) ->
+  DMValAgrees (faceNames face) env valuation -> faceAt env face = faceAtVal valuation face
+faceAtValLocal SBottom env valuation agree = Refl
+faceAtValLocal STop env valuation agree = Refl
+faceAtValLocal (SEndpoint i b) env valuation agree = cong (\v => v == (b, b)) (agree i Here)
+faceAtValLocal (SConjunction x y) env valuation agree =
+  rewrite faceAtValLocal x env valuation (valLeft agree) in
+  rewrite faceAtValLocal y env valuation (valRight (faceNames x) agree) in Refl
+faceAtValLocal (SDisjunction x y) env valuation agree =
+  rewrite faceAtValLocal x env valuation (valLeft agree) in
+  rewrite faceAtValLocal y env valuation (valRight (faceNames x) agree) in Refl
+
+||| Soundness of enumeration given explicit coverage of all read names.
+public export
+allAssignmentsValSound : (names : List (Fin n)) -> (initial : List (Fin n, DM)) ->
+  (valuation : Fin n -> DM) -> (face : ScopedFace n) -> (r, s : ScopedInterval n) ->
+  ((i : Fin n) -> Elem i (faceNames face) -> Elem i names) ->
+  ((i : Fin n) -> Elem i (intervalNames r) -> Elem i names) ->
+  ((i : Fin n) -> Elem i (intervalNames s) -> Elem i names) ->
+  allAssignments names initial face r s = True -> faceAtVal valuation face = True ->
+  (evalDMVal valuation r == evalDMVal valuation s) = True
+allAssignmentsValSound names initial valuation face r s cf cr cs checked holds =
+  trueFaceResult (faceAtVal valuation face) (evalDMVal valuation r == evalDMVal valuation s)
+    (rewrite sym (faceAtValLocal face (assignmentBranch names initial valuation) valuation
+      (\i, p => assignmentBranchLookup names i (cf i p) initial valuation)) in
+     rewrite sym (evalDMValLocal r (assignmentBranch names initial valuation) valuation
+      (\i, p => assignmentBranchLookup names i (cr i p) initial valuation)) in
+     rewrite sym (evalDMValLocal s (assignmentBranch names initial valuation) valuation
+      (\i, p => assignmentBranchLookup names i (cs i p) initial valuation)) in
+       allAssignmentsBranch names initial valuation face r s checked) holds
+
+||| Admission can only return Accepted when the actual enumeration returned true.
+public export
+restrictedIntervalEqualChecked : {n : Nat} -> (budget : Nat) -> (face : ScopedFace n) ->
+  (r, s : ScopedInterval n) -> restrictedIntervalEqual budget face r s = Accepted ->
+  intervalEqual face r s = True
+restrictedIntervalEqualChecked {n} budget face r s accepted with (not (n <= 12))
+  restrictedIntervalEqualChecked {n} budget face r s Refl | True impossible
+  restrictedIntervalEqualChecked {n} budget face r s accepted | False with
+    (faceNodes (min 12 budget) face >>= \f => intervalNodes f r >>= \g => intervalNodes g s)
+    restrictedIntervalEqualChecked {n} budget face r s Refl | False | Nothing impossible
+    restrictedIntervalEqualChecked {n} budget face r s accepted | False | Just remaining with (intervalEqual face r s) proof eq
+      restrictedIntervalEqualChecked {n} budget face r s Refl | False | Just remaining | False impossible
+      restrictedIntervalEqualChecked {n} budget face r s accepted | False | Just remaining | True = Refl
+
+pairEqTrue : (x, y : DM) -> (x == y) = True -> x = y
+pairEqTrue (False, False) (False, False) pr = Refl
+pairEqTrue (False, False) (False, True) pr = absurd pr
+pairEqTrue (False, False) (True, False) pr = absurd pr
+pairEqTrue (False, False) (True, True) pr = absurd pr
+pairEqTrue (False, True) (False, False) pr = absurd pr
+pairEqTrue (False, True) (False, True) pr = Refl
+pairEqTrue (False, True) (True, False) pr = absurd pr
+pairEqTrue (False, True) (True, True) pr = absurd pr
+pairEqTrue (True, False) (False, False) pr = absurd pr
+pairEqTrue (True, False) (False, True) pr = absurd pr
+pairEqTrue (True, False) (True, False) pr = Refl
+pairEqTrue (True, False) (True, True) pr = absurd pr
+pairEqTrue (True, True) (False, False) pr = absurd pr
+pairEqTrue (True, True) (False, True) pr = absurd pr
+pairEqTrue (True, True) (True, False) pr = absurd pr
+pairEqTrue (True, True) (True, True) pr = Refl
+
+appendElemLeft : (xs : List a) -> Elem i xs -> Elem i (xs ++ ys)
+appendElemLeft (i :: xs) Here = Here
+appendElemLeft (x :: xs) (There pr) = There (appendElemLeft xs pr)
+
+appendElemRight : (xs : List a) -> Elem i ys -> Elem i (xs ++ ys)
+appendElemRight [] pr = pr
+appendElemRight (x :: xs) pr = There (appendElemRight xs pr)
+
+||| Accepted conversion is sound for any total valuation, assuming the names
+||| surviving the actual nub cover each name read by the three expressions.
+public export
+restrictedIntervalEqualValSoundGivenCoverage : {n : Nat} ->
+  (budget : Nat) -> (face : ScopedFace n) -> (r, s : ScopedInterval n) ->
+  (valuation : Fin n -> DM) ->
+  ((i : Fin n) -> Elem i (faceNames face ++ intervalNames r ++ intervalNames s) ->
+    Elem i (nub (faceNames face ++ intervalNames r ++ intervalNames s))) ->
+  restrictedIntervalEqual budget face r s = Accepted -> faceAtVal valuation face = True ->
+  evalDMVal valuation r = evalDMVal valuation s
+restrictedIntervalEqualValSoundGivenCoverage budget face r s valuation cover accepted holds =
+  pairEqTrue (evalDMVal valuation r) (evalDMVal valuation s) $
+  allAssignmentsValSound (nub (faceNames face ++ intervalNames r ++ intervalNames s)) [] valuation face r s
+    (\i, p => cover i (appendElemLeft (faceNames face) p))
+    (\i, p => cover i (appendElemRight (faceNames face) (appendElemLeft (intervalNames r) p)))
+    (\i, p => cover i (appendElemRight (faceNames face) (appendElemRight (intervalNames r) p)))
+    (restrictedIntervalEqualChecked budget face r s accepted) holds
+
+-- Data.List.nubBy's accumulator is a nested library definition. Resolve that
+-- exact worker for proof only; selection fails closed if the library changes.
+-- The solver itself still calls Data.List.nub unchanged.
+nubWorker : {a : Type} -> List a -> (a -> a -> Bool) -> List a -> List a
+nubWorker {a} = %runElab do
+  names <- getReferredFns `{Data.List.nubBy}
+  case filter (\name => case name of NS _ (Nested _ (UN (Basic "nubBy'"))) => True; _ => False) names of
+    [name] => do
+      ty <- quote a
+      check (IApp EmptyFC (IVar EmptyFC name) ty)
+    _ => fail "Data.List.nubBy accumulator not uniquely found"
+
+foldAnyFinMember : (i : Fin n) -> (xs : List (Fin n)) -> (seed : Bool) ->
+  foldl (\b, j => b || i == j) seed xs = True -> Either (seed = True) (Elem i xs)
+foldAnyFinMember i [] seed pr = Left pr
+foldAnyFinMember i (x :: xs) seed pr =
+  case foldAnyFinMember i xs (seed || i == x) pr of
+    Right inTail => Right (There inTail)
+    Left prev => case soOr (eqToSo prev) of
+      Left seedTrue => Left (soToEq seedTrue)
+      Right equal => case finEqTrue i x (soToEq equal) of
+        Refl => Right Here
+
+finElemBySound : (i : Fin n) -> (xs : List (Fin n)) -> elemBy (==) i xs = True -> Elem i xs
+finElemBySound i xs pr =
+  case foldAnyFinMember i xs False pr of
+    Left impossibleSeed => absurd impossibleSeed
+    Right member => member
+
+nubWorkerCoverage : (acc, xs : List (Fin n)) -> (i : Fin n) -> Elem i xs ->
+  Either (Elem i acc) (Elem i (nubWorker acc (==) xs))
+nubWorkerCoverage acc (i :: xs) i Here with (elemBy (==) i acc) proof seen
+  nubWorkerCoverage acc (i :: xs) i Here | True = Left (finElemBySound i acc seen)
+  nubWorkerCoverage acc (i :: xs) i Here | False =
+    Right Here
+nubWorkerCoverage acc (x :: xs) i (There member) with (elemBy (==) x acc) proof seen
+  nubWorkerCoverage acc (x :: xs) i (There member) | True =
+    case nubWorkerCoverage acc xs i member of
+      Left inAcc => Left inAcc
+      Right inResult => Right inResult
+  nubWorkerCoverage acc (x :: xs) i (There member) | False =
+    case nubWorkerCoverage (x :: acc) xs i member of
+      Left Here => Right Here
+      Left (There inAcc) => Left inAcc
+      Right inResult => Right (There inResult)
+
+||| `Data.List.nub` retains every Fin name, including when names repeat.
+public export
+finNubCoverage : (xs : List (Fin n)) -> (i : Fin n) -> Elem i xs -> Elem i (nub xs)
+finNubCoverage xs i member = case nubWorkerCoverage [] xs i member of
+  Left inEmpty => absurd inEmpty
+  Right inResult => inResult
+
+||| An Accepted restricted comparison is sound for every total pair-model
+||| valuation satisfying the face. This is not free-algebra or CCHM soundness.
+public export
+restrictedIntervalEqualValSound : {n : Nat} ->
+  (budget : Nat) -> (face : ScopedFace n) -> (r, s : ScopedInterval n) ->
+  (valuation : Fin n -> DM) ->
+  restrictedIntervalEqual budget face r s = Accepted -> faceAtVal valuation face = True ->
+  evalDMVal valuation r = evalDMVal valuation s
+restrictedIntervalEqualValSound budget face r s valuation accepted holds =
+  restrictedIntervalEqualValSoundGivenCoverage budget face r s valuation
+    (\i, member => finNubCoverage (faceNames face ++ intervalNames r ++ intervalNames s) i member)
+    accepted holds

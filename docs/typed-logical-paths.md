@@ -304,18 +304,33 @@ this distinction and invokes `restrictedIntervalEqual` both unrestricted and
 under the zero face. Opposite endpoint faces are never simultaneously true in
 this pair model.
 
-`dmScopedEndpointSound` proves directly for the solver's actual list lookup,
-`faceAt` and `evalDM` that truth of `scopedEndpoint r b` implies evaluation of
-`r` to `(b,b)`. `dmMeetScopedOne` proves evaluation of `x ∧ y` equals that of
-`x` when the extracted one-face of `y` holds. These are sufficient-direction
-results, not a proof of the enumeration checker: completeness of `nub` name
-collection and coverage of arbitrary valuations by `allAssignments` remain to
-be established. No free-algebra completeness or converse is claimed.
+`restrictedIntervalEqualValSound` proves the following theorem for the actual
+checker: for every total valuation `valuation : Fin n -> DM`, if
+`restrictedIntervalEqual budget face r s = Accepted` and
+`faceAtVal valuation face = True`, then
+`evalDMVal valuation r = evalDMVal valuation s`. The result is propositional
+equality in this four-pair model. It does not require any separate assumption
+about the admission budget; the `Accepted` premise includes admission.
+
+The proof relates the list evaluators to the function-valued semantics by
+locality on collected names, proves every total valuation selects an enumerated
+branch and that branch lookup agrees even with duplicate names, and proves
+membership preservation for the actual `Data.List.nub`. The latter library
+function hides its accumulator in a nested definition, so a fail-closed
+elaborator-reflection bridge names that exact worker for the proof; the solver
+still calls `nub` unchanged. The admission proof links `Accepted` to the
+enumeration result. Missing list keys still default to `(False,False)` and
+first-match lookup is unchanged.
+
+`dmScopedEndpointSound` and `dmMeetScopedOne` separately prove endpoint facts
+for the list evaluators. None of these results establishes free De Morgan
+algebra completeness or equality, typing preservation, or CCHM semantic
+soundness; those remain separate open obligations.
 
 `restrictedIntervalEqual` rejects scopes above 12 and admits at most 12 total
 face/interval syntax nodes (also bounded by the caller's budget). It enumerates
 four values per distinct collected name, at most 4^12 assignments (and often
 fewer due to the shared node cap); the budget is admission, not work fuel.
 `Accepted` means that this finite check returned true, `Rejected` that it
-returned false, and `Exhausted` that an admission guard failed. This statement
-is operational and does not assert the unproved arbitrary-valuation theorem.
+returned false, and `Exhausted` that an admission guard failed. The soundness theorem above applies only to `Accepted`, not to a converse
+interpretation of `Rejected` or `Exhausted`.
