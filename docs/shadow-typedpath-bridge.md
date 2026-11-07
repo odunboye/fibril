@@ -232,7 +232,11 @@ branches can have arbitrary logical types, including arrows.
 witnesses for the same syntax, context and result type. Its application rule
 requires a shared domain type, recursively, and its lambda, conditional and
 unit-elimination rules align their children. It has no semantic-relation
-premise. This is only the ordinary evidence: a cross-witness interpretation
+premise. `higherOrderAlignedVariableRelated` proves the variable case over
+related environments; `higherOrderApplicationRelated` and
+`higherOrderChoiceRelated` prove value-level application and conditional
+congruence. These lemmas do not establish the recursive alignment theorem.
+This is only the ordinary evidence: a cross-witness interpretation
 theorem and corresponding dependent-path alignment are not yet established.
 In particular this does not assert coherence for differently typed intermediate
 expressions.

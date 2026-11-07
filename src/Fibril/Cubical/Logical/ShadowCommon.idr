@@ -1271,6 +1271,36 @@ data HigherOrderAlignment : {ctx : Vect n LogicalType} -> {a : LogicalType} ->
     HigherOrderAlignment leftC rightC -> HigherOrderAlignment leftT rightT -> HigherOrderAlignment leftF rightF ->
     HigherOrderAlignment (HOIf ctx a leftC leftT leftF) (HOIf ctx a rightC rightT rightF)
 
+||| Cross-witness application from explicitly related function and argument values.
+public export
+higherOrderApplicationRelated : {arg, result : LogicalType} ->
+  {f, g : CommonMorphism (commonTypeSetoid arg) (commonTypeSetoid result)} ->
+  {x, y : carrier (commonTypeSetoid arg)} ->
+  related (commonArrowSetoid (commonTypeSetoid arg) (commonTypeSetoid result)) f g ->
+  related (commonTypeSetoid arg) x y ->
+  related (commonTypeSetoid result) (applyMorphism f x) (applyMorphism g y)
+higherOrderApplicationRelated {arg} {result} {f} {g} {x} {y} fg xy =
+  commonApplicationCongruence {a = commonTypeSetoid arg} {b = commonTypeSetoid result}
+    {f} {g} {x} {y} fg xy
+
+||| Related Boolean choices select related branches at any logical type.
+public export
+higherOrderChoiceRelated : {a : LogicalType} -> (c, d : Bool) -> c = d ->
+  {lt, rt, lf, rf : carrier (commonTypeSetoid a)} ->
+  related (commonTypeSetoid a) lt rt -> related (commonTypeSetoid a) lf rf ->
+  related (commonTypeSetoid a) (commonChoose c lt lf) (commonChoose d rt rf)
+higherOrderChoiceRelated False False Refl tr fr = fr
+higherOrderChoiceRelated True True Refl tr fr = tr
+
+||| Aligned variables interpret related environments to related values.
+public export
+higherOrderAlignedVariableRelated : (ctx : Vect n LogicalType) -> (a : LogicalType) ->
+  (v : LogicalVar ctx a) -> (x, y : carrier (commonEnvironmentSetoid ctx)) ->
+  related (commonEnvironmentSetoid ctx) x y ->
+  related (commonTypeSetoid a) (applyMorphism (higherOrderTermSemantics (HOVar ctx a v)) x)
+                              (applyMorphism (higherOrderTermSemantics (HOVar ctx a v)) y)
+higherOrderAlignedVariableRelated ctx a v x y xy = respectsRelation (commonEnvironmentLookup ctx a v) xy
+
 ||| Dimensions use equality, not a Boolean approximation of the four-pair model.
 public export
 commonDMSetoid : CommonSetoid

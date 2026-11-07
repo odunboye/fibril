@@ -1935,3 +1935,46 @@ dependentSameWitnessApplication = dependentPathSameWitness Tests.Shadow.pathCapt
   ((True, ()), Tests.Shadow.dependentLinearPaths)
   ((True, ()), (Tests.Shadow.dependentLinearPathAlternative, ()))
   ((Refl, Refl), Tests.Shadow.dependentLinearPathsRelated)
+
+alignmentApplicationRelatedTest :
+  related (commonTypeSetoid LBool)
+    (applyMorphism Tests.Shadow.setoidIdentity True)
+    (applyMorphism Tests.Shadow.setoidConditionalIdentity True)
+alignmentApplicationRelatedTest = higherOrderApplicationRelated {arg = LBool} {result = LBool}
+  {f = Tests.Shadow.setoidIdentity} {g = Tests.Shadow.setoidConditionalIdentity}
+  {x = True} {y = True} Tests.Shadow.setoidIdentityEquivalent Refl
+
+alignmentApplicationRelatedArrowInputs :
+  related (commonTypeSetoid (LArrow LBool LBool))
+    (applyMorphism Tests.Shadow.higherIdentity Tests.Shadow.setoidIdentity)
+    (applyMorphism Tests.Shadow.higherIdentity Tests.Shadow.setoidConditionalIdentity)
+alignmentApplicationRelatedArrowInputs = higherOrderApplicationRelated
+  {arg = LArrow LBool LBool} {result = LArrow LBool LBool}
+  {f = Tests.Shadow.higherIdentity} {g = Tests.Shadow.higherIdentity}
+  {x = Tests.Shadow.setoidIdentity} {y = Tests.Shadow.setoidConditionalIdentity}
+  (\left, right, rel => rel) Tests.Shadow.setoidIdentityEquivalent
+
+alignmentChoiceRelatedFalse :
+  related (commonTypeSetoid LBool)
+    (commonChoose False True False) (commonChoose False True False)
+alignmentChoiceRelatedFalse = higherOrderChoiceRelated {a = LBool} False False Refl
+  {lt = True} {rt = True} {lf = False} {rf = False} Refl Refl
+
+alignmentChoiceRelatedTest :
+  related (commonTypeSetoid (LArrow LBool LBool))
+    (commonChoose True Tests.Shadow.setoidIdentity Tests.Shadow.setoidIdentity)
+    (commonChoose True Tests.Shadow.setoidConditionalIdentity Tests.Shadow.setoidConditionalIdentity)
+alignmentChoiceRelatedTest = higherOrderChoiceRelated {a = LArrow LBool LBool} True True Refl
+  {lt = Tests.Shadow.setoidIdentity} {rt = Tests.Shadow.setoidConditionalIdentity}
+  {lf = Tests.Shadow.setoidIdentity} {rf = Tests.Shadow.setoidConditionalIdentity}
+  Tests.Shadow.setoidIdentityEquivalent Tests.Shadow.setoidIdentityEquivalent
+
+alignmentVariableRelatedTest :
+  related (commonTypeSetoid (LArrow LBool LBool))
+    (applyMorphism (higherOrderTermSemantics (HOVar [LArrow LBool LBool] (LArrow LBool LBool) LHere))
+      (Tests.Shadow.setoidIdentity, ()))
+    (applyMorphism (higherOrderTermSemantics (HOVar [LArrow LBool LBool] (LArrow LBool LBool) LHere))
+      (Tests.Shadow.setoidConditionalIdentity, ()))
+alignmentVariableRelatedTest = higherOrderAlignedVariableRelated [LArrow LBool LBool] (LArrow LBool LBool) LHere
+  (Tests.Shadow.setoidIdentity, ()) (Tests.Shadow.setoidConditionalIdentity, ())
+  (Tests.Shadow.setoidIdentityEquivalent, Refl)
