@@ -1,6 +1,8 @@
 # Foundation baseline: De Morgan cubical type theory
 
 Status: selected reference for initial engineering, not a completed Fibril calculus.
+The [cubical alignment milestone](cubical-alignment.md) specifies the next
+checked-path goal and its acceptance gates.
 
 See the [code-to-theory map](references.md#code-to-theory-map) for per-module
 correspondences and the limits of each citation. Quantity integration additionally

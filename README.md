@@ -10,6 +10,11 @@ that are structural or admitted by a size-change check. Cubical term checking, a
 JavaScript backend, embedded profiles and real-time guarantees are not implemented.
 [Experimental C emission](docs/native-c.md) produces a real native executable for a checked console subset; it is not yet an application backend.
 
+Fibril's HoTT direction remains a goal, not a present capability. The
+[cubical alignment milestone](docs/cubical-alignment.md) sets out the first
+checked path example and the quantitative obligations that must be resolved
+before it enters the trusted core.
+
 [Checked Fibril prelude functions](docs/console-runner.md) provide putStrLn,
 pure, and bind over experimental IO descriptions. A hosted runner executes stdout
 plans; a complete effect calculus and compiler backends remain future work.

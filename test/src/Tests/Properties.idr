@@ -16,6 +16,7 @@ import Fibril.Core.Reduction
 import Fibril.Core.Reduction.Fuel
 import Fibril.Foundation.DeMorgan.Interval
 import Fibril.Foundation.DeMorgan.NormalForm
+import Fibril.Foundation.DeMorgan.VerifiedReduction
 import Fibril.Foundation.DeMorgan.Face
 
 %default total
@@ -152,6 +153,15 @@ intervalOracle = property $ do
   equivalent x y === referenceEquivalent x y
   equivalent x (Reverse (Reverse x)) === referenceEquivalent x (Reverse (Reverse x))
 
+-- Finite reference comparison only; it is not a compatibility proof.
+verifiedNormalCorpus : Property
+verifiedNormalCorpus = property $ do
+  let atoms : List (Interval Nat)
+      atoms = [Zero, One, Var 0, Var 1, Reverse (Var 0)]
+  let corpus = atoms ++ map Reverse atoms ++
+        concatMap (\x => map (Meet x) atoms ++ map (Join x) atoms) atoms
+  assert (all (\x => all (\p => verifiedNormal p x == Fibril.Foundation.DeMorgan.NormalForm.normal p x) (the (List Bool) [False, True])) corpus)
+
 faceOracle : Property
 faceOracle = property $ do
   [x, y] <- forAll (vect 2 (intervalGen 3))
@@ -194,7 +204,8 @@ sizeAccounting = property $ do
 public export
 runProperties : IO Bool
 runProperties = checkGroup (MkGroup "Fibril structural properties"
-  [ ("core and saturated inference size counters agree", sizeAccounting)
+  [ ("candidate normalizer finite production comparison", verifiedNormalCorpus)
+  , ("core and saturated inference size counters agree", sizeAccounting)
   , ("normalization fuel splits and resumes", fuelSplitting)
   , ("sorted helpers match simple algorithms", sortedOracle)
   , ("interval solver matches frozen oracle", intervalOracle)

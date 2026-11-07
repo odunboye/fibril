@@ -367,6 +367,26 @@
         "path": "docs/foundation-baseline.md"
       },
       {
+        "title": "Cubical alignment milestone",
+        "path": "docs/cubical-alignment.md"
+      },
+      {
+        "title": "Quantitative cubical rules",
+        "path": "docs/quantitative-cubical-rules.md"
+      },
+      {
+        "title": "Declarative logical paths",
+        "path": "docs/typed-logical-paths.md"
+      },
+      {
+        "title": "Restricted shadow-typed path bridge",
+        "path": "docs/shadow-typedpath-bridge.md"
+      },
+      {
+        "title": "Verified DNF reduction",
+        "path": "docs/verified-dnf-reduction.md"
+      },
+      {
         "title": "Theory bibliography",
         "path": "docs/references.md"
       },
