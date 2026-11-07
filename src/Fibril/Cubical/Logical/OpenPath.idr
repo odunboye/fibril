@@ -129,6 +129,19 @@ allAssignments (i :: rest) env face r s =
   all (\v => allAssignments rest ((i, v) :: env) face r s)
       [(False, False), (False, True), (True, False), (True, True)]
 
+intervalEqual : ScopedFace n -> ScopedInterval n -> ScopedInterval n -> Bool
+intervalEqual face r s =
+  allAssignments (nub (faceNames face ++ intervalNames r ++ intervalNames s)) [] face r s
+
+||| Bounded admission before restricted interval comparison; budget is not work fuel.
+public export
+restrictedIntervalEqual : {n : Nat} -> Nat -> ScopedFace n -> ScopedInterval n -> ScopedInterval n -> Result
+restrictedIntervalEqual {n} budget face r s =
+  if not (n <= 12) then Exhausted else
+  case faceNodes (min 12 budget) face >>= \f => intervalNodes f r >>= \g => intervalNodes g s of
+    Nothing => Exhausted
+    Just _ => if intervalEqual face r s then Accepted else Rejected
+
 ||| Compare applications of the single declared neutral path at two dimensions.
 ||| Rejection is only failure of this sufficient conversion rule. The path
 ||| argument fixes the shared typed declaration; distinct paths are not expressible.
@@ -139,8 +152,7 @@ convertNeutrals budget (Under face) path r s =
   case faceNodes (min 12 budget) face >>= \fuel =>
        intervalNodes fuel r >>= \fuel => intervalNodes fuel s of
     Nothing => Exhausted
-    Just _ => if allAssignments (nub (faceNames face ++ intervalNames r ++ intervalNames s))
-                                 [] face r s
+    Just _ => if intervalEqual face r s
                  then Accepted
                  else if left path == right path then
                    case (convertToVariable budget (Under face) path (At r) (left path),

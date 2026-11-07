@@ -603,9 +603,22 @@ scoped indices. Literal zero and one applications unfold through the telescope,
 including chains of older endpoints; otherwise conversion accepts only exact
 syntactic identity of the same path and interval. Distinct path names are never
 identified merely because their endpoints coincide. Boundary checking substitutes
-literal endpoints and checks both sides against open terms. Rejection is unknown,
-not inequality. The unrestricted checker does not support arbitrary face
-restrictions, interval algebra equivalence, path-valued expressions, nested
+literal endpoints and checks both sides against open terms.
+
+The separate `convertRestricted` accepts an explicit face. It accepts any terms
+on an empty face, identical variables, and applications of the same path at
+intervals equal under the face in the four-element De Morgan model. For two
+applications it otherwise unfolds either application only when the whole face
+entails that interval is zero or one, and continues along the resulting endpoint
+chain. For an application versus a variable it compares each declared endpoint
+to the variable under the whole face, then checks whether the faces of the
+successful endpoints cover the assumption. Thus coincident endpoints can cover
+a disjunction of endpoint faces, but that disjunction is not assumed to be top.
+Different path identities are not equated except by these justified endpoint
+reductions. There is no general branch-refining recursion: for example an
+endpoint equal to the target only on its own subface may be missed. Rejection
+means unknown, not inequality. The original unrestricted checker remains
+syntactic, and neither checker supports path-valued expressions, nested
 abstractions, or general typed conversion. `mapDims` is a raw scoped syntactic
 operation, not a bounded substitution API or a preservation theorem.
 
@@ -613,5 +626,10 @@ Each checking entry point caps context sizes and dimension counts at 12 and
 admits the complete telescope and input terms using one shared 12-node (or
 caller allowance) cap before unfolding or boundary substitution. Each later
 conversion independently applies the same cap; these are input limits, not an
-operation budget. Unfolding has separate fuel and fails closed on exhaustion.
-There is no general soundness proof, runtime authority, or core integration.
+operation budget. Restricted conversion includes the face in that combined cap;
+its generated endpoint tests are bounded by the admitted syntax. Its recursive
+comparison has fixed fuel 27, and the standalone restricted interval solver
+also checks dimensions and syntax before enumerating assignments. Unfolding and
+comparison fail closed on exhaustion. These caps and fuel do not claim a shared
+total-work bound. There is no general soundness proof, runtime authority, or
+core integration.

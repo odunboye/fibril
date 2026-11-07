@@ -70,7 +70,39 @@ preflightReference fuel replacement input =
 export
 checks : List (String, Bool)
 checks =
-  [ ("dependent telescope reduces open endpoints and checks boundaries",
+  [ ("restricted telescope follows open endpoint chains",
+      let ctx : Telescope 2 2 = Extend (Extend Empty (Tvar FZ) (Tvar (FS FZ)))
+                                         (Tapp FZ Zero) (Tapp FZ One)
+          face : Restriction 1 = Under (SEndpoint FZ False) in
+      accepted (convertRestricted 12 face ctx (Tapp FZ (Var FZ)) (Tvar FZ)) &&
+      rejected (convertRestricted 12 face ctx (Tapp FZ (Var FZ)) (Tvar (FS FZ))) &&
+      exhausted (convertRestricted 11 face ctx (Tapp FZ (Var FZ)) (Tvar FZ)))
+  , ("restricted telescope meet square, disjunction and empty faces",
+      let ctx : Telescope 2 1 = Extend Empty (Tvar FZ) (Tvar (FS FZ))
+          square : Term 2 1 2 = Tapp FZ (Meet (Var FZ) (Var (FS FZ)))
+          zero : Restriction 2 = Under (SDisjunction (SEndpoint FZ False) (SEndpoint (FS FZ) False))
+          one : Restriction 2 = Under (SConjunction (SEndpoint FZ True) (SEndpoint (FS FZ) True))
+          empty : Restriction 2 = Under SBottom in
+      accepted (convertRestricted 12 zero ctx square (Tvar FZ)) &&
+      accepted (convertRestricted 12 one ctx square (Tvar (FS FZ))) &&
+      accepted (convertRestricted 12 one ctx (Tapp FZ (Var FZ)) (Tapp FZ (Var (FS FZ)))) &&
+      accepted (convertRestricted 12 empty ctx (Tvar FZ) (Tvar (FS FZ))) &&
+      rejected (convertRestricted 12 one ctx square (Tvar FZ)))
+  , ("restricted telescope respects non-Boolean dimensions and identities",
+      let ctx : Telescope 2 1 = Extend Empty (Tvar FZ) (Tvar (FS FZ))
+          same : Telescope 2 1 = Extend Empty (Tvar FZ) (Tvar FZ)
+          ends : Restriction 1 = Under (SDisjunction (SEndpoint FZ False) (SEndpoint FZ True))
+          i : ScopedInterval 1 = Var FZ in
+      accepted (convertRestricted 12 ends same (Tapp FZ i) (Tvar FZ)) &&
+      rejected (convertRestricted 12 ends ctx (Tapp FZ i) (Tvar FZ)) &&
+      rejected (convertRestricted 12 unrestricted ctx (Tapp FZ (Meet i (Reverse i))) (Tvar FZ)) &&
+      rejected (convertRestricted 12 unrestricted same (Tapp FZ i) (Tvar FZ)) &&
+      accepted (convertRestricted 12 (Under (SEndpoint FZ False)) ctx
+                (Tapp FZ i) (Tapp FZ Zero)))
+  , ("restricted telescope does not equate distinct path names",
+      let ctx : Telescope 1 2 = Extend (Extend Empty (Tvar FZ) (Tvar FZ)) (Tvar FZ) (Tvar FZ) in
+      rejected (convertRestricted {n = 1} 12 unrestricted ctx (Tapp FZ (Var FZ)) (Tapp (FS FZ) (Var FZ))))
+  , ("dependent telescope reduces open endpoints and checks boundaries",
       let ctx : Telescope 2 2 = Extend (Extend Empty (Tvar FZ) (Tvar (FS FZ)))
                                          (Tapp FZ Zero) (Tapp FZ One)
           body : Term 2 2 1 = Tapp FZ (Var FZ) in
