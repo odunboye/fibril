@@ -276,3 +276,19 @@ if ! grep -Fq 'While processing right hand side of bad' "$tmp/$fixture.log" ||
   cat "$tmp/$fixture.log" >&2; exit 1
 fi
 echo 'Typed interval excluded-middle face-evidence negative test passed.'
+
+for fixture in TypedEqualConvertUnrelated TypedFaceRestrictEscape TypedEqualConvertFace; do
+  "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1 || true
+  case $fixture in
+    TypedEqualConvertUnrelated) expected='Mismatch between: NType and NPathType' ;;
+    TypedFaceRestrictEscape) expected='Mismatch between: True and False.' ;;
+    TypedEqualConvertFace) expected='Mismatch between: SBottom and STop.' ;;
+  esac
+  if ! grep -Fq 'While processing right hand side of bad' "$tmp/$fixture.log" ||
+     [[ $(grep -c '^Error:' "$tmp/$fixture.log") -ne 1 ]] ||
+     ! grep -Fq "$expected" "$tmp/$fixture.log"; then
+    echo "Typed equality conversion/face restriction test $fixture failed:" >&2
+    cat "$tmp/$fixture.log" >&2; exit 1
+  fi
+done
+echo 'Typed equality conversion and face restriction negative tests passed.'

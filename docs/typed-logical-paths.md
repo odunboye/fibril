@@ -23,7 +23,7 @@ beta, endpoint, De Morgan, or eta conversion is assumed. Nested constant
 paths and a dimension-varying application are derivable, but a general square
 `p (i ∧ j)` with neutral path `p` is not derivable in this original judgment.
 The separately indexed extension below adds restricted dependent families and equality,
-but not enough conversion for the general square. There is no general
+and derives this square under a declared neutral path context. There is no general
 weakening/substitution preservation theorem for derivations or semantic
 soundness theorem here. ScopedSyntax proves separate syntactic substitution laws.
 
@@ -48,11 +48,9 @@ entailment admits at most 12 dimensions and 12 combined face nodes; it does not
 use Boolean vertex logic. It is not accompanied by a semantic soundness proof.
 No opaque converter evidence is embedded in the judgment.
 
-The added examples derive neutral application and endpoint equality, including
-an endpoint of `p (i ∧ j)` under `i = 0`. They do **not** derive the full nested
-square: the inner path has right endpoint `p i`, so the outer path's family
-varies with `i`. A homogeneous nondependent path cannot express that general
-boundary; this needs additional face-restricted dependent conversion or a different square encoding.
+The examples derive neutral application and endpoint equality, including an
+endpoint of `p (i ∧ j)` under `i = 0`. The full nested square below uses a
+varying outer PathP family; a homogeneous nondependent path cannot express it.
 There is no general eta, beta, interval conversion, or derivation substitution
 proof, and this experiment grants no runtime authority.
 
@@ -70,17 +68,14 @@ assuming dependent type conversion under a face. Existing nondependent rules
 remain unchanged.
 
 The tests form a genuinely varying family whose endpoints are both `p i`, and
-check constant-family PathP introduction, elimination and an endpoint. They do
-not derive the requested square `λ i. λ j. p (i ∧ j)`: its boundaries need
-face-restricted congruence/conversion between types such as `Path A a (p i)`
-and their endpoint substitutions, and the original equality judgment could not
-supply that conversion; the bounded extension below supplies only a subset. Nor is there a general derivation substitution or
-weakening theorem. These rules are declarative and restricted, not equality
+check constant-family PathP introduction, elimination and an endpoint. The square derivation below also uses restricted path-type congruence and
+face restriction for its boundaries. There is no general derivation substitution
+or weakening theorem. These rules are declarative and restricted, not equality
 reflection, a semantic soundness proof, or a production runtime checker.
 
 Additional endpoint tests use hypothetical path-over derivations with a varying
-family; they do not assert that those derivations are constructible in this
-slice. Their endpoint typing evidence is constructed explicitly. At an open
+family; those particular tests are conditional, independently of the concrete
+square derived below. Their endpoint typing evidence is constructed explicitly. At an open
 argument constrained to zero, typing the endpoint only at the zero-substituted
 family is rejected, while an endpoint typed at the open instantiated family is
 accepted. Substitution under a nested abstraction is checked definitionally to
@@ -104,18 +99,19 @@ face under a binder. Existing PathP rules continue to use `weakenFace`.
 The new concrete example converts the constant path at `p i` from
 `Path A (p i) (p i)` to `Path A a a` on `i = 0`, using the typed endpoint
 rule twice. Negative fixtures reject unrelated endpoints, reusing evidence from
-bottom at top, a term as a type, and an escaping dimension. This is a bounded
-subset, not a proof of the requested square. The restricted congruences below now supply the inner edge, but not the
-restricted type and equality transport needed for the outer boundaries. No general
-weakening of derivations, semantic soundness theorem, or actual nested square
-is claimed.
+bottom at top, a term as a type, and an escaping dimension. `NEqualConvert` transports a term equality only using explicit type equality
+and typings of both terms at the destination, at the very same context and
+face. `NSym` reverses a typed equality. `NFaceRestrict` permits typing on a
+stronger face only when bounded entailment proves that it entails the source
+face; it cannot carry bottom evidence to top. These are explicit declarative
+rules, not equality reflection or a general weakening theorem.
 
 
 ## Typed interval and dependent abstraction congruence
 
 `IntervalEquivalent` is deliberately a very small sufficient relation, not a
 Boolean-vertex solver: reflexivity and `i ∧ j = i` when the bounded syntactic
-face entailment checks `j = 1`. The latter uses the existing 12-dimension,
+face entailment checks `j = 1`, plus the symmetric left-one rule. The latter uses the existing 12-dimension,
 12-face-node bounded check; the interval expression is not traversed by a new
 solver. This is an elementary lattice identity under the checked assumption,
 not an Idris semantic soundness theorem. `NIntervalApplyCong` requires one
@@ -125,15 +121,20 @@ identify different paths or invent equality of dependent result types.
 and endpoints, and body equality at that family on the weakened face.
 
 `squareInner` derives `λ j. p (i ∧ j) : Path A a (p i)` in the explicit
-neutral path context. Its left boundary uses the typed path endpoint rule and
-its right boundary the new interval congruence. The full nested square is not
-claimed: under the outer endpoint face its inner abstraction must be compared
-with the chosen outer endpoint at the varying family, whose endpoint types
-only agree by restricted `NPathTypeCong` and `NConvert`. The existing equality
-judgment has no conversion/transport rule to move a derived equality to that
-converted type, nor general face weakening to establish all abstraction typing
-premises at the exact nested faces. These missing typed derivations are not
-assumptions. There is no general eta/beta, semantic soundness theorem, or
-production checker change. Negative fixtures check non-Boolean collapse,
-distinct path identities, invalid face evidence, dimension scope, and unrelated
-dependent-abstraction endpoints.
+neutral path context. Its left boundary uses the typed path endpoint rule and its right boundary
+interval congruence. `square` is a closed Idris derivation, with no hypothetical
+judgment premises, under the declared neutral context `a : A, b : A, p : Path A a b`:
+
+```text
+λ i. λ j. p (i ∧ j)
+  : PathP (λ i. Path A a (p i)) (λ j. a) (λ j. p j)
+```
+
+Both outer endpoint abstractions are independently typed at their instantiated
+families using path-type congruence, and both boundary equalities are derived at
+the exact restricted faces. The right boundary uses the left-one interval rule;
+the left uses the endpoint rule. This is a declarative derivation, not a
+production checker feature or semantic soundness theorem. There is no general
+eta/beta or dependent-family type congruence. Negative fixtures cover unrelated
+carriers, bottom-face escape, failed endpoints, face indices and distinct neutral
+paths, among other scope and premise failures.

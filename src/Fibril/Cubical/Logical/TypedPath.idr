@@ -88,12 +88,14 @@ boundedFaceEntails {n} assumption goal =
     then simpleFaceEntails assumption goal else False
 
 -- A small sufficient interval equivalence, not Boolean vertex equality.  The
--- only face-sensitive rule checks that the right factor is one on the face.
+-- face-sensitive meet rules check that the relevant factor is one.
 public export
 data IntervalEquivalent : ScopedFace n -> ScopedInterval n -> ScopedInterval n -> Type where
   IRefl : IntervalEquivalent face i i
   IMeetRightOne : boundedFaceEntails face (scopedEndpoint j True) = True ->
     IntervalEquivalent face (Meet i j) i
+  IMeetLeftOne : boundedFaceEntails face (scopedEndpoint i True) = True ->
+    IntervalEquivalent face (Meet i j) j
 
 mutual
   public export
@@ -131,6 +133,8 @@ mutual
       NeutralHasType ctx face (NApply p i) (mapNeutralDimensions (instantiateDimension i) family)
     NConvert : NeutralHasType ctx face t a -> NeutralTypeEqual ctx face a b ->
       NeutralHasType ctx face t b
+    NFaceRestrict : NeutralHasType ctx source t a ->
+      boundedFaceEntails face source = True -> NeutralHasType ctx face t a
 
   public export
   data NeutralTypeEqual : PathContext m k -> ScopedFace n -> NeutralExpr m k n -> NeutralExpr m k n -> Type where
@@ -145,6 +149,10 @@ mutual
   public export
   data NeutralEqual : PathContext m k -> ScopedFace n -> NeutralExpr m k n -> NeutralExpr m k n -> NeutralExpr m k n -> Type where
     NRefl : NeutralHasType ctx face t a -> NeutralEqual ctx face t t a
+    NSym : NeutralEqual ctx face x y a -> NeutralEqual ctx face y x a
+    NEqualConvert : NeutralEqual ctx face x y a -> NeutralTypeEqual ctx face a b ->
+      NeutralHasType ctx face x b -> NeutralHasType ctx face y b ->
+      NeutralEqual ctx face x y b
     NEndpointLeft : NeutralHasType ctx face p (NPathType (weakenNeutralDimensions a) l r) ->
       NeutralHasType ctx face l a -> boundedFaceEntails face (scopedEndpoint i False) = True ->
       NeutralEqual ctx face (NApply p i) l a

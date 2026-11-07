@@ -123,8 +123,8 @@ varyingEndpointAtZero h = NPathPEndpointLeft h
     (NRefl (NElim (NPathVar FZ) Zero))) Refl
 
 -- The endpoint derivation itself is concrete at the open instantiated carrier.
--- The path-over remains a hypothetical judgment, since this slice cannot yet
--- construct the necessary varying-family boundary conversion.
+-- This particular path-over remains a hypothetical judgment; the separate
+-- square derivation below constructs a different varying family.
 varyingEndpointAtOpenZero :
   NeutralHasType {n = 1} Tests.Cubical.TypedPath.neutralContext (SEndpoint FZ False) p
     (NPathType
@@ -178,3 +178,63 @@ dependentAbstractRefl : NeutralEqual {n = 0} Tests.Cubical.TypedPath.neutralCont
   (NAbstract (NBase FZ)) (NAbstract (NBase FZ))
   (NPathType NType (NBase FZ) (NBase FZ))
 dependentAbstractRefl = NPathPAbstractCong pathPConstant pathPConstant (NRefl (NBaseVar FZ))
+
+-- The actual square: the outer PathP family has right endpoint p i.
+leftEdge : NeutralHasType {n = 0} Tests.Cubical.TypedPath.neutralContext STop
+  (NAbstract (NBase FZ)) (NPathType NType (NBase FZ) (NBase FZ))
+leftEdge = NIntro NBaseForm (NBaseVar FZ) (NBaseVar FZ) (NBaseVar FZ)
+  (NRefl (NBaseVar FZ)) (NRefl (NBaseVar FZ))
+
+rightEdge : NeutralHasType {n = 0} Tests.Cubical.TypedPath.neutralContext STop
+  (NAbstract (NApply (NPath FZ) (Var FZ)))
+  (NPathType NType (NBase FZ) (NBase (FS FZ)))
+rightEdge = NIntro NBaseForm (NBaseVar FZ) (NBaseVar (FS FZ))
+  (NElim (NPathVar FZ) (Var FZ))
+  (NEndpointLeft (NPathVar FZ) (NBaseVar FZ) Refl)
+  (NEndpointRight (NPathVar FZ) (NBaseVar (FS FZ)) Refl)
+
+square : NeutralHasType {n = 0} Tests.Cubical.TypedPath.neutralContext STop
+  (NAbstract (NAbstract (NApply (NPath FZ) (Meet (Var (FS FZ)) (Var FZ)))))
+  (NPathType (NPathType NType (NBase FZ) (NApply (NPath FZ) (Var FZ)))
+    (NAbstract (NBase FZ)) (NAbstract (NApply (NPath FZ) (Var FZ))))
+square = NPathPIntro
+  (NPathForm NBaseForm (NBaseVar FZ) (NElim (NPathVar FZ) (Var FZ)))
+  (NConvert leftEdge (NPathTypeCong NBaseForm (NBaseVar FZ) (NBaseVar FZ)
+    (NBaseVar FZ) (NElim (NPathVar FZ) Zero) (NRefl (NBaseVar FZ))
+    (NSym (NEndpointLeft (NPathVar FZ) (NBaseVar FZ) Refl))))
+  (NConvert rightEdge (NPathTypeCong NBaseForm (NBaseVar FZ) (NBaseVar (FS FZ))
+    (NBaseVar FZ) (NElim (NPathVar FZ) One) (NRefl (NBaseVar FZ))
+    (NSym (NEndpointRight (NPathVar FZ) (NBaseVar (FS FZ)) Refl))))
+  squareInner
+  (NAbstractCong {a = NType}
+    (NFaceRestrict squareInner Refl)
+    (NConvert
+      (NIntro NBaseForm (NBaseVar FZ) (NBaseVar FZ) (NBaseVar FZ)
+        (NRefl (NBaseVar FZ)) (NRefl (NBaseVar FZ)))
+      (NPathTypeCong NBaseForm (NBaseVar FZ) (NBaseVar FZ)
+        (NBaseVar FZ) (NElim (NPathVar FZ) (Var FZ))
+        (NRefl (NBaseVar FZ))
+        (NSym (NEndpointLeft (NPathVar FZ) (NBaseVar FZ) Refl))))
+    (NEndpointLeft (NPathVar FZ) (NBaseVar FZ) Refl))
+  (NAbstractCong {a = NType}
+    (NFaceRestrict squareInner Refl)
+    (NConvert
+      (NIntro NBaseForm (NBaseVar FZ) (NBaseVar (FS FZ))
+        (NElim (NPathVar FZ) (Var FZ))
+        (NEndpointLeft (NPathVar FZ) (NBaseVar FZ) Refl)
+        (NEndpointRight (NPathVar FZ) (NBaseVar (FS FZ)) Refl))
+      (NPathTypeCong NBaseForm (NBaseVar FZ) (NBaseVar (FS FZ))
+        (NBaseVar FZ) (NElim (NPathVar FZ) (Var FZ))
+        (NRefl (NBaseVar FZ)) (NSym (NEndpointRight (NPathVar FZ) (NBaseVar (FS FZ)) Refl))))
+    (NIntervalApplyCong (NPathVar FZ) (IMeetLeftOne Refl)))
+
+convertedEquality : NeutralEqual {n = 1} Tests.Cubical.TypedPath.neutralContext (SEndpoint FZ False)
+  (NAbstract (NApply (NPath FZ) (Var (FS FZ))))
+  (NAbstract (NApply (NPath FZ) (Var (FS FZ))))
+  (NPathType NType (NBase FZ) (NBase FZ))
+convertedEquality = NEqualConvert
+  (NRefl (NIntro NBaseForm (NElim (NPathVar FZ) (Var FZ)) (NElim (NPathVar FZ) (Var FZ))
+    (NElim (NPathVar FZ) (Var (FS FZ)))
+    (NRefl (NElim (NPathVar FZ) (Var (FS FZ))))
+    (NRefl (NElim (NPathVar FZ) (Var (FS FZ))))))
+  restrictedPathTypeCongruence restrictedConvertedPath restrictedConvertedPath
