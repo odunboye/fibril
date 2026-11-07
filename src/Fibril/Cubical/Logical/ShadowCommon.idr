@@ -768,3 +768,59 @@ firstOrderDeclaredLookup CommonDeclaredHere (FOPath path ps) (FOAdmissibleCons l
 firstOrderDeclaredLookup (CommonDeclaredThere declared) (FOPath path ps) (FOAdmissibleCons left right zero one rest) =
   case firstOrderDeclaredLookup declared ps rest of
     FOEndpoints l r z o => FOEndpoints l r z o
+
+||| Face entailment remains sound under the same four-pair valuation.
+public export
+commonFaceValEntailsSound : {d : Nat} -> (valuation : Fin d -> DM) -> (face, source : ScopedFace d) ->
+  boundedFaceEntails face source = True -> faceAtVal valuation face = True ->
+  faceAtVal valuation source = True
+commonFaceValEntailsSound valuation face source accepted holds =
+  rewrite sym (commonFaceValAgreement valuation source) in
+  boundedFaceEntailsSound (\i, b => valuation i == (b, b)) face source accepted
+    (rewrite commonFaceValAgreement valuation face in holds)
+
+||| The endpoint witness comes from the declaration's admissibility evidence.
+public export
+data FirstOrderLeftAtFace : {0 ctx : Vect n LogicalType} ->
+  {0 paths : Vect k LogicalType} -> (p : LogicalVar paths a) ->
+  (l : CommonTerm n) -> (ps : FirstOrderPaths ctx paths) ->
+  (env : FirstOrderEnv ctx) -> (value : DM) -> Type where
+  FOLeftAtFace : {0 paths : Vect k LogicalType} -> {p : LogicalVar paths a} -> {ps : FirstOrderPaths ctx paths} -> {0 lt : CommonHasType ctx l a} -> (left : FirstOrderTerm lt) ->
+    firstOrderPathLookup p ps env value = interpretFirstOrderTerm left env ->
+    FirstOrderLeftAtFace p l ps env value
+
+public export
+firstOrderDeclaredLeftAtFace : {0 decls : CommonDeclarations ctx paths} ->
+  {p : LogicalVar paths a} -> {l, r : CommonTerm n} ->
+  CommonDeclaredPath decls p l r -> (ps : FirstOrderPaths ctx paths) ->
+  FirstOrderAdmissible decls ps -> (env : FirstOrderEnv ctx) ->
+  (valuation : Fin d -> DM) -> (face : ScopedFace d) -> (i : ScopedInterval d) ->
+  boundedEndpointEntails face i False = True -> faceAtVal valuation face = True ->
+  FirstOrderLeftAtFace p l ps env (evalDMVal valuation i)
+firstOrderDeclaredLeftAtFace declared ps admissible env valuation face i accepted holds =
+  case firstOrderDeclaredLookup declared ps admissible of
+    FOEndpoints left right zero one =>
+      FOLeftAtFace left (rewrite commonBoundedEndpointValSound valuation face i False accepted holds in zero env)
+
+||| Right endpoint counterpart, retaining its actual first-order term witness.
+public export
+data FirstOrderRightAtFace : {0 ctx : Vect n LogicalType} ->
+  {0 paths : Vect k LogicalType} -> (p : LogicalVar paths a) ->
+  (r : CommonTerm n) -> (ps : FirstOrderPaths ctx paths) ->
+  (env : FirstOrderEnv ctx) -> (value : DM) -> Type where
+  FORightAtFace : {0 paths : Vect k LogicalType} -> {p : LogicalVar paths a} -> {ps : FirstOrderPaths ctx paths} -> {0 rt : CommonHasType ctx r a} -> (right : FirstOrderTerm rt) ->
+    firstOrderPathLookup p ps env value = interpretFirstOrderTerm right env ->
+    FirstOrderRightAtFace p r ps env value
+
+public export
+firstOrderDeclaredRightAtFace : {0 decls : CommonDeclarations ctx paths} ->
+  {p : LogicalVar paths a} -> {l, r : CommonTerm n} ->
+  CommonDeclaredPath decls p l r -> (ps : FirstOrderPaths ctx paths) ->
+  FirstOrderAdmissible decls ps -> (env : FirstOrderEnv ctx) ->
+  (valuation : Fin d -> DM) -> (face : ScopedFace d) -> (i : ScopedInterval d) ->
+  boundedEndpointEntails face i True = True -> faceAtVal valuation face = True ->
+  FirstOrderRightAtFace p r ps env (evalDMVal valuation i)
+firstOrderDeclaredRightAtFace declared ps admissible env valuation face i accepted holds =
+  case firstOrderDeclaredLookup declared ps admissible of
+    FOEndpoints left right zero one =>
+      FORightAtFace right (rewrite commonBoundedEndpointValSound valuation face i True accepted holds in one env)

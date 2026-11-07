@@ -1083,3 +1083,58 @@ firstOrderNonBooleanDiffersFromBothEndpoints :
      (FOCons True FONil) Tests.Shadow.firstOrderTestPaths Tests.Shadow.commonPairValuation ==
      firstOrderPathLookup LHere Tests.Shadow.firstOrderTestPaths (FOCons True FONil) (True, True)) = (False, False)
 firstOrderNonBooleanDiffersFromBothEndpoints = Refl
+
+-- The other dimension is genuinely non-Boolean; endpoint soundness uses the
+-- same valuation and the declaration's actual nonconstant conditional.
+firstOrderLinearDeclaredLeftAtFace :
+  Tests.Shadow.firstOrderTestPath (FOCons False FONil)
+    (evalDMVal Tests.Shadow.commonPairValuation (Var FZ)) = False
+firstOrderLinearDeclaredLeftAtFace =
+  case firstOrderDeclaredLeftAtFace CommonDeclaredHere Tests.Shadow.firstOrderTestPaths
+    Tests.Shadow.firstOrderTestAdmissible (FOCons False FONil)
+    Tests.Shadow.commonPairValuation (SEndpoint FZ False) (Var FZ) Refl Refl of
+      FOLeftAtFace (FOIf (FOVar LHere) (FOBool True) (FOBool False)) endpoint => endpoint
+
+firstOrderRightValuation : Fin 1 -> DM
+firstOrderRightValuation _ = (True, True)
+
+firstOrderDeclaredRightBoundary :
+  Tests.Shadow.firstOrderTestPath (FOCons False FONil)
+    (evalDMVal Tests.Shadow.firstOrderRightValuation (Var FZ)) = True
+firstOrderDeclaredRightBoundary =
+  case firstOrderDeclaredRightAtFace CommonDeclaredHere Tests.Shadow.firstOrderTestPaths
+    Tests.Shadow.firstOrderTestAdmissible (FOCons False FONil)
+    Tests.Shadow.firstOrderRightValuation (SEndpoint FZ True) (Var FZ) Refl Refl of
+      FORightAtFace (FOBool True) endpoint => endpoint
+
+commonPairRestrictedFace : faceAtVal Tests.Shadow.commonPairValuation (SEndpoint FZ False) = True
+commonPairRestrictedFace = commonFaceValEntailsSound Tests.Shadow.commonPairValuation
+  (SEndpoint FZ False) (SEndpoint FZ False) Refl Refl
+
+-- Preserve the existing non-Boolean dimension and add a second constrained
+-- Boolean dimension, so that the conjunction is strictly stronger.
+commonPairExtendedValuation : Fin 3 -> DM
+commonPairExtendedValuation FZ = Tests.Shadow.commonPairValuation FZ
+commonPairExtendedValuation (FS FZ) = Tests.Shadow.commonPairValuation (FS FZ)
+commonPairExtendedValuation (FS (FS FZ)) = (False, False)
+
+commonPairStrictFace : ScopedFace 3
+commonPairStrictFace = SConjunction (SEndpoint FZ False) (SEndpoint (FS (FS FZ)) False)
+
+commonPairStrictFaceHolds : faceAtVal Tests.Shadow.commonPairExtendedValuation Tests.Shadow.commonPairStrictFace = True
+commonPairStrictFaceHolds = Refl
+
+commonPairStrictRestrictedFace : faceAtVal Tests.Shadow.commonPairExtendedValuation (SEndpoint FZ False) = True
+commonPairStrictRestrictedFace = commonFaceValEntailsSound Tests.Shadow.commonPairExtendedValuation
+  Tests.Shadow.commonPairStrictFace (SEndpoint FZ False) Refl Tests.Shadow.commonPairStrictFaceHolds
+
+commonPairStrictReverseRejected : boundedFaceEntails (SEndpoint FZ False) Tests.Shadow.commonPairStrictFace = False
+commonPairStrictReverseRejected = Refl
+
+commonPairExtendedNonBoolean : Tests.Shadow.commonPairExtendedValuation (FS FZ) = (False, True)
+commonPairExtendedNonBoolean = Refl
+
+-- Exercise the original two-dimensional valuation directly as well.
+commonPairConjunctionRestrictedFace : faceAtVal Tests.Shadow.commonPairValuation (SEndpoint FZ False) = True
+commonPairConjunctionRestrictedFace = commonFaceValEntailsSound Tests.Shadow.commonPairValuation
+  (SConjunction (SEndpoint FZ False) STop) (SEndpoint FZ False) Refl Refl

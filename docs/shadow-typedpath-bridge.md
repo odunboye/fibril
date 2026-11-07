@@ -179,8 +179,16 @@ requires each path's endpoint values to equal its actual declared endpoint
 interpretations for every ordinary environment; `firstOrderDeclaredLookup`
 returns these endpoint equations for a declared path.
 
-The interval lemma and admissible lookup have not been combined into a
-soundness theorem for `CommonFaceEqual`. There is no first-order evidence
-indexed by its equality derivations and no proof for its endpoint or congruence
-rules. This interpretation does not claim higher-order, dependent path,
-composition, or resource soundness.
+`commonFaceValEntailsSound` transports a bounded face entailment at the same
+four-pair valuation. `firstOrderDeclaredLeftAtFace` and
+`firstOrderDeclaredRightAtFace` combine admissible lookup with endpoint
+soundness: on a satisfying face, the path value at the interpreted interval
+equals the interpretation of a first-order witness for the corresponding
+actual declared endpoint. The returned witness need not be the witness chosen
+by a separate equality derivation.
+
+These lemmas do not yet prove soundness for `CommonFaceEqual`: first-order
+evidence indexed by its derivations, coherence between independently chosen
+term witnesses, and the congruence and transitivity cases remain to be proved.
+This interpretation does not claim higher-order, dependent path, composition,
+resource, or runtime soundness.
