@@ -74,6 +74,7 @@ mutual
   payloadWeight env (PairCase a b c) = cap (payloadWeight env a + payloadWeight env b + payloadWeight env c)
   payloadWeight env (Pi _ a b) = cap (payloadWeight env a + payloadWeight (liftPayload env) b)
   payloadWeight env (Lambda _ a b) = cap (payloadWeight env a + payloadWeight (liftPayload env) b)
+  payloadWeight env (Fix a b) = cap (payloadWeight env a + payloadWeight (liftPayload env) b)
   payloadWeight env (Apply a b) = cap (payloadWeight env a + payloadWeight env b)
   payloadWeight env (UnitCase a b) = cap (payloadWeight env a + payloadWeight env b)
 

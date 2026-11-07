@@ -103,6 +103,12 @@ mutual
     rewrite substituteCongruent (rename (liftRenaming env) . liftSubstitution sigma)
                               (liftSubstitution (rename env . sigma))
                               (liftRenameSubstitution env sigma) body in Refl
+  renameAfterSubstitution env sigma (Fix domain body) =
+    rewrite renameAfterSubstitution env sigma domain in
+    rewrite renameAfterSubstitution (liftRenaming env) (liftSubstitution sigma) body in
+    rewrite substituteCongruent (rename (liftRenaming env) . liftSubstitution sigma)
+                              (liftSubstitution (rename env . sigma))
+                              (liftRenameSubstitution env sigma) body in Refl
   renameAfterSubstitution env sigma (Apply function argument) =
     rewrite renameAfterSubstitution env sigma function in
     rewrite renameAfterSubstitution env sigma argument in Refl
@@ -206,6 +212,12 @@ mutual
                               (liftSubstitution (sigma . env))
                               (liftSubstituteRenaming env sigma) body in Refl
   substituteAfterRenaming env sigma (Lambda q domain body) =
+    rewrite substituteAfterRenaming env sigma domain in
+    rewrite substituteAfterRenaming (liftRenaming env) (liftSubstitution sigma) body in
+    rewrite substituteCongruent (liftSubstitution sigma . liftRenaming env)
+                              (liftSubstitution (sigma . env))
+                              (liftSubstituteRenaming env sigma) body in Refl
+  substituteAfterRenaming env sigma (Fix domain body) =
     rewrite substituteAfterRenaming env sigma domain in
     rewrite substituteAfterRenaming (liftRenaming env) (liftSubstitution sigma) body in
     rewrite substituteCongruent (liftSubstitution sigma . liftRenaming env)
@@ -324,6 +336,12 @@ mutual
                               (liftSubstitution (substituteTerm second . first))
                               (liftComposition first second) body in Refl
   substituteComposition first second (Lambda q domain body) =
+    rewrite substituteComposition first second domain in
+    rewrite substituteComposition (liftSubstitution first) (liftSubstitution second) body in
+    rewrite substituteCongruent (substituteTerm (liftSubstitution second) . liftSubstitution first)
+                              (liftSubstitution (substituteTerm second . first))
+                              (liftComposition first second) body in Refl
+  substituteComposition first second (Fix domain body) =
     rewrite substituteComposition first second domain in
     rewrite substituteComposition (liftSubstitution first) (liftSubstitution second) body in
     rewrite substituteCongruent (substituteTerm (liftSubstitution second) . liftSubstitution first)

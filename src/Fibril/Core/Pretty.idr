@@ -73,6 +73,8 @@ mutual
     "(Pi " ++ show q ++ " " ++ renderTerm domain ++ " " ++ renderTerm body ++ ")"
   renderTerm (Lambda q domain body) =
     "(Lam " ++ show q ++ " " ++ renderTerm domain ++ " " ++ renderTerm body ++ ")"
+  renderTerm (Fix ty body) =
+    "(Fix " ++ renderTerm ty ++ " " ++ renderTerm body ++ ")"
   renderTerm (Apply function argument) =
     "(" ++ renderTerm function ++ " @ " ++ renderTerm argument ++ ")"
 

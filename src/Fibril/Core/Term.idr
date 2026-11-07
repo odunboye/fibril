@@ -88,6 +88,10 @@ data Term : Nat -> Type where
   Pi : Quantity -> Term n -> Term (S n) -> Term n
   Lambda : Quantity -> Term n -> Term (S n) -> Term n
   Apply : Term n -> Term n -> Term n
+  ||| Fixpoint of a function type: Fix type body binds the unrestricted self
+  ||| reference as variable 0 in body. Raw syntax only; typing admits it after
+  ||| a termination check, and conversion treats it as neutral.
+  Fix : Term n -> Term (S n) -> Term n
   ||| Consume a Unit scrutinee, then return a body with no new pattern binders.
   UnitCase : Term n -> Term n -> Term n
 
@@ -192,6 +196,7 @@ mutual
   rename env (Lambda q domain body) =
     Lambda q (rename env domain) (rename (liftRenaming env) body)
   rename env (Apply f x) = Apply (rename env f) (rename env x)
+  rename env (Fix ty body) = Fix (rename env ty) (rename (liftRenaming env) body)
   rename env (UnitCase scrutinee body) = UnitCase (rename env scrutinee) (rename env body)
 
   ||| Insert a newest variable, shifting all existing free references.
@@ -272,6 +277,7 @@ mutual
   substituteTerm env (Lambda q domain body) =
     Lambda q (substituteTerm env domain) (substituteTerm (liftSubstitution env) body)
   substituteTerm env (Apply f x) = Apply (substituteTerm env f) (substituteTerm env x)
+  substituteTerm env (Fix ty body) = Fix (substituteTerm env ty) (substituteTerm (liftSubstitution env) body)
   substituteTerm env (UnitCase scrutinee body) =
     UnitCase (substituteTerm env scrutinee) (substituteTerm env body)
 
@@ -345,6 +351,7 @@ mutual
   sameSyntax (Pi q a b) (Pi r c d) = q == r && sameSyntax a c && sameSyntax b d
   sameSyntax (Lambda q a b) (Lambda r c d) = q == r && sameSyntax a c && sameSyntax b d
   sameSyntax (Apply f x) (Apply g y) = sameSyntax f g && sameSyntax x y
+  sameSyntax (Fix a b) (Fix c d) = sameSyntax a c && sameSyntax b d
   sameSyntax (UnitCase u b) (UnitCase v c) = sameSyntax u v && sameSyntax b c
   sameSyntax _ _ = False
 

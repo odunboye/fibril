@@ -93,6 +93,10 @@ mutual
     rewrite renameCongruent left right agree domain in
     rewrite renameCongruent (liftRenaming left) (liftRenaming right)
                            (liftAgreement left right agree) body in Refl
+  renameCongruent left right agree (Fix domain body) =
+    rewrite renameCongruent left right agree domain in
+    rewrite renameCongruent (liftRenaming left) (liftRenaming right)
+                           (liftAgreement left right agree) body in Refl
   renameCongruent left right agree (Apply function argument) =
     rewrite renameCongruent left right agree function in
     rewrite renameCongruent left right agree argument in Refl
@@ -186,6 +190,10 @@ mutual
     rewrite renameCongruent (liftRenaming Prelude.id) Prelude.id liftIdentity body in
     rewrite renameIdentity body in Refl
   renameIdentity (Lambda q domain body) =
+    rewrite renameIdentity domain in
+    rewrite renameCongruent (liftRenaming Prelude.id) Prelude.id liftIdentity body in
+    rewrite renameIdentity body in Refl
+  renameIdentity (Fix domain body) =
     rewrite renameIdentity domain in
     rewrite renameCongruent (liftRenaming Prelude.id) Prelude.id liftIdentity body in
     rewrite renameIdentity body in Refl
@@ -292,6 +300,12 @@ mutual
                            (liftRenaming (second . first))
                            (liftComposition first second) body in Refl
   renameComposition first second (Lambda q domain body) =
+    rewrite renameComposition first second domain in
+    rewrite renameComposition (liftRenaming first) (liftRenaming second) body in
+    rewrite renameCongruent (liftRenaming second . liftRenaming first)
+                           (liftRenaming (second . first))
+                           (liftComposition first second) body in Refl
+  renameComposition first second (Fix domain body) =
     rewrite renameComposition first second domain in
     rewrite renameComposition (liftRenaming first) (liftRenaming second) body in
     rewrite renameCongruent (liftRenaming second . liftRenaming first)

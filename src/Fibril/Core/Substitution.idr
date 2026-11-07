@@ -96,6 +96,10 @@ mutual
     rewrite substituteCongruent left right agree domain in
     rewrite substituteCongruent (liftSubstitution left) (liftSubstitution right)
                               (liftAgreement left right agree) body in Refl
+  substituteCongruent left right agree (Fix domain body) =
+    rewrite substituteCongruent left right agree domain in
+    rewrite substituteCongruent (liftSubstitution left) (liftSubstitution right)
+                              (liftAgreement left right agree) body in Refl
   substituteCongruent left right agree (Apply function argument) =
     rewrite substituteCongruent left right agree function in
     rewrite substituteCongruent left right agree argument in Refl
@@ -196,6 +200,12 @@ mutual
                               (liftSubstitution (Variable . env))
                               (liftVariables env) body in Refl
   renameAsSubstitution env (Lambda q domain body) =
+    rewrite renameAsSubstitution env domain in
+    rewrite renameAsSubstitution (liftRenaming env) body in
+    rewrite substituteCongruent (Variable . liftRenaming env)
+                              (liftSubstitution (Variable . env))
+                              (liftVariables env) body in Refl
+  renameAsSubstitution env (Fix domain body) =
     rewrite renameAsSubstitution env domain in
     rewrite renameAsSubstitution (liftRenaming env) body in
     rewrite substituteCongruent (Variable . liftRenaming env)

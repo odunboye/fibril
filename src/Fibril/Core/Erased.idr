@@ -11,6 +11,7 @@ import Fibril.Core.Context
 import Fibril.Core.Compatibility
 import Fibril.Core.WeakHead
 import Fibril.Core.Reduction
+import Fibril.Core.FixAdmission
 
 %default total
 
@@ -20,6 +21,7 @@ data CheckError : Type where
   NatError : String -> CheckError
   RecursiveDataError : String -> CheckError
   NominalError : String -> CheckError
+  RecursionError : String -> CheckError
   VariantError : String -> CheckError
   CheckingLimit : CheckError
   ReductionLimit : CheckError
@@ -39,6 +41,7 @@ Show CheckError where
   show (NatError message) = "Nat: " ++ message
   show (RecursiveDataError message) = "Recursive data: " ++ message
   show (NominalError message) = "Nominal: " ++ message
+  show (RecursionError message) = "Recursion: " ++ message
   show (VariantError message) = "Variant: " ++ message
   show CheckingLimit = "Checking recursion budget exhausted"
   show ReductionLimit = "Reduction budget exhausted"
@@ -465,6 +468,19 @@ mutual
     _ <- sortOf depth reduction context domain
     bodyType <- infer depth reduction (Extend context q domain) body
     Right (Pi q domain bodyType)
+  -- Fix: the self reference is unrestricted and typed by the declared function
+  -- type; the body is checked against that type, then a separate admission gate runs.
+  infer (S depth) reduction context (Fix ty body) = do
+    _ <- sortOf depth reduction context ty
+    exposed <- exposeType reduction ty
+    case exposed of
+      Pi _ _ _ => Right ()
+      _ => Left (ExpectedFunction exposed)
+    bodyType <- infer depth reduction (Extend context Unrestricted ty) body
+    requireCompatible reduction bodyType (weaken ty)
+    case admitFix ty body of
+      Left message => Left (RecursionError message)
+      Right () => Right ty
   infer (S depth) reduction context (Apply function argument) = do
     functionType <- infer depth reduction context function
     exposed <- exposeType reduction functionType

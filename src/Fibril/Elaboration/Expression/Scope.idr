@@ -65,6 +65,7 @@ mutual
   thin env (PairCase a b c) = [| PairCase (thin env a) (thin env b) (thin env c) |]
   thin env (Pi q a b) = [| Pi (pure q) (thin env a) (thin (liftPartial env) b) |]
   thin env (Lambda q a b) = [| Lambda (pure q) (thin env a) (thin (liftPartial env) b) |]
+  thin env (Fix a b) = [| Fix (thin env a) (thin (liftPartial env) b) |]
   thin env (Apply a b) = [| Apply (thin env a) (thin env b) |]
   thin env (UnitCase a b) = [| UnitCase (thin env a) (thin env b) |]
 
@@ -135,6 +136,7 @@ mutual
   substitutionNodes env (PairCase a b c) = min (S inferredResultNodes) (1 + substitutionNodes env a + substitutionNodes env b + substitutionNodes env c)
   substitutionNodes env (Pi _ a b) = min (S inferredResultNodes) (1 + substitutionNodes env a + substitutionNodes (liftWeights env) b)
   substitutionNodes env (Lambda _ a b) = min (S inferredResultNodes) (1 + substitutionNodes env a + substitutionNodes (liftWeights env) b)
+  substitutionNodes env (Fix a b) = min (S inferredResultNodes) (1 + substitutionNodes env a + substitutionNodes (liftWeights env) b)
   substitutionNodes env (Apply a b) = min (S inferredResultNodes) (1 + substitutionNodes env a + substitutionNodes env b)
   substitutionNodes env (UnitCase a b) = min (S inferredResultNodes) (1 + substitutionNodes env a + substitutionNodes env b)
 

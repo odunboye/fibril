@@ -60,6 +60,7 @@ mutual
   containsFileReference (PairCase a b c) = containsFileReference a || containsFileReference b || containsFileReference c
   containsFileReference (Pi _ a b) = containsFileReference a || containsFileReference b
   containsFileReference (Lambda _ a b) = containsFileReference a || containsFileReference b
+  containsFileReference (Fix a b) = containsFileReference a || containsFileReference b
   containsFileReference (Apply a b) = containsFileReference a || containsFileReference b
   containsFileReference (UnitCase a b) = containsFileReference a || containsFileReference b
 

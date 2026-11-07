@@ -62,6 +62,7 @@ mutual
   coreNodes (PairValue ty a b) = 1 + coreNodes ty + coreNodes a + coreNodes b
   coreNodes (Pi _ a b) = 1 + coreNodes a + coreNodes b
   coreNodes (Lambda _ a b) = 1 + coreNodes a + coreNodes b
+  coreNodes (Fix a b) = 1 + coreNodes a + coreNodes b
   coreNodes (Apply a b) = 1 + coreNodes a + coreNodes b
   coreNodes (UnitCase a b) = 1 + coreNodes a + coreNodes b
 
@@ -131,6 +132,7 @@ mutual
   mentionsNominal key (PairValue ty a b) = mentionsNominal key ty || mentionsNominal key a || mentionsNominal key b
   mentionsNominal key (Pi _ a b) = mentionsNominal key a || mentionsNominal key b
   mentionsNominal key (Lambda _ a b) = mentionsNominal key a || mentionsNominal key b
+  mentionsNominal key (Fix a b) = mentionsNominal key a || mentionsNominal key b
   mentionsNominal key (Apply a b) = mentionsNominal key a || mentionsNominal key b
   mentionsNominal key (UnitCase a b) = mentionsNominal key a || mentionsNominal key b
 

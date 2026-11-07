@@ -198,6 +198,11 @@ mutual
     case step domain of
       Just next => Just (Lambda q next body)
       Nothing => map (Lambda q domain) (step body)
+  -- Fix is neutral for conversion: only its subterms are normalized, never unfolded.
+  step (Fix ty body) =
+    case step ty of
+      Just next => Just (Fix next body)
+      Nothing => map (Fix ty) (step body)
   step (Apply (Lambda q domain body) argument) =
     Just (instantiateTerm argument body)
   step (Apply function argument) =

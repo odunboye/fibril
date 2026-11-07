@@ -69,6 +69,7 @@ mutual
   admit (S budget) (PairCase a b c) = do x <- admit budget a; y <- admit x b; admit y c
   admit (S budget) (Pi _ a b) = do x <- admit budget a; admit x b
   admit (S budget) (Lambda _ a b) = do x <- admit budget a; admit x b
+  admit (S budget) (Fix a b) = do x <- admit budget a; admit x b
   admit (S budget) (Apply a b) = do x <- admit budget a; admit x b
   admit (S budget) (UnitCase a b) = do x <- admit budget a; admit x b
 
@@ -166,6 +167,7 @@ mutual
   safeRedexes size payload (PairCase a b c) = safeRedexes size payload a && safeRedexes size payload b && safeRedexes size payload c
   safeRedexes size payload (Pi _ a b) = safeRedexes size payload a && safeRedexes size payload b
   safeRedexes size payload (Lambda _ a b) = safeRedexes size payload a && safeRedexes size payload b
+  safeRedexes size payload (Fix a b) = safeRedexes size payload a && safeRedexes size payload b
   safeRedexes size payload (Apply (Lambda q domain body) argument) =
     let weights : Fin (S n) -> Nat
         weights FZ = typeNodes argument

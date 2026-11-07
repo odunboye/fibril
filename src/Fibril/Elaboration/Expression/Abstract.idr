@@ -64,6 +64,7 @@ mutual
   descend env hole target (PairCase a b c) = PairCase (abstractWith env hole target a) (abstractWith env hole target b) (abstractWith env hole target c)
   descend env hole target (Pi q a b) = Pi q (abstractWith env hole target a) (abstractWith (liftRenaming env) (FS hole) (weaken target) b)
   descend env hole target (Lambda q a b) = Lambda q (abstractWith env hole target a) (abstractWith (liftRenaming env) (FS hole) (weaken target) b)
+  descend env hole target (Fix a b) = Fix (abstractWith env hole target a) (abstractWith (liftRenaming env) (FS hole) (weaken target) b)
   descend env hole target (Apply a b) = Apply (abstractWith env hole target a) (abstractWith env hole target b)
   descend env hole target (UnitCase a b) = UnitCase (abstractWith env hole target a) (abstractWith env hole target b)
 

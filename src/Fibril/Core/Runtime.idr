@@ -186,6 +186,13 @@ mutual
     case discharge RuntimeMode q bodyUsage of
       Right outer => Right outer
       Left err => Left (BoundUsage err.expected err.observed)
+  -- Fix duplicates its closure on every unfolding, so captured outer variables
+  -- are scaled by Unrestricted; linear captures then fail context validation.
+  analyze (S depth) reduction context (Fix ty body) = do
+    bodyUsage <- analyze depth reduction (Extend context Unrestricted ty) body
+    case discharge RuntimeMode Unrestricted bodyUsage of
+      Right outer => Right (scaleUsage Unrestricted outer)
+      Left err => Left (BoundUsage err.expected err.observed)
   analyze (S depth) reduction context (Apply function argument) = do
     functionType <- liftTyping (inferErased depth reduction context function)
     exposed <- case weakHead reduction functionType of
