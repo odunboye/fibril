@@ -445,3 +445,26 @@ and toolchain failures; this contract records no new test pass.
 Commit reviewable milestones on feature/cubical-paths. Parallel proof and logical
 module work requires stabilized interfaces and isolated writers. Keep shared
 manifests, aggregators and ordinary conversion under a single integration writer.
+
+### Structural Core translation (partial checker connection)
+
+`Fibril.Core.Quantitative.CoreTranslation` maps the isolated types, scoped
+variables, terms and newest-first contexts to ordinary `Core.Term` and
+`Core.Context`. Function and context quantities are retained. The scope length
+of each resulting Core term is enforced by its Idris type; `coreContextQuantity`
+proves that each translated variable selects the same declared permission. This
+is a structural theorem, not Core typing preservation. `Annotations` supplies
+application-domain types that the isolated syntax keeps in erased indices;
+its constructors are indexed by the exact source term and preserve the domain
+index, but no automatic annotation reconstruction is provided.
+
+`Tests.QuantitativeCoreTranslation` compares bounded erased and runtime checker
+outcomes and isolated usage for selected open variables, branches, nested
+binders, application and Unit elimination. A separate counterexample explicitly
+shows isolated rejection of an invalid linear lambda inside an erased argument
+while Core runtime accepts the whole term: erased typing still visits the
+argument, but runtime usage analysis skips it. These are operational tests, not
+an iff or a general one-way checker correspondence theorem. No translation
+commutation, general typing/usage preservation, admission from arbitrary Core,
+bounded production admission, erasure compatibility, or ownership theorem is
+claimed. The checker-connection gate remains open.
