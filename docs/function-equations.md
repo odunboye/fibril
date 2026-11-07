@@ -72,7 +72,24 @@ the entire successor value (and may be unused). Visible or ambiguous names are
 resolved as constructors instead, and a catch-all before `Zero` is rejected.
 The input must be unrestricted: reconstruction uses an unrestricted successor
 predecessor. Explicit `Succ` patterns still require linear use of their named
-predecessor. General catch-alls and wildcard patterns are not supported.
+predecessor. Nat has no wildcard pattern.
+
+A named module's constructor-clause group over a nominal data type also accepts
+a final catch-all clause: `_` or an unresolved lowercase name, with no payload
+binder. It stands for every constructor the earlier clauses omit.
+
+~~~fibril
+isRed : Color -> Bool
+isRed Red = True
+isRed other = False
+~~~
+
+`_` drops the value, so a linear payload in an omitted constructor is rejected by
+the ordinary usage check. A name rebinds the reconstructed value through an
+unrestricted binding, so omitted constructors must have unrestricted payloads;
+use explicit clauses otherwise. A catch-all that omits no constructor is
+rejected as unreachable. It must be the last clause. Only nominal data is
+implemented and tested; recursive-list and sequence-shaped data are untested.
 
 Same-file definition and references include every clause header and supported
 constructor and payload occurrences. Rename is capture-checked and same-file

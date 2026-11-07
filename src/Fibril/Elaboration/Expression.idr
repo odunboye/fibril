@@ -267,55 +267,134 @@ mutual
     Right (branch :: later)
 
   elaborateDataArmsGlobals : GlobalContext -> List GlobalDefinition -> Context n -> Vect n String -> Term n -> Term n -> List (Term n) ->
-                      List (Maybe (Quantity, Term n)) -> Maybe (Term n) -> List (Token, List Token, Expr) -> Either ResolveError (List (Nat, Term n))
-  elaborateDataArmsGlobals shared globals ctx env nominal shape indices descriptors hint [] = Right []
-  elaborateDataArmsGlobals shared globals ctx env nominal shape indices descriptors hint ((name, binder, body) :: rest) = do
-    if elem '.' (unpack name.spelling) then Right () else
-      case lookupName name.spelling env of
-        Just _ => Left (CannotElaborate name.span.start "Data-case constructor is shadowed by a local binder")
-        Nothing => Right ()
+                      List (Maybe (Quantity, Term n)) -> Maybe (Term n) -> List Token -> List (Token, List Token, Expr) -> Either ResolveError (List (Nat, Term n))
+  elaborateDataArmsGlobals shared globals ctx env nominal shape indices descriptors hint clauseNames [] = Right []
+  elaborateDataArmsGlobals shared globals ctx env nominal shape indices descriptors hint clauseNames ((name, binder, body) :: rest) =
+    if null rest && not (null clauseNames) && null binder && isCatchAllHead globals env name
+      then do
+        covered <- coveredTagsGlobals shared globals env indices (reverse (drop 1 (reverse clauseNames)))
+        if length (nub covered) >= length descriptors
+          then Left (CannotElaborate name.span.start "Catch-all clause is unreachable: every constructor is already matched")
+          else catchAllArmsGlobals shared globals ctx env nominal shape hint name body covered 0 descriptors
+      else do
+        if elem '.' (unpack name.spelling) then Right () else
+          case lookupName name.spelling env of
+            Just _ => Left (CannotElaborate name.span.start "Data-case constructor is shadowed by a local binder")
+            Nothing => Right ()
+        definition <- case find (\entry => entry.name == name.spelling) globals of
+          Nothing => case qualifiedCandidates name.spelling globals of
+            candidates@(_ :: _ :: _) => Left (CannotElaborate name.span.start (ambiguityMessage name.spelling candidates))
+            _ => Left (Unbound name.span.start name.spelling)
+          Just entry => Right entry
+        if definition.quantity /= Unrestricted then Left (CannotElaborate name.span.start "Data-case constructor must be an unrestricted checked global") else Right ()
+        if coreNodes definition.value > 512 then Left (CannotElaborate name.span.start "Data-case constructor exceeds 512 nodes") else Right ()
+        let candidate = foldl Apply (rename absurd definition.value) indices
+        tag <- dataCaseTagGlobals shared name.span.start candidate
+        descriptor <- case variantAt tag descriptors of
+          Nothing => Left (CannotElaborate name.span.start "Data-case constructor tag is outside the scrutinee shape")
+          Just descriptor => Right descriptor
+        expected <- case (descriptor, binder) of
+          (Nothing, []) => Right (NominalValue nominal (VariantValue shape tag Nothing))
+          (Just (q, ty), [_]) =>
+            Right (Lambda q ty (NominalValue (weaken nominal) (VariantValue (weaken shape) tag (Just (Variable FZ)))))
+          _ => Left (CannotElaborate name.span.start "Data-case constructor payload arity does not match its branch")
+        case betaCompareGlobals (globalValue shared) typeReductionFuel candidate expected of
+          EqualNormalForms => Right ()
+          DifferentNormalForms => Left (CannotElaborate name.span.start "Data-case constructor does not match the scrutinee type and shape")
+          Inconclusive => Left (CannotElaborate name.span.start "Data-case constructor comparison budget exhausted")
+        branch <- case (descriptor, binder) of
+          (Nothing, []) => case hint of
+            Nothing => elaborateInWithGlobals shared globals (Just ctx) env body
+            Just motive =>
+              let applied = Apply motive (NominalValue nominal (VariantValue shape tag Nothing))
+                  result = fromMaybe applied (guardedNormalGlobals shared typeReductionFuel applied) in
+                elaborateExpectedGlobals shared globals ctx env result body
+          (Just (q, ty), [bound]) => do
+            result <- case hint of
+              Nothing => elaborateInWithGlobals shared globals (Just (Extend ctx q ty)) (bound.spelling :: env) body
+              Just motive =>
+                let value = NominalValue (weaken nominal) (VariantValue (weaken shape) tag (Just (Variable FZ)))
+                    applied = Apply (weaken motive) value
+                    expectedResult = fromMaybe applied (guardedNormalGlobals shared typeReductionFuel applied) in
+                  elaborateExpectedGlobals shared globals (Extend ctx q ty) (bound.spelling :: env) expectedResult body
+            Right (Lambda q ty result)
+          _ => Left (CannotElaborate name.span.start "Invalid data-case payload branch")
+        following <- elaborateDataArmsGlobals shared globals ctx env nominal shape indices descriptors hint clauseNames rest
+        if any (\entry => fst entry == tag) following
+           then Left (CannotElaborate name.span.start "Duplicate data-case constructor") else Right ()
+        Right ((tag, branch) :: following)
+
+  ||| Tags of the constructors named by earlier clauses, resolved like
+  ||| `elaborateDataArmsGlobals` but without elaborating any body.
+  coveredTagsGlobals : GlobalContext -> List GlobalDefinition -> Vect n String -> List (Term n) -> List Token -> Either ResolveError (List Nat)
+  coveredTagsGlobals shared globals env indices [] = Right []
+  coveredTagsGlobals shared globals env indices (name :: rest) = do
     definition <- case find (\entry => entry.name == name.spelling) globals of
       Nothing => case qualifiedCandidates name.spelling globals of
         candidates@(_ :: _ :: _) => Left (CannotElaborate name.span.start (ambiguityMessage name.spelling candidates))
         _ => Left (Unbound name.span.start name.spelling)
       Just entry => Right entry
-    if definition.quantity /= Unrestricted then Left (CannotElaborate name.span.start "Data-case constructor must be an unrestricted checked global") else Right ()
-    if coreNodes definition.value > 512 then Left (CannotElaborate name.span.start "Data-case constructor exceeds 512 nodes") else Right ()
-    let candidate = foldl Apply (rename absurd definition.value) indices
-    tag <- dataCaseTagGlobals shared name.span.start candidate
-    descriptor <- case variantAt tag descriptors of
-      Nothing => Left (CannotElaborate name.span.start "Data-case constructor tag is outside the scrutinee shape")
-      Just descriptor => Right descriptor
-    expected <- case (descriptor, binder) of
-      (Nothing, []) => Right (NominalValue nominal (VariantValue shape tag Nothing))
-      (Just (q, ty), [_]) =>
-        Right (Lambda q ty (NominalValue (weaken nominal) (VariantValue (weaken shape) tag (Just (Variable FZ)))))
-      _ => Left (CannotElaborate name.span.start "Data-case constructor payload arity does not match its branch")
-    case betaCompareGlobals (globalValue shared) typeReductionFuel candidate expected of
-      EqualNormalForms => Right ()
-      DifferentNormalForms => Left (CannotElaborate name.span.start "Data-case constructor does not match the scrutinee type and shape")
-      Inconclusive => Left (CannotElaborate name.span.start "Data-case constructor comparison budget exhausted")
-    branch <- case (descriptor, binder) of
-      (Nothing, []) => case hint of
-        Nothing => elaborateInWithGlobals shared globals (Just ctx) env body
-        Just motive =>
-          let applied = Apply motive (NominalValue nominal (VariantValue shape tag Nothing))
-              result = fromMaybe applied (guardedNormalGlobals shared typeReductionFuel applied) in
-            elaborateExpectedGlobals shared globals ctx env result body
-      (Just (q, ty), [bound]) => do
-        result <- case hint of
-          Nothing => elaborateInWithGlobals shared globals (Just (Extend ctx q ty)) (bound.spelling :: env) body
-          Just motive =>
-            let value = NominalValue (weaken nominal) (VariantValue (weaken shape) tag (Just (Variable FZ)))
-                applied = Apply (weaken motive) value
-                expectedResult = fromMaybe applied (guardedNormalGlobals shared typeReductionFuel applied) in
-              elaborateExpectedGlobals shared globals (Extend ctx q ty) (bound.spelling :: env) expectedResult body
-        Right (Lambda q ty result)
-      _ => Left (CannotElaborate name.span.start "Invalid data-case payload branch")
-    following <- elaborateDataArmsGlobals shared globals ctx env nominal shape indices descriptors hint rest
-    if any (\entry => fst entry == tag) following
-       then Left (CannotElaborate name.span.start "Duplicate data-case constructor") else Right ()
-    Right ((tag, branch) :: following)
+    tag <- dataCaseTagGlobals shared name.span.start (foldl Apply (rename absurd definition.value) indices)
+    later <- coveredTagsGlobals shared globals env indices rest
+    Right (tag :: later)
+
+  ||| One omitted constructor of a clause-group catch-all. `_` drops the value (a
+  ||| linear payload then fails the ordinary usage check); a name rebinds the
+  ||| reconstructed value through an unrestricted let, so it needs an
+  ||| unrestricted payload. The unchanged core checker enforces both.
+  catchAllArmGlobals : GlobalContext -> List GlobalDefinition -> Context n -> Vect n String -> Term n -> Term n -> Maybe (Term n) ->
+                       Token -> Expr -> Nat -> Maybe (Quantity, Term n) -> Either ResolveError (Nat, Term n)
+  catchAllArmGlobals shared globals ctx env nominal shape hint head body tag Nothing = do
+    let value = NominalValue nominal (VariantValue shape tag Nothing)
+    let expectedResult = map (\motive => let applied = Apply motive value in fromMaybe applied (guardedNormalGlobals shared typeReductionFuel applied)) hint
+    if head.spelling == "_"
+      then do
+        result <- case expectedResult of
+          Nothing => elaborateInWithGlobals shared globals (Just ctx) env body
+          Just expected => elaborateExpectedGlobals shared globals ctx env expected body
+        Right (tag, result)
+      else do
+        let inner = Extend ctx Unrestricted nominal
+        result <- case expectedResult of
+          Nothing => elaborateInWithGlobals shared globals (Just inner) (head.spelling :: env) body
+          Just expected => elaborateExpectedGlobals shared globals inner (head.spelling :: env) (weaken expected) body
+        Right (tag, Apply (Lambda Unrestricted nominal result) value)
+  catchAllArmGlobals shared globals ctx env nominal shape hint head body tag (Just (q, ty)) = do
+    let value = NominalValue (weaken nominal) (VariantValue (weaken shape) tag (Just (Variable FZ)))
+    let expectedResult = map (\motive => let applied = Apply (weaken motive) value in fromMaybe applied (guardedNormalGlobals shared typeReductionFuel applied)) hint
+    let payloadContext = Extend ctx q ty
+    let payloadEnv = "$catchall.payload" :: env
+    if head.spelling == "_"
+      then do
+        result <- case expectedResult of
+          Nothing => elaborateInWithGlobals shared globals (Just payloadContext) payloadEnv body
+          Just expected => elaborateExpectedGlobals shared globals payloadContext payloadEnv expected body
+        Right (tag, Lambda q ty result)
+      else do
+        let inner = Extend payloadContext Unrestricted (weaken nominal)
+        result <- case expectedResult of
+          Nothing => elaborateInWithGlobals shared globals (Just inner) (head.spelling :: payloadEnv) body
+          Just expected => elaborateExpectedGlobals shared globals inner (head.spelling :: payloadEnv) (weaken expected) body
+        Right (tag, Lambda q ty (Apply (Lambda Unrestricted (weaken nominal) result) value))
+
+  ||| Expand the catch-all over every constructor tag not in `covered`.
+  catchAllArmsGlobals : GlobalContext -> List GlobalDefinition -> Context n -> Vect n String -> Term n -> Term n -> Maybe (Term n) ->
+                        Token -> Expr -> List Nat -> Nat -> List (Maybe (Quantity, Term n)) -> Either ResolveError (List (Nat, Term n))
+  catchAllArmsGlobals shared globals ctx env nominal shape hint head body covered tag [] = Right []
+  catchAllArmsGlobals shared globals ctx env nominal shape hint head body covered tag (descriptor :: rest) = do
+    later <- catchAllArmsGlobals shared globals ctx env nominal shape hint head body covered (S tag) rest
+    if elem tag covered then Right later else do
+      arm <- catchAllArmGlobals shared globals ctx env nominal shape hint head body tag descriptor
+      Right (arm :: later)
+
+  ||| A final clause head is a catch-all when it is `_` or an unresolved
+  ||| lowercase name; resolvable names stay constructors.
+  isCatchAllHead : List GlobalDefinition -> Vect n String -> Token -> Bool
+  isCatchAllHead globals env token = token.spelling == "_" ||
+    ((case unpack token.spelling of c :: _ => isLower c; [] => False) &&
+     isNothing (lookupName token.spelling env) &&
+     isNothing (find (\entry => entry.name == token.spelling) globals) &&
+     null (qualifiedCandidates token.spelling globals))
 
   -- A result type is available here only for a direct equation body. The
   -- variable abstraction is a renaming, so it cannot duplicate subtrees.
@@ -702,7 +781,10 @@ mutual
         let boundedHint = case hint of
               Just candidate => if typeNodes candidate <= inferredResultNodes then Just candidate else Nothing
               Nothing => Nothing
-        checked <- elaborateDataArmsGlobals shared globals ctx env nominal shape indices descriptors boundedHint arms
+        let catchAll = case scrutinee of
+              Variable i => index i env == "$clauseScrutinee"
+              _ => False
+        checked <- elaborateDataArmsGlobals shared globals ctx env nominal shape indices descriptors boundedHint (if catchAll then map (\arm => fst arm) arms else []) arms
         ordered <- orderDataArms span.start 0 descriptors checked
         selected <- case explicit of
           Just authored => Right authored
