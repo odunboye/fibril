@@ -1,5 +1,9 @@
 # Restricted shadow–typed path bridge
 
+> Scope authority: [Common Path v0 freeze](cubical-experiment-contract.md).
+> This document records proposals, reference experiments or milestone details;
+> it does not add rules to the frozen calculus.
+
 `Fibril.Cubical.Logical.ShadowTypedBridge` connects a specific declared shadow
 path to `TypedPath.NeutralHasType`. The source has one declaration whose two
 endpoints are references of the same logical type. `variableIndex` retains the

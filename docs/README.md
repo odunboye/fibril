@@ -16,7 +16,8 @@ The generated homepage separates teaching chapters, references, and project reco
 
 ## Reference index
 
-- [Cubical alignment](cubical-alignment.md): first checked-path milestone and quantitative safeguards.
+- [Frozen cubical experiment contract](cubical-experiment-contract.md): authoritative Common Path v0 scope, module roles, proof gaps and next admission gate.
+- [Cubical alignment](cubical-alignment.md): historical roadmap, first checked-path milestone and quantitative safeguards.
 - [Quantitative cubical rules](quantitative-cubical-rules.md): proposed general-path judgments, runtime firewall and execution gates.
 - [Declarative logical paths](typed-logical-paths.md): isolated path typing rules and their limitations.
 - [Verified DNF reduction](verified-dnf-reduction.md): an isolated semantically preserving reduction candidate.
