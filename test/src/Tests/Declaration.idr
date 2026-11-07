@@ -35,10 +35,26 @@ resolutionFails source = case resolveSource source of
 program : String
 program = "not : (1 flag : Bool) -> Bool\nnot = \\(1 flag : Bool) => if flag then False else True\nmain : Bool\nmain = not False\n"
 
+mutualSource : String
+mutualSource = "module Main\nmutual where\n  first : (1 n : Nat) -> Bool\n  first n = case n of\n    Zero => True\n    Succ k => second k\n  second : (1 n : Nat) -> Bool\n  second n = case n of\n    Zero => False\n    Succ k => first k\n"
+
 public export
 checks : List (String, Bool)
 checks =
-  [ ("recursive-data generated IR is admitted before construction",
+  [ ("mutual authored groups count both declaration slots and preserve grouping",
+      case (parseDocument 1 256 mutualSource, parseDocument 2 256 mutualSource) of
+        (Left _, Right document) => case document.body of
+          DeclarationDocument [MutualItem group] =>
+            length (bindingSites (MutualItem group)) == 2 &&
+            (case elaborateModuleItemsInWithImports (Just "Main") [] [] 2 [MutualItem group] of
+              Right [MutualNatBool _] => True
+              _ => False) &&
+            (case elaborateDeclarationsIn (Just "Main") [] 2 [MutualItem group] of
+              Left _ => True
+              _ => False)
+          _ => False
+        _ => False)
+  , ("recursive-data generated IR is admitted before construction",
       let source = "module Main\ndata Chain : Type where\n  eliminator foldChain\n  Empty : Chain\n  More : (1 rest : Chain) -> Chain\n" in
       case parseDocument 64 256 source of
         Right document => case document.body of

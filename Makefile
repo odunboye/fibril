@@ -114,11 +114,21 @@ examples: build
 	./build/exec/fibril run --source-dir examples/modules/recursive-render examples/modules/recursive-render/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/recursive-data examples/modules/recursive-data/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/recursive-list examples/modules/recursive-list/Main.fib
+	./build/exec/fibril run --source-dir examples/modules/linear-accumulator examples/modules/linear-accumulator/Main.fib
+	./build/exec/fibril run --source-dir examples/modules/linear-accumulator examples/modules/linear-accumulator/Decorated.fib
+	./build/exec/fibril run --source-dir examples/modules/linear-accumulator examples/modules/linear-accumulator/StringAccumulator.fib
+	./build/exec/fibril run --source-dir examples/modules/linear-accumulator examples/modules/linear-accumulator/Matches.fib
+	./build/exec/fibril run --source-dir examples/modules/linear-accumulator examples/modules/linear-accumulator/AccumulatorFirst.fib
+	./build/exec/fibril run --source-dir examples/modules/linear-accumulator examples/modules/linear-accumulator/UniformPrefix.fib
+	./build/exec/fibril run --source-dir examples/modules/linear-accumulator examples/modules/linear-accumulator/UniformPrefixFirst.fib
 	./build/exec/fibril run --source-dir examples/modules/polymorphic-recursion examples/modules/polymorphic-recursion/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/polymorphic-map examples/modules/polymorphic-map/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/uniform-recursion examples/modules/uniform-recursion/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/uniform-nat-chain examples/modules/uniform-nat-chain/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/conditional-recursion examples/modules/conditional-recursion/Main.fib
+	./build/exec/fibril run --source-dir examples/modules/mutual-parity examples/modules/mutual-parity/Main.fib
+	./build/exec/fibril run --source-dir examples/modules/mutual-parity examples/modules/mutual-parity/Payload.fib
+	./build/exec/fibril run --source-dir examples/modules/mutual-parity examples/modules/mutual-parity/Reordered.fib
 	./build/exec/fibril run --source-dir examples/modules/motive-contexts examples/modules/motive-contexts/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/motive-do examples/modules/motive-do/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/direct-data-case examples/modules/direct-data-case/Main.fib

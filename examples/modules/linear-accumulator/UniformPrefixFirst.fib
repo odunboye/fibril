@@ -1,0 +1,15 @@
+module UniformPrefixFirst
+
+import Data.Items
+
+-- The unchanged prefix precedes an accumulator-first structural equation.
+appendMappedFrom : {0 A : Type} -> (render : (1 value : A) -> String) -> (suffix : String) -> (1 acc : String) -> (1 items : Data.Items.Items A) -> String
+appendMappedFrom Element render suffix acc items = case items of
+  Data.Items.Empty => appendString acc suffix
+  Data.Items.Prepend head tail => appendMappedFrom {Element} render suffix (appendString acc (render head)) tail
+
+mark : (1 value : String) -> String
+mark value = appendString value "!"
+
+main : IO Unit
+main = putStrLn (appendMappedFrom {String} mark "?" "c" (Data.Items.Prepend "a" (Data.Items.Prepend "b" (Data.Items.Empty {String}))))

@@ -1,0 +1,8 @@
+module Data.Items
+
+-- This first List shape has one linear element and a linear direct self tail.
+export
+data Items {0 A : Type} : Type where
+  eliminator foldItems
+  Empty : Items A
+  Prepend : (1 head : A) -> (1 tail : Items A) -> Items A

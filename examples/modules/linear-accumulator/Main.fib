@@ -1,0 +1,18 @@
+module Main
+
+import Data.Items
+
+-- This direct equation is lowered to a function-valued checked fold. It is
+-- structural recursion on items, not general termination-checked recursion.
+reverseOnto : (1 items : Data.Items.Items String) -> (1 acc : Data.Items.Items String) -> Data.Items.Items String
+reverseOnto items acc = case items of
+  Data.Items.Empty => acc
+  Data.Items.Prepend head tail => reverseOnto tail (Data.Items.Prepend head acc)
+
+join : (1 items : Data.Items.Items String) -> String
+join items = case items of
+  Data.Items.Empty => ""
+  Data.Items.Prepend head tail => appendString head (join tail)
+
+main : IO Unit
+main = putStrLn (join (reverseOnto (Data.Items.Prepend "a" (Data.Items.Prepend "b" (Data.Items.Empty {String}))) (Data.Items.Prepend "c" (Data.Items.Empty {String}))))

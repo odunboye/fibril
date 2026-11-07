@@ -114,12 +114,24 @@ record ImplementationDefinition where
   exported : Bool
 
 public export
+record MutualDeclaration where
+  constructor MutualSyntax
+  span : SourceSpan
+  first : Declaration
+  second : Declaration
+  exported : Bool
+
+public export
+data LoweredItem = Single Declaration | MutualNatBool MutualDeclaration
+
+public export
 data AuthoredDeclaration = Ordinary Declaration | DataItem DataDeclaration | RecordItem RecordDeclaration
                          | InterfaceItem RecordDeclaration | ImplementationItem Declaration
-                         | ImplementationBlock ImplementationDefinition
+                         | ImplementationBlock ImplementationDefinition | MutualItem MutualDeclaration
 
 public export
 declarationExported : AuthoredDeclaration -> Bool
+declarationExported (MutualItem group) = group.exported
 declarationExported (DataItem sourceData) = sourceData.exported
 declarationExported (Ordinary decl) = decl.exported
 declarationExported (RecordItem sourceRecord) = sourceRecord.exported
@@ -165,6 +177,9 @@ recordSites sourceRecord =
 ||| Authored binding locations only. Does not expand expressions or admit getters.
 public export
 bindingSites : AuthoredDeclaration -> List BindingSite
+bindingSites (MutualItem group) =
+  [Binding group.first.name group.first.quantity group.first.span group.first.nameSpan group.first.definitionNameSpan group.exported,
+   Binding group.second.name group.second.quantity group.second.span group.second.nameSpan group.second.definitionNameSpan group.exported]
 bindingSites (DataItem sourceData) =
   Binding sourceData.name.spelling Erased sourceData.span sourceData.name.span sourceData.name.span sourceData.exported ::
   (map (\ctor => Binding ctor.name.spelling Unrestricted ctor.span ctor.name.span ctor.name.span sourceData.exported) sourceData.constructors ++
@@ -186,6 +201,7 @@ bindingSites (RecordItem sourceRecord) = recordSites sourceRecord
 public export
 ordinaryDeclarations : List AuthoredDeclaration -> List Declaration
 ordinaryDeclarations [] = []
+ordinaryDeclarations (MutualItem _ :: rest) = ordinaryDeclarations rest
 ordinaryDeclarations (Ordinary decl :: rest) = decl :: ordinaryDeclarations rest
 ordinaryDeclarations (DataItem _ :: rest) = ordinaryDeclarations rest
 ordinaryDeclarations (RecordItem _ :: rest) = ordinaryDeclarations rest

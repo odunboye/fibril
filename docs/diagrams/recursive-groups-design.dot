@@ -1,0 +1,23 @@
+digraph RecursiveGroupsDesign {
+  rankdir=LR;
+  node [shape=box];
+  source [label="General recursive source groups\nnot currently accepted"];
+  group [label="Raw scoped group syntax\nindices + signatures + bodies"];
+  typing [label="Restricted Nat/Bool group check\ntypes, cases + quantitative usage"];
+  calls [label="Restricted Nat/Bool rewalk\ncall sites + relation cells"];
+  cert [label="Verify untrusted closure\nagainst rechecked calls"];
+  reference [label="Isolated fuelled reference\nnon-erased Nat/Bool only"];
+  artifact [label="Future integrated checked group\nno forged checked flag"];
+  evaluate [label="Ordinary evaluation + conversion\nnot integrated"];
+  backend [label="Backends: reject until supported", style=dashed];
+  source -> group [style=dashed];
+  group -> typing;
+  typing -> artifact [style=dashed];
+  group -> calls;
+  calls -> cert;
+  group -> reference;
+  cert -> reference;
+  cert -> artifact [style=dashed];
+  artifact -> evaluate [style=dashed];
+  artifact -> backend [style=dashed];
+}

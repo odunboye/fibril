@@ -2,6 +2,7 @@
 """End-to-end tests: emit checked C, compile it, then execute it explicitly."""
 from pathlib import Path
 import os
+import shutil
 import shlex
 import subprocess
 import tempfile
@@ -46,6 +47,169 @@ class NativeTests(unittest.TestCase):
                 _, native = self.compile_and_run(args, directory)
                 self.assertEqual(native.returncode, 0, native.stderr)
                 self.assertEqual(native.stdout, output)
+
+    def test_mutual_nat_parity_matches_reference(self):
+        root = ROOT / 'examples/modules/mutual-parity'
+        args = ['--source-dir', str(root), str(root / 'Main.fib')]
+        with tempfile.TemporaryDirectory() as directory:
+            _, native = self.compile_and_run(args, directory)
+            reference = run_cli('run', *args, text=False, timeout=120)
+            self.assertEqual(reference.returncode, 0, reference.stderr)
+            self.assertEqual(native.returncode, 0, native.stderr)
+            self.assertEqual(native.stdout, b'even zero\nodd one\neven two\nodd three\n')
+            self.assertEqual(native.stdout, reference.stdout)
+
+    def test_mutual_nat_payload_matches_reference(self):
+        root = ROOT / 'examples/modules/mutual-parity'
+        args = ['--source-dir', str(root), str(root / 'Payload.fib')]
+        with tempfile.TemporaryDirectory() as directory:
+            _, native = self.compile_and_run(args, directory)
+            reference = run_cli('run', *args, text=False, timeout=120)
+            self.assertEqual(reference.returncode, 0, reference.stderr)
+            self.assertEqual(native.returncode, 0, native.stderr)
+            self.assertEqual(native.stdout, b'identity\nnegated\nidentity again\nother entry\n')
+            self.assertEqual(native.stdout, reference.stdout)
+
+    def test_mutual_nat_forwarding_alias_matches_reference(self):
+        root = ROOT / 'examples/modules/mutual-parity'
+        args = ['--source-dir', str(root), str(root / 'Reordered.fib')]
+        with tempfile.TemporaryDirectory() as directory:
+            _, native = self.compile_and_run(args, directory)
+            reference = run_cli('run', *args, text=False, timeout=120)
+            self.assertEqual(reference.returncode, 0, reference.stderr)
+            self.assertEqual(native.returncode, 0, native.stderr)
+            self.assertEqual(native.stdout, b'forwarded\nreordered\nunchanged payload\n')
+            self.assertEqual(native.stdout, reference.stdout)
+
+    def test_linear_accumulator_fold_matches_reference(self):
+        root = ROOT / 'examples/modules/linear-accumulator'
+        args = ['--source-dir', str(root), str(root / 'Main.fib')]
+        with tempfile.TemporaryDirectory() as directory:
+            _, native = self.compile_and_run(args, directory)
+            reference = run_cli('run', *args, text=False, timeout=120)
+            self.assertEqual(reference.returncode, 0, reference.stderr)
+            self.assertEqual(native.returncode, 0, native.stderr)
+            self.assertEqual(native.stdout, b'bac\n')
+            self.assertEqual(native.stdout, reference.stdout)
+
+    def test_linear_accumulator_computed_update_matches_reference(self):
+        fixture = ROOT / 'examples/modules/linear-accumulator'
+        with tempfile.TemporaryDirectory() as directory:
+            args = ['--source-dir', str(fixture), str(fixture / 'Decorated.fib')]
+            _, native = self.compile_and_run(args, directory)
+            reference = run_cli('run', *args, text=False, timeout=120)
+            self.assertEqual(reference.returncode, 0, reference.stderr)
+            self.assertEqual(native.returncode, 0, native.stderr)
+            self.assertEqual(native.stdout, b'b!a!c\n')
+            self.assertEqual(native.stdout, reference.stdout)
+
+    def test_distinct_string_accumulator_matches_reference(self):
+        fixture = ROOT / 'examples/modules/linear-accumulator'
+        args = ['--source-dir', str(fixture), str(fixture / 'StringAccumulator.fib')]
+        with tempfile.TemporaryDirectory() as directory:
+            _, native = self.compile_and_run(args, directory)
+            reference = run_cli('run', *args, text=False, timeout=120)
+            self.assertEqual(reference.returncode, 0, reference.stderr)
+            self.assertEqual(native.returncode, 0, native.stderr)
+            self.assertEqual(native.stdout, b'cab\n')
+            self.assertEqual(native.stdout, reference.stdout)
+
+    def test_accumulator_computed_base_matches_reference(self):
+        fixture = ROOT / 'examples/modules/linear-accumulator'
+        args = ['--source-dir', str(fixture), str(fixture / 'Matches.fib')]
+        with tempfile.TemporaryDirectory() as directory:
+            _, native = self.compile_and_run(args, directory)
+            reference = run_cli('run', *args, text=False, timeout=120)
+            self.assertEqual(reference.returncode, 0, reference.stderr)
+            self.assertEqual(native.returncode, 0, native.stderr)
+            self.assertEqual(native.stdout, b'matched\n')
+            self.assertEqual(native.stdout, reference.stdout)
+
+    def test_accumulator_partial_application_matches_reference(self):
+        fixture = ROOT / 'examples/modules/linear-accumulator'
+        source = (fixture / 'Matches.fib').read_text()
+        prefix = source[:source.index('main : IO Unit')]
+        source = prefix + ('''main : IO Unit
+main = let (1 remaining : (1 acc : String) -> Bool) =
+  matchesOnto (Data.Items.Prepend "a" (Data.Items.Prepend "b" (Data.Items.Empty {String}))) in
+  if remaining "c" then putStrLn "matched" else putStrLn "different"
+''')
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(fixture / 'Data', root / 'Data')
+            path = root / 'Matches.fib'
+            path.write_text(source)
+            args = ['--source-dir', str(root), str(path)]
+            _, native = self.compile_and_run(args, directory)
+            reference = run_cli('run', *args, text=False, timeout=120)
+            self.assertEqual(reference.returncode, 0, reference.stderr)
+            self.assertEqual(native.returncode, 0, native.stderr)
+            self.assertEqual(native.stdout, b'matched\n')
+            self.assertEqual(native.stdout, reference.stdout)
+
+    def test_accumulator_first_and_partial_application_match_reference(self):
+        fixture = ROOT / 'examples/modules/linear-accumulator'
+        path = fixture / 'AccumulatorFirst.fib'
+        with tempfile.TemporaryDirectory() as directory:
+            args = ['--source-dir', str(fixture), str(path)]
+            _, native = self.compile_and_run(args, directory)
+            reference = run_cli('run', *args, text=False, timeout=120)
+            self.assertEqual(reference.returncode, 0, reference.stderr)
+            self.assertEqual(native.returncode, 0, native.stderr)
+            self.assertEqual(native.stdout, b'matched\n')
+            self.assertEqual(native.stdout, reference.stdout)
+            root = Path(directory)
+            shutil.copytree(fixture / 'Data', root / 'Data')
+            partial = root / 'AccumulatorFirst.fib'
+            source = path.read_text()
+            prefix = source[:source.index('main : IO Unit')]
+            partial.write_text(prefix + ('''main : IO Unit
+main = let (1 remaining : (1 items : Data.Items.Items String) -> Bool) = matchesFrom "c" in
+  if remaining (Data.Items.Prepend "a" (Data.Items.Prepend "b" (Data.Items.Empty {String})))
+  then putStrLn "matched" else putStrLn "different"
+'''))
+            args = ['--source-dir', str(root), str(partial)]
+            _, native = self.compile_and_run(args, directory)
+            reference = run_cli('run', *args, text=False, timeout=120)
+            self.assertEqual(reference.returncode, 0, reference.stderr)
+            self.assertEqual(native.returncode, 0, native.stderr)
+            self.assertEqual(native.stdout, b'matched\n')
+            self.assertEqual(native.stdout, reference.stdout)
+
+    def test_uniform_prefix_accumulators_match_reference(self):
+        fixture = ROOT / 'examples/modules/linear-accumulator'
+        for filename, expected in [('UniformPrefix.fib', b'b!a!c\n'),
+                                   ('UniformPrefixFirst.fib', b'ca!b!?\n')]:
+            with self.subTest(filename=filename), tempfile.TemporaryDirectory() as directory:
+                args = ['--source-dir', str(fixture), str(fixture / filename)]
+                _, native = self.compile_and_run(args, directory)
+                reference = run_cli('run', *args, text=False, timeout=120)
+                self.assertEqual(reference.returncode, 0, reference.stderr)
+                self.assertEqual(native.returncode, 0, native.stderr)
+                self.assertEqual(native.stdout, expected)
+                self.assertEqual(native.stdout, reference.stdout)
+
+    def test_uniform_prefix_accumulator_partial_application(self):
+        fixture = ROOT / 'examples/modules/linear-accumulator'
+        source = (fixture / 'UniformPrefixFirst.fib').read_text()
+        prefix = source[:source.index('main : IO Unit')]
+        source = prefix + ('''main : IO Unit
+main = let (1 remaining : (1 items : Data.Items.Items String) -> String) =
+  appendMappedFrom {String} mark "?" "c" in
+  putStrLn (remaining (Data.Items.Prepend "a" (Data.Items.Prepend "b" (Data.Items.Empty {String}))))
+''')
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(fixture / 'Data', root / 'Data')
+            path = root / 'UniformPrefixFirst.fib'
+            path.write_text(source)
+            args = ['--source-dir', str(root), str(path)]
+            _, native = self.compile_and_run(args, directory)
+            reference = run_cli('run', *args, text=False, timeout=120)
+            self.assertEqual(reference.returncode, 0, reference.stderr)
+            self.assertEqual(native.returncode, 0, native.stderr)
+            self.assertEqual(native.stdout, b'ca!b!?\n')
+            self.assertEqual(native.stdout, reference.stdout)
 
     def test_native_finite_data_and_branches_match_reference(self):
         cases = [('implicit-constructors', b'receipt\n'),

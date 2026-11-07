@@ -1,0 +1,14 @@
+module AccumulatorFirst
+
+import Data.Items
+
+-- The accumulator is written first; recursion still decreases the list tail.
+matchesFrom : (1 acc : String) -> (1 items : Data.Items.Items String) -> Bool
+matchesFrom acc items = case items of
+  Data.Items.Empty => equalString acc "cab"
+  Data.Items.Prepend head tail => matchesFrom (appendString acc head) tail
+
+main : IO Unit
+main = if matchesFrom "c" (Data.Items.Prepend "a" (Data.Items.Prepend "b" (Data.Items.Empty {String})))
+  then putStrLn "matched"
+  else putStrLn "different"

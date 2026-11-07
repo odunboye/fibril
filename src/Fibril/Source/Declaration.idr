@@ -19,8 +19,11 @@ nextPosition end (token :: _) = token.span.start
 -- The header's remaining tokens and later indented lines form one expression.
 -- A later column-one token always starts the next declaration frame.
 expressionChunk : Nat -> List Token -> (List Token, List Token)
-expressionChunk headerLine =
-  span (\token => token.span.start.line == headerLine || token.span.start.column > 1)
+expressionChunkAt : Nat -> Nat -> List Token -> (List Token, List Token)
+expressionChunkAt column headerLine =
+  span (\token => token.span.start.line == headerLine || token.span.start.column > column)
+
+expressionChunk headerLine = expressionChunkAt 1 headerLine
 
 equationArguments : Nat -> Position -> Nat -> List String -> List Token -> Either ParseError (List Token, List Token)
 equationArguments Z end line seen tokens@(item :: _) =
@@ -37,10 +40,10 @@ equationArguments (S budget) end line seen tokens@(item :: rest) =
     (later, remaining) <- equationArguments budget end line (item.spelling :: seen) rest
     Right (item :: later, remaining)
 
-parsePairAt : Nat -> Nat -> Position -> List Token ->
+parsePairFramed : Nat -> Nat -> Nat -> Position -> List Token ->
            Either ParseError (Declaration, List Token)
-parsePairAt column expressionBudget end [] = Left (ParseFailure end "Expected declaration signature")
-parsePairAt column expressionBudget end tokens@(first :: _) = do
+parsePairFramed column definitionColumn expressionBudget end [] = Left (ParseFailure end "Expected declaration signature")
+parsePairFramed column definitionColumn expressionBudget end tokens@(first :: _) = do
   if first.span.start.column /= column
      then Left (ParseFailure first.span.start "Declaration headers must start in column 1")
      else Right ()
@@ -51,10 +54,10 @@ parsePairAt column expressionBudget end tokens@(first :: _) = do
      colon.span.start.line /= first.span.start.line
      then Left (ParseFailure name.span.start "Signature name and colon must share the header line")
      else Right ()
-  let (typeTokens, afterType) = expressionChunk first.span.start.line afterColon
+  let (typeTokens, afterType) = expressionChunkAt definitionColumn first.span.start.line afterColon
   expected <- parseExpression expressionBudget (nextPosition end afterType) typeTokens
   (definedName, afterDefinedName) <- expect Name end afterType
-  if definedName.span.start.column /= 1
+  if definedName.span.start.column /= definitionColumn
      then Left (ParseFailure definedName.span.start "Definition headers must start in column 1")
      else Right ()
   if definedName.spelling /= name.spelling
@@ -67,7 +70,7 @@ parsePairAt column expressionBudget end tokens@(first :: _) = do
   if equals.span.start.line /= definedName.span.start.line
      then Left (ParseFailure equals.span.start "Definition name and = must share the header line")
      else Right ()
-  let (valueTokens, remaining) = expressionChunk definedName.span.start.line afterEquals
+  let (valueTokens, remaining) = expressionChunkAt definitionColumn definedName.span.start.line afterEquals
   body <- parseExpression expressionBudget (nextPosition end remaining) valueTokens
   let value = case arguments of
         [] => body
@@ -75,6 +78,9 @@ parsePairAt column expressionBudget end tokens@(first :: _) = do
   Right (Defined (Between first.span.start (extent body).finish)
                  name.span definedName.span False q name.spelling expected value, remaining)
 
+
+parsePairAt : Nat -> Nat -> Position -> List Token -> Either ParseError (Declaration, List Token)
+parsePairAt column = parsePairFramed column 1
 
 parsePair : Nat -> Position -> List Token -> Either ParseError (Declaration, List Token)
 parsePair = parsePairAt 1
@@ -303,6 +309,22 @@ parseImplementation budget end (keyword :: rest) = do
        Right (ImplementationItem ({ dictionary := True, span := Between keyword.span.start decl.span.finish } decl), remaining)
 
 
+parseMutual : Nat -> Position -> List Token -> Either ParseError (AuthoredDeclaration, List Token)
+parseMutual budget end (keyword :: marker :: tokens@(first :: _)) = do
+  if keyword.span.start.column /= 1 || marker.kind /= WhereKeyword ||
+     marker.span.start.line /= keyword.span.start.line || first.span.start.line <= marker.span.start.line ||
+     first.span.start.column <= 1
+    then Left (ParseFailure keyword.span.start "Expected mutual where followed by two indented declarations") else Right ()
+  let indent = first.span.start.column
+  (one, rest) <- parsePairFramed indent indent budget end tokens
+  (two, remaining) <- parsePairFramed indent indent budget end rest
+  case remaining of
+    next :: _ => if next.span.start.column > 1
+      then Left (ParseFailure next.span.start "Mutual groups require exactly two ordinary declarations") else Right ()
+    [] => Right ()
+  Right (MutualItem (MutualSyntax (Between keyword.span.start two.span.finish) one two False), remaining)
+parseMutual _ end _ = Left (ParseFailure end "Expected mutual where and two declarations")
+
 parseOne : Nat -> Position -> List Token -> Either ParseError (AuthoredDeclaration, List Token)
 parseOne budget end tokens@(token :: rest) =
   if token.kind == ExportKeyword then do
@@ -313,6 +335,7 @@ parseOne budget end tokens@(token :: rest) =
       [] => Right ()
     (item, remaining) <- parseOne budget end rest
     let start = case item of
+          MutualItem group => group.span.start
           DataItem sourceData => sourceData.span.start
           Ordinary decl => decl.span.start
           RecordItem sourceRecord => sourceRecord.span.start
@@ -322,6 +345,7 @@ parseOne budget end tokens@(token :: rest) =
     if start.line <= token.span.start.line
        then Left (ParseFailure start "export must precede the declaration on its own line") else Right ()
     let marked = case item of
+          MutualItem group => MutualItem ({ exported := True, span := Between token.span.start group.span.finish } group)
           DataItem sourceData => DataItem ({ exported := True, span := Between token.span.start sourceData.span.finish } sourceData)
           Ordinary decl => Ordinary ({ exported := True, span := Between token.span.start decl.span.finish } decl)
           RecordItem sourceRecord => RecordItem ({ exported := True, span := Between token.span.start sourceRecord.span.finish } sourceRecord)
@@ -329,6 +353,7 @@ parseOne budget end tokens@(token :: rest) =
           ImplementationItem decl => ImplementationItem ({ exported := True, span := Between token.span.start decl.span.finish } decl)
           ImplementationBlock block => ImplementationBlock ({ exported := True, span := Between token.span.start block.span.finish } block)
     Right (marked, remaining)
+  else if token.kind == MutualKeyword then parseMutual budget end tokens
   else if token.kind == DataKeyword then parseData budget end tokens
   else if token.kind == RecordKeyword || token.kind == InterfaceKeyword then parseRecordLike token.kind budget end tokens
   else if token.kind == ImplementationKeyword then parseImplementation budget end tokens
@@ -384,6 +409,7 @@ declarationAhead : List Token -> Bool
 declarationAhead (Located Name _ _ :: Located Colon _ _ :: _) = True
 declarationAhead (Located Name _ _ :: Located Equals _ _ :: _) = True
 declarationAhead (Located Number _ _ :: _) = True
+declarationAhead (Located MutualKeyword _ _ :: _) = True
 declarationAhead (Located DataKeyword _ _ :: _) = True
 declarationAhead (Located RecordKeyword _ _ :: _) = True
 declarationAhead (Located InterfaceKeyword _ _ :: _) = True

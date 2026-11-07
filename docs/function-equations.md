@@ -230,10 +230,86 @@ unrestricted; a linear prefix is not accepted. This is convenience over a
 checked fold, not a general termination checker. The earlier single-erased-type
 form still permits its documented omitted implicit argument.
 
-Dependent results over the input, non-uniform recursive arguments, arbitrary
-recursive calls and general termination checking remain unsupported. Checked project definition navigation
-resolves the authored self-call; experimental C emission supports the checked
-fixed-shape fold subject to native limits.
+Dependent results over the input, arbitrary non-uniform recursive arguments,
+arbitrary recursive calls and general termination checking remain unsupported;
+the particular linear accumulator form below is an exception. Checked project
+definition navigation resolves the authored self-call; experimental C emission
+supports the checked fixed-shape fold subject to native limits.
+
+## Linear list accumulator
+
+A narrow direct-style reverse-onto equation is also supported, with the list
+first:
+
+~~~fibril
+reverseOnto : (1 items : Items String) -> (1 acc : Items String) -> Items String
+reverseOnto items acc = case items of
+  Empty => acc
+  Prepend head tail => reverseOnto tail (Prepend head acc)
+~~~
+
+The accumulator may instead come first, provided the recursive call preserves
+that order:
+
+~~~fibril
+matchesFrom : (1 acc : String) -> (1 items : Items String) -> Bool
+matchesFrom acc items = case items of
+  Empty => equalString acc "cab"
+  Prepend head tail => matchesFrom (appendString acc head) tail
+~~~
+
+The [runnable example](../examples/modules/linear-accumulator/Main.fib) uses
+qualified imported constructors. After an optional uniform prefix, the
+signature has exactly two linear inputs: a checked fixed list family and an
+accumulator type. Its result type may differ from the accumulator; neither may
+depend on the two linear inputs. The list family must also be independent of
+the accumulator. These types may depend on earlier prefix parameters. The case
+scrutinizes the list input. Its empty branch computes the result from the accumulator, and
+the cons branch is exactly a direct self-call on the immediate tail and an
+update, in the function's authored argument order. Branch order may be reversed. The
+[computed-update example](../examples/modules/linear-accumulator/Decorated.fib)
+transforms each head before adding it to a list accumulator; the
+[String-accumulator example](../examples/modules/linear-accumulator/StringAccumulator.fib)
+uses a different accumulator type from the input list. The
+[computed-base example](../examples/modules/linear-accumulator/Matches.fib)
+returns a `Bool` from a `String` accumulator; the
+[accumulator-first example](../examples/modules/linear-accumulator/AccumulatorFirst.fib)
+uses the other argument order. The [uniform-prefix examples](../examples/modules/linear-accumulator/UniformPrefix.fib)
+show erased types and a reusable transformer, including the
+[accumulator-first form](../examples/modules/linear-accumulator/UniformPrefixFirst.fib).
+
+The base may use the accumulator and visible globals; the update may also use
+the head. Both are bounded binder-free expressions of ordinary or braced
+applications, `if`, references, and supported literals. Neither may refer to
+the original input or recursive function; the update may not refer to the tail.
+Qualified references whose final name collides with a forbidden name are also
+conservatively rejected. Head and tail binders are not in scope in the empty
+branch, so same-named globals there retain their ordinary meaning. Cases,
+lambdas, lets, do blocks and other unlisted forms are rejected. Both authored
+expressions are elaborated and independently checked: the base must consume
+the linear accumulator, and the update must consume both linear head and
+accumulator.
+
+Up to 64 erased or unrestricted prefix parameters may precede the two linear
+inputs. Leading implicit prefix parameters must be erased. Each recursive call
+must explicitly repeat every prefix binder unchanged, in the authored order and
+with its authored implicit or explicit visibility; omitted, reordered or
+computed prefixes are not guessed equal. Prefix values captured by the repeated
+step must satisfy the existing erased/unrestricted usage rules. Linear prefixes,
+indirect calls, other recursive arguments and additional trailing parameters
+remain unsupported.
+
+The compiler lowers this shape to a `SeqFold` returning a linear
+accumulator-to-result function. Its base computes the checked empty branch;
+each step builds a function that applies the linear induction result to the
+independently checked update. The original accumulator is not captured by the
+repeatedly invoked step. The generated outer lambdas preserve the two-argument
+shape before applying the fold. The whole generated core is independently checked for types and usage.
+This is syntax over an expressible fold, **not general recursion or use of the
+experimental size-change checker**. Case-constructor identity is checked, not
+inferred from spelling; authored update applications must satisfy their own
+ordinary types and implicit-argument rules. Experimental native emission remains
+unverified.
 
 ## Bounds, tooling and evidence
 

@@ -79,7 +79,13 @@ sameField a b = a.quantity == b.quantity && a.token.spelling == b.token.spelling
 sameProjection : RecordProjection -> RecordProjection -> Bool
 sameProjection a b = a.name.spelling == b.name.spelling && a.field.spelling == b.field.spelling
 
+sameDeclaration : Declaration -> Declaration -> Bool
+sameDeclaration a b = a.name == b.name && a.quantity == b.quantity &&
+  a.exported == b.exported && a.generated == b.generated && a.dictionary == b.dictionary && sameExpr a.expected b.expected && sameExpr a.value b.value
+
 sameAuthored : AuthoredDeclaration -> AuthoredDeclaration -> Bool
+sameAuthored (MutualItem a) (MutualItem b) =
+  a.exported == b.exported && sameDeclaration a.first b.first && sameDeclaration a.second b.second
 sameAuthored (ImplementationBlock a) (ImplementationBlock b) =
   a.name.spelling == b.name.spelling && a.exported == b.exported && sameExpr a.target b.target &&
     sameList (\x, y => x.name.spelling == y.name.spelling && sameExpr x.value y.value) a.methods b.methods

@@ -505,6 +505,8 @@ mutual
     Right (cost, [generated])
 
   lowerItem : Maybe String -> List InterfaceSchema -> List String -> List String -> Nat -> AuthoredDeclaration -> Either ElaborationError (Nat, List Declaration)
+  lowerItem moduleName schemas imported seen nodes (MutualItem group) =
+    Left (ElaborationFailure group.span.start "Mutual groups require named-module checking")
   lowerItem moduleName schemas imported seen nodes (DataItem sourceData) = case moduleName of
     Nothing => Left (ElaborationFailure sourceData.name.span.start "Data declarations require a named module")
     Just qualifier => lowerData qualifier nodes sourceData
@@ -526,12 +528,35 @@ mutual
   lowerItem moduleName schemas imported seen nodes (ImplementationBlock block) = lowerImplementation schemas imported seen nodes block
 
   authoredPosition : AuthoredDeclaration -> Position
+  authoredPosition (MutualItem group) = group.span.start
   authoredPosition (DataItem sourceData) = sourceData.name.span.start
   authoredPosition (Ordinary decl) = decl.nameSpan.start
   authoredPosition (ImplementationItem decl) = decl.nameSpan.start
   authoredPosition (ImplementationBlock block) = block.name.span.start
   authoredPosition (RecordItem sourceRecord) = sourceRecord.name.span.start
   authoredPosition (InterfaceItem sourceRecord) = sourceRecord.name.span.start
+
+  lowerModule : Maybe String -> List InterfaceSchema -> List String -> Nat -> Nat -> List String -> List AuthoredDeclaration -> Either ElaborationError (List LoweredItem)
+  lowerModule moduleName schemas imported nodes slots seen [] = Right []
+  lowerModule moduleName schemas imported nodes slots seen (item :: rest) = do
+    if length (bindingSites item) > slots
+       then Left (ElaborationFailure (authoredPosition item) "Elaborated declaration budget exhausted") else Right ()
+    (used, declarations, lowered) <- case item of
+      MutualItem group => case moduleName of
+        Nothing => Left (ElaborationFailure group.span.start "Mutual groups require a named module")
+        Just _ => Right (0, [group.first, group.second], [MutualNatBool group])
+      _ => do
+        (used, declarations) <- lowerItem moduleName schemas imported seen nodes item
+        Right (used, declarations, map Single declarations)
+    (remaining, names) <- admit slots seen declarations
+    let retained = filter (\schema => not (elem schema.name (map name (bindingSites item)))) schemas
+    let visible = case item of InterfaceItem authored => localSchemas moduleName authored ++ retained; _ => retained
+    following <- lowerModule moduleName visible imported (minus nodes used) remaining names rest
+    Right (lowered ++ following)
+
+  public export
+  elaborateModuleItemsInWithImports : Maybe String -> List InterfaceSchema -> List String -> Nat -> List AuthoredDeclaration -> Either ElaborationError (List LoweredItem)
+  elaborateModuleItemsInWithImports moduleName schemas imported slots = lowerModule moduleName schemas imported defaultConstructionBudget slots []
 
   lower : Maybe String -> List InterfaceSchema -> List String -> Nat -> Nat -> List String -> List AuthoredDeclaration -> Either ElaborationError (List Declaration)
   lower moduleName schemas imported nodes slots seen [] = Right []

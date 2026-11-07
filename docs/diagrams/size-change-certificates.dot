@@ -1,0 +1,23 @@
+digraph SizeChangeCertificates {
+  rankdir=LR;
+  node [shape=box];
+  body [label="Synthetic first-order Nat/list body\nnot Fibril source or core"];
+  extraction [label="Extract all call-site matrices"];
+  crosscheck [label="Rewalk body with separate provenance\nreject forged or missing call sites"];
+  callGraph [label="Abstract call graph\nrelations are untrusted assertions"];
+  producer [label="Bounded deterministic producer\nor caller-supplied certificate"];
+  cert [label="Proposed finite closure\nuntrusted certificate"];
+  admission [label="Bounded shape + membership\n+ composition closure"];
+  cycle [label="Every idempotent self-cycle\nhas a strict diagonal"];
+  result [label="Abstract graph verdict only\nno source/core acceptance"];
+  future [label="Future: checked call extraction,\nwell-founded orders and recursive core", style=dashed];
+  body -> extraction -> callGraph;
+  body -> crosscheck;
+  callGraph -> crosscheck;
+  crosscheck -> admission [label="verifyBody"];
+  callGraph -> producer -> cert;
+  callGraph -> admission;
+  cert -> admission;
+  admission -> cycle -> result;
+  future -> callGraph [style=dashed];
+}

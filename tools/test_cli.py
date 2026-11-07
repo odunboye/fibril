@@ -2,6 +2,7 @@
 """Smoke-test the built CLI independently of its pure implementation helpers."""
 from pathlib import Path
 import subprocess
+import shutil
 import signal
 import time
 from unittest.mock import patch
@@ -39,6 +40,338 @@ def run(*args, cwd=ROOT):
 
 
 class CLITests(unittest.TestCase):
+    def test_mutual_nat_forwarding_alias_plans(self):
+        bases = ['flag', 'if flag then False else False', 'if flag then False else True',
+                 'if flag then True else False', 'if flag then True else True']
+        for base_index, base in enumerate(bases):
+            for bits in range(16):
+                order0, order1, alias_first, target_first = [bool(bits & (1 << bit)) for bit in range(4)]
+                orders = {'first': order0, 'second': order1}
+                alias, worker = ('first', 'second') if alias_first else ('second', 'first')
+                target = 'first' if target_first else 'second'
+                call = lambda name, n, p: f'{name} {n} {p}' if orders[name] else f'{name} {p} {n}'
+                declarations = []
+                for name in ['first', 'second']:
+                    signature = '(1 n : Nat) -> (1 p : Bool)' if orders[name] else '(1 p : Bool) -> (1 n : Nat)'
+                    binders = 'count flag' if orders[name] else 'flag count'
+                    if name == alias:
+                        body = call(worker, 'count', 'flag')
+                    else:
+                        body = f'case count of\n    Succ previous => {call(target, "previous", "flag")}\n    Zero => {base}'
+                    declarations.append(f'  {name} : {signature} -> Bool\n  {name} {binders} = {body}')
+                observations, expected = [], []
+                for name in ['first', 'second']:
+                    for flag in [False, True]:
+                        value = flag if base_index == 0 else [False, not flag, flag, True][base_index - 1]
+                        for n in ['Zero', '(Succ Zero)', '(Succ (Succ Zero))']:
+                            expression = call(name, n, 'True' if flag else 'False')
+                            observations.append(f'  putStrLn (if {expression} then "T" else "F")')
+                            expected.append('T' if value else 'F')
+                with self.subTest(base=base_index, bits=bits), tempfile.TemporaryDirectory() as directory:
+                    path = Path(directory) / 'Main.fib'
+                    path.write_text('module Main\nmutual where\n' + '\n'.join(declarations) +
+                                    '\nmain : IO Unit\nmain = do\n' + '\n'.join(observations) + '\n')
+                    result = run('run', '--source-dir', directory, str(path))
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertEqual(result.stdout, '\n'.join(expected) + '\n')
+
+    def test_mutual_nat_forwarding_alias_boundaries_and_navigation(self):
+        fixture = (ROOT / 'examples/modules/mutual-parity/Reordered.fib').read_text()
+        mutations = [
+            ('first count flag = second flag count', 'first count flag = first count flag'),
+            ('second flag count = case count of\n    Zero => if flag then False else True\n    Succ previous => first previous flag', 'second flag count = first count flag'),
+            ('second flag count = case count of', 'second flag count = case flag of'),
+            ('second flag count', 'second count flag'),
+            ('first count flag = second flag count', 'first count flag = second count flag'),
+            ('second flag count', 'second True count'),
+            ('second flag count', 'second flag (Succ count)'),
+            ('first previous flag', 'first count flag'),
+            ('first previous flag', 'first previous True'),
+            ('first previous flag', 'first flag previous'),
+            ('first previous flag', 'Reordered.first previous flag'),
+            ('first count flag = second flag count', 'first count flag = if True then second flag count else second flag count'),
+            ('first count flag = second flag count', 'first count flag = second flag'),
+            ('first count flag = second flag count', 'first count flag = second flag count flag'),
+            ('(1 flag : Bool)', '(flag : Bool)'),
+            ('(1 flag : Bool)', '(0 flag : Bool)'),
+            ('(1 count : Nat)', '(1 count : Bool)'),
+            ('first count flag =', 'first count first ='),
+            ('Succ previous =>', 'Succ flag =>'),
+            ('Zero => if flag then False else True', 'Zero => True'),
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Reordered.fib'
+            for old, new in mutations:
+                with self.subTest(new=new):
+                    path.write_text(fixture.replace(old, new))
+                    result = run('check', '--source-dir', directory, str(path))
+                    self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+            path.write_text(fixture.replace('second flag count\n', '((second) flag) count\n'))
+            formatted = run('format', str(path))
+            self.assertEqual(formatted.returncode, 0, formatted.stderr)
+            path.write_text(formatted.stdout)
+            self.assertEqual(run('format', '--check', str(path)).returncode, 0)
+            lines = formatted.stdout.splitlines()
+            alias_line = next(i for i, text in enumerate(lines, 1) if 'first count flag =' in text)
+            worker_line = next(i for i, text in enumerate(lines, 1) if 'second flag count =' in text)
+            succ_line = next(i for i, text in enumerate(lines, 1) if '=> first previous flag' in text)
+            for line, token, expected_line in [(alias_line, 'second', worker_line), (succ_line, 'first', alias_line),
+                                               (succ_line, 'previous', succ_line), (succ_line, 'flag', worker_line),
+                                               (alias_line, 'flag', alias_line), (alias_line, 'count', alias_line)]:
+                column = lines[line - 1].rindex(token) + 1
+                ref = run('definition', '--source-dir', directory, '--entry', str(path), str(line), str(column), str(path))
+                self.assertEqual(ref.returncode, 0, ref.stdout + ref.stderr)
+                report = json.loads(ref.stdout)
+                self.assertTrue(report['checked'])
+                self.assertEqual(report['definition']['range']['start']['line'], expected_line)
+            main = Path(directory) / 'Main.fib'
+            main.write_text('module Main\nimport Reordered (first)\nmain : IO Unit\nmain = putStrLn (if first (Succ Zero) False then "yes" else "no")\n')
+            args = ['--source-dir', directory, str(main)]
+            result = run('run', *args)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'yes\n')
+            valid = path.read_text()
+            path.write_text(valid.replace('Zero => if flag then False else True', 'Zero => True'))
+            self.assertNotEqual(run('check', *args).returncode, 0)
+            path.write_text(valid.replace('export\n', ''))
+            self.assertNotEqual(run('check', *args).returncode, 0)
+
+    def test_mutual_nat_payload_tables(self):
+        for bits in range(64):
+            values = [bool(bits & (1 << bit)) for bit in range(6)]
+            bases, targets = [values[:2], values[2:4]], values[4:]
+            boolean = lambda bit: 'True' if bit else 'False'
+            target = lambda bit: 'first' if bit else 'second'
+            observations, expected = [], []
+            for entry, name in enumerate(['first', 'second']):
+                for flag in [False, True]:
+                    for count in range(3):
+                        nat = 'Zero'
+                        for _ in range(count):
+                            nat = f'(Succ {nat})'
+                        observations.append(f'  putStrLn (if {name} {nat} {boolean(flag)} then "T" else "F")')
+                        state = entry
+                        for _ in range(count):
+                            state = 0 if targets[state] else 1
+                        expected.append('T' if bases[state][0 if flag else 1] else 'F')
+            with self.subTest(bits=bits), tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / 'Main.fib'
+                path.write_text(f'''module Main
+mutual where
+  first : (1 n : Nat) -> (1 flag : Bool) -> Bool
+  first n flag = case n of
+    Zero => if flag then {boolean(bases[0][0])} else {boolean(bases[0][1])}
+    Succ previous => {target(targets[0])} previous flag
+  second : (1 m : Nat) -> (1 payload : Bool) -> Bool
+  second m payload = case m of
+    Succ previous => {target(targets[1])} previous payload
+    Zero => if payload then {boolean(bases[1][0])} else {boolean(bases[1][1])}
+main : IO Unit
+main = do
+''' + '\n'.join(observations) + '\n')
+                result = run('run', '--source-dir', directory, str(path))
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(result.stdout, '\n'.join(expected) + '\n')
+
+    def test_mutual_nat_payload_ownership_and_call_boundary(self):
+        fixture = (ROOT / 'examples/modules/mutual-parity/Payload.fib').read_text()
+        mutations = [
+            ('second previous flag', 'second previous True'),
+            ('second previous flag', 'second previous (if flag then False else True)'),
+            ('second previous flag', 'second flag previous'),
+            ('second previous flag', 'second previous'),
+            ('second previous flag', 'second previous flag flag'),
+            ('second previous flag', 'second count flag'),
+            ('second previous flag', 'second (Succ previous) flag'),
+            ('Zero => flag', 'Zero => True'),
+            ('Zero => flag', 'Zero => if True then flag else flag'),
+            ('Zero => flag', 'Zero => if flag then flag else flag'),
+            ('(1 flag : Bool)', '(flag : Bool)'),
+            ('(1 flag : Bool)', '(0 flag : Bool)'),
+            ('first count flag =', 'first count ='),
+            ('first count flag =', 'first count second ='),
+            ('Succ previous => second previous flag', 'Succ flag => second flag flag'),
+            ('second : (1 count : Nat) -> (1 flag : Bool) -> Bool', 'second : (1 count : Nat) -> Bool'),
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Payload.fib'
+            for old, new in mutations:
+                with self.subTest(new=new):
+                    path.write_text(fixture.replace(old, new))
+                    result = run('check', '--source-dir', directory, str(path))
+                    self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+            path.write_text(fixture.replace('second previous flag', '((second) previous) flag'))
+            formatted = run('format', str(path))
+            self.assertEqual(formatted.returncode, 0, formatted.stderr)
+            path.write_text(formatted.stdout)
+            self.assertEqual(run('format', '--check', str(path)).returncode, 0)
+            lines = formatted.stdout.splitlines()
+            line = next(i for i, text in enumerate(lines, 1) if '=> ((second) previous) flag' in text)
+            col = lines[line - 1].index('second') + 1
+            result = run('definition', '--source-dir', directory, '--entry', str(path), str(line), str(col), str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            target_line = next(i for i, text in enumerate(lines, 1) if text.startswith('  second count flag ='))
+            self.assertEqual(json.loads(result.stdout)['definition']['range']['start']['line'], target_line)
+            # Call-site spans must not capture the predecessor/payload references.
+            for token, expected_line in [('previous', line), ('flag', next(i for i, text in enumerate(lines, 1) if text.startswith('  first count flag =')))]:
+                column = lines[line - 1].rindex(token) + 1
+                ref = run('definition', '--source-dir', directory, '--entry', str(path), str(line), str(column), str(path))
+                self.assertEqual(ref.returncode, 0, ref.stdout + ref.stderr)
+                self.assertEqual(json.loads(ref.stdout)['definition']['range']['start']['line'], expected_line)
+            main = Path(directory) / 'Main.fib'
+            main.write_text('module Main\nimport Payload (first)\nmain : IO Unit\nmain = putStrLn (if first (Succ Zero) False then "yes" else "no")\n')
+            imported = run('run', '--source-dir', directory, str(main))
+            self.assertEqual(imported.returncode, 0, imported.stdout + imported.stderr)
+            self.assertEqual(imported.stdout, 'yes\n')
+            source = path.read_text()
+            path.write_text(source.replace('Zero => if flag then False else True', 'Zero => True'))
+            self.assertNotEqual(run('check', '--source-dir', directory, str(main)).returncode, 0)
+
+    def test_mutual_nat_selector_tables(self):
+        # Every base/transition table, not just the even/odd cross-call case.
+        for bits in range(16):
+            b0, b1, t0, t1 = [bool(bits & (1 << bit)) for bit in range(4)]
+            target = lambda bit: 'first' if bit else 'second'
+            boolean = lambda bit: 'True' if bit else 'False'
+            with self.subTest(bits=bits), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                path = root / 'Main.fib'
+                observations, expected = [], []
+                for entry, name in enumerate(['first', 'second']):
+                    for count in range(4):
+                        nat = 'Zero'
+                        for _ in range(count):
+                            nat = f'(Succ {nat})'
+                        observations.append(f'  putStrLn (if {name} {nat} then "T" else "F")')
+                        state = entry
+                        for _ in range(count):
+                            state = 0 if [t0, t1][state] else 1
+                        expected.append('T' if [b0, b1][state] else 'F')
+                path.write_text(f'''module Main
+mutual where
+  first : (1 n : Nat) -> Bool
+  first n = case n of
+    Zero => {boolean(b0)}
+    Succ previous => {target(t0)} previous
+  second : (1 n : Nat) -> Bool
+  second n = case n of
+    Succ previous => {target(t1)} previous
+    Zero => {boolean(b1)}
+main : IO Unit
+main = do
+''' + '\n'.join(observations) + '\n')
+                result = run('run', '--source-dir', directory, str(path))
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(result.stdout, '\n'.join(expected) + '\n')
+
+    def test_mutual_nat_fail_closed_source_boundary(self):
+        source = '''module Main
+mutual where
+  first : (1 n : Nat) -> Bool
+  first n = case n of
+    Zero => True
+    Succ previous => second previous
+  second : (1 n : Nat) -> Bool
+  second n = case n of
+    Zero => False
+    Succ previous => first previous
+main : Bool
+main = first Zero
+'''
+        mutations = [
+            ('second previous', 'second n'),
+            ('second previous', 'second (Succ previous)'),
+            ('second previous', 'first'),
+            ('second previous', 'second previous previous'),
+            ('second previous', 'Main.second previous'),
+            ('second previous', 'if True then second previous else first previous'),
+            ('Zero => False', 'Zero => missing'),
+            ('Zero => False', 'Succ other => False'),
+            ('(1 n : Nat)', '(0 n : Nat)'),
+            ('(1 n : Nat)', '(n : Nat)'),
+            ('second : (1 n : Nat) -> Bool', 'second : (1 n : Bool) -> Bool'),
+            ('  second n = case n of', '  second n = case Zero of'),
+            ('    Succ previous => first previous', '    Succ first => first first'),
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Main.fib'
+            for old, new in mutations:
+                with self.subTest(new=new):
+                    path.write_text(source.replace(old, new))
+                    result = run('check', '--json', '--source-dir', directory, str(path))
+                    self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+            # Neither source order nor group placement enables ordinary forward refs.
+            path.write_text(source.replace('mutual where', 'earlier : Bool\nearlier = first Zero\nmutual where'))
+            self.assertNotEqual(run('check', '--source-dir', directory, str(path)).returncode, 0)
+            # A headerless adapter must not silently flatten/drop the group.
+            path.write_text(source.replace('module Main\n', ''))
+            self.assertNotEqual(run('check', str(path)).returncode, 0)
+
+    def test_mutual_nat_group_framing_and_shadowing(self):
+        fixture = (ROOT / 'examples/modules/mutual-parity/Main.fib').read_text()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Main.fib'
+            invalid = [
+                fixture.replace('  even :', '  export\n  even :'),
+                fixture[:fixture.index('  odd :')],
+                fixture.replace('main : IO Unit', '  third : Bool\n  third = True\nmain : IO Unit'),
+                fixture.replace('  odd :', '  mutual where\n  odd :'),
+                fixture.replace('  odd :', '  even :'),
+                fixture.replace('mutual where', 'Zero : Nat\nZero = Succ Zero\nmutual where'),
+                fixture.replace('mutual where', 'Nat : Type\nNat = Bool\nmutual where'),
+                fixture.replace('mutual where', 'mutual'),
+            ]
+            for number, source in enumerate(invalid):
+                with self.subTest(number=number):
+                    path.write_text(source)
+                    result = run('check', '--source-dir', directory, str(path))
+                    self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_mutual_nat_import_format_and_navigation(self):
+        fixture = (ROOT / 'examples/modules/mutual-parity/Main.fib').read_text()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            parity = root / 'Parity.fib'
+            parity.write_text(fixture.split('main : IO Unit')[0].replace('module Main', 'module Parity'))
+            main = root / 'Main.fib'
+            main.write_text('module Main\nimport Parity (odd)\nmain : IO Unit\nmain = putStrLn (if odd (Succ Zero) then "yes" else "no")\n')
+            args = ['--source-dir', directory, str(main)]
+            result = run('run', *args)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'yes\n')
+            formatted = run('format', str(parity))
+            self.assertEqual(formatted.returncode, 0, formatted.stderr)
+            parity.write_text(formatted.stdout)
+            self.assertEqual(run('format', '--check', str(parity)).returncode, 0)
+            self.assertEqual(run('check', *args).returncode, 0)
+            lines = parity.read_text().splitlines()
+            call_line = next(i for i, line in enumerate(lines, 1) if '=> odd predecessor' in line)
+            column = lines[call_line - 1].index('odd') + 1
+            definition = run('definition', '--source-dir', directory, '--entry', str(main),
+                             str(call_line), str(column), str(parity))
+            self.assertEqual(definition.returncode, 0, definition.stdout + definition.stderr)
+            report = json.loads(definition.stdout)
+            self.assertTrue(report['checked'])
+            target_line = next(i for i, line in enumerate(lines, 1) if line.startswith('  odd n ='))
+            self.assertEqual(report['definition']['range']['start']['line'], target_line)
+            self.assertEqual(report['definition']['range']['start']['column'], 3)
+            symbols = json.loads(run('symbols', str(parity)).stdout)['symbols']
+            self.assertEqual([symbol['name'] for symbol in symbols], ['even', 'odd'])
+            self.assertTrue(all(symbol['exported'] for symbol in symbols))
+            self.assertNotEqual(run('elaborate', str(parity)).returncode, 0)
+            # An invalid unselected member prevents the whole interface publishing.
+            valid = parity.read_text()
+            parity.write_text(valid.replace('Zero => True', 'Zero => missing'))
+            self.assertNotEqual(run('check', *args).returncode, 0)
+            parity.write_bytes(valid.replace('\n', '\r\n').encode())
+            formatted_crlf = run_cli('format', str(parity), text=False)
+            self.assertEqual(formatted_crlf.returncode, 0, formatted_crlf.stderr)
+            self.assertIn(b'\r\n', formatted_crlf.stdout)
+            parity.write_text(valid)
+            parity.write_text(parity.read_text().replace('export\n', ''))
+            self.assertNotEqual(run('check', *args).returncode, 0)
+
+
     def test_timeout_cleans_up_wrapper_children_with_open_pipes(self):
         with tempfile.TemporaryDirectory() as directory:
             wrapper = Path(directory) / 'wrapper'
@@ -1950,6 +2283,478 @@ class CLITests(unittest.TestCase):
             path.write_text(formatted.stdout)
             self.assertEqual(run('format', '--check', str(path)).returncode, 0)
             self.assertEqual(project('run').stdout, 'hello world\n')
+
+    def test_linear_accumulator_as_checked_function_valued_fold(self):
+        fixture = ROOT / 'examples/modules/linear-accumulator'
+        args = ['--source-dir', str(fixture), str(fixture / 'Main.fib')]
+        result = run('run', *args)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout, 'bac\n')
+        source = (fixture / 'Main.fib').read_text()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(fixture / 'Data', root / 'Data')
+            path = root / 'Main.fib'
+            path.write_text(source)
+            lines = source.splitlines()
+            call_line = next(i for i, line in enumerate(lines, 1) if '=> reverseOnto tail' in line)
+            call_column = lines[call_line - 1].index('reverseOnto tail') + 1
+            definition_line = next(i for i, line in enumerate(lines, 1) if line.startswith('reverseOnto items acc ='))
+            navigation = run('definition', '--source-dir', str(root), '--entry', str(path),
+                             str(call_line), str(call_column), str(path))
+            self.assertEqual(navigation.returncode, 0, navigation.stderr)
+            self.assertEqual(json.loads(navigation.stdout)['definition']['range']['start']['line'], definition_line)
+            formatted = run('format', str(path))
+            self.assertEqual(formatted.returncode, 0, formatted.stderr)
+            path.write_text(formatted.stdout)
+            self.assertEqual(run('format', '--check', str(path)).returncode, 0)
+            self.assertEqual(run('run', '--source-dir', str(root), str(path)).stdout, 'bac\n')
+            arms = ('  Data.Items.Empty => acc\n'
+                    '  Data.Items.Prepend head tail => reverseOnto tail (Data.Items.Prepend head acc)')
+            self.assertIn(arms, source)
+            path.write_text(source.replace(arms, '\n'.join(reversed(arms.splitlines()))))
+            self.assertEqual(run('run', '--source-dir', str(root), str(path)).stdout, 'bac\n')
+            original = 'Data.Items.Prepend "a" (Data.Items.Prepend "b" (Data.Items.Empty {String}))'
+            for value, expected in [('Data.Items.Empty {String}', 'c\n'),
+                                    ('Data.Items.Prepend "a" (Data.Items.Empty {String})', 'ac\n')]:
+                path.write_text(source.replace(original, value))
+                checked = run('run', '--source-dir', str(root), str(path))
+                self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
+                self.assertEqual(checked.stdout, expected)
+            variants = [source.replace('reverseOnto tail (Data.Items.Prepend head acc)', 'reverseOnto tail acc'),
+                        source.replace('reverseOnto tail (Data.Items.Prepend head acc)',
+                                       'reverseOnto tail (Data.Items.Prepend head (Data.Items.Prepend head acc))'),
+                        source.replace('reverseOnto tail (Data.Items.Prepend head acc)',
+                                       'reverseOnto items (Data.Items.Prepend head acc)'),
+                        source.replace('Data.Items.Empty => acc', 'Data.Items.Empty => Data.Items.Empty {String}')]
+            for invalid in variants:
+                self.assertNotEqual(invalid, source)
+                path.write_text(invalid)
+                rejected = run('run', '--source-dir', str(root), str(path))
+                self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
+            # Checking the constructor's value is not enough: the authored call
+            # must respect explicit versus implicit erased arguments.
+            short = source[:source.index('main : IO Unit')] + 'main : IO Unit\nmain = putStrLn "checked"\n'
+            alias_type = ('consAlias : {binder} -> (1 h : A) -> (1 t : Data.Items.Items A) -> Data.Items.Items A\n'
+                          'consAlias T h t = Data.Items.Prepend h t\n')
+            for binder, succeeds in [('{0 A : Type}', True), ('(0 A : Type)', False)]:
+                baseline = short.replace('reverseOnto :', alias_type.format(binder=binder) + 'reverseOnto :')
+                path.write_text(baseline)
+                self.assertEqual(run('check', '--source-dir', str(root), str(path)).returncode, 0)
+                applied = baseline.replace('reverseOnto tail (Data.Items.Prepend head acc)',
+                                           'reverseOnto tail (consAlias head acc)')
+                path.write_text(applied)
+                checked = run('check', '--source-dir', str(root), str(path))
+                self.assertEqual(checked.returncode == 0, succeeds, checked.stdout + checked.stderr)
+
+    def test_linear_accumulator_checked_general_updates(self):
+        fixture = ROOT / 'examples/modules/linear-accumulator'
+        source = (fixture / 'Main.fib').read_text()
+        example = run('run', '--source-dir', str(fixture), str(fixture / 'Decorated.fib'))
+        self.assertEqual(example.returncode, 0, example.stdout + example.stderr)
+        self.assertEqual(example.stdout, 'b!a!c\n')
+        original = 'reverseOnto tail (Data.Items.Prepend head acc)'
+        self.assertIn(original, source)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(fixture / 'Data', root / 'Data')
+            path = root / 'Main.fib'
+            def project(program):
+                path.write_text(program)
+                return run('run', '--source-dir', str(root), str(path))
+            decorated = source.replace(original, 'reverseOnto tail (Data.Items.Prepend (appendString head "!") acc)')
+            result = project(decorated)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'b!a!c\n')
+            conditional = source.replace(original,
+                'reverseOnto tail (if True then Data.Items.Prepend (appendString head "!") acc else Data.Items.Prepend head acc)')
+            short = lambda program: program[:program.index('join :')] + 'main : IO Unit\nmain = putStrLn "checked"\n'
+            result = project(short(conditional))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            global_tail = ('tail : Data.Items.Items String\ntail = Data.Items.Empty {String}\n'
+                           'items : Data.Items.Items String\nitems = Data.Items.Empty {String}\n')
+            with_globals = short(source).replace('reverseOnto :', global_tail + 'reverseOnto :')
+            self.assertEqual(project(with_globals).returncode, 0)
+            helpers = (global_tail + 'other : Data.Items.Items String\nother = Data.Items.Empty {String}\n'
+                       'consume : (1 xs : Data.Items.Items String) -> String\nconsume xs = case xs of\n'
+                       '  Data.Items.Empty => ""\n'
+                       '  Data.Items.Prepend h t => appendString h (consume t)\n'
+                       'stamp : {0 tag : Data.Items.Items String} -> (1 h : String) -> (1 xs : Data.Items.Items String) -> Data.Items.Items String\n'
+                       'stamp tag h xs = Data.Items.Prepend h xs\n')
+            scoped = short(source).replace('reverseOnto :', helpers + 'reverseOnto :')
+            safe_global = scoped.replace(original, 'reverseOnto tail (Data.Items.Prepend (appendString head (consume other)) acc)')
+            safe_implicit = scoped.replace(original, 'reverseOnto tail (stamp {other} head acc)')
+            for valid in [safe_global, safe_global.replace('consume other', 'consume Main.other'), safe_implicit]:
+                checked = project(valid)
+                self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
+                self.assertEqual(checked.stdout, 'checked\n')
+            invalid = [safe_global.replace('consume other', 'consume tail'),
+                       safe_global.replace('consume other', 'consume items'),
+                       safe_global.replace('consume other', 'consume Main.tail'),
+                       safe_implicit.replace('stamp {other}', 'stamp {tail}'),
+                       with_globals.replace(original, 'reverseOnto tail (Data.Items.Prepend head tail)'),
+                       with_globals.replace(original, 'reverseOnto tail (Data.Items.Prepend head items)'),
+                       short(source).replace(original, 'reverseOnto tail (Data.Items.Prepend head (reverseOnto tail acc))'),
+                       short(source).replace(original, 'reverseOnto tail (Data.Items.Prepend head (reverseOnto items acc))'),
+                       short(source).replace(original, 'reverseOnto tail (Data.Items.Prepend (appendString head head) acc)'),
+                       short(source).replace(original, 'reverseOnto tail (let (1 x : String) = head in Data.Items.Prepend x acc)')]
+            for program in invalid:
+                rejected = project(program)
+                self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
+                self.assertNotIn('Expanded core construction budget exhausted', rejected.stderr)
+
+    def test_structural_list_with_distinct_linear_string_accumulator(self):
+        fixture = ROOT / 'examples/modules/linear-accumulator'
+        source = (fixture / 'StringAccumulator.fib').read_text()
+        initial = 'Data.Items.Prepend "a" (Data.Items.Prepend "b" (Data.Items.Empty {String}))'
+        update = 'appendOnto tail (appendString acc head)'
+        self.assertIn(initial, source)
+        self.assertIn(update, source)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(fixture / 'Data', root / 'Data')
+            path = root / 'StringAccumulator.fib'
+            def project(program):
+                path.write_text(program)
+                return run('run', '--source-dir', str(root), str(path))
+            for value, expected in [(initial, 'cab\n'), ('Data.Items.Empty {String}', 'c\n'),
+                                    ('Data.Items.Prepend "a" (Data.Items.Empty {String})', 'ca\n')]:
+                result = project(source.replace(initial, value))
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(result.stdout, expected)
+            computed_base = source.replace('Data.Items.Empty => acc', 'Data.Items.Empty => appendString acc "!"')
+            result = project(computed_base)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'cab!\n')
+            arms = ('  Data.Items.Empty => acc\n'
+                    '  Data.Items.Prepend head tail => appendOnto tail (appendString acc head)')
+            self.assertIn(arms, source)
+            result = project(source.replace(arms, '\n'.join(reversed(arms.splitlines()))))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'cab\n')
+            alias = ('0 TextType : Type\nTextType = String\n' + source[source.index('appendOnto :'):])
+            alias = source[:source.index('appendOnto :')] + alias.replace('(1 acc : String) -> String', '(1 acc : TextType) -> TextType')
+            result = project(alias)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'cab\n')
+            erased = source[:source.index('main : IO Unit')].replace('appendOnto :', '0 appendOnto :') + 'main : IO Unit\nmain = putStrLn "checked"\n'
+            result = project(erased)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            invalid = [source.replace('(1 acc : String) -> String', '(1 acc : String) -> Bool'),
+                       source.replace('(1 acc : String) -> String', '(acc : String) -> String'),
+                       source.replace('(1 acc : String) -> String', '(0 acc : String) -> String'),
+                       source.replace(update, 'appendOnto items (appendString acc head)'),
+                       source.replace(update, 'appendOnto tail (appendString acc acc)'),
+                       source.replace(update, 'appendOnto tail acc'),
+                       source.replace('Data.Items.Empty => acc', 'Data.Items.Empty => "bad"')]
+            for program in invalid:
+                self.assertNotEqual(program, source)
+                rejected = project(program)
+                self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
+                self.assertNotIn('Expanded core construction budget exhausted', rejected.stderr)
+
+    def test_structural_accumulator_computed_base_and_distinct_result(self):
+        fixture = ROOT / 'examples/modules/linear-accumulator'
+        source = (fixture / 'Matches.fib').read_text()
+        items = 'Data.Items.Prepend "a" (Data.Items.Prepend "b" (Data.Items.Empty {String}))'
+        base = 'Data.Items.Empty => equalString acc "cab"'
+        self.assertIn(items, source)
+        self.assertIn(base, source)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(fixture / 'Data', root / 'Data')
+            path = root / 'Matches.fib'
+            def project(program):
+                path.write_text(program)
+                return run('run', '--source-dir', str(root), str(path))
+            for program, expected in [(source, 'matched\n'),
+                                      (source.replace(items, 'Data.Items.Empty {String}').replace('"c"\n  then', '"cab"\n  then'), 'matched\n'),
+                                      (source.replace(items, 'Data.Items.Prepend "a" (Data.Items.Empty {String})'), 'different\n')]:
+                result = project(program)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(result.stdout, expected)
+            conditional = source.replace(base, 'Data.Items.Empty => if True then equalString acc "cab" else equalString acc "other"')
+            result = project(conditional)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'matched\n')
+            # A cons-branch binder is not in scope in the empty branch; an
+            # unrelated global with that spelling remains a legal reference.
+            globals_ = 'head : String\nhead = "cab"\ntail : String\ntail = "cab"\n'
+            with_globals = source.replace('matchesOnto :', globals_ + 'matchesOnto :')
+            for name in ['head', 'tail']:
+                result = project(with_globals.replace(base, 'Data.Items.Empty => equalString acc ' + name))
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(result.stdout, 'matched\n')
+            helpers = ('items : Data.Items.Items String\nitems = Data.Items.Empty {String}\n'
+                       'other : Data.Items.Items String\nother = Data.Items.Empty {String}\n'
+                       'consume : (1 xs : Data.Items.Items String) -> String\nconsume xs = case xs of\n'
+                       '  Data.Items.Empty => ""\n'
+                       '  Data.Items.Prepend h t => appendString h (consume t)\n')
+            short = source[:source.index('main : IO Unit')].replace('matchesOnto :', helpers + 'matchesOnto :')
+            short += 'main : IO Unit\nmain = putStrLn "checked"\n'
+            safe = short.replace(base, 'Data.Items.Empty => equalString acc (consume other)')
+            checked = project(safe)
+            self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
+            self.assertEqual(checked.stdout, 'checked\n')
+            for collision in ['items', 'Matches.items']:
+                rejected = project(safe.replace('consume other', 'consume ' + collision))
+                self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
+                self.assertNotIn('Expanded core construction budget exhausted', rejected.stderr)
+            invalid = [source.replace(base, 'Data.Items.Empty => True'),
+                       source.replace(base, 'Data.Items.Empty => equalString acc acc'),
+                       source.replace(base, 'Data.Items.Empty => matchesOnto items acc'),
+                       source.replace(base, 'Data.Items.Empty => let (1 x : String) = acc in equalString x "cab"')]
+            for program in invalid:
+                self.assertNotEqual(program, source)
+                rejected = project(program)
+                self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
+                self.assertNotIn('Expanded core construction budget exhausted', rejected.stderr)
+
+    def test_accumulator_first_structural_equations(self):
+        fixture = ROOT / 'examples/modules/linear-accumulator'
+        source = (fixture / 'AccumulatorFirst.fib').read_text()
+        initial = 'Data.Items.Prepend "a" (Data.Items.Prepend "b" (Data.Items.Empty {String}))'
+        recursive = 'matchesFrom (appendString acc head) tail'
+        self.assertIn(initial, source)
+        self.assertIn(recursive, source)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(fixture / 'Data', root / 'Data')
+            path = root / 'AccumulatorFirst.fib'
+            def project(program, command='run'):
+                path.write_text(program)
+                return run(command, '--source-dir', str(root), str(path))
+            for program, expected in [(source, 'matched\n'),
+                                      (source.replace(initial, 'Data.Items.Empty {String}').replace('matchesFrom "c"', 'matchesFrom "cab"'), 'matched\n'),
+                                      (source.replace(initial, 'Data.Items.Prepend "a" (Data.Items.Empty {String})'), 'different\n')]:
+                result = project(program)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(result.stdout, expected)
+            arms = ('  Data.Items.Empty => equalString acc "cab"\n'
+                    '  Data.Items.Prepend head tail => matchesFrom (appendString acc head) tail')
+            self.assertIn(arms, source)
+            result = project(source.replace(arms, '\n'.join(reversed(arms.splitlines()))))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'matched\n')
+            path.write_text(source)
+            lines = source.splitlines()
+            call_line = next(i for i, line in enumerate(lines, 1) if '=> matchesFrom (appendString' in line)
+            call_column = lines[call_line - 1].index('matchesFrom (appendString') + 1
+            target_line = next(i for i, line in enumerate(lines, 1) if line.startswith('matchesFrom acc items ='))
+            navigation = run('definition', '--source-dir', str(root), '--entry', str(path), str(call_line), str(call_column), str(path))
+            self.assertEqual(navigation.returncode, 0, navigation.stderr)
+            self.assertEqual(json.loads(navigation.stdout)['definition']['range']['start']['line'], target_line)
+            formatted = run('format', str(path))
+            self.assertEqual(formatted.returncode, 0, formatted.stderr)
+            path.write_text(formatted.stdout)
+            self.assertEqual(run('format', '--check', str(path)).returncode, 0)
+            formatted_run = run('run', '--source-dir', str(root), str(path))
+            self.assertEqual(formatted_run.returncode, 0, formatted_run.stdout + formatted_run.stderr)
+            self.assertEqual(formatted_run.stdout, 'matched\n')
+            helpers = ('items : Data.Items.Items String\nitems = Data.Items.Empty {String}\n'
+                       'tail : Data.Items.Items String\ntail = Data.Items.Empty {String}\n'
+                       'other : Data.Items.Items String\nother = Data.Items.Empty {String}\n'
+                       'consume : (1 xs : Data.Items.Items String) -> String\nconsume xs = case xs of\n'
+                       '  Data.Items.Empty => ""\n'
+                       '  Data.Items.Prepend h t => appendString h (consume t)\n')
+            short = source[:source.index('main : IO Unit')].replace('matchesFrom :', helpers + 'matchesFrom :')
+            short += 'main : IO Unit\nmain = putStrLn "checked"\n'
+            safe = short.replace(recursive, 'matchesFrom (appendString acc (appendString head (consume other))) tail')
+            checked = project(safe)
+            self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
+            for collision in ['items', 'tail', 'AccumulatorFirst.tail']:
+                rejected = project(safe.replace('consume other', 'consume ' + collision))
+                self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
+                self.assertNotIn('Expanded core construction budget exhausted', rejected.stderr)
+            invalid = [source.replace(recursive, 'matchesFrom (appendString acc head) items'),
+                       source.replace(recursive, 'matchesFrom tail (appendString acc head)'),
+                       source.replace(recursive, 'matchesFrom (appendString acc acc) tail'),
+                       source.replace(recursive, 'matchesFrom (appendString acc head) (Data.Items.Prepend head tail)'),
+                       source.replace(recursive, 'matchesFrom acc tail'),
+                       source.replace('(1 acc : String)', '(acc : String)'),
+                       source.replace('(1 items : Data.Items.Items String)', '(items : Data.Items.Items String)')]
+            for program in invalid:
+                self.assertNotEqual(program, source)
+                rejected = project(program)
+                self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
+                self.assertNotIn('Expanded core construction budget exhausted', rejected.stderr)
+
+    def test_accumulator_equations_with_uniform_prefixes(self):
+        fixture = ROOT / 'examples/modules/linear-accumulator'
+        sources = [(fixture / 'UniformPrefix.fib', 'b!a!c\n'),
+                   (fixture / 'UniformPrefixFirst.fib', 'ca!b!?\n')]
+        for path, expected in sources:
+            result = run('run', '--source-dir', str(fixture), str(path))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, expected)
+        source = sources[0][0].read_text()
+        recursive = 'reverseMappedOnto {Input} {Output} transform tail'
+        self.assertIn(recursive, source)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(fixture / 'Data', root / 'Data')
+            path = root / 'UniformPrefix.fib'
+            def project(program, command='run'):
+                path.write_text(program)
+                return run(command, '--source-dir', str(root), str(path))
+            lines = source.splitlines()
+            call_line = next(i for i, line in enumerate(lines, 1) if recursive in line)
+            call_column = lines[call_line - 1].index(recursive) + 1
+            target_line = next(i for i, line in enumerate(lines, 1) if line.startswith('reverseMappedOnto Input Output transform items acc ='))
+            path.write_text(source)
+            navigation = run('definition', '--source-dir', str(root), '--entry', str(path), str(call_line), str(call_column), str(path))
+            self.assertEqual(navigation.returncode, 0, navigation.stderr)
+            self.assertEqual(json.loads(navigation.stdout)['definition']['range']['start']['line'], target_line)
+            formatted = run('format', str(path))
+            self.assertEqual(formatted.returncode, 0, formatted.stderr)
+            path.write_text(formatted.stdout)
+            self.assertEqual(run('format', '--check', str(path)).returncode, 0)
+            formatted_run = run('run', '--source-dir', str(root), str(path))
+            self.assertEqual(formatted_run.returncode, 0, formatted_run.stdout + formatted_run.stderr)
+            self.assertEqual(formatted_run.stdout, 'b!a!c\n')
+            short = source[:source.index('mark :')] + 'main : IO Unit\nmain = putStrLn "checked"\n'
+            baseline = project(short)
+            self.assertEqual(baseline.returncode, 0, baseline.stdout + baseline.stderr)
+            explicit = source.replace('{0 A : Type}', '(0 A : Type)').replace('{0 B : Type}', '(0 B : Type)')
+            explicit = explicit.replace('{Input} {Output} transform tail', 'Input Output transform tail')
+            explicit = explicit.replace('{String} {String} mark', 'String String mark')
+            observed = project(explicit)
+            self.assertEqual(observed.returncode, 0, observed.stdout + observed.stderr)
+            self.assertEqual(observed.stdout, 'b!a!c\n')
+            input_list = 'Data.Items.Prepend "a" (Data.Items.Prepend "b" (Data.Items.Empty {String}))'
+            self.assertIn(input_list, source)
+            for value, expected in [('Data.Items.Empty {String}', 'c\n'),
+                                    ('Data.Items.Prepend "a" (Data.Items.Empty {String})', 'a!c\n')]:
+                observed = project(source.replace(input_list, value))
+                self.assertEqual(observed.returncode, 0, observed.stdout + observed.stderr)
+                self.assertEqual(observed.stdout, expected)
+            invalid = [short.replace(recursive, 'reverseMappedOnto {Input} {Input} transform tail'),
+                       short.replace(recursive, 'reverseMappedOnto {Input} {Output} tail'),
+                       short.replace(recursive, 'reverseMappedOnto {Input} {Output} transform items'),
+                       short.replace(recursive, 'reverseMappedOnto {Input} {Output} transform (Data.Items.Prepend head tail)'),
+                       short.replace('(transform : (1 value : A) -> B)', '(1 transform : (1 value : A) -> B)'),
+                       short.replace(recursive, 'reverseMappedOnto {Input} {Output} (\\(1 x : Input) => transform x) tail'),
+                       short.replace('transform', 'head'),
+                       short.replace('(Data.Items.Prepend (transform head) acc)',
+                                     '(Data.Items.Prepend (transform head) (reverseMappedOnto {Input} {Output} transform tail acc))')]
+            for program in invalid:
+                self.assertNotEqual(program, short)
+                rejected = project(program)
+                self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
+                self.assertNotIn('Expanded core construction budget exhausted', rejected.stderr)
+            first_source = sources[1][0].read_text()
+            first_short = first_source[:first_source.index('mark :')] + 'main : IO Unit\nmain = putStrLn "checked"\n'
+            path = root / 'UniformPrefixFirst.fib'
+            baseline = project(first_short)
+            self.assertEqual(baseline.returncode, 0, baseline.stdout + baseline.stderr)
+            first_call = 'appendMappedFrom {Element} render suffix (appendString acc (render head)) tail'
+            self.assertIn(first_call, first_short)
+            for replacement in ['appendMappedFrom {Element} render "?" (appendString acc (render head)) tail',
+                                'appendMappedFrom {Element} render suffix (appendString acc (render head)) items',
+                                'appendMappedFrom render suffix (appendString acc (render head)) tail']:
+                rejected = project(first_short.replace(first_call, replacement))
+                self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
+                self.assertNotIn('Expanded core construction budget exhausted', rejected.stderr)
+
+    def test_accumulator_uniform_prefix_rejects_type_correct_changes(self):
+        fixture = ROOT / 'examples/modules/linear-accumulator'
+        source = ('module Main\nimport Data.Items\n'
+                  'other : (1 value : String) -> String\nother value = value\n'
+                  'fold : {0 Tag : Type} -> (transform : (1 value : String) -> String) -> '
+                  '(1 items : Data.Items.Items String) -> (1 acc : String) -> String\n'
+                  'fold Tag transform items acc = case items of\n'
+                  '  Data.Items.Empty => acc\n'
+                  '  Data.Items.Prepend head tail => fold {Tag} transform tail (appendString acc (transform head))\n'
+                  'main : IO Unit\nmain = putStrLn "checked"\n')
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(fixture / 'Data', root / 'Data')
+            path = root / 'Main.fib'
+            path.write_text(source)
+            baseline = run('check', '--source-dir', str(root), str(path))
+            self.assertEqual(baseline.returncode, 0, baseline.stdout + baseline.stderr)
+            for changed in [source.replace('fold {Tag} transform tail', 'fold {String} transform tail'),
+                            source.replace('fold {Tag} transform tail', 'fold {Tag} other tail')]:
+                self.assertNotEqual(changed, source)
+                path.write_text(changed)
+                rejected = run('check', '--source-dir', str(root), str(path))
+                self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
+                self.assertNotIn('Expanded core construction budget exhausted', rejected.stderr)
+
+    def test_accumulator_uniform_prefix_admission_boundary(self):
+        fixture = ROOT / 'examples/modules/linear-accumulator'
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(fixture / 'Data', root / 'Data')
+            path = root / 'Main.fib'
+            def program(count):
+                names = ' '.join(f'p{i}' for i in range(count))
+                prefix = ' -> '.join(f'(0 p{i} : Type)' for i in range(count))
+                return ('module Main\nimport Data.Items\n'
+                        f'fold : {prefix} -> (1 items : Data.Items.Items String) -> (1 acc : String) -> String\n'
+                        f'fold {names} items acc = case items of\n'
+                        '  Data.Items.Empty => acc\n'
+                        f'  Data.Items.Prepend head tail => fold {names} tail (appendString acc head)\n'
+                        'main : IO Unit\nmain = putStrLn "checked"\n')
+            path.write_text(program(64))
+            admitted = run_cli('check', '--source-dir', str(root), str(path), timeout=120)
+            self.assertEqual(admitted.returncode, 0, admitted.stdout + admitted.stderr)
+            path.write_text(program(65))
+            rejected = run_cli('check', '--source-dir', str(root), str(path), timeout=120)
+            self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
+
+    def test_accumulator_first_rejects_dependent_types(self):
+        fixture = ROOT / 'examples/modules/linear-accumulator'
+        examples = [
+            ('data Indexed (0 key : String) : Type where\n  MkIndexed : Indexed key\n',
+             '(1 acc : String) -> (1 items : Data.Items.Items (Indexed acc)) -> String',
+             'acc', 'bad acc tail'),
+            ('data Indexed (0 key : String) : Type where\n  MkIndexed : Indexed key\n',
+             '(1 acc : String) -> (1 items : Data.Items.Items String) -> Indexed acc',
+             'MkIndexed acc', 'bad acc tail')]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(fixture / 'Data', root / 'Data')
+            path = root / 'Dependent.fib'
+            for declaration, signature, base, call in examples:
+                preamble = 'module Dependent\nimport Data.Items\n' + declaration + '0 bad : ' + signature + '\n'
+                main = 'main : IO Unit\nmain = putStrLn "checked"\n'
+                path.write_text(preamble + 'bad acc items = ' + base + '\n' + main)
+                baseline = run('check', '--source-dir', str(root), str(path))
+                self.assertEqual(baseline.returncode, 0, baseline.stdout + baseline.stderr)
+                path.write_text(preamble + 'bad acc items = case items of\n'
+                                '  Data.Items.Empty => ' + base + '\n'
+                                '  Data.Items.Prepend head tail => ' + call + '\n' + main)
+                rejected = run('check', '--source-dir', str(root), str(path))
+                self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
+                self.assertIn('Unbound', rejected.stderr)
+
+    def test_accumulator_equations_reject_dependent_types(self):
+        fixture = ROOT / 'examples/modules/linear-accumulator'
+        examples = [
+            ('data IndexedList (0 tag : Data.Items.Items String) : Type where\n'
+             '  MkIndexedList : IndexedList tag\n',
+             '(1 items : Data.Items.Items String) -> (1 acc : IndexedList items) -> IndexedList items',
+             'acc', 'bad tail acc'),
+            ('data Indexed (0 tag : String) : Type where\n  MkIndexed : Indexed tag\n',
+             '(1 items : Data.Items.Items String) -> (1 acc : String) -> Indexed acc',
+             'MkIndexed acc', 'bad tail (appendString acc head)')]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(fixture / 'Data', root / 'Data')
+            path = root / 'Dependent.fib'
+            for declaration, signature, base, call in examples:
+                preamble = 'module Dependent\nimport Data.Items\n' + declaration + '0 bad : ' + signature + '\n'
+                main = 'main : IO Unit\nmain = putStrLn "checked"\n'
+                path.write_text(preamble + 'bad items acc = ' + base + '\n' + main)
+                baseline = run('check', '--source-dir', str(root), str(path))
+                self.assertEqual(baseline.returncode, 0, baseline.stdout + baseline.stderr)
+                path.write_text(preamble + 'bad items acc = case items of\n'
+                                '  Data.Items.Empty => ' + base + '\n'
+                                '  Data.Items.Prepend head tail => ' + call + '\n' + main)
+                rejected = run('check', '--source-dir', str(root), str(path))
+                self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
+                self.assertIn('Unbound', rejected.stderr)
 
     def test_structural_sequence_recursive_equations(self):
         source = ('module Main\ndata Items {0 A : Type} : Type where\n  Empty : Items A\n'

@@ -22,6 +22,7 @@ import Fibril.Source.Lexer
 import Fibril.Source.Syntax
 import Fibril.Source.Document
 import Fibril.Source.Declaration
+import Fibril.Elaboration.MutualNat
 import Fibril.Elaboration.Declaration
 import Fibril.Elaboration.Interface
 import Fibril.Elaboration.DataSchema
@@ -673,6 +674,138 @@ polymorphicSequenceEquation globals name inferred ty (NEquationLambda _ [param, 
         _ => Right Nothing
 polymorphicSequenceEquation _ _ _ _ _ = Right Nothing
 
+-- A deliberately bounded accumulator form. It elaborates the authored update
+-- into an ordinary function-valued fold; no termination graph is trusted.
+private
+accumulatorCall : Bool -> String -> List (Bool, String) -> String -> Expr -> Maybe Expr
+accumulatorCall True name reversed tail (NApply _ (NApply _ function (NRef _ suppliedTail)) update) =
+  if suppliedTail == tail && isJust (peelUniformCall name reversed function) then Just update else Nothing
+accumulatorCall False name reversed tail (NApply _ (NApply _ function update) (NRef _ suppliedTail)) =
+  if suppliedTail == tail && isJust (peelUniformCall name reversed function) then Just update else Nothing
+accumulatorCall _ _ _ _ _ = Nothing
+
+-- Do not let a removed input/tail/self binder resolve to a same-named global.
+-- Binder-containing or otherwise unsupported source forms fail closed.
+private
+accumulatorUpdateSafe : List String -> Expr -> Bool
+accumulatorUpdateSafe forbidden (NRef _ ref) = not (elem ref forbidden)
+accumulatorUpdateSafe forbidden (NQualifiedRef _ ref) = case reverse (forget (Data.String.split (== '.') ref)) of
+  short :: _ => not (elem short forbidden)
+  [] => False
+accumulatorUpdateSafe forbidden (NApply _ function argument) =
+  accumulatorUpdateSafe forbidden function && accumulatorUpdateSafe forbidden argument
+accumulatorUpdateSafe forbidden (NImplicitApply _ function argument) =
+  accumulatorUpdateSafe forbidden function && accumulatorUpdateSafe forbidden argument
+accumulatorUpdateSafe forbidden (NIf _ condition yes no) =
+  accumulatorUpdateSafe forbidden condition && accumulatorUpdateSafe forbidden yes && accumulatorUpdateSafe forbidden no
+accumulatorUpdateSafe _ (NSort _ _) = True
+accumulatorUpdateSafe _ (NUnitType _) = True
+accumulatorUpdateSafe _ (NUnitValue _) = True
+accumulatorUpdateSafe _ (NStringType _) = True
+accumulatorUpdateSafe _ (NStringValue _ _) = True
+accumulatorUpdateSafe _ (NBoolType _) = True
+accumulatorUpdateSafe _ (NBoolValue _ _) = True
+accumulatorUpdateSafe _ _ = False
+
+-- Original update locals are [accumulator, head, prefix...]. In the step
+-- they are [accumulator, induction result, erased tail, head, prefix...].
+private
+accumulatorScope : Fin (S (S n)) -> Fin (S (S (S (S n))))
+accumulatorScope FZ = FZ
+accumulatorScope (FS FZ) = FS (FS (FS FZ))
+accumulatorScope (FS (FS index)) = FS (FS (FS (FS index)))
+
+private
+accumulatorSequenceEquation : List Weighted -> String -> Nat -> Term 0 -> Expr -> Either ResolveError (Maybe (Term 0))
+accumulatorSequenceEquation globals name implicitCount ty (NEquationLambda _ names _
+  (NDataCase _ (NRef _ scrutinee) Nothing [(first, firstBinder, firstBody), (second, secondBinder, secondBody)])) =
+  case reverse names of
+    secondArg :: firstArg :: reversedParams =>
+      let params = reverse reversedParams
+          initial : List String = name :: map spelling names in
+      if length params > 64 || implicitCount > length params ||
+         any (== "_") initial || length (nub initial) /= length initial ||
+         isJust (find (\entry => entry.global.name == name) globals) ||
+         not (null (qualifiedCandidates name (map global globals))) then Right Nothing else
+        case guardedNormal typeReductionFuel ty of
+          Just exposed => walk firstArg secondArg params Empty [] params (prefixModes implicitCount params) exposed
+          Nothing => Right Nothing
+    _ => Right Nothing
+  where
+    lower : {n : Nat} -> Bool -> Token -> Token -> List Token -> Context n -> Vect n String ->
+            Term n -> Term n -> Term n -> Term n -> Expr -> Token -> Token -> Expr -> Either ResolveError (Maybe (Term n))
+    lower listFirst argument accumulator params context env family element accType resultType base head tail body = do
+      let names : List String = name :: map spelling params ++ [argument.spelling, accumulator.spelling, head.spelling, tail.spelling]
+      let reversed = reverse (prefixModes implicitCount params)
+      if any (== "_") names || length (nub names) /= length names ||
+         any (\entry => entry == first.spelling || entry == second.spelling) names
+        then Right Nothing else do
+      case accumulatorCall listFirst name reversed tail.spelling body of
+        Just update =>
+          if not (accumulatorUpdateSafe [name, argument.spelling, recursiveResultName] base) ||
+             not (accumulatorUpdateSafe [name, argument.spelling, tail.spelling, recursiveResultName] update)
+            then Right Nothing else do
+              -- Elaborate both authored expressions under exactly the locals
+              -- available to their generated continuations, then check usage.
+              let baseContext = Extend context Linear accType
+              baseBody <- elaborateExpected (map global globals) baseContext (accumulator.spelling :: env)
+                            (weaken resultType) base
+              case checkRuntime checkingDepth typeReductionFuel baseContext baseBody (weaken resultType) of
+                Left (TypingError CheckingLimit) => Left (CannotElaborate (extent base).start "Accumulator base checking budget exhausted")
+                Left (TypingError ReductionLimit) => Left (CannotElaborate (extent base).start "Accumulator base reduction budget exhausted")
+                Left _ => Right Nothing
+                Right _ => do
+                  let updateContext = Extend (Extend context Linear element) Linear (weaken accType)
+                  updateTerm <- elaborateExpected (map global globals) updateContext (accumulator.spelling :: head.spelling :: env)
+                                  (weaken (weaken accType)) update
+                  case checkRuntime checkingDepth typeReductionFuel updateContext updateTerm (weaken (weaken accType)) of
+                    Left (TypingError CheckingLimit) => Left (CannotElaborate (extent update).start "Accumulator update checking budget exhausted")
+                    Left (TypingError ReductionLimit) => Left (CannotElaborate (extent update).start "Accumulator update reduction budget exhausted")
+                    Left _ => Right Nothing
+                    Right _ => do
+                      let continuation = Pi Linear accType (weaken resultType)
+                      let baseTerm = Lambda Linear accType baseBody
+                      let stepTerm = Lambda Linear element (Lambda Erased (weaken family)
+                            (Lambda Linear (weaken (weaken continuation))
+                              (Lambda Linear (weaken (weaken (weaken accType)))
+                                (Apply (Variable (FS FZ)) (rename accumulatorScope updateTerm)))))
+                      let motive = Lambda Erased (weaken (weaken family)) (weaken (weaken (weaken continuation)))
+                      let folded = SeqFold motive (weaken (weaken baseTerm)) (weaken (weaken stepTerm))
+                      if listFirst
+                        then Right (Just (Lambda Linear family (Lambda Linear (weaken accType)
+                               (Apply (folded (Variable (FS FZ))) (Variable FZ)))))
+                        else Right (Just (Lambda Linear accType (Lambda Linear (weaken family)
+                               (Apply (folded (Variable FZ)) (Variable (FS FZ))))))
+        _ => Right Nothing
+
+    select : {n : Nat} -> Bool -> Token -> Token -> List Token -> Context n -> Vect n String -> Term n -> Term n -> Term n -> Either ResolveError (Maybe (Term n))
+    select listFirst argument accumulator params context env family@(SeqType _ element) accType resultType =
+      case (sequenceConstructorTag globals context family element first, firstBinder,
+            sequenceConstructorTag globals context family element second, secondBinder) of
+        (Just 0, [], Just 1, [head, tail]) => lower listFirst argument accumulator params context env family element accType resultType firstBody head tail secondBody
+        (Just 1, [head, tail], Just 0, []) => lower listFirst argument accumulator params context env family element accType resultType secondBody head tail firstBody
+        _ => Right Nothing
+    select _ _ _ _ _ _ _ _ _ = Right Nothing
+
+    walk : {n : Nat} -> Token -> Token -> List Token -> Context n -> Vect n String -> List Token -> List (Bool, String) -> Term n -> Either ResolveError (Maybe (Term n))
+    walk firstArg secondArg params context env [] [] (Pi Linear firstType (Pi Linear secondType result)) =
+      case (dropNewest secondType, dropNewest result >>= dropNewest) of
+        (Just closedSecond, Just resultType) =>
+          if scrutinee == firstArg.spelling then
+            select True firstArg secondArg params context env firstType closedSecond resultType
+          else if scrutinee == secondArg.spelling then
+            select False secondArg firstArg params context env closedSecond firstType resultType
+          else Right Nothing
+        _ => Right Nothing
+    walk firstArg secondArg params context env (token :: rest) ((_, _) :: modes) (Pi Erased domain result) = do
+      following <- walk firstArg secondArg params (Extend context Erased domain) (token.spelling :: env) rest modes result
+      Right (map (Lambda Erased domain) following)
+    walk firstArg secondArg params context env (token :: rest) ((False, _) :: modes) (Pi Unrestricted domain result) = do
+      following <- walk firstArg secondArg params (Extend context Unrestricted domain) (token.spelling :: env) rest modes result
+      Right (map (Lambda Unrestricted domain) following)
+    walk _ _ _ _ _ _ _ _ = Right Nothing
+accumulatorSequenceEquation _ _ _ _ _ = Right Nothing
+
 -- Scope-indexed prefix peeling. Erased and unrestricted parameters are held
 -- fixed across each recursive call; the final linear input is a checked
 -- sequence, unary recursive value or Nat.
@@ -834,7 +967,28 @@ uniformEquationReserve _ _ = 0
 private
 recursiveEquationReserve : String -> Expr -> Nat
 recursiveEquationReserve name expression =
-  max (legacyRecursiveEquationReserve name expression) (uniformEquationReserve name expression)
+  max (accumulatorReserve name expression) (max (legacyRecursiveEquationReserve name expression) (uniformEquationReserve name expression))
+  where
+    -- Reserve guarded copies for family, element, accumulator, result,
+    -- continuation, annotations and prefix binders. Authored base/update
+    -- expansion is included separately in the source cost.
+    accumulatorReserve : String -> Expr -> Nat
+    accumulatorReserve name (NEquationLambda _ names signature (NDataCase _ _ Nothing [(first, firstBinder, firstBody), (second, secondBinder, secondBody)])) =
+      case reverse names of
+        _ :: _ :: reversedParams =>
+          let params = reverse reversedParams
+              count = implicitPrefixCount signature
+              reversed = reverse (prefixModes count params)
+              shape = case (firstBinder, secondBinder) of
+                ([], [head, tail]) => isJust (accumulatorCall True name reversed tail.spelling secondBody) ||
+                                      isJust (accumulatorCall False name reversed tail.spelling secondBody)
+                ([head, tail], []) => isJust (accumulatorCall True name reversed tail.spelling firstBody) ||
+                                      isJust (accumulatorCall False name reversed tail.spelling firstBody)
+                _ => False in
+            if length params <= 64 && count <= length params && shape
+              then 64 + (20 + length params) * 513 else 0
+        _ => 0
+    accumulatorReserve _ _ = 0
 
 -- Recover only authored Name tokens for the successfully admitted occurrences.
 -- Grouped expression spans can include punctuation and are not navigation spans.
@@ -876,10 +1030,282 @@ structuralSites snapshot decl = case decl.value of
         then StructuralSite snapshot.path token.span decl.definitionNameSpan :: collect fuel rest later
         else collect fuel spans later
 
-compileDeclarations : ModuleSnapshot -> List String -> List Weighted -> List Declaration -> Nat ->
+-- A fixed source plan: two bases, two selector targets and authored call sites.
+planMutualMember : ModuleSnapshot -> List Weighted -> List String -> Declaration -> Either GraphError (Bool, Bool, SourceSpan)
+planMutualMember snapshot globals members decl = do
+  if decl.quantity /= Unrestricted || decl.dictionary || decl.generated ||
+     elem decl.name (the (List String) ["_", "Nat", "Zero", "Succ"])
+    then Left (problem snapshot (Just decl.nameSpan.start) "Mutual workers require unrestricted ordinary names") else Right ()
+  case decl.expected of
+    NPi _ Linear binder (NRef _ "Nat") (NBoolType _) =>
+      if elem binder (decl.name :: members ++ ["_", "Nat", "Zero", "Succ"])
+        then Left (problem snapshot (Just decl.nameSpan.start) "Invalid mutual signature binder") else Right ()
+    _ => Left (problem snapshot (Just decl.nameSpan.start) "Mutual workers require an explicit linear Nat parameter and Bool result")
+  case decl.value of
+    NEquationLambda _ [argument] _ (NDataCase span (NRef _ scrutinee) Nothing [(first, firstBinders, firstBody), (second, secondBinders, secondBody)]) => do
+      if argument.spelling /= scrutinee || elem argument.spelling (members ++ ["_", "Nat", "Zero", "Succ"])
+        then Left (problem snapshot (Just argument.span.start) "Invalid mutual equation argument") else Right ()
+      (base, predecessor, successor) <- case (first.spelling, firstBinders, second.spelling, secondBinders) of
+        ("Zero", [], "Succ", [predecessor]) => Right (firstBody, predecessor, secondBody)
+        ("Succ", [predecessor], "Zero", []) => Right (secondBody, predecessor, firstBody)
+        _ => Left (problem snapshot (Just span.start) "Mutual equations require exhaustive Zero and Succ predecessor arms")
+      if elem predecessor.spelling (argument.spelling :: members ++ ["_", "Nat", "Zero", "Succ"])
+        then Left (problem snapshot (Just predecessor.span.start) "Invalid mutual predecessor binder") else Right ()
+      baseValue <- the (Either GraphError Bool) $ case base of
+        NBoolValue _ value => Right value
+        _ => Left (problem snapshot (Just (extent base).start) "Mutual zero arms require Bool literals")
+      case successor of
+        NApply _ (NRef callSpan target) (NRef _ actual) =>
+          if actual == predecessor.spelling && elem target members
+            then Right (baseValue, target == declName, callSpan)
+            else Left (problem snapshot (Just (extent successor).start) "Mutual successor calls must target a group member on the immediate predecessor")
+        _ => Left (problem snapshot (Just (extent successor).start) "Mutual successor arms require one saturated predecessor call")
+    _ => Left (problem snapshot (Just decl.definitionNameSpan.start) "Mutual workers require one parameter and a direct exhaustive Nat case")
+  where
+    declName : String
+    declName = case members of first :: _ => first; [] => ""
+
+record MutualWorkerPlan where
+  constructor PlannedMutualWorker
+  payload : Bool
+  whenTrue : Bool
+  basePlan : PayloadBase
+  target : Bool
+  site : SourceSpan
+
+mutualPayloadSignature : Expr -> Bool
+mutualPayloadSignature (NPi _ Linear _ (NRef _ "Nat") (NPi _ Linear _ (NBoolType _) (NBoolType _))) = True
+mutualPayloadSignature _ = False
+
+planMutualWorker : ModuleSnapshot -> List Weighted -> List String -> Declaration -> Either GraphError MutualWorkerPlan
+planMutualWorker snapshot globals members decl =
+  if not (mutualPayloadSignature decl.expected) then do
+    (base, target, site) <- planMutualMember snapshot globals members decl
+    Right (PlannedMutualWorker False base KeepPayload target site)
+  else do
+    if decl.quantity /= Unrestricted || decl.dictionary || decl.generated ||
+       elem decl.name (the (List String) ["_", "Nat", "Zero", "Succ"])
+      then Left (problem snapshot (Just decl.nameSpan.start) "Mutual workers require unrestricted ordinary names") else Right ()
+    case decl.expected of
+      NPi _ Linear first (NRef _ "Nat") (NPi _ Linear second (NBoolType _) (NBoolType _)) =>
+        if first == second || any (\binder => elem binder (members ++ ["_", "Nat", "Zero", "Succ"])) (the (List String) [first, second])
+          then Left (problem snapshot (Just decl.nameSpan.start) "Invalid mutual payload signature binders") else Right ()
+      _ => Left (problem snapshot (Just decl.nameSpan.start) "Mutual payload signatures require linear Nat and Bool parameters")
+    case decl.value of
+      NEquationLambda _ [argument, payload] _ (NDataCase span (NRef _ scrutinee) Nothing [(first, firstBinders, firstBody), (second, secondBinders, secondBody)]) => do
+        if argument.spelling /= scrutinee || argument.spelling == payload.spelling ||
+           any (\binder => elem binder (members ++ ["_", "Nat", "Zero", "Succ"])) (the (List String) [argument.spelling, payload.spelling])
+          then Left (problem snapshot (Just argument.span.start) "Invalid mutual payload equation binders") else Right ()
+        (base, predecessor, successor) <- case (first.spelling, firstBinders, second.spelling, secondBinders) of
+          ("Zero", [], "Succ", [predecessor]) => Right (firstBody, predecessor, secondBody)
+          ("Succ", [predecessor], "Zero", []) => Right (secondBody, predecessor, firstBody)
+          _ => Left (problem snapshot (Just span.start) "Mutual payload equations require exhaustive Zero and Succ predecessor arms")
+        if elem predecessor.spelling (argument.spelling :: payload.spelling :: members ++ ["_", "Nat", "Zero", "Succ"])
+          then Left (problem snapshot (Just predecessor.span.start) "Invalid mutual payload predecessor binder") else Right ()
+        basePlan <- the (Either GraphError PayloadBase) $ case base of
+          NRef _ name => if name == payload.spelling then Right KeepPayload else badBase base
+          NIf _ (NRef _ name) (NBoolValue _ yes) (NBoolValue _ no) =>
+            if name == payload.spelling then Right (TruthTable yes no) else badBase base
+          _ => badBase base
+        case successor of
+          NApply _ (NApply _ (NRef callSpan target) (NRef _ actual)) (NRef _ forwarded) =>
+            if actual == predecessor.spelling && forwarded == payload.spelling && elem target members
+              then Right (PlannedMutualWorker True False basePlan (target == firstMember) callSpan)
+              else Left (problem snapshot (Just (extent successor).start) "Mutual calls require the immediate predecessor and unchanged linear payload")
+          _ => Left (problem snapshot (Just (extent successor).start) "Mutual payload calls must be saturated with predecessor and payload")
+      _ => Left (problem snapshot (Just decl.definitionNameSpan.start) "Mutual payload workers require two parameters and a direct exhaustive Nat case")
+  where
+    badBase : Expr -> Either GraphError PayloadBase
+    badBase base = Left (problem snapshot (Just (extent base).start) "Mutual payload base must consume its payload directly or test it with literal Bool branches")
+
+    firstMember : String
+    firstMember = case members of first :: _ => first; [] => ""
+
+record MutualValues where
+  constructor MutualValuesPlan
+  firstValue : Term 0
+  secondValue : Term 0
+  firstCall : SourceSpan
+  firstTarget : Bool
+  secondCall : SourceSpan
+  secondTarget : Bool
+
+-- Exactly one forwarding equation enables the alias slice. It never makes
+-- arbitrary nondecreasing groups eligible for ordinary recursive admission.
+forwardEquation : Expr -> Bool
+forwardEquation (NEquationLambda _ _ _ (NApply _ _ _)) = True
+forwardEquation _ = False
+
+forwardOrder : Expr -> Maybe Bool
+forwardOrder (NPi _ Linear _ (NRef _ "Nat") (NPi _ Linear _ (NBoolType _) (NBoolType _))) = Just True
+forwardOrder (NPi _ Linear _ (NBoolType _) (NPi _ Linear _ (NRef _ "Nat") (NBoolType _))) = Just False
+forwardOrder _ = Nothing
+
+record ForwardShape where
+  constructor ForwardShapePlan
+  natFirst : Bool
+  natArgument : String
+  payloadArgument : String
+  body : Expr
+
+forwardShape : ModuleSnapshot -> List String -> Declaration -> Either GraphError ForwardShape
+forwardShape snapshot members decl = do
+  if decl.quantity /= Unrestricted || decl.generated || decl.dictionary || invalid decl.name
+    then bad decl.nameSpan.start "Forwarding workers require unrestricted ordinary names" else Right ()
+  order <- case forwardOrder decl.expected of
+    Just order => Right order
+    Nothing => bad decl.nameSpan.start "Forwarding signatures require linear Nat/Bool arguments and Bool result"
+  case decl.expected of
+    NPi _ _ first _ (NPi _ _ second _ _) =>
+      if first == second || invalid first || invalid second || elem first members || elem second members
+        then bad decl.nameSpan.start "Invalid forwarding signature binders" else Right ()
+    _ => bad decl.nameSpan.start "Invalid forwarding signature"
+  case decl.value of
+    NEquationLambda _ [first, second] _ body => do
+      if first.spelling == second.spelling || invalid first.spelling || invalid second.spelling ||
+         elem first.spelling members || elem second.spelling members
+        then bad first.span.start "Invalid forwarding equation binders" else Right ()
+      Right (ForwardShapePlan order (if order then first.spelling else second.spelling)
+        (if order then second.spelling else first.spelling) body)
+    _ => bad decl.definitionNameSpan.start "Forwarding workers require exactly two equation arguments"
+  where
+    invalid : String -> Bool
+    invalid name = elem name (the (List String) ["_", "Nat", "Zero", "Succ"])
+
+    bad : Position -> String -> Either GraphError a
+    bad position message = Left (problem snapshot (Just position) message)
+
+planForwardValues : ModuleSnapshot -> MutualDeclaration -> Either GraphError MutualValues
+planForwardValues snapshot group = do
+  let aliasFirst = forwardEquation group.first.value
+  if aliasFirst == forwardEquation group.second.value
+    then Left (problem snapshot (Just group.span.start) "Forwarding groups require exactly one alias and one structural worker; alias cycles are unsupported") else Right ()
+  first <- forwardShape snapshot [group.first.name, group.second.name] group.first
+  second <- forwardShape snapshot [group.first.name, group.second.name] group.second
+  let aliasShape = if aliasFirst then first else second
+  let structural = if aliasFirst then second else first
+  (aliasTarget, aliasSite) <- call first second aliasShape.natArgument aliasShape.payloadArgument aliasShape.body
+  if aliasTarget /= not aliasFirst
+    then Left (problem snapshot (Just aliasSite.start) "A forwarding alias must call the other group member") else Right ()
+  case structural.body of
+    NDataCase span (NRef _ scrutinee) Nothing [(one, oneBinders, oneBody), (two, twoBinders, twoBody)] => do
+      if scrutinee /= structural.natArgument
+        then Left (problem snapshot (Just span.start) "Structural forwarding worker must case on its Nat argument") else Right ()
+      (base, predecessor, successor) <- case (one.spelling, oneBinders, two.spelling, twoBinders) of
+        ("Zero", [], "Succ", [predecessor]) => Right (oneBody, predecessor, twoBody)
+        ("Succ", [predecessor], "Zero", []) => Right (twoBody, predecessor, oneBody)
+        _ => Left (problem snapshot (Just span.start) "Forwarding worker requires exhaustive Zero and Succ predecessor arms")
+      if elem predecessor.spelling (the (List String) ["_", "Nat", "Zero", "Succ", group.first.name, group.second.name, structural.natArgument, structural.payloadArgument])
+        then Left (problem snapshot (Just predecessor.span.start) "Invalid forwarding predecessor binder") else Right ()
+      basePlan <- the (Either GraphError PayloadBase) $ case base of
+        NRef _ name => if name == structural.payloadArgument then Right KeepPayload else badBase base
+        NIf _ (NRef _ name) (NBoolValue _ yes) (NBoolValue _ no) =>
+          if name == structural.payloadArgument then Right (TruthTable yes no) else badBase base
+        _ => badBase base
+      (workerTarget, workerSite) <- call first second predecessor.spelling structural.payloadArgument successor
+      -- Eliminate the alias, then build BOTH entries from the same one-worker
+      -- fold, preserving exact saturated open equations without Bool eta.
+      Right (MutualValuesPlan (forwardWorker basePlan first.natFirst) (forwardWorker basePlan second.natFirst)
+        (if aliasFirst then aliasSite else workerSite) (if aliasFirst then aliasTarget else workerTarget)
+        (if aliasFirst then workerSite else aliasSite) (if aliasFirst then workerTarget else aliasTarget))
+    _ => Left (problem snapshot (Just (extent structural.body).start) "Forwarding groups require one direct structural Nat case")
+  where
+    badBase : Expr -> Either GraphError PayloadBase
+    badBase base = Left (problem snapshot (Just (extent base).start) "Forwarding base must consume its payload directly or test it with literal branches")
+
+    call : ForwardShape -> ForwardShape -> String -> String -> Expr -> Either GraphError (Bool, SourceSpan)
+    call first second nat payload expression = case expression of
+      NApply _ (NApply _ (NRef site name) (NRef _ one)) (NRef _ two) => do
+        target <- if name == group.first.name then Right True else if name == group.second.name then Right False
+          else Left (problem snapshot (Just site.start) "Forwarding calls must target a group member")
+        let order = if target then first.natFirst else second.natFirst
+        if one == (if order then nat else payload) && two == (if order then payload else nat)
+          then Right (target, site)
+          else Left (problem snapshot (Just site.start) "Forwarding calls require the unchanged owned arguments in target signature order")
+      _ => Left (problem snapshot (Just (extent expression).start) "Forwarding calls require a saturated two-variable group call")
+
+planMutualValues : ModuleSnapshot -> List Weighted -> List String -> MutualDeclaration -> Either GraphError MutualValues
+planMutualValues snapshot globals members group =
+  if forwardEquation group.first.value || forwardEquation group.second.value then planForwardValues snapshot group else do
+    plan0 <- planMutualWorker snapshot globals members group.first
+    plan1 <- planMutualWorker snapshot globals members group.second
+    if plan0.payload /= plan1.payload
+      then Left (problem snapshot (Just group.span.start) "Mutual workers must agree on their payload calling convention") else Right ()
+    let value0 = if plan0.payload
+          then payloadWorker plan0.basePlan plan1.basePlan plan0.target plan1.target True
+          else worker plan0.whenTrue plan1.whenTrue plan0.target plan1.target True
+    let value1 = if plan0.payload
+          then payloadWorker plan0.basePlan plan1.basePlan plan0.target plan1.target False
+          else worker plan0.whenTrue plan1.whenTrue plan0.target plan1.target False
+    Right (MutualValuesPlan value0 value1 plan0.site plan0.target plan1.site plan1.target)
+
+compileMutual : ModuleSnapshot -> List String -> List Weighted -> MutualDeclaration -> Nat -> Either GraphError Compiled
+compileMutual snapshot moduleName globals group remaining = do
+  -- Worst-case payload template: 55 nodes/worker + 5/signature = 120.
+  let reservation : Nat = 128
+  if remaining < reservation then Left (problem snapshot (Just group.span.start) "Expanded core construction budget exhausted (200000)") else Right ()
+  let members = [group.first.name, group.second.name]
+  if group.first.name == group.second.name || not (natBuiltinsVisible globals) ||
+     any (\name => isJust (find (\entry => entry.global.name == name) globals) ||
+       not (null (qualifiedCandidates name (map global globals)))) members
+    then Left (problem snapshot (Just group.span.start) "Mutual names and Nat constructors must be unshadowed and distinct") else Right ()
+  if any (\decl => cost remaining globals [] decl.expected > 32) (the (List Declaration) [group.first, group.second])
+    then Left (problem snapshot (Just group.span.start) "Mutual signature expansion admission exhausted (32)") else Right ()
+  planned <- planMutualValues snapshot globals members group
+  -- Canonical admitted signatures cannot clone imported aliases or expand globals.
+  ty0 <- signature group.first
+  ty1 <- signature group.second
+  let value0 = planned.firstValue
+  let value1 = planned.secondValue
+  if nodes ty0 + nodes ty1 + nodes value0 + nodes value1 > reservation
+    then Left (problem snapshot Nothing "Internal mutual construction reservation was insufficient") else Right ()
+  checked group.first value0 ty0
+  checked group.second value1 ty1
+  let one = definition group.first ty0 value0
+  let two = definition group.second ty1 value1
+  let sites = [StructuralSite snapshot.path (callToken planned.firstCall) (if planned.firstTarget then group.first.definitionNameSpan else group.second.definitionNameSpan),
+               StructuralSite snapshot.path (callToken planned.secondCall) (if planned.secondTarget then group.first.definitionNameSpan else group.second.definitionNameSpan)]
+  Right (Definitions [one, two] (if group.exported then [qualify one, qualify two] else []) sites (minus remaining reservation))
+  where
+    signature : Declaration -> Either GraphError (Term 0)
+    signature decl = case elaborateSignatureWith False (map global globals) (Just Empty) [] decl.expected of
+      Left err => Left (problem snapshot (Just err.position) (show err))
+      Right ty => case guardedNormal typeReductionFuel ty of
+        Just normalized => if sameSyntax normalized
+          (case forwardOrder decl.expected of
+             Just False => Pi Linear BoolType (Pi Linear NatType BoolType)
+             Just True => Pi Linear NatType (Pi Linear BoolType BoolType)
+             Nothing => Pi Linear NatType BoolType) then Right normalized
+          else Left (problem snapshot (Just decl.nameSpan.start) "Mutual signature must resolve to its admitted literal Nat/Bool telescope")
+        Nothing => Left (problem snapshot (Just decl.nameSpan.start) "Mutual signature normalization admission exhausted")
+
+    checked : Declaration -> Term 0 -> Term 0 -> Either GraphError ()
+    checked decl value ty = case checkRuntime checkingDepth typeReductionFuel Empty value ty of
+      Left err => Left (declarationFailure snapshot decl "runtime-checking" "Mutual worker checking:" (show err))
+      Right _ => Right ()
+
+    definition : Declaration -> Term 0 -> Term 0 -> Weighted
+    definition decl ty value = weighted (GlobalEntry Nothing (Just (moduleText moduleName ++ "." ++ decl.name)) 0 Unrestricted decl.name ty value)
+
+    qualify : Weighted -> Weighted
+    qualify entry = { global := { name := moduleText moduleName ++ "." ++ entry.global.name } entry.global } entry
+
+    callToken : SourceSpan -> SourceSpan
+    callToken span = case find (\token => token.kind == Name && elem token.spelling (the (List String) [group.first.name, group.second.name]) &&
+      token.span.start.offset >= span.start.offset && token.span.finish.offset <= span.finish.offset) snapshot.document.tokens of
+        Just token => token.span
+        Nothing => span
+
+compileDeclarations : ModuleSnapshot -> List String -> List Weighted -> List LoweredItem -> Nat ->
                       Either GraphError Compiled
 compileDeclarations snapshot name globals [] remaining = Right (Definitions [] [] [] remaining)
-compileDeclarations snapshot name globals (decl :: rest) remaining = do
+compileDeclarations snapshot name globals (MutualNatBool group :: rest) remaining = do
+  own <- compileMutual snapshot name globals group remaining
+  let qualified = map (\entry => { global := { name := moduleText name ++ "." ++ entry.global.name } entry.global } entry) own.locals
+  following <- compileDeclarations snapshot name (own.locals ++ qualified ++ globals) rest own.remaining
+  Right (Definitions (own.locals ++ following.locals) (own.exports ++ following.exports)
+    (own.sites ++ following.sites) following.remaining)
+compileDeclarations snapshot name globals (Single decl :: rest) remaining = do
   if decl.quantity == Linear || decl.name == "_"
      then Left (problem snapshot (Just decl.nameSpan.start)
                 "Module globals require erased/unrestricted quantities and referenceable names")
@@ -909,6 +1335,11 @@ compileDeclarations snapshot name globals (decl :: rest) remaining = do
   recursive <- the (Either GraphError (Maybe (Term 0))) $ case recursive of
     Just result => Right (Just result)
     Nothing => case sequenceRecursiveEquation globals decl.name ty decl.value of
+      Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
+      Right candidate => Right candidate
+  recursive <- the (Either GraphError (Maybe (Term 0))) $ case recursive of
+    Just result => Right (Just result)
+    Nothing => case accumulatorSequenceEquation globals decl.name implicitPrefix ty decl.value of
       Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
       Right candidate => Right candidate
   recursive <- the (Either GraphError (Maybe (Term 0))) $ case recursive of
@@ -1158,7 +1589,9 @@ compileGraph requireEntry graph prelude interfaces remaining sites (snapshot :: 
          then Left (problem snapshot (Just header.nameSpan.start) "Duplicate checked module identity")
          else Right ()
       declarations <- case snapshot.document.body of
-        DeclarationDocument authored => elaborateAt snapshot schemas (map (\entry => entry.global.name) imported) authored
+        DeclarationDocument authored => case elaborateModuleItemsInWithImports (Just (moduleText header.components)) schemas (map (\entry => entry.global.name) imported) 64 authored of
+          Left err => Left ({ stage := "elaboration" } (problem snapshot (Just err.position) err.message))
+          Right items => Right items
         EmptyDocument => Right []
         _ => Left (problem snapshot Nothing "Named modules require declarations")
       compiled <- compileDeclarations snapshot header.components globals declarations remaining

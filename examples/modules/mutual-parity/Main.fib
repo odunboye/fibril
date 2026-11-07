@@ -1,0 +1,21 @@
+module Main
+
+-- Finite structural sugar: no recursive core calls or SCT admission.
+export
+mutual where
+  even : (1 n : Nat) -> Bool
+  even n = case n of
+    Zero => True
+    Succ predecessor => odd predecessor
+
+  odd : (1 n : Nat) -> Bool
+  odd n = case n of
+    Zero => False
+    Succ predecessor => even predecessor
+
+main : IO Unit
+main = do
+  putStrLn (if even Zero then "even zero" else "wrong")
+  putStrLn (if odd (Succ Zero) then "odd one" else "wrong")
+  putStrLn (if even (Succ (Succ Zero)) then "even two" else "wrong")
+  putStrLn (if odd (Succ (Succ (Succ Zero))) then "odd three" else "wrong")

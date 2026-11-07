@@ -9,7 +9,7 @@ import Fibril.Source.StringLiteral
 
 ||| Token categories for the initial explicitly annotated expression grammar.
 public export
-data TokenKind = Name | Number | StringToken | StringKeyword | TypeKeyword | UnitKeyword | BoolKeyword | TrueKeyword | FalseKeyword | IfKeyword | ThenKeyword | ElseKeyword | DoKeyword | CaseKeyword | OfKeyword | LetKeyword | InKeyword | ProjectionKeyword | ReturnKeyword | DataKeyword | RecordKeyword | InterfaceKeyword | ImplementationKeyword | ConstructorKeyword | EliminatorKeyword | WhereKeyword | ModuleKeyword | ImportKeyword | ExportKeyword | Dot | Comma | Equals | OpenParen | CloseParen | OpenBrace | DictionaryOpen | CloseBrace | Backtick | Colon | Arrow | BindArrow | BodyArrow | Lambda
+data TokenKind = Name | Number | StringToken | StringKeyword | TypeKeyword | UnitKeyword | BoolKeyword | TrueKeyword | FalseKeyword | IfKeyword | ThenKeyword | ElseKeyword | DoKeyword | CaseKeyword | OfKeyword | LetKeyword | InKeyword | ProjectionKeyword | ReturnKeyword | DataKeyword | RecordKeyword | InterfaceKeyword | ImplementationKeyword | MutualKeyword | ConstructorKeyword | EliminatorKeyword | WhereKeyword | ModuleKeyword | ImportKeyword | ExportKeyword | Dot | Comma | Equals | OpenParen | CloseParen | OpenBrace | DictionaryOpen | CloseBrace | Backtick | Colon | Arrow | BindArrow | BodyArrow | Lambda
 
 public export
 Show TokenKind where
@@ -35,6 +35,7 @@ Show TokenKind where
   show DataKeyword = "data"
   show RecordKeyword = "record"
   show InterfaceKeyword = "interface"
+  show MutualKeyword = "mutual"
   show ImplementationKeyword = "implementation"
   show ConstructorKeyword = "constructor"
   show EliminatorKeyword = "eliminator"
@@ -81,6 +82,7 @@ Eq TokenKind where
   DataKeyword == DataKeyword = True
   RecordKeyword == RecordKeyword = True
   InterfaceKeyword == InterfaceKeyword = True
+  MutualKeyword == MutualKeyword = True
   ImplementationKeyword == ImplementationKeyword = True
   ConstructorKeyword == ConstructorKeyword = True
   EliminatorKeyword == EliminatorKeyword = True
@@ -223,6 +225,7 @@ scan (S fuel) at (c :: rest) =
              "data" => DataKeyword
              "record" => RecordKeyword
              "interface" => InterfaceKeyword
+             "mutual" => MutualKeyword
              "implementation" => ImplementationKeyword
              "constructor" => ConstructorKeyword
              "eliminator" => EliminatorKeyword
