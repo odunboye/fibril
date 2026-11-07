@@ -1,0 +1,6 @@
+module Transition
+import LSP
+
+-- Checking this entry checks the pure API itself, without the IO test driver.
+main : (state : State) -> (event : Event) -> Step
+main = transition

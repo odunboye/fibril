@@ -1,0 +1,20 @@
+module ControlObservation
+import LSP
+import Observation
+
+-- Test-only control projection; deliberately does NOT observe request IDs.
+-- The full observer independently checks ID kind and exact payload bytes.
+controlText : (action : Action) -> String
+controlText action = case action return (\(0 self : Action) => String) of
+  Ignore => "I"
+  Respond reply => case reply return (\(0 self : ResponseData) => String) of
+    (id : RequestId) (response : Response) => appendString "Q" (responseText response)
+  Terminate status => case status return (\(0 self : ExitStatus) => String) of
+    Success => "X0"
+    Failure => "X1"
+
+export
+observeControlStep : (0 R : Type) -> (step : Step) -> (consume : (state : State) -> (1 encoded : Bytes) -> R) -> R
+observeControlStep R step consume = case step return (\(0 self : Step) => R) of
+  (state : State) (action : Action) => consume state
+    (primUTF8Case Bytes Bytes (primUTF8Encode (appendString (stateText state) (controlText action))) primBytesEmpty (\(1 encoded : Bytes) => encoded))

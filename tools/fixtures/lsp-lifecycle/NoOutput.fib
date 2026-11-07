@@ -1,0 +1,12 @@
+module NoOutput
+import LSP
+import Observation
+
+-- Actual IO consumer: demand the complete observation's length, then emit
+-- nothing. The observer returns A Q S <zero length> A (five bytes).
+main : IO Unit
+main = observeStep (IO Unit)
+  (transition Preinitialize (Request (RequestDetails (StringId primBytesEmpty) Initialize)))
+  (\(state : State) => \(1 encoded : Bytes) =>
+    if primBytesLengthIs (Succ (Succ (Succ (Succ (Succ Zero))))) encoded
+      then primPure Unit () else primRejectBytes)
