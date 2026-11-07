@@ -540,3 +540,16 @@ admits at most 12 combined input syntax nodes (and at most the caller allowance)
 before bounded solver calls; the allowance is not an exact operation budget.
 Abstraction checks each boundary independently, after admitting the original body.
 Exhaustion fails closed. There is no soundness theorem or runtime integration.
+
+The compatibility functions above still accept raw context/term pairs. The
+additional opaque `CheckedContextAbstraction ctx body l r` binds a successful
+boundary check to those exact values; a raw `Accepted` cannot construct it.
+`substituteBoundDimensions` substitutes all older dimensions simultaneously,
+lifting beneath the bound newest dimension, and rechecks both source and output
+before producing a new witness. The existing scoped face substitution acts on
+restrictions separately. The combined mixed-substitution examples are tests,
+not a proved substitution theorem. Each check preflights its input (including
+the transformed body) before solver calls; construction of substitutions and
+arbitrary caller-supplied functions are not a bounded public attacker API.
+There is no path-variable substitution, general context morphism, formal
+composition law, general open path calculus, or runtime authority in this slice.

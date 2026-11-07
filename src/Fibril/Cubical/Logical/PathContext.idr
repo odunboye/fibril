@@ -83,3 +83,40 @@ checkContextAbstraction budget ctx body l r =
     one : Fin (S n) -> ScopedInterval n
     one FZ = One
     one (FS i) = Var i
+
+||| Evidence ties the exact context, body and endpoints to a successful check.
+||| This is experimental logical evidence, not a runtime path.
+export
+data CheckedContextAbstraction : (ctx : PathContext m k) ->
+                                 (body : ContextTerm m k (S n)) ->
+                                 (l : Fin m) -> (r : Fin m) -> Type where
+  MkCheckedContextAbstraction : CheckedContextAbstraction ctx body l r
+
+||| Only the checker can create evidence; Accepted alone is not evidence.
+export
+checkBoundAbstraction : {m, k, n : Nat} -> (budget : Nat) -> (ctx : PathContext m k) ->
+                        (body : ContextTerm m k (S n)) -> (l : Fin m) -> (r : Fin m) ->
+                        Either Result (CheckedContextAbstraction ctx body l r)
+checkBoundAbstraction budget ctx body l r =
+  case checkContextAbstraction budget ctx body l r of
+    Accepted => Right MkCheckedContextAbstraction
+    other => Left other
+
+||| Lift a simultaneous substitution beneath the abstraction's newest dimension.
+public export
+liftContextDimensions : (Fin n -> ScopedInterval d) -> Fin (S n) -> ScopedInterval (S d)
+liftContextDimensions env FZ = Var FZ
+liftContextDimensions env (FS i) = weakenInterval (env i)
+
+||| Recheck both source and transformed abstractions under the supplied allowance.
+||| The transformed syntax is admitted by the checker before any solver call.
+export
+substituteBoundDimensions : {m, k, n, d : Nat} -> (budget : Nat) -> (env : Fin n -> ScopedInterval d) ->
+                            {ctx : PathContext m k} -> {body : ContextTerm m k (S n)} ->
+                            {l, r : Fin m} -> CheckedContextAbstraction ctx body l r ->
+                            Either Result (CheckedContextAbstraction ctx
+                              (mapContextDimensions (liftContextDimensions env) body) l r)
+substituteBoundDimensions budget env {ctx} {body} {l} {r} MkCheckedContextAbstraction =
+  case checkContextAbstraction budget ctx body l r of
+    Accepted => checkBoundAbstraction budget ctx (mapContextDimensions (liftContextDimensions env) body) l r
+    other => Left other

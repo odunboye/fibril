@@ -93,3 +93,16 @@ for fixture in PathCapturesCoreVariable PathEscapesDimension OpenPathDimensionEs
   fi
 done
 echo 'Checked path scope negative tests passed.'
+"$idris" -p fibril --check ForgeContextAbstraction.idr > "$tmp/forge-context.log" 2>&1 || true
+if ! grep -Fq 'PathContext.MkCheckedContextAbstraction is private' "$tmp/forge-context.log" || grep -Fq 'While processing type of bad' "$tmp/forge-context.log"; then
+  echo 'Negative context witness opacity check failed for an unrelated reason:' >&2
+  cat "$tmp/forge-context.log" >&2
+  exit 1
+fi
+"$idris" -p fibril --check ContextAbstractionMismatch.idr > "$tmp/context-mismatch.log" 2>&1 || true
+if ! grep -Fq 'While processing right hand side of bad. When unifying:' "$tmp/context-mismatch.log" || ! grep -Fq 'Mismatch between:' "$tmp/context-mismatch.log" || grep -Fq 'While processing type of bad' "$tmp/context-mismatch.log"; then
+  echo 'Negative context mismatch check failed for an unrelated reason:' >&2
+  cat "$tmp/context-mismatch.log" >&2
+  exit 1
+fi
+echo 'Context witness opacity and context mismatch negative tests passed.'

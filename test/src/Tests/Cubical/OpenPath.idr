@@ -32,10 +32,75 @@ rejected : Result -> Bool
 rejected Rejected = True
 rejected _ = False
 
+-- Structural comparison keeps these examples sensitive to the exact substitution,
+-- rather than merely conversion on an empty face.
+sameInterval : ScopedInterval n -> ScopedInterval n -> Bool
+sameInterval Zero Zero = True
+sameInterval One One = True
+sameInterval (Var x) (Var y) = x == y
+sameInterval (Reverse x) (Reverse y) = sameInterval x y
+sameInterval (Meet x y) (Meet a b) = sameInterval x a && sameInterval y b
+sameInterval (Join x y) (Join a b) = sameInterval x a && sameInterval y b
+sameInterval _ _ = False
+
+sameContextTerm : ContextTerm m k n -> ContextTerm m k n -> Bool
+sameContextTerm (Variable x) (Variable y) = x == y
+sameContextTerm (ApplyPath p r) (ApplyPath q s) = p == q && sameInterval r s
+sameContextTerm _ _ = False
+
 export
 checks : List (String, Bool)
 checks =
-  [ ("context reversal and wrong boundary",
+  [ ("bound context dimension substitution composition and exhaustion",
+      let body : ContextTerm 2 2 2 = ApplyPath FZ (Meet (Var FZ) (Join (Var (FS FZ)) One)) in
+      case checkBoundAbstraction 12 paths body FZ (FS FZ) of
+        Left _ => False
+        Right checked =>
+          case (substituteBoundDimensions {d=1} 12 (\_ => Reverse (Var FZ)) checked,
+                substituteBoundDimensions {d=1} 0 (\_ => Var FZ) checked,
+                substituteBoundDimensions {d=1} 12 (\_ => reversals 11 (Var FZ)) checked) of
+            (Right first, Left Exhausted, Left Exhausted) =>
+              case (substituteBoundDimensions {d=1} 12 (\_ => Reverse (Var FZ)) first,
+                    substituteBoundDimensions {d=1} 12 (\_ => Reverse (Reverse (Var FZ))) checked) of
+                (Right _, Right _) =>
+                  let rev : Fin 1 -> ScopedInterval 1 = \_ => Reverse (Var FZ) in
+                  let twice = mapContextDimensions (liftContextDimensions rev)
+                                (mapContextDimensions (liftContextDimensions rev) body)
+                      direct = mapContextDimensions
+                                 (liftContextDimensions (\i => substituteScoped rev (rev i))) body in
+                  sameContextTerm twice direct &&
+                  case (twice, direct) of
+                    (ApplyPath FZ (Meet (Var FZ) (Join (Reverse (Reverse (Var (FS FZ)))) One)),
+                     ApplyPath FZ (Meet (Var FZ) (Join (Reverse (Reverse (Var (FS FZ)))) One))) => True
+                    _ => False
+                _ => False
+            _ => False)
+  , ("mixed substitution commutes on a nonempty restricted face",
+      let face : ScopedFace 1 = SEndpoint FZ False
+          env : Fin 1 -> ScopedInterval 1 = \_ => Reverse (Var FZ)
+          term : ContextTerm 2 2 1 = ApplyPath FZ (Var FZ)
+          dimThenTerm = renameContextTerms FS (mapContextDimensions env term)
+          termThenDim = mapContextDimensions env (renameContextTerms FS term)
+          variable : ContextTerm 2 2 1 = Variable FZ
+          renamedVariable = renameContextTerms FS (mapContextDimensions env variable)
+          transformedFace = substituteScopedFace env face
+          renamed = renameContext FS paths in
+      sameContextTerm dimThenTerm termThenDim &&
+      sameContextTerm renamedVariable (mapContextDimensions env (renameContextTerms FS variable)) &&
+      sameContextTerm renamedVariable (Variable (FS FZ)) &&
+      not (isEmptyRestriction (Under transformedFace)) &&
+      accepted (convert 12 (Under face) paths term (Variable FZ)) &&
+      accepted (convert 12 (Under transformedFace) renamed dimThenTerm (Variable (FS FZ))) &&
+      accepted (convert 12 (Under transformedFace) renamed termThenDim (Variable (FS FZ))) &&
+      rejected (convert 12 (Under face) renamed dimThenTerm (Variable (FS FZ))) &&
+      rejected (convert 12 (Under transformedFace) renamed dimThenTerm (Variable (FS (FS FZ)))))
+  , ("mixed dimension and variable substitution respects contradictory face",
+      let face : ScopedFace 1 = SConjunction (SEndpoint FZ False) (SEndpoint FZ True)
+          env : Fin 1 -> ScopedInterval 1 = \_ => Reverse (Var FZ)
+          term : ContextTerm 2 2 1 = ApplyPath FZ (Var FZ) in
+      accepted (convert 12 (Under (substituteScopedFace env face)) (renameContext FS paths)
+        (renameContextTerms FS (mapContextDimensions env term)) (Variable FZ)))
+  , ("context reversal and wrong boundary",
       accepted (checkContextAbstraction {n=0} 12 paths (ApplyPath (FS FZ) (Reverse (Var FZ))) (FS FZ) FZ) &&
       rejected (checkContextAbstraction {n=0} 12 paths (ApplyPath (FS FZ) (Reverse (Var FZ))) FZ (FS FZ)))
   , ("distinct paths and shared endpoints",
