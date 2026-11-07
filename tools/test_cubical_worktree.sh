@@ -299,3 +299,18 @@ if ! grep -q 'Mismatch between:' "$tmp/typed-checker-index.log" || grep -q 'Whil
   exit 1
 fi
 echo 'Typed checker index mismatch negative test passed.'
+
+"$idris" -p fibril --check ShadowWrongType.idr > "$tmp/shadow-type.log" 2>&1 || true
+if ! grep -Fq 'Mismatch between: LUnit and LBool' "$tmp/shadow-type.log"; then
+  echo 'Negative shadow typing test failed for an unrelated reason:' >&2
+  cat "$tmp/shadow-type.log" >&2
+  exit 1
+fi
+echo 'Shadow typing negative test passed.'
+"$idris" -p fibril --check ShadowPathWrongEndpoint.idr > "$tmp/shadow-path.log" 2>&1 || true
+if ! grep -Fq 'Mismatch between: True and False' "$tmp/shadow-path.log"; then
+  echo 'Negative shadow path endpoint test failed for an unrelated reason:' >&2
+  cat "$tmp/shadow-path.log" >&2
+  exit 1
+fi
+echo 'Shadow path endpoint negative test passed.'

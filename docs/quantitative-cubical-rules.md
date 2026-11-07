@@ -671,3 +671,48 @@ endpoint boundaries, face-restricted conversion, checking, resource accounting,
 or soundness is provided. No constructor supplies checked evidence or a runtime
 path. Existing first-order checkers are unchanged; no admission guarantee is
 claimed for the unbounded structural syntax operations. These structural equations do not establish typing preservation or a checker.
+
+### Pure shadow typing foundation (isolated)
+
+`Fibril.Cubical.Logical.Shadow` defines intrinsic logical Unit, Bool and
+nondependent arrow types, variables and terms. `shadowType`, `shadowContext`,
+`shadowVar` and `shadowTerm` give a total, structural typing-preserving source
+translation for every term in the intrinsic quantitative syntax; arrow
+quantities are forgotten and Boolean literals and eliminators are preserved
+syntactically. Contexts remain newest first. Because source typing is intrinsic,
+this does not assert that arbitrary Core programs are admitted or well typed,
+and no `Uses` derivation is needed. `substituteLogical` is a total typed
+simultaneous-substitution operation; lifting weakens outer replacements beneath
+lambdas. The structural commutation theorem is described below.
+
+`ShadowSubstitution` proves `shadowSubstitutionCommutes` for every source term
+and typed simultaneous source substitution, by structural induction. The
+explicit source context constructs `imageSubstitution`; this is needed because
+forgetting quantities is not injective on types. The theorem is literal Idris
+propositional equality, with separate general renaming, weakening, and lifted
+environment agreement lemmas. It imposes no quantitative premises.
+
+`ShadowPath` embeds these actual `LogicalTerm` values in a dimension-scoped,
+intrinsically typed path-body language. Bodies also include typed neutral path
+applications, lambda, nondependent application and eliminators. `ExactPath` is
+indexed by both endpoints and requires exact equalities after substituting 0
+and 1 into the body. Application substitutes an arbitrary scoped interval;
+`pathAtZero` and `pathAtOne` prove the exact endpoint equations. Simultaneous
+term and dimension substitution commute for all bodies, and
+`substituteExactPath` transports endpoint proofs through logical term
+substitution; `substitutePathApplication` proves compatibility with path
+application. Neutral path names are scoped by underlying logical type only;
+they have no declared endpoint equations here. Hence this is a nondependent,
+first-order path slice, not a general path type former, dependent PathP,
+face-restricted conversion, or a complete cubical calculus.
+
+This target remains distinct from `TypedPath.NeutralHasType`: the latter has a
+fixed abstract-base/path context and untyped `NeutralExpr` syntax, with no Unit,
+Bool, arrow or general term context. Conversely `ShadowPath` has no abstract
+base or PathP judgments. There is no embedding or proof relating these two
+judgments, and no modification of the existing checker. A common typed context,
+syntax and conversion theory (including endpoint declarations and substitution)
+would be required for that connection. There is no formal ordinary
+computation-equation preservation theorem, abstract-base interpretation,
+logical-to-runtime reflection, or erasure/execution correspondence. No ordinary
+checker or conversion changes.
