@@ -417,6 +417,421 @@ instantiateAlternativesUsage value flag w permissions derivation admitted =
           rewrite sym (joinUsageIdempotent w) in
           UseIf UseBoolean derivation derivation, admitted))
 
+||| Project the deleted coefficient and retained vector along a single-substitution path.
+public export
+deletedDemand : {0 source : Vect (S n) Ty} -> {0 target : Vect n Ty} -> (substitution : SingleSubstitution source target) -> Usage (S n) -> Quantity
+deletedDemand (SubstituteHere _) (q :: rest) = q
+deletedDemand (SubstituteUnder substitution) (q :: rest) = deletedDemand substitution rest
+
+public export
+retainedDemand : {0 source : Vect (S n) Ty} -> {0 target : Vect n Ty} -> (substitution : SingleSubstitution source target) -> Usage (S n) -> Usage n
+retainedDemand (SubstituteHere _) (q :: rest) = rest
+retainedDemand (SubstituteUnder substitution) (q :: rest) = q :: retainedDemand substitution rest
+
+||| Splitting a sequential source demand commutes with pointwise addition.
+public export
+retainedCombine : {0 source : Vect (S n) Ty} -> {0 target : Vect n Ty} ->
+  (substitution : SingleSubstitution source target) -> (left, right : Usage (S n)) ->
+  retainedDemand substitution (combineUsage left right) =
+    combineUsage (retainedDemand substitution left) (retainedDemand substitution right)
+retainedCombine (SubstituteHere _) (x :: xs) (y :: ys) = Refl
+retainedCombine (SubstituteUnder substitution) (x :: xs) (y :: ys) =
+  cong (add x y ::) (retainedCombine substitution xs ys)
+
+public export
+deletedCombine : {0 source : Vect (S n) Ty} -> {0 target : Vect n Ty} ->
+  (substitution : SingleSubstitution source target) -> (left, right : Usage (S n)) ->
+  deletedDemand substitution (combineUsage left right) =
+    add (deletedDemand substitution left) (deletedDemand substitution right)
+deletedCombine (SubstituteHere _) (x :: xs) (y :: ys) = Refl
+deletedCombine (SubstituteUnder substitution) (x :: xs) (y :: ys) =
+  deletedCombine substitution xs ys
+
+||| A replacement's ambient demand is zero at each retained prefix variable.
+public export
+replacementDemand : {0 source : Vect (S n) Ty} -> {0 target : Vect n Ty} -> (substitution : SingleSubstitution source target) -> Usage n -> Usage n
+replacementDemand (SubstituteHere _) usage = usage
+replacementDemand (SubstituteUnder substitution) (q :: rest) = Erased :: replacementDemand substitution rest
+
+||| Sequential composition distributes the replacement charge over two uses.
+public export
+substitutionAddInterchange : (a, b, c, d, w : Quantity) ->
+  add (add a (multiply b w)) (add c (multiply d w)) =
+  add (add a c) (multiply (add b d) w)
+substitutionAddInterchange Erased Erased Erased Erased Erased = Refl
+substitutionAddInterchange Erased Erased Erased Erased Linear = Refl
+substitutionAddInterchange Erased Erased Erased Erased Unrestricted = Refl
+substitutionAddInterchange Erased Erased Erased Linear Erased = Refl
+substitutionAddInterchange Erased Erased Erased Linear Linear = Refl
+substitutionAddInterchange Erased Erased Erased Linear Unrestricted = Refl
+substitutionAddInterchange Erased Erased Erased Unrestricted Erased = Refl
+substitutionAddInterchange Erased Erased Erased Unrestricted Linear = Refl
+substitutionAddInterchange Erased Erased Erased Unrestricted Unrestricted = Refl
+substitutionAddInterchange Erased Erased Linear Erased Erased = Refl
+substitutionAddInterchange Erased Erased Linear Erased Linear = Refl
+substitutionAddInterchange Erased Erased Linear Erased Unrestricted = Refl
+substitutionAddInterchange Erased Erased Linear Linear Erased = Refl
+substitutionAddInterchange Erased Erased Linear Linear Linear = Refl
+substitutionAddInterchange Erased Erased Linear Linear Unrestricted = Refl
+substitutionAddInterchange Erased Erased Linear Unrestricted Erased = Refl
+substitutionAddInterchange Erased Erased Linear Unrestricted Linear = Refl
+substitutionAddInterchange Erased Erased Linear Unrestricted Unrestricted = Refl
+substitutionAddInterchange Erased Erased Unrestricted Erased Erased = Refl
+substitutionAddInterchange Erased Erased Unrestricted Erased Linear = Refl
+substitutionAddInterchange Erased Erased Unrestricted Erased Unrestricted = Refl
+substitutionAddInterchange Erased Erased Unrestricted Linear Erased = Refl
+substitutionAddInterchange Erased Erased Unrestricted Linear Linear = Refl
+substitutionAddInterchange Erased Erased Unrestricted Linear Unrestricted = Refl
+substitutionAddInterchange Erased Erased Unrestricted Unrestricted Erased = Refl
+substitutionAddInterchange Erased Erased Unrestricted Unrestricted Linear = Refl
+substitutionAddInterchange Erased Erased Unrestricted Unrestricted Unrestricted = Refl
+substitutionAddInterchange Erased Linear Erased Erased Erased = Refl
+substitutionAddInterchange Erased Linear Erased Erased Linear = Refl
+substitutionAddInterchange Erased Linear Erased Erased Unrestricted = Refl
+substitutionAddInterchange Erased Linear Erased Linear Erased = Refl
+substitutionAddInterchange Erased Linear Erased Linear Linear = Refl
+substitutionAddInterchange Erased Linear Erased Linear Unrestricted = Refl
+substitutionAddInterchange Erased Linear Erased Unrestricted Erased = Refl
+substitutionAddInterchange Erased Linear Erased Unrestricted Linear = Refl
+substitutionAddInterchange Erased Linear Erased Unrestricted Unrestricted = Refl
+substitutionAddInterchange Erased Linear Linear Erased Erased = Refl
+substitutionAddInterchange Erased Linear Linear Erased Linear = Refl
+substitutionAddInterchange Erased Linear Linear Erased Unrestricted = Refl
+substitutionAddInterchange Erased Linear Linear Linear Erased = Refl
+substitutionAddInterchange Erased Linear Linear Linear Linear = Refl
+substitutionAddInterchange Erased Linear Linear Linear Unrestricted = Refl
+substitutionAddInterchange Erased Linear Linear Unrestricted Erased = Refl
+substitutionAddInterchange Erased Linear Linear Unrestricted Linear = Refl
+substitutionAddInterchange Erased Linear Linear Unrestricted Unrestricted = Refl
+substitutionAddInterchange Erased Linear Unrestricted Erased Erased = Refl
+substitutionAddInterchange Erased Linear Unrestricted Erased Linear = Refl
+substitutionAddInterchange Erased Linear Unrestricted Erased Unrestricted = Refl
+substitutionAddInterchange Erased Linear Unrestricted Linear Erased = Refl
+substitutionAddInterchange Erased Linear Unrestricted Linear Linear = Refl
+substitutionAddInterchange Erased Linear Unrestricted Linear Unrestricted = Refl
+substitutionAddInterchange Erased Linear Unrestricted Unrestricted Erased = Refl
+substitutionAddInterchange Erased Linear Unrestricted Unrestricted Linear = Refl
+substitutionAddInterchange Erased Linear Unrestricted Unrestricted Unrestricted = Refl
+substitutionAddInterchange Erased Unrestricted Erased Erased Erased = Refl
+substitutionAddInterchange Erased Unrestricted Erased Erased Linear = Refl
+substitutionAddInterchange Erased Unrestricted Erased Erased Unrestricted = Refl
+substitutionAddInterchange Erased Unrestricted Erased Linear Erased = Refl
+substitutionAddInterchange Erased Unrestricted Erased Linear Linear = Refl
+substitutionAddInterchange Erased Unrestricted Erased Linear Unrestricted = Refl
+substitutionAddInterchange Erased Unrestricted Erased Unrestricted Erased = Refl
+substitutionAddInterchange Erased Unrestricted Erased Unrestricted Linear = Refl
+substitutionAddInterchange Erased Unrestricted Erased Unrestricted Unrestricted = Refl
+substitutionAddInterchange Erased Unrestricted Linear Erased Erased = Refl
+substitutionAddInterchange Erased Unrestricted Linear Erased Linear = Refl
+substitutionAddInterchange Erased Unrestricted Linear Erased Unrestricted = Refl
+substitutionAddInterchange Erased Unrestricted Linear Linear Erased = Refl
+substitutionAddInterchange Erased Unrestricted Linear Linear Linear = Refl
+substitutionAddInterchange Erased Unrestricted Linear Linear Unrestricted = Refl
+substitutionAddInterchange Erased Unrestricted Linear Unrestricted Erased = Refl
+substitutionAddInterchange Erased Unrestricted Linear Unrestricted Linear = Refl
+substitutionAddInterchange Erased Unrestricted Linear Unrestricted Unrestricted = Refl
+substitutionAddInterchange Erased Unrestricted Unrestricted Erased Erased = Refl
+substitutionAddInterchange Erased Unrestricted Unrestricted Erased Linear = Refl
+substitutionAddInterchange Erased Unrestricted Unrestricted Erased Unrestricted = Refl
+substitutionAddInterchange Erased Unrestricted Unrestricted Linear Erased = Refl
+substitutionAddInterchange Erased Unrestricted Unrestricted Linear Linear = Refl
+substitutionAddInterchange Erased Unrestricted Unrestricted Linear Unrestricted = Refl
+substitutionAddInterchange Erased Unrestricted Unrestricted Unrestricted Erased = Refl
+substitutionAddInterchange Erased Unrestricted Unrestricted Unrestricted Linear = Refl
+substitutionAddInterchange Erased Unrestricted Unrestricted Unrestricted Unrestricted = Refl
+substitutionAddInterchange Linear Erased Erased Erased Erased = Refl
+substitutionAddInterchange Linear Erased Erased Erased Linear = Refl
+substitutionAddInterchange Linear Erased Erased Erased Unrestricted = Refl
+substitutionAddInterchange Linear Erased Erased Linear Erased = Refl
+substitutionAddInterchange Linear Erased Erased Linear Linear = Refl
+substitutionAddInterchange Linear Erased Erased Linear Unrestricted = Refl
+substitutionAddInterchange Linear Erased Erased Unrestricted Erased = Refl
+substitutionAddInterchange Linear Erased Erased Unrestricted Linear = Refl
+substitutionAddInterchange Linear Erased Erased Unrestricted Unrestricted = Refl
+substitutionAddInterchange Linear Erased Linear Erased Erased = Refl
+substitutionAddInterchange Linear Erased Linear Erased Linear = Refl
+substitutionAddInterchange Linear Erased Linear Erased Unrestricted = Refl
+substitutionAddInterchange Linear Erased Linear Linear Erased = Refl
+substitutionAddInterchange Linear Erased Linear Linear Linear = Refl
+substitutionAddInterchange Linear Erased Linear Linear Unrestricted = Refl
+substitutionAddInterchange Linear Erased Linear Unrestricted Erased = Refl
+substitutionAddInterchange Linear Erased Linear Unrestricted Linear = Refl
+substitutionAddInterchange Linear Erased Linear Unrestricted Unrestricted = Refl
+substitutionAddInterchange Linear Erased Unrestricted Erased Erased = Refl
+substitutionAddInterchange Linear Erased Unrestricted Erased Linear = Refl
+substitutionAddInterchange Linear Erased Unrestricted Erased Unrestricted = Refl
+substitutionAddInterchange Linear Erased Unrestricted Linear Erased = Refl
+substitutionAddInterchange Linear Erased Unrestricted Linear Linear = Refl
+substitutionAddInterchange Linear Erased Unrestricted Linear Unrestricted = Refl
+substitutionAddInterchange Linear Erased Unrestricted Unrestricted Erased = Refl
+substitutionAddInterchange Linear Erased Unrestricted Unrestricted Linear = Refl
+substitutionAddInterchange Linear Erased Unrestricted Unrestricted Unrestricted = Refl
+substitutionAddInterchange Linear Linear Erased Erased Erased = Refl
+substitutionAddInterchange Linear Linear Erased Erased Linear = Refl
+substitutionAddInterchange Linear Linear Erased Erased Unrestricted = Refl
+substitutionAddInterchange Linear Linear Erased Linear Erased = Refl
+substitutionAddInterchange Linear Linear Erased Linear Linear = Refl
+substitutionAddInterchange Linear Linear Erased Linear Unrestricted = Refl
+substitutionAddInterchange Linear Linear Erased Unrestricted Erased = Refl
+substitutionAddInterchange Linear Linear Erased Unrestricted Linear = Refl
+substitutionAddInterchange Linear Linear Erased Unrestricted Unrestricted = Refl
+substitutionAddInterchange Linear Linear Linear Erased Erased = Refl
+substitutionAddInterchange Linear Linear Linear Erased Linear = Refl
+substitutionAddInterchange Linear Linear Linear Erased Unrestricted = Refl
+substitutionAddInterchange Linear Linear Linear Linear Erased = Refl
+substitutionAddInterchange Linear Linear Linear Linear Linear = Refl
+substitutionAddInterchange Linear Linear Linear Linear Unrestricted = Refl
+substitutionAddInterchange Linear Linear Linear Unrestricted Erased = Refl
+substitutionAddInterchange Linear Linear Linear Unrestricted Linear = Refl
+substitutionAddInterchange Linear Linear Linear Unrestricted Unrestricted = Refl
+substitutionAddInterchange Linear Linear Unrestricted Erased Erased = Refl
+substitutionAddInterchange Linear Linear Unrestricted Erased Linear = Refl
+substitutionAddInterchange Linear Linear Unrestricted Erased Unrestricted = Refl
+substitutionAddInterchange Linear Linear Unrestricted Linear Erased = Refl
+substitutionAddInterchange Linear Linear Unrestricted Linear Linear = Refl
+substitutionAddInterchange Linear Linear Unrestricted Linear Unrestricted = Refl
+substitutionAddInterchange Linear Linear Unrestricted Unrestricted Erased = Refl
+substitutionAddInterchange Linear Linear Unrestricted Unrestricted Linear = Refl
+substitutionAddInterchange Linear Linear Unrestricted Unrestricted Unrestricted = Refl
+substitutionAddInterchange Linear Unrestricted Erased Erased Erased = Refl
+substitutionAddInterchange Linear Unrestricted Erased Erased Linear = Refl
+substitutionAddInterchange Linear Unrestricted Erased Erased Unrestricted = Refl
+substitutionAddInterchange Linear Unrestricted Erased Linear Erased = Refl
+substitutionAddInterchange Linear Unrestricted Erased Linear Linear = Refl
+substitutionAddInterchange Linear Unrestricted Erased Linear Unrestricted = Refl
+substitutionAddInterchange Linear Unrestricted Erased Unrestricted Erased = Refl
+substitutionAddInterchange Linear Unrestricted Erased Unrestricted Linear = Refl
+substitutionAddInterchange Linear Unrestricted Erased Unrestricted Unrestricted = Refl
+substitutionAddInterchange Linear Unrestricted Linear Erased Erased = Refl
+substitutionAddInterchange Linear Unrestricted Linear Erased Linear = Refl
+substitutionAddInterchange Linear Unrestricted Linear Erased Unrestricted = Refl
+substitutionAddInterchange Linear Unrestricted Linear Linear Erased = Refl
+substitutionAddInterchange Linear Unrestricted Linear Linear Linear = Refl
+substitutionAddInterchange Linear Unrestricted Linear Linear Unrestricted = Refl
+substitutionAddInterchange Linear Unrestricted Linear Unrestricted Erased = Refl
+substitutionAddInterchange Linear Unrestricted Linear Unrestricted Linear = Refl
+substitutionAddInterchange Linear Unrestricted Linear Unrestricted Unrestricted = Refl
+substitutionAddInterchange Linear Unrestricted Unrestricted Erased Erased = Refl
+substitutionAddInterchange Linear Unrestricted Unrestricted Erased Linear = Refl
+substitutionAddInterchange Linear Unrestricted Unrestricted Erased Unrestricted = Refl
+substitutionAddInterchange Linear Unrestricted Unrestricted Linear Erased = Refl
+substitutionAddInterchange Linear Unrestricted Unrestricted Linear Linear = Refl
+substitutionAddInterchange Linear Unrestricted Unrestricted Linear Unrestricted = Refl
+substitutionAddInterchange Linear Unrestricted Unrestricted Unrestricted Erased = Refl
+substitutionAddInterchange Linear Unrestricted Unrestricted Unrestricted Linear = Refl
+substitutionAddInterchange Linear Unrestricted Unrestricted Unrestricted Unrestricted = Refl
+substitutionAddInterchange Unrestricted Erased Erased Erased Erased = Refl
+substitutionAddInterchange Unrestricted Erased Erased Erased Linear = Refl
+substitutionAddInterchange Unrestricted Erased Erased Erased Unrestricted = Refl
+substitutionAddInterchange Unrestricted Erased Erased Linear Erased = Refl
+substitutionAddInterchange Unrestricted Erased Erased Linear Linear = Refl
+substitutionAddInterchange Unrestricted Erased Erased Linear Unrestricted = Refl
+substitutionAddInterchange Unrestricted Erased Erased Unrestricted Erased = Refl
+substitutionAddInterchange Unrestricted Erased Erased Unrestricted Linear = Refl
+substitutionAddInterchange Unrestricted Erased Erased Unrestricted Unrestricted = Refl
+substitutionAddInterchange Unrestricted Erased Linear Erased Erased = Refl
+substitutionAddInterchange Unrestricted Erased Linear Erased Linear = Refl
+substitutionAddInterchange Unrestricted Erased Linear Erased Unrestricted = Refl
+substitutionAddInterchange Unrestricted Erased Linear Linear Erased = Refl
+substitutionAddInterchange Unrestricted Erased Linear Linear Linear = Refl
+substitutionAddInterchange Unrestricted Erased Linear Linear Unrestricted = Refl
+substitutionAddInterchange Unrestricted Erased Linear Unrestricted Erased = Refl
+substitutionAddInterchange Unrestricted Erased Linear Unrestricted Linear = Refl
+substitutionAddInterchange Unrestricted Erased Linear Unrestricted Unrestricted = Refl
+substitutionAddInterchange Unrestricted Erased Unrestricted Erased Erased = Refl
+substitutionAddInterchange Unrestricted Erased Unrestricted Erased Linear = Refl
+substitutionAddInterchange Unrestricted Erased Unrestricted Erased Unrestricted = Refl
+substitutionAddInterchange Unrestricted Erased Unrestricted Linear Erased = Refl
+substitutionAddInterchange Unrestricted Erased Unrestricted Linear Linear = Refl
+substitutionAddInterchange Unrestricted Erased Unrestricted Linear Unrestricted = Refl
+substitutionAddInterchange Unrestricted Erased Unrestricted Unrestricted Erased = Refl
+substitutionAddInterchange Unrestricted Erased Unrestricted Unrestricted Linear = Refl
+substitutionAddInterchange Unrestricted Erased Unrestricted Unrestricted Unrestricted = Refl
+substitutionAddInterchange Unrestricted Linear Erased Erased Erased = Refl
+substitutionAddInterchange Unrestricted Linear Erased Erased Linear = Refl
+substitutionAddInterchange Unrestricted Linear Erased Erased Unrestricted = Refl
+substitutionAddInterchange Unrestricted Linear Erased Linear Erased = Refl
+substitutionAddInterchange Unrestricted Linear Erased Linear Linear = Refl
+substitutionAddInterchange Unrestricted Linear Erased Linear Unrestricted = Refl
+substitutionAddInterchange Unrestricted Linear Erased Unrestricted Erased = Refl
+substitutionAddInterchange Unrestricted Linear Erased Unrestricted Linear = Refl
+substitutionAddInterchange Unrestricted Linear Erased Unrestricted Unrestricted = Refl
+substitutionAddInterchange Unrestricted Linear Linear Erased Erased = Refl
+substitutionAddInterchange Unrestricted Linear Linear Erased Linear = Refl
+substitutionAddInterchange Unrestricted Linear Linear Erased Unrestricted = Refl
+substitutionAddInterchange Unrestricted Linear Linear Linear Erased = Refl
+substitutionAddInterchange Unrestricted Linear Linear Linear Linear = Refl
+substitutionAddInterchange Unrestricted Linear Linear Linear Unrestricted = Refl
+substitutionAddInterchange Unrestricted Linear Linear Unrestricted Erased = Refl
+substitutionAddInterchange Unrestricted Linear Linear Unrestricted Linear = Refl
+substitutionAddInterchange Unrestricted Linear Linear Unrestricted Unrestricted = Refl
+substitutionAddInterchange Unrestricted Linear Unrestricted Erased Erased = Refl
+substitutionAddInterchange Unrestricted Linear Unrestricted Erased Linear = Refl
+substitutionAddInterchange Unrestricted Linear Unrestricted Erased Unrestricted = Refl
+substitutionAddInterchange Unrestricted Linear Unrestricted Linear Erased = Refl
+substitutionAddInterchange Unrestricted Linear Unrestricted Linear Linear = Refl
+substitutionAddInterchange Unrestricted Linear Unrestricted Linear Unrestricted = Refl
+substitutionAddInterchange Unrestricted Linear Unrestricted Unrestricted Erased = Refl
+substitutionAddInterchange Unrestricted Linear Unrestricted Unrestricted Linear = Refl
+substitutionAddInterchange Unrestricted Linear Unrestricted Unrestricted Unrestricted = Refl
+substitutionAddInterchange Unrestricted Unrestricted Erased Erased Erased = Refl
+substitutionAddInterchange Unrestricted Unrestricted Erased Erased Linear = Refl
+substitutionAddInterchange Unrestricted Unrestricted Erased Erased Unrestricted = Refl
+substitutionAddInterchange Unrestricted Unrestricted Erased Linear Erased = Refl
+substitutionAddInterchange Unrestricted Unrestricted Erased Linear Linear = Refl
+substitutionAddInterchange Unrestricted Unrestricted Erased Linear Unrestricted = Refl
+substitutionAddInterchange Unrestricted Unrestricted Erased Unrestricted Erased = Refl
+substitutionAddInterchange Unrestricted Unrestricted Erased Unrestricted Linear = Refl
+substitutionAddInterchange Unrestricted Unrestricted Erased Unrestricted Unrestricted = Refl
+substitutionAddInterchange Unrestricted Unrestricted Linear Erased Erased = Refl
+substitutionAddInterchange Unrestricted Unrestricted Linear Erased Linear = Refl
+substitutionAddInterchange Unrestricted Unrestricted Linear Erased Unrestricted = Refl
+substitutionAddInterchange Unrestricted Unrestricted Linear Linear Erased = Refl
+substitutionAddInterchange Unrestricted Unrestricted Linear Linear Linear = Refl
+substitutionAddInterchange Unrestricted Unrestricted Linear Linear Unrestricted = Refl
+substitutionAddInterchange Unrestricted Unrestricted Linear Unrestricted Erased = Refl
+substitutionAddInterchange Unrestricted Unrestricted Linear Unrestricted Linear = Refl
+substitutionAddInterchange Unrestricted Unrestricted Linear Unrestricted Unrestricted = Refl
+substitutionAddInterchange Unrestricted Unrestricted Unrestricted Erased Erased = Refl
+substitutionAddInterchange Unrestricted Unrestricted Unrestricted Erased Linear = Refl
+substitutionAddInterchange Unrestricted Unrestricted Unrestricted Erased Unrestricted = Refl
+substitutionAddInterchange Unrestricted Unrestricted Unrestricted Linear Erased = Refl
+substitutionAddInterchange Unrestricted Unrestricted Unrestricted Linear Linear = Refl
+substitutionAddInterchange Unrestricted Unrestricted Unrestricted Linear Unrestricted = Refl
+substitutionAddInterchange Unrestricted Unrestricted Unrestricted Unrestricted Erased = Refl
+substitutionAddInterchange Unrestricted Unrestricted Unrestricted Unrestricted Linear = Refl
+substitutionAddInterchange Unrestricted Unrestricted Unrestricted Unrestricted Unrestricted = Refl
+
+||| Scaling a substituted demand commutes with charging the scaled coefficient.
+public export
+substitutionScaleInterchange : (q, a, b, w : Quantity) ->
+  multiply q (add a (multiply b w)) =
+  add (multiply q a) (multiply (multiply q b) w)
+substitutionScaleInterchange Erased Erased Erased Erased = Refl
+substitutionScaleInterchange Erased Erased Erased Linear = Refl
+substitutionScaleInterchange Erased Erased Erased Unrestricted = Refl
+substitutionScaleInterchange Erased Erased Linear Erased = Refl
+substitutionScaleInterchange Erased Erased Linear Linear = Refl
+substitutionScaleInterchange Erased Erased Linear Unrestricted = Refl
+substitutionScaleInterchange Erased Erased Unrestricted Erased = Refl
+substitutionScaleInterchange Erased Erased Unrestricted Linear = Refl
+substitutionScaleInterchange Erased Erased Unrestricted Unrestricted = Refl
+substitutionScaleInterchange Erased Linear Erased Erased = Refl
+substitutionScaleInterchange Erased Linear Erased Linear = Refl
+substitutionScaleInterchange Erased Linear Erased Unrestricted = Refl
+substitutionScaleInterchange Erased Linear Linear Erased = Refl
+substitutionScaleInterchange Erased Linear Linear Linear = Refl
+substitutionScaleInterchange Erased Linear Linear Unrestricted = Refl
+substitutionScaleInterchange Erased Linear Unrestricted Erased = Refl
+substitutionScaleInterchange Erased Linear Unrestricted Linear = Refl
+substitutionScaleInterchange Erased Linear Unrestricted Unrestricted = Refl
+substitutionScaleInterchange Erased Unrestricted Erased Erased = Refl
+substitutionScaleInterchange Erased Unrestricted Erased Linear = Refl
+substitutionScaleInterchange Erased Unrestricted Erased Unrestricted = Refl
+substitutionScaleInterchange Erased Unrestricted Linear Erased = Refl
+substitutionScaleInterchange Erased Unrestricted Linear Linear = Refl
+substitutionScaleInterchange Erased Unrestricted Linear Unrestricted = Refl
+substitutionScaleInterchange Erased Unrestricted Unrestricted Erased = Refl
+substitutionScaleInterchange Erased Unrestricted Unrestricted Linear = Refl
+substitutionScaleInterchange Erased Unrestricted Unrestricted Unrestricted = Refl
+substitutionScaleInterchange Linear Erased Erased Erased = Refl
+substitutionScaleInterchange Linear Erased Erased Linear = Refl
+substitutionScaleInterchange Linear Erased Erased Unrestricted = Refl
+substitutionScaleInterchange Linear Erased Linear Erased = Refl
+substitutionScaleInterchange Linear Erased Linear Linear = Refl
+substitutionScaleInterchange Linear Erased Linear Unrestricted = Refl
+substitutionScaleInterchange Linear Erased Unrestricted Erased = Refl
+substitutionScaleInterchange Linear Erased Unrestricted Linear = Refl
+substitutionScaleInterchange Linear Erased Unrestricted Unrestricted = Refl
+substitutionScaleInterchange Linear Linear Erased Erased = Refl
+substitutionScaleInterchange Linear Linear Erased Linear = Refl
+substitutionScaleInterchange Linear Linear Erased Unrestricted = Refl
+substitutionScaleInterchange Linear Linear Linear Erased = Refl
+substitutionScaleInterchange Linear Linear Linear Linear = Refl
+substitutionScaleInterchange Linear Linear Linear Unrestricted = Refl
+substitutionScaleInterchange Linear Linear Unrestricted Erased = Refl
+substitutionScaleInterchange Linear Linear Unrestricted Linear = Refl
+substitutionScaleInterchange Linear Linear Unrestricted Unrestricted = Refl
+substitutionScaleInterchange Linear Unrestricted Erased Erased = Refl
+substitutionScaleInterchange Linear Unrestricted Erased Linear = Refl
+substitutionScaleInterchange Linear Unrestricted Erased Unrestricted = Refl
+substitutionScaleInterchange Linear Unrestricted Linear Erased = Refl
+substitutionScaleInterchange Linear Unrestricted Linear Linear = Refl
+substitutionScaleInterchange Linear Unrestricted Linear Unrestricted = Refl
+substitutionScaleInterchange Linear Unrestricted Unrestricted Erased = Refl
+substitutionScaleInterchange Linear Unrestricted Unrestricted Linear = Refl
+substitutionScaleInterchange Linear Unrestricted Unrestricted Unrestricted = Refl
+substitutionScaleInterchange Unrestricted Erased Erased Erased = Refl
+substitutionScaleInterchange Unrestricted Erased Erased Linear = Refl
+substitutionScaleInterchange Unrestricted Erased Erased Unrestricted = Refl
+substitutionScaleInterchange Unrestricted Erased Linear Erased = Refl
+substitutionScaleInterchange Unrestricted Erased Linear Linear = Refl
+substitutionScaleInterchange Unrestricted Erased Linear Unrestricted = Refl
+substitutionScaleInterchange Unrestricted Erased Unrestricted Erased = Refl
+substitutionScaleInterchange Unrestricted Erased Unrestricted Linear = Refl
+substitutionScaleInterchange Unrestricted Erased Unrestricted Unrestricted = Refl
+substitutionScaleInterchange Unrestricted Linear Erased Erased = Refl
+substitutionScaleInterchange Unrestricted Linear Erased Linear = Refl
+substitutionScaleInterchange Unrestricted Linear Erased Unrestricted = Refl
+substitutionScaleInterchange Unrestricted Linear Linear Erased = Refl
+substitutionScaleInterchange Unrestricted Linear Linear Linear = Refl
+substitutionScaleInterchange Unrestricted Linear Linear Unrestricted = Refl
+substitutionScaleInterchange Unrestricted Linear Unrestricted Erased = Refl
+substitutionScaleInterchange Unrestricted Linear Unrestricted Linear = Refl
+substitutionScaleInterchange Unrestricted Linear Unrestricted Unrestricted = Refl
+substitutionScaleInterchange Unrestricted Unrestricted Erased Erased = Refl
+substitutionScaleInterchange Unrestricted Unrestricted Erased Linear = Refl
+substitutionScaleInterchange Unrestricted Unrestricted Erased Unrestricted = Refl
+substitutionScaleInterchange Unrestricted Unrestricted Linear Erased = Refl
+substitutionScaleInterchange Unrestricted Unrestricted Linear Linear = Refl
+substitutionScaleInterchange Unrestricted Unrestricted Linear Unrestricted = Refl
+substitutionScaleInterchange Unrestricted Unrestricted Unrestricted Erased = Refl
+substitutionScaleInterchange Unrestricted Unrestricted Unrestricted Linear = Refl
+substitutionScaleInterchange Unrestricted Unrestricted Unrestricted Unrestricted = Refl
+
+||| Each branch's bound is below the bound formed from joined source demands.
+||| This is an inequality, not the false exact graded substitution formula.
+public export
+substitutionJoinBound : (a, b, c, d, w : Quantity) ->
+  DemandLeq (joinQuantity (add a (multiply b w)) (add c (multiply d w)))
+            (add (joinQuantity a c) (multiply (joinQuantity b d) w))
+substitutionJoinBound a b c d w =
+  rewrite joinAllows (add (joinQuantity a c) (multiply (joinQuantity b d) w))
+    (add a (multiply b w)) (add c (multiply d w)) in
+  rewrite addMonotone a (joinQuantity a c) (multiply b w) (multiply (joinQuantity b d) w)
+    (joinUpperLeft a c) (multiplyMonotone b (joinQuantity b d) w w (joinUpperLeft b d) (demandRefl w)) in
+  addMonotone c (joinQuantity a c) (multiply d w) (multiply (joinQuantity b d) w)
+    (joinUpperRight a c) (multiplyMonotone d (joinQuantity b d) w w (joinUpperRight b d) (demandRefl w))
+
+||| Pointwise sequential interchange for a shared replacement demand.
+public export
+substitutionCombineUsage : (a, c, w : Usage n) -> (b, d : Quantity) ->
+  combineUsage (combineUsage a (scaleUsage b w)) (combineUsage c (scaleUsage d w)) =
+  combineUsage (combineUsage a c) (scaleUsage (add b d) w)
+substitutionCombineUsage [] [] [] b d = Refl
+substitutionCombineUsage (a :: as) (c :: cs) (w :: ws) b d =
+  rewrite substitutionAddInterchange a b c d w in
+  cong (add (add a c) (multiply (add b d) w) ::) (substitutionCombineUsage as cs ws b d)
+
+||| Pointwise application scaling interchange.
+public export
+substitutionScaleUsage : (q, b : Quantity) -> (a, w : Usage n) ->
+  scaleUsage q (combineUsage a (scaleUsage b w)) =
+  combineUsage (scaleUsage q a) (scaleUsage (multiply q b) w)
+substitutionScaleUsage q b [] [] = Refl
+substitutionScaleUsage q b (a :: as) (w :: ws) =
+  rewrite substitutionScaleInterchange q a b w in
+  cong (add (multiply q a) (multiply (multiply q b) w) ::) (substitutionScaleUsage q b as ws)
+
+||| Pointwise branch bound used by the conditional substitution case.
+public export
+substitutionJoinUsageBound : (a, c, w : Usage n) -> (b, d : Quantity) ->
+  Admits (combineUsage (joinUsage a c) (scaleUsage (joinQuantity b d) w))
+         (joinUsage (combineUsage a (scaleUsage b w)) (combineUsage c (scaleUsage d w)))
+substitutionJoinUsageBound [] [] [] b d = AdmitNil
+substitutionJoinUsageBound (a :: as) (c :: cs) (w :: ws) b d =
+  AdmitCons (substitutionJoinBound a b c d w) (substitutionJoinUsageBound as cs ws b d)
+
 public export
 data UsageError
   = BinderMismatch Quantity Quantity

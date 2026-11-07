@@ -379,9 +379,16 @@ multiplication and join, and both join upper bounds are checked exhaustively.
 of vector addition, scaling and join, and vector join upper bounds. The
 `SingleSubstitution` deletion path represents a replacement under an arbitrary
 retained prefix, and `singleSubstitutionUnder` checks its lifting equation.
-The remaining distributive/interchange bounds, substitution/renaming
-commutation, internal derivation construction and exact binder-preservation
-induction are not established.
+The path projections `deletedDemand` and `retainedDemand` split a source
+usage, and `replacementDemand` clears the retained prefix; `deletedCombine`
+and `retainedCombine` commute with sequential composition. The checked scalar
+`substitutionAddInterchange` and `substitutionScaleInterchange` provide the
+sequential and application arithmetic, lifted pointwise by
+`substitutionCombineUsage` and `substitutionScaleUsage`. `substitutionJoinUsageBound` proves
+that joining separately charged branches is admitted by the joined source
+bound, even when their deleted coefficients differ. These results do not yet
+construct substituted derivations: path laws for scale and join, substitution/renaming commutation, and the constructor
+induction including binders remain open.
 Consequently neither validity nor a counterexample for the full theorem is
 claimed by this intermediate result.
 

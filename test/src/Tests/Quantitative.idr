@@ -272,3 +272,24 @@ nestedBoundVariable :
     (SubstituteHere (the (Term [UnitTy] UnitTy) (Ref Here)))) Here =
     the (Term [BoolTy, UnitTy] BoolTy) (Ref Here)
 nestedBoundVariable = Refl
+
+-- The deletion path projects through two retained binders, and the replacement
+-- contributes nothing at those binders even when its ambient row is nonzero.
+nestedDeletedDemand :
+  deletedDemand (SubstituteUnder (SubstituteUnder (SubstituteHere (Boolean True))))
+    [Linear, Erased, Unrestricted, Linear] = Unrestricted
+nestedDeletedDemand = Refl
+
+nestedRetainedDemand :
+  retainedDemand (SubstituteUnder (SubstituteUnder (SubstituteHere (Boolean True))))
+    [Linear, Erased, Unrestricted, Linear] = [Linear, Erased, Linear]
+nestedRetainedDemand = Refl
+
+nestedReplacementDemand :
+  replacementDemand (SubstituteUnder (SubstituteUnder (SubstituteHere (Boolean True))))
+    [Linear, Unrestricted, Linear] = [Erased, Erased, Linear]
+nestedReplacementDemand = Refl
+
+branchSubstitutionBound :
+  Admits [Unrestricted] (joinUsage [Linear] [Erased])
+branchSubstitutionBound = substitutionJoinUsageBound [Erased] [Erased] [Linear] Linear Erased
