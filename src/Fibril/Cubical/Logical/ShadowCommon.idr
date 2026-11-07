@@ -1238,3 +1238,69 @@ higherOrderTermSemantics (HOLambda ctx a b body) = commonCurry (higherOrderTermS
 higherOrderTermSemantics (HOApplication ctx a b f x) = commonApply (higherOrderTermSemantics f) (higherOrderTermSemantics x)
 higherOrderTermSemantics (HOUnitElim ctx a x body) = commonUnitElimination (higherOrderTermSemantics x) (higherOrderTermSemantics body)
 higherOrderTermSemantics (HOIf ctx a c t f) = commonIf (higherOrderTermSemantics c) (higherOrderTermSemantics t) (higherOrderTermSemantics f)
+
+||| Dimensions use equality, not a Boolean approximation of the four-pair model.
+public export
+commonDMSetoid : CommonSetoid
+commonDMSetoid = MkCommonSetoid DM (\x, y => x = y) (\x => Refl) (\p => sym p) (\p, q => trans p q)
+
+||| Named paths are independent values, retained unchanged under ordinary binders.
+public export
+commonPathEnvironmentSetoid : Vect k LogicalType -> CommonSetoid
+commonPathEnvironmentSetoid [] = commonUnitSetoid
+commonPathEnvironmentSetoid (a :: paths) = commonProductSetoid
+  (commonArrowSetoid commonDMSetoid (commonTypeSetoid a)) (commonPathEnvironmentSetoid paths)
+
+public export
+commonPathEnvironmentLookup : (paths : Vect k LogicalType) -> (a : LogicalType) ->
+  LogicalVar paths a -> CommonMorphism (commonPathEnvironmentSetoid paths) (commonArrowSetoid Fibril.Cubical.Logical.ShadowCommon.commonDMSetoid (commonTypeSetoid a))
+commonPathEnvironmentLookup (a :: paths) a LHere = MkCommonMorphism fst fst
+commonPathEnvironmentLookup (b :: paths) a (LThere v) = MkCommonMorphism
+  (\env => applyMorphism (commonPathEnvironmentLookup paths a v) (snd env))
+  (\rel => respectsRelation (commonPathEnvironmentLookup paths a v) (snd rel))
+
+||| Runtime evidence for the particular erased path typing derivation.
+public export
+data HigherOrderPathTerm : (ctx : Vect n LogicalType) -> (paths : Vect k LogicalType) ->
+  (a : LogicalType) -> (d : Nat) -> {0 t : CommonPathTerm n k d} ->
+  (0 typing : CommonPathHasType ctx paths t a) -> Type where
+  HOPOrdinary : (ctx : Vect n LogicalType) -> (paths : Vect k LogicalType) -> (a : LogicalType) -> (d : Nat) ->
+    {0 ty : CommonHasType ctx t a} -> HigherOrderTerm ctx a ty -> HigherOrderPathTerm ctx paths a d (CPOrdinaryType ty)
+  HOPAt : (ctx : Vect n LogicalType) -> (paths : Vect k LogicalType) -> (a : LogicalType) -> (d : Nat) ->
+    (p : LogicalVar paths a) -> (i : ScopedInterval d) -> HigherOrderPathTerm ctx paths a d (CPAtType {i} p)
+  HOPLambda : (ctx : Vect n LogicalType) -> (paths : Vect k LogicalType) -> (a, b : LogicalType) -> (d : Nat) ->
+    {0 t : CommonPathTerm (S n) k d} -> {0 body : CommonPathHasType (a :: ctx) paths t b} -> HigherOrderPathTerm (a :: ctx) paths b d body ->
+    HigherOrderPathTerm ctx paths (LArrow a b) d (CPLamType body)
+  HOPApplication : (ctx : Vect n LogicalType) -> (paths : Vect k LogicalType) -> (a, b : LogicalType) -> (d : Nat) ->
+    {0 ft, xt : CommonPathTerm n k d} -> {0 f : CommonPathHasType ctx paths ft (LArrow a b)} -> {0 x : CommonPathHasType ctx paths xt a} ->
+    HigherOrderPathTerm ctx paths (LArrow a b) d f -> HigherOrderPathTerm ctx paths a d x ->
+    HigherOrderPathTerm ctx paths b d (CPAppType f x)
+  HOPUnitElim : (ctx : Vect n LogicalType) -> (paths : Vect k LogicalType) -> (a : LogicalType) -> (d : Nat) ->
+    {0 xt, bt : CommonPathTerm n k d} -> {0 x : CommonPathHasType ctx paths xt LUnit} -> {0 b : CommonPathHasType ctx paths bt a} ->
+    HigherOrderPathTerm ctx paths LUnit d x -> HigherOrderPathTerm ctx paths a d b ->
+    HigherOrderPathTerm ctx paths a d (CPUnitElimType x b)
+  HOPIf : (ctx : Vect n LogicalType) -> (paths : Vect k LogicalType) -> (a : LogicalType) -> (d : Nat) ->
+    {0 ct, tt, ft : CommonPathTerm n k d} -> {0 c : CommonPathHasType ctx paths ct LBool} -> {0 t : CommonPathHasType ctx paths tt a} -> {0 f : CommonPathHasType ctx paths ft a} ->
+    HigherOrderPathTerm ctx paths LBool d c -> HigherOrderPathTerm ctx paths a d t -> HigherOrderPathTerm ctx paths a d f ->
+    HigherOrderPathTerm ctx paths a d (CPIfType c t f)
+
+||| Interpret in the product of the ordinary and independent named-path environments.
+public export
+higherOrderPathSemantics : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} -> {a : LogicalType} -> {d : Nat} ->
+  {0 t : CommonPathTerm n k d} -> {0 typing : CommonPathHasType ctx paths t a} -> HigherOrderPathTerm ctx paths a d typing -> (Fin d -> DM) ->
+  CommonMorphism (commonProductSetoid (commonEnvironmentSetoid ctx) (commonPathEnvironmentSetoid paths)) (commonTypeSetoid a)
+higherOrderPathSemantics (HOPOrdinary ctx paths a d w) valuation = MkCommonMorphism
+  (\env => applyMorphism (higherOrderTermSemantics w) (fst env))
+  (\rel => respectsRelation (higherOrderTermSemantics w) (fst rel))
+higherOrderPathSemantics (HOPAt ctx paths a d p i) valuation = MkCommonMorphism
+  (\env => applyMorphism (applyMorphism (commonPathEnvironmentLookup paths a p) (snd env)) (evalDMVal valuation i))
+  (\rel => respectsRelation (commonPathEnvironmentLookup paths a p) (snd rel) _ _ Refl)
+higherOrderPathSemantics (HOPLambda ctx paths a b d body) valuation = commonCurry $ MkCommonMorphism
+  (\env => applyMorphism (higherOrderPathSemantics body valuation) ((fst env, fst (snd env)), snd (snd env)))
+  (\{x}, {y}, rel => respectsRelation (higherOrderPathSemantics body valuation) {x = ((fst x, fst (snd x)), snd (snd x))} {y = ((fst y, fst (snd y)), snd (snd y))} ((fst rel, fst (snd rel)), snd (snd rel)))
+higherOrderPathSemantics (HOPApplication ctx paths a b d f x) valuation =
+  commonApply (higherOrderPathSemantics f valuation) (higherOrderPathSemantics x valuation)
+higherOrderPathSemantics (HOPUnitElim ctx paths a d x b) valuation =
+  commonUnitElimination (higherOrderPathSemantics x valuation) (higherOrderPathSemantics b valuation)
+higherOrderPathSemantics (HOPIf ctx paths a d c t f) valuation =
+  commonIf (higherOrderPathSemantics c valuation) (higherOrderPathSemantics t valuation) (higherOrderPathSemantics f valuation)

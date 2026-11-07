@@ -585,3 +585,19 @@ for fixture in HigherOrderWrongType HigherOrderWrongContext HigherOrderWrongDeri
   fi
 done
 echo 'Higher-order witness wrong type, context and derivation tests passed.'
+for fixture in HigherOrderPathWrongContext HigherOrderPathWrongType HigherOrderPathWrongDimension; do
+  "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1 || true
+  case "$fixture" in
+    HigherOrderPathWrongContext) expected='Mismatch between: LUnit and LBool.' ;;
+    HigherOrderPathWrongType) expected='Mismatch between: LUnit and LBool.' ;;
+    HigherOrderPathWrongDimension) expected='Mismatch between: FS FZ and FZ.' ;;
+  esac
+  if [[ $(grep -c '^Error:' "$tmp/$fixture.log") -ne 1 ]] ||
+     ! grep -Fq 'Error: While processing right hand side of bad. When unifying:' "$tmp/$fixture.log" ||
+     ! grep -Fq "$expected" "$tmp/$fixture.log" ||
+     grep -Eq 'Undefined name|While processing type of' "$tmp/$fixture.log"; then
+    echo "Higher-order path witness negative test failed: $fixture" >&2
+    cat "$tmp/$fixture.log" >&2; exit 1
+  fi
+done
+echo 'Higher-order path wrong context, type and dimension tests passed.'

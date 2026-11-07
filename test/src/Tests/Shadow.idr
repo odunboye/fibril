@@ -1600,3 +1600,73 @@ higherOrderUnitElim = HOUnitElim [] LBool (HOUnit []) (HOBool [] True)
 
 higherOrderUnitElimResult : applyMorphism (higherOrderTermSemantics Tests.Shadow.higherOrderUnitElim) () = True
 higherOrderUnitElimResult = Refl
+
+pathFirstComponent : CommonMorphism Fibril.Cubical.Logical.ShadowCommon.commonDMSetoid Fibril.Cubical.Logical.ShadowCommon.commonBoolSetoid
+pathFirstComponent = MkCommonMorphism fst (\Refl => Refl)
+
+pathVariable : HigherOrderPathTerm [] [LBool] LBool 1 (CPAtType {i = Var FZ} LHere)
+pathVariable = HOPAt [] [LBool] LBool 1 LHere (Var FZ)
+
+pathNonBoolean : applyMorphism (higherOrderPathSemantics Tests.Shadow.pathVariable (\_ => (True, False)))
+  ((), (Tests.Shadow.pathFirstComponent, ())) = True
+pathNonBoolean = Refl
+
+higherPathEndpoint : applyMorphism (higherOrderPathSemantics Tests.Shadow.pathVariable (\_ => (False, False)))
+  ((), (Tests.Shadow.pathFirstComponent, ())) = False
+higherPathEndpoint = Refl
+
+pathLinearIf : HigherOrderPathTerm [LBool] [LBool] LBool 1 (CPOrdinaryType (sourceCommonTyped Tests.Shadow.linearSource))
+pathLinearIf = HOPOrdinary [LBool] [LBool] LBool 1 Tests.Shadow.higherOrderLinearIf
+
+pathLinearIfResult : applyMorphism (higherOrderPathSemantics Tests.Shadow.pathLinearIf (\_ => (True, False)))
+  ((True, ()), (Tests.Shadow.pathFirstComponent, ())) = True
+pathLinearIfResult = Refl
+
+pathCaptured : HigherOrderPathTerm [LBool] [LBool] LBool 1
+  (CPAppType (CPLamType (CPIfType (CPAtType {i = Var FZ} LHere)
+    (CPOrdinaryType (CVariable (LThere LHere))) (CPOrdinaryType (CBoolType {b = False}))))
+    (CPOrdinaryType CUnitType))
+pathCaptured = HOPApplication [LBool] [LBool] LUnit LBool 1
+  (HOPLambda [LBool] [LBool] LUnit LBool 1
+    (HOPIf [LUnit, LBool] [LBool] LBool 1
+      (HOPAt [LUnit, LBool] [LBool] LBool 1 LHere (Var FZ))
+      (HOPOrdinary [LUnit, LBool] [LBool] LBool 1 (HOVar [LUnit, LBool] LBool (LThere LHere)))
+      (HOPOrdinary [LUnit, LBool] [LBool] LBool 1 (HOBool [LUnit, LBool] False))))
+  (HOPOrdinary [LBool] [LBool] LUnit 1 (HOUnit [LBool]))
+
+pathCapturedResult : applyMorphism (higherOrderPathSemantics Tests.Shadow.pathCaptured (\_ => (True, False)))
+  ((True, ()), (Tests.Shadow.pathFirstComponent, ())) = True
+pathCapturedResult = Refl
+
+pathArrowOne : CommonMorphism Fibril.Cubical.Logical.ShadowCommon.commonDMSetoid (commonTypeSetoid (LArrow LBool LBool))
+pathArrowOne = commonConstant Tests.Shadow.setoidIdentity
+
+pathArrowTwo : CommonMorphism Fibril.Cubical.Logical.ShadowCommon.commonDMSetoid (commonTypeSetoid (LArrow LBool LBool))
+pathArrowTwo = commonConstant Tests.Shadow.setoidConditionalIdentity
+
+pathArrowRelated : morphismsRelated Tests.Shadow.pathArrowOne Tests.Shadow.pathArrowTwo
+pathArrowRelated x x Refl = Tests.Shadow.setoidIdentityEquivalent
+
+pathArrowWitness : HigherOrderPathTerm [] [LArrow LBool LBool] (LArrow LBool LBool) 1
+  (CPLamType (CPAppType (CPAtType {i = Var FZ} LHere) (CPOrdinaryType (CVariable LHere))))
+pathArrowWitness = HOPLambda [] [LArrow LBool LBool] LBool LBool 1
+  (HOPApplication [LBool] [LArrow LBool LBool] LBool LBool 1
+    (HOPAt [LBool] [LArrow LBool LBool] (LArrow LBool LBool) 1 LHere (Var FZ))
+    (HOPOrdinary [LBool] [LArrow LBool LBool] LBool 1 (HOVar [LBool] LBool LHere)))
+
+pathArrowSemanticRelated : related (commonTypeSetoid (LArrow LBool LBool))
+  (applyMorphism (higherOrderPathSemantics Tests.Shadow.pathArrowWitness (\_ => (True, False))) ((), (Tests.Shadow.pathArrowOne, ())))
+  (applyMorphism (higherOrderPathSemantics Tests.Shadow.pathArrowWitness (\_ => (True, False))) ((), (Tests.Shadow.pathArrowTwo, ())))
+pathArrowSemanticRelated = respectsRelation (higherOrderPathSemantics Tests.Shadow.pathArrowWitness (\_ => (True, False)))
+  {x = ((), (Tests.Shadow.pathArrowOne, ()))} {y = ((), (Tests.Shadow.pathArrowTwo, ()))}
+  (Refl, (Tests.Shadow.pathArrowRelated, Refl))
+
+pathUnitElimination : HigherOrderPathTerm [] [LBool] LBool 1
+  (CPUnitElimType (CPOrdinaryType CUnitType) (CPAtType {i = Var FZ} LHere))
+pathUnitElimination = HOPUnitElim [] [LBool] LBool 1
+  (HOPOrdinary [] [LBool] LUnit 1 (HOUnit []))
+  (HOPAt [] [LBool] LBool 1 LHere (Var FZ))
+
+pathUnitEliminationResult : applyMorphism (higherOrderPathSemantics Tests.Shadow.pathUnitElimination (\_ => (True, False)))
+  ((), (Tests.Shadow.pathFirstComponent, ())) = True
+pathUnitEliminationResult = Refl

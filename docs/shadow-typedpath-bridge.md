@@ -232,3 +232,14 @@ This is not a path interpreter or a semantic soundness theorem, nor does it
 establish derivation coherence, endpoint admissibility, runtime behavior,
 ownership, or a general HoTT or cubical model. The existing first-order path
 interpretation remains separate.
+
+`HigherOrderPathTerm ctx paths type dimensions typing` is an explicit witness
+indexed by the actual erased `CommonPathHasType` derivation; it cannot be
+recovered by inspecting erased typing evidence. Its semantics is an extensional
+morphism on the product of the ordinary environment and a named-path
+environment. Each path is an extensional morphism from the equality setoid on
+four-pair `DM` to the result type setoid. The path environment is independent
+of the ordinary environment and is retained unchanged when a lambda extends
+that environment. `CPAt` uses `evalDMVal` at the supplied valuation. This is an
+interpretation only: declaration admissibility and face-equality soundness for
+higher-order paths are not established here.
