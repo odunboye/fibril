@@ -148,3 +148,18 @@ for negative in ScopedSyntaxDimensionEscape ScopedSyntaxTermEscape; do
   fi
 done
 echo 'Uniform syntax scope escape negative tests passed.'
+for fixture in TypedPathBadEndpoint TypedPathNonDimension TypedPathAnnotation TypedPathScope; do
+  case $fixture in
+    TypedPathBadEndpoint) expected='Mismatch between: FS FZ and FZ.' ;;
+    TypedPathNonDimension) expected='Mismatch between: Bool and Interval' ;;
+    TypedPathAnnotation) expected='Mismatch between: Universe and Path' ;;
+    TypedPathScope) expected='Mismatch between: S ?k and 0.' ;;
+  esac
+  "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1 || true
+  if ! grep -Fq 'Error: While processing' "$tmp/$fixture.log" || ! grep -Fq "$expected" "$tmp/$fixture.log"; then
+    echo "Negative typed-path test $fixture failed for an unrelated reason:" >&2
+    cat "$tmp/$fixture.log" >&2
+    exit 1
+  fi
+done
+echo 'Typed path boundary, annotation, dimension and scope negative tests passed.'
