@@ -861,17 +861,22 @@ commutes with this translation. The later declared path bridge translates
 declarations, face-restricted equalities, path abstractions and their boundaries;
 see `shadow-typedpath-bridge.md` for its exact scope and its pairing with the
 single-deletion quantitative theorem. It does not connect general common terms
-to the TypedPath checker or independently substitute common syntax.
+to the TypedPath checker.
 
-### Independent common syntax operations (limited)
+### Independent common syntax operations
 
-`renameCommon` and `substituteCommon` operate structurally on `CommonTerm`;
-`substituteCommonPath` extends ordinary substitution to path bodies while
-leaving named paths and dimensions unchanged. Under a lambda the bound index
-stays zero and substitution images are weakened. These functions accept
-arbitrary finite-indexed environments: they do **not** by themselves establish
-that an environment preserves `CommonHasType`. Generic typing preservation and
-commutation with logical substitution have not been proved. In particular no
-substitution preservation theorem for declarations, faces or path judgments is
-claimed. The concrete tests check a typed linear source and binder capture, not
-a quantitative preservation theorem for common substitution.
+`renameCommonTyped` and `substituteCommonTyped` prove typing preservation for
+arbitrary common terms given `CommonRenamingTyped` and
+`CommonSubstitutionTyped` respectively. These relations require each actual
+indexed variable to retain its source type; `commonVarLookup` connects its
+witness to `Vect` lookup. Binder lifting is proved by
+`liftCommonRenamingTyped` and `liftCommonSubstitutionTyped`, including
+weakening substitution images. `renameCommonPathTyped` and
+`substituteCommonPathTyped` extend this to path bodies with named paths and
+dimensions unchanged. Fin indices enforce exact scope.
+
+These are purely logical theorems and provide no quantitative usage guarantee.
+Commutation of independent common substitution with logical substitution has
+not been proved; the existing source commutation only concerns translation into
+logical substitution. No substitution preservation theorem for declarations,
+faces or path equality judgments is claimed.

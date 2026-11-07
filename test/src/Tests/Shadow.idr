@@ -854,3 +854,24 @@ commonMixedCompoundResult :
   CPLam (CPApp (CPOrdinary (CLam (CIf (CVar FZ) (CVar (FS (FS FZ))) (CBool False))))
     (CPAt FZ (Meet (Var FZ) (Reverse (Var (FS FZ))))) )
 commonMixedCompoundResult = Refl
+
+commonCompoundEnvironment : CommonSubstitutionTyped [LArrow LBool LBool] [LBool] Tests.Shadow.commonCompoundImage
+commonCompoundEnvironment LHere = CLambdaType (CConditionalType (CVariable LHere) (CVariable (LThere LHere)) CBoolType)
+
+commonCompoundPreservation : CommonHasType [LBool]
+  (substituteCommon Tests.Shadow.commonCompoundImage
+    (the (CommonTerm 1) (CLam (CApp (CVar (FS FZ)) (CVar FZ))))) (LArrow LBool LBool)
+commonCompoundPreservation = substituteCommonTyped Tests.Shadow.commonCompoundImage
+  Tests.Shadow.commonCompoundEnvironment (CLambdaType (CApplicationType (CVariable (LThere LHere)) (CVariable LHere)))
+
+commonTrueEnvironment : CommonSubstitutionTyped [LBool] [] Tests.Shadow.commonTrueImage
+commonTrueEnvironment LHere = CBoolType
+
+commonLinearPreservation : CommonHasType []
+  (substituteCommon Tests.Shadow.commonTrueImage (commonTerm (shadowTerm Tests.Shadow.linearSource))) LBool
+commonLinearPreservation = substituteCommonTyped Tests.Shadow.commonTrueImage Tests.Shadow.commonTrueEnvironment (sourceCommonTyped Tests.Shadow.linearSource)
+
+commonPathCompoundPreservation : CommonPathHasType [LBool] [LBool]
+  (substituteCommonPath Tests.Shadow.commonCompoundImage Tests.Shadow.commonMixedBody) (LArrow LBool LBool)
+commonPathCompoundPreservation = substituteCommonPathTyped Tests.Shadow.commonCompoundImage Tests.Shadow.commonCompoundEnvironment
+  (CPLamType (CPAppType (CPOrdinaryType (CVariable (LThere LHere))) (CPAtType LHere)))

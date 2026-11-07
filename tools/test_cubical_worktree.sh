@@ -74,6 +74,17 @@ for fixture in ShadowCommonWrongType ShadowCommonWrongContext; do
   fi
 done
 echo 'Common judgment wrong type and context negative tests passed.'
+for fixture in ShadowCommonImageWrongType ShadowCommonImageWrongContext; do
+  "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1 || true
+  if [[ $(grep -c '^Error:' "$tmp/$fixture.log") -ne 1 ]] ||
+     ! grep -Fq 'Error: While processing right hand side of bad.' "$tmp/$fixture.log" ||
+     ! grep -Eq 'Mismatch between: (LBool and LUnit|LUnit and LBool)\.' "$tmp/$fixture.log" ||
+     grep -Eq 'Undefined name|While processing type of' "$tmp/$fixture.log"; then
+    echo "Common image negative test failed: $fixture" >&2
+    cat "$tmp/$fixture.log" >&2; exit 1
+  fi
+done
+echo 'Common substitution image wrong type and context negative tests passed.'
 fixture=ShadowCommonSubstitutionWrongScope
 "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1 || true
 if [[ $(grep -c '^Error:' "$tmp/$fixture.log") -ne 1 ]] ||

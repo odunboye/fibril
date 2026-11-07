@@ -62,7 +62,7 @@ substituteCommon sigma (CUnitElim x b) = CUnitElim (substituteCommon sigma x) (s
 substituteCommon sigma (CIf c t f) = CIf (substituteCommon sigma c) (substituteCommon sigma t) (substituteCommon sigma f)
 
 public export
-data CommonHasType : Vect n LogicalType -> CommonTerm n -> LogicalType -> Type where
+data CommonHasType : (0 ctx : Vect n LogicalType) -> CommonTerm n -> (0 ty : LogicalType) -> Type where
   CVariable : (v : LogicalVar ctx a) -> CommonHasType ctx (CVar (variableIndex v)) a
   CUnitType : CommonHasType ctx CUnit LUnit
   CBoolType : CommonHasType ctx (CBool b) LBool
@@ -70,6 +70,68 @@ data CommonHasType : Vect n LogicalType -> CommonTerm n -> LogicalType -> Type w
   CApplicationType : CommonHasType ctx f (LArrow a b) -> CommonHasType ctx x a -> CommonHasType ctx (CApp f x) b
   CUnitEliminationType : CommonHasType ctx x LUnit -> CommonHasType ctx body a -> CommonHasType ctx (CUnitElim x body) a
   CConditionalType : CommonHasType ctx c LBool -> CommonHasType ctx t a -> CommonHasType ctx f a -> CommonHasType ctx (CIf c t f) a
+
+||| An indexed environment preserves the type of each actual variable.
+public export
+CommonRenamingTyped : {0 n, m : Nat} -> (0 source : Vect n LogicalType) -> (0 target : Vect m LogicalType) -> (Fin n -> Fin m) -> Type
+CommonRenamingTyped source target rho = {0 a : LogicalType} -> (v : LogicalVar source a) -> (w : LogicalVar target a ** variableIndex w = rho (variableIndex v))
+
+||| Every scoped index has a variable witness at its Vect lookup type.
+public export
+commonVarAt : (ctx : Vect n LogicalType) -> (i : Fin n) -> LogicalVar ctx (index i ctx)
+commonVarAt (a :: ctx) FZ = LHere
+commonVarAt (a :: ctx) (FS i) = LThere (commonVarAt ctx i)
+
+public export
+commonVarAtIndex : (ctx : Vect n LogicalType) -> (i : Fin n) -> variableIndex (commonVarAt ctx i) = i
+commonVarAtIndex (a :: ctx) FZ = Refl
+commonVarAtIndex (a :: ctx) (FS i) = cong FS (commonVarAtIndex ctx i)
+
+public export
+commonVarLookup : (v : LogicalVar ctx a) -> index (variableIndex v) ctx = a
+commonVarLookup LHere = Refl
+commonVarLookup (LThere v) = commonVarLookup v
+
+public export
+liftCommonRenamingTyped : CommonRenamingTyped source target rho -> CommonRenamingTyped (binder :: source) (binder :: target) (liftCommonRenaming rho)
+liftCommonRenamingTyped env LHere = (LHere ** Refl)
+liftCommonRenamingTyped env (LThere v) = let (w ** eq) = env v in (LThere w ** cong FS eq)
+
+public export
+renameCommonTyped : {0 source : Vect n LogicalType} -> {0 target : Vect m LogicalType} ->
+  (rho : Fin n -> Fin m) -> CommonRenamingTyped source target rho ->
+  CommonHasType source t a -> CommonHasType target (renameCommon rho t) a
+renameCommonTyped rho env (CVariable v) = let (w ** eq) = env v in rewrite sym eq in CVariable w
+renameCommonTyped rho env CUnitType = CUnitType
+renameCommonTyped rho env CBoolType = CBoolType
+renameCommonTyped rho env (CLambdaType b) = CLambdaType (renameCommonTyped (liftCommonRenaming rho) (liftCommonRenamingTyped env) b)
+renameCommonTyped rho env (CApplicationType f x) = CApplicationType (renameCommonTyped rho env f) (renameCommonTyped rho env x)
+renameCommonTyped rho env (CUnitEliminationType x b) = CUnitEliminationType (renameCommonTyped rho env x) (renameCommonTyped rho env b)
+renameCommonTyped rho env (CConditionalType c t f) = CConditionalType (renameCommonTyped rho env c) (renameCommonTyped rho env t) (renameCommonTyped rho env f)
+
+||| Each image has the type of the variable at its exact index.
+public export
+CommonSubstitutionTyped : {0 n, m : Nat} -> (0 source : Vect n LogicalType) -> (0 target : Vect m LogicalType) -> (Fin n -> CommonTerm m) -> Type
+CommonSubstitutionTyped source target sigma = {0 a : LogicalType} -> (v : LogicalVar source a) -> CommonHasType target (sigma (variableIndex v)) a
+
+public export
+liftCommonSubstitutionTyped : {0 source : Vect n LogicalType} -> {0 target : Vect m LogicalType} ->
+  (sigma : Fin n -> CommonTerm m) -> CommonSubstitutionTyped source target sigma ->
+  CommonSubstitutionTyped (binder :: source) (binder :: target) (liftCommonSubstitution sigma)
+liftCommonSubstitutionTyped sigma env LHere = CVariable LHere
+liftCommonSubstitutionTyped sigma env (LThere v) = renameCommonTyped FS (\w => (LThere w ** Refl)) (env v)
+
+public export
+substituteCommonTyped : {0 source : Vect n LogicalType} -> {0 target : Vect m LogicalType} ->
+  (sigma : Fin n -> CommonTerm m) -> CommonSubstitutionTyped source target sigma ->
+  CommonHasType source t a -> CommonHasType target (substituteCommon sigma t) a
+substituteCommonTyped sigma env (CVariable v) = env v
+substituteCommonTyped sigma env CUnitType = CUnitType
+substituteCommonTyped sigma env CBoolType = CBoolType
+substituteCommonTyped sigma env (CLambdaType b) = CLambdaType (substituteCommonTyped (liftCommonSubstitution sigma) (liftCommonSubstitutionTyped sigma env) b)
+substituteCommonTyped sigma env (CApplicationType f x) = CApplicationType (substituteCommonTyped sigma env f) (substituteCommonTyped sigma env x)
+substituteCommonTyped sigma env (CUnitEliminationType x b) = CUnitEliminationType (substituteCommonTyped sigma env x) (substituteCommonTyped sigma env b)
+substituteCommonTyped sigma env (CConditionalType c t f) = CConditionalType (substituteCommonTyped sigma env c) (substituteCommonTyped sigma env t) (substituteCommonTyped sigma env f)
 
 public export
 commonTerm : {0 ctx : Vect n LogicalType} -> LogicalTerm ctx a -> CommonTerm n
@@ -132,13 +194,44 @@ substituteCommonPath sigma (CPUnitElim x b) = CPUnitElim (substituteCommonPath s
 substituteCommonPath sigma (CPIf c t f) = CPIf (substituteCommonPath sigma c) (substituteCommonPath sigma t) (substituteCommonPath sigma f)
 
 public export
-data CommonPathHasType : Vect n LogicalType -> Vect k LogicalType -> CommonPathTerm n k d -> LogicalType -> Type where
+data CommonPathHasType : (0 ctx : Vect n LogicalType) -> (0 paths : Vect k LogicalType) -> CommonPathTerm n k d -> (0 ty : LogicalType) -> Type where
   CPOrdinaryType : CommonHasType ctx t a -> CommonPathHasType ctx paths (CPOrdinary t) a
   CPAtType : (p : LogicalVar paths a) -> CommonPathHasType ctx paths (CPAt (variableIndex p) i) a
   CPLamType : CommonPathHasType (a :: ctx) paths b c -> CommonPathHasType ctx paths (CPLam b) (LArrow a c)
   CPAppType : CommonPathHasType ctx paths f (LArrow a b) -> CommonPathHasType ctx paths x a -> CommonPathHasType ctx paths (CPApp f x) b
   CPUnitElimType : CommonPathHasType ctx paths x LUnit -> CommonPathHasType ctx paths b a -> CommonPathHasType ctx paths (CPUnitElim x b) a
   CPIfType : CommonPathHasType ctx paths c LBool -> CommonPathHasType ctx paths t a -> CommonPathHasType ctx paths f a -> CommonPathHasType ctx paths (CPIf c t f) a
+
+public export
+renameCommonPath : (Fin n -> Fin m) -> CommonPathTerm n k d -> CommonPathTerm m k d
+renameCommonPath rho (CPOrdinary t) = CPOrdinary (renameCommon rho t)
+renameCommonPath rho (CPAt p i) = CPAt p i
+renameCommonPath rho (CPLam b) = CPLam (renameCommonPath (liftCommonRenaming rho) b)
+renameCommonPath rho (CPApp f x) = CPApp (renameCommonPath rho f) (renameCommonPath rho x)
+renameCommonPath rho (CPUnitElim x b) = CPUnitElim (renameCommonPath rho x) (renameCommonPath rho b)
+renameCommonPath rho (CPIf c t f) = CPIf (renameCommonPath rho c) (renameCommonPath rho t) (renameCommonPath rho f)
+
+public export
+renameCommonPathTyped : {0 source : Vect n LogicalType} -> {0 target : Vect m LogicalType} ->
+  (rho : Fin n -> Fin m) -> CommonRenamingTyped source target rho ->
+  CommonPathHasType source paths t a -> CommonPathHasType target paths (renameCommonPath rho t) a
+renameCommonPathTyped rho env (CPOrdinaryType t) = CPOrdinaryType (renameCommonTyped rho env t)
+renameCommonPathTyped rho env (CPAtType p) = CPAtType p
+renameCommonPathTyped rho env (CPLamType b) = CPLamType (renameCommonPathTyped (liftCommonRenaming rho) (liftCommonRenamingTyped env) b)
+renameCommonPathTyped rho env (CPAppType f x) = CPAppType (renameCommonPathTyped rho env f) (renameCommonPathTyped rho env x)
+renameCommonPathTyped rho env (CPUnitElimType x b) = CPUnitElimType (renameCommonPathTyped rho env x) (renameCommonPathTyped rho env b)
+renameCommonPathTyped rho env (CPIfType c t f) = CPIfType (renameCommonPathTyped rho env c) (renameCommonPathTyped rho env t) (renameCommonPathTyped rho env f)
+
+public export
+substituteCommonPathTyped : {0 source : Vect n LogicalType} -> {0 target : Vect m LogicalType} ->
+  (sigma : Fin n -> CommonTerm m) -> CommonSubstitutionTyped source target sigma ->
+  CommonPathHasType source paths t a -> CommonPathHasType target paths (substituteCommonPath sigma t) a
+substituteCommonPathTyped sigma env (CPOrdinaryType t) = CPOrdinaryType (substituteCommonTyped sigma env t)
+substituteCommonPathTyped sigma env (CPAtType p) = CPAtType p
+substituteCommonPathTyped sigma env (CPLamType b) = CPLamType (substituteCommonPathTyped (liftCommonSubstitution sigma) (liftCommonSubstitutionTyped sigma env) b)
+substituteCommonPathTyped sigma env (CPAppType f x) = CPAppType (substituteCommonPathTyped sigma env f) (substituteCommonPathTyped sigma env x)
+substituteCommonPathTyped sigma env (CPUnitElimType x b) = CPUnitElimType (substituteCommonPathTyped sigma env x) (substituteCommonPathTyped sigma env b)
+substituteCommonPathTyped sigma env (CPIfType c t f) = CPIfType (substituteCommonPathTyped sigma env c) (substituteCommonPathTyped sigma env t) (substituteCommonPathTyped sigma env f)
 
 public export
 commonPathTerm : {0 context : Vect n LogicalType} -> {0 paths : Vect k LogicalType} ->
@@ -223,7 +316,7 @@ commonDeclaredPath (DeclaredThere p) = CommonDeclaredThere (commonDeclaredPath p
 ||| Equality under the exact face; constructors carry independent typing evidence.
 public export
 data CommonFaceEqual : {0 ctx : Vect n LogicalType} -> {0 paths : Vect k LogicalType} -> CommonDeclarations ctx paths -> ScopedFace d ->
-  CommonPathTerm n k d -> CommonPathTerm n k d -> LogicalType -> Type where
+  CommonPathTerm n k d -> CommonPathTerm n k d -> (0 ty : LogicalType) -> Type where
   CommonRefl : {0 ctx : Vect n LogicalType} -> {0 paths : Vect k LogicalType} -> {0 decls : CommonDeclarations ctx paths} -> (0 typed : CommonPathHasType ctx paths x a) -> CommonFaceEqual decls face x x a
   CommonSym : CommonFaceEqual decls face x y a -> CommonFaceEqual decls face y x a
   CommonTrans : CommonFaceEqual decls face x y a -> CommonFaceEqual decls face y z a -> CommonFaceEqual decls face x z a
@@ -263,7 +356,7 @@ commonBodyEqual (BodyUnitElimEqual x b) = CommonUnitElimEqual (commonBodyEqual x
 ||| A common abstraction has independently typed endpoints and actual boundaries.
 public export
 data CommonShadowPath : {0 ctx : Vect n LogicalType} -> {0 paths : Vect k LogicalType} ->
-  CommonDeclarations ctx paths -> ScopedFace d -> CommonPathTerm n k d -> CommonPathTerm n k d -> LogicalType -> Type where
+  CommonDeclarations ctx paths -> ScopedFace d -> CommonPathTerm n k d -> CommonPathTerm n k d -> (0 ty : LogicalType) -> Type where
   CommonAbstract : {0 ctx : Vect n LogicalType} -> {0 paths : Vect k LogicalType} ->
     {0 decls : CommonDeclarations ctx paths} -> {0 face : ScopedFace d} ->
     {0 left, right : CommonPathTerm n k d} ->
