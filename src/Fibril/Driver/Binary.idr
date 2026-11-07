@@ -8,6 +8,7 @@ import Fibril.Core.Term
 import Fibril.Core.Context
 import Fibril.Core.Runtime
 import Fibril.Core.Reduction
+import Fibril.Driver.Binary.Count
 import Fibril.Core.WeakHead
 import Fibril.Core.Limits
 import Fibril.Core.Size
@@ -75,17 +76,6 @@ liftTransport : Either BinaryError a -> Either BinaryRunError a
 liftTransport (Left err) = Left (BinaryTransportFailure err)
 liftTransport (Right value) = Right value
 
--- A single entry ledger pays for BOTH head contractions and successor visits.
--- Unlike ordinary weakHead calls, successor traversal never refreshes fuel.
-decodeCount : Nat -> Nat -> Term 0 -> Either BinaryRunError Nat
-decodeCount Z count term = Left BinaryReductionLimit
-decodeCount (S work) count term = case term of
-  NatZero => Right count
-  NatSucc tail => decodeCount work (S count) tail
-  _ => case stepHead term of
-    Nothing => Left BinaryExpectedNat
-    Just next => decodeCount work count next
-
 -- prepareBinary checks the original compact syntax. Re-inferring a decoded
 -- unary count here would impose checkingDepth on an execution representation.
 checkDescription : Term 0 -> Either BinaryRunError ()
@@ -103,8 +93,9 @@ mutual
     HeadForm head => case checkDescription head of
       Left err => pure (Left err)
       Right () => case head of
-        IterateBinary stateType resultType count step initial => case decodeCount fuel 0 count of
-          Left err => pure (Left err)
+        IterateBinary stateType resultType count step initial => case decodeBinaryCount fuel count of
+          Left CountReductionLimit => pure (Left BinaryReductionLimit)
+          Left CountExpectedNat => pure (Left BinaryExpectedNat)
           Right limit => iterate depth fuel transport stateType resultType limit step initial
         IOPure value => pure (Right value)
         ReadBytes capacity => case normal fuel capacity >>= maybe (Left BinaryExpectedNat) Right . canonicalNatural of

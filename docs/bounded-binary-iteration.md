@@ -1,23 +1,33 @@
-# Bounded binary iteration — implementation checkpoint, NOT complete
+# Bounded binary iteration — implementation and count-safety follow-up
 
-**Blocking limitation:** hosted count decoding charges head contractions and
-successor visits from one ledger, but the existing pure reducer can allocate a
-unary natural **before** that ledger charges its successor visits. In particular,
-`stepHead (BytesLength (BytesValue bytes))` calls `naturalTerm` inside one step.
-A derived large byte value can therefore allocate an oversized count before
-rejection. Nested NatRec/byte-primitive full-step paths have the same issue.
-The checked API below exists on this branch, but is **not delivered as satisfying
-all bounded-iteration safety requirements**. Passing tests below do not close
-this allocation-before-charge gap.
+Status: **built and checked; independent high-risk reducer review required**.
+The earlier d6e034b checkpoint was partial: ordinary head reduction could allocate
+unary naturals before the count ledger charged their visits. The follow-up closes
+that specific gap with a shared policy-parametric reducer, not a second evaluator
+or a top-level preguard. This is not a claim of completed acceptance before review.
 
-The approved follow-up is a count-only bounded reduction path that checks and
-charges unary materialization **before allocating**, from the same ledger, at
-all demanded nested operands and full-step fallbacks. It must also charge
-canonical-natural/low-octet traversals used by byte operations. A top-level
-BytesLength special case or a preguard followed by unchecked recursive
-`stepHead`/`step` is insufficient. Do not change generic weakHead/natRec demand,
-raise budgets, or add a separate count cap. This checkpoint deliberately does
-not attempt a rushed copy/refactor of the exhaustive pure reducer.
+`Core/Reduction/Work.idr` provides an unmetered Identity policy and a bounded
+CountWork policy. Existing `step`/`stepHead` select Identity; count entry selects
+CountWork. Both reducers carry the policy through **all** recursive calls,
+including head-to-full operand fallbacks. Neither bounded path calls ordinary
+`step`, `stepHead`, `canonicalNatural`, `canonicalOctet`, or the old byte-contract
+helpers. BytesLength and BytesIndex's octet payload are the two contractions
+that materialize unary naturals from host Nat metadata; both now call the policy's
+`materializeNatural`.
+
+`reserveNatural amount build` checks/subtracts amount from the remaining ledger
+**before calling build**. The total `reserveNaturalDenied` theorem proves denial
+for an arbitrary builder, so rejection does not require constructing the natural
+first. A separate closed test theorem instantiates that result with
+`naturalTerm 1000000` and work4096. This is structural preallocation evidence,
+not an inference from eventual failure or RSS measurements.
+
+The ledger bounds count-entry canonical-successor traversal and newly
+materialized unary Term successors from those contractions. It does **not** bound
+every pre-existing byte allocation, byte-length scan, substitution/copy, arbitrary
+primitive CPU work, allocator overhead, or total heap. Generic pure evaluation,
+state/result WHNF, and effects outside count entry retain their existing budgets.
+No generic natRec demand rule, native runtime limit, or separate count cap changed.
 
 ## Implemented interface and behavior
 
@@ -70,13 +80,33 @@ per-call reduction fuel4096, checking depth512/type-reduction fuel128,
 requests4096/capacity8388608; source initial/node8192 and construction200000;
 native steps100000, pure depth512, arena payload16MiB, pending4096.
 
-Current hosted `decodeCount` has one ledger initialized from caller fuel4096.
-Every recursive successor visit or head contraction consumes one unit; terminal
-inspection requires positive remaining work. It does not refresh weakHead4096
-per successor, and it does not infer/check the materialized unary count again.
-Original compact source is checked first. Ordinary state/action/result weakHead
-calls still receive the existing per-call fuel independently of this entry
-ledger. The pre-materialization hole described above remains a blocker.
+Hosted `Driver/Binary/Count.idr:decodeBinaryCount` initializes one ledger from
+caller fuel4096. Each outer successor visit or head contraction consumes one unit;
+terminal inspection requires one unit. The policy threads the **same remainder**
+through nested reduction, full-step fallbacks, primitive canonical Nat/octet reads,
+and unary construction. Full-step successor inspection and NatRec/Runtime
+successor matching also spend a unit per visit. A materialized n-successor natural
+reserves n units before construction; later visits still spend their own units.
+Exhaustion is distinct from irreducible/noncanonical input: outer CountWork
+Nothing means exhaustion; a successful policy result containing Nothing is stuck.
+
+For a raw `BytesLength (BytesValue bytes)` with n octets the complete count decode
+cost is **2n+2** (one contraction, n construction, n visits, one terminal).
+A canonical unary n costs n+1. Beta or an outer successor adds one. The tested
+identity NatRec fold over that byte length costs6n+3, including scrutinee visits,
+its contractions and the produced count's visits. A selected BytesIndex octet q
+at canonical index0 costs2q+4 including its variant-case/beta elimination.
+These are decoder costs, not source-wrapper costs: source beta/UTF8/byte operations
+spend additional work. Consequently direct length1024 needs2050 and succeeds;
+source length2048 cannot fit4096. That is a ledger boundary, not a new count cap.
+
+Original compact source is checked before decoding; no recursive recheck of a
+materialized1024 Nat is introduced. Ordinary state/action/result weakHead calls
+still receive existing per-call fuel independently of the count-entry ledger.
+The driver decoder is covering because its policy-returned remainder is opaque
+to structural termination checking; the actual policy operations never increase
+that remainder and each outer recursion consumes work. This is not a new formal
+termination or total-heap theorem.
 
 Within a hosted loop, each callback transition monotonically decreases the
 existing description-depth allowance; callbacks execute with the remaining
@@ -127,10 +157,11 @@ It filters cached Fibril and Pack warning text from curated paths, never runs gc
 and never installs external packages. No polling/background loops are used.
 
 ```sh
+make -j8 binary-count-test IDRIS2=/path/to/pinned/idris2
 make -j8 binary-iteration-test IDRIS2=/path/to/pinned/idris2
 ```
 
-The bounded foreground run passes **11 test groups**, including checked source
+The bounded foreground iteration run passes **11 test groups**, including checked source
 hosted/emitted native and separately labelled trusted raw C tests. Source/native
 observer copies insert counters only, never alter budget decisions. Raw fixtures
 run normally and with `-fsanitize=address,undefined -fno-omit-frame-pointer`.
@@ -181,7 +212,7 @@ Additional passing observations:
   (arena4063547). This rejection is expected budget behavior, not equivalence.
 - The compact 3000-successor fold count fails the hosted entry ledger before any
   callback/read/flush; native accepts at42302steps. This tests reduction+visits,
-  **not** the unresolved pre-materialization bound.
+  as well as the newly charged materialization; hosted/native budgets differ.
 - Fifteen raw C modes cover malformed count/tag/missing payload, cyclic canonical
   count, memoized Continue/IO work exhaustion, nested pending exhaustion, mixed
   2048 ordinary bind +2048 loop frames sharing4096, arena/deep callback failure,
@@ -193,6 +224,33 @@ count/initial usage and every-field admission checks), binary source13 tests,
 native bridge14 modes, framing14 tests including **two4096-body frames** and
 later-frame failure preserving earlier output. Production Frame is unchanged.
 
-Not claimed: a completed bounded hosted decoder, verified backend/QTT
-preservation, world tokens, exactly-once semantics, general exception/cancellation
-safety, total-heap bounds, full parser grammar, headers, or JSON delivery.
+## Count-safety focused evidence
+
+`Tests.BinaryCount` adds22 raw-core/policy checks plus the closed denial theorem.
+They cover the exact boundaries above, zero/tiny/1024 values, beta/successor/NatRec
+nesting, construction of the BytesIndex255 payload, demanded full-step/octet
+fallbacks, computed byte operands, exhaustion versus noncanonical input, and
+unused branch/argument laziness. These are trusted raw syntax tests, not source
+provenance claims. Existing generic root-step/Fuel proof statements are unchanged
+and still check; no holes, unsafe casts or totality assertions were introduced.
+
+`tools/test_binary_count.py` runs the22 core checks separately and adds four
+**checked-source** groups using the same
+private .ipkg harness as the iteration suite. Direct5000-byte lengths and lengths
+hidden under beta, successor, NatRec, computed append, full octet/index/slice/length-comparison operands all reject hosted before callback effects: reads0/writes0/flushes0,
+input untouched. Their original compact source checks and emits native C; native
+can decode the larger finite counts under its different budget. Zero, small,
+1024 and index-produced counts behave as expected. Unused5000-byte count branches
+and erased beta arguments do not materialize. The source length2048 case
+explicitly distinguishes construction+visits from the old visit-only accounting;
+it is not a required parser limit or a new count cap.
+
+The full local-prefix unit/property suite passes, including ordinary full/head
+reduction, byte-range, UTF8 codec, typing and usage checks. The iteration suite
+still passes all11 groups, including max1024 and15 raw native modes both normal
+and ASan/UBSan. Native runtime sources were not changed by this follow-up.
+
+Not claimed: completed acceptance before independent reducer review, verified
+backend/QTT preservation, world tokens, exactly-once semantics, general exception/
+cancellation safety, total-heap or general CPU bounds, full parser grammar,
+headers, or JSON delivery.

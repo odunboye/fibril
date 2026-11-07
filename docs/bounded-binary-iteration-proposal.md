@@ -1,10 +1,9 @@
 # Bounded binary iteration: diagnostic milestone / proposal, not implementation
 
-Status: **approved design; partial implementation checkpoint, NOT complete**.
-The branch now has the inert core/source description and hosted/native runners;
-see [implementation evidence and blocker](bounded-binary-iteration.md).
-Hosted count decoding still has an allocation-before-charge gap in existing pure
-Nat materialization, so full boundedness acceptance is explicitly blocked.
+Status: **approved design implemented; independent reducer review pending**.
+The prior partial checkpoint's hosted allocation-before-charge gap is addressed
+by a shared count-work policy, including demanded nested/full-step paths; see
+[implementation, accounting and evidence](bounded-binary-iteration.md).
 The measurements below remain the historical pre-implementation diagnostic.
 Production `Protocol/Frame.fib` is unchanged. This is separate from pure JSON
 folding/pair lowering and source state abstraction. No header parser is delivered.

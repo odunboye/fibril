@@ -83,6 +83,8 @@ class BinaryIteration(unittest.TestCase):
         shutil.copyfile(FIXTURE / 'Hosted.idr', cls.work / 'Hosted.idr')
         (cls.work / 'hosted.ipkg').write_text('package iteration-hosted\nsourcedir = "."\ndepends = fibril, yaml\nmodules = Hosted\nmain = Hosted\nexecutable = hosted\n')
         checked(compiler + ['--build', 'hosted.ipkg'], cwd=cls.work, env=env)
+        cls.compiler = compiler
+        cls.environment = env
         cls.hosted = cls.work / 'build/exec/hosted'
         cls.cc = shlex.split(env.get('CC', 'cc'))
         cls.counter = 0
