@@ -252,6 +252,11 @@ checkerRejected : Either CheckError a -> Bool
 checkerRejected (Left _) = True
 checkerRejected (Right _) = False
 
+checkerSemanticRejected : Either CheckError a -> Bool
+checkerSemanticRejected (Left Mismatch) = True
+checkerSemanticRejected (Left Unsupported) = True
+checkerSemanticRejected _ = False
+
 checkerMismatch : Either CheckError a -> Bool
 checkerMismatch (Left Mismatch) = True
 checkerMismatch _ = False
@@ -419,77 +424,98 @@ autoType = NPathType autoFamily (NPath FZ) (NPath FZ)
 public export
 checkerChecks : List (String, Bool)
 checkerChecks =
-  [ ("autonomous nested constant top", checkerSuccess
-      (checkDependentIntroduction {n = 0} 128 neutralContext STop
+  [ ("autonomous square exact shared work budget", checkerSuccess
+      (checkDependentIntroduction {n = 0} 223 neutralContext STop squareTerm
+        (NPathType squareFamily squareLeft squareRight)))
+  , ("autonomous square one token short has no witness", checkerExhausted
+      (checkDependentIntroduction {n = 0} 222 neutralContext STop squareTerm
+        (NPathType squareFamily squareLeft squareRight)))
+  , ("autonomous square branching budget exhausted", checkerExhausted
+      (checkDependentIntroduction {n = 0} 128 neutralContext STop squareTerm
+        (NPathType squareFamily squareLeft squareRight)))
+  , ("autonomous exact exhaustion does not retry fallback", checkerExhausted
+      (checkDependentIntroduction {n = 0} 3 neutralContext STop
+        (NAbstract (NApply (NPath FZ) (Var FZ)))
+        (NPathType NType (NBase (FS FZ)) (NBase (FS FZ)))))
+  , ("autonomous failed fallback exact shared work budget", checkerUnsupported
+      (checkDependentIntroduction {n = 0} 22 neutralContext STop
+        (NAbstract (NApply (NPath FZ) (Var FZ)))
+        (NPathType NType (NBase (FS FZ)) (NBase (FS FZ)))))
+  , ("autonomous failed fallback one token short", checkerExhausted
+      (checkDependentIntroduction {n = 0} 21 neutralContext STop
+        (NAbstract (NApply (NPath FZ) (Var FZ)))
+        (NPathType NType (NBase (FS FZ)) (NBase (FS FZ)))))
+  , ("autonomous nested constant top", checkerSuccess
+      (checkDependentIntroduction {n = 0} 2048 neutralContext STop
         (NAbstract (NAbstract (NBase FZ)))
         (NPathType (NPathType NType (NBase FZ) (NBase FZ))
           (NAbstract (NBase FZ)) (NAbstract (NBase FZ)))))
   , ("autonomous nested wrong boundary rejected", checkerMismatch
-      (checkDependentIntroduction {n = 0} 128 neutralContext STop
+      (checkDependentIntroduction {n = 0} 2048 neutralContext STop
         (NAbstract (NAbstract (NBase FZ)))
         (NPathType (NPathType NType (NBase FZ) (NBase FZ))
           (NAbstract (NBase FZ)) (NAbstract (NBase (FS FZ))))))
   , ("autonomous connection square top", checkerSuccess
-      (checkDependentIntroduction {n = 0} 128 neutralContext STop squareTerm
+      (checkDependentIntroduction {n = 0} 2048 neutralContext STop squareTerm
         (NPathType squareFamily squareLeft squareRight)))
   , ("autonomous swapped connection square top", checkerSuccess
-      (checkDependentIntroduction {n = 0} 128 neutralContext STop
+      (checkDependentIntroduction {n = 0} 2048 neutralContext STop
         (NAbstract (NAbstract (NApply (NPath FZ) (Meet (Var FZ) (Var (FS FZ))))))
         (NPathType squareFamily squareLeft squareRight)))
   , ("autonomous square nonzero path index", checkerSuccess
-      (checkDependentIntroduction {n = 0} 128
+      (checkDependentIntroduction {n = 0} 2048
         (the (PathContext 2 2) [PathBetween FZ (FS FZ), PathBetween (FS FZ) FZ]) STop
         (NAbstract (NAbstract (NApply (NPath (FS FZ)) (Meet (Var (FS FZ)) (Var FZ)))))
         (NPathType (NPathType NType (NBase (FS FZ)) (NApply (NPath (FS FZ)) (Var FZ)))
           (NAbstract (NBase (FS FZ))) (NAbstract (NApply (NPath (FS FZ)) (Var FZ))))))
-  , ("autonomous square restricted endpoint does not escape", checkerRejected
-      (checkDependentIntroduction {n = 1} 128 neutralContext STop
+  , ("autonomous square restricted endpoint does not escape", checkerSemanticRejected
+      (checkDependentIntroduction {n = 1} 2048 neutralContext STop
         (NAbstract (NAbstract (NApply (NPath FZ) (Meet (Var (FS FZ)) (Var FZ)))))
         (NPathType (NPathType NType (NBase FZ) (NApply (NPath FZ) (Var FZ)))
           (NAbstract (NApply (NPath FZ) (Var (FS FZ))))
           (NAbstract (NApply (NPath FZ) (Var FZ))))))
-  , ("autonomous square bad left boundary rejected", checkerRejected
-      (checkDependentIntroduction {n = 0} 128 neutralContext STop squareTerm
+  , ("autonomous square bad left boundary rejected", checkerSemanticRejected
+      (checkDependentIntroduction {n = 0} 2048 neutralContext STop squareTerm
         (NPathType squareFamily (NAbstract (NBase (FS FZ))) squareRight)))
-  , ("autonomous square bad right boundary rejected", checkerRejected
-      (checkDependentIntroduction {n = 0} 128 neutralContext STop squareTerm
+  , ("autonomous square bad right boundary rejected", checkerSemanticRejected
+      (checkDependentIntroduction {n = 0} 2048 neutralContext STop squareTerm
         (NPathType squareFamily squareLeft (NAbstract (NBase FZ)))))
-  , ("autonomous square nonboolean boundary rejected", checkerRejected
-      (checkDependentIntroduction {n = 0} 128 neutralContext STop squareTerm
+  , ("autonomous square nonboolean boundary rejected", checkerSemanticRejected
+      (checkDependentIntroduction {n = 0} 2048 neutralContext STop squareTerm
         (NPathType squareFamily
           (NAbstract (NApply (NPath FZ) (Meet (Var FZ) (Reverse (Var FZ))))) squareRight)))
   , ("autonomous square budget exhausted", checkerExhausted
       (checkDependentIntroduction {n = 0} 8 neutralContext STop squareTerm
         (NPathType squareFamily squareLeft squareRight)))
   , ("autonomous varying body top", checkerSuccess
-      (checkDependentIntroduction {n = 0} 128 neutralContext STop
+      (checkDependentIntroduction {n = 0} 2048 neutralContext STop
         (NAbstract (NApply (NPath FZ) (Var FZ)))
         (NPathType NType (NBase FZ) (NBase (FS FZ)))))
   , ("autonomous varying body wrong endpoint", checkerUnsupported
-      (checkDependentIntroduction {n = 0} 128 neutralContext STop
+      (checkDependentIntroduction {n = 0} 2048 neutralContext STop
         (NAbstract (NApply (NPath FZ) (Var FZ)))
         (NPathType NType (NBase (FS FZ)) (NBase (FS FZ)))))
   , ("autonomous varying family bottom", checkerSuccess
-      (checkDependentIntroduction 128 neutralContext SBottom (NAbstract (NPath FZ)) autoType))
+      (checkDependentIntroduction 2048 neutralContext SBottom (NAbstract (NPath FZ)) autoType))
   , ("autonomous varying family top rejected", checkerUnsupported
-      (checkDependentIntroduction 128 neutralContext STop (NAbstract (NPath FZ)) autoType))
+      (checkDependentIntroduction 2048 neutralContext STop (NAbstract (NPath FZ)) autoType))
   , ("autonomous wrong endpoint", checkerMismatch
-      (checkDependentIntroduction 128 neutralContext SBottom (NAbstract (NPath FZ))
+      (checkDependentIntroduction 2048 neutralContext SBottom (NAbstract (NPath FZ))
         (NPathType autoFamily (NBase FZ) (NPath FZ))))
   , ("autonomous wrong body", checkerMismatch
-      (checkDependentIntroduction 128 neutralContext SBottom (NAbstract (NBase FZ)) autoType))
+      (checkDependentIntroduction 2048 neutralContext SBottom (NAbstract (NBase FZ)) autoType))
   , ("autonomous size exhausted", checkerExhausted
       (checkDependentIntroduction 3 neutralContext SBottom (NAbstract (NPath FZ)) autoType))
   , ("autonomous dimension exhausted", checkerExhausted
-      (checkDependentIntroduction {n = 12} 128 neutralContext SBottom
+      (checkDependentIntroduction {n = 12} 2048 neutralContext SBottom
         (NAbstract (NBase FZ)) (NPathType NType (NBase FZ) (NBase FZ))))
   , ("autonomous nonboolean family bottom", checkerSuccess
-      (checkDependentIntroduction {n = 0} 128 neutralContext SBottom (NAbstract (NPath FZ))
+      (checkDependentIntroduction {n = 0} 2048 neutralContext SBottom (NAbstract (NPath FZ))
         (NPathType (NPathType NType
           (NApply (NPath FZ) (Meet (Var FZ) (Reverse (Var FZ))))
           (NApply (NPath FZ) (Meet (Var FZ) (Reverse (Var FZ))))) (NPath FZ) (NPath FZ))))
   , ("autonomous nonboolean family top rejected", checkerUnsupported
-      (checkDependentIntroduction {n = 0} 128 neutralContext STop (NAbstract (NPath FZ))
+      (checkDependentIntroduction {n = 0} 2048 neutralContext STop (NAbstract (NPath FZ))
         (NPathType (NPathType NType
           (NApply (NPath FZ) (Meet (Var FZ) (Reverse (Var FZ))))
           (NApply (NPath FZ) (Meet (Var FZ) (Reverse (Var FZ))))) (NPath FZ) (NPath FZ))))

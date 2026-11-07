@@ -184,8 +184,8 @@ abstractions at a common restricted path type using endpoint type conversion,
 then proving their bodies equal at the weakened restricted face. `boundedInstantiate` admits the interval and original family before counting
 its expanded output, including each duplicated occurrence under binders, and
 only then constructs the scoped substitution. `checkDependentFormation` uses
-this preflight separately for each endpoint instantiation, constructing the
-first before preflighting the second, recursively checks the family, and checks
+this preflight separately for each endpoint instantiation, recursively checks
+the family, and checks
 both endpoint typings using the existing incomplete term checker;
 it returns the exact `NPathPForm` derivation. This admits genuinely varying
 families when their endpoints are in that grammar, including constant Zero/One
@@ -195,7 +195,7 @@ still cannot synthesize the required restricted endpoint type conversions and
 dependent boundary equalities. The substitution action itself carries no
 typing-preservation claim. Each preflight shares its capped 128-node budget
 between inputs and expanded output; recursive formation re-admits each
-intermediate rather than providing a global solver-work bound. The source
+intermediate and shares work tokens as described below. The source
 family dimension is capped at 12 (so the result dimension is at most 11).
 
 All syntax, including both annotations and the face, shares an admission
@@ -246,13 +246,22 @@ whose left edge uses an externally restricted endpoint can remain unsupported.
 It never identifies non-Boolean interval expressions by their vertices. Unsupported
 cases fail closed.
 
-The entry point admits the face and both input expressions under a shared cap
-of min(budget, 128), caps context sizes at 12 and the result dimension at 11,
-and preflights both endpoint substitutions using `boundedInstantiate` before
-constructing them. Typing, equality, and formation use depth limits of min(budget, 12), and
-all recursive admission and substitution checks re-use rather than globally
-consume the budget; it is not a bound on total work or proof-tree size.
-`Exhausted` reports those admission, dimension, substitution, or formation
-limits. Generated weakening and restricted faces are linear in admitted input;
-the bounded entailment procedure has its own smaller face limit and can fail
-closed as `Unsupported`.
+`checkDependentIntroduction` and `checkDependentFormation` use shared work
+tokens, distinct from the fixed recursion depth of 12. Each recursive
+checker visit within the depth limit consumes one token, as does each bounded admission, substitution,
+nonrecursive checker, structural comparison, or candidate-inference operation.
+A token reserves an entire bounded operation, not one machine instruction:
+admissions and substitutions have a fixed 128-node cap, dimensions and context
+lengths are capped at 12, and the entailment solver has its own finite fixed
+limits. These caps also bound the generated inputs to the nonrecursive checks;
+endpoint candidates add only fixed-size syntax. Each endpoint substitution is
+preflighted before its result is constructed. On a recoverable error the
+remaining tokens are retained for fallback, and exhaustion is terminal; no
+witness is returned on exhaustion. Thus the allowance bounds the number of
+bounded operations and recursive proof-building visits, not exact allocation,
+CPU time, or individual solver steps. Standalone nonrecursive checker budgets
+retain their existing input-node meaning. Existing callers of the two dependent
+entry points must recalibrate budgets: for example, the top connection square
+needs 223 work tokens and returns `Exhausted` at 222. Generated weakening and restricted
+faces are linear in admitted input, and solver limits can fail closed as
+`Unsupported`.

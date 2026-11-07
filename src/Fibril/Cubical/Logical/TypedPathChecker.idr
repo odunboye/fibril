@@ -395,38 +395,78 @@ boundedInstantiate {m} {k} {n} budget i body =
     sizes size FZ = size
     sizes size (FS _) = 1
 
--- Recursive dependent formation is deliberately limited by both a structural
--- recursion allowance and fresh admission at every generated family/endpoint.
-dependentFormation : {m, k, n : Nat} -> Nat -> Nat -> (ctx : PathContext m k) ->
-  (face : ScopedFace n) -> (ty : NeutralExpr m k n) ->
-  Either CheckError (NeutralTypeFormed ctx face ty)
-dependentFormation Z budget ctx face ty = Left Exhausted
-dependentFormation (S depth) {m} {k} {n} budget ctx face ty =
-  if m <= 12 && k <= 12 && n <= 12 then
-    case faceNodes (min 128 budget) face >>= \f => exprNodes f ty of
-      Nothing => Left Exhausted
-      Just _ => form ty
-  else Left Exhausted
-  where
-    form : (ty : NeutralExpr m k n) -> Either CheckError (NeutralTypeFormed ctx face ty)
-    form NType = Right NBaseForm
-    form (NPathType family l r) = do
-      -- Each endpoint expansion is preflighted before its own construction.
-      _ <- boundedInstantiate budget Zero family
-      _ <- boundedInstantiate budget One family
-      fp <- dependentFormation depth budget ctx (weakenFace face) family
-      lp <- checkNeutral budget ctx face l (mapNeutralDimensions TypedPath.faceZero family)
-      rp <- checkNeutral budget ctx face r (mapNeutralDimensions TypedPath.faceOne family)
-      Right (NPathPForm fp lp rp)
-    form _ = Left Unsupported
+-- A token pays for one recursive visit or one fixed-cap operation, not one
+-- machine step. Errors retain the unused tokens so fallback cannot reset them.
+record Metered a where
+  constructor MkMetered
+  runMetered : Nat -> (Nat, Either CheckError a)
 
-||| Formation of nested dependent path types, with independently checked
-||| endpoint typings and bounded endpoint instantiation at every level.
+Functor Metered where
+  map f (MkMetered action) = MkMetered $ \fuel =>
+    case action fuel of
+      (remaining, Left err) => (remaining, Left err)
+      (remaining, Right value) => (remaining, Right (f value))
+
+Applicative Metered where
+  pure value = MkMetered $ \fuel => (fuel, Right value)
+  (<*>) mf mx = MkMetered $ \fuel =>
+    case runMetered mf fuel of
+      (remaining, Left err) => (remaining, Left err)
+      (remaining, Right f) => runMetered (map f mx) remaining
+
+Monad Metered where
+  (>>=) action next = MkMetered $ \fuel =>
+    case runMetered action fuel of
+      (remaining, Left err) => (remaining, Left err)
+      (remaining, Right value) => runMetered (next value) remaining
+
+meterError : CheckError -> Metered a
+meterError err = MkMetered $ \fuel => (fuel, Left err)
+
+-- Delay the operation until after reserving its token.
+boundedWork : Lazy (Either CheckError a) -> Metered a
+boundedWork action = MkMetered $ \fuel => case fuel of
+  Z => (Z, Left Exhausted)
+  S remaining => (remaining, action)
+
+visit : Metered ()
+visit = boundedWork (Right ())
+
+admit : Maybe Nat -> Either CheckError ()
+admit Nothing = Left Exhausted
+admit (Just _) = Right ()
+
+-- Recursive formation shares the same meter as introduction when called by it.
+dependentFormation : {m, k, n : Nat} -> Nat -> (ctx : PathContext m k) ->
+  (face : ScopedFace n) -> (ty : NeutralExpr m k n) ->
+  Metered (NeutralTypeFormed ctx face ty)
+dependentFormation Z ctx face ty = meterError Exhausted
+dependentFormation (S depth) {m} {k} {n} ctx face ty = do
+  _ <- visit
+  case m <= 12 && k <= 12 && n <= 12 of
+    True => do
+      _ <- boundedWork (admit (faceNodes 128 face >>= \f => exprNodes f ty))
+      form ty
+    False => meterError Exhausted
+  where
+    form : (ty : NeutralExpr m k n) -> Metered (NeutralTypeFormed ctx face ty)
+    form NType = pure NBaseForm
+    form (NPathType family l r) = do
+      _ <- boundedWork (boundedInstantiate 128 Zero family)
+      _ <- boundedWork (boundedInstantiate 128 One family)
+      fp <- dependentFormation depth ctx (weakenFace face) family
+      lp <- boundedWork (checkNeutral 128 ctx face l (mapNeutralDimensions TypedPath.faceZero family))
+      rp <- boundedWork (checkNeutral 128 ctx face r (mapNeutralDimensions TypedPath.faceOne family))
+      pure (NPathPForm fp lp rp)
+    form _ = meterError Unsupported
+
+||| Formation of nested dependent path types with a shared work-token allowance.
 public export
 checkDependentFormation : {m, k, n : Nat} -> (budget : Nat) -> (ctx : PathContext m k) ->
   (face : ScopedFace n) -> (ty : NeutralExpr m k n) ->
   Either CheckError (NeutralTypeFormed ctx face ty)
-checkDependentFormation budget = dependentFormation (min 12 budget) budget
+checkDependentFormation budget ctx face ty =
+  snd (runMetered (dependentFormation 12 ctx face ty) budget)
 
 -- Structural equality produces an equality of the actual syntax indices.
 neutralSame : (x, y : NeutralExpr m k n) -> Maybe (x = y)
@@ -488,94 +528,103 @@ inferBaseEndpoint ctx face side (NApply (NPath p) i) fallback =
   else fallback
 inferBaseEndpoint ctx face side body fallback = fallback
 
--- All recursive calls consume depth and re-admit their exact generated inputs.
+-- Recursive calls and bounded subchecks draw from one meter, including retries.
 mutual
-  introTyping : {m, k, n : Nat} -> Nat -> Nat -> (ctx : PathContext m k) ->
+  introTyping : {m, k, n : Nat} -> Nat -> (ctx : PathContext m k) ->
     (face : ScopedFace n) -> (term, ty : NeutralExpr m k n) ->
-    Either CheckError (NeutralHasType ctx face term ty)
-  introTyping Z budget ctx face term ty = Left Exhausted
-  introTyping (S depth) {m} {k} {n} budget ctx face term ty =
-    if m <= 12 && k <= 12 && n <= 12 then
-      case faceNodes (min 128 budget) face >>= \f => exprNodes f term >>= \g => exprNodes g ty of
-        Nothing => Left Exhausted
-        Just _ => go term ty
-    else Left Exhausted
+    Metered (NeutralHasType ctx face term ty)
+  introTyping Z ctx face term ty = meterError Exhausted
+  introTyping (S depth) {m} {k} {n} ctx face term ty = do
+    _ <- visit
+    case m <= 12 && k <= 12 && n <= 12 of
+      True => do
+        _ <- boundedWork (admit (faceNodes 128 face >>= \f => exprNodes f term >>= \g => exprNodes g ty))
+        go term ty
+      False => meterError Exhausted
     where
-      go : (term, ty : NeutralExpr m k n) -> Either CheckError (NeutralHasType ctx face term ty)
-      go (NAbstract body) (NPathType NType l r) =
-        case introExact depth budget ctx face body NType l r of
-          Right derivation => Right derivation
-          Left Exhausted => Left Exhausted
-          Left original =>
-            let l' = inferBaseEndpoint ctx face False body l
-                r' = inferBaseEndpoint ctx face True body r in
-            case faceNodes (min 128 budget) face >>= \a =>
+      go : (term, ty : NeutralExpr m k n) -> Metered (NeutralHasType ctx face term ty)
+      go (NAbstract body) (NPathType NType l r) = MkMetered $ \fuel =>
+        case runMetered (introExact depth ctx face body NType l r) fuel of
+          (remaining, Right derivation) => (remaining, Right derivation)
+          (remaining, Left Exhausted) => (remaining, Left Exhausted)
+          (remaining, Left original) => runMetered (fallback original) remaining
+        where
+          fallback : CheckError -> Metered (NeutralHasType ctx face (NAbstract body) (NPathType NType l r))
+          fallback original = do
+            -- Candidate inference invokes only the fixed bounded face solver.
+            (l', r') <- boundedWork (Right (inferBaseEndpoint ctx face False body l,
+                                             inferBaseEndpoint ctx face True body r))
+            _ <- boundedWork (admit (faceNodes 128 face >>= \a =>
                  exprNodes a (NAbstract body) >>= \b =>
                  exprNodes b (NPathType NType l r) >>= \c =>
-                 exprNodes c (NPathType NType l' r') of
-              Nothing => Left Exhausted
-              Just _ => case typeEqualAdmitted ctx face
-                  (NPathType NType l' r') (NPathType NType l r) of
-                Left _ => Left original
-                Right conversion => case introExact depth budget ctx face body NType l' r' of
-                  Left Exhausted => Left Exhausted
-                  Left _ => Left original
-                  Right derivation => Right (NConvert derivation conversion)
+                 exprNodes c (NPathType NType l' r')))
+            MkMetered $ \fuel => case runMetered (boundedWork (typeEqualAdmitted ctx face
+                  (NPathType NType l' r') (NPathType NType l r))) fuel of
+              (remaining, Left Exhausted) => (remaining, Left Exhausted)
+              (remaining, Left _) => (remaining, Left original)
+              (remaining, Right conversion) =>
+                case runMetered (introExact depth ctx face body NType l' r') remaining of
+                  (rest, Left Exhausted) => (rest, Left Exhausted)
+                  (rest, Left _) => (rest, Left original)
+                  (rest, Right derivation) => (rest, Right (NConvert derivation conversion))
       go (NAbstract body) (NPathType family l r) =
-        introExact depth budget ctx face body family l r
+        introExact depth ctx face body family l r
       go (NPath p) ty = do
-        eq <- typeEqualAdmitted ctx face
-          (NPathType NType (NBase (left (index p ctx))) (NBase (right (index p ctx)))) ty
-        Right (NConvert (NPathVar p) eq)
-      go term ty = checkAdmitted ctx face term ty
+        eq <- boundedWork (typeEqualAdmitted ctx face
+          (NPathType NType (NBase (left (index p ctx))) (NBase (right (index p ctx)))) ty)
+        pure (NConvert (NPathVar p) eq)
+      go term ty = boundedWork (checkAdmitted ctx face term ty)
 
-  introExact : {m, k, n : Nat} -> Nat -> Nat -> (ctx : PathContext m k) ->
+  introExact : {m, k, n : Nat} -> Nat -> (ctx : PathContext m k) ->
     (face : ScopedFace n) -> (body, family : NeutralExpr m k (S n)) ->
     (l, r : NeutralExpr m k n) ->
-    Either CheckError (NeutralHasType ctx face (NAbstract body) (NPathType family l r))
-  introExact Z budget ctx face body family l r = Left Exhausted
-  introExact (S depth) budget ctx face body family l r = do
-        _ <- boundedInstantiate budget Zero family
-        _ <- boundedInstantiate budget One family
-        fp <- dependentFormation depth budget ctx (weakenFace face) family
-        lp <- introTyping depth budget ctx face l (mapNeutralDimensions TypedPath.faceZero family)
-        rp <- introTyping depth budget ctx face r (mapNeutralDimensions TypedPath.faceOne family)
-        bp <- introTyping depth budget ctx (weakenFace face) body family
-        le <- introBoundary depth budget ctx (SConjunction (weakenFace face) (SEndpoint FZ False)) body (weakenNeutralDimensions l) family
-        re <- introBoundary depth budget ctx (SConjunction (weakenFace face) (SEndpoint FZ True)) body (weakenNeutralDimensions r) family
-        Right (NPathPIntro fp lp rp bp le re)
+    Metered (NeutralHasType ctx face (NAbstract body) (NPathType family l r))
+  introExact Z ctx face body family l r = meterError Exhausted
+  introExact (S depth) ctx face body family l r = do
+        _ <- visit
+        _ <- boundedWork (boundedInstantiate 128 Zero family)
+        _ <- boundedWork (boundedInstantiate 128 One family)
+        fp <- dependentFormation depth ctx (weakenFace face) family
+        lp <- introTyping depth ctx face l (mapNeutralDimensions TypedPath.faceZero family)
+        rp <- introTyping depth ctx face r (mapNeutralDimensions TypedPath.faceOne family)
+        bp <- introTyping depth ctx (weakenFace face) body family
+        le <- introBoundary depth ctx (SConjunction (weakenFace face) (SEndpoint FZ False)) body (weakenNeutralDimensions l) family
+        re <- introBoundary depth ctx (SConjunction (weakenFace face) (SEndpoint FZ True)) body (weakenNeutralDimensions r) family
+        pure (NPathPIntro fp lp rp bp le re)
 
-  introBoundary : {m, k, n : Nat} -> Nat -> Nat -> (ctx : PathContext m k) ->
+  introBoundary : {m, k, n : Nat} -> Nat -> (ctx : PathContext m k) ->
     (face : ScopedFace n) -> (x, y, ty : NeutralExpr m k n) ->
-    Either CheckError (NeutralEqual ctx face x y ty)
-  introBoundary Z budget ctx face x y ty = Left Exhausted
-  introBoundary (S depth) {m} {k} {n} budget ctx face x y ty =
-    if m <= 12 && k <= 12 && n <= 12 then
-      case faceNodes (min 128 budget) face >>= \a => exprNodes a x >>= \b =>
-           exprNodes b y >>= \c => exprNodes c ty of
-        Nothing => Left Exhausted
-        Just _ => go x y ty
-    else Left Exhausted
+    Metered (NeutralEqual ctx face x y ty)
+  introBoundary Z ctx face x y ty = meterError Exhausted
+  introBoundary (S depth) {m} {k} {n} ctx face x y ty = do
+    _ <- visit
+    case m <= 12 && k <= 12 && n <= 12 of
+      True => do
+        _ <- boundedWork (admit (faceNodes 128 face >>= \a => exprNodes a x >>= \b =>
+             exprNodes b y >>= \c => exprNodes c ty))
+        go x y ty
+      False => meterError Exhausted
     where
-      go : (x, y, ty : NeutralExpr m k n) -> Either CheckError (NeutralEqual ctx face x y ty)
-      go x y NType = equalAdmitted ctx face x y
+      go : (x, y, ty : NeutralExpr m k n) -> Metered (NeutralEqual ctx face x y ty)
+      go x y NType = boundedWork (equalAdmitted ctx face x y)
       go (NAbstract x) (NAbstract y) (NPathType family l r) = do
-        xp <- introTyping depth budget ctx face (NAbstract x) (NPathType family l r)
-        yp <- introTyping depth budget ctx face (NAbstract y) (NPathType family l r)
-        bodies <- introBoundary depth budget ctx (weakenFace face) x y family
-        Right (NPathPAbstractCong xp yp bodies)
-      go x y ty = case neutralSame x y of
-        Nothing => Left Unsupported
-        Just Refl => do
-          xp <- introTyping depth budget ctx face y ty
-          Right (NRefl xp)
+        xp <- introTyping depth ctx face (NAbstract x) (NPathType family l r)
+        yp <- introTyping depth ctx face (NAbstract y) (NPathType family l r)
+        bodies <- introBoundary depth ctx (weakenFace face) x y family
+        pure (NPathPAbstractCong xp yp bodies)
+      go x y ty = do
+        same <- boundedWork (Right (neutralSame x y))
+        case same of
+          Nothing => meterError Unsupported
+          Just Refl => do
+            xp <- introTyping depth ctx face y ty
+            pure (NRefl xp)
 
-||| Autonomous dependent introduction, with depth-bounded recursive typing and
-||| abstraction congruence. Each generated substitution is preflighted.
+||| Autonomous dependent introduction with shared work tokens and fixed depth.
 public export
 checkDependentIntroduction : {m, k, n : Nat} -> (budget : Nat) -> (ctx : PathContext m k) ->
   (face : ScopedFace n) -> (term, ty : NeutralExpr m k n) ->
   Either CheckError (NeutralHasType ctx face term ty)
 checkDependentIntroduction budget ctx face (NAbstract body) (NPathType family l r) =
-  introTyping (min 12 budget) budget ctx face (NAbstract body) (NPathType family l r)
+  snd (runMetered (introTyping 12 ctx face (NAbstract body) (NPathType family l r)) budget)
 checkDependentIntroduction budget ctx face term ty = Left Unsupported
