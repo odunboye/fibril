@@ -857,7 +857,8 @@ TypedPath. `CommonPathTerm` additionally admits dimension-scoped named path appl
 ordinary embeddings and term constructors. `commonPathTermTyped` structurally
 translates every intrinsic `PathBody`, including arbitrary embedded logical terms,
 and `commonPathDimensionsCommute` proves syntactic dimension substitution
-commutes with this translation. This is only a term-typing bridge: it does not
-translate declarations, face-restricted equalities, path abstractions or their
-boundaries, and does not connect general common terms to the TypedPath checker.
-The type-preserving declared path bridge remains unfinished.
+commutes with this translation. The later declared path bridge translates
+declarations, face-restricted equalities, path abstractions and their boundaries;
+see `shadow-typedpath-bridge.md` for its exact scope and its pairing with the
+single-deletion quantitative theorem. It does not connect general common terms
+to the TypedPath checker or independently substitute common syntax.

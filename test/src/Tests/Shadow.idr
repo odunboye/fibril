@@ -737,3 +737,38 @@ commonLinearAmbientZero = commonShadowApplicationZero Tests.Shadow.commonLinearA
 commonLinearAmbientOne : CommonFaceEqual (commonDeclarations Tests.Shadow.shadowDeclarations)
   (the (ScopedFace 1) (SEndpoint FZ False)) (CPAt FZ One) (CPOrdinary (CBool False)) LBool
 commonLinearAmbientOne = commonShadowApplicationOne Tests.Shadow.commonLinearAmbientSource (DimRight Refl)
+
+-- The paired theorem consumes the real linear conditional derivation and a
+-- genuine declared neutral path, using the same source substitution for both.
+pairedLinearConditional :
+  SubstitutionResult (SubstituteHere (Boolean True)) Tests.Shadow.linearSource [Linear] []
+pairedLinearConditional =
+  case commonQuantitativeSubstitution [BoolTy] (SubstituteHere (Boolean True))
+    Tests.Shadow.linearSource [Linear] Tests.Shadow.linearSourceUses []
+    (ReplacementHere UseBoolean) Tests.Shadow.shadowNeutralPath of
+      (result, _, _) => result
+
+pairedLinearConditionalCommonType :
+  CommonHasType [] (CIf (CBool True) (CBool True) (CBool False)) LBool
+pairedLinearConditionalCommonType =
+  case commonQuantitativeSubstitution [BoolTy] (SubstituteHere (Boolean True))
+    Tests.Shadow.linearSource [Linear] Tests.Shadow.linearSourceUses []
+    (ReplacementHere UseBoolean) Tests.Shadow.shadowNeutralPath of
+      (_, typed, _) => typed
+
+pairedLinearConditionalCommonPath : CommonShadowPath
+  (commonDeclarations (the (PathDeclarations [] [LBool]) (DeclarePath (LIf (LBoolean True) (LBoolean True) (LBoolean False)) (LBoolean False) NoPaths)))
+  (the (ScopedFace 0) STop)
+  (CPOrdinary (CIf (CBool True) (CBool True) (CBool False)))
+  (CPOrdinary (CBool False)) LBool
+pairedLinearConditionalCommonPath =
+  case commonQuantitativeSubstitution [BoolTy] (SubstituteHere (Boolean True))
+    Tests.Shadow.linearSource [Linear] Tests.Shadow.linearSourceUses []
+    (ReplacementHere UseBoolean) Tests.Shadow.shadowNeutralPath of
+      (_, _, path) => path
+
+pairedConditionalLeftEndpoint :
+  CPOrdinary (commonTerm (shadowTerm (substitute (singleSubstitution (SubstituteHere (Boolean True))) Tests.Shadow.linearSource))) =
+  commonPathTerm (mapPathTerms (imageSubstitution [BoolTy] (singleSubstitution (SubstituteHere (Boolean True))))
+    (the (PathBody [LBool] [LBool] 0 LBool) (Embed (shadowTerm Tests.Shadow.linearSource))))
+pairedConditionalLeftEndpoint = Refl

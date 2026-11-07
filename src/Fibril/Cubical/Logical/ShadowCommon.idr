@@ -11,6 +11,8 @@ import Fibril.Cubical.Logical.ShadowSubstitution
 import Fibril.Cubical.Logical.ShadowTypedBridge
 import Fibril.Core.Quantitative.Syntax
 import Fibril.Core.Quantitative.Substitution
+import Fibril.Core.Quantitative.Usage
+import Fibril.Core.Usage
 import Fibril.Cubical.Logical.TypedPath
 import Fibril.Cubical.Logical.PathContext
 import Fibril.Foundation.DeMorgan.Scope
@@ -260,3 +262,27 @@ commonShadowApplicationOne : {0 decls : PathDeclarations ctx paths} -> {0 face :
   CommonFaceEqual (commonDeclarations decls) face (applyCommonShadowPath (commonDeclaredShadowPath path) One) (commonPathTerm right) a
 commonShadowApplicationOne (ShadowAbstract body zero one) cert =
   rewrite sym (commonPathDimensionsCommute (atDimension One) body) in commonBodyEqual (declaredShadowAtOne body zero one cert)
+
+||| The quantitative result is obtained from the source derivations, not from
+||| shadow equality. The path uses the very same single source substitution.
+public export
+commonQuantitativeSubstitution : {n : Nat} ->
+  (source : Vect (S n) Ty) -> {0 target : Vect n Ty} ->
+  (s : SingleSubstitution source target) -> (term : Term source a) ->
+  (usage : Usage (S n)) -> Uses term usage ->
+  (replacement : Usage n) -> ReplacementUses s replacement ->
+  {0 paths : Vect k LogicalType} -> {0 face : ScopedFace d} ->
+  {0 decls : PathDeclarations (shadowContext source) paths} ->
+  {0 left, right : PathBody (shadowContext source) paths d b} ->
+  (path : DeclaredShadowPath decls face left right) ->
+  (SubstitutionResult s term usage replacement,
+   CommonHasType (shadowContext target)
+     (commonTerm (shadowTerm (substitute (singleSubstitution s) term))) (shadowType a),
+   CommonShadowPath
+     (commonDeclarations (substitutePathDeclarations (imageSubstitution source (singleSubstitution s)) decls)) face
+     (commonPathTerm (mapPathTerms (imageSubstitution source (singleSubstitution s)) left))
+     (commonPathTerm (mapPathTerms (imageSubstitution source (singleSubstitution s)) right)) b)
+commonQuantitativeSubstitution source s term usage used replacement replacementUsed path =
+  (substituteUses s term usage used replacement replacementUsed,
+   sourceCommonTyped (substitute (singleSubstitution s) term),
+   commonDeclaredShadowPath (substituteDeclaredShadowPath (imageSubstitution source (singleSubstitution s)) path))

@@ -102,3 +102,26 @@ commutes with source translation. Endpoint application requires the source
 stable under substitution. The separate source `Uses` derivation is not
 reflected by this logical judgment. This does not provide general PathP,
 semantics or ownership, or an embedding into all of `TypedPath`.
+
+## Quantitative substitution paired with a declared common path
+
+`commonQuantitativeSubstitution` takes an actual `Uses term usage` and
+`ReplacementUses s replacement` for an arbitrary `SingleSubstitution s`, and
+an arbitrary `DeclaredShadowPath` over the shadow of the same source context.
+It returns the existing `substituteUses` result, common typing of the actual
+substituted source term, and the common translation of the path after logical
+substitution by the source substitution's image. The path is not required to
+have the source term as an endpoint. The face and dimension scope are unchanged.
+
+The returned `SubstitutionResult` retains the source theorem's actual result
+usage and its `Admits` bound, exactly
+`combineUsage (retainedDemand s usage) (scaleUsage (deletedDemand s usage) replacement)`;
+this is a permission bound, not an equality of usage vectors. Nothing about
+logical typing or equality establishes `Uses`. The paired Bool conditional
+fixture separately checks all three projections, and an equality links its
+substituted source shadow to that fixture's left path endpoint. Negative
+fixtures reject a changed substituted endpoint and a mismatched ordinary context.
+
+This result translates an already-substituted logical path: independent common
+term/path substitution and its commutation with translation are not proved.
+There is no claim of correspondence with production Core or runtime behavior.

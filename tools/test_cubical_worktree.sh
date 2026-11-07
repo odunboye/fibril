@@ -74,6 +74,22 @@ for fixture in ShadowCommonWrongType ShadowCommonWrongContext; do
   fi
 done
 echo 'Common judgment wrong type and context negative tests passed.'
+for fixture in PairedSubstitutionWrongEndpoint PairedSubstitutionWrongContext; do
+  "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1 || true
+  case "$fixture" in
+    PairedSubstitutionWrongEndpoint) expected='Mismatch between: CIf (CBool True) (CBool True) (CBool False) and CBool True.' ;;
+    PairedSubstitutionWrongContext) expected='Mismatch between: 0 and 1.' ;;
+  esac
+  if [[ $(grep -c '^Error:' "$tmp/$fixture.log") -ne 1 ]] ||
+     ! grep -Fq 'Error: While processing right hand side of bad. When unifying:' "$tmp/$fixture.log" ||
+     ! grep -Fq 'CommonShadowPath' "$tmp/$fixture.log" ||
+     ! grep -Fq "$expected" "$tmp/$fixture.log" ||
+     grep -Eq 'Undefined name|While processing type of' "$tmp/$fixture.log"; then
+    echo "Paired substitution negative test failed for an unrelated reason: $fixture" >&2
+    cat "$tmp/$fixture.log" >&2; exit 1
+  fi
+done
+echo 'Paired substitution wrong endpoint and context tests passed.'
 for fixture in CommonFaceWrongFace CommonFaceWrongIndex CommonFaceWrongType CommonFaceUsesReflection; do
   "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1 || true
   case "$fixture" in
