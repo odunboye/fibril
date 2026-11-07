@@ -1179,3 +1179,62 @@ commonApply f x = MkCommonMorphism
 public export
 commonConstant : {env, a : CommonSetoid} -> carrier a -> CommonMorphism env a
 commonConstant value = MkCommonMorphism (\_ => value) (\_ => relationRefl a value)
+
+||| An explicit runtime witness for one erased common typing derivation.
+public export
+data HigherOrderTerm : (ctx : Vect n LogicalType) -> (a : LogicalType) ->
+  {0 t : CommonTerm n} -> (0 typing : CommonHasType ctx t a) -> Type where
+  HOVar : (ctx : Vect n LogicalType) -> (a : LogicalType) ->
+    (v : LogicalVar ctx a) -> HigherOrderTerm ctx a (CVariable v)
+  HOUnit : (ctx : Vect n LogicalType) -> HigherOrderTerm ctx LUnit CUnitType
+  HOBool : (ctx : Vect n LogicalType) -> (b : Bool) -> HigherOrderTerm ctx LBool (CBoolType {b})
+  HOLambda : (ctx : Vect n LogicalType) -> (a, b : LogicalType) ->
+    {0 body : CommonHasType (a :: ctx) tm b} -> HigherOrderTerm (a :: ctx) b body ->
+    HigherOrderTerm ctx (LArrow a b) (CLambdaType body)
+  HOApplication : (ctx : Vect n LogicalType) -> (a, b : LogicalType) ->
+    {0 f : CommonHasType ctx ft (LArrow a b)} -> {0 x : CommonHasType ctx xt a} ->
+    HigherOrderTerm ctx (LArrow a b) f -> HigherOrderTerm ctx a x ->
+    HigherOrderTerm ctx b (CApplicationType f x)
+  HOUnitElim : (ctx : Vect n LogicalType) -> (a : LogicalType) ->
+    {0 x : CommonHasType ctx xt LUnit} -> {0 body : CommonHasType ctx bt a} ->
+    HigherOrderTerm ctx LUnit x -> HigherOrderTerm ctx a body ->
+    HigherOrderTerm ctx a (CUnitEliminationType x body)
+  HOIf : (ctx : Vect n LogicalType) -> (a : LogicalType) ->
+    {0 c : CommonHasType ctx ct LBool} -> {0 t : CommonHasType ctx tt a} -> {0 f : CommonHasType ctx ft a} ->
+    HigherOrderTerm ctx LBool c -> HigherOrderTerm ctx a t -> HigherOrderTerm ctx a f ->
+    HigherOrderTerm ctx a (CConditionalType c t f)
+
+public export
+commonChoose : Bool -> a -> a -> a
+commonChoose False t f = f
+commonChoose True t f = t
+
+public export
+commonIf : {env, a : CommonSetoid} -> CommonMorphism env Fibril.Cubical.Logical.ShadowCommon.commonBoolSetoid ->
+  CommonMorphism env a -> CommonMorphism env a -> CommonMorphism env a
+commonIf c t f = MkCommonMorphism
+  (\e => commonChoose (applyMorphism c e) (applyMorphism t e) (applyMorphism f e))
+  (\{x}, {y}, xy => choose (applyMorphism c x) (applyMorphism c y) (respectsRelation c xy) {x} {y} xy)
+  where
+    choose : (b1, b2 : Bool) -> b1 = b2 -> {x, y : carrier env} -> related env x y ->
+      related a (commonChoose b1 (applyMorphism t x) (applyMorphism f x))
+                (commonChoose b2 (applyMorphism t y) (applyMorphism f y))
+    choose False False Refl xy = respectsRelation f xy
+    choose True True Refl xy = respectsRelation t xy
+
+public export
+commonUnitElimination : {env, a : CommonSetoid} -> CommonMorphism env Fibril.Cubical.Logical.ShadowCommon.commonUnitSetoid ->
+  CommonMorphism env a -> CommonMorphism env a
+commonUnitElimination x body = body
+
+public export
+higherOrderTermSemantics : {ctx : Vect n LogicalType} -> {a : LogicalType} ->
+  {0 typing : CommonHasType ctx t a} -> HigherOrderTerm ctx a typing ->
+  CommonMorphism (commonEnvironmentSetoid ctx) (commonTypeSetoid a)
+higherOrderTermSemantics (HOVar ctx a v) = commonEnvironmentLookup ctx a v
+higherOrderTermSemantics (HOUnit ctx) = commonConstant ()
+higherOrderTermSemantics (HOBool ctx b) = commonConstant b
+higherOrderTermSemantics (HOLambda ctx a b body) = commonCurry (higherOrderTermSemantics body)
+higherOrderTermSemantics (HOApplication ctx a b f x) = commonApply (higherOrderTermSemantics f) (higherOrderTermSemantics x)
+higherOrderTermSemantics (HOUnitElim ctx a x body) = commonUnitElimination (higherOrderTermSemantics x) (higherOrderTermSemantics body)
+higherOrderTermSemantics (HOIf ctx a c t f) = commonIf (higherOrderTermSemantics c) (higherOrderTermSemantics t) (higherOrderTermSemantics f)

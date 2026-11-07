@@ -1559,3 +1559,44 @@ appliedFunctionPreservesDistinctEnvironments = respectsRelation Tests.Shadow.app
 
 appliedFunctionResult : applyMorphism Tests.Shadow.appliedIndiscreteFunction False = True
 appliedFunctionResult = Refl
+
+higherOrderLinearIf : HigherOrderTerm [LBool] LBool (sourceCommonTyped Tests.Shadow.linearSource)
+higherOrderLinearIf = HOIf [LBool] LBool (HOVar [LBool] LBool LHere)
+  (HOBool [LBool] True) (HOBool [LBool] False)
+
+higherOrderLinearTrue : applyMorphism (higherOrderTermSemantics Tests.Shadow.higherOrderLinearIf) (True, ()) = True
+higherOrderLinearTrue = Refl
+
+higherOrderLinearFalse : applyMorphism (higherOrderTermSemantics Tests.Shadow.higherOrderLinearIf) (False, ()) = False
+higherOrderLinearFalse = Refl
+
+higherOrderCapture : HigherOrderTerm [LBool] LBool
+  (CApplicationType (CLambdaType (CVariable (LThere LHere))) CUnitType)
+higherOrderCapture = HOApplication [LBool] LUnit LBool
+  (HOLambda [LBool] LUnit LBool (HOVar [LUnit, LBool] LBool (LThere LHere)))
+  (HOUnit [LBool])
+
+higherOrderCaptureResult : applyMorphism (higherOrderTermSemantics Tests.Shadow.higherOrderCapture) (True, ()) = True
+higherOrderCaptureResult = Refl
+
+higherOrderArrowIf : HigherOrderTerm [LBool, LArrow LBool LBool] (LArrow LBool LBool)
+  (CConditionalType (CVariable LHere) (CVariable (LThere LHere)) (CVariable (LThere LHere)))
+higherOrderArrowIf = HOIf [LBool, LArrow LBool LBool] (LArrow LBool LBool)
+  (HOVar [LBool, LArrow LBool LBool] LBool LHere)
+  (HOVar [LBool, LArrow LBool LBool] (LArrow LBool LBool) (LThere LHere))
+  (HOVar [LBool, LArrow LBool LBool] (LArrow LBool LBool) (LThere LHere))
+
+higherOrderArrowIfRelated :
+  related (commonTypeSetoid (LArrow LBool LBool))
+    (applyMorphism (higherOrderTermSemantics Tests.Shadow.higherOrderArrowIf) (True, (Tests.Shadow.setoidIdentity, ())))
+    (applyMorphism (higherOrderTermSemantics Tests.Shadow.higherOrderArrowIf) (True, (Tests.Shadow.setoidConditionalIdentity, ())))
+higherOrderArrowIfRelated = respectsRelation (higherOrderTermSemantics Tests.Shadow.higherOrderArrowIf)
+  {x = (True, (Tests.Shadow.setoidIdentity, ()))}
+  {y = (True, (Tests.Shadow.setoidConditionalIdentity, ()))}
+  (Refl, (Tests.Shadow.setoidIdentityEquivalent, Refl))
+
+higherOrderUnitElim : HigherOrderTerm [] LBool (CUnitEliminationType CUnitType (CBoolType {b = True}))
+higherOrderUnitElim = HOUnitElim [] LBool (HOUnit []) (HOBool [] True)
+
+higherOrderUnitElimResult : applyMorphism (higherOrderTermSemantics Tests.Shadow.higherOrderUnitElim) () = True
+higherOrderUnitElimResult = Refl

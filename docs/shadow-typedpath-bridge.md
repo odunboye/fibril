@@ -218,21 +218,17 @@ morphism preservation; symmetry and transitivity use the component setoid
 laws. `commonApplicationCongruence` is the resulting application rule. This
 is constructive and does not assume equality of Idris functions.
 
-This is a foundation, not yet an interpretation of `CommonHasType` or
-`CommonPathHasType`: lambda/application interpretation, derivation coherence,
-arbitrary-DM named-path interpretation and semantic
-endpoint admissibility, and structural `CommonFaceEqual` soundness remain
-unproved. In particular the existing first-order interpretation is not extended
-by this construction. It makes no claim about runtime behavior, ownership,
-or a general HoTT or cubical model.
+`HigherOrderTerm ctx type typing` is an explicit, runtime-accessible witness
+indexed by the actual `CommonHasType` derivation. Its constructors retain the
+context, result type and, at lambda and application, the domain type. This is
+an extra premise: an erased typing derivation does not automatically provide
+such a witness. `higherOrderTermSemantics` structurally interprets the witness
+as a context-to-result setoid morphism, using lookup, constants, currying,
+application, Boolean conditionals, and unit elimination. The latter requires
+both typed witnesses even though its semantics returns the body. Conditional
+branches can have arbitrary logical types, including arrows.
 
-The higher-order setoid foundation now also has pointwise product and typed
-context setoids, extensional variable lookup, constants, currying (with the
-bound value at the head of the context), and application. These are semantic
-combinators only: they do not inspect `CommonHasType`, and do not constitute a
-term interpreter. In particular, the erased type indices needed at lambda
-and application nodes must be supplied by an appropriate runtime-accessible
-interpretation witness or an explicitly revised typing API. Conditional and
-unit-elimination interpretation, a general total `commonTermSemantics`, and
-higher-order path interpretation and soundness remain unproved. No runtime or
-ownership property follows from these combinators.
+This is not a path interpreter or a semantic soundness theorem, nor does it
+establish derivation coherence, endpoint admissibility, runtime behavior,
+ownership, or a general HoTT or cubical model. The existing first-order path
+interpretation remains separate.

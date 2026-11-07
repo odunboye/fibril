@@ -569,3 +569,19 @@ for fixture in FirstOrderFaceIfWrongBranch FirstOrderFaceFalseHolds; do
   fi
 done
 echo 'First-order face congruence and false-face negative tests passed.'
+for fixture in HigherOrderWrongType HigherOrderWrongContext HigherOrderWrongDerivation; do
+  "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1 || true
+  case "$fixture" in
+    HigherOrderWrongType) expected='Mismatch between: CBoolType and CUnitType.' ;;
+    HigherOrderWrongContext) expected='Mismatch between: LUnit and LBool.' ;;
+    HigherOrderWrongDerivation) expected='Mismatch between: False and True.' ;;
+  esac
+  if [[ $(grep -c '^Error:' "$tmp/$fixture.log") -ne 1 ]] ||
+     ! grep -Fq 'Error: While processing right hand side of bad. When unifying:' "$tmp/$fixture.log" ||
+     ! grep -Fq "$expected" "$tmp/$fixture.log" ||
+     grep -Eq 'Undefined name|While processing type of' "$tmp/$fixture.log"; then
+    echo "Higher-order witness negative test failed: $fixture" >&2
+    cat "$tmp/$fixture.log" >&2; exit 1
+  fi
+done
+echo 'Higher-order witness wrong type, context and derivation tests passed.'
