@@ -388,3 +388,40 @@ for fixture in ShadowTypedBridgeWrongFace ShadowTypedBridgeWrongIndex; do
   esac
 done
 echo 'Shadow typed bridge wrong-face and wrong-index tests passed.'
+for fixture in StructuralBridgeWrongFace StructuralBridgeWrongSide StructuralBridgeWrongConstructor StructuralBridgeWrongIndex; do
+  "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1 || true
+  case "$fixture" in
+    StructuralBridgeWrongFace)
+      expected='Mismatch between: other and face.'
+      detail='simpleFaceEntails other (scopedEndpoint (Var FZ) False)' ;;
+    StructuralBridgeWrongSide)
+      expected='Mismatch between: True and False.'
+      detail='simpleFaceEntails face (scopedEndpoint (Var FZ) True)' ;;
+    StructuralBridgeWrongConstructor)
+      expected='Mismatch between: DeclaredLeft DeclaredHere ?check and DeclaredRight DeclaredHere Refl.'
+      detail='BridgeableEquality (BodyEndpoint (DeclaredLeft DeclaredHere ?check))' ;;
+    StructuralBridgeWrongIndex)
+      expected='Mismatch between: LThere LHere and LHere.'
+      detail='BodyEqual (DeclarePath (LRef (LThere LHere)) (LRef (LThere LHere)) NoPaths)' ;;
+  esac
+  if [[ $(grep -c '^Error:' "$tmp/$fixture.log") -ne 1 ]] ||
+     ! grep -Fq 'Error: While processing right hand side of bad.' "$tmp/$fixture.log" ||
+     ! grep -Fq "$expected" "$tmp/$fixture.log" || ! grep -Fq "$detail" "$tmp/$fixture.log"; then
+    echo "Structural bridge negative test $fixture failed for an unrelated reason:" >&2
+    cat "$tmp/$fixture.log" >&2; exit 1
+  fi
+  case "$fixture" in
+    StructuralBridgeWrongFace|StructuralBridgeWrongSide)
+      if ! grep -Fq 'simpleFaceEntails face (scopedEndpoint (Var FZ) False)' "$tmp/$fixture.log" ||
+         ! grep -Fq 'bad face other original restriction wrong = BridgeRestrictLeft wrong' "$tmp/$fixture.log"; then
+        echo "Structural bridge $fixture did not reject the expected symbolic recertification:" >&2
+        cat "$tmp/$fixture.log" >&2; exit 1
+      fi ;;
+  esac
+  if [[ $fixture == StructuralBridgeWrongIndex ]] &&
+     ! grep -Fq 'BodyEqual (DeclarePath (LRef LHere) (LRef (LThere LHere)) NoPaths)' "$tmp/$fixture.log"; then
+    echo 'Structural bridge wrong index did not reject the requested declaration:' >&2
+    cat "$tmp/$fixture.log" >&2; exit 1
+  fi
+done
+echo 'Structural bridge recertification, constructor, and index negative tests passed.'

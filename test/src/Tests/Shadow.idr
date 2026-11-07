@@ -519,3 +519,81 @@ bridgeNonzeroTyped : NeutralHasType
   (NPathType NType (NBase (FS FZ)) (NBase FZ))
 bridgeNonzeroTyped = bridgeDeclaredPath {context = [LBool, LBool]} (LThere LHere) LHere _
   {path = Tests.Shadow.bridgeNonzeroPath} (WitnessNeutral Refl Refl)
+
+-- Restriction is rechecked with the source endpoint solver, then composed with
+-- reflexivity; no target judgment is supplied to the bridge.
+structuralBoundary : BodyEqual
+  (DeclarePath (LRef (LThere LHere)) (LRef LHere) NoPaths)
+  (the (ScopedFace 2) (SConjunction (SEndpoint (FS FZ) True) (SEndpoint FZ False)))
+  (NeutralAt LHere (Var FZ)) (Embed (LRef (LThere LHere)))
+structuralBoundary = BodyTrans
+  (BodyRestrict {source = SEndpoint FZ False} (BodyEndpoint (DeclaredLeft DeclaredHere Refl)) Refl) BodyRefl
+
+structuralBoundaryTarget : NeutralEqual
+  (bridgeContext {context = [LBool, LBool]} (LThere LHere) LHere)
+  (the (ScopedFace 2) (SConjunction (SEndpoint (FS FZ) True) (SEndpoint FZ False)))
+  (NApply (NPath FZ) (Var FZ)) (NBase (FS FZ)) NType
+structuralBoundaryTarget = bridgeEquality {context = [LBool, LBool]} (LThere LHere) LHere _
+  {source = Tests.Shadow.structuralBoundary} (BridgeTransRefl (BridgeRestrictLeft Refl))
+
+structuralPath : NeutralHasType
+  (bridgeContext {context = [LBool, LBool]} (LThere LHere) LHere)
+  (the (ScopedFace 1) (SEndpoint FZ True))
+  (NAbstract (NApply (NPath FZ) (Var FZ)))
+  (NPathType NType (NBase (FS FZ)) (NBase FZ))
+structuralPath = bridgeAbstract {context = [LBool, LBool]} (LThere LHere) LHere _
+  {zero = Tests.Shadow.structuralBoundary}
+  {one = BodySym (BodySym (BodyEndpoint (DeclaredRight DeclaredHere Refl)))}
+  (BridgeTransRefl (BridgeRestrictLeft Refl)) (BridgeSym (BridgeSym BridgeEndpointRight))
+
+structuralVariableRefl : NeutralEqual (bridgeContext {context = [LBool, LBool]} LHere (LThere LHere))
+  (the (ScopedFace 0) STop) (NBase (FS FZ)) (NBase (FS FZ)) NType
+structuralVariableRefl = bridgeEquality {context = [LBool, LBool]} LHere (LThere LHere) _
+  {source = BodyRefl {x = Embed (LRef (LThere LHere))}} (BridgeRefl (BridgeVariable (LThere LHere)))
+
+structuralNeutralRefl : NeutralEqual (bridgeContext {context = [LBool]} LHere LHere)
+  (the (ScopedFace 1) STop) (NApply (NPath FZ) (Var FZ)) (NApply (NPath FZ) (Var FZ)) NType
+structuralNeutralRefl = bridgeEquality {context = [LBool]} LHere LHere _
+  {source = BodyRefl {x = NeutralAt LHere (Var FZ)}} (BridgeRefl (BridgeNeutral {a = LBool} (Var FZ)))
+
+structuralLeftReflTrans : NeutralEqual (bridgeContext {context = [LBool]} LHere LHere)
+  (the (ScopedFace 1) (SEndpoint FZ False)) (NApply (NPath FZ) (Var FZ)) (NBase FZ) NType
+structuralLeftReflTrans = bridgeEquality {context = [LBool]} LHere LHere _
+  {source = BodyTrans BodyRefl (BodyEndpoint (DeclaredLeft DeclaredHere Refl))}
+  (BridgeLeftReflTrans BridgeEndpointLeft)
+
+structuralRestrictRefl : NeutralEqual (bridgeContext {context = [LBool]} LHere LHere)
+  (the (ScopedFace 1) (SEndpoint FZ False)) (NBase FZ) (NBase FZ) NType
+structuralRestrictRefl = bridgeEquality {context = [LBool]} LHere LHere _
+  {source = BodyRestrict {source = STop} (BodyRefl {x = Embed (LRef LHere)}) Refl}
+  (BridgeRestrictRefl (BridgeVariable LHere))
+
+structuralRestrictRight : NeutralEqual (bridgeContext {context = [LBool]} LHere LHere)
+  (the (ScopedFace 2) (SConjunction (SEndpoint (FS FZ) False) (SEndpoint FZ True)))
+  (NApply (NPath FZ) (Var FZ)) (NBase FZ) NType
+structuralRestrictRight = bridgeEquality {context = [LBool]} LHere LHere _
+  {source = BodyRestrict {source = SEndpoint FZ True} (BodyEndpoint (DeclaredRight DeclaredHere Refl)) Refl}
+  (BridgeRestrictRight Refl)
+
+linearStructuralZero : BodyEqual
+  (DeclarePath (shadowTerm Tests.Shadow.bridgeSource) (shadowTerm Tests.Shadow.bridgeSource) NoPaths)
+  (the (ScopedFace 1) (SConjunction STop (SEndpoint FZ False)))
+  (NeutralAt LHere (Var FZ)) (Embed (shadowTerm Tests.Shadow.bridgeSource))
+linearStructuralZero = BodyTrans BodyRefl (BodyEndpoint (DeclaredLeft DeclaredHere Refl))
+
+linearStructuralOne : BodyEqual
+  (DeclarePath (shadowTerm Tests.Shadow.bridgeSource) (shadowTerm Tests.Shadow.bridgeSource) NoPaths)
+  (the (ScopedFace 1) (SConjunction STop (SEndpoint FZ True)))
+  (NeutralAt LHere (Var FZ)) (Embed (shadowTerm Tests.Shadow.bridgeSource))
+linearStructuralOne = BodyEndpoint (DeclaredRight DeclaredHere Refl)
+
+linearStructuralShadow : DeclaredShadowPath
+  (DeclarePath (shadowTerm Tests.Shadow.bridgeSource) (shadowTerm Tests.Shadow.bridgeSource) NoPaths)
+  (the (ScopedFace 0) STop) (Embed (shadowTerm Tests.Shadow.bridgeSource)) (Embed (shadowTerm Tests.Shadow.bridgeSource))
+linearStructuralShadow = ShadowAbstract (NeutralAt LHere (Var FZ)) Tests.Shadow.linearStructuralZero Tests.Shadow.linearStructuralOne
+
+linearStructuralTyped : NeutralHasType (bridgeContext {context = [LBool]} LHere LHere) (the (ScopedFace 0) STop)
+  (NAbstract (NApply (NPath FZ) (Var FZ))) (NPathType NType (NBase FZ) (NBase FZ))
+linearStructuralTyped = bridgeAbstract {context = [LBool]} LHere LHere STop
+  {zero = Tests.Shadow.linearStructuralZero} {one = Tests.Shadow.linearStructuralOne}
+  (BridgeLeftReflTrans BridgeEndpointLeft) BridgeEndpointRight
