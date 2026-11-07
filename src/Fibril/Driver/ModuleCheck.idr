@@ -451,6 +451,17 @@ natBuiltinsVisible globals =
         sameSyntax succ.global.value (Lambda Linear NatType (NatSucc (Variable FZ)))
       _ => False
 
+-- This read-only probe allocates no rewritten expression before admission.
+private
+structuralCallPresent : String -> String -> Expr -> Bool
+structuralCallPresent name predecessor (NApply _ (NRef _ function) (NRef _ value)) =
+  function == name && value == predecessor
+structuralCallPresent name predecessor (NApply _ function value) =
+  structuralCallPresent name predecessor function || structuralCallPresent name predecessor value
+structuralCallPresent name predecessor (NIf _ condition yes no) =
+  structuralCallPresent name predecessor condition || structuralCallPresent name predecessor yes || structuralCallPresent name predecessor no
+structuralCallPresent _ _ _ = False
+
 private
 natRecursiveEquation : List Weighted -> String -> Term 0 -> Expr -> Either ResolveError (Maybe (Term 0))
 natRecursiveEquation globals name ty (NEquationLambda _ [argument] _
@@ -460,6 +471,13 @@ natRecursiveEquation globals name ty (NEquationLambda _ [argument] _
      scrutinee /= argument.spelling || not (natBuiltinsVisible globals) ||
      isJust (find (\entry => entry.global.name == name) globals) ||
      not (null (qualifiedCandidates name (map global globals))) then Right Nothing else do
+  -- Without a supported call, ordinary elaboration handles the case. The
+  -- self name is absent from globals, so invalid recursion cannot resolve.
+  let hasCall = case (first.spelling, firstBinder, second.spelling, secondBinder) of
+        ("Zero", [], "Succ", [predecessor]) => structuralCallPresent name predecessor.spelling secondBody
+        ("Succ", [predecessor], "Zero", []) => structuralCallPresent name predecessor.spelling firstBody
+        _ => False
+  if not hasCall then Right Nothing else do
   -- Never reduce an unchecked signature without the guarded node/payload
   -- admission used by speculative conversion. Exhaustion is inconclusive.
   case guardedNormal typeReductionFuel ty of
@@ -501,17 +519,6 @@ recursiveConstructorTag globals key name = do
     if sameSyntax value (RecEnd (RecType key)) then Just 0 else
       if sameSyntax value (Lambda Linear (RecType key) (RecMore (RecType key) (Variable FZ)))
         then Just 1 else Nothing
-
--- This read-only probe allocates no rewritten expression before admission.
-private
-structuralCallPresent : String -> String -> Expr -> Bool
-structuralCallPresent name predecessor (NApply _ (NRef _ function) (NRef _ value)) =
-  function == name && value == predecessor
-structuralCallPresent name predecessor (NApply _ function value) =
-  structuralCallPresent name predecessor function || structuralCallPresent name predecessor value
-structuralCallPresent name predecessor (NIf _ condition yes no) =
-  structuralCallPresent name predecessor condition || structuralCallPresent name predecessor yes || structuralCallPresent name predecessor no
-structuralCallPresent _ _ _ = False
 
 private
 polymorphicCallPresent : String -> String -> Expr -> Bool

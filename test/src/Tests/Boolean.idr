@@ -9,10 +9,13 @@ import Fibril.Core.Reduction
 import Fibril.Core.WeakHead
 import Fibril.Core.Erased
 import Fibril.Core.Runtime
+import Fibril.Core.ResourceAdmission
+import Fibril.Elaboration.Expression.Conversion
 import Fibril.Source.Global
 import Fibril.Source.Primitive
 import Fibril.Driver.Check
 import Fibril.Driver.Evaluate
+import Fibril.Driver.Native.Emit
 import Fibril.Elaboration.Expression.Parameters
 import Fibril.Source.Text
 import Fibril.Source.Resolve.Error
@@ -46,6 +49,80 @@ checks =
   [ ("Nat formation and structural iterator",
       accepted True "(Nat : Type)" &&
       normalIs 128 "natRec (\\(0 k : Nat) => String) \"a\" (\\(0 k : Nat) => \\(1 x : String) => appendString x \"!\") (Succ (Succ Zero))" "\"a!!\"")
+  , ("NatCase computes one step and preserves runtime typing",
+      let motive = Lambda Erased NatType NatType
+          branch = Lambda Linear NatType (Variable FZ)
+          term = NatCase motive (NatSucc (NatSucc NatZero)) NatZero branch in
+      case (checkRuntime 512 128 Empty term NatType, step term, weakHead 16 term) of
+        (Right _, Just reduced, HeadForm (NatSucc NatZero)) =>
+          case checkRuntime 512 128 Empty reduced NatType of
+            Right _ => True
+            Left _ => False
+        _ => False)
+  , ("NatCase zero and neutral weak head",
+      case (step (the (Term 0) (NatCase (Lambda Erased NatType NatType) NatZero NatZero (Lambda Linear NatType (Variable FZ)))),
+            weakHead 16 (the (Term 1) (NatCase (Lambda Erased NatType NatType) (Variable FZ) NatZero (Lambda Linear NatType (Variable FZ))))) of
+        (Just NatZero, HeadForm (NatCase _ (Variable FZ) _ _)) => True
+        _ => False)
+  , ("NatCase joins exclusive branch captures and consumes scrutinee",
+      let motive = Lambda Erased NatType NatType
+          branch = Lambda Linear NatType
+            (NatRec (Lambda Erased NatType NatType) (Variable (FS (FS FZ)))
+              (Lambda Erased NatType (Lambda Linear NatType (Variable FZ))) (Variable FZ)) in
+      case checkRuntime 512 128 (Extend (Extend Empty Linear NatType) Linear NatType)
+        (NatCase motive (Variable FZ) (Variable (FS FZ)) branch) NatType of
+        Right _ => True
+        _ => False)
+  , ("NatCase rejects duplicate linear capture in a branch",
+      let motive = Lambda Erased NatType StringType
+          branch = Lambda Linear NatType
+            (NatRec (Lambda Erased NatType StringType)
+              (StringAppend (Variable (FS FZ)) (Variable (FS FZ)))
+              (Lambda Erased NatType (Lambda Linear StringType (Variable FZ))) (Variable FZ)) in
+      case checkRuntime 512 128 (Extend Empty Linear StringType)
+        (NatCase motive NatZero (Variable FZ) branch) StringType of
+        Left _ => True
+        Right _ => False)
+  , ("NatCase dependent motive checks both outcomes and preserves typing",
+      let motive = Lambda Erased NatType
+            (NatCase (Lambda Erased NatType (Universe 0)) (Variable FZ) BoolType
+              (Lambda Linear NatType NatType))
+          branch = Lambda Linear NatType (Variable FZ)
+          zero = NatCase motive NatZero BoolTrue branch
+          succ = NatCase motive (NatSucc NatZero) BoolTrue branch in
+      case (checkRuntime 512 128 Empty zero BoolType, checkRuntime 512 128 Empty succ NatType,
+            step zero, step succ) of
+        (Right _, Right _, Just z, Just s) =>
+          case (checkRuntime 512 128 Empty z BoolType, checkRuntime 512 128 Empty s NatType) of
+            (Right _, Right _) => True
+            _ => False
+        _ => False)
+  , ("NatCase substitution traverses all fields and preserves bound variables",
+      let term : Term 1
+          term = NatCase (Variable FZ) (Variable FZ) (Variable FZ)
+            (Lambda Linear NatType (Apply (Variable (FS FZ)) (Variable FZ)))
+          expected : Term 1
+          expected = NatCase (NatSucc (Variable FZ)) (NatSucc (Variable FZ)) (NatSucc (Variable FZ))
+            (Lambda Linear NatType (Apply (NatSucc (Variable (FS FZ))) (Variable FZ))) in
+        sameSyntax (substituteTerm (\_ => NatSucc (Variable FZ)) term) expected)
+  , ("NatCase resource admission visits every field",
+      let ref = FileHandleValue 0 0 in
+        all containsFileReference [the (Term 0) (NatCase ref NatZero NatZero NatZero),
+          NatCase NatZero ref NatZero NatZero, NatCase NatZero NatZero ref NatZero,
+          NatCase NatZero NatZero NatZero ref] &&
+        not (containsFileReference (the (Term 0) (NatCase NatZero NatZero NatZero NatZero))))
+  , ("NatCase conversion admission visits every field",
+      let large = StringValue (pack (replicate 8193 'x')) in
+        all (not . guardedStepAdmitted) [the (Term 0) (NatCase large NatZero NatZero NatZero),
+          NatCase NatZero large NatZero NatZero, NatCase NatZero NatZero large NatZero,
+          NatCase NatZero NatZero NatZero large] &&
+        guardedStepAdmitted (the (Term 0) (NatCase NatZero NatZero NatZero NatZero)))
+  , ("NatCase rejects invalid successor quantity and mismatched branches",
+      let motive = Lambda Erased NatType NatType in
+      case (checkErased 512 128 Empty (NatCase motive NatZero NatZero (Lambda Erased NatType NatZero)) NatType,
+            checkErased 512 128 Empty (NatCase motive NatZero (StringValue "bad") (Lambda Linear NatType (Variable FZ))) NatType) of
+        (Left _, Left _) => True
+        _ => False)
   , ("Nat recursor proposal normalizes a constant motive",
       case implicitArgumentType (At 0 1 1) 16 Empty
         (NatRec (Lambda Erased NatType NatType) NatZero NatZero NatZero) of

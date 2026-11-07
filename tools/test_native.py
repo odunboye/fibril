@@ -38,6 +38,25 @@ class NativeTests(unittest.TestCase):
                 self.assertEqual(reference.returncode, 0, reference.stderr)
                 self.assertEqual(native.stdout, reference.stdout)
 
+    def test_nat_case_and_clauses_match_reference(self):
+        for definition in ('f Zero = Zero\nf Succ n = Succ n',
+                           'f n = case n of\n  Zero => Zero\n  Succ k => Succ k'):
+            for value, expected in (('Zero', b'\n'), ('Succ (Succ Zero)', b'!!\n')):
+                with self.subTest(definition=definition, value=value), tempfile.TemporaryDirectory() as directory:
+                    path = Path(directory) / 'Main.fib'
+                    path.write_text('module Main\nf : Nat -> Nat\n' + definition +
+                        '\nmarks : (1 n : Nat) -> String\nmarks n = natRec '
+                        '(\\(0 k : Nat) => String) "" '
+                        '(\\(0 k : Nat) => \\(1 result : String) => appendString result "!") n\n'
+                        + f'main : IO Unit\nmain = putStrLn (marks (f ({value})))\n')
+                    args = ['--source-dir', directory, str(path)]
+                    _, native = self.compile_and_run(args, directory)
+                    reference = run_cli('run', *args, text=False, timeout=120)
+                    self.assertEqual(reference.returncode, 0, reference.stderr)
+                    self.assertEqual(native.returncode, 0, native.stderr)
+                    self.assertEqual(native.stdout, expected)
+                    self.assertEqual(native.stdout, reference.stdout)
+
     def test_imported_module_and_package_entry(self):
         cases = [(['--source-dir', str(ROOT / 'examples/modules/checked'), str(ROOT / 'examples/modules/checked/Main.fib')], b'Hello, Fibril!\n'),
                  (['--source-dir', str(ROOT / 'examples/modules/implicit-arguments'), str(ROOT / 'examples/modules/implicit-arguments/Main.fib')], b'queued: receipt\nexplicit type\nphantom type\nboth inferred\npartly explicit\n'),

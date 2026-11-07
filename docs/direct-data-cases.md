@@ -7,8 +7,9 @@ or request choice without encoding it as a function or requesting a named
 eliminator. Pattern branches can share an ambient linear resource: each
 alternative uses it in its own branch, and the ordinary runtime checker joins
 those alternative demands. This adds source convenience over existing core
-nominal/variant cases. It also supports one-step matching of the fixed unary
-recursive and parameterized list shapes; this is not itself a recursive
+nominal/variant cases. It also supports one-step matching of Nat and the fixed unary
+recursive and parameterized list shapes. A Nat successor predecessor is linear
+and must be used exactly once, even for an unrestricted scrutinee; this is not itself a recursive
 definition or a soundness theorem. Prefer `Bool` for a choice without payload or a record when
 all fields exist together. A named eliminator remains an explicit alternative,
 but its unrestricted branch arguments cannot capture ambient linear values.

@@ -40,6 +40,7 @@ mutual
   substituteCongruent left right agree (RecMore ty x) = rewrite substituteCongruent left right agree ty in rewrite substituteCongruent left right agree x in Refl
   substituteCongruent left right agree (RecFold p z s x) = rewrite substituteCongruent left right agree p in rewrite substituteCongruent left right agree z in rewrite substituteCongruent left right agree s in rewrite substituteCongruent left right agree x in Refl
   substituteCongruent left right agree (RecCase p x z s) = rewrite substituteCongruent left right agree p in rewrite substituteCongruent left right agree x in rewrite substituteCongruent left right agree z in rewrite substituteCongruent left right agree s in Refl
+  substituteCongruent left right agree (NatCase p x z s) = rewrite substituteCongruent left right agree p in rewrite substituteCongruent left right agree x in rewrite substituteCongruent left right agree z in rewrite substituteCongruent left right agree s in Refl
   substituteCongruent left right agree (SeqCase p x z s) = rewrite substituteCongruent left right agree p in rewrite substituteCongruent left right agree x in rewrite substituteCongruent left right agree z in rewrite substituteCongruent left right agree s in Refl
   substituteCongruent left right agree (SeqType key a) = cong (SeqType key) (substituteCongruent left right agree a)
   substituteCongruent left right agree (SeqNil ty) = cong SeqNil (substituteCongruent left right agree ty)
@@ -139,6 +140,7 @@ mutual
   renameAsSubstitution env (RecMore ty x) = rewrite renameAsSubstitution env ty in rewrite renameAsSubstitution env x in Refl
   renameAsSubstitution env (RecFold p z s x) = rewrite renameAsSubstitution env p in rewrite renameAsSubstitution env z in rewrite renameAsSubstitution env s in rewrite renameAsSubstitution env x in Refl
   renameAsSubstitution env (RecCase p x z s) = rewrite renameAsSubstitution env p in rewrite renameAsSubstitution env x in rewrite renameAsSubstitution env z in rewrite renameAsSubstitution env s in Refl
+  renameAsSubstitution env (NatCase p x z s) = rewrite renameAsSubstitution env p in rewrite renameAsSubstitution env x in rewrite renameAsSubstitution env z in rewrite renameAsSubstitution env s in Refl
   renameAsSubstitution env (SeqCase p x z s) = rewrite renameAsSubstitution env p in rewrite renameAsSubstitution env x in rewrite renameAsSubstitution env z in rewrite renameAsSubstitution env s in Refl
   renameAsSubstitution env (SeqType key a) = cong (SeqType key) (renameAsSubstitution env a)
   renameAsSubstitution env (SeqNil ty) = cong SeqNil (renameAsSubstitution env ty)

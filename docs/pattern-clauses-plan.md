@@ -6,9 +6,10 @@ per clause lower to checked data cases. This supports concrete instantiations of
 generic sums in named modules. Constructor coverage, field usage, and types are
 checked by the existing case machinery. Clause bodies cannot mention the
 function's name, even when shadowed. Other arguments, nested patterns, wildcard
-or binding catch-alls, qualified constructors, mutual clauses, and Nat clauses
-are not supported. In particular the direct data-case elaborator does not handle
-Nat. Ordinary single-equation behavior is unchanged.
+or binding catch-alls, qualified constructors, and mutual clauses
+are not supported. Flat Nat clauses and direct Nat cases are supported when the
+linear successor predecessor is consumed exactly once. Consequently `isZero`
+with a discarded predecessor or binding catch-all remains unsupported. Ordinary single-equation behavior is unchanged.
 
 The lowering preserves constructor, payload and body spans but does not retain a
 separate authored clause AST or later definition-name spans. The synthetic
@@ -76,5 +77,5 @@ Do not assume that expanding it into constructor cases is generally safe.
   execution where supported.
 
 Existing `docs/direct-data-cases.md`, `docs/function-equations.md`, and
-`docs/mutual-structural-equations.md` describe the current boundaries. No
-pattern-clause implementation or tests are claimed by this plan.
+`docs/mutual-structural-equations.md` describe the current boundaries. The
+status above records the implemented subset of this plan.

@@ -49,6 +49,72 @@ main = get ({constructor} Bool Bool True)
                 result = self.run_source(DATA + 'get : (1 value : Sum Bool Bool) -> Bool\n' + clauses + '\nmain : Bool\nmain = True\n')
                 self.assertNotEqual(result.returncode, 0, result.stdout)
 
+    def test_nat_clauses_and_direct_case(self):
+        definitions = [
+            'f Zero = Zero\nf Succ n = Succ n',
+            'f n = case n of\n  Zero => Zero\n  Succ k => Succ k',
+        ]
+        for definition in definitions:
+            for value in ('Zero', 'Succ Zero'):
+                with self.subTest(definition=definition, value=value):
+                    result = self.run_source('module Main\nf : Nat -> Nat\n' + definition +
+                                             f'\nmain : Nat\nmain = f ({value})\n')
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertIn('Normal: ' + ('Zero' if value == 'Zero' else '(Succ Zero)'), result.stdout)
+
+    def test_linear_nat_named_equation_direct_case_and_recursion(self):
+        definitions = [
+            'f n = case n of\n  Zero => Zero\n  Succ k => Succ k',
+            'f n = case n of\n  Succ k => Succ k\n  Zero => Zero',
+            'f n = case n of\n  Zero => Zero\n  Succ k => Succ (f k)',
+        ]
+        for definition in definitions:
+            for value in ('Zero', 'Succ Zero'):
+                with self.subTest(definition=definition, value=value):
+                    result = self.run_source('module Main\nf : (1 n : Nat) -> Nat\n' + definition +
+                                             f'\nmain : Nat\nmain = f ({value})\n')
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertIn('Normal: ' + ('Zero' if value == 'Zero' else '(Succ Zero)'), result.stdout)
+
+    def test_linear_nat_named_equation_rejects_invalid_self_recursion(self):
+        definitions = [
+            'f n = case n of\n  Zero => f Zero\n  Succ k => Succ k',
+            'f n = case n of\n  Zero => Zero\n  Succ k => f n',
+            'f n = case n of\n  Zero => Zero\n  Succ k => Succ (f (Succ k))',
+            'f n = case n of\n  Zero => f Zero\n  Succ k => f k',
+        ]
+        for definition in definitions:
+            with self.subTest(definition=definition):
+                result = self.run_source('module Main\nf : (1 n : Nat) -> Nat\n' + definition +
+                                         '\nmain : Nat\nmain = Zero\n')
+                self.assertNotEqual(result.returncode, 0, result.stdout)
+
+    def test_nat_rejects_recursion_coverage_and_linear_discard(self):
+        definitions = [
+            'f Zero = Zero\nf Succ n = f n',
+            'f Zero = Zero\nf Zero = Zero',
+            'f n = case n of\n  Zero => Zero',
+            'f Zero = Zero\nf Succ n = Zero',
+            'f Zero = Zero\nf n = n',
+        ]
+        for definition in definitions:
+            with self.subTest(definition=definition):
+                result = self.run_source('module Main\nf : Nat -> Nat\n' + definition +
+                                         '\nmain : Nat\nmain = Zero\n')
+                self.assertNotEqual(result.returncode, 0, result.stdout)
+
+    def test_nat_clause_binder_navigation(self):
+        source = 'f : Nat -> Nat\nf Zero = Zero\nf Succ n = Succ n\nmain : Nat\nmain = Zero\n'
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'source.fib'
+            path.write_text(source)
+            result = subprocess.run([str(EXE), 'rename-preview', '3', '8', 'item', str(path)],
+                                    text=True, capture_output=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            edits = json.loads(result.stdout)['edits']
+            self.assertEqual([(x['range']['start']['line'], x['range']['start']['column'])
+                              for x in edits], [(3, 8), (3, 17)])
+
     def test_clause_headers_navigation_and_rename(self):
         source = "f : Bool -> Bool\nf A = True\nf B = False\nf C = True\nmain : Bool\nmain = f True\n"
         with tempfile.TemporaryDirectory() as directory:

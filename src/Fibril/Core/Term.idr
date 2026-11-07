@@ -38,6 +38,7 @@ data Term : Nat -> Type where
   RecFold : Term n -> Term n -> Term n -> Term n -> Term n
   ||| Non-recursive elimination exposes a linear tail without an induction result.
   RecCase : Term n -> Term n -> Term n -> Term n -> Term n
+  NatCase : Term n -> Term n -> Term n -> Term n -> Term n
   ||| Fixed positive list shape: one terminal and one linear element/tail arm.
   SeqType : String -> Term n -> Term n
   SeqNil : Term n -> Term n
@@ -149,6 +150,7 @@ mutual
   rename env (RecMore ty value) = RecMore (rename env ty) (rename env value)
   rename env (RecFold motive base step value) = RecFold (rename env motive) (rename env base) (rename env step) (rename env value)
   rename env (RecCase motive value base more) = RecCase (rename env motive) (rename env value) (rename env base) (rename env more)
+  rename env (NatCase motive value base more) = NatCase (rename env motive) (rename env value) (rename env base) (rename env more)
   rename env (SeqType key element) = SeqType key (rename env element)
   rename env (SeqNil ty) = SeqNil (rename env ty)
   rename env (SeqCons ty head tail) = SeqCons (rename env ty) (rename env head) (rename env tail)
@@ -225,6 +227,7 @@ mutual
   substituteTerm env (RecMore ty value) = RecMore (substituteTerm env ty) (substituteTerm env value)
   substituteTerm env (RecFold motive base step value) = RecFold (substituteTerm env motive) (substituteTerm env base) (substituteTerm env step) (substituteTerm env value)
   substituteTerm env (RecCase motive value base more) = RecCase (substituteTerm env motive) (substituteTerm env value) (substituteTerm env base) (substituteTerm env more)
+  substituteTerm env (NatCase motive value base more) = NatCase (substituteTerm env motive) (substituteTerm env value) (substituteTerm env base) (substituteTerm env more)
   substituteTerm env (SeqType key element) = SeqType key (substituteTerm env element)
   substituteTerm env (SeqNil ty) = SeqNil (substituteTerm env ty)
   substituteTerm env (SeqCons ty head tail) = SeqCons (substituteTerm env ty) (substituteTerm env head) (substituteTerm env tail)
@@ -308,6 +311,7 @@ mutual
   sameSyntax (RecMore t x) (RecMore u y) = sameSyntax t u && sameSyntax x y
   sameSyntax (RecFold p z s x) (RecFold q w t y) = sameSyntax p q && sameSyntax z w && sameSyntax s t && sameSyntax x y
   sameSyntax (RecCase p x z s) (RecCase q y w t) = sameSyntax p q && sameSyntax x y && sameSyntax z w && sameSyntax s t
+  sameSyntax (NatCase p x z s) (NatCase q y w t) = sameSyntax p q && sameSyntax x y && sameSyntax z w && sameSyntax s t
   sameSyntax (SeqType key a) (SeqType other b) = key == other && sameSyntax a b
   sameSyntax (SeqNil a) (SeqNil b) = sameSyntax a b
   sameSyntax (SeqCons a h t) (SeqCons b x y) = sameSyntax a b && sameSyntax h x && sameSyntax t y

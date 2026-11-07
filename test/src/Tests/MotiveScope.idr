@@ -45,6 +45,16 @@ checks =
       (case guardedNormal 1 (largeArgument 509) of Just _ => True; _ => False) &&
       (case guardedNormal 1 (largeArgument 510) of Nothing => True; _ => False) &&
       (case guardedNormal 1 (largeArgument 512) of Nothing => True; _ => False))
+  , ("NatCase conversion bounds nodes and unsafe redexes in every field",
+      let big = largeArgument 510
+          redex = Apply (Lambda Erased (Universe 0) (repeated 8)) (largeArgument 80)
+          cases : Term 0 -> List (Term 0)
+          cases x = [NatCase x NatZero NatZero NatZero, NatCase NatZero x NatZero NatZero,
+                     NatCase NatZero NatZero x NatZero, NatCase NatZero NatZero NatZero x] in
+        all (not . guardedStepAdmitted) (cases big) &&
+        all (not . guardedStepAdmitted) (cases redex) &&
+        guardedEqual 8 (the (Term 0) (NatCase NatType (NatSucc NatZero) BoolFalse
+          (Lambda Linear NatType BoolTrue))) BoolTrue)
   , ("guarded conversion does not step at zero fuel",
       case guardedNormal 0 (the (Term 0) (Apply (Lambda Erased (Universe 0) (Variable FZ)) StringType)) of Nothing => True; _ => False)
   , ("guarded conversion rejects expansion before substitution",

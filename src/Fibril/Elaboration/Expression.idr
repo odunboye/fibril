@@ -460,6 +460,103 @@ mutual
         Right (RecCase selected scrutinee base more)
       _ => Left (CannotElaborate span.start "Recursive case requires exactly two branches")
 
+  natCaseArms : Position -> List GlobalDefinition -> Context n -> Vect n String -> Term n -> Maybe (Term n) -> List (Token, List Token, Expr) -> Either ResolveError (List (Nat, Term n))
+  natCaseArms position globals ctx env ty hint [] = Right []
+  natCaseArms position globals ctx env ty@NatType hint ((name, binder, body) :: rest) = do
+    if elem '.' (unpack name.spelling) then Right () else case lookupName name.spelling env of
+      Just _ => Left (CannotElaborate name.span.start "Data-case constructor is shadowed by a local binder")
+      Nothing => Right ()
+    definition <- case find (\entry => entry.name == name.spelling) globals of
+      Nothing => case qualifiedCandidates name.spelling globals of
+        _ :: _ :: _ => Left (CannotElaborate name.span.start ("Ambiguous imported name " ++ name.spelling ++ "; use a qualified name"))
+        _ => Left (Unbound name.span.start name.spelling)
+      Just entry => Right entry
+    if definition.quantity /= Unrestricted then Left (CannotElaborate name.span.start "Data-case constructor must be an unrestricted checked global") else Right ()
+    normal <- case guardedNormal typeReductionFuel definition.value of
+      Nothing => Left (CannotElaborate name.span.start "Nat-case constructor comparison exhausted admission or reduction")
+      Just result => Right result
+    let terminal : Term 0 = NatZero
+    let successor : Term 0 = Lambda Linear NatType (NatSucc (Variable FZ))
+    tag <- if sameSyntax normal terminal then Right 0 else
+             if sameSyntax normal successor then Right 1 else
+               Left (CannotElaborate name.span.start "Nat-case constructor does not match the scrutinee family")
+    branch <- case (tag, binder) of
+      (0, []) => case hint of
+        Nothing => elaborateInWith globals (Just ctx) env body
+        Just motive =>
+          let applied = Apply motive (NatZero)
+              result = fromMaybe applied (guardedNormal typeReductionFuel applied) in
+            elaborateExpected globals ctx env result body
+      (1, [bound]) => do
+        result <- case hint of
+          Nothing => elaborateInWith globals (Just (Extend ctx Linear ty)) (bound.spelling :: env) body
+          Just motive =>
+            let actual = NatSucc (Variable FZ)
+                applied = Apply (weaken motive) actual
+                expectedResult = fromMaybe applied (guardedNormal typeReductionFuel applied) in
+              elaborateExpected globals (Extend ctx Linear ty) (bound.spelling :: env) expectedResult body
+        Right (Lambda Linear ty result)
+      _ => Left (CannotElaborate name.span.start "Nat-case constructor payload arity does not match its branch")
+    following <- natCaseArms position globals ctx env ty hint rest
+    if any (\entry => fst entry == tag) following
+      then Left (CannotElaborate name.span.start "Duplicate Nat-case constructor") else Right ()
+    Right ((tag, branch) :: following)
+  natCaseArms position _ _ _ _ _ _ = Left (CannotElaborate position "Invalid Nat-case type")
+
+  chooseExpectedNatMotive : Position -> Context n -> Term n -> Term n -> Term n -> Term n -> Term n -> Either ResolveError (Term n)
+  chooseExpectedNatMotive position ctx ty scrutinee result base more = do
+    exact <- expectedDataMotive position ty result scrutinee
+    case checkErased checkingDepth typeReductionFuel ctx (NatCase exact scrutinee base more) result of
+      Right () => Right exact
+      Left _ => case guardedNormal typeReductionFuel scrutinee of
+        Nothing => Left (CannotElaborate position "Cannot infer Nat-case motive; use an explicit return motive")
+        Just normal => if sameSyntax normal scrutinee
+          then Left (CannotElaborate position "Cannot infer Nat-case motive; use an explicit return motive")
+          else do
+            converted <- expectedDataMotive position ty result normal
+            case checkErased checkingDepth typeReductionFuel ctx (NatCase converted scrutinee base more) result of
+              Right () => Right converted
+              Left _ => Left (CannotElaborate position "Cannot infer Nat-case motive; use an explicit return motive")
+
+  elaborateNatDataCase : List GlobalDefinition -> Context n -> Vect n String -> SourceSpan -> Term n -> Term n -> Maybe Expr -> List (Token, List Token, Expr) -> Maybe (Term n) -> Either ResolveError (Term n)
+  elaborateNatDataCase globals ctx env span scrutinee ty motive arms expected = do
+    if typeNodes ty > inferredResultNodes || payloadSize ty > payloadLimit
+      then Left (CannotElaborate span.start "Nat-case type exceeds admission") else Right ()
+    if length arms > 64 then Left (CannotElaborate span.start "Data-case branch admission exhausted (64)") else Right ()
+    explicit <- the (Either ResolveError (Maybe (Term n))) $ case motive of
+      Just authored => Just <$> elaborateInWith globals (Just ctx) env authored
+      Nothing => Right Nothing
+    let hint : Maybe (Term n)
+        hint = case explicit of
+          Just authored => Just authored
+          Nothing => case expected of
+            Just result => case expectedDataMotive span.start ty result scrutinee of
+              Right candidate => Just candidate
+              Left _ => Nothing
+            Nothing => Nothing
+    let boundedHint = case hint of
+          Just candidate => if typeNodes candidate <= inferredResultNodes && payloadSize candidate <= payloadLimit then Just candidate else Nothing
+          Nothing => Nothing
+    checked <- natCaseArms span.start globals ctx env ty boundedHint arms
+    ordered <- orderDataArms span.start 0 [Nothing, Just (Linear, ty)] checked
+    case ordered of
+      [base, more] => do
+        selected <- case explicit of
+          Just authored => Right authored
+          Nothing => case expected of
+            Just result => case constantDataResult span.start ctx [Nothing, Just (Linear, ty)] ordered of
+              Right common =>
+                let constant = Lambda Erased ty (weaken common) in
+                  case checkErased checkingDepth typeReductionFuel ctx (NatCase constant scrutinee base more) result of
+                    Right () => Right constant
+                    Left _ => chooseExpectedNatMotive span.start ctx ty scrutinee result base more
+              Left _ => chooseExpectedNatMotive span.start ctx ty scrutinee result base more
+            Nothing => do
+              result <- constantDataResult span.start ctx [Nothing, Just (Linear, ty)] ordered
+              Right (Lambda Erased ty (weaken result))
+        Right (NatCase selected scrutinee base more)
+      _ => Left (CannotElaborate span.start "Nat case requires exactly two branches")
+
   sequenceCaseArms : Position -> List GlobalDefinition -> Context n -> Vect n String -> Term n -> Term n -> Maybe (Term n) -> List (Token, List Token, Expr) -> Either ResolveError (List (Nat, Term n))
   sequenceCaseArms position globals ctx env ty element hint [] = Right []
   sequenceCaseArms position globals ctx env ty element hint ((name, binders, body) :: rest) = do
@@ -558,6 +655,7 @@ mutual
       Left err => Left (CannotElaborate span.start ("Cannot infer data-case scrutinee: " ++ show err))
       Right ty => Right ty
     case weakHead typeReductionFuel inferred of
+      HeadForm ty@NatType => elaborateNatDataCase globals ctx env span scrutinee ty motive arms expected
       HeadForm ty@(RecType _) => elaborateRecursiveDataCase globals ctx env span scrutinee ty motive arms expected
       HeadForm ty@(SeqType _ element) => elaborateSequenceDataCase globals ctx env span scrutinee ty element motive arms expected
       HeadForm ty@(NominalType _ _ _) => elaborateNominalDataCase globals ctx env span scrutinee ty motive arms expected
