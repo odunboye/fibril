@@ -702,9 +702,8 @@ term and dimension substitution commute for all bodies, and
 `substituteExactPath` transports endpoint proofs through logical term
 substitution; `substitutePathApplication` proves compatibility with path
 application. Neutral path names are scoped by underlying logical type only;
-they have no declared endpoint equations here. Hence this is a nondependent,
-first-order path slice, not a general path type former, dependent PathP,
-face-restricted conversion, or a complete cubical calculus.
+`ExactPath` itself does not use declared endpoint equations. This is a
+nondependent path slice, not dependent PathP or a complete cubical calculus.
 
 This target remains distinct from `TypedPath.NeutralHasType`: the latter has a
 fixed abstract-base/path context and untyped `NeutralExpr` syntax, with no Unit,
@@ -734,16 +733,24 @@ Term substitution maps both declarations and endpoint derivations, and lifting
 by a logical substitution supports capture-avoiding context weakening.
 Existing `ExactPath` application and mixed-substitution theorems remain in force.
 
-This is deliberately a restricted declarative interface: endpoint equations
-are only for direct neutral applications, not congruence under arbitrary
-bodies or lambda binders. Declarations are dimension-independent, and no
-face/dimension-substitution preservation theorem for these equations is
-claimed (bounded entailment is not automatically preserved by substitution).
-`ExactPath` introduction still requires literal endpoint equality, not the new
-face equations. General dependent paths, binder-indexed path telescopes,
-face-based introduction, dependent contexts, and effects remain unintegrated.
-The shadow forgets quantities: none of these judgments establishes runtime
-conversion, semantics, resource preservation, or reflection of erased uses.
+`BodyEqual` integrates declared endpoints with reflexivity, symmetry, transitivity,
+application, conditional and unit-eliminator congruence. Restriction requires
+bounded entailment from the new face to the old face; there is no general face
+removal or reflection into Idris or source equality. There is no lambda
+congruence: declarations would need capture-avoiding weakening under the term
+binder. `DeclaredShadowPath` accepts an arbitrary typed body when each boundary
+is proved against the weakened endpoint under the weakened ambient face and
+binder endpoint. Application substitutes a dimension. Tests construct both a
+constant path and the nonconstant open path λi.p i with a linear source shadow.
+Logical substitution transports equality and path introduction, and commutes
+with application. Dimension substitution for direct declared endpoints requires
+fresh indexed evidence of bounded entailment after substitution; no general
+dimension-substitution theorem for `BodyEqual`, introduction, or application
+boundaries is claimed. A concrete application boundary is checked separately.
+`ExactPath` introduction remains literal. General dependent paths, binder-indexed
+path telescopes, dependent contexts, and effects remain unintegrated. The shadow
+forgets quantities: none of these judgments establishes runtime conversion,
+semantics, resource preservation, or reflection of erased uses.
 
 There is no API reflecting a `shadowTerm` into a source `Uses` derivation;
 the negative fixture checks the corresponding type mismatch, not a semantic

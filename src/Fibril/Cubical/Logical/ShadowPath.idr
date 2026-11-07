@@ -177,3 +177,104 @@ declaredExactApplicationLeft : (path : ExactPath {context} {paths} {d} {a} x y) 
   DeclaredEndpoint declarations face (applyExactPath path i) (Embed left)
 declaredExactApplicationLeft path i p eq declared entails =
   rewrite eq in DeclaredLeft declared entails
+
+||| Declarative equality is indexed by the exact declarations and restriction.
+||| There is deliberately no rule reflecting it into Idris or logical equality.
+public export
+data BodyEqual : PathDeclarations context paths -> ScopedFace d ->
+                 PathBody context paths d a -> PathBody context paths d a -> Type where
+  BodyRefl : BodyEqual declarations face x x
+  BodySym : BodyEqual declarations face x y -> BodyEqual declarations face y x
+  BodyTrans : BodyEqual declarations face x y -> BodyEqual declarations face y z ->
+              BodyEqual declarations face x z
+  BodyEndpoint : DeclaredEndpoint declarations face x y -> BodyEqual declarations face x y
+  BodyRestrict : BodyEqual declarations source x y ->
+    boundedFaceEntails face source = True -> BodyEqual declarations face x y
+  BodyAppEqual : BodyEqual declarations face f g -> BodyEqual declarations face x y ->
+    BodyEqual declarations face (BodyApp f x) (BodyApp g y)
+  BodyIfEqual : BodyEqual declarations face c c' -> BodyEqual declarations face t t' ->
+    BodyEqual declarations face f f' -> BodyEqual declarations face (BodyIf c t f) (BodyIf c' t' f')
+  BodyUnitElimEqual : BodyEqual declarations face x y -> BodyEqual declarations face b b' ->
+    BodyEqual declarations face (BodyUnitElim x b) (BodyUnitElim y b')
+
+public export
+substituteBodyEqual : {0 context : Vect n LogicalType} -> {0 target : Vect m LogicalType} ->
+  {0 paths : Vect k LogicalType} -> {0 d : Nat} -> {0 a : LogicalType} ->
+  {0 declarations : PathDeclarations context paths} -> {0 face : ScopedFace d} ->
+  {0 x, y : PathBody context paths d a} -> (sigma : LogicalSubstitution context target) ->
+  BodyEqual declarations face x y -> BodyEqual (substitutePathDeclarations sigma declarations) face
+    (mapPathTerms sigma x) (mapPathTerms sigma y)
+substituteBodyEqual sigma BodyRefl = BodyRefl
+substituteBodyEqual sigma (BodySym eq) = BodySym (substituteBodyEqual sigma eq)
+substituteBodyEqual sigma (BodyTrans x y) = BodyTrans (substituteBodyEqual sigma x) (substituteBodyEqual sigma y)
+substituteBodyEqual sigma (BodyEndpoint eq) = BodyEndpoint (substituteDeclaredEndpoint sigma eq)
+substituteBodyEqual sigma (BodyRestrict eq entails) = BodyRestrict (substituteBodyEqual sigma eq) entails
+substituteBodyEqual sigma (BodyAppEqual f x) = BodyAppEqual (substituteBodyEqual sigma f) (substituteBodyEqual sigma x)
+substituteBodyEqual sigma (BodyIfEqual c t f) = BodyIfEqual (substituteBodyEqual sigma c) (substituteBodyEqual sigma t) (substituteBodyEqual sigma f)
+substituteBodyEqual sigma (BodyUnitElimEqual x b) = BodyUnitElimEqual (substituteBodyEqual sigma x) (substituteBodyEqual sigma b)
+
+||| Both boundaries are checked in the extended dimension scope, under the
+||| weakened ambient restriction conjoined with the corresponding binder face.
+public export
+data DeclaredShadowPath : (declarations : PathDeclarations context paths) ->
+  (face : ScopedFace d) -> PathBody context paths d a -> PathBody context paths d a -> Type where
+  ShadowAbstract : (body : PathBody context paths (S d) a) ->
+    BodyEqual declarations (SConjunction (weakenFace face) (SEndpoint FZ False))
+      body (mapPathDimensions (Var . FS) left) ->
+    BodyEqual declarations (SConjunction (weakenFace face) (SEndpoint FZ True))
+      body (mapPathDimensions (Var . FS) right) ->
+    DeclaredShadowPath declarations face left right
+
+public export
+applyDeclaredShadowPath : {0 context : Vect n LogicalType} -> {0 paths : Vect k LogicalType} ->
+  {0 d : Nat} -> {0 a : LogicalType} -> {0 declarations : PathDeclarations context paths} ->
+  {0 face : ScopedFace d} -> {0 left, right : PathBody context paths d a} ->
+  DeclaredShadowPath declarations face left right -> ScopedInterval d -> PathBody context paths d a
+applyDeclaredShadowPath (ShadowAbstract body _ _) i = mapPathDimensions (atDimension i) body
+
+public export
+substituteDeclaredShadowPath : {0 context : Vect n LogicalType} -> {0 target : Vect m LogicalType} ->
+  {0 paths : Vect k LogicalType} -> {0 d : Nat} -> {0 a : LogicalType} ->
+  {0 declarations : PathDeclarations context paths} -> {0 face : ScopedFace d} ->
+  {0 left, right : PathBody context paths d a} -> (sigma : LogicalSubstitution context target) ->
+  DeclaredShadowPath declarations face left right ->
+  DeclaredShadowPath (substitutePathDeclarations sigma declarations) face
+    (mapPathTerms sigma left) (mapPathTerms sigma right)
+substituteDeclaredShadowPath {left} {right} sigma (ShadowAbstract body zero one) =
+  ShadowAbstract (mapPathTerms sigma body)
+    (rewrite pathMixedSubstitution sigma (Var . FS) left in substituteBodyEqual sigma zero)
+    (rewrite pathMixedSubstitution sigma (Var . FS) right in substituteBodyEqual sigma one)
+
+||| Dimension substitution is admitted for a declared endpoint only after
+||| rechecking the substituted restriction and interval. The bounded solver's
+||| acceptance is not assumed to be stable under substitution.
+public export
+mapDeclaredLeftDimensions : {0 declarations : PathDeclarations context paths} ->
+  {0 face : ScopedFace d} -> {0 p : LogicalVar paths a} ->
+  {0 left, right : LogicalTerm context a} -> {0 i : ScopedInterval d} ->
+  (env : Fin d -> ScopedInterval e) -> DeclaredPath declarations p left right ->
+  boundedEndpointEntails (substituteScopedFace env face) (substituteScoped env i) False = True ->
+  DeclaredEndpoint declarations (substituteScopedFace env face)
+    (mapPathDimensions env (NeutralAt p i)) (mapPathDimensions env (Embed left))
+mapDeclaredLeftDimensions env declared entails = DeclaredLeft declared entails
+
+public export
+mapDeclaredRightDimensions : {0 declarations : PathDeclarations context paths} ->
+  {0 face : ScopedFace d} -> {0 p : LogicalVar paths a} ->
+  {0 left, right : LogicalTerm context a} -> {0 i : ScopedInterval d} ->
+  (env : Fin d -> ScopedInterval e) -> DeclaredPath declarations p left right ->
+  boundedEndpointEntails (substituteScopedFace env face) (substituteScoped env i) True = True ->
+  DeclaredEndpoint declarations (substituteScopedFace env face)
+    (mapPathDimensions env (NeutralAt p i)) (mapPathDimensions env (Embed right))
+mapDeclaredRightDimensions env declared entails = DeclaredRight declared entails
+
+public export
+substituteDeclaredShadowApplication : {0 context : Vect n LogicalType} -> {0 target : Vect m LogicalType} ->
+  {0 paths : Vect k LogicalType} -> {0 d : Nat} -> {0 a : LogicalType} ->
+  {0 declarations : PathDeclarations context paths} -> {0 face : ScopedFace d} ->
+  {0 left, right : PathBody context paths d a} -> (sigma : LogicalSubstitution context target) ->
+  (path : DeclaredShadowPath declarations face left right) -> (i : ScopedInterval d) ->
+  applyDeclaredShadowPath (substituteDeclaredShadowPath sigma path) i =
+    mapPathTerms sigma (applyDeclaredShadowPath path i)
+substituteDeclaredShadowApplication sigma (ShadowAbstract body zero one) i =
+  pathMixedSubstitution sigma (atDimension i) body

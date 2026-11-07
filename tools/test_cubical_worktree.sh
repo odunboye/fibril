@@ -332,3 +332,25 @@ for fixture in ShadowFaceEscape ShadowDeclaredWrongEndpoint ShadowDeclaredCaptur
   fi
 done
 echo 'Shadow bridge adversarial tests passed.'
+for fixture in ShadowBodyFaceEscape ShadowBodyWrongPath ShadowAbstractWrongEndpoint ShadowBodyTransMismatch; do
+  "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1 || true
+  case "$fixture" in
+    ShadowBodyFaceEscape) expected='Mismatch between: True and False.' ;;
+    ShadowBodyWrongPath) expected='Mismatch between: LHere and LThere LHere.' ;;
+    ShadowAbstractWrongEndpoint) expected='Mismatch between: False and True.' ;;
+    ShadowBodyTransMismatch) expected='Mismatch between: True and False.' ;;
+  esac
+  if ! grep -Fq 'While processing right hand side of bad' "$tmp/$fixture.log" ||
+     [[ $(grep -c '^Error:' "$tmp/$fixture.log") -ne 1 ]] ||
+     ! grep -Fq "$expected" "$tmp/$fixture.log"; then
+    echo "Negative shadow body test $fixture failed for an unrelated reason:" >&2
+    cat "$tmp/$fixture.log" >&2; exit 1
+  fi
+  if [[ $fixture == ShadowBodyTransMismatch ]] &&
+     { ! grep -Fq 'BodyEqual decls (the (ScopedFace 0) STop) (Embed (LBoolean True)) (NeutralAt (LThere LHere) Zero)' "$tmp/$fixture.log" ||
+       ! grep -Fq 'BodyEqual decls (the (ScopedFace 0) STop) (Embed (LBoolean False)) (NeutralAt (LThere LHere) Zero)' "$tmp/$fixture.log"; }; then
+    echo 'Transitivity test did not reject its mismatched intermediate endpoints:' >&2
+    cat "$tmp/$fixture.log" >&2; exit 1
+  fi
+done
+echo 'Shadow body equality adversarial tests passed.'

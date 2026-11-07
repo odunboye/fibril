@@ -149,3 +149,72 @@ endpointFaceAccepted = Refl
 
 oppositeFaceRejected : boundedEndpointEntails (the (ScopedFace 1) (SEndpoint FZ True)) (Var FZ) False = False
 oppositeFaceRejected = Refl
+
+-- A genuinely nonconstant abstraction uses the declared neutral boundary,
+-- not literal equality of its body with either endpoint.
+shadowNeutralPath : DeclaredShadowPath Tests.Shadow.shadowDeclarations (the (ScopedFace 0) STop)
+  (Embed (shadowTerm Tests.Shadow.linearSource)) (Embed (LBoolean False))
+shadowNeutralPath = ShadowAbstract (NeutralAt LHere (Var FZ))
+  (BodyEndpoint (DeclaredLeft DeclaredHere Refl))
+  (BodyEndpoint (DeclaredRight DeclaredHere Refl))
+
+shadowNeutralApplication : applyDeclaredShadowPath Tests.Shadow.shadowNeutralPath Zero = NeutralAt LHere Zero
+shadowNeutralApplication = Refl
+
+shadowNeutralApplicationBoundary : BodyEqual Tests.Shadow.shadowDeclarations (the (ScopedFace 0) STop)
+  (applyDeclaredShadowPath Tests.Shadow.shadowNeutralPath Zero) (Embed (shadowTerm Tests.Shadow.linearSource))
+shadowNeutralApplicationBoundary = BodyEndpoint (DeclaredLeft DeclaredHere Refl)
+
+substitutedShadowPath : DeclaredShadowPath
+  (substitutePathDeclarations Tests.Shadow.replaceBool Tests.Shadow.shadowDeclarations) (the (ScopedFace 0) STop)
+  (Embed (LIf (LBoolean True) (LBoolean True) (LBoolean False))) (Embed (LBoolean False))
+substitutedShadowPath = substituteDeclaredShadowPath Tests.Shadow.replaceBool Tests.Shadow.shadowNeutralPath
+
+constantShadowPath : DeclaredShadowPath Tests.Shadow.shadowDeclarations (the (ScopedFace 0) STop)
+  (Embed (LBoolean True)) (Embed (LBoolean True))
+constantShadowPath = ShadowAbstract (Embed (LBoolean True)) BodyRefl BodyRefl
+
+dimensionMappedEndpoint : DeclaredEndpoint Tests.Shadow.shadowDeclarations
+  (the (ScopedFace 0) (substituteScopedFace (atDimension Zero) (SEndpoint FZ False)))
+  (NeutralAt LHere Zero) (Embed (shadowTerm Tests.Shadow.linearSource))
+dimensionMappedEndpoint = mapDeclaredLeftDimensions {face = SEndpoint FZ False} {i = Var FZ} (atDimension Zero) DeclaredHere Refl
+
+-- Exercise the declarative rules on a genuinely non-reflexive endpoint.
+bodyEndpointEqual : BodyEqual Tests.Shadow.shadowDeclarations (the (ScopedFace 1) (SEndpoint FZ False))
+  (NeutralAt LHere (Var FZ)) (Embed (shadowTerm Tests.Shadow.linearSource))
+bodyEndpointEqual = BodyEndpoint (DeclaredLeft DeclaredHere Refl)
+
+bodySymEndpoint : BodyEqual Tests.Shadow.shadowDeclarations (the (ScopedFace 1) (SEndpoint FZ False))
+  (Embed (shadowTerm Tests.Shadow.linearSource)) (NeutralAt LHere (Var FZ))
+bodySymEndpoint = BodySym Tests.Shadow.bodyEndpointEqual
+
+bodyTransEndpoint : BodyEqual Tests.Shadow.shadowDeclarations (the (ScopedFace 1) (SEndpoint FZ False))
+  (NeutralAt LHere (Var FZ)) (NeutralAt LHere (Var FZ))
+bodyTransEndpoint = BodyTrans Tests.Shadow.bodyEndpointEqual Tests.Shadow.bodySymEndpoint
+
+bodyAppCongruence : BodyEqual Tests.Shadow.shadowDeclarations (the (ScopedFace 1) (SEndpoint FZ False))
+  (BodyApp (BodyLam (Embed (LRef LHere))) (NeutralAt LHere (Var FZ)))
+  (BodyApp (BodyLam (Embed (LRef LHere))) (Embed (shadowTerm Tests.Shadow.linearSource)))
+bodyAppCongruence = BodyAppEqual BodyRefl Tests.Shadow.bodyEndpointEqual
+
+bodyIfCongruence : BodyEqual Tests.Shadow.shadowDeclarations (the (ScopedFace 1) (SEndpoint FZ False))
+  (BodyIf (NeutralAt LHere (Var FZ)) (NeutralAt LHere (Var FZ)) (Embed (LBoolean False)))
+  (BodyIf (Embed (shadowTerm Tests.Shadow.linearSource)) (Embed (shadowTerm Tests.Shadow.linearSource)) (Embed (LBoolean False)))
+bodyIfCongruence = BodyIfEqual Tests.Shadow.bodyEndpointEqual Tests.Shadow.bodyEndpointEqual BodyRefl
+
+bodyUnitElimCongruence : BodyEqual Tests.Shadow.shadowDeclarations (the (ScopedFace 1) (SEndpoint FZ False))
+  (BodyUnitElim (Embed LUnitValue) (NeutralAt LHere (Var FZ)))
+  (BodyUnitElim (Embed LUnitValue) (Embed (shadowTerm Tests.Shadow.linearSource)))
+bodyUnitElimCongruence = BodyUnitElimEqual BodyRefl Tests.Shadow.bodyEndpointEqual
+
+shadowApplicationSubstitution :
+  applyDeclaredShadowPath (substituteDeclaredShadowPath Tests.Shadow.replaceBool Tests.Shadow.shadowNeutralPath) Zero =
+    mapPathTerms Tests.Shadow.replaceBool (applyDeclaredShadowPath Tests.Shadow.shadowNeutralPath Zero)
+shadowApplicationSubstitution = substituteDeclaredShadowApplication Tests.Shadow.replaceBool Tests.Shadow.shadowNeutralPath Zero
+
+-- The ambient i=0 constraint shifts to index 1 below the new path binder.
+ambientFaceShadowPath : DeclaredShadowPath Tests.Shadow.shadowDeclarations (the (ScopedFace 1) (SEndpoint FZ False))
+  (Embed (shadowTerm Tests.Shadow.linearSource)) (Embed (shadowTerm Tests.Shadow.linearSource))
+ambientFaceShadowPath = ShadowAbstract (NeutralAt LHere (Var (FS FZ)))
+  (BodyEndpoint (DeclaredLeft DeclaredHere Refl))
+  (BodyEndpoint (DeclaredLeft DeclaredHere Refl))
