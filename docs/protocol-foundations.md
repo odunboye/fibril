@@ -185,3 +185,31 @@ extents or another iterator. A classifier lookup alone is insufficient; adding
 bulk operations also does not by itself establish admitted composition. Wire
 JSON decoding, response serialization, generalized headers, documents and the
 typed compiler-service bridge remain undelivered.
+
+## Candidate helper sharing: reviewed checkpoint
+
+The [two-alias candidate](lsp-source-sharing.md) preserves the original source and
+checked terms under narrowly scoped, capture-safe expansion of introduced closed
+helpers. It is kept under `tools/fixtures/lsp-source-sharing`; production Frame,
+the accepted64-byte JSON fixture, core/runtime and their historical source hashes
+remain unchanged. Review accepted this candidate-only checkpoint and its harness
+routing correction. Parent offline checks passed12 sharing/harness tests,5 audit
+checks and8 oracle regressions; no cached runtime matrix was rerun for that fix.
+
+Candidate initial nodes fall from4341 to3719 for framing and8002 to6732 for the
+JSON reader. Dense64 native steps fall only from97768 to95602 and arena payload
+from2998705 to2894705 bytes. This is a useful syntax reduction, not sufficient
+runtime scaling. Echo-plus-fixed-typed observation still has10781 nodes and fails
+admission; JSON-plus-typed construction remains blocked. Neither is wire dispatch.
+
+The original thirty-minute agent run timed out and remains failed. Cached normal/
+sanitized logs record completed matrices before the timeout; recovery packaged
+them without rerunning them. The later owned-helper routing fix has offline and
+tiny-child regressions, not newly claimed matrix execution. These distinctions
+are retained in the candidate memo and evidence.
+
+Further alias substitutions are not an established route to a practical LSP.
+Compiler/source representation and retained closure/environment allocation need
+separately scoped design work. The byte-span specification is accepted as a
+specification only: its metering/lowering/construction/composition blockers still
+prevent implementation approval. No budget or capability gate was relaxed.
