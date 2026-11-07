@@ -552,6 +552,64 @@ shadowApplicationOne : (face : ScopedFace d) -> (left, right : PathBody context 
 shadowApplicationOne face left right (ShadowAbstract body zero one) cert =
   declaredShadowAtOne body zero one cert
 
+-- Tabulation agrees pointwise; function extensionality is not assumed.
+shadowIndexTabulate : (f : Fin n -> a) -> (i : Fin n) -> index i (tabulate f) = f i
+shadowIndexTabulate f FZ = Refl
+shadowIndexTabulate f (FS i) = shadowIndexTabulate (f . FS) i
+
+shadowEndpointVector : {d : Nat} -> ScopedInterval d -> Vect (S d) (ScopedInterval d)
+shadowEndpointVector side = side :: tabulate Var
+
+shadowEndpointIndex : (side : ScopedInterval d) -> (i : Fin (S d)) ->
+  index i (side :: tabulate Var) = atDimension side i
+shadowEndpointIndex side FZ = Refl
+shadowEndpointIndex side (FS i) = shadowIndexTabulate Var i
+
+shadowPathDimensionsCongruence : (env, env' : Fin d -> ScopedInterval e) ->
+  ((i : Fin d) -> env i = env' i) -> (body : PathBody context paths d a) ->
+  mapPathDimensions env body = mapPathDimensions env' body
+shadowPathDimensionsCongruence env env' h (Embed t) = Refl
+shadowPathDimensionsCongruence env env' h (NeutralAt p i) =
+  cong (NeutralAt p) (intervalSubstitutionCongruence env env' h i)
+shadowPathDimensionsCongruence env env' h (BodyLam b) = cong BodyLam (shadowPathDimensionsCongruence env env' h b)
+shadowPathDimensionsCongruence env env' h (BodyApp f x) = cong2 BodyApp (shadowPathDimensionsCongruence env env' h f) (shadowPathDimensionsCongruence env env' h x)
+shadowPathDimensionsCongruence env env' h (BodyUnitElim x b) = cong2 BodyUnitElim (shadowPathDimensionsCongruence env env' h x) (shadowPathDimensionsCongruence env env' h b)
+shadowPathDimensionsCongruence env env' h (BodyIf c t f) = rewrite shadowPathDimensionsCongruence env env' h c in rewrite shadowPathDimensionsCongruence env env' h t in rewrite shadowPathDimensionsCongruence env env' h f in Refl
+
+||| Finite admission bounds retained proof inputs, not whole-body mapping or runtime.
+public export
+shadowApplicationZeroFinite : {d : Nat} -> (bounds : ShadowSubstitutionBounds) -> (fuel : Nat) ->
+  (face : ScopedFace d) -> (left, right : PathBody context paths d a) ->
+  (path : DeclaredShadowPath declarations face left right) ->
+  Maybe (BodyEqual declarations face (applyDeclaredShadowPath path Zero) left)
+shadowApplicationZeroFinite {d} bounds fuel face left right (ShadowAbstract body zero one) =
+  if S d <= maxScope bounds then
+    case recertifyFiniteDimensionEvidence bounds fuel (shadowEndpointVector {d} Zero) face zero of
+      Nothing => Nothing
+      Just cert =>
+        let eq = mapBodyEqualDimensions (\i => index i (shadowEndpointVector {d} Zero)) face zero cert in
+        Just (rewrite sym (pathDimensionsRestored Zero left) in
+              rewrite sym (shadowPathDimensionsCongruence (\i => index i (shadowEndpointVector {d} Zero)) (atDimension Zero) (shadowEndpointIndex Zero) body) in
+              rewrite sym (shadowPathDimensionsCongruence (\i => index i (shadowEndpointVector {d} Zero)) (atDimension Zero) (shadowEndpointIndex Zero) (mapPathDimensions (Var . FS) left)) in eq)
+  else Nothing
+
+||| As above, for the one boundary.
+public export
+shadowApplicationOneFinite : {d : Nat} -> (bounds : ShadowSubstitutionBounds) -> (fuel : Nat) ->
+  (face : ScopedFace d) -> (left, right : PathBody context paths d a) ->
+  (path : DeclaredShadowPath declarations face left right) ->
+  Maybe (BodyEqual declarations face (applyDeclaredShadowPath path One) right)
+shadowApplicationOneFinite {d} bounds fuel face left right (ShadowAbstract body zero one) =
+  if S d <= maxScope bounds then
+    case recertifyFiniteDimensionEvidence bounds fuel (shadowEndpointVector {d} One) face one of
+      Nothing => Nothing
+      Just cert =>
+        let eq = mapBodyEqualDimensions (\i => index i (shadowEndpointVector {d} One)) face one cert in
+        Just (rewrite sym (pathDimensionsRestored One right) in
+              rewrite sym (shadowPathDimensionsCongruence (\i => index i (shadowEndpointVector {d} One)) (atDimension One) (shadowEndpointIndex One) body) in
+              rewrite sym (shadowPathDimensionsCongruence (\i => index i (shadowEndpointVector {d} One)) (atDimension One) (shadowEndpointIndex One) (mapPathDimensions (Var . FS) right)) in eq)
+  else Nothing
+
 ||| Attempt the zero boundary for a trusted host input and proof-node budget.
 public export
 shadowApplicationZeroAuto : {d : Nat} -> (fuel : Nat) -> (face : ScopedFace d) ->

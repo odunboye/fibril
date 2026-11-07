@@ -363,10 +363,29 @@ facePreflightReference fuel source =
   boundedShadowFacePreflight (MkShadowSubstitutionBounds 2 100 fuel) Tests.Shadow.preflightEnv source ==
     faceNodes fuel (substituteScopedFace (\i => index i Tests.Shadow.preflightEnv) source)
 
+-- Exercise identity-vector construction beyond the hand-written small scopes.
+finiteConstantAtScope : (d : Nat) -> Bool
+finiteConstantAtScope d =
+  let path : DeclaredShadowPath Tests.Shadow.shadowDeclarations (the (ScopedFace d) STop) (Embed (LBoolean False)) (Embed (LBoolean False)) =
+        ShadowAbstract (Embed (LBoolean False)) BodyRefl BodyRefl in
+  hasAutomaticBoundary (shadowApplicationZeroFinite (MkShadowSubstitutionBounds (S d) (S (S (S (d + d)))) 0) 1 STop (Embed (LBoolean False)) (Embed (LBoolean False)) path) &&
+  hasAutomaticBoundary (shadowApplicationOneFinite (MkShadowSubstitutionBounds (S d) (S (S (S (d + d)))) 0) 1 STop (Embed (LBoolean False)) (Embed (LBoolean False)) path) &&
+  not (hasAutomaticBoundary (shadowApplicationZeroFinite (MkShadowSubstitutionBounds d (S (S (S (d + d)))) 0) 1 STop (Embed (LBoolean False)) (Embed (LBoolean False)) path))
+
 public export
 checks : List (String, Bool)
 checks =
-  [ ("finite endpoint evidence", hasAutomaticBoundary (recertifyFiniteDimensionEvidence {d = 0} (MkShadowSubstitutionBounds 1 10 10) 1 [Zero] STop Tests.Shadow.bodyEndpointEqual))
+  [ ("finite arbitrary scopes", all finiteConstantAtScope (the (List Nat) [0, 1, 2, 8, 32, 100]))
+  , ("finite path zero", hasAutomaticBoundary (shadowApplicationZeroFinite (MkShadowSubstitutionBounds 1 4 1) 1 STop (Embed (shadowTerm Tests.Shadow.linearSource)) (Embed (LBoolean False)) Tests.Shadow.shadowNeutralPath))
+  , ("finite path one", hasAutomaticBoundary (shadowApplicationOneFinite (MkShadowSubstitutionBounds 1 4 1) 1 STop (Embed (shadowTerm Tests.Shadow.linearSource)) (Embed (LBoolean False)) Tests.Shadow.shadowNeutralPath))
+  , ("finite path zero proof exhaustion", not (hasAutomaticBoundary (shadowApplicationZeroFinite (MkShadowSubstitutionBounds 1 4 1) 0 STop (Embed (shadowTerm Tests.Shadow.linearSource)) (Embed (LBoolean False)) Tests.Shadow.shadowNeutralPath)))
+  , ("finite path one input exhaustion", not (hasAutomaticBoundary (shadowApplicationOneFinite (MkShadowSubstitutionBounds 1 3 1) 1 STop (Embed (shadowTerm Tests.Shadow.linearSource)) (Embed (LBoolean False)) Tests.Shadow.shadowNeutralPath)))
+  , ("finite path zero output exhaustion", not (hasAutomaticBoundary (shadowApplicationZeroFinite (MkShadowSubstitutionBounds 1 4 0) 1 STop (Embed (shadowTerm Tests.Shadow.linearSource)) (Embed (LBoolean False)) Tests.Shadow.shadowNeutralPath)))
+  , ("finite path scope exhaustion", not (hasAutomaticBoundary (shadowApplicationOneFinite (MkShadowSubstitutionBounds 0 100 100) 1 STop (Embed (shadowTerm Tests.Shadow.linearSource)) (Embed (LBoolean False)) Tests.Shadow.shadowNeutralPath)))
+  , ("finite path ambient zero", hasAutomaticBoundary (shadowApplicationZeroFinite (MkShadowSubstitutionBounds 2 20 20) 1 (SEndpoint FZ False) (Embed (shadowTerm Tests.Shadow.linearSource)) (Embed (shadowTerm Tests.Shadow.linearSource)) Tests.Shadow.ambientFaceShadowPath))
+  , ("finite path ambient one", hasAutomaticBoundary (shadowApplicationOneFinite (MkShadowSubstitutionBounds 2 20 20) 1 (SEndpoint FZ False) (Embed (shadowTerm Tests.Shadow.linearSource)) (Embed (shadowTerm Tests.Shadow.linearSource)) Tests.Shadow.ambientFaceShadowPath))
+  , ("finite path ambient scope rejection", not (hasAutomaticBoundary (shadowApplicationZeroFinite (MkShadowSubstitutionBounds 1 20 20) 1 (SEndpoint FZ False) (Embed (shadowTerm Tests.Shadow.linearSource)) (Embed (shadowTerm Tests.Shadow.linearSource)) Tests.Shadow.ambientFaceShadowPath)))
+  , ("finite endpoint evidence", hasAutomaticBoundary (recertifyFiniteDimensionEvidence {d = 0} (MkShadowSubstitutionBounds 1 10 10) 1 [Zero] STop Tests.Shadow.bodyEndpointEqual))
   , ("finite linear shadow endpoint evidence", hasAutomaticBoundary (recertifyFiniteDimensionEvidence {d = 0} (MkShadowSubstitutionBounds 1 4 1) 1 [Zero] STop Tests.Shadow.bodyEndpointEqual))
   , ("finite nested restrictions output below", boundedShadowProofPreflight {d = 0} (MkShadowSubstitutionBounds 1 6 4) 3 [Zero] STop Tests.Shadow.nestedRestrictedEndpoint == Nothing)
   , ("finite nested restrictions output exact", boundedShadowProofPreflight {d = 0} (MkShadowSubstitutionBounds 1 6 5) 3 [Zero] STop Tests.Shadow.nestedRestrictedEndpoint == Just (0, 0, 0))

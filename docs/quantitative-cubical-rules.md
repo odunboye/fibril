@@ -784,6 +784,24 @@ reversals of zero exceeds `boundedEndpointEntails`' interval-node budget. Its
 proof into an `STop` proof without the necessary recertification. These shadow
 judgments carry no runtime or quantitative authority.
 
+`shadowApplicationZeroFinite` and `shadowApplicationOneFinite` instead admit
+finite endpoint substitutions before recertifying the selected proof of any
+`DeclaredShadowPath`. The vector has the selected endpoint at its head and the
+identity variables thereafter; a pointwise index proof relates it to
+`atDimension`, without function extensionality. The extended scope is checked
+before constructing that vector. The finite recertifier shares proof fuel,
+input-node and output-node allowances across its traversal, including the full
+environment and target face; failure yields no equality evidence. Success uses
+mapped proof evidence and dimension restoration, and is indexed by the actual
+path, face and boundary. Existing trusted-host helpers remain unchanged.
+
+These are admission checks, **not an untrusted-input boundary or a total
+runtime/memory guarantee**. In particular the resulting equality maps path
+bodies, whose traversal is not bounded by the recertification allowances;
+solver internals, indexing, unary naturals, erased indices, and input production
+also remain outside the operational claim. Rejection need not imply that an
+endpoint is semantically false.
+
 #### Experimental recertification (trusted host only)
 
 `recertifyDimensionEvidence` traverses the actual `BodyEqual` proof and returns
