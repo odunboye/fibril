@@ -1304,3 +1304,89 @@ higherOrderPathSemantics (HOPUnitElim ctx paths a d x b) valuation =
   commonUnitElimination (higherOrderPathSemantics x valuation) (higherOrderPathSemantics b valuation)
 higherOrderPathSemantics (HOPIf ctx paths a d c t f) valuation =
   commonIf (higherOrderPathSemantics c valuation) (higherOrderPathSemantics t valuation) (higherOrderPathSemantics f valuation)
+
+||| Independent named paths must match each declared endpoint in every ordinary
+||| environment. Variable-dependent endpoints can therefore make this empty.
+public export
+data HigherOrderAdmissible : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} ->
+  (0 decls : CommonDeclarations ctx paths) -> carrier (commonPathEnvironmentSetoid paths) -> Type where
+  HOAdmissibleNil : HigherOrderAdmissible CommonNoPaths ()
+  HOAdmissibleCons : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} ->
+    {0 rest : CommonDeclarations ctx paths} -> {ps : carrier (commonPathEnvironmentSetoid paths)} ->
+    {0 lt : CommonHasType ctx l a} -> {0 rt : CommonHasType ctx r a} ->
+    (left : HigherOrderTerm ctx a lt) -> (right : HigherOrderTerm ctx a rt) ->
+    {path : CommonMorphism Fibril.Cubical.Logical.ShadowCommon.commonDMSetoid (commonTypeSetoid a)} ->
+    ((env : carrier (commonEnvironmentSetoid ctx)) -> related (commonTypeSetoid a)
+      (applyMorphism path (False, False)) (applyMorphism (higherOrderTermSemantics left) env)) ->
+    ((env : carrier (commonEnvironmentSetoid ctx)) -> related (commonTypeSetoid a)
+      (applyMorphism path (True, True)) (applyMorphism (higherOrderTermSemantics right) env)) ->
+    HigherOrderAdmissible rest ps ->
+    HigherOrderAdmissible (CommonDeclarePath l r lt rt rest) (path, ps)
+
+public export
+data HigherOrderEndpoints : (ctx : Vect n LogicalType) -> {paths : Vect k LogicalType} ->
+  (p : LogicalVar paths a) -> (l, r : CommonTerm n) ->
+  (ps : carrier (commonPathEnvironmentSetoid paths)) -> Type where
+  HOEndpoints : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} ->
+    {p : LogicalVar paths a} -> {ps : carrier (commonPathEnvironmentSetoid paths)} ->
+    {0 lt : CommonHasType ctx l a} -> {0 rt : CommonHasType ctx r a} ->
+    (left : HigherOrderTerm ctx a lt) -> (right : HigherOrderTerm ctx a rt) ->
+    ((env : carrier (commonEnvironmentSetoid ctx)) -> related (commonTypeSetoid a)
+      (applyMorphism (applyMorphism (commonPathEnvironmentLookup paths a p) ps) (False, False))
+      (applyMorphism (higherOrderTermSemantics left) env)) ->
+    ((env : carrier (commonEnvironmentSetoid ctx)) -> related (commonTypeSetoid a)
+      (applyMorphism (applyMorphism (commonPathEnvironmentLookup paths a p) ps) (True, True))
+      (applyMorphism (higherOrderTermSemantics right) env)) ->
+    HigherOrderEndpoints ctx p l r ps
+
+public export
+higherOrderDeclaredLookup : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} ->
+  {0 decls : CommonDeclarations ctx paths} -> {p : LogicalVar paths a} -> {l, r : CommonTerm n} ->
+  CommonDeclaredPath decls p l r -> (ps : carrier (commonPathEnvironmentSetoid paths)) ->
+  HigherOrderAdmissible decls ps -> HigherOrderEndpoints ctx p l r ps
+higherOrderDeclaredLookup CommonDeclaredHere (path, ps) (HOAdmissibleCons left right zero one rest) =
+  HOEndpoints left right zero one
+higherOrderDeclaredLookup {ctx} {l} {r} {p = LThere p} (CommonDeclaredThere declared) (path, ps) (HOAdmissibleCons left right zero one rest) =
+  case higherOrderDeclaredLookup {ctx} {l} {r} {p} declared ps rest of
+    HOEndpoints left right z o => HOEndpoints {ctx} {l} {r} {p = LThere p} left right z o
+
+||| The selected endpoint witness remains indexed by the declared syntax.
+public export
+data HigherOrderEndpointAtFace : (ctx : Vect n LogicalType) -> {paths : Vect k LogicalType} ->
+  (p : LogicalVar paths a) -> (term : CommonTerm n) ->
+  (ps : carrier (commonPathEnvironmentSetoid paths)) ->
+  (env : carrier (commonEnvironmentSetoid ctx)) -> (value : DM) -> Type where
+  HOEndpointAtFace : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} ->
+    {p : LogicalVar paths a} -> {ps : carrier (commonPathEnvironmentSetoid paths)} ->
+    {env : carrier (commonEnvironmentSetoid ctx)} -> {value : DM} ->
+    {0 ty : CommonHasType ctx term a} -> (w : HigherOrderTerm ctx a ty) ->
+    related (commonTypeSetoid a)
+      (applyMorphism (applyMorphism (commonPathEnvironmentLookup paths a p) ps) value)
+      (applyMorphism (higherOrderTermSemantics w) env) ->
+    HigherOrderEndpointAtFace ctx p term ps env value
+
+public export
+higherOrderDeclaredLeftAtFace : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} ->
+  {0 decls : CommonDeclarations ctx paths} -> {p : LogicalVar paths a} -> {l, r : CommonTerm n} ->
+  CommonDeclaredPath decls p l r -> (ps : carrier (commonPathEnvironmentSetoid paths)) ->
+  HigherOrderAdmissible decls ps -> (env : carrier (commonEnvironmentSetoid ctx)) ->
+  (valuation : Fin d -> DM) -> (face : ScopedFace d) -> (i : ScopedInterval d) ->
+  boundedEndpointEntails face i False = True -> faceAtVal valuation face = True ->
+  HigherOrderEndpointAtFace ctx p l ps env (evalDMVal valuation i)
+higherOrderDeclaredLeftAtFace declared ps admissible env valuation face i accepted holds =
+  case higherOrderDeclaredLookup declared ps admissible of
+    HOEndpoints left right zero one =>
+      HOEndpointAtFace left (rewrite commonBoundedEndpointValSound valuation face i False accepted holds in zero env)
+
+public export
+higherOrderDeclaredRightAtFace : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} ->
+  {0 decls : CommonDeclarations ctx paths} -> {p : LogicalVar paths a} -> {l, r : CommonTerm n} ->
+  CommonDeclaredPath decls p l r -> (ps : carrier (commonPathEnvironmentSetoid paths)) ->
+  HigherOrderAdmissible decls ps -> (env : carrier (commonEnvironmentSetoid ctx)) ->
+  (valuation : Fin d -> DM) -> (face : ScopedFace d) -> (i : ScopedInterval d) ->
+  boundedEndpointEntails face i True = True -> faceAtVal valuation face = True ->
+  HigherOrderEndpointAtFace ctx p r ps env (evalDMVal valuation i)
+higherOrderDeclaredRightAtFace declared ps admissible env valuation face i accepted holds =
+  case higherOrderDeclaredLookup declared ps admissible of
+    HOEndpoints left right zero one =>
+      HOEndpointAtFace right (rewrite commonBoundedEndpointValSound valuation face i True accepted holds in one env)

@@ -1670,3 +1670,73 @@ pathUnitElimination = HOPUnitElim [] [LBool] LBool 1
 pathUnitEliminationResult : applyMorphism (higherOrderPathSemantics Tests.Shadow.pathUnitElimination (\_ => (True, False)))
   ((), (Tests.Shadow.pathFirstComponent, ())) = True
 pathUnitEliminationResult = Refl
+
+higherOrderConstantDeclarations : CommonDeclarations [] [LBool]
+higherOrderConstantDeclarations = CommonDeclarePath (CBool False) (CBool True) CBoolType CBoolType CommonNoPaths
+
+higherOrderConstantPaths : carrier (commonPathEnvironmentSetoid [LBool])
+higherOrderConstantPaths = (Tests.Shadow.pathFirstComponent, ())
+
+higherOrderConstantAdmissible : HigherOrderAdmissible Tests.Shadow.higherOrderConstantDeclarations Tests.Shadow.higherOrderConstantPaths
+higherOrderConstantAdmissible = HOAdmissibleCons (HOBool [] False) (HOBool [] True)
+  (\env => Refl) (\env => Refl) HOAdmissibleNil
+
+higherOrderConstantLeft : applyMorphism Tests.Shadow.pathFirstComponent (False, False) = False
+higherOrderConstantLeft = case higherOrderDeclaredLeftAtFace CommonDeclaredHere
+  Tests.Shadow.higherOrderConstantPaths Tests.Shadow.higherOrderConstantAdmissible ()
+  (\_ => (False, False)) (the (ScopedFace 1) (SEndpoint FZ False)) (Var FZ) Refl Refl of
+    HOEndpointAtFace (HOBool _ False) prf => prf
+
+higherOrderIfDeclarations : CommonDeclarations [] [LBool]
+higherOrderIfDeclarations = CommonDeclarePath (CIf (CBool True) (CBool False) (CBool True)) (CBool True)
+  (CConditionalType CBoolType CBoolType CBoolType) CBoolType CommonNoPaths
+
+higherOrderIfAdmissible : HigherOrderAdmissible Tests.Shadow.higherOrderIfDeclarations Tests.Shadow.higherOrderConstantPaths
+higherOrderIfAdmissible = HOAdmissibleCons
+  (HOIf [] LBool (HOBool [] True) (HOBool [] False) (HOBool [] True)) (HOBool [] True)
+  (\env => Refl) (\env => Refl) HOAdmissibleNil
+
+higherOrderConstantRight : applyMorphism Tests.Shadow.pathFirstComponent (True, True) = True
+higherOrderConstantRight = case higherOrderDeclaredRightAtFace CommonDeclaredHere
+  Tests.Shadow.higherOrderConstantPaths Tests.Shadow.higherOrderIfAdmissible ()
+  (\_ => (True, True)) (the (ScopedFace 1) (SEndpoint FZ True)) (Var FZ) Refl Refl of
+    HOEndpointAtFace (HOBool _ True) prf => prf
+
+-- The head is constantly True; the distinct tail has False and True endpoints.
+higherOrderTailTestHead : CommonMorphism Fibril.Cubical.Logical.ShadowCommon.commonDMSetoid Fibril.Cubical.Logical.ShadowCommon.commonBoolSetoid
+higherOrderTailTestHead = commonConstant True
+
+higherOrderTailTestDeclarations : CommonDeclarations [] [LBool, LBool]
+higherOrderTailTestDeclarations = CommonDeclarePath (CBool True) (CBool True) CBoolType CBoolType
+  Tests.Shadow.higherOrderConstantDeclarations
+
+higherOrderTailTestPaths : carrier (commonPathEnvironmentSetoid [LBool, LBool])
+higherOrderTailTestPaths = (Tests.Shadow.higherOrderTailTestHead, Tests.Shadow.higherOrderConstantPaths)
+
+higherOrderTailTestAdmissible : HigherOrderAdmissible Tests.Shadow.higherOrderTailTestDeclarations Tests.Shadow.higherOrderTailTestPaths
+higherOrderTailTestAdmissible = HOAdmissibleCons (HOBool [] True) (HOBool [] True)
+  (\env => Refl) (\env => Refl) Tests.Shadow.higherOrderConstantAdmissible
+
+higherOrderTailLookupEndpoints :
+  (applyMorphism Tests.Shadow.pathFirstComponent (False, False) = False,
+   applyMorphism Tests.Shadow.pathFirstComponent (True, True) = True)
+higherOrderTailLookupEndpoints = case higherOrderDeclaredLookup (CommonDeclaredThere CommonDeclaredHere)
+  Tests.Shadow.higherOrderTailTestPaths Tests.Shadow.higherOrderTailTestAdmissible of
+    HOEndpoints (HOBool _ False) (HOBool _ True) zero one => (zero (), one ())
+
+-- No independent fixed path can have the ordinary Bool variable as its zero
+-- endpoint for every ordinary environment.
+higherOrderVariableEndpointDeclarations : CommonDeclarations [LBool] [LBool]
+higherOrderVariableEndpointDeclarations = CommonDeclarePath (CVar FZ) (CBool True)
+  (CVariable LHere) CBoolType CommonNoPaths
+
+higherOrderVariableEndpointNotAdmissible :
+  (path : CommonMorphism Fibril.Cubical.Logical.ShadowCommon.commonDMSetoid Fibril.Cubical.Logical.ShadowCommon.commonBoolSetoid) ->
+  HigherOrderAdmissible Tests.Shadow.higherOrderVariableEndpointDeclarations (path, ()) -> Void
+higherOrderVariableEndpointNotAdmissible path adm =
+  case higherOrderDeclaredLookup CommonDeclaredHere (path, ()) adm of
+    HOEndpoints (HOVar _ _ LHere) right zero one =>
+      falseNotTrue (trans (sym (zero (False, ()))) (zero (True, ())))
+  where
+    falseNotTrue : False = True -> Void
+    falseNotTrue Refl impossible

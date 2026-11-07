@@ -241,5 +241,25 @@ environment. Each path is an extensional morphism from the equality setoid on
 four-pair `DM` to the result type setoid. The path environment is independent
 of the ordinary environment and is retained unchanged when a lambda extends
 that environment. `CPAt` uses `evalDMVal` at the supplied valuation. This is an
-interpretation only: declaration admissibility and face-equality soundness for
-higher-order paths are not established here.
+interpretation; general face-equality soundness for higher-order paths is not
+established here.
+
+The higher-order path environment is independent of the ordinary environment.
+`HigherOrderAdmissible` therefore requires each actual declared endpoint to be
+related to the fixed path endpoint for **every** ordinary environment. This is
+inhabited for suitable constant endpoints (including constant conditionals),
+but variable-dependent endpoints may make it uninhabited. In particular,
+for a Bool variable endpoint, applying the same zero-endpoint obligation to
+the environments `(False, ())` and `(True, ())` would equate False and True;
+`higherOrderVariableEndpointNotAdmissible` proves this for any fixed Bool path.
+This is a universal requirement over ordinary environments for one fixed path
+environment, not a requirement merely at the environment used in a judgment.
+Unlike the first-order path environment, it cannot in general model the translated linear
+conditional endpoint uniformly. `higherOrderDeclaredLookup` preserves the
+actual declaration index and endpoint syntax; the left and right face lemmas
+return a witness for that syntax and a target-setoid relation at the valuation.
+They do not yet compare that witness with an independently chosen witness:
+higher-order coherence and general higher-order face-equality soundness remain
+unproved. In particular, application syntax does not determine its intermediate
+argument type, so a proof cannot assume typing uniqueness or simply align the
+application subterms by syntax injectivity.
