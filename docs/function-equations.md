@@ -142,8 +142,9 @@ size/payload guarded, and an inconclusive or exhausted attempt does not accept
 recursion. This is **not** a general termination checker: changing recursive
 parameters, binder-containing successor expressions, multiple calls along the
 same path, mutual recursion and results dependent on the recursive input need
-later work. Use explicit [`natRec` or `natRecWith`](nat-recursion.md) for operations
-outside this narrow source form. Experimental C emission supports these checked
+later work in this form. Equations outside it fall through to
+[general recursion](#general-recursion) when they have a size-change decrease; otherwise
+use explicit [`natRec` or `natRecWith`](nat-recursion.md). Experimental C emission supports these checked
 Nat forms, subject to its own runtime limits.
 
 After project checking, definition navigation resolves accepted structural
@@ -260,8 +261,9 @@ checked fold, not a general termination checker. The earlier single-erased-type
 form still permits its documented omitted implicit argument.
 
 Dependent results over the input, arbitrary non-uniform recursive arguments,
-arbitrary recursive calls and general termination checking remain unsupported;
-the particular linear accumulator form below is an exception. Checked project
+arbitrary recursive calls are not accepted by this form (they fall through to
+[general recursion](#general-recursion)); the particular linear accumulator form
+below is an exception. Checked project
 definition navigation resolves the authored self-call; experimental C emission
 supports the checked fixed-shape fold subject to native limits.
 
@@ -393,7 +395,8 @@ the general elaborator's pattern resolution, which resolves a `Zero` pattern to
 the built-in constructor even when an identical `Zero` is imported. Mutual
 recursion beyond the bounded Nat/Bool pairs, native C emission and navigation from
 a call to its definition are not supported. Runnable examples:
-[Half.fib](../examples/modules/general-recursion/Half.fib) (accepted) and
+[Half.fib](../examples/modules/general-recursion/Half.fib) and
+[Chain.fib](../examples/modules/general-recursion/Chain.fib) (accepted), and
 [Loop.fib](../examples/modules/general-recursion/Loop.fib) (refused).
 
 Tests cover dependent renamed binders, ordinary/erased/linear quantities,

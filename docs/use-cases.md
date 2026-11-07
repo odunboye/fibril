@@ -137,7 +137,8 @@ matching, rather than authored declarations, remains pending.
 [Non-recursive source data](data.md) now exposes finite choices and named
 elimination, with an [Optional/dependent-package example](../examples/modules/data/Main.fib).
 The [inductive-data plan](inductive-data.md) still separates direct source cases,
-recursive source data, positivity and general termination checking from those implemented features.
+recursive source data and positivity from those implemented features. Recursive
+functions are covered by [general recursion](function-equations.md#general-recursion).
 
 Recursive inductive data, recursive instance construction, symbolic fixities,
 checked equality/path terms and native/web/embedded backends remain future work.

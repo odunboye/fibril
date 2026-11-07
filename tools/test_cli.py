@@ -2778,6 +2778,10 @@ main = first Zero
         drain = run('run', '--source-dir', str(root), str(root / 'Swap.fib'))
         self.assertEqual(drain.returncode, 0, drain.stdout + drain.stderr)
         self.assertEqual(drain.stdout, '!\n')
+        # The unary recursive-data family steps down two links through the same gate.
+        chain = run('run', '--source-dir', str(root), str(root / 'Chain.fib'))
+        self.assertEqual(chain.returncode, 0, chain.stdout + chain.stderr)
+        self.assertEqual(chain.stdout, 'xxx\n')
 
     def test_accumulator_equations_reject_dependent_types(self):
         fixture = ROOT / 'examples/modules/linear-accumulator'

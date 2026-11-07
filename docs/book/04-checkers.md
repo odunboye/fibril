@@ -17,7 +17,8 @@ and resolves lexical scopes before calling these checkers. The source
 Idris-like declarations and implicit elaboration are not implemented. A small
 [source-ordered declaration layer](../declarations.md) now lowers explicit
 signature/definition pairs to typed lets, with a fixed main entry. It does not
-provide transparent globals, recursion, or modules.
+provide transparent globals, recursion, or modules; named [modules](../modules.md) and
+[function equations](../function-equations.md) add those.
 
 ## Erased checking first
 

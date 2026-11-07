@@ -66,8 +66,12 @@ infers its body's type; conversion contracts a case on UnitValue. See [Unit](uni
 
 ## Current trust boundary
 
-No parser, declarations, general recursion, partial escape hatch, axioms, Void,
-inductive definitions, path terms, composition, or Glue is implemented here.
+No parser, declarations, partial escape hatch, axioms, Void, inductive definitions,
+path terms, composition, or Glue is implemented here. General recursion enters only
+as `Fix`: its body is checked against the declared function type under an
+unrestricted self, and a size-change gate (see
+[Fix admission](size-change-certificates.md#fix-admission)) must then accept it, so
+an unadmitted `Fix` is a checking error.
 No normalization, consistency, or checker-correctness proof is claimed.
 
 The [ordinary checking plan](ordinary-checking.md) covers the broader intended

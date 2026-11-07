@@ -13,8 +13,9 @@ restricted [recursive declaration slice](#unary-recursive-declarations) supports
 one terminal and one direct linear self field; a [parameterized list shape](#parameterized-list-shape)
 also carries a linear element. A built-in [Nat recursor](nat-recursion.md)
 supports structural computation. General recursive data, general strict
-positivity, indexed constructor refinement and general recursive function
-equations remain future work. [Direct multi-branch cases](direct-data-cases.md)
+positivity and indexed constructor refinement remain future work; recursive
+function equations are covered by the structural forms and by
+[general recursion](function-equations.md#general-recursion). [Direct multi-branch cases](direct-data-cases.md)
 support zero- and one-field alternatives and the fixed list head/tail shape,
 including qualified direct imports; general wider patterns remain future work.
 
@@ -124,8 +125,10 @@ Lowering reserves 64 generated-IR nodes without the helper or 512 with it before
 constructing the fixed templates, then checks their actual size; existing source,
 module-expansion, checking and reduction admissions also apply. These are not
 hard time, stack or allocation guarantees. Nested/mutual recursion, arbitrary
-payload fields, indexed recursive families, more constructors and general
-recursive equations remain unsupported. Direct `case` can inspect this unary
+payload fields, indexed recursive families and more constructors remain
+unsupported. Equations over this family that are not structural, such as
+[stepping down two links](../examples/modules/general-recursion/Chain.fib), use
+[general recursion](function-equations.md#general-recursion). Direct `case` can inspect this unary
 family once and exposes its actual tail linearly. Use the named fold for
 structural recursion, or the [restricted structural equation form](function-equations.md#structural-unary-data-equations)
 with an optional uniform erased/unrestricted prefix when its syntax applies. The experimental C backend supports these

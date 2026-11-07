@@ -118,8 +118,8 @@ perform capture-prone textual substitution to conceal this limitation.
 
 The next [module/import slice](modules.md) deliberately specifies imported/global
 signature preservation and transparent closed conversion separately from these
-local-let semantics. Header metadata and dependency discovery now exist, but
-imported checking and execution remain unimplemented.
+local-let semantics. Header metadata, dependency discovery, checked imports and hosted
+execution of module projects now exist; see [modules](modules.md).
 
 ## Budgets, diagnostics, and trust
 

@@ -23,13 +23,15 @@ The [runnable example](../examples/modules/nat-recursion/Main.fib) uses three
 successors and prints `receipt!!!`. `Nat`, `Zero`, `Succ` and `natRec` are
 primitive checked globals; there is no numeric-literal syntax in this slice.
 
-This is **not yet general recursive function syntax**. A narrowly restricted
+This recursor is not general recursive function syntax. A narrowly restricted
 [named Nat equation](function-equations.md#structural-nat-equations) lowers to
-this recursor; other self-referential equations fail. A separate
+it; other self-referential equations are checked as
+[general recursion](function-equations.md#general-recursion) when a size-change
+decrease exists, and fail otherwise. A separate
 [unary recursive-data slice](data.md#unary-recursive-declarations) admits one
 terminal and one direct linear self field, alongside a restricted parameterized
-list shape. General positivity checking, mutual recursion and a termination
-checker for arbitrary definitions remain future work. `natRec` gives the step an erased predecessor and a
+list shape. General positivity checking and mutual recursion beyond the bounded
+Nat/Bool pairs remain future work. `natRec` gives the step an erased predecessor and a
 runtime recursive result. `natRecWith` additionally allows the step to inspect
 the predecessor, at the cost of requiring an unrestricted count. General
 structural recursion through other user types requires later work. The
@@ -104,7 +106,6 @@ unrestricted count, an index-dependent result, invalid steps even on `Zero`,
 erased predecessor misuse, linear capture, inference for
 Nat values, sampled native/reference agreement and fail-closed unsupported native forms. Structural renaming and substitution
 proofs cover the new nodes. These tests do not prove normalization, positivity,
-whole-language soundness or backend correctness. Next: general recursive
-declaration representation and positivity, followed by source equation
-termination checking that elaborates to checked recursors; neither is implied by
-this primitive.
+whole-language soundness or backend correctness. Source equation termination
+was later added through a core `Fix` admitted by a size-change check, not by
+elaborating to recursors; general recursive data and positivity remain future work.

@@ -40,8 +40,11 @@ lets Fibril infer one.
 ./build/exec/fibril run --source-dir examples/modules/direct-data-case examples/modules/direct-data-case/Main.fib
 ```
 
-Current source data is **non-recursive**: lists, natural-number recursion and
-termination checking are not yet supported. Direct cases support nullary and
+Source data is mostly non-recursive: a restricted unary-recursive family and a
+one-element list shape exist, but general recursive inductives and positivity
+checking do not. Recursive functions are accepted when they are structural or when
+the size-change check proves them terminating (see
+[function equations](../function-equations.md#general-recursion)). Direct cases support nullary and
 unary alternatives, not arbitrary nested or multi-field patterns. See
 [data declarations](../data.md) and [direct data cases](../direct-data-cases.md).
 

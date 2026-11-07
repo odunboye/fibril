@@ -21,7 +21,8 @@ now has authored declarations, dependent field packing, checked constructors,
 optional consuming eliminators and ordinary module exports. Direct exhaustive
 source cases remain the next slice. Recursive Nat/List
 then require positivity and quantitative recursors; recursive source functions
-require termination checking. These gates must not be collapsed into an
+require termination checking. Recursive source functions now pass a size-change gate
+through a core `Fix`; recursive data still lacks general positivity. These gates must not be collapsed into an
 unchecked declaration generator or a claim of metatheoretic soundness.
 
 ## The cubical foundational gap
@@ -36,7 +37,8 @@ a plausible-looking combination and inherit soundness by citation.
 Explicit nonrecursive declaration files now lower to typed lets with a main
 entry; their earlier values are opaque during later checking. Named modules now
 provide transparent closed erased/unrestricted globals and checked direct imports.
-Recursive declarations/modules remain future work.
+Recursive function equations are accepted when structural or when the size-change
+check proves termination; mutual recursion beyond the bounded Nat/Bool pairs remains future work.
 
 A separate declaration elaborator now lowers explicit records, constructors,
 eliminators and safe projections into independently checked code. Typed consuming

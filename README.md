@@ -3,10 +3,11 @@
 An experimental Idris-like language implemented in Idris 2, targeting a
 quantitative De Morgan cubical core, C/JavaScript backends, and embedded profiles.
 
-**Status:** an annotated expression frontend and small nonrecursive declaration
-files, with erased typing and an ordinary runtime-usage prototype. Full modules,
-transparent global definitions, cubical term checking,
-compiler backends, and real-time guarantees are not implemented.
+**Status:** a research prototype with a quantitative dependent core (erased typing
+and runtime-usage checking), named modules with transparent globals and checked
+imports, nominal data and records, explicit interfaces, and recursive functions
+that are structural or admitted by a size-change check. Cubical term checking, a
+JavaScript backend, embedded profiles and real-time guarantees are not implemented.
 [Experimental C emission](docs/native-c.md) produces a real native executable for a checked console subset; it is not yet an application backend.
 
 [Checked Fibril prelude functions](docs/console-runner.md) provide putStrLn,
@@ -64,7 +65,9 @@ and generates independently checked closed families/constructors with exact admi
 optional consuming eliminators, including dependent multi-field payloads and imports.
 [Direct data cases](docs/direct-data-cases.md) now match nullary/unary
 alternatives with explicit or inferred motives and linear branch joins, including qualified
-direct imports. Wider patterns, recursive inductives and structural recursion remain future work.
+direct imports. Wider patterns and general recursive inductives remain future work.
+Recursive function equations are accepted when structural, or when the
+[size-change check](docs/function-equations.md#general-recursion) proves them terminating.
 
 The first [application target is a transactional-email service](docs/applications/transactional-email.md),
 with a checked relay-submission model. Network/TLS/storage, C deployment and the

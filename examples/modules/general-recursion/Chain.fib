@@ -1,0 +1,17 @@
+module Chain
+
+data Chain : Type where
+  Empty : Chain
+  More : (1 tail : Chain) -> Chain
+
+-- Steps down by two links, which the single-step fold form cannot express.
+-- Accepted because the tail of the tail is strictly smaller than the input.
+every2nd : (1 chain : Chain) -> String
+every2nd chain = case chain of
+  Empty => ""
+  More rest => case rest of
+    Empty => "x"
+    More deeper => appendString "x" (every2nd deeper)
+
+main : IO Unit
+main = putStrLn (every2nd (More (More (More (More (More Empty))))))

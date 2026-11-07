@@ -2,7 +2,7 @@
 
 ## Status and use case
 
-**Experimental foundation, not language termination checking.**
+**Experimental graph checker. It admits core `Fix` terms (see [Fix admission](#fix-admission)); the other experiments on this page authorize nothing.**
 `Fibril.Termination.SizeChange.produce` constructs a bounded closure for a
 caller-supplied abstract call graph, and `verify` checks the resulting candidate
 against the original graph. `Fibril.Termination.FirstOrder` also experiments
@@ -184,7 +184,8 @@ not implemented.
 The abstract graph checker alone cannot establish that a supplied graph contains
 every real call, that its edges describe actual arguments, or that a strict cell
 is true. The separate group rewalk checks those claims only for its restricted
-raw Nat/Bool grammar. To use this criterion for programs, future work must tie
+raw Nat/Bool grammar. [Fix admission](#fix-admission) ties extraction to checked
+bodies for a restricted first-order grammar; to extend the criterion further, future work must tie
 complete call extraction and each relation to the **exact checked recursive
 bodies and their operational semantics**, account for higher-order and mutual calls, and establish suitable
 well-founded orders and compatibility of the strict/non-increasing relations
