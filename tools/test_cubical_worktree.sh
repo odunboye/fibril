@@ -292,6 +292,21 @@ for fixture in TypedEqualConvertUnrelated TypedFaceRestrictEscape TypedEqualConv
   fi
 done
 echo 'Typed equality conversion and face restriction negative tests passed.'
+for fixture in NeutralEqualRestrictEscape NeutralEqualTransMismatch; do
+  "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1 || true
+  case "$fixture" in
+    NeutralEqualRestrictEscape) expected='Mismatch between: True and False.' ;;
+    NeutralEqualTransMismatch) expected='Mismatch between: FS FZ and FZ.' ;;
+  esac
+  if [[ $(grep -c '^Error:' "$tmp/$fixture.log") -ne 1 ]] ||
+     ! grep -Fq 'While processing right hand side of bad' "$tmp/$fixture.log" ||
+     ! grep -Fq "$expected" "$tmp/$fixture.log"; then
+    echo "Negative equality closure test $fixture failed for an unrelated reason:" >&2
+    cat "$tmp/$fixture.log" >&2; exit 1
+  fi
+done
+echo 'Neutral equality closure negative tests passed.'
+
 "$idris" -p fibril --check TypedCheckerIndexMismatch.idr > "$tmp/typed-checker-index.log" 2>&1 || true
 if ! grep -q 'Mismatch between:' "$tmp/typed-checker-index.log" || grep -q 'While processing type of bad' "$tmp/typed-checker-index.log"; then
   echo 'Negative checker index test failed for an unrelated reason:' >&2

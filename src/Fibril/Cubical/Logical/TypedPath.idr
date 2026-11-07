@@ -150,6 +150,10 @@ mutual
   data NeutralEqual : PathContext m k -> ScopedFace n -> NeutralExpr m k n -> NeutralExpr m k n -> NeutralExpr m k n -> Type where
     NRefl : NeutralHasType ctx face t a -> NeutralEqual ctx face t t a
     NSym : NeutralEqual ctx face x y a -> NeutralEqual ctx face y x a
+    NTrans : NeutralEqual ctx face x y a -> NeutralEqual ctx face y z a ->
+      NeutralEqual ctx face x z a
+    NEqualRestrict : NeutralEqual ctx source x y a ->
+      boundedFaceEntails face source = True -> NeutralEqual ctx face x y a
     NEqualConvert : NeutralEqual ctx face x y a -> NeutralTypeEqual ctx face a b ->
       NeutralHasType ctx face x b -> NeutralHasType ctx face y b ->
       NeutralEqual ctx face x y b

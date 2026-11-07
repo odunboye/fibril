@@ -120,8 +120,7 @@ bridgeBodyType : {0 context : Vect n LogicalType} ->
 bridgeBodyType l r face (BridgeVariable v) = NBaseVar (variableIndex v)
 bridgeBodyType l r face (BridgeNeutral i) = NElim (NPathVar FZ) i
 
-||| Certificates select proof constructors, including reflexive transitivity and
-||| restriction. General transitivity/restriction have no target equality rule.
+||| Certificates select bridgeable proof constructors and matching target terms.
 public export
 data BridgeableEquality : {0 context : Vect n LogicalType} ->
   {0 l, r : LogicalVar context a} -> {0 face : ScopedFace d} ->
@@ -130,6 +129,20 @@ data BridgeableEquality : {0 context : Vect n LogicalType} ->
   NeutralExpr n 1 d -> NeutralExpr n 1 d -> Type where
   BridgeRefl : BridgeableBody x tx -> BridgeableEquality {l} {r} (BodyRefl {x}) tx tx
   BridgeSym : BridgeableEquality eq tx ty -> BridgeableEquality (BodySym eq) ty tx
+  BridgeTrans : {0 context : Vect n LogicalType} -> {0 a : LogicalType} ->
+    {0 l, r : LogicalVar context a} -> {0 face : ScopedFace d} ->
+    {0 x, y, z : PathBody context [a] d a} ->
+    {0 eq1 : BodyEqual (DeclarePath (LRef l) (LRef r) NoPaths) face x y} ->
+    {0 eq2 : BodyEqual (DeclarePath (LRef l) (LRef r) NoPaths) face y z} ->
+    BridgeableEquality eq1 tx ty -> BridgeableEquality eq2 ty tz ->
+    BridgeableEquality (BodyTrans eq1 eq2) tx tz
+  BridgeRestrict : {0 context : Vect n LogicalType} -> {0 a : LogicalType} ->
+    {0 l, r : LogicalVar context a} -> {0 face : ScopedFace d} ->
+    {source : ScopedFace d} -> {check : boundedFaceEntails face source = True} ->
+    {0 x, y : PathBody context [a] d a} ->
+    {0 eq : BodyEqual (DeclarePath (LRef l) (LRef r) NoPaths) source x y} ->
+    BridgeableEquality {context} {l} {r} eq tx ty ->
+    BridgeableEquality (BodyRestrict {face} {source} eq check) tx ty
   BridgeTransRefl : BridgeableEquality eq tx ty ->
     BridgeableEquality (BodyTrans eq BodyRefl) tx ty
   BridgeLeftReflTrans : BridgeableEquality eq tx ty ->
@@ -176,6 +189,10 @@ bridgeEquality : {0 context : Vect n LogicalType} ->
   BridgeableEquality source tx ty -> NeutralEqual (bridgeContext l r) face tx ty NType
 bridgeEquality l r face (BridgeRefl body) = NRefl (bridgeBodyType l r face body)
 bridgeEquality l r face (BridgeSym eq) = NSym (bridgeEquality l r face eq)
+bridgeEquality l r face (BridgeTrans eq1 eq2) =
+  NTrans (bridgeEquality l r face eq1) (bridgeEquality l r face eq2)
+bridgeEquality l r face (BridgeRestrict {source} {check} eq) =
+  NEqualRestrict (bridgeEquality l r source eq) check
 bridgeEquality l r face (BridgeTransRefl eq) = bridgeEquality l r face eq
 bridgeEquality l r face (BridgeLeftReflTrans eq) = bridgeEquality l r face eq
 bridgeEquality l r face (BridgeRestrictRefl body) = NRefl (bridgeBodyType l r face body)

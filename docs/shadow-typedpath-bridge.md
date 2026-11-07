@@ -31,7 +31,7 @@ its shadow declaration and abstraction, both endpoint conversions and the
 resulting target typing. The pre-existing linear example using `If` and Boolean
 literals is **not** supported: target syntax has no Boolean operations or
 literal endpoints. Also unsupported are general path telescopes, logical
-binders and applications, general proof congruence/transitivity, constant
+binders and applications, general proof congruence, constant
 abstraction translation, and dependent family translation. This is not a
 resource-preservation theorem, runtime equality, or an ownership change.
 
@@ -47,22 +47,23 @@ The wrong-index fixture supplies valid source endpoint evidence for a different
 declaration and checks its rejection by the bridge.
 
 
-`BridgeableBody` relates arbitrary source variable positions and the one neutral
-path application to target expressions. `BridgeableEquality` is indexed by the
-actual source derivation, its declarations, face and terms. `bridgeEquality`
-recurses through symmetry and transitivity with a reflexive side, translates
-reflexivity and both declared endpoints, and handles restricted reflexivity and
-restricted endpoint proofs. For restricted endpoints the certificate rechecks
-the source endpoint routine at the target face: bounded entailment acceptance
-is not assumed transitive. The target endpoint check then follows from
-`endpointEntailsFace` as before. `bridgeAbstract` translates the supplied
-boundary proofs, including these structural derivations.
+`BridgeableBody` relates source variable positions and the one neutral path
+application to target expressions. `BridgeableEquality` indexes the actual
+source derivation, face, and target expressions. `BridgeTrans` composes two
+bridgeable proofs with the same target intermediate; `BridgeRestrict` translates
+a bridgeable proof at its original face and carries the source restriction
+proof unchanged to `NEqualRestrict`. Both `BodyRestrict` and `NEqualRestrict`
+require exactly `boundedFaceEntails target source = True`. There is no extra
+admission step, solver transitivity assumption, or unchecked face removal.
+The older specialized certificates remain available; restricted endpoint
+certificates independently recheck the endpoint at the target face.
 
-The target `NeutralEqual` has neither a general transitivity constructor nor an
-equality face-restriction constructor (only typing has `NFaceRestrict`). Thus
-arbitrary `BodyTrans` or `BodyRestrict` cannot be translated by a direct
-structural mapping without strengthening the target judgment or proving an
-additional admissibility theorem. The bridge does not assume either. In
-particular the implemented transitivity cases erase a reflexive side, not a
-proof of general equality composition. Other source congruence constructors
-are also outside the abstract variable-only target fragment.
+`NeutralEqual` already had symmetry; it now also has declarative transitivity
+and guarded restriction, analogous to source equality and target typing
+restriction. `boundedFaceEntailsSound` proves accepted entailments sound for
+the documented four-valued face semantics, including the finite bounds; a
+rejected check may reflect exhaustion. This does not prove semantic soundness
+of the enlarged typing/equality calculus. The proof-producing experimental
+checker is unchanged and does not search these new closure rules; production
+runtime conversion is unchanged. Other source congruence constructors remain
+outside this bridge, and bridgeability is not claimed for every source proof.

@@ -735,6 +735,8 @@ checkerChecks =
       (NApply (NPath FZ) (Meet (Var FZ) (Var (FS FZ)))) (NApply (NPath FZ) (Var FZ))))
   , ("checker non-boolean meet rejected", checkerUnsupported (checkNeutralEqual {n = 1} 64 neutralContext STop
       (NApply (NPath FZ) (Meet (Var FZ) (Reverse (Var FZ)))) (NBase FZ)))
+  , ("checker equality restriction does not escape", checkerUnsupported (checkNeutralEqual {n = 1} 64 neutralContext STop
+      (NApply (NPath FZ) (Var FZ)) (NBase FZ)))
   , ("checker endpoint conversion", checkerSuccess (checkNeutralEqual {n = 1} 64 neutralContext (SEndpoint FZ False)
       (NApply (NPath FZ) (Var FZ)) (NBase FZ)))
   , ("checker coincident endpoint zero", checkerSuccess (checkNeutralEqual {n = 0} 32 coincidentContext STop
