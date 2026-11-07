@@ -5,6 +5,16 @@
 No production JSON API, compiler/runtime change, admission exemption or budget
 increase is introduced. The original full and scalar fixtures remain unchanged.
 
+## Later diagnostic adoption (historical evidence below retained)
+
+A separate [buffered binary iteration diagnostic](json-iteration-adoption.md) now
+shares this parser's pure transition/finalizer with an explicitly effectful
+64-byte adapter. Its hosted/native prior97-case observations have96 exact results
+and one reader EOF, with no budget blockers in that corpus. Original fixtures
+and pure API below remain unchanged; this does not deliver4096-byte JSON or
+prove all grammar inputs fit. Historical limitations below describe their named
+checkpoints, not the new adapter.
+
 ## Source-only state-sharing checkpoint (base `6301779`)
 
 The first typed abstraction **checks**, but alone does not fit admission. The

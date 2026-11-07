@@ -98,3 +98,15 @@ on this isolated foundations branch with explicit state/result and work contract
 this is not an implicit natRec strictness change. Header/JSON consumers have not
 been rewritten to use it. Generalized headers, JSON runtime limits and subsequent
 JSON-RPC integration remain separate work.
+
+## Source-only JSON adoption follow-up
+
+The separate JSON adoption lane now supplies an explicitly binary-effectful,
+already-buffered **64-byte diagnostic** adapter with one shared pure transition/
+finalizer. Its original97-case matrix executes96 exact results plus one reader
+EOF on each backend; no budget blocker remains in that corpus. The extended
+120-case matrix, direct empty/exhaustion data paths, no-transport consumer and
+named ASan/UBSan checks pass. This is not a production/4096-byte JSON API, full
+grammar proof or header composition result. Native64-token input costs97768 of
+100000 steps. See [JSON iteration adoption](json-iteration-adoption.md) for API,
+effect contract, source-preservation assertions, exact costs and remaining gates.

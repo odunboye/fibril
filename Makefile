@@ -1,7 +1,7 @@
 PACK ?= pack
 IDRIS2 ?= idris2
 
-.PHONY: prelude prelude-check build unit-test test io-test io-hosted-test io-runtime-test io-resource-runtime-test io-resource-emitter-test io-emitter-test io-interactive-test io-binary-test io-binary-bench io-cli-test native-test native-pair-test bytes-native-test binary-source-test binary-iteration-test binary-count-test binary-runtime-test binary-scale-test binary-number-test binary-number-bench json-oracle-test json-sharing-probe framing-test editor-test examples bench bench-smoke python-embed-test docs handbook serve-docs clean
+.PHONY: prelude prelude-check build unit-test test io-test io-hosted-test io-runtime-test io-resource-runtime-test io-resource-emitter-test io-emitter-test io-interactive-test io-binary-test io-binary-bench io-cli-test native-test native-pair-test bytes-native-test binary-source-test binary-iteration-test binary-count-test binary-runtime-test binary-scale-test binary-number-test binary-number-bench json-oracle-test json-sharing-probe json-iteration-test framing-test editor-test examples bench bench-smoke python-embed-test docs handbook serve-docs clean
 prelude:
 	python3 tools/embed_prelude.py
 
@@ -27,6 +27,7 @@ test: unit-test
 	CC="$(CC)" python3 tools/test_binary_scalability.py
 	python3 tools/test_binary_numbers.py
 	python3 tools/test_json_oracle.py
+	IDRIS2="$(IDRIS2)" CC="$(CC)" python3 tools/test_json_iteration.py
 	CC="$(CC)" python3 tools/test_framing.py
 	CC="$(CC)" python3 tools/test_io_cli.py
 
@@ -77,6 +78,10 @@ json-oracle-test:
 
 json-sharing-probe: build
 	CC="$(CC)" python3 tools/observe_json_combined.py
+
+# Source-only 64-byte diagnostic, with independent oracle and private observers.
+json-iteration-test: build
+	IDRIS2="$(IDRIS2)" CC="$(CC)" python3 tools/test_json_iteration.py
 
 binary-number-test: unit-test
 	python3 tools/test_binary_numbers.py

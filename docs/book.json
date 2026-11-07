@@ -366,6 +366,7 @@
       { "title": "Protocol foundations checkpoint", "path": "docs/protocol-foundations.md" },
       { "title": "Header parser blockers", "path": "docs/header-parser-blockers.md" },
       { "title": "JSON admission and state sharing", "path": "docs/binary-json-blockers.md" },
+      { "title": "JSON buffered binary iteration", "path": "docs/json-iteration-adoption.md" },
       { "title": "Bounded binary iteration proposal", "path": "docs/bounded-binary-iteration-proposal.md" },
       { "title": "Checked bounded binary iteration", "path": "docs/bounded-binary-iteration.md" },
       { "title": "Native binary continuation stack", "path": "docs/binary-runtime-scalability.md" },
