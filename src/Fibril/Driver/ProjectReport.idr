@@ -5,6 +5,7 @@ import Fibril.Source.Text
 import Fibril.Driver.JSON
 import Fibril.Driver.ModuleGraph
 import Fibril.Driver.ModuleCheck
+import Fibril.Project.Local
 
 %default total
 
@@ -48,6 +49,23 @@ renderProjectReport requestedEntry (ProjectRejected graph err) =
 renderProjectReport requestedEntry (ProjectAccepted project) =
   reportJSON project.graph.entry (Just project.graph.root) True (projectReport project)
     (sourcesJSON project.graph) []
+
+||| Structured package diagnostics for applications and entry-free libraries.
+||| Inventory checking does not invent an application entry or execute effects.
+public export
+packageCheckReport : String -> IO (Bool, String)
+packageCheckReport manifest = do
+  loaded <- loadLocalPackageGraph CheckInventory manifest
+  pure $ case loaded of
+    Left err => (False, renderProjectReport manifest (GraphUnavailable err))
+    Right graph => if graph.entry == "" then
+      case checkInventoryGraph graph of
+        Left err => (False, renderProjectReport manifest (ProjectRejected graph err))
+        Right () => (True, reportJSON graph.entry (Just graph.root) True
+          ["Library checking: accepted (no runtime entry)"] (sourcesJSON graph) [])
+      else case checkModuleGraph graph of
+        Left err => (False, renderProjectReport manifest (ProjectRejected graph err))
+        Right project => (True, renderProjectReport manifest (ProjectAccepted project))
 
 public export
 projectAccepted : ProjectOutcome -> Bool

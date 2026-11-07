@@ -94,7 +94,15 @@
         "path": "docs/cli.md"
       },
       {
-        "title": "Neovim and Vim highlighting",
+        "title": "Fibril language server",
+        "path": "docs/lsp.md"
+      },
+      {
+        "title": "Consolidated LSP worktrees",
+        "path": "docs/lsp-consolidation.md"
+      },
+      {
+        "title": "Legacy Vim and Neovim commands",
         "path": "docs/editor-highlighting.md"
       },
       {
@@ -329,6 +337,7 @@
         "title": "Runtime usage checker",
         "path": "docs/runtime-checker.md"
       },
+      { "title": "Scoped native regions", "path": "docs/regions.md" },
       {
         "title": "Reference reduction",
         "path": "docs/reduction.md"
@@ -387,7 +396,7 @@
       { "title": "Fibril-written bounded framing", "path": "docs/binary-framing.md" },
       { "title": "Numeric probes and 4 KiB framing", "path": "docs/binary-numbers.md" },
       { "title": "Protocol foundations checkpoint", "path": "docs/protocol-foundations.md" },
-      { "title": "Fibril-written LSP status and next gate", "path": "docs/lsp-status.md" },
+      { "title": "LSP status: Python server and Fibril-written next gate", "path": "docs/lsp-status.md" },
       { "title": "LSP master merge validation", "path": "docs/lsp-merge-validation.md" },
       { "title": "LSP workload and scaling proposal", "path": "docs/lsp-workload-scaling.md" },
       { "title": "Bounded LSP cost audit", "path": "docs/lsp-cost-audit.md" },

@@ -35,7 +35,8 @@ The generated homepage separates teaching chapters, references, and project reco
 - [Pure byte values](bytes.md): checked immutable octets, append, length and explicit modulo construction; not source binary IO.
 - [Pure String values](strings.md): ordinary typing/data and the separate console effect boundary.
 
-- [Neovim/Vim highlighting](editor-highlighting.md): local runtime setup, lexical scope, and optional tests.
+- [Fibril LSP server](lsp.md): standard editor services, unsaved buffers, checked project/package navigation, and thin Neovim setup.
+- [Legacy Vim/Neovim commands](editor-highlighting.md): retained runtime setup and optional compatibility tests.
 
 - [Hello world / hosted console](console-runner.md): first run command and its explicit effect boundary.
 - [Protocol foundations checkpoint](protocol-foundations.md): reviewed pair lowering/state sharing, corrected oracle, and explicit remaining runtime blockers.

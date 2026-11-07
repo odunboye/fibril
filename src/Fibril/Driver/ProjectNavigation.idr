@@ -59,20 +59,72 @@ checkedImport exports dependency = case lookup dependency.components exports of
 resolveOrigins : List (String, SourceLocation) -> List (String, String) -> List (String, SourceLocation)
 resolveOrigins origins entries = mapMaybe (\(visible, origin) => map (\target => (visible, target)) (lookup origin origins)) entries
 
-selectorTargets : Nat -> Nat -> List (String, SourceLocation) -> ImportDeclaration -> List SourceLocation
-selectorTargets line column selected dependency = case dependency.selectors of
-  Nothing => []
-  Just selectors => mapMaybe (\selector =>
-    if line == selector.span.start.line && column >= selector.span.start.column && column < selector.span.finish.column
-      then lookup (concat (intersperse "." dependency.components) ++ "." ++ selector.spelling) selected
-      else Nothing) selectors
+public export
+record NavigationOccurrence where
+  constructor Occurs
+  origin : SourceLocation
+  destination : SourceLocation
+  isDeclaration : Bool
 
--- Private: the caller has already checked the entire graph, including
--- source-order visibility, privacy, and every qualified reference.
-definitionIn : ModuleGraph -> List (List String, List (String, String)) -> List RecursiveSite -> ModuleSnapshot -> Nat -> Nat -> Maybe SourceLocation
-definitionIn graph exports sites current line column =
-  let origins = concatMap (bindings True) graph.modules
-      selected = concatMap (checkedImport exports) current.document.imports
+sameSpan : SourceSpan -> SourceSpan -> Bool
+sameSpan left right = left.start.offset == right.start.offset && left.finish.offset == right.finish.offset
+
+sameLocation : SourceLocation -> SourceLocation -> Bool
+sameLocation left right = left.path == right.path && sameSpan left.range right.range
+
+contains : Nat -> Nat -> SourceSpan -> Bool
+contains line column span =
+  (line > span.start.line || (line == span.start.line && column >= span.start.column)) &&
+  (line < span.finish.line || (line == span.finish.line && column < span.finish.column))
+
+moduleLocation : ModuleGraph -> List String -> Maybe SourceLocation
+moduleLocation graph names = case mapMaybe (\snapshot => case snapshot.document.moduleHeader of
+    Just header => if header.components == names then Just (Located snapshot.path header.nameSpan) else Nothing
+    Nothing => Nothing) graph.modules of
+  [target] => Just target
+  _ => Nothing
+
+-- Resolve only the current module or a checked direct import/alias, never a
+-- same-spelled module elsewhere on disk. Re-exported symbols retain their own
+-- defining declaration identity, while the qualifier names the facade module.
+qualifierTarget : ModuleGraph -> ModuleSnapshot -> String -> Maybe SourceLocation
+qualifierTarget graph current name =
+  let qualifier = reverse (drop 1 (reverse (forget (Data.String.split (== '.') name))))
+      own = the (List (List String)) $ case current.document.moduleHeader of
+        Just header => if header.components == qualifier then [qualifier] else []
+        Nothing => []
+      imports = map components (filter (\dependency => dependency.components == qualifier ||
+        maybe False (\alias => qualifier == [alias.spelling]) dependency.alias) current.document.imports)
+   in case nub (own ++ imports) of
+        [names] => moduleLocation graph names
+        _ => Nothing
+
+importReferences : ModuleGraph -> List (String, SourceLocation) -> ImportDeclaration -> List (ReferenceTo SourceLocation)
+importReferences graph selected dependency =
+  (case moduleLocation graph dependency.components of
+    Nothing => []
+    Just target => RefersTo dependency.nameSpan target ::
+      maybe [] (\alias => [RefersTo alias.span target]) dependency.alias) ++
+  (case dependency.selectors of
+    Nothing => []
+    Just selectors => mapMaybe (\selector => map (RefersTo selector.span)
+      (lookup (concat (intersperse "." dependency.components) ++ "." ++ selector.spelling) selected)) selectors)
+
+isDeclarationSite : ModuleSnapshot -> ReferenceTo SourceLocation -> Bool
+isDeclarationSite current reference =
+  sameLocation (Located current.path reference.origin) reference.target ||
+  (reference.target.path == current.path && case current.document.body of
+    DeclarationDocument declarations => any (\site => sameSpan site.nameSpan reference.origin &&
+      sameSpan site.definitionNameSpan reference.target.range) (concatMap bindingSites declarations)
+    _ => False)
+
+-- These source facts are consumed only after graph checking has succeeded.
+-- The generic walker handles lexical scopes; checked exports canonicalize
+-- aliases/re-exports, and checker-produced sites override recursive self calls.
+referencesIn : ModuleGraph -> List (String, SourceLocation) -> List (List String, List (String, String)) ->
+               List RecursiveSite -> ModuleSnapshot -> List NavigationOccurrence
+referencesIn graph origins exports sites current =
+  let selected = concatMap (checkedImport exports) current.document.imports
       selectedLocations = resolveOrigins origins selected
       visible = bindings False current ++ selectedLocations
       qualifiedAliases = concatMap (\dependency => case dependency.alias of
@@ -80,17 +132,36 @@ definitionIn graph exports sites current line column =
         Just alias => map (\(name, origin) => (alias.spelling ++ "." ++ shortName name, origin))
           (checkedImport exports dependency)) current.document.imports
       aliasLocations = resolveOrigins origins qualifiedAliases
-      selectorTarget = concatMap (selectorTargets line column selectedLocations) current.document.imports
-      references = documentReferencesWithGlobals (Located current.path) (unqualifiedTarget selected origins)
-                     (\name => lookup name (visible ++ aliasLocations)) current.document
+      references = documentReferencesWithModules (Located current.path) (unqualifiedTarget selected origins)
+                     (\name => lookup name (visible ++ aliasLocations)) (qualifierTarget graph current) current.document
       recursionRefs = map (\site => RefersTo site.origin (Located site.path site.target))
                         (filter (\site => site.path == current.path) sites)
-   in case selectorTarget of
-        target :: _ => Just target
-        [] => map target (find (\reference =>
-          line == reference.origin.start.line &&
-          column >= reference.origin.start.column &&
-          column < reference.origin.finish.column) (recursionRefs ++ references))
+      headerRefs = maybe [] (\header => [RefersTo header.nameSpan (Located current.path header.nameSpan)]) current.document.moduleHeader
+      ordinaryRefs = headerRefs ++ concatMap (importReferences graph selectedLocations) current.document.imports ++ references
+      allRefs = recursionRefs ++ filter (\reference => not (any (\recursive => sameSpan reference.origin recursive.origin) recursionRefs)) ordinaryRefs
+   in map (\reference => Occurs (Located current.path reference.origin) reference.target (isDeclarationSite current reference)) allRefs
+
+originOrder : NavigationOccurrence -> NavigationOccurrence -> Ordering
+originOrder left right = case compare left.origin.path right.origin.path of
+  EQ => compare (left.origin.range.start.offset, left.origin.range.finish.offset)
+                (right.origin.range.start.offset, right.origin.range.finish.offset)
+  order => order
+
+uniqueOccurrences : Maybe SourceLocation -> List NavigationOccurrence -> List NavigationOccurrence
+uniqueOccurrences previous [] = []
+uniqueOccurrences previous (reference :: rest) =
+  if maybe False (sameLocation reference.origin) previous then uniqueOccurrences previous rest
+  else reference :: uniqueOccurrences (Just reference.origin) rest
+
+navigationIndex : ModuleGraph -> List (List String, List (String, String)) -> List RecursiveSite -> List NavigationOccurrence
+navigationIndex graph exports sites =
+  let origins = concatMap (bindings True) graph.modules
+   in uniqueOccurrences Nothing (sortBy originOrder
+        (concatMap (referencesIn graph origins exports sites) graph.modules))
+
+selectedAt : List NavigationOccurrence -> String -> Nat -> Nat -> Maybe NavigationOccurrence
+selectedAt index path line column = find (\reference => reference.origin.path == path &&
+  contains line column reference.origin.range) index
 
 locationJSON : SourceLocation -> String
 locationJSON location = jsonObject
@@ -105,14 +176,18 @@ record ProjectDefinition where
   query : ModuleSnapshot
   definition : Maybe SourceLocation
   manifest : Maybe String
+  origin : Maybe SourceLocation
+  referenceIndex : List NavigationOccurrence
 
 locateInGraph : ModuleGraph -> List (List String, List (String, String)) -> List RecursiveSite -> Maybe String -> Nat -> Nat -> String -> IO (Either String ProjectDefinition)
 locateInGraph graph exports sites manifest line column path = do
   canonical <- canonicalPath path
   pure $ case canonical >>= (\path => find (\snapshot => snapshot.path == path) graph.modules) of
     Nothing => Left (renderFileError path "Query file is not in the checked project graph")
-    Just snapshot => Right (ProjectTarget graph snapshot
-                             (definitionIn graph exports sites snapshot line column) manifest)
+    Just snapshot =>
+      let index = navigationIndex graph exports sites
+          selected = selectedAt index snapshot.path line column
+       in Right (ProjectTarget graph snapshot (map destination selected) manifest (map origin selected) index)
 
 ||| No source is reparsed/reloaded for lookup after preparation. Returned
 ||| records are ordinary data, not navigation-correctness certificates.
@@ -172,14 +247,40 @@ definitionScope result = case result.manifest of
     ("manifests", manifestSnapshots result.graph) ::
     ("module_resolutions", moduleResolutions result.graph) :: scopeFields result.graph
 
-public export
-renderProjectDefinition : ProjectDefinition -> String
-renderProjectDefinition result = jsonObject $
+navigationReport : ProjectDefinition -> List (String, String) -> String
+navigationReport result fields = jsonObject $
   [("version", "2"), ("coordinates", jsonString "unicode-scalars;offset=0;line=1;column=1"),
    ("entry", jsonString result.graph.entry), ("root", jsonString result.graph.root),
    ("query", jsonString result.query.path), ("checked", "true"),
-   ("sources", projectSourcesJSON result.graph),
-   ("definition", maybe "null" locationJSON result.definition)] ++ definitionScope result
+   ("sources", projectSourcesJSON result.graph)] ++ fields ++ definitionScope result
+
+public export
+renderProjectDefinition : ProjectDefinition -> String
+renderProjectDefinition result = navigationReport result
+  [("definition", maybe "null" locationJSON result.definition),
+   ("origin", maybe "null" locationJSON result.origin)]
+
+occurrenceOrder : NavigationOccurrence -> NavigationOccurrence -> Ordering
+occurrenceOrder left right = case compare left.origin.path right.origin.path of
+  EQ => compare left.origin.range.start.offset right.origin.range.start.offset
+  order => order
+
+occurrenceJSON : NavigationOccurrence -> String
+occurrenceJSON reference = jsonObject
+  [("path", jsonString reference.origin.path),
+   ("range", jsonObject [("start", jsonPosition reference.origin.range.start),
+                          ("end", jsonPosition reference.origin.range.finish)]),
+   ("declaration", if reference.isDeclaration then "true" else "false")]
+
+public export
+renderProjectReferences : ProjectDefinition -> String
+renderProjectReferences result =
+  let occurrences = case result.definition of
+        Nothing => []
+        Just selected => sortBy occurrenceOrder (filter (\reference => sameLocation reference.destination selected) result.referenceIndex)
+   in navigationReport result
+        [("definition", maybe "null" locationJSON result.definition),
+         ("references", jsonArray (map occurrenceJSON occurrences))]
 
 public export
 projectDefinitionFile : String -> String -> Nat -> Nat -> String ->
@@ -193,3 +294,17 @@ packageDefinitionFile : String -> Nat -> Nat -> String -> IO (Either String (Lis
 packageDefinitionFile manifest line column path = do
   result <- preparePackageDefinition manifest line column path
   pure (map (\target => [renderProjectDefinition target]) result)
+
+||| All occurrences of one canonical declaration/module in the checked closure.
+||| Declaration flags let clients apply includeDeclaration without guessing.
+public export
+projectReferencesFile : String -> String -> Nat -> Nat -> String -> IO (Either String (List String))
+projectReferencesFile root entry line column path = do
+  result <- prepareProjectDefinition root entry line column path
+  pure (map (\target => [renderProjectReferences target]) result)
+
+public export
+packageReferencesFile : String -> Nat -> Nat -> String -> IO (Either String (List String))
+packageReferencesFile manifest line column path = do
+  result <- preparePackageDefinition manifest line column path
+  pure (map (\target => [renderProjectReferences target]) result)

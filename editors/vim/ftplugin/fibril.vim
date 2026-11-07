@@ -1,3 +1,7 @@
+" Neovim's configured LSP client owns language services; retain legacy Vim support.
+if has('nvim') && get(g:, 'fibril_use_lsp', 0)
+  finish
+endif
 " Minimal buffer settings; indentation and formatting are deliberately untouched.
 if exists('b:did_ftplugin')
   finish

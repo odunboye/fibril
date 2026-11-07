@@ -1,13 +1,17 @@
-# Fibril-written LSP: current status and next gate
+# LSP status: usable Python server and Fibril-written next gate
 
 ## Bottom line
 
-**There is no usable wire-level LSP server written in Fibril yet.** This checkpoint
-merges checked binary-IO foundations, working canonical framing, bounded parser
-and lifecycle diagnostics, and reviewed performance evidence. It does not merge
-the separate Python LSP implementation or turn the diagnostics into production APIs.
+**The usable [Python LSP server](lsp.md) is now merged alongside master's current
+compiler features. There is no usable wire-level LSP server written in Fibril yet.**
+The Python server provides editor integration with compiler-backed checking and
+navigation; its implementation and tests are unchanged from `9e87c0d`. The
+Fibril-written work provides checked binary-IO foundations, canonical framing,
+bounded parser/lifecycle diagnostics and historical performance evidence. Merging
+them does not turn those diagnostics into production APIs or rerun historical
+performance measurements on the current compiler.
 
-## Implemented
+## Implemented Fibril-written foundations
 
 - Checked hosted/native binary IO, immutable Bytes and fallible strict UTF-8
   conversion, with separate capability gates and existing resource/work limits.
@@ -56,10 +60,11 @@ A later subprocess-routing correction has offline/tiny-child regression evidence
 not newly claimed matrix execution. The timeout is not retroactively a pass.
 Historical compiler/source hashes describe their recorded revisions; a later
 master integration must not claim those old observations were rerun on new code.
-See the [merge validation record](lsp-merge-validation.md) for tests actually
-executed on the merged revision and the explicit historical-source verification.
+See the historical [bootstrap merge validation record](lsp-merge-validation.md)
+for tests executed at that earlier merge and explicit historical-source
+verification. Those results are not execution evidence for this newer integration.
 
-## Next work
+## Next work for a Fibril-written server
 
 1. Design and review compiler/source representation and retained-allocation
    improvements against actual composed entries, while preserving whole-syntax
@@ -88,5 +93,8 @@ claims.
 - [Byte-span specification — not implemented](byte-span-api-specification.md)
 - Typed lifecycle source, contract and evidence: `tools/fixtures/lsp-lifecycle/`.
 
-The separate Python reference remains on `feature/lsp`; it is not included by
-merging `feature/lsp-bootstrap` alone.
+The Python reference implementation is included by the current `feature/lsp`
+integration, not an implementation outside this branch. The earlier bootstrap-only
+merge and its [validation record](lsp-merge-validation.md) remain historical
+checkpoints. See the [Python LSP guide](lsp.md) for current server usage and the
+[consolidation record](lsp-consolidation.md) for the earlier worker-lane merge.

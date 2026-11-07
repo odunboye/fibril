@@ -29,6 +29,7 @@ Build with `pack build fibril`, then invoke `./build/exec/fibril`.
 | eval --source-dir ROOT ENTRY | Check modules, normalize entry, and recheck without performing effects |
 | eval --source-dir ROOT --fuel N ENTRY | Project reference evaluation with fuel 0..4096 |
 | check --source-dir ROOT ENTRY | Check bounded POSIX dependency graph and closed qualified module interfaces; no execution |
+| check --json --package PATH | Version-2 source-backed application or library-inventory checking report; no effects |
 | check --json --source-dir ROOT ENTRY | Version-2 project report with source paths/snapshots; JSON on represented rejection |
 | check --json PATH | Structured runtime-check report; JSON on stdout even on represented rejection, with nonzero status |
 | check --erased PATH | Parse/resolve/check the erased ordinary fragment only |
@@ -39,7 +40,9 @@ Build with `pack build fibril`, then invoke `./build/exec/fibril`.
 | elaborate PATH | Inspect expanded named declaration IR; checked:false, no import loading or effects |
 | reference LINE COLUMN PATH | Tagged built-in documentation or bundled Prelude declaration snapshot; syntax/lexical lookup |
 | references LINE COLUMN PATH | Same-file lexical occurrences, including declaration sites, as JSON |
-| definition --source-dir ROOT --entry ENTRY LINE COLUMN PATH | Checked project definition; version-2 file/range target and source snapshots |
+| references --source-dir ROOT --entry ENTRY LINE COLUMN PATH | Checked project occurrences with canonical declaration identities and declaration flags; version-2 source snapshots |
+| references --package MANIFEST LINE COLUMN PATH | Checked application/library-inventory occurrences; does not discover reverse dependants |
+| definition --source-dir ROOT --entry ENTRY LINE COLUMN PATH | Checked symbol or module/file definition; version-2 target, query origin and source snapshots |
 | definition --package MANIFEST LINE COLUMN PATH | Checked application or library-inventory definition; version-2 packet across its loaded package graph |
 | definition LINE COLUMN PATH | Same-file lexical target as JSON, using one-based scalar coordinates; errors on stderr |
 | symbols PATH | JSON declaration ranges, syntax only; errors on stderr |
@@ -67,6 +70,12 @@ forms; check --erased grants no runtime permission. Only run executes a complete
 checked IO Unit output plan. It reserves stdout for program output and sends
 failures to stderr. Hosted execution is not generated C/JS or a completed effect
 calculus. Ordinary helpers and flat do sequencing are supported.
+
+## Language server
+
+The [Fibril LSP server](lsp.md) runs as `python3 tools/fibril_lsp.py`, backed by
+this compiler. It supports dirty buffers and standard editor requests; Neovim's
+new client uses LSP instead of custom compiler-command adapters.
 
 ## Source diagnostics
 

@@ -53,6 +53,8 @@ Usage:
   fibril elaborate PATH         Inspect expanded named IR (unchecked; no effects)
   fibril reference LINE COLUMN PATH  Built-in documentation or bundled Prelude source
   fibril references LINE COLUMN PATH  Same-file lexical occurrences, including declarations
+  fibril references --source-dir ROOT --entry ENTRY LINE COLUMN PATH  Checked project occurrences
+  fibril references --package MANIFEST LINE COLUMN PATH  Checked package/inventory occurrences
   fibril definition --source-dir ROOT --entry ENTRY LINE COLUMN PATH  Checked project target
   fibril definition --package MANIFEST LINE COLUMN PATH  Checked application or library package target
   fibril definition LINE COLUMN PATH  Same-file lexical target (scalar coordinates)
@@ -73,6 +75,7 @@ Usage:
   fibril module-graph          Inspect ./fibril.yaml source graph (syntax only)
   fibril check --package PATH   Check explicit local fibril.yaml dependency closure (POSIX)
   fibril run --package PATH     Check local packages, then execute the complete IO plan
+  fibril check --json --package PATH  Version-2 application/library package report
   fibril check --json --source-dir ROOT ENTRY  Version-2 project report with source snapshots
   fibril check --json PATH      JSON runtime-check report (no effect execution)
   fibril check --erased PATH    Check only the erased ordinary fragment
@@ -210,6 +213,10 @@ main = do
           putStrLn "Fuel must be decimal 0..4096."
           exitFailure
     ["rename-preview", line, column, name, path] => runLocationQuery (\row, col, file => renameFile row col name file) line column path
+    ["references", "--source-dir", root, "--entry", entry, line, column, path] =>
+      runLocationQuery (projectReferencesFile root entry) line column path
+    ["references", "--package", manifest, line, column, path] =>
+      runLocationQuery (packageReferencesFile manifest) line column path
     ["definition", "--source-dir", root, "--entry", entry, line, column, path] =>
       runLocationQuery (projectDefinitionFile root entry) line column path
     ["definition", "--package", manifest, line, column, path] =>
@@ -236,6 +243,10 @@ main = do
         Left err => do
           _ <- fPutStrLn stderr err
           exitFailure
+    ["check", "--json", "--package", manifest] => do
+      (accepted, report) <- packageCheckReport manifest
+      putStrLn report
+      if accepted then pure () else exitFailure
     ["check", "--json", "--source-dir", root, entry] => do
       outcome <- prepareProject root entry
       putStrLn (renderProjectReport entry outcome)

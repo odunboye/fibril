@@ -94,6 +94,26 @@ class LSPEvidenceHistory(unittest.TestCase):
                 with self.assertRaises(AssertionError):
                     nat_case.check('/checker-unit-only')
 
+    def test_with_region_checker_rejects_missing_fields_roles_and_wrong_counts(self):
+        rows = [dict(tree=nat_case.expected_with_region(), core_nodes=11, payload_estimate=0)]
+        def captured(documents):
+            return subprocess.CompletedProcess([], 0,
+                b'\n'.join(json.dumps(row).encode() for row in documents), b'')
+        with mock.patch.object(nat_case, 'run_process', return_value=captured(rows)):
+            self.assertEqual(nat_case.check_with_region('/checker-unit-only'), rows)
+        missing = copy.deepcopy(rows)
+        missing[0]['tree']['children'][1]['children'].pop()
+        role = copy.deepcopy(rows)
+        role[0]['tree']['children'][1]['children'][0]['role'] = 'computational'
+        index = copy.deepcopy(rows)
+        index[0]['tree']['children'][1]['children'][1]['children'][1]['children'][1]['detail'] = [0]
+        count = copy.deepcopy(rows)
+        count[0]['core_nodes'] = 10
+        for changed in (missing, role, index, count):
+            with mock.patch.object(nat_case, 'run_process', return_value=captured(changed)):
+                with self.assertRaises(AssertionError):
+                    nat_case.check_with_region('/checker-unit-only')
+
 
 if __name__ == '__main__':
     unittest.main()

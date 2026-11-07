@@ -27,6 +27,7 @@ record Walker (destination : Type) where
   localTarget : SourceSpan -> destination
   qualifiedTarget : String -> Maybe destination
   globalTarget : String -> Maybe destination
+  moduleTarget : String -> Maybe destination
 
 Environment : Type -> Type
 Environment destination = List (String, Maybe destination)
@@ -55,6 +56,18 @@ self : Walker destination -> Maybe SourceSpan -> List (ReferenceTo destination)
 self context Nothing = []
 self context (Just span) = [RefersTo span (context.localTarget span)]
 
+-- Qualified AST nodes, not text matches, authorize module-qualifier links.
+-- The callback receives the full qualified name and resolves its module prefix.
+qualifierReferences : Walker destination -> SourceSpan -> SourceSpan -> String -> List (ReferenceTo destination)
+qualifierReferences context region final name = case context.moduleTarget name of
+  Nothing => []
+  Just target => case filter (\token => token.kind == Name &&
+      token.span.start.offset >= region.start.offset &&
+      token.span.finish.offset <= final.start.offset) context.tokens of
+    [] => []
+    first :: rest => [RefersTo (Between first.span.start
+      (foldl (\end, token => token.span.finish) first.span.finish rest)) target]
+
 mutual
   walk : Walker destination -> Environment destination -> Expr -> List (ReferenceTo destination)
   walk context env (NRef span name) =
@@ -64,14 +77,15 @@ mutual
      in case (nameToken name span context.tokens, target) of
       (Just origin, Just target) => [RefersTo origin target]
       _ => []
-  -- Only the final identifier is selectable, not module qualifiers or dots.
   walk context env (NQualifiedRef region name) =
-    case (find (\token => token.kind == Name &&
+    case find (\token => token.kind == Name &&
                         token.span.start.offset >= region.start.offset &&
-                        token.span.finish.offset <= region.finish.offset) (reverse context.tokens),
-          context.qualifiedTarget name) of
-      (Just token, Just target) => [RefersTo token.span target]
-      _ => []
+                        token.span.finish.offset <= region.finish.offset) (reverse context.tokens) of
+      Just token => qualifierReferences context region token.span name ++
+        (case context.qualifiedTarget name of
+          Just target => [RefersTo token.span target]
+          Nothing => [])
+      Nothing => []
   walk context env (NSort _ _) = []
   walk context env (NUnitType _) = []
   walk context env (NUnitValue _) = []
@@ -174,13 +188,18 @@ mutual
         refs : List (ReferenceTo destination)
         refs = if clause && null rest && null binder then [] else
           case (origin, selected) of (Just region, Just dest) => [RefersTo region dest]; _ => []
+        qualifierRefs : List (ReferenceTo destination)
+        qualifierRefs = if qualified then case origin of
+          Just region => qualifierReferences context constructor.span region constructor.spelling
+          Nothing => []
+          else []
         binderRefs : List (ReferenceTo destination)
         binderRefs = concatMap (\bound => if bound.spelling == "_" then [] else self context (Just bound.span)) binder
         following : Environment destination
         following = foldl (\scope, bound => (bound.spelling, if bound.spelling == "_" then Nothing else Just (context.localTarget bound.span)) :: scope) env binder
         bodyScope = if clause && null rest && null binder
                     then (constructor.spelling, Nothing) :: following else following
-     in refs ++ binderRefs ++ walk context bodyScope body ++ walkDataArms clause context env rest
+     in refs ++ qualifierRefs ++ binderRefs ++ walk context bodyScope body ++ walkDataArms clause context env rest
 
 dataParameters : Walker destination -> Environment destination -> List RecordParameter ->
                  (List (ReferenceTo destination), Environment destination)
@@ -277,17 +296,25 @@ declarations context env (item@(InterfaceItem authored) :: rest) =
       (fieldRefs, _) = dataFields context paramScope authored.fields
    in refs ++ paramRefs ++ fieldRefs ++ declarations context following rest
 
-||| Shared traversal with lexical shadowing before unqualified global lookup.
+||| Shared traversal with optional checked module targets for qualified AST nodes.
 public export
-documentReferencesWithGlobals : (SourceSpan -> destination) -> (String -> Maybe destination) ->
-                               (String -> Maybe destination) -> ParsedDocument ->
-                               List (ReferenceTo destination)
-documentReferencesWithGlobals local globals qualified document =
-  let context = Walking document.tokens local qualified globals
+documentReferencesWithModules : (SourceSpan -> destination) -> (String -> Maybe destination) ->
+                               (String -> Maybe destination) -> (String -> Maybe destination) ->
+                               ParsedDocument -> List (ReferenceTo destination)
+documentReferencesWithModules local globals qualified modules document =
+  let context = Walking document.tokens local qualified globals modules
    in case document.body of
         EmptyDocument => []
         DeclarationDocument values => declarations context [] values
         ExpressionDocument value => walk context [] value
+
+||| Lexical clients do not infer module targets without a checked module graph.
+public export
+documentReferencesWithGlobals : (SourceSpan -> destination) -> (String -> Maybe destination) ->
+                               (String -> Maybe destination) -> ParsedDocument ->
+                               List (ReferenceTo destination)
+documentReferencesWithGlobals local globals qualified =
+  documentReferencesWithModules local globals qualified (const Nothing)
 
 ||| Shared traversal over parsed data, not a checking certificate.
 public export

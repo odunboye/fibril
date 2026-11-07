@@ -129,3 +129,45 @@ bootstrap `cd399d8b2c089fd6a19842b799c203de3ea4afd0`. Main-worktree local Makefi
 edits and untracked recursion-tour/agent files are not part of the merge; they
 must remain preserved during the final fast-forward publication. No remote push
 is implied.
+
+## Subsequent all-LSP integration with region-enabled master
+
+The later merge combines master `76a85031b53ae46ca783af3dca610aa0f2ee3a2a`
+with consolidated `feature/lsp` tip `bdcbaadf9cd167614fd44c5e4050a7bdbf7d4a2d`.
+It includes the usable Python server and all four original LSP worker-branch
+histories. The separate [consolidation record](lsp-consolidation.md) describes
+that earlier feature-branch checkpoint; it is not this merge's validation log.
+
+Master's Core/runtime/stdlib files are byte-identical to `76a8503`, retaining
+recursion and scoped-region support. Python server/test files are byte-identical
+to the incoming branch and original `9e87c0d`. Navigation merges retain both
+master's grouped-pattern/synthetic-scrutinee handling and Python LSP module
+qualifier callbacks, shared destination/origin ranges and reference metadata.
+The current offline inventory additionally handles WithRegion's two fields in
+the same context; its complete11-node raw regression supplements the existing
+NatCase18-node checks. Historical evidence JSON and epoch contracts are unchanged.
+
+The parent independently ran `make -j8 test editor-test handbook`: **exit0**.
+The unit/proof/property phase and all configured suites passed: CLI181, pattern20,
+native32, pair8, byte/UTF-8 native7, binary source13, bridge1, count5, iteration13,
+scalability9, numeric6, oracle8, JSON iteration7, framing14, interactive CLI9,
+Python LSP29, editor7 and handbook16. Separate parent runs passed region6
+(including its native sanitizer coverage), audit5, sharing12, provenance/checker7,
+workload19 and the full `make -j8 io-test` target. Raw console19, resource25 and
+binary bridge1 also passed under ASan/UBSan.
+
+An independent read-only reviewer accepted the navigation, compatibility,
+WithRegion inventory and documentation union after inspecting16 bounded
+per-parent conflict diffs. That review executed no tests; the parent owns the
+executed results above. The worker also compiled and ran the actual current
+Audit checker against NatCase and WithRegion examples. Its two initial direct
+standalone compiler attempts failed on missing transitive YAML/parser packages;
+the later private-package build passed. A pre-registration book completeness
+check also failed on missing `docs/regions.md`, which is now registered. These
+failed attempts remain failed, not retroactively passing commands.
+
+The Python LSP is now included in master, but the Fibril-written wire server is
+still undelivered. No new byte-span API, budget increase, capability relaxation,
+historical performance rerun, source-worktree deletion or remote push is implied.
+Local main-worktree Makefile additions and untracked files remain outside this
+merge and must be preserved during publication.

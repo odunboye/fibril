@@ -94,6 +94,7 @@ mutual
   dump context role (BytesLength x) = node "BytesLength" role [] (0) (0) ([dump context "computational" x])
   dump context role (BytesOctet x) = node "BytesOctet" role [] (0) (0) ([dump context "computational" x])
   dump context role (BytesAppend a b) = node "BytesAppend" role [] (0) (0) ([dump context "computational" a] ++ [dump context "computational" b])
+  dump context role (WithRegion resultType body) = node "WithRegion" role [] (0) (0) ([dump context "metadata" resultType] ++ [dump context "computational" body])
   dump context role StringType = node "StringType" "metadata" [] (0) (0) ([])
   dump context role (StringValue value) = node "StringValue" role (textCodes value) (length value) (0) ([])
   dump context role (StringAppend a b) = node "StringAppend" role [] (0) (0) ([dump context "computational" a] ++ [dump context "computational" b])
@@ -147,6 +148,14 @@ natCaseRegression quantity =
     (Lambda quantity NatType
       (Apply (Lambda Erased NatType (Variable (FS FZ))) (Variable FZ)))
 
+-- WithRegion binds nothing: only its body Lambda introduces the erased region.
+-- The outer Nat and nested erased application expose accidental context shifts.
+withRegionRegression : Term 0
+withRegionRegression =
+  Lambda Unrestricted NatType
+    (WithRegion NatType (Lambda Erased (Universe 0)
+      (Apply (Lambda Erased NatType (Variable (FS (FS FZ)))) (Variable (FS FZ)))))
+
 main : IO ()
 main = do
   args <- getArgs
@@ -154,9 +163,10 @@ main = do
     [_, "--nat-case-regression"] => do
       putStrLn (inventory (natCaseRegression Linear))
       putStrLn (inventory (natCaseRegression Unrestricted))
+    [_, "--with-region-regression"] => putStrLn (inventory withRegionRegression)
     [_, root, entry] => do
       checked <- checkProject root entry
       case checked of
         Left err => die (renderGraphError err)
         Right project => putStrLn (inventory project.term)
-    _ => die "usage: audit ROOT ENTRY | audit --nat-case-regression"
+    _ => die "usage: audit ROOT ENTRY | audit --nat-case-regression | audit --with-region-regression"
