@@ -83,7 +83,7 @@ if ! grep -q 'RuntimeInterface.Admitted is private' "$tmp/forge-interface.log"; 
   exit 1
 fi
 echo 'Runtime interface opacity negative test passed.'
-for fixture in PathCapturesCoreVariable PathEscapesDimension OpenPathDimensionEscape OpenPathTermEscape ContextPathEscape ContextEndpointEscape ContextDimensionEscape ContextTermEscape ContextMappingEscape; do
+for fixture in PathCapturesCoreVariable PathEscapesDimension OpenPathDimensionEscape OpenPathTermEscape ContextPathEscape ContextEndpointEscape ContextDimensionEscape ContextTermEscape ContextMappingEscape TelescopeCycle TelescopeDimensionEscape; do
   "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1 || true
   if ! grep -Fq 'Mismatch between: S ?k and 0.' "$tmp/$fixture.log"; then
     echo "Negative scope test $fixture failed for an unrelated reason:" >&2

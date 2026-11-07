@@ -2,6 +2,7 @@ module Tests.Cubical.OpenPath
 
 import Data.Fin
 import Data.Vect
+import Fibril.Cubical.Logical.Telescope
 import Fibril.Cubical.Logical.PathContext
 import Fibril.Cubical.Logical.OpenPath
 import Fibril.Foundation.DeMorgan.Interval
@@ -69,7 +70,18 @@ preflightReference fuel replacement input =
 export
 checks : List (String, Bool)
 checks =
-  [ ("finite context mappings preserve endpoints, identities and composition",
+  [ ("dependent telescope reduces open endpoints and checks boundaries",
+      let ctx : Telescope 2 2 = Extend (Extend Empty (Tvar FZ) (Tvar (FS FZ)))
+                                         (Tapp FZ Zero) (Tapp FZ One)
+          body : Term 2 2 1 = Tapp FZ (Var FZ) in
+      accepted (Telescope.convert {n = 1} 12 ctx (Tapp FZ Zero) (Tvar FZ)) &&
+      accepted (Telescope.convert {n = 1} 12 ctx (Tapp FZ One) (Tvar (FS FZ))) &&
+      accepted (checkBoundary 12 ctx body (Tvar FZ) (Tvar (FS FZ))) &&
+      rejected (checkBoundary 12 ctx body (Tvar (FS FZ)) (Tvar (FS FZ))) &&
+      rejected (Telescope.convert {n = 1} 12 ctx (Tapp FZ (Var FZ)) (Tapp (FS FZ) (Var FZ))) &&
+      exhausted (Telescope.convert {n = 1} 2 ctx (Tvar FZ) (Tvar FZ)) &&
+      accepted (Telescope.convert {n = 1} 12 ctx (mapDims (\_ => Zero) body) (Tvar FZ)))
+  , ("finite context mappings preserve endpoints, identities and composition",
       let identity : ContextMapping 2 2 2 2 = MapContext [FZ, FS FZ] [FZ, FS FZ]
           swapPaths : ContextMapping 2 2 2 2 = MapContext [FZ, FS FZ] [FS FZ, FZ]
           collapse : ContextMapping 2 2 1 1 = MapContext [FZ, FZ] [FZ, FZ]

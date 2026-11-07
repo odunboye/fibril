@@ -592,3 +592,26 @@ applied to each check, not a total work budget. Mapping admission costs one unit
 per source variable and path entry and caps all four context lengths at 12;
 the existing abstraction checker imposes its own syntax and dimension caps.
 These facilities do not alter trusted core or runtime paths.
+
+### Open endpoint telescope (experimental)
+
+`Fibril.Cubical.Logical.Telescope` adds a separate first-order A-term fragment
+with multiple named paths and open path-application endpoints. An immutable
+`Extend` declaration refers only to earlier paths and has no free dimensions;
+this rules out circular declarations by construction. Terms and dimensions use
+scoped indices. Literal zero and one applications unfold through the telescope,
+including chains of older endpoints; otherwise conversion accepts only exact
+syntactic identity of the same path and interval. Distinct path names are never
+identified merely because their endpoints coincide. Boundary checking substitutes
+literal endpoints and checks both sides against open terms. Rejection is unknown,
+not inequality. The unrestricted checker does not support arbitrary face
+restrictions, interval algebra equivalence, path-valued expressions, nested
+abstractions, or general typed conversion. `mapDims` is a raw scoped syntactic
+operation, not a bounded substitution API or a preservation theorem.
+
+Each checking entry point caps context sizes and dimension counts at 12 and
+admits the complete telescope and input terms using one shared 12-node (or
+caller allowance) cap before unfolding or boundary substitution. Each later
+conversion independently applies the same cap; these are input limits, not an
+operation budget. Unfolding has separate fuel and fails closed on exhaustion.
+There is no general soundness proof, runtime authority, or core integration.
