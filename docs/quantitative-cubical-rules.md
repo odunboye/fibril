@@ -578,3 +578,17 @@ bound: checks and solver calls have their own allowances, bounded Fin/vector
 lookup and weakening incur overhead, and inputs already exist. The source and
 output checker retain their fixed 12-node solver-input cap. No total allocation
 or formal substitution soundness theorem is claimed.
+
+Finite experimental `ContextMapping` candidates map each A-variable and each
+neutral path index with scoped vectors. `checkContextMapping` requires every
+source declaration's mapped left and right endpoints to equal the target
+path's endpoints in that order. Thus permutations and contractions are
+allowed when declarations match, but reversing endpoints is not. Distinct path
+indices remain distinct unless explicitly mapped to the same target index.
+`mapContextTerm` is raw syntax only. `mapBoundContext` rechecks the exact
+candidate, the original abstraction, and the transformed abstraction; it
+leaves dimensions untouched, avoiding capture. Its allowance is independently
+applied to each check, not a total work budget. Mapping admission costs one unit
+per source variable and path entry and caps all four context lengths at 12;
+the existing abstraction checker imposes its own syntax and dimension caps.
+These facilities do not alter trusted core or runtime paths.

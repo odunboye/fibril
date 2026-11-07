@@ -69,7 +69,40 @@ preflightReference fuel replacement input =
 export
 checks : List (String, Bool)
 checks =
-  [ ("bound context dimension substitution composition and exhaustion",
+  [ ("finite context mappings preserve endpoints, identities and composition",
+      let identity : ContextMapping 2 2 2 2 = MapContext [FZ, FS FZ] [FZ, FS FZ]
+          swapPaths : ContextMapping 2 2 2 2 = MapContext [FZ, FS FZ] [FS FZ, FZ]
+          collapse : ContextMapping 2 2 1 1 = MapContext [FZ, FZ] [FZ, FZ]
+          collapsed : PathContext 1 1 = [PathBetween FZ FZ]
+          reversed : PathContext 2 2 = [PathBetween (FS FZ) FZ, PathBetween (FS FZ) FZ]
+          swapVars : ContextMapping 2 2 2 2 = MapContext [FS FZ, FZ] [FZ, FS FZ]
+          body : ContextTerm 2 2 1 = ApplyPath FZ (Var FZ) in
+      accepted (checkContextMapping 4 paths paths identity) &&
+      exhausted (checkContextMapping 3 paths paths identity) &&
+      rejected (checkContextMapping 4 paths paths swapVars) &&
+      accepted (checkContextMapping 4 paths reversed swapVars) &&
+      accepted (checkContextMapping 4 paths collapsed collapse) &&
+      sameContextTerm (mapContextTerm identity body) body &&
+      sameContextTerm (mapContextTerm swapPaths (mapContextTerm swapPaths body))
+                      (mapContextTerm identity body) &&
+      not (sameContextTerm (mapContextTerm swapPaths body) body) &&
+      case checkBoundAbstraction 12 paths body FZ (FS FZ) of
+        Left _ => False
+        Right checked =>
+          case (mapBoundContext 12 paths swapPaths checked,
+                mapBoundContext 12 reversed swapVars checked,
+                mapBoundContext 12 collapsed collapse checked) of
+            (Right first, Right _, Right _) =>
+              case (mapBoundContext 12 paths swapVars checked,
+                    mapBoundContext 0 paths identity checked) of
+                (Left Rejected, Left Exhausted) =>
+                  case (mapBoundContext 12 paths swapPaths first,
+                        mapBoundContext 12 paths identity checked) of
+                    (Right _, Right _) => True
+                    _ => False
+                _ => False
+            _ => False),
+    ("bound context dimension substitution composition and exhaustion",
       let body : ContextTerm 2 2 2 = ApplyPath FZ (Meet (Var FZ) (Join (Var (FS FZ)) One)) in
       case checkBoundAbstraction 12 paths body FZ (FS FZ) of
         Left _ => False

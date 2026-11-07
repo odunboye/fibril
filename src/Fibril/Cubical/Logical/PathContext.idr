@@ -173,3 +173,60 @@ substituteBoundDimensionsFinite budget env {ctx} {body} {l} {r} MkCheckedContext
       then checkBoundAbstraction budget ctx (mapContextDimensions (liftContextDimensions (\i => index i env)) body) l r
       else Left Exhausted
     other => Left other
+
+||| A finite, scoped candidate mapping. Validation is required before using it
+||| to transport checked evidence; path entries preserve names, not just faces.
+public export
+record ContextMapping (m, k, a, b : Nat) where
+  constructor MapContext
+  variables : Vect m (Fin a)
+  paths : Vect k (Fin b)
+
+||| Raw syntactic action, with no claim that declarations are preserved.
+public export
+mapContextTerm : ContextMapping m k a b -> ContextTerm m k n -> ContextTerm a b n
+mapContextTerm mapping (Variable x) = Variable (index x (variables mapping))
+mapContextTerm mapping (ApplyPath p r) = ApplyPath (index p (paths mapping)) r
+
+||| Check exact ordered endpoints. Each source variable and path mapping costs
+||| one admission unit; all four context lengths are independently capped at 12.
+||| This is an admission allowance, not a total work or solver-operation bound.
+public export
+checkContextMapping : {m, k, a, b : Nat} -> Nat -> PathContext m k -> PathContext a b -> ContextMapping m k a b -> Result
+checkContextMapping {m} {k} {a} {b} budget source target mapping =
+  if not (m <= 12 && k <= 12 && a <= 12 && b <= 12) then Exhausted else
+  case consume budget (variables mapping) of
+    Nothing => Exhausted
+    Just rest => case consume rest (paths mapping) of
+      Nothing => Exhausted
+      Just _ => checkPaths source (paths mapping)
+  where
+    consume : Nat -> Vect j t -> Maybe Nat
+    consume fuel [] = Just fuel
+    consume Z (_ :: _) = Nothing
+    consume (S fuel) (_ :: xs) = consume fuel xs
+
+    checkPaths : Vect j (NeutralPath m) -> Vect j (Fin b) -> Result
+    checkPaths [] [] = Accepted
+    checkPaths (p :: ps) (q :: qs) =
+      let dest = index q target in
+      if index (left p) (variables mapping) == left dest &&
+         index (right p) (variables mapping) == right dest
+        then checkPaths ps qs else Rejected
+
+||| Revalidate the exact mapping and both abstractions at every use. Dimensions
+||| are unchanged, so the bound dimension cannot be captured.
+export
+mapBoundContext : {m, k, a, b, n : Nat} -> (budget : Nat) ->
+                  (target : PathContext a b) -> (mapping : ContextMapping m k a b) ->
+                  {ctx : PathContext m k} -> {body : ContextTerm m k (S n)} ->
+                  {l, r : Fin m} -> CheckedContextAbstraction ctx body l r ->
+                  Either Result (CheckedContextAbstraction target (mapContextTerm mapping body)
+                    (index l (variables mapping)) (index r (variables mapping)))
+mapBoundContext budget target mapping {ctx} {body} {l} {r} MkCheckedContextAbstraction =
+  case checkContextMapping budget ctx target mapping of
+    Accepted => case checkContextAbstraction budget ctx body l r of
+      Accepted => checkBoundAbstraction budget target (mapContextTerm mapping body)
+                    (index l (variables mapping)) (index r (variables mapping))
+      other => Left other
+    other => Left other
