@@ -85,6 +85,17 @@ for fixture in ShadowCommonImageWrongType ShadowCommonImageWrongContext; do
   fi
 done
 echo 'Common substitution image wrong type and context negative tests passed.'
+fixture=ShadowCommonRelationWrongImage
+"$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1 || true
+if [[ $(grep -c '^Error:' "$tmp/$fixture.log") -ne 1 ]] ||
+   ! grep -Fq 'Error: While processing right hand side of bad.' "$tmp/$fixture.log" ||
+   ! grep -Fq "Can't solve constraint between: wrongImage" "$tmp/$fixture.log" ||
+   ! grep -Fq 'and CBool True.' "$tmp/$fixture.log" ||
+   grep -Eq 'Undefined name|While processing type of' "$tmp/$fixture.log"; then
+  echo "Common substitution relation wrong image test failed for an unrelated reason: $fixture" >&2
+  cat "$tmp/$fixture.log" >&2; exit 1
+fi
+echo 'Common substitution relation wrong image negative test passed.'
 fixture=ShadowCommonSubstitutionWrongScope
 "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1 || true
 if [[ $(grep -c '^Error:' "$tmp/$fixture.log") -ne 1 ]] ||

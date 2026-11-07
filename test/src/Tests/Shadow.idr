@@ -875,3 +875,41 @@ commonPathCompoundPreservation : CommonPathHasType [LBool] [LBool]
   (substituteCommonPath Tests.Shadow.commonCompoundImage Tests.Shadow.commonMixedBody) (LArrow LBool LBool)
 commonPathCompoundPreservation = substituteCommonPathTyped Tests.Shadow.commonCompoundImage Tests.Shadow.commonCompoundEnvironment
   (CPLamType (CPAppType (CPOrdinaryType (CVariable (LThere LHere))) (CPAtType LHere)))
+
+-- The image has its own binder and a free variable; two surrounding binders
+-- must both shift that free variable while preserving their local variables.
+logicalCompoundImage : LogicalSubstitution [LArrow LBool LBool] [LBool]
+logicalCompoundImage LHere = LLam (LIf (LRef LHere) (LRef (LThere LHere)) (LBoolean False))
+
+logicalNestedCapture : LogicalTerm [LArrow LBool LBool] (LArrow LBool (LArrow LBool LBool))
+logicalNestedCapture = LLam (LLam (LApp (LRef (LThere (LThere LHere))) (LRef LHere)))
+
+commonNestedCaptureCommutes :
+  commonTerm (substituteLogical Tests.Shadow.logicalCompoundImage Tests.Shadow.logicalNestedCapture) =
+  substituteCommon Tests.Shadow.commonCompoundImage (commonTerm Tests.Shadow.logicalNestedCapture)
+commonNestedCaptureCommutes = commonSubstitutionCommutes Tests.Shadow.logicalCompoundImage Tests.Shadow.commonCompoundImage (\v => case v of LHere => Refl) Tests.Shadow.logicalNestedCapture
+
+commonNestedCaptureResult :
+  substituteCommon Tests.Shadow.commonCompoundImage (commonTerm Tests.Shadow.logicalNestedCapture) =
+  CLam (CLam (CApp (CLam (CIf (CVar FZ) (CVar (FS (FS (FS FZ)))) (CBool False))) (CVar FZ)))
+commonNestedCaptureResult = Refl
+
+logicalNamedPath : PathBody [LArrow LBool LBool] [LBool] 1 (LArrow LBool LBool)
+logicalNamedPath = BodyLam (BodyApp (Embed (LRef (LThere LHere))) (NeutralAt LHere (Var FZ)))
+
+commonNamedPathCommutes :
+  commonPathTerm (mapPathTerms Tests.Shadow.logicalCompoundImage Tests.Shadow.logicalNamedPath) =
+  substituteCommonPath Tests.Shadow.commonCompoundImage (commonPathTerm Tests.Shadow.logicalNamedPath)
+commonNamedPathCommutes = commonPathSubstitutionCommutes Tests.Shadow.logicalCompoundImage Tests.Shadow.commonCompoundImage (\v => case v of LHere => Refl) Tests.Shadow.logicalNamedPath
+
+commonImageTypedTest : CommonSubstitutionTyped [LArrow LBool LBool] [LBool]
+  (commonImageSubstitution [LArrow LBool LBool] Tests.Shadow.logicalCompoundImage)
+commonImageTypedTest = commonImageSubstitutionTyped [LArrow LBool LBool] Tests.Shadow.logicalCompoundImage
+
+commonQuantitativeIndependentTest :
+  commonTerm (shadowTerm (substitute (singleSubstitution (SubstituteHere (Boolean True))) Tests.Shadow.linearSource)) =
+  substituteCommon (commonImageSubstitution [LBool] (imageSubstitution [BoolTy] (singleSubstitution (SubstituteHere (Boolean True)))))
+    (commonTerm (shadowTerm Tests.Shadow.linearSource))
+commonQuantitativeIndependentTest =
+  snd (sourceIndependentCommonQuantitative [BoolTy] (SubstituteHere (Boolean True)) Tests.Shadow.linearSource
+    [Linear] Tests.Shadow.linearSourceUses [] (ReplacementHere UseBoolean))

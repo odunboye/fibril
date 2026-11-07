@@ -153,6 +153,75 @@ commonTermTyped (LApp f x) = CApplicationType (commonTermTyped f) (commonTermTyp
 commonTermTyped (LUnitElim x body) = CUnitEliminationType (commonTermTyped x) (commonTermTyped body)
 commonTermTyped (LIf c t f) = CConditionalType (commonTermTyped c) (commonTermTyped t) (commonTermTyped f)
 
+||| Pointwise agreement avoids equality of renaming functions.
+public export
+CommonRenamingRelation : {0 source : Vect n LogicalType} -> {0 target : Vect m LogicalType} ->
+  LogicalRenaming source target -> (Fin n -> Fin m) -> Type
+CommonRenamingRelation rho env = {0 a : LogicalType} -> (v : LogicalVar source a) ->
+  variableIndex (rho v) = env (variableIndex v)
+
+public export
+liftCommonRenamingRelation : (rho : LogicalRenaming source target) -> (env : Fin n -> Fin m) ->
+  CommonRenamingRelation rho env -> CommonRenamingRelation (liftLogicalRenaming {a = binder} rho) (liftCommonRenaming env)
+liftCommonRenamingRelation rho env rel LHere = Refl
+liftCommonRenamingRelation rho env rel (LThere v) = cong FS (rel v)
+
+public export
+commonRenameCommutes : (rho : LogicalRenaming source target) -> (env : Fin n -> Fin m) ->
+  CommonRenamingRelation rho env -> (t : LogicalTerm source a) ->
+  commonTerm (renameLogical rho t) = renameCommon env (commonTerm t)
+commonRenameCommutes rho env rel (LRef v) = cong CVar (rel v)
+commonRenameCommutes rho env rel LUnitValue = Refl
+commonRenameCommutes rho env rel (LBoolean b) = Refl
+commonRenameCommutes rho env rel (LLam b) = cong CLam (commonRenameCommutes (liftLogicalRenaming rho) (liftCommonRenaming env) (liftCommonRenamingRelation rho env rel) b)
+commonRenameCommutes rho env rel (LApp f x) = cong2 CApp (commonRenameCommutes rho env rel f) (commonRenameCommutes rho env rel x)
+commonRenameCommutes rho env rel (LUnitElim x b) = cong2 CUnitElim (commonRenameCommutes rho env rel x) (commonRenameCommutes rho env rel b)
+commonRenameCommutes rho env rel (LIf c t f) = rewrite commonRenameCommutes rho env rel c in rewrite commonRenameCommutes rho env rel t in rewrite commonRenameCommutes rho env rel f in Refl
+
+||| Agreement is indexed by the type of each logical variable.
+public export
+CommonSubstitutionRelation : {0 source : Vect n LogicalType} -> {0 target : Vect m LogicalType} ->
+  LogicalSubstitution source target -> (Fin n -> CommonTerm m) -> Type
+CommonSubstitutionRelation sigma env = {0 a : LogicalType} -> (v : LogicalVar source a) ->
+  commonTerm (sigma v) = env (variableIndex v)
+
+public export
+liftCommonSubstitutionRelation : (sigma : LogicalSubstitution source target) -> (env : Fin n -> CommonTerm m) ->
+  CommonSubstitutionRelation sigma env -> CommonSubstitutionRelation (liftLogicalSubstitution {a = binder} sigma) (liftCommonSubstitution env)
+liftCommonSubstitutionRelation sigma env rel LHere = Refl
+liftCommonSubstitutionRelation sigma env rel (LThere v) =
+  trans (commonRenameCommutes LThere FS (\w => Refl) (sigma v)) (cong (renameCommon FS) (rel v))
+
+public export
+commonSubstitutionCommutes : (sigma : LogicalSubstitution source target) -> (env : Fin n -> CommonTerm m) ->
+  CommonSubstitutionRelation sigma env -> (t : LogicalTerm source a) ->
+  commonTerm (substituteLogical sigma t) = substituteCommon env (commonTerm t)
+commonSubstitutionCommutes sigma env rel (LRef v) = rel v
+commonSubstitutionCommutes sigma env rel LUnitValue = Refl
+commonSubstitutionCommutes sigma env rel (LBoolean b) = Refl
+commonSubstitutionCommutes sigma env rel (LLam b) = cong CLam (commonSubstitutionCommutes (liftLogicalSubstitution sigma) (liftCommonSubstitution env) (liftCommonSubstitutionRelation sigma env rel) b)
+commonSubstitutionCommutes sigma env rel (LApp f x) = cong2 CApp (commonSubstitutionCommutes sigma env rel f) (commonSubstitutionCommutes sigma env rel x)
+commonSubstitutionCommutes sigma env rel (LUnitElim x b) = cong2 CUnitElim (commonSubstitutionCommutes sigma env rel x) (commonSubstitutionCommutes sigma env rel b)
+commonSubstitutionCommutes sigma env rel (LIf c t f) = rewrite commonSubstitutionCommutes sigma env rel c in rewrite commonSubstitutionCommutes sigma env rel t in rewrite commonSubstitutionCommutes sigma env rel f in Refl
+
+||| The canonical independent environment reads the typed logical image at each index.
+public export
+commonImageSubstitution : {0 target : Vect m LogicalType} -> (source : Vect n LogicalType) -> LogicalSubstitution source target -> Fin n -> CommonTerm m
+commonImageSubstitution source sigma i = commonTerm (sigma (commonVarAt source i))
+
+public export
+commonImageSubstitutionCorrect : (source : Vect n LogicalType) -> (sigma : LogicalSubstitution source target) ->
+  CommonSubstitutionRelation sigma (commonImageSubstitution source sigma)
+commonImageSubstitutionCorrect (a :: source) sigma LHere = Refl
+commonImageSubstitutionCorrect (a :: source) sigma (LThere v) =
+  commonImageSubstitutionCorrect source (\w => sigma (LThere w)) v
+
+public export
+commonImageSubstitutionTyped : (source : Vect n LogicalType) -> (sigma : LogicalSubstitution source target) ->
+  CommonSubstitutionTyped source target (commonImageSubstitution source sigma)
+commonImageSubstitutionTyped source sigma v =
+  rewrite sym (commonImageSubstitutionCorrect source sigma v) in commonTermTyped (sigma v)
+
 ||| The ordinary source translation retains its actual shadow type and context.
 public export
 sourceCommonTyped : (t : Term ctx a) -> CommonHasType (shadowContext ctx) (commonTerm (shadowTerm t)) (shadowType a)
@@ -164,6 +233,30 @@ sourceCommonSubstitution : (ctx : Vect n Ty) -> (sigma : Substitution ctx target
   commonTerm (shadowTerm (substitute sigma t)) =
   commonTerm (substituteLogical (imageSubstitution ctx sigma) (shadowTerm t))
 sourceCommonSubstitution ctx sigma t = cong commonTerm (shadowSubstitutionCommutes ctx sigma t)
+
+||| Source substitution commutes with the independent common environment.
+public export
+sourceIndependentCommonSubstitution : (source : Vect n Ty) -> {0 target : Vect m Ty} ->
+  (sigma : Substitution source target) -> (t : Term source a) ->
+  commonTerm (shadowTerm (substitute sigma t)) =
+  substituteCommon (commonImageSubstitution (shadowContext source) (imageSubstitution source sigma)) (commonTerm (shadowTerm t))
+sourceIndependentCommonSubstitution source sigma t =
+  trans (cong commonTerm (shadowSubstitutionCommutes source sigma t))
+    (commonSubstitutionCommutes (imageSubstitution source sigma)
+      (commonImageSubstitution (shadowContext source) (imageSubstitution source sigma))
+      (commonImageSubstitutionCorrect (shadowContext source) (imageSubstitution source sigma)) (shadowTerm t))
+
+public export
+sourceIndependentCommonQuantitative : {n : Nat} -> (source : Vect (S n) Ty) -> {0 target : Vect n Ty} ->
+  (s : SingleSubstitution source target) -> (term : Term source a) ->
+  (usage : Usage (S n)) -> Uses term usage ->
+  (replacement : Usage n) -> ReplacementUses s replacement ->
+  (SubstitutionResult s term usage replacement,
+   commonTerm (shadowTerm (substitute (singleSubstitution s) term)) =
+   substituteCommon (commonImageSubstitution (shadowContext source) (imageSubstitution source (singleSubstitution s))) (commonTerm (shadowTerm term)))
+sourceIndependentCommonQuantitative source s term usage used replacement replacementUsed =
+  (substituteUses s term usage used replacement replacementUsed,
+   sourceIndependentCommonSubstitution source (singleSubstitution s) term)
 
 ||| The overlap with the existing target is only the abstract-base variable
 ||| fragment. This erasure intentionally does not claim preservation of Bool.
@@ -242,6 +335,17 @@ commonPathTerm (BodyLam b) = CPLam (commonPathTerm b)
 commonPathTerm (BodyApp f x) = CPApp (commonPathTerm f) (commonPathTerm x)
 commonPathTerm (BodyUnitElim x b) = CPUnitElim (commonPathTerm x) (commonPathTerm b)
 commonPathTerm (BodyIf c t f) = CPIf (commonPathTerm c) (commonPathTerm t) (commonPathTerm f)
+
+public export
+commonPathSubstitutionCommutes : (sigma : LogicalSubstitution context target) -> (env : Fin n -> CommonTerm m) ->
+  CommonSubstitutionRelation sigma env -> (body : PathBody context paths d a) ->
+  commonPathTerm (mapPathTerms sigma body) = substituteCommonPath env (commonPathTerm body)
+commonPathSubstitutionCommutes sigma env rel (Embed t) = cong CPOrdinary (commonSubstitutionCommutes sigma env rel t)
+commonPathSubstitutionCommutes sigma env rel (NeutralAt p i) = Refl
+commonPathSubstitutionCommutes sigma env rel (BodyLam b) = cong CPLam (commonPathSubstitutionCommutes (liftLogicalSubstitution sigma) (liftCommonSubstitution env) (liftCommonSubstitutionRelation sigma env rel) b)
+commonPathSubstitutionCommutes sigma env rel (BodyApp f x) = cong2 CPApp (commonPathSubstitutionCommutes sigma env rel f) (commonPathSubstitutionCommutes sigma env rel x)
+commonPathSubstitutionCommutes sigma env rel (BodyUnitElim x b) = cong2 CPUnitElim (commonPathSubstitutionCommutes sigma env rel x) (commonPathSubstitutionCommutes sigma env rel b)
+commonPathSubstitutionCommutes sigma env rel (BodyIf c t f) = rewrite commonPathSubstitutionCommutes sigma env rel c in rewrite commonPathSubstitutionCommutes sigma env rel t in rewrite commonPathSubstitutionCommutes sigma env rel f in Refl
 
 public export
 commonPathTermTyped : (body : PathBody context paths d a) ->

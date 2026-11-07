@@ -875,8 +875,13 @@ weakening substitution images. `renameCommonPathTyped` and
 `substituteCommonPathTyped` extend this to path bodies with named paths and
 dimensions unchanged. Fin indices enforce exact scope.
 
-These are purely logical theorems and provide no quantitative usage guarantee.
-Commutation of independent common substitution with logical substitution has
-not been proved; the existing source commutation only concerns translation into
-logical substitution. No substitution preservation theorem for declarations,
-faces or path equality judgments is claimed.
+`CommonSubstitutionRelation` relates each typed logical variable image to the
+independent common environment at its exact index. `commonRenameCommutes` and
+`commonSubstitutionCommutes` prove commutation for every logical term, including
+binder lifting and weakening; `commonPathSubstitutionCommutes` extends it to
+all path bodies. `commonImageSubstitution` gives a canonical typed environment
+and `sourceIndependentCommonSubstitution` connects source substitution to it.
+`sourceIndependentCommonQuantitative` pairs this equality with `substituteUses`
+under its explicit source and replacement usage premises. These results do not
+claim independent substitution preservation for declarations, face equality
+judgments, or path abstractions.

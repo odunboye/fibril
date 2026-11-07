@@ -122,6 +122,9 @@ fixture separately checks all three projections, and an equality links its
 substituted source shadow to that fixture's left path endpoint. Negative
 fixtures reject a changed substituted endpoint and a mismatched ordinary context.
 
-This result translates an already-substituted logical path: independent common
-term/path substitution and its commutation with translation are not proved.
-There is no claim of correspondence with production Core or runtime behavior.
+This result translates an already-substituted logical path. Separately,
+`commonSubstitutionCommutes` and `commonPathSubstitutionCommutes` relate
+independent common substitution to translation of logical terms and path bodies.
+They do not establish independent substitution preservation of declared path
+abstractions or their face equalities. There is no claim of correspondence with
+production Core or runtime behavior.
