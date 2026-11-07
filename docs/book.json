@@ -214,6 +214,10 @@
         "path": "docs/composed-workloads.md"
       },
       {
+        "title": "General recursive data plan",
+        "path": "docs/general-recursive-data-plan.md"
+      },
+      {
         "title": "Bare Type as Type 0",
         "path": "docs/bare-type.md"
       },
