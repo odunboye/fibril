@@ -3250,3 +3250,144 @@ naturalityArrowResult False False arg = trans (Tests.Shadow.naturalityArrowInter
 naturalityArrowResult False True arg = trans (Tests.Shadow.naturalityArrowInterchange False True arg arg Refl) Refl
 naturalityArrowResult True False arg = trans (Tests.Shadow.naturalityArrowInterchange True False arg arg Refl) Refl
 naturalityArrowResult True True arg = trans (Tests.Shadow.naturalityArrowInterchange True True arg arg Refl) Refl
+
+-- Actual path reindexing, with fresh leaf checks for the exact two boundaries.
+-- 2 -> 1 contraction; the endpoints retain the nonconstant linear Bool source.
+recertifiedIfDimensions : CommonPathDimensionEvidence Tests.Shadow.naturalityDimensions Tests.Shadow.semanticIfApplicationPath
+recertifiedIfDimensions = CommonAbstractDimensions
+  (CommonDimIf (CommonDimLeft CommonDeclaredHere Refl)
+    (CommonDimRefl (CPOrdinaryType CBoolType)) (CommonDimRefl (CPOrdinaryType CBoolType)))
+  (CommonDimIf (CommonDimRight CommonDeclaredHere Refl)
+    (CommonDimRefl (CPOrdinaryType CBoolType)) (CommonDimRefl (CPOrdinaryType CBoolType)))
+
+recertifiedIfPath : CommonShadowPath Tests.Shadow.dependentLinearDeclarations
+  (the (ScopedFace 1) (SEndpoint FZ True))
+  (CPIf (CPOrdinary (commonTerm (shadowTerm Tests.Shadow.linearSource))) (CPOrdinary (CBool True)) (CPOrdinary (CBool False)))
+  (CPIf (CPOrdinary (commonTerm (shadowTerm Tests.Shadow.linearSource))) (CPOrdinary (CBool True)) (CPOrdinary (CBool False))) LBool
+recertifiedIfPath = mapCommonShadowPathDimensions Tests.Shadow.naturalityDimensions
+  Tests.Shadow.semanticIfApplicationPath Tests.Shadow.recertifiedIfDimensions
+
+-- Extract the actual body and both actual boundary derivations for inspection.
+recertifiedBody : {0 decls : CommonDeclarations ctx paths} -> {0 face : ScopedFace d} ->
+  {0 l, r : CommonPathTerm n k d} -> CommonShadowPath decls face l r a -> CommonPathTerm n k (S d)
+recertifiedBody (CommonAbstract _ _ body _ _ _) = body
+
+recertifiedIfBody : Tests.Shadow.recertifiedBody Tests.Shadow.recertifiedIfPath =
+  CPIf (CPAt FZ (Var FZ)) (CPOrdinary (CBool True)) (CPOrdinary (CBool False))
+recertifiedIfBody = Refl
+
+recertifiedZero : {0 decls : CommonDeclarations ctx paths} -> {0 face : ScopedFace d} ->
+  {0 l, r : CommonPathTerm n k d} -> (p : CommonShadowPath decls face l r a) ->
+  CommonFaceEqual decls (SConjunction (weakenFace face) (SEndpoint FZ False))
+    (Tests.Shadow.recertifiedBody p) (mapCommonPathDimensions (Var . FS) l) a
+recertifiedZero (CommonAbstract _ _ _ _ zero _) = zero
+
+recertifiedOne : {0 decls : CommonDeclarations ctx paths} -> {0 face : ScopedFace d} ->
+  {0 l, r : CommonPathTerm n k d} -> (p : CommonShadowPath decls face l r a) ->
+  CommonFaceEqual decls (SConjunction (weakenFace face) (SEndpoint FZ True))
+    (Tests.Shadow.recertifiedBody p) (mapCommonPathDimensions (Var . FS) r) a
+recertifiedOne (CommonAbstract _ _ _ _ _ one) = one
+
+recertifiedIfZero : CommonFaceEqual Tests.Shadow.dependentLinearDeclarations
+  (the (ScopedFace 2) (SConjunction (SEndpoint (FS FZ) True) (SEndpoint FZ False)))
+  (CPIf (CPAt FZ (Var FZ)) (CPOrdinary (CBool True)) (CPOrdinary (CBool False)))
+  (CPIf (CPOrdinary (commonTerm (shadowTerm Tests.Shadow.linearSource))) (CPOrdinary (CBool True)) (CPOrdinary (CBool False))) LBool
+recertifiedIfZero = Tests.Shadow.recertifiedZero Tests.Shadow.recertifiedIfPath
+
+recertifiedIfOne : CommonFaceEqual Tests.Shadow.dependentLinearDeclarations
+  (the (ScopedFace 2) (SConjunction (SEndpoint (FS FZ) True) (SEndpoint FZ True)))
+  (CPIf (CPAt FZ (Var FZ)) (CPOrdinary (CBool True)) (CPOrdinary (CBool False)))
+  (CPIf (CPOrdinary (commonTerm (shadowTerm Tests.Shadow.linearSource))) (CPOrdinary (CBool True)) (CPOrdinary (CBool False))) LBool
+recertifiedIfOne = Tests.Shadow.recertifiedOne Tests.Shadow.recertifiedIfPath
+
+recertifiedIfApplicationSyntax : (i : ScopedInterval 2) ->
+  mapCommonPathDimensions Tests.Shadow.naturalityDimensions (applyCommonShadowPath Tests.Shadow.semanticIfApplicationPath i) =
+    applyCommonShadowPath Tests.Shadow.recertifiedIfPath (substituteScoped Tests.Shadow.naturalityDimensions i)
+recertifiedIfApplicationSyntax = commonMappedShadowApplicationDimensions Tests.Shadow.naturalityDimensions
+  Tests.Shadow.semanticIfApplicationPath Tests.Shadow.recertifiedIfDimensions
+
+-- A computational witness for the actual mapped application's selected syntax,
+-- not a claim to map HigherOrderCommonShadowPath boundary evidence automatically.
+recertifiedIfApplicationWitness : HigherOrderPathWitness [LBool] [LBool] LBool 1
+  (applyCommonShadowPath Tests.Shadow.recertifiedIfPath
+    (substituteScoped Tests.Shadow.naturalityDimensions (Meet (Var FZ) (Var (FS FZ)))))
+recertifiedIfApplicationWitness =
+  rewrite sym (Tests.Shadow.recertifiedIfApplicationSyntax (Meet (Var FZ) (Var (FS FZ)))) in
+  mapHigherOrderPathDimensions Tests.Shadow.naturalityDimensions
+    (pathWitness (higherOrderCommonPathApplication Tests.Shadow.semanticIfApplicationWitness (Meet (Var FZ) (Var (FS FZ)))))
+
+-- Both off-diagonals and both ordinary inputs on the actual mapped syntax.
+recertifiedIfOffDiagonal : (side, b : Bool) -> applyMorphism
+  (dependentPathSemantics (pathWitness Tests.Shadow.recertifiedIfApplicationWitness) (Tests.Shadow.naturalityPair side))
+  ((b, ()), Tests.Shadow.dependentLinearPaths) = not b
+recertifiedIfOffDiagonal False False = Refl
+recertifiedIfOffDiagonal False True = Refl
+recertifiedIfOffDiagonal True False = Refl
+recertifiedIfOffDiagonal True True = Refl
+
+-- 1 -> 2 expansion of a translated source path under a nontrivial ambient face.
+recertifiedSourceExpansion : Fin 1 -> ScopedInterval 2
+recertifiedSourceExpansion FZ = Reverse (Var (FS FZ))
+
+recertifiedSourceDimensions : CommonPathDimensionEvidence Tests.Shadow.recertifiedSourceExpansion
+  (commonDeclaredShadowPath Tests.Shadow.ambientFaceShadowPath)
+recertifiedSourceDimensions = CommonAbstractDimensions
+  (CommonDimLeft CommonDeclaredHere Refl) (CommonDimLeft CommonDeclaredHere Refl)
+
+recertifiedSourcePath : CommonShadowPath (commonDeclarations Tests.Shadow.shadowDeclarations)
+  (the (ScopedFace 2) (SEndpoint (FS FZ) True))
+  (CPOrdinary (commonTerm (shadowTerm Tests.Shadow.linearSource)))
+  (CPOrdinary (commonTerm (shadowTerm Tests.Shadow.linearSource))) LBool
+recertifiedSourcePath = mapCommonShadowPathDimensions Tests.Shadow.recertifiedSourceExpansion
+  (commonDeclaredShadowPath Tests.Shadow.ambientFaceShadowPath) Tests.Shadow.recertifiedSourceDimensions
+
+recertifiedSourceBody : Tests.Shadow.recertifiedBody Tests.Shadow.recertifiedSourcePath =
+  CPAt FZ (Reverse (Var (FS (FS FZ))))
+recertifiedSourceBody = Refl
+
+-- Independently constructed, dimension-dependent CPAt endpoints, not source images.
+recertifiedIndependentDimensions : CommonPathDimensionEvidence Tests.Shadow.naturalityArrowDimensions
+  Tests.Shadow.semanticIndependentAbstraction
+recertifiedIndependentDimensions = CommonAbstractDimensions
+  (CommonDimRefl (CPAtType LHere)) (CommonDimRefl (CPAtType LHere))
+
+recertifiedIndependentPath : CommonShadowPath Tests.Shadow.dependentLinearDeclarations
+  (the (ScopedFace 2) STop)
+  (CPAt FZ (Meet (Var FZ) (Reverse (Var (FS FZ)))))
+  (CPAt FZ (Meet (Var FZ) (Reverse (Var (FS FZ))))) LBool
+recertifiedIndependentPath = mapCommonShadowPathDimensions Tests.Shadow.naturalityArrowDimensions
+  Tests.Shadow.semanticIndependentAbstraction Tests.Shadow.recertifiedIndependentDimensions
+
+recertifiedIndependentBody : Tests.Shadow.recertifiedBody Tests.Shadow.recertifiedIndependentPath =
+  CPAt FZ (Meet (Var (FS FZ)) (Reverse (Var (FS (FS FZ)))))
+recertifiedIndependentBody = Refl
+
+-- Restriction recertifies its own implication AND the child under mapped source.
+recertifiedRestricted : CommonFaceEqual (commonDeclarations Tests.Shadow.shadowDeclarations)
+  (the (ScopedFace 0) STop) (CPAt FZ Zero)
+  (CPOrdinary (commonTerm (shadowTerm Tests.Shadow.linearSource))) LBool
+recertifiedRestricted = mapCommonFaceEqualDimensions (atDimension Zero) STop
+  (CommonRestrict {face = SEndpoint FZ False} {source = SEndpoint FZ False}
+    (CommonLeft {i = Var FZ} CommonDeclaredHere Refl) Refl)
+  (CommonDimRestrict (CommonDimLeft CommonDeclaredHere Refl) Refl)
+
+recertifiedSymTrans : CommonFaceEqual (commonDeclarations Tests.Shadow.shadowDeclarations)
+  (the (ScopedFace 0) STop) (CPOrdinary (commonTerm (shadowTerm Tests.Shadow.linearSource)))
+  (CPOrdinary (commonTerm (shadowTerm Tests.Shadow.linearSource))) LBool
+recertifiedSymTrans = mapCommonFaceEqualDimensions (atDimension Zero) STop
+  (CommonTrans (CommonSym (CommonLeft {face = SEndpoint FZ False} {i = Var FZ} CommonDeclaredHere Refl))
+    (CommonLeft {i = Var FZ} CommonDeclaredHere Refl))
+  (CommonDimTrans (CommonDimSym (CommonDimLeft CommonDeclaredHere Refl)) (CommonDimLeft CommonDeclaredHere Refl))
+
+-- Typed lambda mapping is allowed, but no lambda equality rule was introduced.
+recertifiedAppUnit : CommonFaceEqual (commonDeclarations Tests.Shadow.shadowDeclarations)
+  (the (ScopedFace 0) STop)
+  (CPApp (CPLam (CPOrdinary (CVar FZ))) (CPUnitElim (CPOrdinary CUnit) (CPAt FZ Zero)))
+  (CPApp (CPLam (CPOrdinary (CVar FZ))) (CPUnitElim (CPOrdinary CUnit)
+    (CPOrdinary (commonTerm (shadowTerm Tests.Shadow.linearSource))))) LBool
+recertifiedAppUnit = mapCommonFaceEqualDimensions (atDimension Zero) STop
+  (CommonAppEqual (CommonRefl (CPLamType (CPOrdinaryType (CVariable LHere))))
+    (CommonUnitElimEqual (CommonRefl (CPOrdinaryType CUnitType))
+      (CommonLeft {face = SEndpoint FZ False} {i = Var FZ} CommonDeclaredHere Refl)))
+  (CommonDimApp (CommonDimRefl (CPLamType (CPOrdinaryType (CVariable LHere))))
+    (CommonDimUnitElim (CommonDimRefl (CPOrdinaryType CUnitType)) (CommonDimLeft CommonDeclaredHere Refl)))

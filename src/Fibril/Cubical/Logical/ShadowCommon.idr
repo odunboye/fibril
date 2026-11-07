@@ -467,6 +467,18 @@ mapCommonPathDimensions env (CPApp f x) = CPApp (mapCommonPathDimensions env f) 
 mapCommonPathDimensions env (CPUnitElim x b) = CPUnitElim (mapCommonPathDimensions env x) (mapCommonPathDimensions env b)
 mapCommonPathDimensions env (CPIf c t f) = CPIf (mapCommonPathDimensions env c) (mapCommonPathDimensions env t) (mapCommonPathDimensions env f)
 
+||| Dimensions do not alter either ordinary typing contexts or path lookup.
+public export
+mapCommonPathDimensionsTyped : (env : Fin d -> ScopedInterval e) ->
+  CommonPathHasType ctx paths t a ->
+  CommonPathHasType ctx paths (mapCommonPathDimensions env t) a
+mapCommonPathDimensionsTyped env (CPOrdinaryType t) = CPOrdinaryType t
+mapCommonPathDimensionsTyped env (CPAtType p) = CPAtType p
+mapCommonPathDimensionsTyped env (CPLamType b) = CPLamType (mapCommonPathDimensionsTyped env b)
+mapCommonPathDimensionsTyped env (CPAppType f x) = CPAppType (mapCommonPathDimensionsTyped env f) (mapCommonPathDimensionsTyped env x)
+mapCommonPathDimensionsTyped env (CPUnitElimType x b) = CPUnitElimType (mapCommonPathDimensionsTyped env x) (mapCommonPathDimensionsTyped env b)
+mapCommonPathDimensionsTyped env (CPIfType c t f) = CPIfType (mapCommonPathDimensionsTyped env c) (mapCommonPathDimensionsTyped env t) (mapCommonPathDimensionsTyped env f)
+
 ||| The two operations affect disjoint scopes, including under binders.
 public export
 commonPathMixedSubstitution : (sigma : Fin n -> CommonTerm m) ->
@@ -538,6 +550,45 @@ commonApplicationDimensionSquare sigma i (FS v) = sym $
   trans (commonIntervalSubstitutionComposition (Var . FS) (atDimension (substituteScoped sigma i)) (sigma v))
     (commonIntervalSubstitutionIdentity (sigma v))
 
+||| Substitution of an extracted endpoint agrees with endpoint extraction
+||| after interval substitution. This is syntax equality, not a solver rule.
+public export
+commonEndpointSubstitution : (sigma : Fin d -> ScopedInterval e) -> (i : ScopedInterval d) -> (side : Bool) ->
+  substituteScopedFace sigma (scopedEndpoint i side) = scopedEndpoint (substituteScoped sigma i) side
+commonEndpointSubstitution sigma Zero False = Refl
+commonEndpointSubstitution sigma Zero True = Refl
+commonEndpointSubstitution sigma One False = Refl
+commonEndpointSubstitution sigma One True = Refl
+commonEndpointSubstitution sigma (Var v) side = Refl
+commonEndpointSubstitution sigma (Reverse i) side = commonEndpointSubstitution sigma i (not side)
+commonEndpointSubstitution sigma (Meet i j) False = cong2 SDisjunction (commonEndpointSubstitution sigma i False) (commonEndpointSubstitution sigma j False)
+commonEndpointSubstitution sigma (Meet i j) True = cong2 SConjunction (commonEndpointSubstitution sigma i True) (commonEndpointSubstitution sigma j True)
+commonEndpointSubstitution sigma (Join i j) False = cong2 SConjunction (commonEndpointSubstitution sigma i False) (commonEndpointSubstitution sigma j False)
+commonEndpointSubstitution sigma (Join i j) True = cong2 SDisjunction (commonEndpointSubstitution sigma i True) (commonEndpointSubstitution sigma j True)
+
+||| Endpoint extraction commutes with ambient weakening, syntactically.
+public export
+commonEndpointWeakening : (i : ScopedInterval d) -> (side : Bool) ->
+  scopedEndpoint (weakenInterval i) side = weakenFace (scopedEndpoint i side)
+commonEndpointWeakening i side = sym (commonEndpointSubstitution (Var . FS) i side)
+
+public export
+commonFaceLiftWeakening : (sigma : Fin d -> ScopedInterval e) -> (face : ScopedFace d) ->
+  substituteScopedFace (liftCommonDimensions sigma) (weakenFace face) =
+    weakenFace (substituteScopedFace sigma face)
+commonFaceLiftWeakening sigma SBottom = Refl
+commonFaceLiftWeakening sigma STop = Refl
+commonFaceLiftWeakening sigma (SEndpoint v side) = commonEndpointWeakening (sigma v) side
+commonFaceLiftWeakening sigma (SConjunction x y) = cong2 SConjunction (commonFaceLiftWeakening sigma x) (commonFaceLiftWeakening sigma y)
+commonFaceLiftWeakening sigma (SDisjunction x y) = cong2 SDisjunction (commonFaceLiftWeakening sigma x) (commonFaceLiftWeakening sigma y)
+
+||| The binder side is fixed, not substituted as an ambient dimension.
+public export
+commonBoundaryFaceDimensions : (sigma : Fin d -> ScopedInterval e) -> (face : ScopedFace d) -> (side : Bool) ->
+  substituteScopedFace (liftCommonDimensions sigma) (SConjunction (weakenFace face) (SEndpoint FZ side)) =
+    SConjunction (weakenFace (substituteScopedFace sigma face)) (SEndpoint FZ side)
+commonBoundaryFaceDimensions sigma face side = cong (\f => SConjunction f (SEndpoint FZ side)) (commonFaceLiftWeakening sigma face)
+
 public export
 commonPathDimensionsCongruence : (sigma, tau : Fin d -> ScopedInterval e) ->
   ((v : Fin d) -> sigma v = tau v) -> (body : CommonPathTerm n k d) ->
@@ -560,6 +611,14 @@ commonPathDimensionsComposition sigma tau (CPLam b) = cong CPLam (commonPathDime
 commonPathDimensionsComposition sigma tau (CPApp fn x) = cong2 CPApp (commonPathDimensionsComposition sigma tau fn) (commonPathDimensionsComposition sigma tau x)
 commonPathDimensionsComposition sigma tau (CPUnitElim x b) = cong2 CPUnitElim (commonPathDimensionsComposition sigma tau x) (commonPathDimensionsComposition sigma tau b)
 commonPathDimensionsComposition sigma tau (CPIf c t no) = rewrite commonPathDimensionsComposition sigma tau c in rewrite commonPathDimensionsComposition sigma tau t in rewrite commonPathDimensionsComposition sigma tau no in Refl
+
+public export
+commonPathLiftWeakening : (sigma : Fin d -> ScopedInterval e) -> (term : CommonPathTerm n k d) ->
+  mapCommonPathDimensions (liftCommonDimensions sigma) (mapCommonPathDimensions (Var . FS) term) =
+    mapCommonPathDimensions (Var . FS) (mapCommonPathDimensions sigma term)
+commonPathLiftWeakening sigma term =
+  trans (commonPathDimensionsComposition (Var . FS) (liftCommonDimensions sigma) term)
+    (sym (commonPathDimensionsComposition sigma (Var . FS) term))
 
 ||| Syntactic application/substitution interchange, independent of semantics or
 ||| face solving. It does not construct a reindexed CommonShadowPath.
@@ -628,9 +687,15 @@ data CommonFaceEqual : {0 ctx : Vect n LogicalType} -> {0 paths : Vect k Logical
   CommonRefl : {0 ctx : Vect n LogicalType} -> {0 paths : Vect k LogicalType} -> {0 decls : CommonDeclarations ctx paths} -> (0 typed : CommonPathHasType ctx paths x a) -> CommonFaceEqual decls face x x a
   CommonSym : CommonFaceEqual decls face x y a -> CommonFaceEqual decls face y x a
   CommonTrans : CommonFaceEqual decls face x y a -> CommonFaceEqual decls face y z a -> CommonFaceEqual decls face x z a
-  CommonLeft : CommonDeclaredPath decls p l r -> boundedEndpointEntails face i False = True ->
+  CommonLeft : {0 ctx : Vect n LogicalType} -> {0 paths : Vect k LogicalType} ->
+    {0 decls : CommonDeclarations ctx paths} -> {0 a : LogicalType} ->
+    {0 p : LogicalVar paths a} -> {0 l, r : CommonTerm n} ->
+    CommonDeclaredPath decls p l r -> boundedEndpointEntails face i False = True ->
     CommonFaceEqual decls face (CPAt (variableIndex p) i) (CPOrdinary l) a
-  CommonRight : CommonDeclaredPath decls p l r -> boundedEndpointEntails face i True = True ->
+  CommonRight : {0 ctx : Vect n LogicalType} -> {0 paths : Vect k LogicalType} ->
+    {0 decls : CommonDeclarations ctx paths} -> {0 a : LogicalType} ->
+    {0 p : LogicalVar paths a} -> {0 l, r : CommonTerm n} ->
+    CommonDeclaredPath decls p l r -> boundedEndpointEntails face i True = True ->
     CommonFaceEqual decls face (CPAt (variableIndex p) i) (CPOrdinary r) a
   CommonRestrict : {0 ctx : Vect n LogicalType} -> {0 paths : Vect k LogicalType} -> {0 decls : CommonDeclarations ctx paths} -> {0 face : ScopedFace d} -> {0 x, y : CommonPathTerm n k d} -> {source : ScopedFace d} -> CommonFaceEqual decls source x y a ->
     boundedFaceEntails face source = True -> CommonFaceEqual decls face x y a
@@ -640,6 +705,73 @@ data CommonFaceEqual : {0 ctx : Vect n LogicalType} -> {0 paths : Vect k Logical
     CommonFaceEqual decls face f f' a -> CommonFaceEqual decls face (CPIf c t f) (CPIf c' t' f') a
   CommonUnitElimEqual : CommonFaceEqual decls face x y LUnit -> CommonFaceEqual decls face b b' a ->
     CommonFaceEqual decls face (CPUnitElim x b) (CPUnitElim y b') a
+
+||| Recertification is indexed by the original derivation, substitution and
+||| exact target face. Source bounded checks are never transported unchanged.
+||| This declarative API requires supplied renewed checks; it runs no search.
+public export
+data CommonDimensionEvidence : {0 ctx : Vect n LogicalType} -> {0 paths : Vect k LogicalType} ->
+  {0 decls : CommonDeclarations ctx paths} -> {0 face : ScopedFace d} ->
+  {0 x, y : CommonPathTerm n k d} -> {0 a : LogicalType} ->
+  (env : Fin d -> ScopedInterval e) -> (target : ScopedFace e) ->
+  CommonFaceEqual decls face x y a -> Type where
+  CommonDimRefl : (0 typed : CommonPathHasType ctx paths x a) ->
+    CommonDimensionEvidence env target (CommonRefl typed)
+  CommonDimSym : CommonDimensionEvidence env target eq -> CommonDimensionEvidence env target (CommonSym eq)
+  CommonDimTrans : {0 eq1 : CommonFaceEqual decls face x y a} -> {0 eq2 : CommonFaceEqual decls face y z a} ->
+    CommonDimensionEvidence env target eq1 -> CommonDimensionEvidence env target eq2 ->
+    CommonDimensionEvidence env target (CommonTrans eq1 eq2)
+  CommonDimLeft : {0 ctx : Vect n LogicalType} -> {0 paths : Vect k LogicalType} ->
+    {0 decls : CommonDeclarations ctx paths} -> {0 face : ScopedFace d} -> {0 i : ScopedInterval d} ->
+    {0 a : LogicalType} -> {0 name : LogicalVar paths a} -> {0 l, r : CommonTerm n} ->
+    {0 entails : boundedEndpointEntails face i False = True} ->
+    (p : CommonDeclaredPath decls name l r) ->
+    boundedEndpointEntails target (substituteScoped env i) False = True ->
+    CommonDimensionEvidence env target (CommonLeft {face} {i} {p = name} p entails)
+  CommonDimRight : {0 ctx : Vect n LogicalType} -> {0 paths : Vect k LogicalType} ->
+    {0 decls : CommonDeclarations ctx paths} -> {0 face : ScopedFace d} -> {0 i : ScopedInterval d} ->
+    {0 a : LogicalType} -> {0 name : LogicalVar paths a} -> {0 l, r : CommonTerm n} ->
+    {0 entails : boundedEndpointEntails face i True = True} ->
+    (p : CommonDeclaredPath decls name l r) ->
+    boundedEndpointEntails target (substituteScoped env i) True = True ->
+    CommonDimensionEvidence env target (CommonRight {face} {i} {p = name} p entails)
+  CommonDimRestrict : {0 ctx : Vect n LogicalType} -> {0 paths : Vect k LogicalType} ->
+    {0 decls : CommonDeclarations ctx paths} -> {0 face : ScopedFace d} ->
+    {0 x, y : CommonPathTerm n k d} -> {source : ScopedFace d} ->
+    {0 eq : CommonFaceEqual decls source x y a} ->
+    {0 entails : boundedFaceEntails face source = True} ->
+    CommonDimensionEvidence env (substituteScopedFace env source) eq ->
+    boundedFaceEntails target (substituteScopedFace env source) = True ->
+    CommonDimensionEvidence env target (CommonRestrict {face} {source} eq entails)
+  CommonDimApp : {0 f : CommonFaceEqual decls face f1 f2 (LArrow a b)} -> {0 x : CommonFaceEqual decls face x1 x2 a} ->
+    CommonDimensionEvidence env target f -> CommonDimensionEvidence env target x ->
+    CommonDimensionEvidence env target (CommonAppEqual f x)
+  CommonDimIf : {0 c : CommonFaceEqual decls face c1 c2 LBool} ->
+    {0 t : CommonFaceEqual decls face t1 t2 a} -> {0 f : CommonFaceEqual decls face f1 f2 a} ->
+    CommonDimensionEvidence env target c -> CommonDimensionEvidence env target t -> CommonDimensionEvidence env target f ->
+    CommonDimensionEvidence env target (CommonIfEqual c t f)
+  CommonDimUnitElim : {0 x : CommonFaceEqual decls face x1 x2 LUnit} -> {0 b : CommonFaceEqual decls face b1 b2 a} ->
+    CommonDimensionEvidence env target x -> CommonDimensionEvidence env target b ->
+    CommonDimensionEvidence env target (CommonUnitElimEqual x b)
+
+||| Independent target equality, not translation through a source judgment.
+||| There is deliberately no lambda equality constructor.
+public export
+mapCommonFaceEqualDimensions : {0 ctx : Vect n LogicalType} -> {0 paths : Vect k LogicalType} ->
+  {0 decls : CommonDeclarations ctx paths} -> {0 face : ScopedFace d} ->
+  {0 x, y : CommonPathTerm n k d} ->
+  (env : Fin d -> ScopedInterval e) -> (0 target : ScopedFace e) ->
+  (0 eq : CommonFaceEqual decls face x y a) -> CommonDimensionEvidence env target eq ->
+  CommonFaceEqual decls target (mapCommonPathDimensions env x) (mapCommonPathDimensions env y) a
+mapCommonFaceEqualDimensions env target _ (CommonDimRefl typed) = CommonRefl (mapCommonPathDimensionsTyped env typed)
+mapCommonFaceEqualDimensions env target _ (CommonDimSym {eq} cert) = CommonSym (mapCommonFaceEqualDimensions env target eq cert)
+mapCommonFaceEqualDimensions env target _ (CommonDimTrans {eq1} {eq2} cx cy) = CommonTrans (mapCommonFaceEqualDimensions env target eq1 cx) (mapCommonFaceEqualDimensions env target eq2 cy)
+mapCommonFaceEqualDimensions env target _ (CommonDimLeft p check) = CommonLeft p check
+mapCommonFaceEqualDimensions env target _ (CommonDimRight p check) = CommonRight p check
+mapCommonFaceEqualDimensions env target _ (CommonDimRestrict {eq} cert check) = CommonRestrict (mapCommonFaceEqualDimensions env _ eq cert) check
+mapCommonFaceEqualDimensions env target _ (CommonDimApp {f} {x} cf cx) = CommonAppEqual (mapCommonFaceEqualDimensions env target f cf) (mapCommonFaceEqualDimensions env target x cx)
+mapCommonFaceEqualDimensions env target _ (CommonDimIf {c} {t} {f} cc ct cf) = CommonIfEqual (mapCommonFaceEqualDimensions env target c cc) (mapCommonFaceEqualDimensions env target t ct) (mapCommonFaceEqualDimensions env target f cf)
+mapCommonFaceEqualDimensions env target _ (CommonDimUnitElim {x} {b} cx cb) = CommonUnitElimEqual (mapCommonFaceEqualDimensions env target x cx) (mapCommonFaceEqualDimensions env target b cb)
 
 public export
 substituteCommonFaceEqual : {0 source : Vect n LogicalType} -> {0 target : Vect m LogicalType} ->
@@ -695,6 +827,51 @@ data CommonShadowPath : {0 ctx : Vect n LogicalType} -> {0 paths : Vect k Logica
       body (mapCommonPathDimensions (Var . FS) right) a ->
     CommonShadowPath decls face left right a
 
+||| Both renewed derivations are indexed by the exact original abstraction.
+||| No mapped boundary conclusion is assumed: only leaf checks and recursive
+||| recertification of the original equality rules are supplied.
+public export
+data CommonPathDimensionEvidence : {0 ctx : Vect n LogicalType} -> {0 paths : Vect k LogicalType} ->
+  {0 decls : CommonDeclarations ctx paths} -> {0 face : ScopedFace d} ->
+  {0 left, right : CommonPathTerm n k d} ->
+  (sigma : Fin d -> ScopedInterval e) -> CommonShadowPath decls face left right a -> Type where
+  CommonAbstractDimensions : {0 ctx : Vect n LogicalType} -> {0 paths : Vect k LogicalType} ->
+    {0 decls : CommonDeclarations ctx paths} -> {0 face : ScopedFace d} ->
+    {0 left, right : CommonPathTerm n k d} -> {0 a : LogicalType} ->
+    {0 lt : CommonPathHasType ctx paths left a} -> {0 rt : CommonPathHasType ctx paths right a} ->
+    {body : CommonPathTerm n k (S d)} -> {0 bt : CommonPathHasType ctx paths body a} ->
+    {0 zero : CommonFaceEqual decls (SConjunction (weakenFace face) (SEndpoint FZ False))
+      body (mapCommonPathDimensions (Var . FS) left) a} ->
+    {0 one : CommonFaceEqual decls (SConjunction (weakenFace face) (SEndpoint FZ True))
+      body (mapCommonPathDimensions (Var . FS) right) a} ->
+    CommonDimensionEvidence (liftCommonDimensions sigma)
+      (substituteScopedFace (liftCommonDimensions sigma) (SConjunction (weakenFace face) (SEndpoint FZ False))) zero ->
+    CommonDimensionEvidence (liftCommonDimensions sigma)
+      (substituteScopedFace (liftCommonDimensions sigma) (SConjunction (weakenFace face) (SEndpoint FZ True))) one ->
+    CommonPathDimensionEvidence sigma (CommonAbstract {face} {left} {right} lt rt body bt zero one)
+
+||| Conditional dimension substitution constructs an actual CommonAbstract.
+||| Bounded entailment is not substitution-stable; evidence is mandatory.
+public export
+mapCommonShadowPathDimensions : {0 ctx : Vect n LogicalType} -> {0 paths : Vect k LogicalType} ->
+  {0 decls : CommonDeclarations ctx paths} -> {0 face : ScopedFace d} ->
+  {0 left, right : CommonPathTerm n k d} ->
+  (sigma : Fin d -> ScopedInterval e) -> (path : CommonShadowPath decls face left right a) ->
+  CommonPathDimensionEvidence sigma path ->
+  CommonShadowPath decls (substituteScopedFace sigma face)
+    (mapCommonPathDimensions sigma left) (mapCommonPathDimensions sigma right) a
+mapCommonShadowPathDimensions {face} {left} {right} sigma (CommonAbstract lt rt body bt zero one)
+  (CommonAbstractDimensions cz co) =
+    CommonAbstract (mapCommonPathDimensionsTyped sigma lt) (mapCommonPathDimensionsTyped sigma rt)
+      (mapCommonPathDimensions (liftCommonDimensions sigma) body)
+      (mapCommonPathDimensionsTyped (liftCommonDimensions sigma) bt)
+      (rewrite sym (commonBoundaryFaceDimensions sigma face False) in
+       rewrite sym (commonPathLiftWeakening sigma left) in
+       mapCommonFaceEqualDimensions (liftCommonDimensions sigma) _ zero cz)
+      (rewrite sym (commonBoundaryFaceDimensions sigma face True) in
+       rewrite sym (commonPathLiftWeakening sigma right) in
+       mapCommonFaceEqualDimensions (liftCommonDimensions sigma) _ one co)
+
 public export
 substituteCommonShadowPath : {0 source : Vect n LogicalType} -> {0 target : Vect m LogicalType} ->
   (sigma : Fin n -> CommonTerm m) -> (env : CommonSubstitutionTyped source target sigma) ->
@@ -743,6 +920,18 @@ commonShadowApplicationDimensions : {0 ctx : Vect n LogicalType} -> {0 paths : V
   (sigma : Fin d -> ScopedInterval e) -> (path : CommonShadowPath decls face left right a) -> (i : ScopedInterval d) ->
   mapCommonPathDimensions sigma (applyCommonShadowPath path i) = commonShadowMappedBodyApplication sigma path i
 commonShadowApplicationDimensions sigma (CommonAbstract _ _ body _ _ _) i = commonPathApplicationDimensions sigma i body
+
+||| The previous syntax square now lands in an actual recertified path.
+public export
+commonMappedShadowApplicationDimensions : {0 ctx : Vect n LogicalType} -> {0 paths : Vect k LogicalType} ->
+  {0 decls : CommonDeclarations ctx paths} -> {0 face : ScopedFace d} ->
+  {0 left, right : CommonPathTerm n k d} ->
+  (sigma : Fin d -> ScopedInterval e) -> (path : CommonShadowPath decls face left right a) ->
+  (cert : CommonPathDimensionEvidence sigma path) -> (i : ScopedInterval d) ->
+  mapCommonPathDimensions sigma (applyCommonShadowPath path i) =
+    applyCommonShadowPath (mapCommonShadowPathDimensions sigma path cert) (substituteScoped sigma i)
+commonMappedShadowApplicationDimensions sigma (CommonAbstract _ _ body _ _ _) (CommonAbstractDimensions _ _) i =
+  commonPathApplicationDimensions sigma i body
 
 public export
 substituteCommonShadowApplication : {0 source : Vect n LogicalType} -> {0 target : Vect m LogicalType} ->

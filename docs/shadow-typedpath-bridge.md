@@ -472,31 +472,105 @@ or admissibility at a different path environment is invented. Both off-diagonal
 pairs `(False, True)` and `(True, False)` are allowed; this is not just Boolean
 vertex agreement.
 
-#### Unsupported: automatic path-typing/boundary reindexing
+#### Explicit recertification of declarative path dimensions
 
-There is intentionally **no** unrestricted `CommonShadowPath` or
-`HigherOrderCommonShadowPath` dimension-map API. Given source body `b`, endpoints
-`l,r`, and face `phi`, a target abstraction would need actual derivations of:
+`mapCommonFaceEqualDimensions sigma target eq cert` constructs an independent
+`CommonFaceEqual` for the selected mapped terms at the exact target face. Its
+`CommonDimensionEvidence sigma target eq` is indexed by the original derivation,
+not merely its conclusion. It recursively mirrors **all** equality rules:
+
+- Refl retains the original erased typing witness and maps it with
+  `mapCommonPathDimensionsTyped`; ordinary terms and path lookup are unchanged.
+  That typing map includes ordinary lambdas, but there is **no lambda equality
+  rule**.
+- Left/Right retain the actual declared-path lookup and require a fresh proof of
+  `boundedEndpointEntails target (substituteScoped sigma i) side = True`.
+- Restrict recertifies the child at `substituteScopedFace sigma source` and
+  requires the exact renewed
+  `boundedFaceEntails target (substituteScopedFace sigma source) = True`.
+- Sym, Trans, App, If and UnitElim recursively rebuild their target derivations.
+
+`CommonPathDimensionEvidence sigma path` supplies this evidence for both original
+boundaries under `liftCommonDimensions sigma`, at the substituted original
+boundary faces. `mapCommonShadowPathDimensions sigma path cert` then constructs
+an actual `CommonAbstract`, with result type:
 
 ```
-CommonFaceEqual decls
-  (SConjunction (weakenFace (substituteScopedFace sigma phi)) (SEndpoint FZ side))
-  (mapCommonPathDimensions (liftCommonDimensions sigma) b)
-  (mapCommonPathDimensions (Var . FS) (mapCommonPathDimensions sigma endpoint)) a
+CommonShadowPath decls (substituteScopedFace sigma face)
+  (mapCommonPathDimensions sigma left)
+  (mapCommonPathDimensions sigma right) a
 ```
 
-for each side and the corresponding selected endpoint. It would additionally
-need `DependentEndpointFaceEvidence` indexed by **those exact target
-derivations**, the independently mapped computational body/endpoint witnesses,
-and the actual `ps, adm`. Source boundary evidence is not such a certificate.
-In particular, bounded endpoint/restriction checks inside a derivation need
-explicit target recertification (and any required syntactic alignment of weakened
-mapped endpoints); `boundedFaceEntails` / `boundedEndpointEntails` acceptance is
-not stable under arbitrary substitution. The existing large-dimension regression
-already exhibits accepted source and rejected target checks. The APIs above fail
-closed by returning only typed application **terms/witnesses**, never a mapped
-path or an assumed entailment. Reconstructing a target `CommonAbstract` and
-`HOCommonAbstract` still requires both target boundaries and structural evidence.
+Its actual body is `mapCommonPathDimensions (liftCommonDimensions sigma) body`;
+its two checked boundaries have exactly that body and the weakened mapped
+endpoints. No target boundary equality is accepted as an assumption in lieu of
+recertifying the original rules. The syntactic alignment uses:
+
+- `commonEndpointSubstitution` and its weakening specialization
+  `commonEndpointWeakening`;
+- `commonFaceLiftWeakening` and `commonBoundaryFaceDimensions`, proving
+  substitution of `weakenFace face /\ (FZ = side)` equals
+  `weakenFace (substituteScopedFace sigma face) /\ (FZ = side)`;
+- `commonPathLiftWeakening`, aligning mapped weakened endpoints with weakened
+  mapped endpoints.
+
+`commonMappedShadowApplicationDimensions` proves the application substitution
+square with the **actual recertified target path**, not just body syntax.
+
+This API is **declarative, conditional, and caller-supplied**. There is no new
+computational proof search, finite-vector recertifier, or cost-bound claim here;
+the source `ShadowSubstitutionBounds` wrappers are not an independent-common
+checker. Every required renewed bounded check must be proved at its precise
+index. An unsupported entailment or exhausted existing solver budget prevents
+construction of the certificate, even if the entailment is mathematically
+valid. In particular, the simple solver cannot prove a disjunction from the
+identical disjunction; a Meet/Reverse image of an accepted source endpoint can
+therefore fail. A long Reverse chain can also fail interval preflight. This is
+**not unconditional substitution stability** of bounded entailment.
+
+Tests construct actual mapped paths for a 2 -> 1 contraction with a nonconstant
+linear-source Bool If endpoint, a 1 -> 2 expansion of a translated source path
+with a nontrivial ambient face, and an independent path with dimension-dependent
+`CPAt` endpoints (including a Meet/Reverse image). They extract the actual body
+and both boundaries, and evaluate a computational witness indexed by the actual
+mapped application on both off-diagonal pairs and both ordinary Bool inputs.
+Additional compile-time tests cover every equality rule and typed lambda
+mapping. Diagnostic-gated negatives cover an equivalent but different original
+derivation, the wrong substitution index, a
+failed endpoint face, a failed renewed restriction, interval-budget exhaustion,
+and an unsupported mapped disjunction.
+
+##### Declared endpoint result-type correction
+
+Previously the endpoint constructors had the abbreviated signature:
+
+```
+CommonLeft : CommonDeclaredPath decls p l r -> boundedEndpointEntails face i False = True ->
+  CommonFaceEqual decls face (CPAt (variableIndex p) i) (CPOrdinary l) a
+```
+
+(and Right analogously). The inferred type of `p` did not constrain the result
+`a`: a Bool path could incorrectly yield an equality labeled `LUnit`. The
+corrected signatures explicitly bind `{0 a : LogicalType}` and
+`{0 p : LogicalVar paths a}` (with the corresponding contexts/endpoints) before
+the lookup premise; Left/Right now have the declared path's actual type. Both
+wrong-result-type fixtures were accepted when only the original signatures were
+restored, and both are rejected with the correction. The remaining
+`CommonFaceEqual` constructors were audited: Refl ties its result to its typed
+witness; Sym/Trans/Restrict retain their premise type; App uses the arrow result;
+If and UnitElim retain their branch type. No other constructor signature change
+was needed.
+
+#### Still unsupported: automatic higher-order path witness reindexing
+
+There is still no unrestricted `CommonShadowPath` dimension-map API, and no new
+`HigherOrderCommonShadowPath` map. The declarative result above does **not** supply
+`DependentEndpointFaceEvidence` indexed by its exact target derivations, the
+independently mapped computational body/endpoint witnesses, or actual `ps, adm`
+admissibility evidence. Source semantic boundary evidence is not a target
+certificate. `HOCommonAbstract` reconstruction remains a separate obligation.
+The application witness tests do not assert automatic mapping of a complete
+higher-order path witness.
 
 These results are naturality of a **finite four-pair valuation interpretation**.
 They do not establish naturality of free De Morgan cubical/CCHM presheaves, nor

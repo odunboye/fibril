@@ -840,3 +840,23 @@ for fixture in CommonNaturalityWrongValuation CommonNaturalityWrongMappedCoordin
   fi
 done
 echo 'Common application naturality wrong composed valuation and mapped coordinate tests passed.'
+"$idris" -p fibril --check CommonDimensionFixture.idr > "$tmp/CommonDimensionFixture.log" 2>&1 || {
+  cat "$tmp/CommonDimensionFixture.log" >&2; exit 1;
+}
+for fixture in CommonDimensionWrongDerivation CommonDimensionWrongFace CommonDimensionWrongIndex CommonDimensionBudget CommonDimensionRestriction CommonDimensionUnsupported CommonLeftWrongResultType CommonRightWrongResultType; do
+  "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1 || true
+  case "$fixture" in
+    CommonDimensionWrongDerivation) expected='Mismatch between: CommonLeft CommonDeclaredHere Refl and CommonSym (CommonSym source).' ;;
+    CommonDimensionWrongIndex) expected="Can't solve constraint between: first and second." ;;
+    CommonLeftWrongResultType|CommonRightWrongResultType) expected='Mismatch between: LUnit and LBool.' ;;
+    *) expected='Mismatch between: True and False.' ;;
+  esac
+  if [[ $(grep -c '^Error:' "$tmp/$fixture.log") -ne 1 ]] ||
+     ! grep -Fq 'Error: While processing right hand side of bad.' "$tmp/$fixture.log" ||
+     ! grep -Fq "$expected" "$tmp/$fixture.log" ||
+     grep -Eq 'Undefined name|While processing type of|Imports must go' "$tmp/$fixture.log"; then
+    echo "Common dimension recertification negative test failed: $fixture" >&2
+    cat "$tmp/$fixture.log" >&2; exit 1
+  fi
+done
+echo 'Common dimension exact index, renewed endpoint/restriction, budget, unsupported face and declared result-type tests passed.'
