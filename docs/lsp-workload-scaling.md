@@ -167,6 +167,13 @@ arena. See [header blockers](header-parser-blockers.md) and
 
 ## Narrow proposal for parent decision — NOT an available API
 
+**Specification follow-up:** [bounded byte-span API specification](byte-span-api-specification.md)
+compares this historical three-piece sketch against smaller existing-Bytes,
+Pair/BytesShare/iteration reuse. The three pieces below are not accepted as
+minimal; the follow-up recommends a conditional two-operation candidate and
+records unresolved hosted metering/construction/composition gates. Neither memo
+authorizes implementation or larger-cap experiments.
+
 Recommend a **separately reviewed design/cost spike for buffered byte blocks and
 class spans**, not a lookup-only primitive, new transport, native JSON/header
 parser, larger budget, or immediate larger-cap parser. The proposed surface is
