@@ -62,6 +62,11 @@ mapNeutralDimensions env (NAbstract body) = NAbstract (mapNeutralDimensions (lif
 mapNeutralDimensions env (NApply p i) = NApply (mapNeutralDimensions env p) (substituteScoped env i)
 
 public export
+instantiateDimension : ScopedInterval n -> Fin (S n) -> ScopedInterval n
+instantiateDimension i FZ = i
+instantiateDimension i (FS j) = Var j
+
+public export
 weakenNeutralDimensions : NeutralExpr m k n -> NeutralExpr m k (S n)
 weakenNeutralDimensions = mapNeutralDimensions (Var . FS)
 
@@ -89,6 +94,10 @@ mutual
     NPathForm : NeutralTypeFormed ctx face a -> NeutralHasType ctx face l a ->
                 NeutralHasType ctx face r a ->
                 NeutralTypeFormed ctx face (NPathType (weakenNeutralDimensions a) l r)
+    NPathPForm : NeutralTypeFormed ctx (weakenFace face) family ->
+                 NeutralHasType ctx face l (mapNeutralDimensions TypedPath.faceZero family) ->
+                 NeutralHasType ctx face r (mapNeutralDimensions TypedPath.faceOne family) ->
+                 NeutralTypeFormed ctx face (NPathType family l r)
 
   public export
   data NeutralHasType : PathContext m k -> ScopedFace n -> NeutralExpr m k n -> NeutralExpr m k n -> Type where
@@ -102,6 +111,16 @@ mutual
       NeutralHasType ctx face (NAbstract body) (NPathType (weakenNeutralDimensions a) l r)
     NElim : NeutralHasType ctx face p (NPathType (weakenNeutralDimensions a) l r) ->
       (i : ScopedInterval n) -> NeutralHasType ctx face (NApply p i) a
+    NPathPIntro : NeutralTypeFormed ctx (weakenFace face) family ->
+      NeutralHasType ctx face l (mapNeutralDimensions TypedPath.faceZero family) ->
+      NeutralHasType ctx face r (mapNeutralDimensions TypedPath.faceOne family) ->
+      NeutralHasType ctx (weakenFace face) body family ->
+      NeutralEqual ctx (SConjunction (weakenFace face) (SEndpoint FZ False)) body (weakenNeutralDimensions l) family ->
+      NeutralEqual ctx (SConjunction (weakenFace face) (SEndpoint FZ True)) body (weakenNeutralDimensions r) family ->
+      NeutralHasType ctx face (NAbstract body) (NPathType family l r)
+    NPathPElim : NeutralHasType ctx face p (NPathType family l r) ->
+      (i : ScopedInterval n) ->
+      NeutralHasType ctx face (NApply p i) (mapNeutralDimensions (instantiateDimension i) family)
 
   public export
   data NeutralEqual : PathContext m k -> ScopedFace n -> NeutralExpr m k n -> NeutralExpr m k n -> NeutralExpr m k n -> Type where
@@ -112,6 +131,14 @@ mutual
     NEndpointRight : NeutralHasType ctx face p (NPathType (weakenNeutralDimensions a) l r) ->
       NeutralHasType ctx face r a -> boundedFaceEntails face (scopedEndpoint i True) = True ->
       NeutralEqual ctx face (NApply p i) r a
+    NPathPEndpointLeft : NeutralHasType ctx face p (NPathType family l r) ->
+      NeutralHasType ctx face l (mapNeutralDimensions (instantiateDimension i) family) ->
+      boundedFaceEntails face (scopedEndpoint i False) = True ->
+      NeutralEqual ctx face (NApply p i) l (mapNeutralDimensions (instantiateDimension i) family)
+    NPathPEndpointRight : NeutralHasType ctx face p (NPathType family l r) ->
+      NeutralHasType ctx face r (mapNeutralDimensions (instantiateDimension i) family) ->
+      boundedFaceEntails face (scopedEndpoint i True) = True ->
+      NeutralEqual ctx face (NApply p i) r (mapNeutralDimensions (instantiateDimension i) family)
     NAbstractCong : NeutralHasType ctx face (NAbstract x) (NPathType (weakenNeutralDimensions a) l r) ->
       NeutralHasType ctx face (NAbstract y) (NPathType (weakenNeutralDimensions a) l r) ->
       NeutralEqual ctx (weakenFace face) x y (weakenNeutralDimensions a) ->

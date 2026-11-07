@@ -56,3 +56,86 @@ neutralMeetLeft = NEndpointLeft (NPathVar FZ) (NBaseVar FZ) Refl
 nonBooleanFace : boundedFaceEntails {n = 1} STop
   (SDisjunction (SEndpoint FZ False) (SEndpoint FZ True)) = False
 nonBooleanFace = Refl
+
+-- Both endpoints vary with the bound dimension.
+varyingFamily : NeutralTypeFormed {n = 1} Tests.Cubical.TypedPath.neutralContext STop
+  (NPathType NType (NApply (NPath FZ) (Var FZ)) (NApply (NPath FZ) (Var FZ)))
+varyingFamily = NPathForm NBaseForm (NElim (NPathVar FZ) (Var FZ)) (NElim (NPathVar FZ) (Var FZ))
+
+pathPForm : NeutralTypeFormed {n = 0} Tests.Cubical.TypedPath.neutralContext STop
+  (NPathType (NPathType NType (NApply (NPath FZ) (Var FZ)) (NApply (NPath FZ) (Var FZ)))
+    (NAbstract (NApply (NPath FZ) Zero))
+    (NAbstract (NApply (NPath FZ) One)))
+pathPForm = NPathPForm varyingFamily
+  (NIntro NBaseForm (NElim (NPathVar FZ) Zero) (NElim (NPathVar FZ) Zero)
+    (NElim (NPathVar FZ) Zero) (NRefl (NElim (NPathVar FZ) Zero)) (NRefl (NElim (NPathVar FZ) Zero)))
+  (NIntro NBaseForm (NElim (NPathVar FZ) One) (NElim (NPathVar FZ) One)
+    (NElim (NPathVar FZ) One) (NRefl (NElim (NPathVar FZ) One)) (NRefl (NElim (NPathVar FZ) One)))
+
+pathPConstant : NeutralHasType {n = 0} Tests.Cubical.TypedPath.neutralContext STop
+  (NAbstract (NBase FZ)) (NPathType NType (NBase FZ) (NBase FZ))
+pathPConstant = NPathPIntro NBaseForm (NBaseVar FZ) (NBaseVar FZ)
+  (NBaseVar FZ) (NRefl (NBaseVar FZ)) (NRefl (NBaseVar FZ))
+
+pathPApplication : NeutralHasType {n = 0} Tests.Cubical.TypedPath.neutralContext STop
+  (NApply (NAbstract (NBase FZ)) Zero) NType
+pathPApplication = NPathPElim pathPConstant Zero
+
+pathPLeft : NeutralEqual {n = 0} Tests.Cubical.TypedPath.neutralContext STop
+  (NApply (NAbstract (NBase FZ)) Zero) (NBase FZ) NType
+pathPLeft = NPathPEndpointLeft pathPConstant (NBaseVar FZ) Refl
+
+-- Elimination computes the family at the supplied interval, rather than
+-- returning the uninstantiated family or a fixed carrier.
+varyingElimination : NeutralHasType {n = 0} Tests.Cubical.TypedPath.neutralContext STop p
+  (NPathType (NPathType NType (NApply (NPath FZ) (Var FZ)) (NApply (NPath FZ) (Var FZ))) l r) ->
+  NeutralHasType Tests.Cubical.TypedPath.neutralContext STop (NApply p One)
+    (NPathType NType (NApply (NPath FZ) One) (NApply (NPath FZ) One))
+varyingElimination h = NPathPElim h One
+
+pathPRight : NeutralEqual {n = 0} Tests.Cubical.TypedPath.neutralContext STop
+  (NApply (NAbstract (NBase FZ)) One) (NBase FZ) NType
+pathPRight = NPathPEndpointRight pathPConstant (NBaseVar FZ) Refl
+
+-- Substitution reaches the outer dimension beneath the abstraction, without
+-- capturing or replacing its freshly bound dimension.
+pathPSubstitutionShadowing :
+  mapNeutralDimensions (instantiateDimension Zero)
+    (NAbstract (NApply (NPath {m = 2} {k = 1} FZ)
+      (Meet (Var FZ) (Var (FS FZ))))) =
+  NAbstract (NApply (NPath FZ) (Meet (Var FZ) Zero))
+pathPSubstitutionShadowing = Refl
+
+-- Conditional on a path-over of the varying family: the endpoint is actually
+-- derived at the family instantiated at Zero, rather than assumed at a carrier.
+varyingEndpointAtZero :
+  NeutralHasType {n = 0} Tests.Cubical.TypedPath.neutralContext STop p
+    (NPathType
+      (NPathType NType (NApply (NPath FZ) (Var FZ)) (NApply (NPath FZ) (Var FZ)))
+      (NAbstract (NApply (NPath FZ) Zero))
+      (NAbstract (NApply (NPath FZ) One))) ->
+  NeutralEqual Tests.Cubical.TypedPath.neutralContext STop
+    (NApply p Zero) (NAbstract (NApply (NPath FZ) Zero))
+    (NPathType NType (NApply (NPath FZ) Zero) (NApply (NPath FZ) Zero))
+varyingEndpointAtZero h = NPathPEndpointLeft h
+  (NIntro NBaseForm (NElim (NPathVar FZ) Zero) (NElim (NPathVar FZ) Zero)
+    (NElim (NPathVar FZ) Zero) (NRefl (NElim (NPathVar FZ) Zero))
+    (NRefl (NElim (NPathVar FZ) Zero))) Refl
+
+-- The endpoint derivation itself is concrete at the open instantiated carrier.
+-- The path-over remains a hypothetical judgment, since this slice cannot yet
+-- construct the necessary varying-family boundary conversion.
+varyingEndpointAtOpenZero :
+  NeutralHasType {n = 1} Tests.Cubical.TypedPath.neutralContext (SEndpoint FZ False) p
+    (NPathType
+      (NPathType NType (NApply (NPath FZ) (Var FZ)) (NApply (NPath FZ) (Var FZ)))
+      (NAbstract (NApply (NPath FZ) (Var (FS FZ))))
+      (NAbstract (NApply (NPath FZ) One))) ->
+  NeutralEqual Tests.Cubical.TypedPath.neutralContext (SEndpoint FZ False)
+    (NApply p (Var FZ)) (NAbstract (NApply (NPath FZ) (Var (FS FZ))))
+    (NPathType NType (NApply (NPath FZ) (Var FZ)) (NApply (NPath FZ) (Var FZ)))
+varyingEndpointAtOpenZero h = NPathPEndpointLeft h
+  (NIntro NBaseForm (NElim (NPathVar FZ) (Var FZ)) (NElim (NPathVar FZ) (Var FZ))
+    (NElim (NPathVar FZ) (Var (FS FZ)))
+    (NRefl (NElim (NPathVar FZ) (Var (FS FZ))))
+    (NRefl (NElim (NPathVar FZ) (Var (FS FZ))))) Refl

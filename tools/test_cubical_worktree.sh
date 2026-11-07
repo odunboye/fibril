@@ -186,3 +186,34 @@ for fixture in TypedNeutralWrongEndpoint TypedNeutralFalseFace; do
   fi
 done
 echo 'Neutral path wrong-endpoint and false-face negative tests passed.'
+
+for fixture in TypedPathPBadFamily TypedPathPNonBoolean TypedPathPScope; do
+  "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1 || true
+  case $fixture in
+    TypedPathPBadFamily) expected='Mismatch between: NType and NBase' ; location='right hand side' ;;
+    TypedPathPNonBoolean) expected='Mismatch between: True and False' ; location='right hand side' ;;
+    TypedPathPScope) expected='Mismatch between: S ?k and 0' ; location='type' ;;
+  esac
+  if ! grep -Fq "While processing $location of bad" "$tmp/$fixture.log" || ! grep -Fq "$expected" "$tmp/$fixture.log"; then
+    echo "PathP negative test $fixture failed for an unrelated reason:" >&2
+    cat "$tmp/$fixture.log" >&2; exit 1
+  fi
+done
+echo 'PathP family, non-Boolean face, and dimension scope negative tests passed.'
+
+for fixture in TypedPathPOpenEndpoint TypedPathPBadBody TypedPathPBadBoundary; do
+  "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1 || true
+  case $fixture in
+    TypedPathPOpenEndpoint) expected='Mismatch between: Zero and Var FZ.' ;;
+    TypedPathPBadBody) expected='Mismatch between: NType and NPathType' ;;
+    TypedPathPBadBoundary) expected='Mismatch between: Var (FS FZ) and Zero.' ;;
+  esac
+  if ! grep -Fq 'While processing right hand side of bad' "$tmp/$fixture.log" ||
+     [[ $(grep -c '^Error:' "$tmp/$fixture.log") -ne 1 ]] ||
+     grep -Fq 'While processing type of bad' "$tmp/$fixture.log" ||
+     ! grep -Fq "$expected" "$tmp/$fixture.log"; then
+    echo "PathP dependent premise test $fixture failed for an unrelated reason:" >&2
+    cat "$tmp/$fixture.log" >&2; exit 1
+  fi
+done
+echo 'PathP instantiated endpoint, body, and boundary negative tests passed.'

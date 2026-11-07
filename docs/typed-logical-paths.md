@@ -22,8 +22,8 @@ boundary evidence is equality of syntax, not face-restricted conversion; no
 beta, endpoint, De Morgan, or eta conversion is assumed. Nested constant
 paths and a dimension-varying application are derivable, but a general square
 `p (i ∧ j)` with neutral path `p` is not derivable in this original judgment.
-The separately indexed extension below adds some restricted equality but not
-the dependent family needed for the general square. There is no general
+The separately indexed extension below adds restricted dependent families and equality,
+but not enough conversion for the general square. There is no general
 weakening/substitution preservation theorem for derivations or semantic
 soundness theorem here. ScopedSyntax proves separate syntactic substitution laws.
 
@@ -52,6 +52,37 @@ The added examples derive neutral application and endpoint equality, including
 an endpoint of `p (i ∧ j)` under `i = 0`. They do **not** derive the full nested
 square: the inner path has right endpoint `p i`, so the outer path's family
 varies with `i`. A homogeneous nondependent path cannot express that general
-boundary; this needs a dependent PathP rule or a different square encoding.
+boundary; this needs additional face-restricted dependent conversion or a different square encoding.
 There is no general eta, beta, interval conversion, or derivation substitution
 proof, and this experiment grants no runtime authority.
+
+## Restricted dependent path-over rules
+
+The neutral judgment also has `NPathPForm`, `NPathPIntro`, and `NPathPElim`.
+The family is formed under the weakened face in one extra dimension; endpoint
+checking uses the actual zero and one substitutions into that family. The body
+is checked at the varying family, and its boundary equalities are checked at
+that family under the respective restricted faces. Elimination substitutes the
+argument interval for the family binder. Endpoint rules require the endpoint
+itself to be typed at the instantiated carrier under the current face, in
+addition to the bounded entailment proof. This extra premise deliberately avoids
+assuming dependent type conversion under a face. Existing nondependent rules
+remain unchanged.
+
+The tests form a genuinely varying family whose endpoints are both `p i`, and
+check constant-family PathP introduction, elimination and an endpoint. They do
+not derive the requested square `λ i. λ j. p (i ∧ j)`: its boundaries need
+face-restricted congruence/conversion between types such as `Path A a (p i)`
+and their endpoint substitutions, and the present equality judgment cannot
+supply that conversion. Nor is there a general derivation substitution or
+weakening theorem. These rules are declarative and restricted, not equality
+reflection, a semantic soundness proof, or a production runtime checker.
+
+Additional endpoint tests use hypothetical path-over derivations with a varying
+family; they do not assert that those derivations are constructible in this
+slice. Their endpoint typing evidence is constructed explicitly. At an open
+argument constrained to zero, typing the endpoint only at the zero-substituted
+family is rejected, while an endpoint typed at the open instantiated family is
+accepted. Substitution under a nested abstraction is checked definitionally to
+preserve the inner binder. Separate negative examples reject a body of the wrong
+type and a reflexive proof of the wrong varying-family boundary.
