@@ -1568,6 +1568,103 @@ dependentPathSemantics (HOPApplication ctx paths a b d f x) valuation = commonAp
 dependentPathSemantics (HOPUnitElim ctx paths a d x b) valuation = commonUnitElimination (dependentPathSemantics x valuation) (dependentPathSemantics b valuation)
 dependentPathSemantics (HOPIf ctx paths a d c t f) valuation = commonIf (dependentPathSemantics c valuation) (dependentPathSemantics t valuation) (dependentPathSemantics f valuation)
 
+||| Structural alignment of actual dependent-path witnesses.
+public export
+data HigherOrderPathAlignment : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} ->
+  {a : LogicalType} -> {d : Nat} -> {0 t : CommonPathTerm n k d} ->
+  {0 lt, rt : CommonPathHasType ctx paths t a} ->
+  HigherOrderPathTerm ctx paths a d lt -> HigherOrderPathTerm ctx paths a d rt -> Type where
+  AlignPathOrdinary : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} -> {d : Nat} -> {a : LogicalType} ->
+    {0 lt, rt : CommonHasType ctx tm a} ->
+    {left : HigherOrderTerm ctx a lt} -> {right : HigherOrderTerm ctx a rt} ->
+    HigherOrderAlignment left right ->
+    HigherOrderPathAlignment (HOPOrdinary ctx paths a d left) (HOPOrdinary ctx paths a d right)
+  AlignPathAt : (ctx : Vect n LogicalType) -> (paths : Vect k LogicalType) -> (a : LogicalType) ->
+    (d : Nat) -> (p : LogicalVar paths a) -> (i : ScopedInterval d) ->
+    HigherOrderPathAlignment (HOPAt ctx paths a d p i) (HOPAt ctx paths a d p i)
+  AlignPathLambda : {0 lt, rt : CommonPathHasType (a :: ctx) paths tm b} ->
+    {left : HigherOrderPathTerm (a :: ctx) paths b d lt} -> {right : HigherOrderPathTerm (a :: ctx) paths b d rt} ->
+    HigherOrderPathAlignment left right ->
+    HigherOrderPathAlignment (HOPLambda ctx paths a b d left) (HOPLambda ctx paths a b d right)
+  AlignPathApplication : {0 lf, rf : CommonPathHasType ctx paths ft (LArrow a b)} ->
+    {0 lx, rx : CommonPathHasType ctx paths xt a} ->
+    {leftF : HigherOrderPathTerm ctx paths (LArrow a b) d lf} -> {rightF : HigherOrderPathTerm ctx paths (LArrow a b) d rf} ->
+    {leftX : HigherOrderPathTerm ctx paths a d lx} -> {rightX : HigherOrderPathTerm ctx paths a d rx} ->
+    HigherOrderPathAlignment leftF rightF -> HigherOrderPathAlignment leftX rightX ->
+    HigherOrderPathAlignment (HOPApplication ctx paths a b d leftF leftX) (HOPApplication ctx paths a b d rightF rightX)
+  AlignPathUnitElim : {0 lx, rx : CommonPathHasType ctx paths xt LUnit} -> {0 lb, rb : CommonPathHasType ctx paths bt a} ->
+    {leftX : HigherOrderPathTerm ctx paths LUnit d lx} -> {rightX : HigherOrderPathTerm ctx paths LUnit d rx} ->
+    {leftB : HigherOrderPathTerm ctx paths a d lb} -> {rightB : HigherOrderPathTerm ctx paths a d rb} ->
+    HigherOrderPathAlignment leftX rightX -> HigherOrderPathAlignment leftB rightB ->
+    HigherOrderPathAlignment (HOPUnitElim ctx paths a d leftX leftB) (HOPUnitElim ctx paths a d rightX rightB)
+  AlignPathIf : {0 lc, rc : CommonPathHasType ctx paths ct LBool} -> {0 lt, rt : CommonPathHasType ctx paths tt a} -> {0 lf, rf : CommonPathHasType ctx paths ft a} ->
+    {leftC : HigherOrderPathTerm ctx paths LBool d lc} -> {rightC : HigherOrderPathTerm ctx paths LBool d rc} ->
+    {leftT : HigherOrderPathTerm ctx paths a d lt} -> {rightT : HigherOrderPathTerm ctx paths a d rt} ->
+    {leftF : HigherOrderPathTerm ctx paths a d lf} -> {rightF : HigherOrderPathTerm ctx paths a d rf} ->
+    HigherOrderPathAlignment leftC rightC -> HigherOrderPathAlignment leftT rightT -> HigherOrderPathAlignment leftF rightF ->
+    HigherOrderPathAlignment (HOPIf ctx paths a d leftC leftT leftF) (HOPIf ctx paths a d rightC rightT rightF)
+
+||| Application interpretation reduces pointwise for every result type.
+public export
+dependentPathApplicationBeta : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} ->
+  {a, b : LogicalType} -> {d : Nat} -> {0 f, x : CommonPathTerm n k d} ->
+  {0 ft : CommonPathHasType ctx paths f (LArrow a b)} -> {0 xt : CommonPathHasType ctx paths x a} ->
+  (fn : HigherOrderPathTerm ctx paths (LArrow a b) d ft) -> (arg : HigherOrderPathTerm ctx paths a d xt) ->
+  (valuation : Fin d -> DM) -> (env : carrier (commonProductSetoid (commonEnvironmentSetoid ctx) (commonDependentPathEnvironmentSetoid ctx paths))) ->
+  applyMorphism (dependentPathSemantics (HOPApplication ctx paths a b d fn arg) valuation) env =
+  applyMorphism (applyMorphism (dependentPathSemantics fn valuation) env) (applyMorphism (dependentPathSemantics arg valuation) env)
+dependentPathApplicationBeta {b = LUnit} fn arg valuation env = Refl
+dependentPathApplicationBeta {b = LBool} fn arg valuation env = Refl
+dependentPathApplicationBeta {b = LArrow c d} fn arg valuation env = Refl
+
+public export
+dependentPathAlignedRelated : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} -> {a : LogicalType} -> {d : Nat} -> {0 t : CommonPathTerm n k d} ->
+  {0 lt, rt : CommonPathHasType ctx paths t a} ->
+  {left : HigherOrderPathTerm ctx paths a d lt} -> {right : HigherOrderPathTerm ctx paths a d rt} ->
+  HigherOrderPathAlignment left right -> (valuation : Fin d -> DM) ->
+  (x, y : carrier (commonProductSetoid (commonEnvironmentSetoid ctx) (commonDependentPathEnvironmentSetoid ctx paths))) ->
+  related (commonProductSetoid (commonEnvironmentSetoid ctx) (commonDependentPathEnvironmentSetoid ctx paths)) x y ->
+  related (commonTypeSetoid a) (applyMorphism (dependentPathSemantics left valuation) x)
+    (applyMorphism (dependentPathSemantics right valuation) y)
+dependentPathAlignedRelated {a = LUnit} (AlignPathOrdinary align) valuation x y xy = higherOrderAlignedRelated align (fst x) (fst y) (fst xy)
+dependentPathAlignedRelated {a = LUnit} (AlignPathAt ctx paths _ d p i) valuation x y xy =
+  respectsRelation (commonDependentPathLookup ctx paths LUnit p) (snd xy) (fst x, evalDMVal valuation i) (fst y, evalDMVal valuation i) (fst xy, Refl)
+dependentPathAlignedRelated {a = LBool} (AlignPathOrdinary align) valuation x y xy = higherOrderAlignedRelated align (fst x) (fst y) (fst xy)
+dependentPathAlignedRelated {a = LBool} (AlignPathAt ctx paths _ d p i) valuation x y xy =
+  respectsRelation (commonDependentPathLookup ctx paths LBool p) (snd xy) (fst x, evalDMVal valuation i) (fst y, evalDMVal valuation i) (fst xy, Refl)
+dependentPathAlignedRelated {a = (LArrow c dty)} (AlignPathOrdinary align) valuation x y xy = higherOrderAlignedRelated align (fst x) (fst y) (fst xy)
+dependentPathAlignedRelated {a = (LArrow c dty)} (AlignPathAt ctx paths _ d p i) valuation x y xy =
+  respectsRelation (commonDependentPathLookup ctx paths (LArrow c dty) p) (snd xy) (fst x, evalDMVal valuation i) (fst y, evalDMVal valuation i) (fst xy, Refl)
+dependentPathAlignedRelated {a = (LArrow domain result)} (AlignPathLambda {ctx} {paths} body) valuation x y xy =
+  \u, v, uv => dependentPathAlignedRelated body valuation
+    ((u, fst x), applyMorphism (weakenDependentPaths ctx paths domain) (snd x))
+    ((v, fst y), applyMorphism (weakenDependentPaths ctx paths domain) (snd y))
+    ((uv, fst xy), respectsRelation (weakenDependentPaths ctx paths domain) (snd xy))
+dependentPathAlignedRelated {a = LUnit} (AlignPathApplication {a = domain} {leftF} {rightF} {leftX} {rightX} f arg) valuation x y xy =
+  rewrite dependentPathApplicationBeta leftF leftX valuation x in
+  rewrite dependentPathApplicationBeta rightF rightX valuation y in
+  higherOrderApplicationRelated {arg = domain} {result = LUnit} (dependentPathAlignedRelated f valuation x y xy) (dependentPathAlignedRelated arg valuation x y xy)
+dependentPathAlignedRelated {a = LUnit} (AlignPathUnitElim unit body) valuation x y xy = dependentPathAlignedRelated body valuation x y xy
+dependentPathAlignedRelated {a = LUnit} (AlignPathIf cond yes no) valuation x y xy =
+  higherOrderChoiceRelated {a = LUnit} _ _ (dependentPathAlignedRelated cond valuation x y xy)
+    (dependentPathAlignedRelated yes valuation x y xy) (dependentPathAlignedRelated no valuation x y xy)
+dependentPathAlignedRelated {a = LBool} (AlignPathApplication {a = domain} {leftF} {rightF} {leftX} {rightX} f arg) valuation x y xy =
+  rewrite dependentPathApplicationBeta leftF leftX valuation x in
+  rewrite dependentPathApplicationBeta rightF rightX valuation y in
+  higherOrderApplicationRelated {arg = domain} {result = LBool} (dependentPathAlignedRelated f valuation x y xy) (dependentPathAlignedRelated arg valuation x y xy)
+dependentPathAlignedRelated {a = LBool} (AlignPathUnitElim unit body) valuation x y xy = dependentPathAlignedRelated body valuation x y xy
+dependentPathAlignedRelated {a = LBool} (AlignPathIf cond yes no) valuation x y xy =
+  higherOrderChoiceRelated {a = LBool} _ _ (dependentPathAlignedRelated cond valuation x y xy)
+    (dependentPathAlignedRelated yes valuation x y xy) (dependentPathAlignedRelated no valuation x y xy)
+dependentPathAlignedRelated {a = (LArrow c dty)} (AlignPathApplication {a = domain} {leftF} {rightF} {leftX} {rightX} f arg) valuation x y xy =
+  rewrite dependentPathApplicationBeta leftF leftX valuation x in
+  rewrite dependentPathApplicationBeta rightF rightX valuation y in
+  higherOrderApplicationRelated {arg = domain} {result = (LArrow c dty)} (dependentPathAlignedRelated f valuation x y xy) (dependentPathAlignedRelated arg valuation x y xy)
+dependentPathAlignedRelated {a = (LArrow c dty)} (AlignPathUnitElim unit body) valuation x y xy = dependentPathAlignedRelated body valuation x y xy
+dependentPathAlignedRelated {a = (LArrow c dty)} (AlignPathIf cond yes no) valuation x y xy =
+  higherOrderChoiceRelated {a = (LArrow c dty)} _ _ (dependentPathAlignedRelated cond valuation x y xy)
+    (dependentPathAlignedRelated yes valuation x y xy) (dependentPathAlignedRelated no valuation x y xy)
+
 public export
 data DependentPathAdmissible : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} ->
   (0 decls : CommonDeclarations ctx paths) -> carrier (commonDependentPathEnvironmentSetoid ctx paths) -> Type where

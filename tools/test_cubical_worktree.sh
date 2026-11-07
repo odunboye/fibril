@@ -611,3 +611,22 @@ if [[ $(grep -c '^Error:' "$tmp/$fixture.log") -ne 1 ]] ||
   cat "$tmp/$fixture.log" >&2; exit 1
 fi
 echo 'Higher-order ambiguous alignment negative test passed.'
+for fixture in HigherOrderPathAlignmentInterval HigherOrderPathAlignmentIndex HigherOrderPathAlignmentDomain; do
+  if "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1; then
+    echo "Higher-order path alignment negative test unexpectedly succeeded: $fixture" >&2
+    exit 1
+  fi
+  case "$fixture" in
+    HigherOrderPathAlignmentInterval) expected='Mismatch between: Var FZ and Zero.' ;;
+    HigherOrderPathAlignmentIndex) expected='Mismatch between: LThere LHere and LHere.' ;;
+    HigherOrderPathAlignmentDomain) expected='Mismatch between: LUnit and LBool.' ;;
+  esac
+  if [[ $(grep -c '^Error:' "$tmp/$fixture.log") -ne 1 ]] ||
+     ! grep -Fq 'Error: While processing right hand side of bad. When unifying:' "$tmp/$fixture.log" ||
+     ! grep -Fq "$expected" "$tmp/$fixture.log" ||
+     grep -Eq 'Undefined name|While processing type of' "$tmp/$fixture.log"; then
+    echo "Higher-order path alignment negative test failed: $fixture" >&2
+    cat "$tmp/$fixture.log" >&2; exit 1
+  fi
+done
+echo 'Higher-order path alignment interval, index and domain negative tests passed.'

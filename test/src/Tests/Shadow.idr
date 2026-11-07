@@ -2153,3 +2153,185 @@ alignmentVariableRelatedTest :
 alignmentVariableRelatedTest = higherOrderAlignedVariableRelated [LArrow LBool LBool] (LArrow LBool LBool) LHere
   (Tests.Shadow.setoidIdentity, ()) (Tests.Shadow.setoidConditionalIdentity, ())
   (Tests.Shadow.setoidIdentityEquivalent, Refl)
+
+pathLinearAlignment : HigherOrderPathAlignment Tests.Shadow.pathLinearIf Tests.Shadow.pathLinearIf
+pathLinearAlignment = AlignPathOrdinary Tests.Shadow.higherOrderLinearAlignment
+
+pathCapturedAlignment : HigherOrderPathAlignment Tests.Shadow.pathCaptured Tests.Shadow.pathCaptured
+pathCapturedAlignment = AlignPathApplication
+  (AlignPathLambda (AlignPathIf (AlignPathAt [LUnit, LBool] [LBool] LBool 1 LHere (Var FZ))
+    (AlignPathOrdinary (AlignVar [LUnit, LBool] LBool (LThere LHere)))
+    (AlignPathOrdinary (AlignBool [LUnit, LBool] False))))
+  (AlignPathOrdinary (AlignUnit [LBool]))
+
+pathArrowAlignment : HigherOrderPathAlignment Tests.Shadow.pathArrowWitness Tests.Shadow.pathArrowWitness
+pathArrowAlignment = AlignPathLambda (AlignPathApplication
+  (AlignPathAt [LBool] [LArrow LBool LBool] (LArrow LBool LBool) 1 LHere (Var FZ))
+  (AlignPathOrdinary (AlignVar [LBool] LBool LHere)))
+
+pathUnitEliminationAlignment : HigherOrderPathAlignment Tests.Shadow.pathUnitElimination Tests.Shadow.pathUnitElimination
+pathUnitEliminationAlignment = AlignPathUnitElim (AlignPathOrdinary (AlignUnit []))
+  (AlignPathAt [] [LBool] LBool 1 LHere (Var FZ))
+
+dependentCapturedAligned : related (commonTypeSetoid LBool)
+  (applyMorphism (dependentPathSemantics Tests.Shadow.pathCaptured (\_ => (True, False))) ((False, ()), Tests.Shadow.dependentLinearPaths))
+  (applyMorphism (dependentPathSemantics Tests.Shadow.pathCaptured (\_ => (True, False))) ((False, ()), Tests.Shadow.dependentLinearPaths))
+dependentCapturedAligned = dependentPathAlignedRelated Tests.Shadow.pathCapturedAlignment (\_ => (True, False))
+  ((False, ()), Tests.Shadow.dependentLinearPaths) ((False, ()), Tests.Shadow.dependentLinearPaths)
+  ((Refl, Refl), ((\x, y, xy => respectsRelation Tests.Shadow.dependentLinearPath xy), Refl))
+
+dependentArrowOne : CommonMorphism
+  (commonProductSetoid (commonEnvironmentSetoid []) Fibril.Cubical.Logical.ShadowCommon.commonDMSetoid)
+  (commonTypeSetoid (LArrow LBool LBool))
+dependentArrowOne = commonConstant Tests.Shadow.setoidIdentity
+
+dependentArrowTwo : CommonMorphism
+  (commonProductSetoid (commonEnvironmentSetoid []) Fibril.Cubical.Logical.ShadowCommon.commonDMSetoid)
+  (commonTypeSetoid (LArrow LBool LBool))
+dependentArrowTwo = commonConstant Tests.Shadow.setoidConditionalIdentity
+
+dependentArrowAligned : related (commonTypeSetoid (LArrow LBool LBool))
+  (applyMorphism (dependentPathSemantics Tests.Shadow.pathArrowWitness (\_ => (True, False))) ((), (Tests.Shadow.dependentArrowOne, ())))
+  (applyMorphism (dependentPathSemantics Tests.Shadow.pathArrowWitness (\_ => (True, False))) ((), (Tests.Shadow.dependentArrowTwo, ())))
+dependentArrowAligned = dependentPathAlignedRelated Tests.Shadow.pathArrowAlignment (\_ => (True, False))
+  ((), (Tests.Shadow.dependentArrowOne, ())) ((), (Tests.Shadow.dependentArrowTwo, ()))
+  (Refl, ((\x, y, xy => Tests.Shadow.setoidIdentityEquivalent), Refl))
+
+-- Related but definitionally different ordinary environments and dependent paths.
+alignedEnvPath1 : CommonMorphism
+  (commonProductSetoid (commonEnvironmentSetoid [LArrow LBool LBool]) Fibril.Cubical.Logical.ShadowCommon.commonDMSetoid)
+  Fibril.Cubical.Logical.ShadowCommon.commonBoolSetoid
+alignedEnvPath1 = MkCommonMorphism (\input => fst (snd input)) (\rel => cong fst (snd rel))
+
+alignedEnvPath2 : CommonMorphism
+  (commonProductSetoid (commonEnvironmentSetoid [LArrow LBool LBool]) Fibril.Cubical.Logical.ShadowCommon.commonDMSetoid)
+  Fibril.Cubical.Logical.ShadowCommon.commonBoolSetoid
+alignedEnvPath2 = MkCommonMorphism (\input => if fst (snd input) then True else False)
+  (\rel => cong (\v => if fst v then True else False) (snd rel))
+
+alignedEnvPathRelated : related (commonDependentPathEnvironmentSetoid [LArrow LBool LBool] [LBool])
+  (Tests.Shadow.alignedEnvPath1, ()) (Tests.Shadow.alignedEnvPath2, ())
+alignedEnvPathRelated = ((\x, y, xy => trans (cong fst (snd xy)) (boolIdentity (fst (snd y)))), Refl)
+  where
+    boolIdentity : (b : Bool) -> b = (if b then True else False)
+    boolIdentity False = Refl
+    boolIdentity True = Refl
+
+alignedBoolApp : HigherOrderPathTerm [LArrow LBool LBool] [LBool] LBool 1
+  (CPAppType (CPOrdinaryType (CVariable LHere)) (CPAtType {i = Var FZ} LHere))
+alignedBoolApp = HOPApplication [LArrow LBool LBool] [LBool] LBool LBool 1
+  (HOPOrdinary [LArrow LBool LBool] [LBool] (LArrow LBool LBool) 1 (HOVar [LArrow LBool LBool] (LArrow LBool LBool) LHere))
+  (HOPAt [LArrow LBool LBool] [LBool] LBool 1 LHere (Var FZ))
+
+alignedBoolAppWitness : HigherOrderPathAlignment Tests.Shadow.alignedBoolApp Tests.Shadow.alignedBoolApp
+alignedBoolAppWitness = AlignPathApplication
+  (AlignPathOrdinary (AlignVar [LArrow LBool LBool] (LArrow LBool LBool) LHere))
+  (AlignPathAt [LArrow LBool LBool] [LBool] LBool 1 LHere (Var FZ))
+
+alignedBoolAppRelated : applyMorphism (dependentPathSemantics Tests.Shadow.alignedBoolApp (\_ => (True, False)))
+  ((Tests.Shadow.setoidIdentity, ()), (Tests.Shadow.alignedEnvPath1, ())) =
+  applyMorphism (dependentPathSemantics Tests.Shadow.alignedBoolApp (\_ => (True, False)))
+  ((Tests.Shadow.setoidConditionalIdentity, ()), (Tests.Shadow.alignedEnvPath2, ()))
+alignedBoolAppRelated = dependentPathAlignedRelated Tests.Shadow.alignedBoolAppWitness (\_ => (True, False))
+  ((Tests.Shadow.setoidIdentity, ()), (Tests.Shadow.alignedEnvPath1, ()))
+  ((Tests.Shadow.setoidConditionalIdentity, ()), (Tests.Shadow.alignedEnvPath2, ()))
+  ((Tests.Shadow.setoidIdentityEquivalent, Refl), Tests.Shadow.alignedEnvPathRelated)
+
+alignedBoolAppResult : applyMorphism (dependentPathSemantics Tests.Shadow.alignedBoolApp (\_ => (True, False)))
+  ((Tests.Shadow.setoidIdentity, ()), (Tests.Shadow.alignedEnvPath1, ())) = True
+alignedBoolAppResult = trans Tests.Shadow.alignedBoolAppRelated Refl
+
+alignedUnitApp : HigherOrderPathTerm [LArrow LBool LBool] [LBool] LUnit 1
+  (CPAppType (CPLamType (CPOrdinaryType CUnitType)) (CPAtType {i = Var FZ} LHere))
+alignedUnitApp = HOPApplication [LArrow LBool LBool] [LBool] LBool LUnit 1
+  (HOPLambda [LArrow LBool LBool] [LBool] LBool LUnit 1
+    (HOPOrdinary [LBool, LArrow LBool LBool] [LBool] LUnit 1 (HOUnit [LBool, LArrow LBool LBool])))
+  (HOPAt [LArrow LBool LBool] [LBool] LBool 1 LHere (Var FZ))
+
+alignedUnitAppWitness : HigherOrderPathAlignment Tests.Shadow.alignedUnitApp Tests.Shadow.alignedUnitApp
+alignedUnitAppWitness = AlignPathApplication (AlignPathLambda (AlignPathOrdinary (AlignUnit [LBool, LArrow LBool LBool])))
+  (AlignPathAt [LArrow LBool LBool] [LBool] LBool 1 LHere (Var FZ))
+
+alignedUnitAppResult : applyMorphism (dependentPathSemantics Tests.Shadow.alignedUnitApp (\_ => (True, False)))
+  ((Tests.Shadow.setoidIdentity, ()), (Tests.Shadow.alignedEnvPath1, ())) = ()
+alignedUnitAppResult = trans (dependentPathAlignedRelated Tests.Shadow.alignedUnitAppWitness (\_ => (True, False))
+  ((Tests.Shadow.setoidIdentity, ()), (Tests.Shadow.alignedEnvPath1, ()))
+  ((Tests.Shadow.setoidConditionalIdentity, ()), (Tests.Shadow.alignedEnvPath2, ()))
+  ((Tests.Shadow.setoidIdentityEquivalent, Refl), Tests.Shadow.alignedEnvPathRelated)) Refl
+
+alignedArrowApp : HigherOrderPathTerm [LArrow LBool LBool] [LBool] (LArrow LBool LBool) 1
+  (CPAppType (CPLamType (CPOrdinaryType (CVariable (LThere LHere)))) (CPAtType {i = Var FZ} LHere))
+alignedArrowApp = HOPApplication [LArrow LBool LBool] [LBool] LBool (LArrow LBool LBool) 1
+  (HOPLambda [LArrow LBool LBool] [LBool] LBool (LArrow LBool LBool) 1
+    (HOPOrdinary [LBool, LArrow LBool LBool] [LBool] (LArrow LBool LBool) 1
+      (HOVar [LBool, LArrow LBool LBool] (LArrow LBool LBool) (LThere LHere))))
+  (HOPAt [LArrow LBool LBool] [LBool] LBool 1 LHere (Var FZ))
+
+alignedArrowAppWitness : HigherOrderPathAlignment Tests.Shadow.alignedArrowApp Tests.Shadow.alignedArrowApp
+alignedArrowAppWitness = AlignPathApplication
+  (AlignPathLambda (AlignPathOrdinary (AlignVar [LBool, LArrow LBool LBool] (LArrow LBool LBool) (LThere LHere))))
+  (AlignPathAt [LArrow LBool LBool] [LBool] LBool 1 LHere (Var FZ))
+
+alignedArrowAppResult : applyMorphism (applyMorphism (dependentPathSemantics Tests.Shadow.alignedArrowApp (\_ => (True, False)))
+  ((Tests.Shadow.setoidIdentity, ()), (Tests.Shadow.alignedEnvPath1, ()))) True = True
+alignedArrowAppResult = trans ((dependentPathAlignedRelated Tests.Shadow.alignedArrowAppWitness (\_ => (True, False))
+  ((Tests.Shadow.setoidIdentity, ()), (Tests.Shadow.alignedEnvPath1, ()))
+  ((Tests.Shadow.setoidConditionalIdentity, ()), (Tests.Shadow.alignedEnvPath2, ()))
+  ((Tests.Shadow.setoidIdentityEquivalent, Refl), Tests.Shadow.alignedEnvPathRelated)) True True Refl) Refl
+
+-- The captured path selects opposite branches at the same non-Boolean valuation.
+capturedTrueBranchRelated : applyMorphism (dependentPathSemantics Tests.Shadow.pathCaptured (\_ => (True, False)))
+  ((False, ()), Tests.Shadow.dependentLinearPaths) =
+  applyMorphism (dependentPathSemantics Tests.Shadow.pathCaptured (\_ => (True, False)))
+  ((False, ()), (Tests.Shadow.dependentLinearPathAlternative, ()))
+capturedTrueBranchRelated = dependentPathAlignedRelated Tests.Shadow.pathCapturedAlignment (\_ => (True, False))
+  ((False, ()), Tests.Shadow.dependentLinearPaths) ((False, ()), (Tests.Shadow.dependentLinearPathAlternative, ()))
+  ((Refl, Refl), Tests.Shadow.dependentLinearPathsRelated)
+
+capturedTrueBranchResult : applyMorphism (dependentPathSemantics Tests.Shadow.pathCaptured (\_ => (True, False)))
+  ((False, ()), Tests.Shadow.dependentLinearPaths) = False
+capturedTrueBranchResult = trans Tests.Shadow.capturedTrueBranchRelated Refl
+
+capturedFalseBranchResult : applyMorphism (dependentPathSemantics Tests.Shadow.pathCaptured (\_ => (True, False)))
+  ((True, ()), Tests.Shadow.dependentLinearPaths) = False
+capturedFalseBranchResult = trans (dependentPathAlignedRelated Tests.Shadow.pathCapturedAlignment (\_ => (True, False))
+  ((True, ()), Tests.Shadow.dependentLinearPaths) ((True, ()), (Tests.Shadow.dependentLinearPathAlternative, ()))
+  ((Refl, Refl), Tests.Shadow.dependentLinearPathsRelated)) Refl
+
+linearPathAlignedResult : applyMorphism (dependentPathSemantics Tests.Shadow.pathLinearIf (\_ => (True, False)))
+  ((True, ()), Tests.Shadow.dependentLinearPaths) = True
+linearPathAlignedResult = trans (dependentPathAlignedRelated Tests.Shadow.pathLinearAlignment (\_ => (True, False))
+  ((True, ()), Tests.Shadow.dependentLinearPaths) ((True, ()), (Tests.Shadow.dependentLinearPathAlternative, ()))
+  ((Refl, Refl), Tests.Shadow.dependentLinearPathsRelated)) Refl
+
+unitElimAlignedResult : applyMorphism (dependentPathSemantics Tests.Shadow.pathUnitElimination (\_ => (True, False)))
+  ((), (Tests.Shadow.dependentTailPath, ())) = True
+unitElimAlignedResult = trans (dependentPathAlignedRelated Tests.Shadow.pathUnitEliminationAlignment (\_ => (True, False))
+  ((), (Tests.Shadow.dependentTailPath, ())) ((), (Tests.Shadow.dependentTailPath, ()))
+  (Refl, ((\x, y, xy => respectsRelation Tests.Shadow.dependentTailPath xy), Refl))) Refl
+
+alignedIf : HigherOrderPathTerm [LArrow LBool LBool] [LBool] LBool 1
+  (CPIfType (CPAtType {i = Var FZ} LHere) (CPOrdinaryType (CBoolType {b = True})) (CPOrdinaryType (CBoolType {b = False})))
+alignedIf = HOPIf [LArrow LBool LBool] [LBool] LBool 1
+  (HOPAt [LArrow LBool LBool] [LBool] LBool 1 LHere (Var FZ))
+  (HOPOrdinary [LArrow LBool LBool] [LBool] LBool 1 (HOBool [LArrow LBool LBool] True))
+  (HOPOrdinary [LArrow LBool LBool] [LBool] LBool 1 (HOBool [LArrow LBool LBool] False))
+
+alignedIfWitness : HigherOrderPathAlignment Tests.Shadow.alignedIf Tests.Shadow.alignedIf
+alignedIfWitness = AlignPathIf (AlignPathAt [LArrow LBool LBool] [LBool] LBool 1 LHere (Var FZ))
+  (AlignPathOrdinary (AlignBool [LArrow LBool LBool] True))
+  (AlignPathOrdinary (AlignBool [LArrow LBool LBool] False))
+
+alignedIfTrue : applyMorphism (dependentPathSemantics Tests.Shadow.alignedIf (\_ => (True, False)))
+  ((Tests.Shadow.setoidIdentity, ()), (Tests.Shadow.alignedEnvPath1, ())) = True
+alignedIfTrue = trans (dependentPathAlignedRelated Tests.Shadow.alignedIfWitness (\_ => (True, False))
+  ((Tests.Shadow.setoidIdentity, ()), (Tests.Shadow.alignedEnvPath1, ()))
+  ((Tests.Shadow.setoidConditionalIdentity, ()), (Tests.Shadow.alignedEnvPath2, ()))
+  ((Tests.Shadow.setoidIdentityEquivalent, Refl), Tests.Shadow.alignedEnvPathRelated)) Refl
+
+alignedIfFalse : applyMorphism (dependentPathSemantics Tests.Shadow.alignedIf (\_ => (False, True)))
+  ((Tests.Shadow.setoidIdentity, ()), (Tests.Shadow.alignedEnvPath1, ())) = False
+alignedIfFalse = trans (dependentPathAlignedRelated Tests.Shadow.alignedIfWitness (\_ => (False, True))
+  ((Tests.Shadow.setoidIdentity, ()), (Tests.Shadow.alignedEnvPath1, ()))
+  ((Tests.Shadow.setoidConditionalIdentity, ()), (Tests.Shadow.alignedEnvPath2, ()))
+  ((Tests.Shadow.setoidIdentityEquivalent, Refl), Tests.Shadow.alignedEnvPathRelated)) Refl
