@@ -3152,3 +3152,101 @@ semanticIfApplicationInterior : applyMorphism (dependentPathSemantics
   Tests.Shadow.semanticAbstractionValuation) ((False, ()), Tests.Shadow.dependentLinearPaths) = True
 semanticIfApplicationInterior = trans (higherOrderCommonPathApplicationRelated
   Tests.Shadow.semanticIfApplicationWitness (Var FZ) (False, ()) Tests.Shadow.semanticAbstractionValuation) Refl
+
+-- Naturality uses actual pair valuations, not independent Boolean endpoint tests.
+-- A contraction 2 -> 1, with Meet/Reverse images and both off-diagonal values.
+naturalityDimensions : Fin 2 -> ScopedInterval 1
+naturalityDimensions FZ = Meet (Var FZ) (Reverse (Var FZ))
+naturalityDimensions (FS FZ) = Reverse (Var FZ)
+
+naturalityPair : Bool -> Fin 1 -> DM
+naturalityPair side _ = (side, not side)
+
+naturalityFreshScope : liftCommonDimensions Tests.Shadow.naturalityDimensions FZ = Var FZ
+naturalityFreshScope = Refl
+
+naturalityOlderScope : liftCommonDimensions Tests.Shadow.naturalityDimensions (FS FZ) =
+  Meet (Var (FS FZ)) (Reverse (Var (FS FZ)))
+naturalityOlderScope = Refl
+
+naturalityOldestScope : liftCommonDimensions Tests.Shadow.naturalityDimensions (FS (FS FZ)) = Reverse (Var (FS FZ))
+naturalityOldestScope = Refl
+
+naturalityIfSyntax : mapCommonPathDimensions Tests.Shadow.naturalityDimensions
+  (applyCommonShadowPath Tests.Shadow.semanticIfApplicationPath (Meet (Var FZ) (Var (FS FZ)))) =
+  commonShadowMappedBodyApplication Tests.Shadow.naturalityDimensions Tests.Shadow.semanticIfApplicationPath (Meet (Var FZ) (Var (FS FZ)))
+naturalityIfSyntax = commonShadowApplicationDimensions Tests.Shadow.naturalityDimensions
+  Tests.Shadow.semanticIfApplicationPath (Meet (Var FZ) (Var (FS FZ)))
+
+naturalityIfInterchange : (side, b : Bool) -> applyMorphism (dependentPathSemantics
+  (pathWitness (mapHigherOrderPathDimensions Tests.Shadow.naturalityDimensions
+    (pathWitness (higherOrderCommonPathApplication Tests.Shadow.semanticIfApplicationWitness (Meet (Var FZ) (Var (FS FZ)))))))
+  (Tests.Shadow.naturalityPair side)) ((b, ()), Tests.Shadow.dependentLinearPaths) =
+  applyMorphism (dependentPathSemantics (pathWitness (higherOrderCommonPathMappedBodyApplication
+    Tests.Shadow.semanticIfApplicationWitness Tests.Shadow.naturalityDimensions (Meet (Var FZ) (Var (FS FZ)))))
+    (Tests.Shadow.naturalityPair side)) ((b, ()), Tests.Shadow.dependentLinearPaths)
+naturalityIfInterchange side b = higherOrderCommonPathApplicationDimensionsRelated
+  Tests.Shadow.semanticIfApplicationWitness Tests.Shadow.naturalityDimensions (Meet (Var FZ) (Var (FS FZ)))
+  (Tests.Shadow.naturalityPair side) ((b, ()), Tests.Shadow.dependentLinearPaths) ((b, ()), Tests.Shadow.dependentLinearPaths)
+  (relationRefl (commonProductSetoid (commonEnvironmentSetoid [LBool]) (commonDependentPathEnvironmentSetoid [LBool] [LBool]))
+    ((b, ()), Tests.Shadow.dependentLinearPaths))
+
+naturalityIfComposedValuation : (side, b : Bool) -> applyMorphism (dependentPathSemantics
+  (pathWitness (mapHigherOrderPathDimensions Tests.Shadow.naturalityDimensions
+    (pathWitness (higherOrderCommonPathApplication Tests.Shadow.semanticIfApplicationWitness (Var FZ)))))
+  (Tests.Shadow.naturalityPair side)) ((b, ()), Tests.Shadow.dependentLinearPaths) =
+  applyMorphism (dependentPathSemantics (pathWitness (higherOrderCommonPathApplication Tests.Shadow.semanticIfApplicationWitness (Var FZ)))
+    (\v => evalDMVal (Tests.Shadow.naturalityPair side) (Tests.Shadow.naturalityDimensions v)))
+    ((b, ()), Tests.Shadow.dependentLinearPaths)
+naturalityIfComposedValuation side b = higherOrderCommonPathApplicationNaturality
+  Tests.Shadow.semanticIfApplicationWitness Tests.Shadow.naturalityDimensions (Var FZ) (Tests.Shadow.naturalityPair side)
+  ((b, ()), Tests.Shadow.dependentLinearPaths) ((b, ()), Tests.Shadow.dependentLinearPaths)
+  (relationRefl (commonProductSetoid (commonEnvironmentSetoid [LBool]) (commonDependentPathEnvironmentSetoid [LBool] [LBool]))
+    ((b, ()), Tests.Shadow.dependentLinearPaths))
+
+-- Nonconstant in its captured Bool: all four cases, not just endpoint examples.
+naturalityIfResult : (side, b : Bool) -> applyMorphism (dependentPathSemantics
+  (pathWitness (mapHigherOrderPathDimensions Tests.Shadow.naturalityDimensions
+    (pathWitness (higherOrderCommonPathApplication Tests.Shadow.semanticIfApplicationWitness (Meet (Var FZ) (Var (FS FZ)))))))
+  (Tests.Shadow.naturalityPair side)) ((b, ()), Tests.Shadow.dependentLinearPaths) = not b
+naturalityIfResult False False = trans (Tests.Shadow.naturalityIfInterchange False False) Refl
+naturalityIfResult False True = trans (Tests.Shadow.naturalityIfInterchange False True) Refl
+naturalityIfResult True False = trans (Tests.Shadow.naturalityIfInterchange True False) Refl
+naturalityIfResult True True = trans (Tests.Shadow.naturalityIfInterchange True True) Refl
+
+-- An expansion 1 -> 2 under both a fresh dimension and an ordinary lambda.
+-- The path captures the outer Bool; the local Bool argument must not replace it.
+naturalityArrowDimensions : Fin 1 -> ScopedInterval 2
+naturalityArrowDimensions FZ = Meet (Var FZ) (Reverse (Var (FS FZ)))
+
+naturalityArrowLiftScope : liftCommonDimensions Tests.Shadow.naturalityArrowDimensions (FS FZ) =
+  Meet (Var (FS FZ)) (Reverse (Var (FS (FS FZ))))
+naturalityArrowLiftScope = Refl
+
+naturalityArrowSyntax : mapCommonPathDimensions Tests.Shadow.naturalityArrowDimensions
+  (applyCommonShadowPath Tests.Shadow.semanticArrowApplicationPath (Reverse (Var FZ))) =
+  commonShadowMappedBodyApplication Tests.Shadow.naturalityArrowDimensions Tests.Shadow.semanticArrowApplicationPath (Reverse (Var FZ))
+naturalityArrowSyntax = commonShadowApplicationDimensions Tests.Shadow.naturalityArrowDimensions
+  Tests.Shadow.semanticArrowApplicationPath (Reverse (Var FZ))
+
+naturalityArrowInterchange : (side, b : Bool) -> related (commonTypeSetoid (LArrow LBool LBool))
+  (applyMorphism (dependentPathSemantics (pathWitness (mapHigherOrderPathDimensions Tests.Shadow.naturalityArrowDimensions
+    (pathWitness (higherOrderCommonPathApplication Tests.Shadow.semanticArrowApplicationWitness (Reverse (Var FZ))))))
+    (\_ => (side, not side))) ((b, ()), Tests.Shadow.dependentLinearPaths))
+  (applyMorphism (dependentPathSemantics (pathWitness (higherOrderCommonPathMappedBodyApplication
+    Tests.Shadow.semanticArrowApplicationWitness Tests.Shadow.naturalityArrowDimensions (Reverse (Var FZ))))
+    (\_ => (side, not side))) ((b, ()), Tests.Shadow.dependentLinearPaths))
+naturalityArrowInterchange side b = higherOrderCommonPathApplicationDimensionsRelated
+  Tests.Shadow.semanticArrowApplicationWitness Tests.Shadow.naturalityArrowDimensions (Reverse (Var FZ)) (\_ => (side, not side))
+  ((b, ()), Tests.Shadow.dependentLinearPaths) ((b, ()), Tests.Shadow.dependentLinearPaths)
+  (relationRefl (commonProductSetoid (commonEnvironmentSetoid [LBool]) (commonDependentPathEnvironmentSetoid [LBool] [LBool]))
+    ((b, ()), Tests.Shadow.dependentLinearPaths))
+
+naturalityArrowResult : (side, b, arg : Bool) -> applyMorphism
+  (applyMorphism (dependentPathSemantics (pathWitness (mapHigherOrderPathDimensions Tests.Shadow.naturalityArrowDimensions
+    (pathWitness (higherOrderCommonPathApplication Tests.Shadow.semanticArrowApplicationWitness (Reverse (Var FZ))))))
+    (\_ => (side, not side))) ((b, ()), Tests.Shadow.dependentLinearPaths)) arg = not b
+naturalityArrowResult False False arg = trans (Tests.Shadow.naturalityArrowInterchange False False arg arg Refl) Refl
+naturalityArrowResult False True arg = trans (Tests.Shadow.naturalityArrowInterchange False True arg arg Refl) Refl
+naturalityArrowResult True False arg = trans (Tests.Shadow.naturalityArrowInterchange True False arg arg Refl) Refl
+naturalityArrowResult True True arg = trans (Tests.Shadow.naturalityArrowInterchange True True arg arg Refl) Refl

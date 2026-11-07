@@ -490,6 +490,89 @@ commonPathDimensionsCommute env (BodyApp f x) = cong2 CPApp (commonPathDimension
 commonPathDimensionsCommute env (BodyUnitElim x b) = cong2 CPUnitElim (commonPathDimensionsCommute env x) (commonPathDimensionsCommute env b)
 commonPathDimensionsCommute env (BodyIf c t f) = rewrite commonPathDimensionsCommute env c in rewrite commonPathDimensionsCommute env t in rewrite commonPathDimensionsCommute env f in Refl
 
+||| Lift an ambient substitution under a fresh dimension, without capturing it.
+public export
+liftCommonDimensions : (Fin d -> ScopedInterval e) -> Fin (S d) -> ScopedInterval (S e)
+liftCommonDimensions sigma FZ = Var FZ
+liftCommonDimensions sigma (FS v) = weakenInterval (sigma v)
+
+public export
+commonIntervalSubstitutionCongruence : (sigma, tau : Fin d -> ScopedInterval e) ->
+  ((v : Fin d) -> sigma v = tau v) -> (i : ScopedInterval d) ->
+  substituteScoped sigma i = substituteScoped tau i
+commonIntervalSubstitutionCongruence sigma tau eq Zero = Refl
+commonIntervalSubstitutionCongruence sigma tau eq One = Refl
+commonIntervalSubstitutionCongruence sigma tau eq (Var v) = eq v
+commonIntervalSubstitutionCongruence sigma tau eq (Reverse i) = cong Reverse (commonIntervalSubstitutionCongruence sigma tau eq i)
+commonIntervalSubstitutionCongruence sigma tau eq (Meet i j) = cong2 Meet (commonIntervalSubstitutionCongruence sigma tau eq i) (commonIntervalSubstitutionCongruence sigma tau eq j)
+commonIntervalSubstitutionCongruence sigma tau eq (Join i j) = cong2 Join (commonIntervalSubstitutionCongruence sigma tau eq i) (commonIntervalSubstitutionCongruence sigma tau eq j)
+
+public export
+commonIntervalSubstitutionComposition : (sigma : Fin d -> ScopedInterval e) ->
+  (tau : Fin e -> ScopedInterval f) -> (i : ScopedInterval d) ->
+  substituteScoped tau (substituteScoped sigma i) = substituteScoped (\v => substituteScoped tau (sigma v)) i
+commonIntervalSubstitutionComposition sigma tau Zero = Refl
+commonIntervalSubstitutionComposition sigma tau One = Refl
+commonIntervalSubstitutionComposition sigma tau (Var v) = Refl
+commonIntervalSubstitutionComposition sigma tau (Reverse i) = cong Reverse (commonIntervalSubstitutionComposition sigma tau i)
+commonIntervalSubstitutionComposition sigma tau (Meet i j) = cong2 Meet (commonIntervalSubstitutionComposition sigma tau i) (commonIntervalSubstitutionComposition sigma tau j)
+commonIntervalSubstitutionComposition sigma tau (Join i j) = cong2 Join (commonIntervalSubstitutionComposition sigma tau i) (commonIntervalSubstitutionComposition sigma tau j)
+
+public export
+commonIntervalSubstitutionIdentity : (i : ScopedInterval d) -> substituteScoped Var i = i
+commonIntervalSubstitutionIdentity Zero = Refl
+commonIntervalSubstitutionIdentity One = Refl
+commonIntervalSubstitutionIdentity (Var v) = Refl
+commonIntervalSubstitutionIdentity (Reverse i) = cong Reverse (commonIntervalSubstitutionIdentity i)
+commonIntervalSubstitutionIdentity (Meet i j) = cong2 Meet (commonIntervalSubstitutionIdentity i) (commonIntervalSubstitutionIdentity j)
+commonIntervalSubstitutionIdentity (Join i j) = cong2 Join (commonIntervalSubstitutionIdentity i) (commonIntervalSubstitutionIdentity j)
+
+||| The substitution square for application: the fresh coordinate is replaced
+||| by the substituted argument, while older coordinates use sigma.
+public export
+commonApplicationDimensionSquare : (sigma : Fin d -> ScopedInterval e) -> (i : ScopedInterval d) ->
+  (v : Fin (S d)) -> substituteScoped sigma (atDimension i v) =
+    substituteScoped (atDimension (substituteScoped sigma i)) (liftCommonDimensions sigma v)
+commonApplicationDimensionSquare sigma i FZ = Refl
+commonApplicationDimensionSquare sigma i (FS v) = sym $
+  trans (commonIntervalSubstitutionComposition (Var . FS) (atDimension (substituteScoped sigma i)) (sigma v))
+    (commonIntervalSubstitutionIdentity (sigma v))
+
+public export
+commonPathDimensionsCongruence : (sigma, tau : Fin d -> ScopedInterval e) ->
+  ((v : Fin d) -> sigma v = tau v) -> (body : CommonPathTerm n k d) ->
+  mapCommonPathDimensions sigma body = mapCommonPathDimensions tau body
+commonPathDimensionsCongruence sigma tau eq (CPOrdinary t) = Refl
+commonPathDimensionsCongruence sigma tau eq (CPAt p i) = cong (CPAt p) (commonIntervalSubstitutionCongruence sigma tau eq i)
+commonPathDimensionsCongruence sigma tau eq (CPLam b) = cong CPLam (commonPathDimensionsCongruence sigma tau eq b)
+commonPathDimensionsCongruence sigma tau eq (CPApp f x) = cong2 CPApp (commonPathDimensionsCongruence sigma tau eq f) (commonPathDimensionsCongruence sigma tau eq x)
+commonPathDimensionsCongruence sigma tau eq (CPUnitElim x b) = cong2 CPUnitElim (commonPathDimensionsCongruence sigma tau eq x) (commonPathDimensionsCongruence sigma tau eq b)
+commonPathDimensionsCongruence sigma tau eq (CPIf c t f) = rewrite commonPathDimensionsCongruence sigma tau eq c in rewrite commonPathDimensionsCongruence sigma tau eq t in rewrite commonPathDimensionsCongruence sigma tau eq f in Refl
+
+public export
+commonPathDimensionsComposition : (sigma : Fin d -> ScopedInterval e) ->
+  (tau : Fin e -> ScopedInterval f) -> (body : CommonPathTerm n k d) ->
+  mapCommonPathDimensions tau (mapCommonPathDimensions sigma body) =
+    mapCommonPathDimensions (\v => substituteScoped tau (sigma v)) body
+commonPathDimensionsComposition sigma tau (CPOrdinary t) = Refl
+commonPathDimensionsComposition sigma tau (CPAt p i) = cong (CPAt p) (commonIntervalSubstitutionComposition sigma tau i)
+commonPathDimensionsComposition sigma tau (CPLam b) = cong CPLam (commonPathDimensionsComposition sigma tau b)
+commonPathDimensionsComposition sigma tau (CPApp fn x) = cong2 CPApp (commonPathDimensionsComposition sigma tau fn) (commonPathDimensionsComposition sigma tau x)
+commonPathDimensionsComposition sigma tau (CPUnitElim x b) = cong2 CPUnitElim (commonPathDimensionsComposition sigma tau x) (commonPathDimensionsComposition sigma tau b)
+commonPathDimensionsComposition sigma tau (CPIf c t no) = rewrite commonPathDimensionsComposition sigma tau c in rewrite commonPathDimensionsComposition sigma tau t in rewrite commonPathDimensionsComposition sigma tau no in Refl
+
+||| Syntactic application/substitution interchange, independent of semantics or
+||| face solving. It does not construct a reindexed CommonShadowPath.
+public export
+commonPathApplicationDimensions : (sigma : Fin d -> ScopedInterval e) -> (i : ScopedInterval d) ->
+  (body : CommonPathTerm n k (S d)) ->
+  mapCommonPathDimensions sigma (mapCommonPathDimensions (atDimension i) body) =
+    mapCommonPathDimensions (atDimension (substituteScoped sigma i)) (mapCommonPathDimensions (liftCommonDimensions sigma) body)
+commonPathApplicationDimensions sigma i body =
+  trans (commonPathDimensionsComposition (atDimension i) sigma body) $
+    trans (commonPathDimensionsCongruence _ _ (commonApplicationDimensionSquare sigma i) body)
+      (sym (commonPathDimensionsComposition (liftCommonDimensions sigma) (atDimension (substituteScoped sigma i)) body))
+
 ||| Dimension-independent, intrinsically typed common path declarations.
 public export
 data CommonDeclarations : Vect n LogicalType -> Vect k LogicalType -> Type where
@@ -642,6 +725,24 @@ applyCommonShadowPath : {0 ctx : Vect n LogicalType} -> {0 paths : Vect k Logica
   {0 left, right : CommonPathTerm n k d} ->
   CommonShadowPath decls face left right a -> ScopedInterval d -> CommonPathTerm n k d
 applyCommonShadowPath (CommonAbstract _ _ body _ _ _) i = mapCommonPathDimensions (atDimension i) body
+
+||| Apply the independently dimension-mapped body. This is only term syntax:
+||| constructing a mapped abstraction additionally requires its actual boundaries.
+public export
+commonShadowMappedBodyApplication : {0 ctx : Vect n LogicalType} -> {0 paths : Vect k LogicalType} ->
+  {0 decls : CommonDeclarations ctx paths} -> {0 face : ScopedFace d} ->
+  {0 left, right : CommonPathTerm n k d} ->
+  (Fin d -> ScopedInterval e) -> CommonShadowPath decls face left right a -> ScopedInterval d -> CommonPathTerm n k e
+commonShadowMappedBodyApplication sigma (CommonAbstract _ _ body _ _ _) i =
+  mapCommonPathDimensions (atDimension (substituteScoped sigma i)) (mapCommonPathDimensions (liftCommonDimensions sigma) body)
+
+public export
+commonShadowApplicationDimensions : {0 ctx : Vect n LogicalType} -> {0 paths : Vect k LogicalType} ->
+  {0 decls : CommonDeclarations ctx paths} -> {0 face : ScopedFace d} ->
+  {0 left, right : CommonPathTerm n k d} ->
+  (sigma : Fin d -> ScopedInterval e) -> (path : CommonShadowPath decls face left right a) -> (i : ScopedInterval d) ->
+  mapCommonPathDimensions sigma (applyCommonShadowPath path i) = commonShadowMappedBodyApplication sigma path i
+commonShadowApplicationDimensions sigma (CommonAbstract _ _ body _ _ _) i = commonPathApplicationDimensions sigma i body
 
 public export
 substituteCommonShadowApplication : {0 source : Vect n LogicalType} -> {0 target : Vect m LogicalType} ->
@@ -1898,6 +1999,52 @@ dependentPathDimensionsRelated {a = (LArrow c dty)} (HOPIf ctx paths _ d cond ye
   higherOrderChoiceRelated {a = (LArrow c dty)} _ _ (dependentPathDimensionsRelated cond env valuation x y xy)
     (dependentPathDimensionsRelated yes env valuation x y xy) (dependentPathDimensionsRelated no env valuation x y xy)
 
+||| Computational witnesses respect any syntactically commuting substitution
+||| square. Equality is the target setoid relation, not witness/function equality.
+public export
+dependentPathDimensionsSquareRelated : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} ->
+  {a : LogicalType} -> {d, e, f, g : Nat} -> {0 t : CommonPathTerm n k d} ->
+  {0 typing : CommonPathHasType ctx paths t a} ->
+  (w : HigherOrderPathTerm ctx paths a d typing) ->
+  (sigma : Fin d -> ScopedInterval e) -> (tau : Fin e -> ScopedInterval g) ->
+  (rho : Fin d -> ScopedInterval f) -> (upsilon : Fin f -> ScopedInterval g) ->
+  ((v : Fin d) -> substituteScoped tau (sigma v) = substituteScoped upsilon (rho v)) ->
+  (valuation : Fin g -> DM) ->
+  morphismsRelated
+    (dependentPathSemantics (pathWitness (mapHigherOrderPathDimensions tau (pathWitness (mapHigherOrderPathDimensions sigma w)))) valuation)
+    (dependentPathSemantics (pathWitness (mapHigherOrderPathDimensions upsilon (pathWitness (mapHigherOrderPathDimensions rho w)))) valuation)
+dependentPathDimensionsSquareRelated {ctx} {paths} {a} w sigma tau rho upsilon square valuation x y xy =
+  let xx = relationRefl (commonProductSetoid (commonEnvironmentSetoid ctx) (commonDependentPathEnvironmentSetoid ctx paths)) x
+      yy = relationRefl (commonProductSetoid (commonEnvironmentSetoid ctx) (commonDependentPathEnvironmentSetoid ctx paths)) y
+      composed = \v => trans (sym (commonIntervalSubstitutionVal tau valuation (sigma v))) $
+        trans (cong (evalDMVal valuation) (square v)) (commonIntervalSubstitutionVal upsilon valuation (rho v)) in
+  relationTrans (commonTypeSetoid a)
+    (dependentPathDimensionsRelated (pathWitness (mapHigherOrderPathDimensions sigma w)) tau valuation x x xx) $
+  relationTrans (commonTypeSetoid a)
+    (dependentPathDimensionsRelated w sigma (\v => evalDMVal valuation (tau v)) x x xx) $
+  relationTrans (commonTypeSetoid a)
+    (dependentPathValuationCongruence w (\v => evalDMVal (\j => evalDMVal valuation (tau j)) (sigma v)) (\v => evalDMVal (\j => evalDMVal valuation (upsilon j)) (rho v)) composed x y xy) $
+  relationTrans (commonTypeSetoid a)
+    (relationSym (commonTypeSetoid a) (dependentPathDimensionsRelated w rho (\v => evalDMVal valuation (upsilon v)) y y yy))
+    (relationSym (commonTypeSetoid a)
+      (dependentPathDimensionsRelated (pathWitness (mapHigherOrderPathDimensions rho w)) upsilon valuation y y yy))
+
+||| Application interchange for arbitrary finite scoped substitutions, including
+||| captured higher-order bodies and non-Boolean actual pair valuations.
+public export
+dependentPathApplicationDimensionsRelated : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} ->
+  {a : LogicalType} -> {d, e : Nat} -> {0 body : CommonPathTerm n k (S d)} ->
+  {0 typing : CommonPathHasType ctx paths body a} ->
+  (w : HigherOrderPathTerm ctx paths a (S d) typing) ->
+  (sigma : Fin d -> ScopedInterval e) -> (i : ScopedInterval d) -> (valuation : Fin e -> DM) ->
+  morphismsRelated
+    (dependentPathSemantics (pathWitness (mapHigherOrderPathDimensions sigma (pathWitness (mapHigherOrderPathDimensions (atDimension i) w)))) valuation)
+    (dependentPathSemantics (pathWitness (mapHigherOrderPathDimensions (atDimension (substituteScoped sigma i))
+      (pathWitness (mapHigherOrderPathDimensions (liftCommonDimensions sigma) w)))) valuation)
+dependentPathApplicationDimensionsRelated w sigma i valuation =
+  dependentPathDimensionsSquareRelated w (atDimension i) sigma (liftCommonDimensions sigma)
+    (atDimension (substituteScoped sigma i)) (commonApplicationDimensionSquare sigma i) valuation
+
 ||| Fresh-dimension weakening is interpretation-preserving at any new pair value.
 public export
 dependentPathWeakeningRelated : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} ->
@@ -2428,3 +2575,49 @@ higherOrderCommonPathApplicationBoundary {a} w False env valuation holds =
 higherOrderCommonPathApplicationBoundary {a} w True env valuation holds =
   relationTrans (commonTypeSetoid a) (higherOrderCommonPathApplicationRelated w One env valuation)
     (higherOrderCommonPathBoundary w True env valuation holds)
+
+||| A computational witness for the independently mapped body, then application.
+||| This deliberately does not claim a reindexed CommonShadowPath or boundaries.
+public export
+higherOrderCommonPathMappedBodyApplication : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} ->
+  {a : LogicalType} -> {d, e : Nat} -> {0 decls : CommonDeclarations ctx paths} ->
+  {0 face : ScopedFace d} -> {0 left, right : CommonPathTerm n k d} ->
+  {0 path : CommonShadowPath {ctx} {paths} {d} decls face left right a} ->
+  {ps : carrier (commonDependentPathEnvironmentSetoid ctx paths)} -> {adm : DependentPathAdmissible decls ps} ->
+  HigherOrderCommonShadowPath path ps adm -> (sigma : Fin d -> ScopedInterval e) -> (i : ScopedInterval d) ->
+  HigherOrderPathWitness ctx paths a e (commonShadowMappedBodyApplication sigma path i)
+higherOrderCommonPathMappedBodyApplication (HOCommonAbstract bw lw rw zero one) sigma i =
+  mapHigherOrderPathDimensions (atDimension (substituteScoped sigma i))
+    (pathWitness (mapHigherOrderPathDimensions (liftCommonDimensions sigma) (pathWitness bw)))
+
+||| Naturality of the actual application computation: map after applying, or
+||| apply the independently mapped body at the substituted coordinate.
+public export
+higherOrderCommonPathApplicationDimensionsRelated : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} ->
+  {a : LogicalType} -> {d, e : Nat} -> {0 decls : CommonDeclarations ctx paths} ->
+  {0 face : ScopedFace d} -> {0 left, right : CommonPathTerm n k d} ->
+  {0 path : CommonShadowPath {ctx} {paths} {d} decls face left right a} ->
+  {ps : carrier (commonDependentPathEnvironmentSetoid ctx paths)} -> {adm : DependentPathAdmissible decls ps} ->
+  (w : HigherOrderCommonShadowPath path ps adm) -> (sigma : Fin d -> ScopedInterval e) ->
+  (i : ScopedInterval d) -> (valuation : Fin e -> DM) ->
+  morphismsRelated
+    (dependentPathSemantics (pathWitness (mapHigherOrderPathDimensions sigma (pathWitness (higherOrderCommonPathApplication w i)))) valuation)
+    (dependentPathSemantics (pathWitness (higherOrderCommonPathMappedBodyApplication w sigma i)) valuation)
+higherOrderCommonPathApplicationDimensionsRelated (HOCommonAbstract bw lw rw zero one) sigma i valuation =
+  dependentPathApplicationDimensionsRelated (pathWitness bw) sigma i valuation
+
+||| The mapped actual application is evaluated in the composed actual pair
+||| valuation, not in an unrelated source environment or just at Boolean vertices.
+public export
+higherOrderCommonPathApplicationNaturality : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} ->
+  {a : LogicalType} -> {d, e : Nat} -> {0 decls : CommonDeclarations ctx paths} ->
+  {0 face : ScopedFace d} -> {0 left, right : CommonPathTerm n k d} ->
+  {0 path : CommonShadowPath {ctx} {paths} {d} decls face left right a} ->
+  {ps : carrier (commonDependentPathEnvironmentSetoid ctx paths)} -> {adm : DependentPathAdmissible decls ps} ->
+  (w : HigherOrderCommonShadowPath path ps adm) -> (sigma : Fin d -> ScopedInterval e) ->
+  (i : ScopedInterval d) -> (valuation : Fin e -> DM) ->
+  morphismsRelated
+    (dependentPathSemantics (pathWitness (mapHigherOrderPathDimensions sigma (pathWitness (higherOrderCommonPathApplication w i)))) valuation)
+    (dependentPathSemantics (pathWitness (higherOrderCommonPathApplication w i)) (\v => evalDMVal valuation (sigma v)))
+higherOrderCommonPathApplicationNaturality w sigma i valuation =
+  dependentPathDimensionsRelated (pathWitness (higherOrderCommonPathApplication w i)) sigma valuation

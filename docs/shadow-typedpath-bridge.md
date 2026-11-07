@@ -411,8 +411,9 @@ This includes arrow values via setoid relations, not equality of functions.
 These are application and boundary semantics **only with explicit semantic
 evidence**. General `CommonFaceEqual` soundness is not proved, so this evidence
 cannot currently be extracted for arbitrary `CommonAbstract` boundaries. Nothing
-here proves cubical naturality, composition, univalence, transport, or a runtime
-authority; production conversion and execution are unchanged.
+here proves free cubical/CCHM presheaf naturality, composition, univalence,
+transport, or a runtime authority; production conversion and execution are unchanged.
+The finite pair-valuation substitution theorem below is a narrower result.
 
 Regression proofs in `Tests.Shadow` cover an exact transformed lambda/app/if
 witness, a nonconstant ordinary-environment-dependent named path, related but
@@ -431,3 +432,82 @@ misindexed at the fresh dimension instead of the older `FS FZ` dimension.
 application coordinate, a false ambient face, and evidence for a different exact
 path, respectively. `tools/test_cubical_worktree.sh` checks these in the fresh
 worktree-package suite, rejecting unrelated type/import errors.
+
+### Finite pair-valuation naturality of application
+
+`liftCommonDimensions sigma` fixes the fresh dimension `FZ` and maps `FS v`
+to `weakenInterval (sigma v)`. For **every** finite scoped substitution
+`sigma : Fin d -> ScopedInterval e`, interval `i`, and body `b`, the structural
+substitution composition/congruence laws prove `commonPathApplicationDimensions`:
+
+```
+mapCommonPathDimensions sigma (mapCommonPathDimensions (atDimension i) b)
+  = mapCommonPathDimensions (atDimension (substituteScoped sigma i))
+      (mapCommonPathDimensions (liftCommonDimensions sigma) b)
+```
+
+This is syntax equality, not an evaluation-only wrapper. Its fresh/older-index
+square is `commonApplicationDimensionSquare`. `commonShadowApplicationDimensions`
+specializes it to the body of the actual abstraction. The independently mapped
+right-hand syntax is called `commonShadowMappedBodyApplication`; that name does
+**not** promise a typed reindexed path abstraction.
+
+`dependentPathDimensionsSquareRelated` proves computational witness coherence
+for any syntactically commuting dimension-substitution square. Both routes
+actually run `mapHigherOrderPathDimensions` twice, retaining their independently
+rebuilt typings. The proof composes dimension-substitution semantics with
+pointwise valuation congruence; it neither identifies typing proofs nor equates
+functions. `dependentPathApplicationDimensionsRelated` specializes this square
+to application. `higherOrderCommonPathApplicationDimensionsRelated` then relates
+mapping the **actual** `higherOrderCommonPathApplication w i` witness to
+`higherOrderCommonPathMappedBodyApplication w sigma i`, which independently maps
+the retained body under the fresh binder and applies it at `substituteScoped
+sigma i`. Relations hold as setoid morphisms, including related ordinary/path
+environments and arrow-valued captured bodies.
+
+`higherOrderCommonPathApplicationNaturality` also relates the mapped actual
+application under target valuation `nu` to the original application under the
+**composed actual valuation** `\v => evalDMVal nu (sigma v)`. No face assumption
+or admissibility at a different path environment is invented. Both off-diagonal
+pairs `(False, True)` and `(True, False)` are allowed; this is not just Boolean
+vertex agreement.
+
+#### Unsupported: automatic path-typing/boundary reindexing
+
+There is intentionally **no** unrestricted `CommonShadowPath` or
+`HigherOrderCommonShadowPath` dimension-map API. Given source body `b`, endpoints
+`l,r`, and face `phi`, a target abstraction would need actual derivations of:
+
+```
+CommonFaceEqual decls
+  (SConjunction (weakenFace (substituteScopedFace sigma phi)) (SEndpoint FZ side))
+  (mapCommonPathDimensions (liftCommonDimensions sigma) b)
+  (mapCommonPathDimensions (Var . FS) (mapCommonPathDimensions sigma endpoint)) a
+```
+
+for each side and the corresponding selected endpoint. It would additionally
+need `DependentEndpointFaceEvidence` indexed by **those exact target
+derivations**, the independently mapped computational body/endpoint witnesses,
+and the actual `ps, adm`. Source boundary evidence is not such a certificate.
+In particular, bounded endpoint/restriction checks inside a derivation need
+explicit target recertification (and any required syntactic alignment of weakened
+mapped endpoints); `boundedFaceEntails` / `boundedEndpointEntails` acceptance is
+not stable under arbitrary substitution. The existing large-dimension regression
+already exhibits accepted source and rejected target checks. The APIs above fail
+closed by returning only typed application **terms/witnesses**, never a mapped
+path or an assumed entailment. Reconstructing a target `CommonAbstract` and
+`HOCommonAbstract` still requires both target boundaries and structural evidence.
+
+These results are naturality of a **finite four-pair valuation interpretation**.
+They do not establish naturality of free De Morgan cubical/CCHM presheaves, nor
+composition/filling, univalence, or runtime transport. No production checker,
+conversion, evaluator, or runtime was changed.
+
+Regression proofs contract dimensions `2 -> 1` for the nonconstant Bool `If`
+path with actual linear-source endpoints, expand `1 -> 2` for the captured
+arrow-valued body, use `Meet`/`Reverse`, and check both off-diagonal valuations
+and both captured Bools. They check fresh, older, and oldest indices under the
+lift, syntax interchange, witness interchange, and composed valuations. Negative
+fixtures reject an uncomposed source valuation and an unsubstituted coordinate
+for the mapped-body API; the fresh-worktree runner checks their exact failure
+site and diagnostic, excluding unrelated import/type-declaration failures.

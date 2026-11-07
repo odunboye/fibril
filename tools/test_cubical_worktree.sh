@@ -825,3 +825,18 @@ for fixture in CommonApplicationWrongCoordinate CommonApplicationWrongFace Commo
   fi
 done
 echo 'Common application wrong coordinate, false ambient face and exact path witness tests passed.'
+for fixture in CommonNaturalityWrongValuation CommonNaturalityWrongMappedCoordinate; do
+  "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1 || true
+  case "$fixture" in
+    CommonNaturalityWrongValuation) expected='Mismatch between: True and False.' ;;
+    CommonNaturalityWrongMappedCoordinate) expected='Mismatch between: Reverse (Var ?delayed) and Var FZ.' ;;
+  esac
+  if [[ $(grep -c '^Error:' "$tmp/$fixture.log") -ne 1 ]] ||
+     ! grep -Fq 'Error: While processing right hand side of bad.' "$tmp/$fixture.log" ||
+     ! grep -Fq "$expected" "$tmp/$fixture.log" ||
+     grep -Eq 'Undefined name|While processing type of' "$tmp/$fixture.log"; then
+    echo "Common application naturality negative test failed: $fixture" >&2
+    cat "$tmp/$fixture.log" >&2; exit 1
+  fi
+done
+echo 'Common application naturality wrong composed valuation and mapped coordinate tests passed.'
