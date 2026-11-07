@@ -449,6 +449,7 @@ check sees one recursive function whose body is a chain of member tests. Consequ
   one call, is at fault. If a call's target cannot be read as a literal member name, or the
   group is too large for the finer check, the whole group is judged as one function, where
   every call must shrink on its own.
+- A pair of one-parameter `Nat`/`Bool` members where one only forwards (`start n = step n`) is an ordinary general group; the dedicated forwarding slice is only for the two-parameter `(Nat, Bool)` signatures.
 - All members share one signature; members that disagree are rejected and the error names
   the group. Members must be function equations naming their parameters exactly as the
   signature does, take the same number of arguments, and be unrestricted ordinary names. No

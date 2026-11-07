@@ -72,10 +72,23 @@ boundedNatBoolShape signature =
    in (length binders == 1 || length binders == 2) && resultIsBool && any isNat domains &&
       all (\domain => isNat domain || isBool domain) domains
 
+-- The dedicated forwarding-alias slice only understands linear (Nat, Bool) or (Bool, Nat)
+-- signatures. An alias with any other signature is an ordinary member of a general group.
+forwardingSignature : Expr -> Bool
+forwardingSignature (NPi _ Linear _ (NRef _ "Nat") (NPi _ Linear _ (NBoolType _) (NBoolType _))) = True
+forwardingSignature (NPi _ Linear _ (NBoolType _) (NPi _ Linear _ (NRef _ "Nat") (NBoolType _))) = True
+forwardingSignature _ = False
+
+isForwardingEquation : Expr -> Bool
+isForwardingEquation (NEquationLambda _ _ _ (NApply _ _ _)) = True
+isForwardingEquation _ = False
+
 public export
 boundedNatBoolGroup : MutualDeclaration -> Bool
 boundedNatBoolGroup group =
-  null group.others && boundedNatBoolShape group.first.expected && boundedNatBoolShape group.second.expected
+  null group.others && boundedNatBoolShape group.first.expected && boundedNatBoolShape group.second.expected &&
+  (not (isForwardingEquation group.first.value || isForwardingEquation group.second.value) ||
+   (forwardingSignature group.first.expected && forwardingSignature group.second.expected))
 
 -- if tag == "f" then <f's arm> else if tag == "g" then ... else <last arm>. The last arm is
 -- reached for the last member's tag, the only tag left; the tags are the member names.

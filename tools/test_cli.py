@@ -3046,6 +3046,17 @@ main = first Zero
             renamed = check(header + 'mutual where\n  isEven : (1 c : Chain) -> Bool\n  isEven d = case d of\n    Empty => True\n    More r => isOdd r\n\n' + member('isOdd', 'isEven r', 'Empty => False') + tail)
             self.assertNotEqual(renamed.returncode, 0)
             self.assertIn('name their parameters', renamed.stderr)
+            # A plain Nat/Bool pair whose first member only forwards is a general group too.
+            def alias(second):
+                return ('module Main\n\nmutual where\n  start : (1 n : Nat) -> Bool\n  start n = step n\n\n'
+                        f'  step : (1 n : Nat) -> Bool\n  step n = case n of\n    Zero => True\n    Succ p => {second}\n'
+                        '\nmain : IO Unit\nmain = putStrLn (if start 3 then "yes" else "no")\n')
+            aliased = check(alias('start p'))
+            self.assertEqual(aliased.returncode, 0, aliased.stdout + aliased.stderr)
+            self.assertEqual(run('run', '--source-dir', directory, '--fuel', '4096', str(path)).stdout, 'yes\n')
+            spinning = check(alias('start (Succ p)'))
+            self.assertNotEqual(spinning.returncode, 0)
+            self.assertIn('no argument decreases', spinning.stderr)
             # The bounded Nat/Bool pair keeps its own lowering and its own diagnostics.
             nat_bool = work / 'Parity.fib'
             nat_bool.write_text('module Parity\n\nmutual where\n  isEven : (1 n : Nat) -> Bool\n  isEven n = case n of\n'
