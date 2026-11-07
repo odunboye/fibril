@@ -224,19 +224,19 @@ genericNeutralZero : BodyEqual Tests.Shadow.shadowDeclarations (the (ScopedFace 
   (applyDeclaredShadowPath Tests.Shadow.shadowNeutralPath Zero) (Embed (shadowTerm Tests.Shadow.linearSource))
 genericNeutralZero = declaredShadowAtZero {left = Embed (shadowTerm Tests.Shadow.linearSource)} {right = Embed (LBoolean False)} (NeutralAt LHere (Var FZ))
   (BodyEndpoint (DeclaredLeft DeclaredHere Refl))
-  (BodyEndpoint (DeclaredRight DeclaredHere Refl)) (DimLeft Refl) Refl
+  (BodyEndpoint (DeclaredRight DeclaredHere Refl)) (DimLeft Refl)
 
 genericNeutralOne : BodyEqual Tests.Shadow.shadowDeclarations (the (ScopedFace 0) STop)
   (applyDeclaredShadowPath Tests.Shadow.shadowNeutralPath One) (Embed (LBoolean False))
 genericNeutralOne = declaredShadowAtOne {left = Embed (shadowTerm Tests.Shadow.linearSource)} {right = Embed (LBoolean False)} (NeutralAt LHere (Var FZ))
   (BodyEndpoint (DeclaredLeft DeclaredHere Refl))
-  (BodyEndpoint (DeclaredRight DeclaredHere Refl)) (DimRight Refl) Refl
+  (BodyEndpoint (DeclaredRight DeclaredHere Refl)) (DimRight Refl)
 
 genericAmbientZero : BodyEqual Tests.Shadow.shadowDeclarations (the (ScopedFace 1) (SEndpoint FZ False))
   (applyDeclaredShadowPath Tests.Shadow.ambientFaceShadowPath Zero) (Embed (shadowTerm Tests.Shadow.linearSource))
 genericAmbientZero = declaredShadowAtZero {left = Embed (shadowTerm Tests.Shadow.linearSource)} {right = Embed (shadowTerm Tests.Shadow.linearSource)} (NeutralAt LHere (Var (FS FZ)))
   (BodyEndpoint (DeclaredLeft DeclaredHere Refl))
-  (BodyEndpoint (DeclaredLeft DeclaredHere Refl)) (DimLeft Refl) Refl
+  (BodyEndpoint (DeclaredLeft DeclaredHere Refl)) (DimLeft Refl)
 
 largeDimension : ScopedInterval 0
 largeDimension = Reverse (Reverse (Reverse (Reverse (Reverse (Reverse (Reverse (Reverse (Reverse (Reverse (Reverse (Reverse Zero)))))))))))
@@ -252,9 +252,37 @@ endpointAfterDimensionSubstitution = Refl
 pathLevelZero : BodyEqual Tests.Shadow.shadowDeclarations (the (ScopedFace 0) STop)
   (applyDeclaredShadowPath Tests.Shadow.shadowNeutralPath Zero) (Embed (shadowTerm Tests.Shadow.linearSource))
 pathLevelZero = shadowApplicationZero STop (Embed (shadowTerm Tests.Shadow.linearSource)) (Embed (LBoolean False))
-  Tests.Shadow.shadowNeutralPath (DimLeft Refl, Refl)
+  Tests.Shadow.shadowNeutralPath (DimLeft Refl)
 
 pathLevelOne : BodyEqual Tests.Shadow.shadowDeclarations (the (ScopedFace 0) STop)
   (applyDeclaredShadowPath Tests.Shadow.shadowNeutralPath One) (Embed (LBoolean False))
 pathLevelOne = shadowApplicationOne STop (Embed (shadowTerm Tests.Shadow.linearSource)) (Embed (LBoolean False))
-  Tests.Shadow.shadowNeutralPath (DimRight Refl, Refl)
+  Tests.Shadow.shadowNeutralPath (DimRight Refl)
+
+-- Two logical binders, a linear-source shadow and an ambient dimension all
+-- survive dimension weakening and both endpoint instantiations.
+nestedAmbientBody : PathBody [LBool] [LBool] 1 (LArrow LUnit (LArrow LUnit LBool))
+nestedAmbientBody = BodyLam (BodyLam
+  (BodyIf (NeutralAt LHere (Reverse (Var FZ)))
+    (Embed (renameLogical LThere (renameLogical LThere (shadowTerm Tests.Shadow.linearSource))))
+    (Embed (LBoolean False))))
+
+nestedRestoredZero : mapPathDimensions (atDimension Zero)
+  (mapPathDimensions (Var . FS) Tests.Shadow.nestedAmbientBody) = Tests.Shadow.nestedAmbientBody
+nestedRestoredZero = pathDimensionsRestored Zero Tests.Shadow.nestedAmbientBody
+
+nestedRestoredOne : mapPathDimensions (atDimension One)
+  (mapPathDimensions (Var . FS) Tests.Shadow.nestedAmbientBody) = Tests.Shadow.nestedAmbientBody
+nestedRestoredOne = pathDimensionsRestored One Tests.Shadow.nestedAmbientBody
+
+nestedAmbientPath : DeclaredShadowPath Tests.Shadow.shadowDeclarations (the (ScopedFace 1) STop)
+  Tests.Shadow.nestedAmbientBody Tests.Shadow.nestedAmbientBody
+nestedAmbientPath = ShadowAbstract (mapPathDimensions (Var . FS) Tests.Shadow.nestedAmbientBody) BodyRefl BodyRefl
+
+nestedAmbientZero : BodyEqual Tests.Shadow.shadowDeclarations (the (ScopedFace 1) STop)
+  (applyDeclaredShadowPath Tests.Shadow.nestedAmbientPath Zero) Tests.Shadow.nestedAmbientBody
+nestedAmbientZero = shadowApplicationZero STop Tests.Shadow.nestedAmbientBody Tests.Shadow.nestedAmbientBody Tests.Shadow.nestedAmbientPath DimRefl
+
+nestedAmbientOne : BodyEqual Tests.Shadow.shadowDeclarations (the (ScopedFace 1) STop)
+  (applyDeclaredShadowPath Tests.Shadow.nestedAmbientPath One) Tests.Shadow.nestedAmbientBody
+nestedAmbientOne = shadowApplicationOne STop Tests.Shadow.nestedAmbientBody Tests.Shadow.nestedAmbientBody Tests.Shadow.nestedAmbientPath DimRefl

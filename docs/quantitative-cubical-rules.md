@@ -763,14 +763,18 @@ interval environment, directly to a chosen target face. `DimensionEvidence`
 mirrors only the derivation's actual rules: each endpoint is rechecked on the
 target face, and each restriction is rechecked against the mapped source face.
 This does not assume that bounded syntactic entailment is substitution-stable.
-`shadowApplicationZero` and `shadowApplicationOne` apply this to an arbitrary
-`DeclaredShadowPath`, with evidence for its actual boundary derivation and an
-explicit equality that weakening then endpoint substitution restores the
-endpoint body. Their conclusions are `BodyEqual` on the original ambient face,
-not unrestricted runtime equality. The endpoint body equality is an explicit
-premise, not yet a general substitution-composition lemma. Recertification can
-fail even for semantically valid equalities, so this is a conditional generic
-endpoint law, not an unconditional one.
+`pathDimensionsRestored` proves, for every typed `PathBody` and every scoped
+interval `side`, that mapping `atDimension side` after mapping `Var . FS`
+returns the original body. This includes both literal endpoints, nested logical
+binders, embedded logical terms, and ambient dimension references. It uses the
+interval substitution composition law; no face entailment is involved.
+`shadowApplicationZero` and `shadowApplicationOne` apply the restoration to an
+arbitrary `DeclaredShadowPath`, requiring only `DimensionEvidence` for the
+actual boundary derivation at the ambient face. Their conclusions are
+`BodyEqual` on that face, not unrestricted runtime equality. Recertification
+can fail even for semantically valid equalities, so this remains a conditional
+generic endpoint law, not an unconditional one. No automatic recertification
+algorithm is provided.
 
 A concrete failure of substitution stability is checked in `Tests.Shadow`:
 `i=0` entails the zero endpoint of `i`, but substituting twelve nested

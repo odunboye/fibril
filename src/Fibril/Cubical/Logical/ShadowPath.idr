@@ -5,6 +5,7 @@ import Data.Vect
 import Fibril.Cubical.Logical.Shadow
 import Fibril.Cubical.Logical.TypedPath
 import Fibril.Cubical.Logical.OpenPath
+import Fibril.Cubical.Logical.ScopedSyntax
 
 import Fibril.Foundation.DeMorgan.Interval
 import Fibril.Foundation.DeMorgan.Scope
@@ -56,6 +57,32 @@ public export
 atDimension : ScopedInterval d -> Fin (S d) -> ScopedInterval d
 atDimension r FZ = r
 atDimension r (FS i) = Var i
+
+intervalIdentity : (i : ScopedInterval d) -> substituteScoped Var i = i
+intervalIdentity Zero = Refl
+intervalIdentity One = Refl
+intervalIdentity (Var i) = Refl
+intervalIdentity (Meet x y) = cong2 Meet (intervalIdentity x) (intervalIdentity y)
+intervalIdentity (Join x y) = cong2 Join (intervalIdentity x) (intervalIdentity y)
+intervalIdentity (Reverse x) = cong Reverse (intervalIdentity x)
+
+intervalRestored : (side : ScopedInterval d) -> (i : ScopedInterval d) ->
+  substituteScoped (atDimension side) (substituteScoped (Var . FS) i) = i
+intervalRestored side i =
+  trans (intervalSubstitutionComposition (Var . FS) (atDimension side) i)
+    (intervalIdentity i)
+
+||| Instantiation cancels dimension weakening for every typed body, including
+||| logical binders; the chosen replacement need not itself be an endpoint.
+public export
+pathDimensionsRestored : (side : ScopedInterval d) -> (body : PathBody context paths d a) ->
+  mapPathDimensions (atDimension side) (mapPathDimensions (Var . FS) body) = body
+pathDimensionsRestored side (Embed t) = Refl
+pathDimensionsRestored side (NeutralAt p i) = cong (NeutralAt p) (intervalRestored side i)
+pathDimensionsRestored side (BodyLam b) = cong BodyLam (pathDimensionsRestored side b)
+pathDimensionsRestored side (BodyApp f x) = cong2 BodyApp (pathDimensionsRestored side f) (pathDimensionsRestored side x)
+pathDimensionsRestored side (BodyUnitElim x b) = cong2 BodyUnitElim (pathDimensionsRestored side x) (pathDimensionsRestored side b)
+pathDimensionsRestored side (BodyIf c t f) = rewrite pathDimensionsRestored side c in rewrite pathDimensionsRestored side t in rewrite pathDimensionsRestored side f in Refl
 
 ||| Path abstraction requires literal, typed endpoint equalities. It provides no
 ||| face conversion or equations for neutral path names.
@@ -282,10 +309,9 @@ declaredShadowAtZero : {0 declarations : PathDeclarations context paths} ->
   (zero : BodyEqual declarations (SConjunction (weakenFace face) (SEndpoint FZ False)) body (mapPathDimensions (Var . FS) left)) ->
   (one : BodyEqual declarations (SConjunction (weakenFace face) (SEndpoint FZ True)) body (mapPathDimensions (Var . FS) right)) ->
   DimensionEvidence (atDimension Zero) face zero ->
-  mapPathDimensions (atDimension Zero) (mapPathDimensions (Var . FS) left) = left ->
   BodyEqual declarations face (applyDeclaredShadowPath (the (DeclaredShadowPath declarations face left right) (ShadowAbstract body zero one)) Zero) left
-declaredShadowAtZero body zero one cert endpoint =
-  rewrite sym endpoint in mapBodyEqualDimensions (atDimension Zero) _ zero cert
+declaredShadowAtZero {left} body zero one cert =
+  rewrite sym (pathDimensionsRestored Zero left) in mapBodyEqualDimensions (atDimension Zero) _ zero cert
 
 public export
 declaredShadowAtOne : {0 declarations : PathDeclarations context paths} ->
@@ -294,39 +320,36 @@ declaredShadowAtOne : {0 declarations : PathDeclarations context paths} ->
   (zero : BodyEqual declarations (SConjunction (weakenFace face) (SEndpoint FZ False)) body (mapPathDimensions (Var . FS) left)) ->
   (one : BodyEqual declarations (SConjunction (weakenFace face) (SEndpoint FZ True)) body (mapPathDimensions (Var . FS) right)) ->
   DimensionEvidence (atDimension One) face one ->
-  mapPathDimensions (atDimension One) (mapPathDimensions (Var . FS) right) = right ->
   BodyEqual declarations face (applyDeclaredShadowPath (the (DeclaredShadowPath declarations face left right) (ShadowAbstract body zero one)) One) right
-declaredShadowAtOne body zero one cert endpoint =
-  rewrite sym endpoint in mapBodyEqualDimensions (atDimension One) _ one cert
+declaredShadowAtOne {right} body zero one cert =
+  rewrite sym (pathDimensionsRestored One right) in mapBodyEqualDimensions (atDimension One) _ one cert
 
 ||| Certificate for the actual path and its chosen ambient face.
 public export
 ZeroApplicationEvidence : (face : ScopedFace d) -> (left, right : PathBody context paths d a) ->
   DeclaredShadowPath declarations face left right -> Type
 ZeroApplicationEvidence face left right (ShadowAbstract body zero one) =
-  (DimensionEvidence (atDimension Zero) face zero,
-   mapPathDimensions (atDimension Zero) (mapPathDimensions (Var . FS) left) = left)
+  DimensionEvidence (atDimension Zero) face zero
 
 public export
 shadowApplicationZero : (face : ScopedFace d) -> (left, right : PathBody context paths d a) ->
   (path : DeclaredShadowPath declarations face left right) -> ZeroApplicationEvidence face left right path ->
   BodyEqual declarations face (applyDeclaredShadowPath path Zero) left
-shadowApplicationZero face left right (ShadowAbstract body zero one) (cert, endpoint) =
-  declaredShadowAtZero body zero one cert endpoint
+shadowApplicationZero face left right (ShadowAbstract body zero one) cert =
+  declaredShadowAtZero body zero one cert
 
 public export
 OneApplicationEvidence : (face : ScopedFace d) -> (left, right : PathBody context paths d a) ->
   DeclaredShadowPath declarations face left right -> Type
 OneApplicationEvidence face left right (ShadowAbstract body zero one) =
-  (DimensionEvidence (atDimension One) face one,
-   mapPathDimensions (atDimension One) (mapPathDimensions (Var . FS) right) = right)
+  DimensionEvidence (atDimension One) face one
 
 public export
 shadowApplicationOne : (face : ScopedFace d) -> (left, right : PathBody context paths d a) ->
   (path : DeclaredShadowPath declarations face left right) -> OneApplicationEvidence face left right path ->
   BodyEqual declarations face (applyDeclaredShadowPath path One) right
-shadowApplicationOne face left right (ShadowAbstract body zero one) (cert, endpoint) =
-  declaredShadowAtOne body zero one cert endpoint
+shadowApplicationOne face left right (ShadowAbstract body zero one) cert =
+  declaredShadowAtOne body zero one cert
 
 public export
 substituteDeclaredShadowPath : {0 context : Vect n LogicalType} -> {0 target : Vect m LogicalType} ->
