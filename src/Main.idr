@@ -65,6 +65,7 @@ Usage:
   fibril check                 Check app entry or library inventory in ./fibril.yaml
   fibril test                  Check all listed modules, evaluate tests main : Bool
   fibril test --package PATH   Same pure test workflow for an explicit package
+  fibril test --fuel N         Same, with evaluation fuel 0..4096 (default 128); also --package PATH --fuel N
   fibril emit-c PATH           Check and emit experimental C source to stdout
   fibril emit-c-binary PATH      Emit explicit binary-only C (standalone)
   fibril emit-c-binary --source-dir ROOT ENTRY  Emit checked binary project C
@@ -141,6 +142,12 @@ runWithFuel text action = case fuelValue text of
   Just fuel => action fuel >>= printExecution
   Nothing => printExecution (Left "Fuel must be decimal 0..4096.")
 
+||| Parse a decimal fuel bound (0..4096, as for eval and run), then test with it.
+testWithFuel : String -> (Nat -> IO (Either String (List String))) -> IO ()
+testWithFuel text action = case fuelValue text of
+  Just fuel => action fuel >>= printServiceReport
+  Nothing => printServiceReport (Left "Fuel must be decimal 0..4096.")
+
 coordinate : String -> Maybe Nat
 coordinate text =
   let chars = unpack text
@@ -182,8 +189,10 @@ main = do
     "new" :: options => newProject options >>= printServiceReport
     ["manifest", path] => manifestFile path >>= printServiceReport
     ["check"] => packageCheck "fibril.yaml"
-    ["test"] => testPackage "fibril.yaml" >>= printServiceReport
-    ["test", "--package", manifest] => testPackage manifest >>= printServiceReport
+    ["test"] => testPackage 128 "fibril.yaml" >>= printServiceReport
+    ["test", "--fuel", text] => testWithFuel text (\fuel => testPackage fuel "fibril.yaml")
+    ["test", "--package", manifest] => testPackage 128 manifest >>= printServiceReport
+    ["test", "--package", manifest, "--fuel", text] => testWithFuel text (\fuel => testPackage fuel manifest)
     ["run"] => runPackage 128 "fibril.yaml" >>= printExecution
     ["emit-c"] => emitCPackage "fibril.yaml" >>= printC
     ["emit-c", "--package", manifest] => emitCPackage manifest >>= printC

@@ -2845,6 +2845,49 @@ main = first Zero
             self.assertEqual(plain_run.returncode, 0, plain_run.stdout + plain_run.stderr)
             self.assertEqual(plain_run.stdout, 'hi\n')
 
+    def test_test_fuel_option_raises_the_suite_evaluation_budget(self):
+        def nat(n):
+            return 'Zero' if n == 0 else '(Succ ' * n + 'Zero' + ')' * n
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            created = run('new', 'mathlib', '--lib', cwd=root)
+            self.assertEqual(created.returncode, 0, created.stdout + created.stderr)
+            project = root / 'mathlib'
+            (project / 'src/App.fib').write_text(
+                'module App\n\nexport\nhalf : (1 n : Nat) -> Nat\nhalf n = case n of\n  Zero => Zero\n'
+                '  Succ a => case a of\n    Zero => Zero\n    Succ b => Succ (half b)\n')
+            suite = project / 'test/src/TestSuite/Suite.fib'
+            def write(expect_nonzero):
+                # half 1 is zero; half 24 is 12. The second conjunct forces real evaluation.
+                second = '(notBool (isZero (App.half ' + nat(24) + ')))' if expect_nonzero \
+                    else '(isZero (App.half ' + nat(24) + '))'
+                suite.write_text(
+                    'module TestSuite.Suite\nimport App\n\n'
+                    'isZero : (n : Nat) -> Bool\nisZero n = case n of\n  Zero => True\n  Succ p => False\n\n'
+                    'main : Bool\nmain = andBool (isZero (App.half (Succ Zero))) ' + second + '\n')
+            write(True)
+            # The default budget is unchanged and too small for this suite; the message says how to proceed.
+            default = run('test', cwd=project)
+            self.assertNotEqual(default.returncode, 0, default.stdout)
+            self.assertIn('fuel exhausted (128)', default.stderr)
+            self.assertIn('test --fuel N', default.stderr)
+            # An explicit bound lets the same suite pass, in both the default and --package forms.
+            for args in (('test', '--fuel', '4096'), ('test', '--package', str(project / 'fibril.yaml'), '--fuel', '4096')):
+                passed = run(*args, cwd=project)
+                self.assertEqual(passed.returncode, 0, passed.stdout + passed.stderr)
+                self.assertIn('Tests: passed', passed.stdout)
+            # More fuel must not turn a failing suite into a passing one.
+            write(False)
+            failed = run('test', '--fuel', '4096', cwd=project)
+            self.assertNotEqual(failed.returncode, 0)
+            self.assertIn('Tests: failed', failed.stderr)
+            self.assertEqual(failed.stdout, '')
+            # Out-of-range and non-numeric bounds are rejected before anything is evaluated.
+            for bad in ['4097', 'x', '']:
+                rejected = run('test', '--fuel', bad, cwd=project)
+                self.assertNotEqual(rejected.returncode, 0, bad)
+                self.assertIn('Fuel must be decimal 0..4096', rejected.stderr)
+
     def test_accumulator_equations_reject_dependent_types(self):
         fixture = ROOT / 'examples/modules/linear-accumulator'
         examples = [

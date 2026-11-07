@@ -99,12 +99,15 @@ main = Email.Core.identity True
 
 fibril test (or test --package PATH) checks the full inventory/import graph and
 its own unrestricted main before evaluation. It then checks main against Bool,
-reference-normalizes with fuel 128, and independently checks the result again:
+reference-normalizes with fuel 128 (or `--fuel N`, 0..4096), and independently checks
+the result again:
 
 - True: successful suite, exit zero.
 - False: test failure, nonzero.
 - Fuel exhaustion, wrong type, missing/erased main or another normal form: error,
-  nonzero. Exhaustion is never treated as pass or False.
+  nonzero. Exhaustion is never treated as pass or False. A suite that exercises a
+  recursive function over more than a couple of dozen steps needs `test --fuel 4096`;
+  raising the fuel never changes a False into a pass.
 
 check never evaluates the suite; if it is listed/imported, its declarations are
 checked normally. test does **not** prepare/execute console IO, including an app's

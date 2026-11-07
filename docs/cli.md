@@ -12,7 +12,7 @@ Build with `pack build fibril`, then invoke `./build/exec/fibril`.
 | run --package PATH | Check the full local package source graph before preparing/executing host stdout |
 | module-graph --package PATH | Syntax-only graph JSON including package inventory and source owners; no typing/execution |
 | manifest PATH | [Strict local YAML schema inspection](manifests.md) as JSON; checked/resolved/locked false, no dependency traversal or source checking |
-| test [--package PATH] | Check inventories/imports before bounded pure Bool suite evaluation; True passes, False fails, exhaustion errors; no source IO |
+| test [--package PATH] [--fuel N] | Check inventories/imports before bounded pure Bool suite evaluation; True passes, False fails, exhaustion errors; no source IO. Evaluation fuel is 128 by default; `--fuel N` (0..4096) raises it for suites that exercise recursive functions |
 | check / run / module-graph | Use ./fibril.yaml only; no parent search or malformed-manifest fallback. --package PATH remains an explicit override. |
 | run PATH | Runtime-check main : IO Unit, prepare all output requests, then execute through the host adapter |
 | run-binary PATH | Explicit standalone checked hosted borrowed binary stdio; 4096 requests, 8 MiB aggregate capacity, 65536-byte chunks; see [binary IO](io-binary-source.md) |

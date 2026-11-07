@@ -16,8 +16,8 @@ import Data.List
 
 %default total
 
-testInline : String -> IO (Either String (List String))
-testInline manifest = do
+testInline : Nat -> String -> IO (Either String (List String))
+testInline fuel manifest = do
   loaded <- loadLocalPackageGraph TestPackage manifest
   pure $ do
     graph <- case loaded of Left err => Left (renderGraphError err); Right graph => Right graph
@@ -25,8 +25,9 @@ testInline manifest = do
     case checkRuntime checkingDepth typeReductionFuel Empty project.term BoolType of
       Left _ => Left (graph.entry ++ ": Test entry must have main : Bool")
       Right _ => Right ()
-    normal <- case normalizeRun 128 project.term of
-      OutOfFuel _ => Left (graph.entry ++ ": Test evaluation fuel exhausted (128); no pass result")
+    normal <- case normalizeRun fuel project.term of
+      OutOfFuel _ => Left (graph.entry ++ ": Test evaluation fuel exhausted (" ++ show fuel ++
+                           "); no pass result. Raise it with test --fuel N (0..4096)")
       Normal term => Right term
     case checkRuntime checkingDepth typeReductionFuel Empty normal BoolType of
       Left _ => Left (graph.entry ++ ": Test post-reduction checking failed")
@@ -39,12 +40,13 @@ testInline manifest = do
 ||| A declared child is an ordinary package, not a source-root override.
 ||| Require a direct canonical dependency on the parent; do not recursively follow
 ||| nested test-package declarations. Existing inline suites remain supported.
+||| The fuel bounds the reference evaluation of the suite; it is not a time bound.
 public export
-testPackage : String -> IO (Either String (List String))
-testPackage manifest = do
+testPackage : Nat -> String -> IO (Either String (List String))
+testPackage fuel manifest = do
   Right parent <- loadLocalInventory manifest | Left err => pure (Left err)
   case parent.entryPackage.manifest.testPackagePath of
-    Nothing => testInline manifest
+    Nothing => testInline fuel manifest
     Just path => do
       checked <- checkLocalPackage manifest
       case checked of
@@ -62,4 +64,4 @@ testPackage manifest = do
                if target.manifestPath /= parent.entryPackage.manifestPath ||
                   not (any (\dep => dep.name == parentName) child.entryPackage.manifest.dependencies)
                  then pure (Left "Test package must directly depend on the same canonical parent package")
-                 else testInline childPath
+                 else testInline fuel childPath
