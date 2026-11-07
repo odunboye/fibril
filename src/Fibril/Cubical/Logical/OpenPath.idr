@@ -44,6 +44,7 @@ data Result = Accepted | Rejected | Exhausted
 -- Thread an admission allowance, and impose a fixed cap before calling the
 -- potentially exponential face solver. This bounds solver input independently
 -- of the caller's allowance; it is not a precise solver-operation budget.
+public export
 intervalNodes : Nat -> ScopedInterval n -> Maybe Nat
 intervalNodes Z _ = Nothing
 intervalNodes (S fuel) Zero = Just fuel
@@ -53,6 +54,7 @@ intervalNodes (S fuel) (Reverse x) = intervalNodes fuel x
 intervalNodes (S fuel) (Meet x y) = intervalNodes fuel x >>= \rest => intervalNodes rest y
 intervalNodes (S fuel) (Join x y) = intervalNodes fuel x >>= \rest => intervalNodes rest y
 
+public export
 faceNodes : Nat -> ScopedFace n -> Maybe Nat
 faceNodes Z _ = Nothing
 faceNodes (S fuel) SBottom = Just fuel

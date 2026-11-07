@@ -1,6 +1,8 @@
 module Tests.Cubical.OpenPath
 
 import Data.Fin
+import Data.Vect
+import Fibril.Cubical.Logical.PathContext
 import Fibril.Cubical.Logical.OpenPath
 import Fibril.Foundation.DeMorgan.Interval
 import Fibril.Foundation.DeMorgan.Scope
@@ -10,6 +12,13 @@ import Fibril.Foundation.DeMorgan.Restriction
 
 p : NeutralPath 2
 p = PathBetween FZ (FS FZ)
+
+paths : PathContext 2 2
+paths = [p, p]
+
+reversals : Nat -> ScopedInterval n -> ScopedInterval n
+reversals Z r = r
+reversals (S count) r = Reverse (reversals count r)
 
 accepted : Result -> Bool
 accepted Accepted = True
@@ -26,7 +35,58 @@ rejected _ = False
 export
 checks : List (String, Bool)
 checks =
-  [ ("open neutral path abstraction", accepted (checkAbstraction {n=0} 12 p (At (Var FZ)) FZ (FS FZ)))
+  [ ("context reversal and wrong boundary",
+      accepted (checkContextAbstraction {n=0} 12 paths (ApplyPath (FS FZ) (Reverse (Var FZ))) (FS FZ) FZ) &&
+      rejected (checkContextAbstraction {n=0} 12 paths (ApplyPath (FS FZ) (Reverse (Var FZ))) FZ (FS FZ)))
+  , ("distinct paths and shared endpoints",
+      rejected (convert {n=1} 12 unrestricted paths (ApplyPath FZ (Var FZ)) (ApplyPath (FS FZ) (Var FZ))) &&
+      accepted (convert {n=1} 12 (Under (SDisjunction (SEndpoint FZ False) (SEndpoint FZ True))) paths (ApplyPath FZ (Var FZ)) (ApplyPath (FS FZ) (Var FZ))) &&
+      accepted (convert {n=1} 12 (Under SBottom) paths (ApplyPath FZ Zero) (ApplyPath (FS FZ) One)))
+  , ("opposite declarations meet at crossed endpoints only",
+      let opposite : PathContext 3 2 = [PathBetween FZ (FS FZ), PathBetween (FS FZ) (FS (FS FZ))] in
+      accepted (convert {n=0} 12 unrestricted opposite (ApplyPath FZ One) (ApplyPath (FS FZ) Zero)) &&
+      rejected (convert {n=0} 12 unrestricted opposite (ApplyPath FZ Zero) (ApplyPath (FS FZ) One)))
+  , ("context square faces",
+      accepted (convert {n=2} 12 (Under (SEndpoint FZ False)) paths (ApplyPath FZ (Meet (Var FZ) (Var (FS FZ)))) (ApplyPath (FS FZ) Zero)) &&
+      accepted (convert {n=2} 12 (Under (SEndpoint FZ True)) paths (ApplyPath (FS FZ) (Meet (Var FZ) (Var (FS FZ)))) (ApplyPath (FS FZ) (Var (FS FZ)))) &&
+      rejected (convert {n=2} 12 (Under (SEndpoint FZ True)) paths (ApplyPath FZ (Meet (Var FZ) (Var (FS FZ)))) (ApplyPath (FS FZ) (Var (FS FZ)))))
+  , ("context renaming and bounds",
+      accepted (convert {n=1} 12 (Under (SEndpoint FZ False)) (renameContext FS paths) (renameContextTerms FS (ApplyPath FZ (Var FZ))) (Variable (FS FZ))) &&
+      exhausted (convert {n=1} 2 unrestricted paths (ApplyPath FZ (Var FZ)) (ApplyPath FZ (Var FZ))) &&
+      exhausted (convert {m=13, k=0, n=0} 100 unrestricted [] (Variable FZ) (Variable FZ)))
+  , ("context twelve-node admission boundary",
+      -- STop + ApplyPath + nine interval nodes + Variable = 12.
+      let nine : ScopedInterval 0 = reversals 8 Zero
+          ten : ScopedInterval 0 = reversals 9 Zero in
+      accepted (convert {n=0} 100 unrestricted paths (ApplyPath FZ nine) (Variable FZ)) &&
+      exhausted (convert {n=0} 100 unrestricted paths (ApplyPath FZ ten) (Variable (FS FZ))))
+  , ("context index and dimension caps at twelve",
+      accepted (convert {m=12, k=0, n=0} 100 unrestricted [] (Variable FZ) (Variable FZ)) &&
+      exhausted (convert {m=13, k=0, n=0} 100 unrestricted [] (Variable FZ) (Variable FZ)) &&
+      accepted (convert {m=2, k=12, n=0} 100 unrestricted (replicate 12 p) (ApplyPath FZ Zero) (Variable FZ)) &&
+      exhausted (convert {m=2, k=13, n=0} 100 unrestricted (replicate 13 p) (ApplyPath FZ Zero) (Variable FZ)) &&
+      accepted (convert {m=2, k=2, n=12} 100 unrestricted paths (Variable FZ) (Variable FZ)) &&
+      exhausted (convert {m=2, k=2, n=13} 100 unrestricted paths (Variable FZ) (Variable FZ)))
+  , ("oversized abstraction admitted before endpoint substitution",
+      -- Ten reversals cancel semantically, including after substituting either endpoint.
+      let large : ScopedInterval 1 = reversals 10 (Var FZ) in
+      exhausted (checkContextAbstraction {n=0} 100 paths (ApplyPath FZ large) FZ (FS FZ)))
+  , ("abstraction checks original dimension bound before substitution",
+      let body : ContextTerm 2 2 13 = ApplyPath FZ (Var FZ)
+          zero : ContextTerm 2 2 12 = mapContextDimensions (\i => case i of { FZ => Zero; FS j => Var j }) body in
+      accepted (convert {n=12} 100 unrestricted paths zero (Variable FZ)) &&
+      exhausted (checkContextAbstraction {n=12} 100 paths body FZ (FS FZ)))
+  , ("abstraction retains older dimension when substituting newest",
+      let body : ContextTerm 2 2 2 = ApplyPath FZ (Meet (Var FZ) (Join (Var (FS FZ)) One))
+          end : ContextTerm 2 2 1 = mapContextDimensions (\i => case i of { FZ => One; FS j => Var j }) body in
+      accepted (checkContextAbstraction {n=1} 12 paths body FZ (FS FZ)) &&
+      case end of
+        ApplyPath _ (Meet One (Join (Var FZ) One)) => True
+        _ => False)
+  , ("abstraction rejects older-dimension-dependent right endpoint",
+      rejected (checkContextAbstraction {n=1} 12 paths
+        (ApplyPath FZ (Meet (Var FZ) (Var (FS FZ)))) FZ (FS FZ)))
+  , ("open neutral path abstraction", accepted (checkAbstraction {n=0} 12 p (At (Var FZ)) FZ (FS FZ)))
   , ("open neutral path reversal", accepted (checkAbstraction {n=0} 12 p (At (Reverse (Var FZ))) (FS FZ) FZ))
   , ("open path rejects wrong boundary", not (accepted (checkAbstraction {n=0} 12 p (At (Var FZ)) (FS FZ) FZ)))
   , ("square meet is left endpoint on either zero face",

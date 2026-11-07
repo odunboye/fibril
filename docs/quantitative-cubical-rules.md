@@ -520,3 +520,23 @@ and Fin index comparison costs are not capped. Substitution
 and renaming utilities themselves are not bounded admission APIs. No Boolean
 vertex enumeration, ordinary Core paths, conversion changes, or runtime or
 ownership authority are involved.
+
+### Multiple open paths (isolated experiment)
+
+`Fibril.Cubical.Logical.PathContext` adds a fixed, non-dependent context of
+`m` variables of one abstract type A followed by `k` path declarations whose
+endpoints are `Fin m`. Terms use `Fin m`, `Fin k`, and scoped dimensions;
+path identity is the declaration index, even when declarations have identical
+endpoints. The context is supplied alongside terms: indices are scoped by its
+length, not nominally branded to a particular context value. Renaming A-variables
+requires renaming both context and terms; dimension substitution is separate.
+This is not a general dependent telescope or a production checker.
+
+Conversion reuses OpenPath's four-valued restricted equality for the same path.
+Different paths compare only where both compute to a common declared endpoint,
+including disjunctive and false faces. Rejection means unsupported, not proven
+inequality. The checker caps each context length and dimension count at 12 and
+admits at most 12 combined input syntax nodes (and at most the caller allowance)
+before bounded solver calls; the allowance is not an exact operation budget.
+Abstraction checks each boundary independently, after admitting the original body.
+Exhaustion fails closed. There is no soundness theorem or runtime integration.
