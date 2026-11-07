@@ -1390,3 +1390,133 @@ higherOrderDeclaredRightAtFace declared ps admissible env valuation face i accep
   case higherOrderDeclaredLookup declared ps admissible of
     HOEndpoints left right zero one =>
       HOEndpointAtFace right (rewrite commonBoundedEndpointValSound valuation face i True accepted holds in one env)
+
+||| Named paths indexed by the ordinary environment, extensionally related.
+public export
+commonDependentPathEnvironmentSetoid : Vect n LogicalType -> Vect k LogicalType -> CommonSetoid
+commonDependentPathEnvironmentSetoid ctx [] = commonUnitSetoid
+commonDependentPathEnvironmentSetoid ctx (a :: paths) = commonProductSetoid
+  (commonArrowSetoid (commonProductSetoid (commonEnvironmentSetoid ctx) Fibril.Cubical.Logical.ShadowCommon.commonDMSetoid) (commonTypeSetoid a))
+  (commonDependentPathEnvironmentSetoid ctx paths)
+
+public export
+commonDependentPathLookup : (ctx : Vect n LogicalType) -> (paths : Vect k LogicalType) -> (a : LogicalType) ->
+  LogicalVar paths a -> CommonMorphism (commonDependentPathEnvironmentSetoid ctx paths)
+    (commonArrowSetoid (commonProductSetoid (commonEnvironmentSetoid ctx) Fibril.Cubical.Logical.ShadowCommon.commonDMSetoid) (commonTypeSetoid a))
+commonDependentPathLookup ctx (a :: paths) a LHere = MkCommonMorphism fst fst
+commonDependentPathLookup ctx (b :: paths) a (LThere v) = MkCommonMorphism
+  (\env => applyMorphism (commonDependentPathLookup ctx paths a v) (snd env))
+  (\rel => respectsRelation (commonDependentPathLookup ctx paths a v) (snd rel))
+
+||| Pull back along the projection which discards the freshly bound variable.
+public export
+weakenDependentPaths : (ctx : Vect n LogicalType) -> (paths : Vect k LogicalType) -> (a : LogicalType) ->
+  CommonMorphism (commonDependentPathEnvironmentSetoid ctx paths) (commonDependentPathEnvironmentSetoid (a :: ctx) paths)
+weakenDependentPaths ctx [] a = commonConstant ()
+weakenDependentPaths ctx (b :: paths) a = MkCommonMorphism
+  (\ps => (MkCommonMorphism (\input => applyMorphism (fst ps) (snd (fst input), snd input))
+    (\{x}, {y}, rel => respectsRelation (fst ps) {x = (snd (fst x), snd x)} {y = (snd (fst y), snd y)} (snd (fst rel), snd rel)),
+    applyMorphism (weakenDependentPaths ctx paths a) (snd ps)))
+  (\rel => ((\x, y, xy => fst rel (snd (fst x), snd x) (snd (fst y), snd y) (snd (fst xy), snd xy)),
+    respectsRelation (weakenDependentPaths ctx paths a) (snd rel)))
+
+public export
+dependentPathSemantics : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} -> {a : LogicalType} -> {d : Nat} ->
+  {0 t : CommonPathTerm n k d} -> {0 typing : CommonPathHasType ctx paths t a} -> HigherOrderPathTerm ctx paths a d typing -> (Fin d -> DM) ->
+  CommonMorphism (commonProductSetoid (commonEnvironmentSetoid ctx) (commonDependentPathEnvironmentSetoid ctx paths)) (commonTypeSetoid a)
+dependentPathSemantics (HOPOrdinary ctx paths a d w) valuation = MkCommonMorphism
+  (\env => applyMorphism (higherOrderTermSemantics w) (fst env))
+  (\rel => respectsRelation (higherOrderTermSemantics w) (fst rel))
+dependentPathSemantics (HOPAt ctx paths a d p i) valuation = MkCommonMorphism
+  (\env => applyMorphism (applyMorphism (commonDependentPathLookup ctx paths a p) (snd env)) (fst env, evalDMVal valuation i))
+  (\{x}, {y}, rel => respectsRelation (commonDependentPathLookup ctx paths a p) (snd rel) (fst x, evalDMVal valuation i) (fst y, evalDMVal valuation i) (fst rel, Refl))
+dependentPathSemantics (HOPLambda ctx paths a b d body) valuation = commonCurry $ MkCommonMorphism
+  (\env => applyMorphism (dependentPathSemantics body valuation) ((fst env, fst (snd env)), applyMorphism (weakenDependentPaths ctx paths a) (snd (snd env))))
+  (\{x}, {y}, rel => respectsRelation (dependentPathSemantics body valuation) {x = ((fst x, fst (snd x)), applyMorphism (weakenDependentPaths ctx paths a) (snd (snd x)))} {y = ((fst y, fst (snd y)), applyMorphism (weakenDependentPaths ctx paths a) (snd (snd y)))} ((fst rel, fst (snd rel)), respectsRelation (weakenDependentPaths ctx paths a) (snd (snd rel))))
+dependentPathSemantics (HOPApplication ctx paths a b d f x) valuation = commonApply (dependentPathSemantics f valuation) (dependentPathSemantics x valuation)
+dependentPathSemantics (HOPUnitElim ctx paths a d x b) valuation = commonUnitElimination (dependentPathSemantics x valuation) (dependentPathSemantics b valuation)
+dependentPathSemantics (HOPIf ctx paths a d c t f) valuation = commonIf (dependentPathSemantics c valuation) (dependentPathSemantics t valuation) (dependentPathSemantics f valuation)
+
+public export
+data DependentPathAdmissible : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} ->
+  (0 decls : CommonDeclarations ctx paths) -> carrier (commonDependentPathEnvironmentSetoid ctx paths) -> Type where
+  DependentAdmissibleNil : DependentPathAdmissible CommonNoPaths ()
+  DependentAdmissibleCons : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} ->
+    {0 rest : CommonDeclarations ctx paths} -> {ps : carrier (commonDependentPathEnvironmentSetoid ctx paths)} ->
+    {0 lt : CommonHasType ctx l a} -> {0 rt : CommonHasType ctx r a} ->
+    (left : HigherOrderTerm ctx a lt) -> (right : HigherOrderTerm ctx a rt) ->
+    {path : CommonMorphism (commonProductSetoid (commonEnvironmentSetoid ctx) Fibril.Cubical.Logical.ShadowCommon.commonDMSetoid) (commonTypeSetoid a)} ->
+    ((env : carrier (commonEnvironmentSetoid ctx)) -> related (commonTypeSetoid a)
+      (applyMorphism path (env, (False, False))) (applyMorphism (higherOrderTermSemantics left) env)) ->
+    ((env : carrier (commonEnvironmentSetoid ctx)) -> related (commonTypeSetoid a)
+      (applyMorphism path (env, (True, True))) (applyMorphism (higherOrderTermSemantics right) env)) ->
+    DependentPathAdmissible rest ps ->
+    DependentPathAdmissible (CommonDeclarePath l r lt rt rest) (path, ps)
+
+public export
+data DependentPathEndpoints : (ctx : Vect n LogicalType) -> {paths : Vect k LogicalType} ->
+  (p : LogicalVar paths a) -> (l, r : CommonTerm n) ->
+  (ps : carrier (commonDependentPathEnvironmentSetoid ctx paths)) -> Type where
+  DependentEndpoints : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} ->
+    {p : LogicalVar paths a} -> {ps : carrier (commonDependentPathEnvironmentSetoid ctx paths)} ->
+    {0 lt : CommonHasType ctx l a} -> {0 rt : CommonHasType ctx r a} ->
+    (left : HigherOrderTerm ctx a lt) -> (right : HigherOrderTerm ctx a rt) ->
+    ((env : carrier (commonEnvironmentSetoid ctx)) -> related (commonTypeSetoid a)
+      (applyMorphism (applyMorphism (commonDependentPathLookup ctx paths a p) ps) (env, (False, False)))
+      (applyMorphism (higherOrderTermSemantics left) env)) ->
+    ((env : carrier (commonEnvironmentSetoid ctx)) -> related (commonTypeSetoid a)
+      (applyMorphism (applyMorphism (commonDependentPathLookup ctx paths a p) ps) (env, (True, True)))
+      (applyMorphism (higherOrderTermSemantics right) env)) ->
+    DependentPathEndpoints ctx p l r ps
+
+public export
+dependentDeclaredLookup : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} ->
+  {0 decls : CommonDeclarations ctx paths} -> {p : LogicalVar paths a} -> {l, r : CommonTerm n} ->
+  CommonDeclaredPath decls p l r -> (ps : carrier (commonDependentPathEnvironmentSetoid ctx paths)) ->
+  DependentPathAdmissible decls ps -> DependentPathEndpoints ctx p l r ps
+dependentDeclaredLookup CommonDeclaredHere (path, ps) (DependentAdmissibleCons left right zero one rest) =
+  DependentEndpoints left right zero one
+dependentDeclaredLookup {ctx} {l} {r} {p = LThere p} (CommonDeclaredThere declared) (path, ps) (DependentAdmissibleCons left right zero one rest) =
+  case dependentDeclaredLookup {ctx} {l} {r} {p} declared ps rest of
+    DependentEndpoints left right z o => DependentEndpoints {ctx} {l} {r} {p = LThere p} left right z o
+
+||| The selected endpoint witness remains indexed by the declared syntax.
+public export
+data DependentEndpointAtFace : (ctx : Vect n LogicalType) -> {paths : Vect k LogicalType} ->
+  (p : LogicalVar paths a) -> (term : CommonTerm n) ->
+  (ps : carrier (commonDependentPathEnvironmentSetoid ctx paths)) ->
+  (env : carrier (commonEnvironmentSetoid ctx)) -> (value : DM) -> Type where
+  DependentAtFace : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} ->
+    {p : LogicalVar paths a} -> {ps : carrier (commonDependentPathEnvironmentSetoid ctx paths)} ->
+    {env : carrier (commonEnvironmentSetoid ctx)} -> {value : DM} ->
+    {0 ty : CommonHasType ctx term a} -> (w : HigherOrderTerm ctx a ty) ->
+    related (commonTypeSetoid a)
+      (applyMorphism (applyMorphism (commonDependentPathLookup ctx paths a p) ps) (env, value))
+      (applyMorphism (higherOrderTermSemantics w) env) ->
+    DependentEndpointAtFace ctx p term ps env value
+
+public export
+dependentDeclaredLeftAtFace : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} ->
+  {0 decls : CommonDeclarations ctx paths} -> {p : LogicalVar paths a} -> {l, r : CommonTerm n} ->
+  CommonDeclaredPath decls p l r -> (ps : carrier (commonDependentPathEnvironmentSetoid ctx paths)) ->
+  DependentPathAdmissible decls ps -> (env : carrier (commonEnvironmentSetoid ctx)) ->
+  (valuation : Fin d -> DM) -> (face : ScopedFace d) -> (i : ScopedInterval d) ->
+  boundedEndpointEntails face i False = True -> faceAtVal valuation face = True ->
+  DependentEndpointAtFace ctx p l ps env (evalDMVal valuation i)
+dependentDeclaredLeftAtFace declared ps admissible env valuation face i accepted holds =
+  case dependentDeclaredLookup declared ps admissible of
+    DependentEndpoints left right zero one =>
+      DependentAtFace left (rewrite commonBoundedEndpointValSound valuation face i False accepted holds in zero env)
+
+public export
+dependentDeclaredRightAtFace : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} ->
+  {0 decls : CommonDeclarations ctx paths} -> {p : LogicalVar paths a} -> {l, r : CommonTerm n} ->
+  CommonDeclaredPath decls p l r -> (ps : carrier (commonDependentPathEnvironmentSetoid ctx paths)) ->
+  DependentPathAdmissible decls ps -> (env : carrier (commonEnvironmentSetoid ctx)) ->
+  (valuation : Fin d -> DM) -> (face : ScopedFace d) -> (i : ScopedInterval d) ->
+  boundedEndpointEntails face i True = True -> faceAtVal valuation face = True ->
+  DependentEndpointAtFace ctx p r ps env (evalDMVal valuation i)
+dependentDeclaredRightAtFace declared ps admissible env valuation face i accepted holds =
+  case dependentDeclaredLookup declared ps admissible of
+    DependentEndpoints left right zero one =>
+      DependentAtFace right (rewrite commonBoundedEndpointValSound valuation face i True accepted holds in one env)

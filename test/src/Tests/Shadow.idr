@@ -1740,3 +1740,135 @@ higherOrderVariableEndpointNotAdmissible path adm =
   where
     falseNotTrue : False = True -> Void
     falseNotTrue Refl impossible
+
+-- The two non-Boolean interval values flip the captured Boolean; endpoints do not.
+dependentFlip : Bool -> DM -> Bool
+dependentFlip b (False, False) = b
+dependentFlip b (True, True) = b
+dependentFlip b (False, True) = not b
+dependentFlip b (True, False) = not b
+
+dependentLinearPath : CommonMorphism
+  (commonProductSetoid (commonEnvironmentSetoid [LBool]) Fibril.Cubical.Logical.ShadowCommon.commonDMSetoid)
+  Fibril.Cubical.Logical.ShadowCommon.commonBoolSetoid
+dependentLinearPath = MkCommonMorphism (\input => dependentFlip (fst (fst input)) (snd input))
+  (\{x}, {y}, rel => cong2 dependentFlip (fst (fst rel)) (snd rel))
+
+dependentLinearPaths : carrier (commonDependentPathEnvironmentSetoid [LBool] [LBool])
+dependentLinearPaths = (Tests.Shadow.dependentLinearPath, ())
+
+dependentLinearDeclarations : CommonDeclarations [LBool] [LBool]
+dependentLinearDeclarations = commonDeclarations
+  (DeclarePath (shadowTerm Tests.Shadow.linearSource) (shadowTerm Tests.Shadow.linearSource) NoPaths)
+
+dependentLinearEndpoint : (b : Bool) -> dependentFlip b (False, False) =
+  applyMorphism (higherOrderTermSemantics Tests.Shadow.higherOrderLinearIf) (b, ())
+dependentLinearEndpoint False = Refl
+dependentLinearEndpoint True = Refl
+
+dependentLinearAdmissible : DependentPathAdmissible Tests.Shadow.dependentLinearDeclarations Tests.Shadow.dependentLinearPaths
+dependentLinearAdmissible = DependentAdmissibleCons Tests.Shadow.higherOrderLinearIf Tests.Shadow.higherOrderLinearIf
+  (\(b, ()) => Tests.Shadow.dependentLinearEndpoint b)
+  (\(b, ()) => Tests.Shadow.dependentLinearEndpoint b) DependentAdmissibleNil
+
+dependentLinearAt : HigherOrderPathTerm [LBool] [LBool] LBool 1 (CPAtType {i = Var FZ} LHere)
+dependentLinearAt = HOPAt [LBool] [LBool] LBool 1 LHere (Var FZ)
+
+dependentNonBooleanFalse : applyMorphism (dependentPathSemantics Tests.Shadow.dependentLinearAt (\_ => (True, False)))
+  ((False, ()), Tests.Shadow.dependentLinearPaths) = True
+dependentNonBooleanFalse = Refl
+
+dependentNonBooleanTrue : applyMorphism (dependentPathSemantics Tests.Shadow.dependentLinearAt (\_ => (False, True)))
+  ((True, ()), Tests.Shadow.dependentLinearPaths) = False
+dependentNonBooleanTrue = Refl
+
+dependentBinder : HigherOrderPathTerm [LBool] [LBool] (LArrow LBool LBool) 1
+  (CPLamType (CPAtType {i = Var FZ} LHere))
+dependentBinder = HOPLambda [LBool] [LBool] LBool LBool 1
+  (HOPAt [LBool, LBool] [LBool] LBool 1 LHere (Var FZ))
+
+dependentBinderNoCapture : applyMorphism (applyMorphism (dependentPathSemantics Tests.Shadow.dependentBinder (\_ => (True, False)))
+  ((False, ()), Tests.Shadow.dependentLinearPaths)) True = True
+dependentBinderNoCapture = Refl
+
+dependentLinearFace : (b : Bool) -> DependentEndpointAtFace [LBool] {paths = [LBool]} LHere
+  (commonTerm (shadowTerm Tests.Shadow.linearSource)) Tests.Shadow.dependentLinearPaths (b, ()) (False, False)
+dependentLinearFace b = dependentDeclaredLeftAtFace CommonDeclaredHere Tests.Shadow.dependentLinearPaths
+  Tests.Shadow.dependentLinearAdmissible (b, ()) (\_ => (False, False))
+  (the (ScopedFace 1) (SEndpoint FZ False)) (Var FZ) Refl Refl
+
+dependentBinderOtherArgument : applyMorphism (applyMorphism (dependentPathSemantics Tests.Shadow.dependentBinder (\_ => (True, False)))
+  ((False, ()), Tests.Shadow.dependentLinearPaths)) False = True
+dependentBinderOtherArgument = Refl
+
+dependentBinderOtherEnvironment : applyMorphism (applyMorphism (dependentPathSemantics Tests.Shadow.dependentBinder (\_ => (True, False)))
+  ((True, ()), Tests.Shadow.dependentLinearPaths)) True = False
+dependentBinderOtherEnvironment = Refl
+
+-- The second declaration has genuinely different left and right syntax.
+dependentTailPath : CommonMorphism
+  (commonProductSetoid (commonEnvironmentSetoid []) Fibril.Cubical.Logical.ShadowCommon.commonDMSetoid)
+  Fibril.Cubical.Logical.ShadowCommon.commonBoolSetoid
+dependentTailPath = MkCommonMorphism (\input => fst (snd input))
+  (\rel => cong fst (snd rel))
+
+dependentTwoDeclarations : CommonDeclarations [] [LBool, LBool]
+dependentTwoDeclarations = CommonDeclarePath (CBool True) (CBool True) CBoolType CBoolType
+  (CommonDeclarePath (CBool False) (CBool True) CBoolType CBoolType CommonNoPaths)
+
+dependentTwoPaths : carrier (commonDependentPathEnvironmentSetoid [] [LBool, LBool])
+dependentTwoPaths = (commonConstant True, (Tests.Shadow.dependentTailPath, ()))
+
+dependentTwoAdmissible : DependentPathAdmissible Tests.Shadow.dependentTwoDeclarations Tests.Shadow.dependentTwoPaths
+dependentTwoAdmissible = DependentAdmissibleCons (HOBool [] True) (HOBool [] True)
+  (\_ => Refl) (\_ => Refl)
+  (DependentAdmissibleCons (HOBool [] False) (HOBool [] True)
+    (\_ => Refl) (\_ => Refl) DependentAdmissibleNil)
+
+dependentTailLeftFace : applyMorphism Tests.Shadow.dependentTailPath ((), (False, False)) = False
+dependentTailLeftFace = case dependentDeclaredLeftAtFace (CommonDeclaredThere CommonDeclaredHere)
+  Tests.Shadow.dependentTwoPaths Tests.Shadow.dependentTwoAdmissible () (\_ => (False, False))
+  (the (ScopedFace 1) (SEndpoint FZ False)) (Var FZ) Refl Refl of
+    DependentAtFace (HOBool _ False) rel => rel
+
+dependentTailRightFace : applyMorphism Tests.Shadow.dependentTailPath ((), (True, True)) = True
+dependentTailRightFace = case dependentDeclaredRightAtFace (CommonDeclaredThere CommonDeclaredHere)
+  Tests.Shadow.dependentTwoPaths Tests.Shadow.dependentTwoAdmissible () (\_ => (True, True))
+  (the (ScopedFace 1) (SEndpoint FZ True)) (Var FZ) Refl Refl of
+    DependentAtFace (HOBool _ True) rel => rel
+
+-- A syntactically different path morphism, related extensionally to the first.
+dependentDoubleNot : (b : Bool) -> b = not (not b)
+dependentDoubleNot False = Refl
+dependentDoubleNot True = Refl
+
+dependentLinearPathAlternative : CommonMorphism
+  (commonProductSetoid (commonEnvironmentSetoid [LBool]) Fibril.Cubical.Logical.ShadowCommon.commonDMSetoid)
+  Fibril.Cubical.Logical.ShadowCommon.commonBoolSetoid
+dependentLinearPathAlternative = MkCommonMorphism
+  (\input => not (not (dependentFlip (fst (fst input)) (snd input))))
+  (\rel => cong (\b => not (not b)) (cong2 dependentFlip (fst (fst rel)) (snd rel)))
+
+dependentLinearPathsRelated : related (commonDependentPathEnvironmentSetoid [LBool] [LBool])
+  Tests.Shadow.dependentLinearPaths (Tests.Shadow.dependentLinearPathAlternative, ())
+dependentLinearPathsRelated =
+  (\x, y, xy => trans (respectsRelation Tests.Shadow.dependentLinearPath {x} {y} xy)
+    (Tests.Shadow.dependentDoubleNot (applyMorphism Tests.Shadow.dependentLinearPath y)), Refl)
+
+-- This relation goes through the lambda interpreter and its path weakening.
+dependentBinderExtensional : related (commonTypeSetoid (LArrow LBool LBool))
+  (applyMorphism (dependentPathSemantics Tests.Shadow.dependentBinder (\_ => (True, False)))
+    ((False, ()), Tests.Shadow.dependentLinearPaths))
+  (applyMorphism (dependentPathSemantics Tests.Shadow.dependentBinder (\_ => (True, False)))
+    ((False, ()), (Tests.Shadow.dependentLinearPathAlternative, ())))
+dependentBinderExtensional = respectsRelation (dependentPathSemantics Tests.Shadow.dependentBinder (\_ => (True, False)))
+  {x = ((False, ()), Tests.Shadow.dependentLinearPaths)}
+  {y = ((False, ()), (Tests.Shadow.dependentLinearPathAlternative, ()))}
+  ((Refl, Refl), Tests.Shadow.dependentLinearPathsRelated)
+
+dependentBinderExtensionalApplied :
+  applyMorphism (applyMorphism (dependentPathSemantics Tests.Shadow.dependentBinder (\_ => (True, False)))
+    ((False, ()), Tests.Shadow.dependentLinearPaths)) True =
+  applyMorphism (applyMorphism (dependentPathSemantics Tests.Shadow.dependentBinder (\_ => (True, False)))
+    ((False, ()), (Tests.Shadow.dependentLinearPathAlternative, ()))) True
+dependentBinderExtensionalApplied = Tests.Shadow.dependentBinderExtensional True True Refl

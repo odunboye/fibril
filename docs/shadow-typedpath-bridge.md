@@ -263,3 +263,19 @@ higher-order coherence and general higher-order face-equality soundness remain
 unproved. In particular, application syntax does not determine its intermediate
 argument type, so a proof cannot assume typing uniqueness or simply align the
 application subterms by syntax injectivity.
+
+### Environment-dependent named paths
+
+The separate `commonDependentPathEnvironmentSetoid` interprets each named
+path as a setoid morphism from the product of the ordinary environment and
+four-pair interval to its declared type. Its environment relation is
+pointwise extensional. `weakenDependentPaths` pulls these morphisms back along
+the projection that drops a fresh ordinary binder, and
+`dependentPathSemantics` uses that weakening under lambdas. Admissibility and
+endpoint lookup are indexed by the actual common declarations; the face
+endpoint lemmas use the existing bounded face solver. The linear-source test
+constructs a path with variable-dependent Boolean endpoints and different
+values at non-Boolean dimensions, and checks capture avoidance.
+
+This is isolated from the earlier environment-independent model and does not
+establish general higher-order face equality soundness or witness coherence.
