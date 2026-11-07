@@ -1,0 +1,65 @@
+module Main
+
+-- SOURCE-ONLY measurement: header lines/names, NOT a Content-Length parser.
+record SharedBytes : Type where
+  constructor Shared
+  bytes : Bytes
+
+record HeaderScan : Type where
+  constructor Scan
+  eliminator consumeScan
+  phase : String
+  name : String
+  lines : String
+  saved : Bytes
+
+scanHeaders : (0 S : Type) ->
+  (scan : (phase : String) -> (name : String) -> (lines : String) -> (saved : Bytes) -> S) ->
+  (eliminate : (0 R : Type) -> (1 state : S) ->
+    (fields : (phase : String) -> (name : String) -> (lines : String) -> (saved : Bytes) -> R) -> R) -> IO Unit
+scanHeaders S scan eliminate =
+  let (same : (1 a : String) -> (1 b : String) -> Bool) = equalString in
+  let (one : Nat) = Succ Zero in
+  let (ascii : (1 bytes : Bytes) -> String) = \(1 bytes : Bytes) => primUTF8Case String String (primUTF8Decode bytes) "" (\(1 text : String) => text) in
+  let (encode : (text : String) -> Bytes) = \(text : String) => primUTF8Case Bytes Bytes (primUTF8Encode text) primBytesEmpty (\(1 bytes : Bytes) => bytes) in
+  let (table : Bytes) = encode "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t ! #$%&'  *+ -. 0123456789       abcdefghijklmnopqrstuvwxyz   ^_`abcdefghijklmnopqrstuvwxyz | ~" in
+  let (lower : (bytes : Bytes) -> String) = \(bytes : Bytes) => primBytesIndexCase String (primBytesIndex Zero bytes) "" (\(1 code : Nat) => ascii (primBytesSlice code one table)) in
+  let (read : IO ByteReadResult) = primReadBytes one in
+  let (readBind : (1 action : IO ByteReadResult) -> (1 next : (1 response : ByteReadResult) -> IO (LoopStep S Bytes)) -> IO (LoopStep S Bytes)) = primBind ByteReadResult (LoopStep S Bytes) in
+  let (readCase : (1 response : ByteReadResult) -> (eof : IO (LoopStep S Bytes)) -> (chunk : (1 bytes : Bytes) -> IO (LoopStep S Bytes)) -> IO (LoopStep S Bytes)) = primByteReadCase (IO (LoopStep S Bytes)) in
+  let (continue : (1 state : S) -> LoopStep S Bytes) = primLoopContinue S Bytes in
+  let (done : (1 header : Bytes) -> LoopStep S Bytes) = primLoopDone S Bytes in
+  let (respond : (1 result : LoopStep S Bytes) -> IO (LoopStep S Bytes)) = primPure (LoopStep S Bytes) in
+  let (more : (phase : String) -> (name : String) -> (lines : String) -> (saved : Bytes) -> IO (LoopStep S Bytes)) = \(phase : String) => \(name : String) => \(lines : String) => \(saved : Bytes) => respond (continue (scan phase name lines saved)) in
+  let (reject : IO (LoopStep S Bytes)) = bind Unit (LoopStep S Bytes) primRejectBytes (\(1 u : Unit) => case u of () => respond (done primBytesEmpty)) in
+  let (step : (1 state : S) -> IO (LoopStep S Bytes)) = \(1 state : S) => eliminate (IO (LoopStep S Bytes)) state (\(phase : String) => \(name : String) => \(lines : String) => \(saved : Bytes) =>
+    readBind read (\(1 r : ByteReadResult) => readCase r reject (\(1 chunk : Bytes) => case primBytesShare chunk of Shared raw =>
+      case primBytesShare (primBytesAppend saved raw) of Shared next =>
+      -- Demand Bytes, not just the lazy native sharing box, before forwarding.
+      if primBytesLengthIs Zero next then reject else
+      let (c : String) = ascii raw in
+      if same phase "value" then if same c "\r" then more "lf" name lines next else
+        let (folded : String) = lower raw in
+        if orBool (same folded "") (same folded "\t") then reject else more "value" name lines next else
+      if same phase "end" then if same c "\n" then respond (done next) else reject else
+      if same phase "lf" then if same c "\n" then more "name" "" (appendString lines "x") next else reject else
+      if same phase "name" then
+        if same c "\r" then if same name "" then more "end" "" lines next else reject else
+        if same lines "xxxxxxxxxxxxxxxx" then reject else
+        if same c ":" then if same name "" then reject else more "value" name lines next else
+        let (folded : String) = lower raw in
+        if orBool (same folded "") (orBool (same folded "\t") (same folded " ")) then reject else more "name" (appendString name folded) lines next
+      else if same c "\r" then more "lf" name lines next else
+        let (folded : String) = lower raw in
+        if orBool (same folded "") (same folded "\t") then reject else more "value" name lines next))) in
+  bind (LoopResult S Bytes) Unit
+    (primIterateBinary S Bytes (primBytesLength (encode "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")) step (scan "name" "" "" primBytesEmpty))
+    (\(1 result : LoopResult S Bytes) => primLoopResultCase S Bytes (IO Unit) result
+      (\(1 header : Bytes) => primWriteBytes header)
+      (\(1 state : S) => eliminate (IO Unit) state (\(phase : String) => \(name : String) => \(lines : String) => \(saved : Bytes) => primRejectBytes)))
+
+main : IO Unit
+main = scanHeaders HeaderScan Scan
+  (\(0 R : Type) => \(1 state : HeaderScan) =>
+    \(fields : (phase : String) -> (name : String) -> (lines : String) -> (saved : Bytes) -> R) =>
+      consumeScan (\(0 self : HeaderScan) => R) state fields)
