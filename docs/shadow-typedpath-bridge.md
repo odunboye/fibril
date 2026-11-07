@@ -187,8 +187,14 @@ equals the interpretation of a first-order witness for the corresponding
 actual declared endpoint. The returned witness need not be the witness chosen
 by a separate equality derivation.
 
+`firstOrderTermCoherent` and `firstOrderPathCoherent` prove that independent
+first-order witnesses for the same typed syntax have equal interpretations,
+including for arbitrary four-pair valuations. The proof reifies each witness’s
+syntax and uses constructor injectivity rather than inspecting erased typing
+derivations.
+
 These lemmas do not yet prove soundness for `CommonFaceEqual`: first-order
-evidence indexed by its derivations, coherence between independently chosen
-term witnesses, and the congruence and transitivity cases remain to be proved.
+evidence indexed by its derivations and the congruence and transitivity cases
+remain to be proved.
 This interpretation does not claim higher-order, dependent path, composition,
 resource, or runtime soundness.

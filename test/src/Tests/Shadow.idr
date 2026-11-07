@@ -1138,3 +1138,46 @@ commonPairExtendedNonBoolean = Refl
 commonPairConjunctionRestrictedFace : faceAtVal Tests.Shadow.commonPairValuation (SEndpoint FZ False) = True
 commonPairConjunctionRestrictedFace = commonFaceValEntailsSound Tests.Shadow.commonPairValuation
   (SConjunction (SEndpoint FZ False) STop) (SEndpoint FZ False) Refl Refl
+
+-- Independently constructed typing derivations for the same nested syntax.
+coherenceTypingOne : CommonHasType [LBool] (CIf (CVar FZ) (CIf (CVar FZ) (CBool True) (CBool False)) (CBool False)) LBool
+coherenceTypingOne = CConditionalType (CVariable LHere)
+  (CConditionalType (CVariable LHere) CBoolType CBoolType) CBoolType
+
+coherenceTypingTwo : CommonHasType [LBool] (CIf (CVar FZ) (CIf (CVar FZ) (CBool True) (CBool False)) (CBool False)) LBool
+coherenceTypingTwo = CConditionalType (CVariable LHere)
+  (CConditionalType (CVariable LHere) CBoolType CBoolType) CBoolType
+
+coherenceWitnessOne : FirstOrderTerm Tests.Shadow.coherenceTypingOne
+coherenceWitnessOne = FOIf (FOVar LHere) (FOIf (FOVar LHere) (FOBool True) (FOBool False)) (FOBool False)
+
+coherenceWitnessTwo : FirstOrderTerm Tests.Shadow.coherenceTypingTwo
+coherenceWitnessTwo = FOIf (FOVar LHere) (FOIf (FOVar LHere) (FOBool True) (FOBool False)) (FOBool False)
+
+coherenceIndependentTerms : (env : FirstOrderEnv [LBool]) ->
+  interpretFirstOrderTerm Tests.Shadow.coherenceWitnessOne env = interpretFirstOrderTerm Tests.Shadow.coherenceWitnessTwo env
+coherenceIndependentTerms = firstOrderTermCoherent Tests.Shadow.coherenceWitnessOne Tests.Shadow.coherenceWitnessTwo
+
+coherencePathTypingOne : CommonPathHasType [LBool] [LBool]
+  (CPIf (CPAt FZ (Var (FS FZ))) (CPOrdinary (CIf (CVar FZ) (CIf (CVar FZ) (CBool True) (CBool False)) (CBool False))) (CPAt FZ (Var FZ))) LBool
+coherencePathTypingOne = CPIfType (CPAtType LHere) (CPOrdinaryType Tests.Shadow.coherenceTypingOne) (CPAtType LHere)
+
+coherencePathTypingTwo : CommonPathHasType [LBool] [LBool]
+  (CPIf (CPAt FZ (Var (FS FZ))) (CPOrdinary (CIf (CVar FZ) (CIf (CVar FZ) (CBool True) (CBool False)) (CBool False))) (CPAt FZ (Var FZ))) LBool
+coherencePathTypingTwo = CPIfType (CPAtType LHere) (CPOrdinaryType Tests.Shadow.coherenceTypingTwo) (CPAtType LHere)
+
+coherencePathWitnessOne : FirstOrderPathTerm Tests.Shadow.coherencePathTypingOne
+coherencePathWitnessOne = FOPathIf (FOAt LHere (Var (FS FZ))) (FOOrdinary Tests.Shadow.coherenceWitnessOne) (FOAt LHere (Var FZ))
+
+coherencePathWitnessTwo : FirstOrderPathTerm Tests.Shadow.coherencePathTypingTwo
+coherencePathWitnessTwo = FOPathIf (FOAt LHere (Var (FS FZ))) (FOOrdinary Tests.Shadow.coherenceWitnessTwo) (FOAt LHere (Var FZ))
+
+coherenceIndependentPaths : (env : FirstOrderEnv [LBool]) -> (ps : FirstOrderPaths [LBool] [LBool]) -> (valuation : Fin 2 -> DM) ->
+  interpretFirstOrderPath Tests.Shadow.coherencePathWitnessOne env ps valuation = interpretFirstOrderPath Tests.Shadow.coherencePathWitnessTwo env ps valuation
+coherenceIndependentPaths = firstOrderPathCoherent Tests.Shadow.coherencePathWitnessOne Tests.Shadow.coherencePathWitnessTwo
+
+coherenceArbitraryDimension : {d : Nat} -> (i : ScopedInterval d) ->
+  (env : FirstOrderEnv [LBool]) -> (ps : FirstOrderPaths [LBool] [LBool]) -> (valuation : Fin d -> DM) ->
+  interpretFirstOrderPath (the (FirstOrderPathTerm (CPAtType {ctx = [LBool]} {i = i} LHere)) (FOAt LHere i)) env ps valuation =
+  interpretFirstOrderPath (the (FirstOrderPathTerm (CPAtType {ctx = [LBool]} {i = i} LHere)) (FOAt LHere i)) env ps valuation
+coherenceArbitraryDimension i env ps valuation = firstOrderPathCoherent (FOAt LHere i) (FOAt LHere i) env ps valuation

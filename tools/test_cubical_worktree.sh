@@ -544,3 +544,13 @@ for fixture in StructuralBridgeWrongFace StructuralBridgeWrongSide StructuralBri
   fi
 done
 echo 'Structural bridge recertification, constructor, and index negative tests passed.'
+fixture=FirstOrderCoherenceWrongTerm
+"$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1 || true
+if [[ $(grep -c '^Error:' "$tmp/$fixture.log") -ne 1 ]] ||
+   ! grep -Fq 'Error: While processing right hand side of bad.' "$tmp/$fixture.log" ||
+   ! grep -Fq 'Mismatch between: False and True.' "$tmp/$fixture.log" ||
+   grep -Eq 'Undefined name|While processing type of' "$tmp/$fixture.log"; then
+  echo "First-order coherence mismatched term test failed for an unrelated reason:" >&2
+  cat "$tmp/$fixture.log" >&2; exit 1
+fi
+echo 'First-order coherence mismatched term negative test passed.'

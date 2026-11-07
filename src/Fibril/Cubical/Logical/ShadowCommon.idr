@@ -824,3 +824,142 @@ firstOrderDeclaredRightAtFace declared ps admissible env valuation face i accept
   case firstOrderDeclaredLookup declared ps admissible of
     FOEndpoints left right zero one =>
       FORightAtFace right (rewrite commonBoundedEndpointValSound valuation face i True accepted holds in one env)
+
+public export
+firstOrderLookupCoherent : (v, w : LogicalVar ctx a) ->
+  variableIndex v = variableIndex w -> (env : FirstOrderEnv ctx) ->
+  firstOrderLookup v env = firstOrderLookup w env
+firstOrderLookupCoherent LHere LHere Refl (FOCons x xs) = Refl
+firstOrderLookupCoherent (LThere v) (LThere w) eq (FOCons x xs) = firstOrderLookupCoherent v w (injective eq) xs
+firstOrderLookupCoherent LHere (LThere w) Refl env impossible
+firstOrderLookupCoherent (LThere v) LHere Refl env impossible
+
+public export
+firstOrderTermSyntax : {0 t : CommonTerm n} -> {0 typing : CommonHasType ctx t a} -> FirstOrderTerm typing -> CommonTerm n
+firstOrderTermSyntax (FOVar v) = CVar (variableIndex v)
+firstOrderTermSyntax FOUnit = CUnit
+firstOrderTermSyntax (FOBool b) = CBool b
+firstOrderTermSyntax (FOUnitElim x b) = CUnitElim (firstOrderTermSyntax x) (firstOrderTermSyntax b)
+firstOrderTermSyntax (FOIf c t f) = CIf (firstOrderTermSyntax c) (firstOrderTermSyntax t) (firstOrderTermSyntax f)
+
+public export
+firstOrderTermSyntaxCorrect : {0 t : CommonTerm n} -> {0 typing : CommonHasType ctx t a} ->
+  (x : FirstOrderTerm typing) -> firstOrderTermSyntax x = t
+firstOrderTermSyntaxCorrect (FOVar v) = Refl
+firstOrderTermSyntaxCorrect FOUnit = Refl
+firstOrderTermSyntaxCorrect (FOBool b) = Refl
+firstOrderTermSyntaxCorrect (FOUnitElim x b) = rewrite firstOrderTermSyntaxCorrect x in rewrite firstOrderTermSyntaxCorrect b in Refl
+firstOrderTermSyntaxCorrect (FOIf c t f) = rewrite firstOrderTermSyntaxCorrect c in rewrite firstOrderTermSyntaxCorrect t in rewrite firstOrderTermSyntaxCorrect f in Refl
+
+commonVarInjective : CVar x = CVar y -> x = y
+commonVarInjective Refl = Refl
+
+commonBoolInjective : CBool x = CBool y -> x = y
+commonBoolInjective Refl = Refl
+
+commonUnitBodyInjective : CUnitElim x b = CUnitElim y c -> b = c
+commonUnitBodyInjective Refl = Refl
+
+commonIfCondInjective : CIf c t f = CIf c1 t1 f1 -> c = c1
+commonIfCondInjective Refl = Refl
+
+commonIfThenInjective : CIf c t f = CIf c1 t1 f1 -> t = t1
+commonIfThenInjective Refl = Refl
+
+commonIfElseInjective : CIf c t f = CIf c1 t1 f1 -> f = f1
+commonIfElseInjective Refl = Refl
+
+public export
+firstOrderTermSyntaxCoherent : {0 l : CommonHasType ctx lt a} -> {0 r : CommonHasType ctx rt a} ->
+  (x : FirstOrderTerm l) -> (y : FirstOrderTerm r) ->
+  firstOrderTermSyntax x = firstOrderTermSyntax y -> (env : FirstOrderEnv ctx) ->
+  interpretFirstOrderTerm x env = interpretFirstOrderTerm y env
+firstOrderTermSyntaxCoherent (FOVar v) (FOVar w) eq env = firstOrderLookupCoherent v w (commonVarInjective eq) env
+firstOrderTermSyntaxCoherent FOUnit FOUnit eq env = Refl
+firstOrderTermSyntaxCoherent (FOBool b) (FOBool c) eq env = commonBoolInjective eq
+firstOrderTermSyntaxCoherent (FOUnitElim x b) (FOUnitElim y c) eq env = firstOrderTermSyntaxCoherent b c (commonUnitBodyInjective eq) env
+firstOrderTermSyntaxCoherent (FOIf c t f) (FOIf c' t' f') eq env with (interpretFirstOrderTerm c env) proof choice
+  firstOrderTermSyntaxCoherent (FOIf c t f) (FOIf c' t' f') eq env | True =
+    rewrite sym (firstOrderTermSyntaxCoherent c c' (commonIfCondInjective eq) env) in
+    rewrite choice in firstOrderTermSyntaxCoherent t t' (commonIfThenInjective eq) env
+  firstOrderTermSyntaxCoherent (FOIf c t f) (FOIf c' t' f') eq env | False =
+    rewrite sym (firstOrderTermSyntaxCoherent c c' (commonIfCondInjective eq) env) in
+    rewrite choice in firstOrderTermSyntaxCoherent f f' (commonIfElseInjective eq) env
+
+public export
+firstOrderTermCoherent : {0 t : CommonTerm n} -> {0 l, r : CommonHasType ctx t a} ->
+  (x : FirstOrderTerm l) -> (y : FirstOrderTerm r) -> (env : FirstOrderEnv ctx) ->
+  interpretFirstOrderTerm x env = interpretFirstOrderTerm y env
+firstOrderTermCoherent x y env = firstOrderTermSyntaxCoherent x y
+  (trans (firstOrderTermSyntaxCorrect x) (sym (firstOrderTermSyntaxCorrect y))) env
+
+public export
+firstOrderPathLookupCoherent : (v, w : LogicalVar paths a) ->
+  variableIndex v = variableIndex w -> (ps : FirstOrderPaths ctx paths) ->
+  (env : FirstOrderEnv ctx) -> (value : DM) ->
+  firstOrderPathLookup v ps env value = firstOrderPathLookup w ps env value
+firstOrderPathLookupCoherent LHere LHere Refl (FOPath p ps) env value = Refl
+firstOrderPathLookupCoherent (LThere v) (LThere w) eq (FOPath p ps) env value =
+  firstOrderPathLookupCoherent v w (injective eq) ps env value
+firstOrderPathLookupCoherent LHere (LThere w) Refl ps env value impossible
+firstOrderPathLookupCoherent (LThere v) LHere Refl ps env value impossible
+
+public export
+firstOrderPathSyntax : {0 t : CommonPathTerm n k d} -> {0 typing : CommonPathHasType ctx paths t a} ->
+  FirstOrderPathTerm typing -> CommonPathTerm n k d
+firstOrderPathSyntax (FOOrdinary t) = CPOrdinary (firstOrderTermSyntax t)
+firstOrderPathSyntax (FOAt p i) = CPAt (variableIndex p) i
+firstOrderPathSyntax (FOPathUnitElim x b) = CPUnitElim (firstOrderPathSyntax x) (firstOrderPathSyntax b)
+firstOrderPathSyntax (FOPathIf c t f) = CPIf (firstOrderPathSyntax c) (firstOrderPathSyntax t) (firstOrderPathSyntax f)
+
+public export
+firstOrderPathSyntaxCorrect : {0 t : CommonPathTerm n k d} -> {0 typing : CommonPathHasType ctx paths t a} ->
+  (x : FirstOrderPathTerm typing) -> firstOrderPathSyntax x = t
+firstOrderPathSyntaxCorrect (FOOrdinary t) = cong CPOrdinary (firstOrderTermSyntaxCorrect t)
+firstOrderPathSyntaxCorrect (FOAt p i) = Refl
+firstOrderPathSyntaxCorrect (FOPathUnitElim x b) = rewrite firstOrderPathSyntaxCorrect x in rewrite firstOrderPathSyntaxCorrect b in Refl
+firstOrderPathSyntaxCorrect (FOPathIf c t f) = rewrite firstOrderPathSyntaxCorrect c in rewrite firstOrderPathSyntaxCorrect t in rewrite firstOrderPathSyntaxCorrect f in Refl
+
+commonPathOrdinaryInjective : CPOrdinary x = CPOrdinary y -> x = y
+commonPathOrdinaryInjective Refl = Refl
+commonPathAtIndexInjective : CPAt x i = CPAt y j -> x = y
+commonPathAtIndexInjective Refl = Refl
+commonPathAtIntervalInjective : CPAt x i = CPAt y j -> i = j
+commonPathAtIntervalInjective Refl = Refl
+commonPathUnitBodyInjective : CPUnitElim x b = CPUnitElim y c -> b = c
+commonPathUnitBodyInjective Refl = Refl
+commonPathIfCondInjective : CPIf c t f = CPIf c1 t1 f1 -> c = c1
+commonPathIfCondInjective Refl = Refl
+commonPathIfThenInjective : CPIf c t f = CPIf c1 t1 f1 -> t = t1
+commonPathIfThenInjective Refl = Refl
+commonPathIfElseInjective : CPIf c t f = CPIf c1 t1 f1 -> f = f1
+commonPathIfElseInjective Refl = Refl
+
+public export
+firstOrderPathSyntaxCoherent : {0 l : CommonPathHasType ctx paths lt a} -> {0 r : CommonPathHasType ctx paths rt a} ->
+  (x : FirstOrderPathTerm l) -> (y : FirstOrderPathTerm r) ->
+  firstOrderPathSyntax x = firstOrderPathSyntax y -> (env : FirstOrderEnv ctx) ->
+  (ps : FirstOrderPaths ctx paths) -> (valuation : Fin d -> DM) ->
+  interpretFirstOrderPath x env ps valuation = interpretFirstOrderPath y env ps valuation
+firstOrderPathSyntaxCoherent (FOOrdinary x) (FOOrdinary y) eq env ps valuation =
+  firstOrderTermSyntaxCoherent x y (commonPathOrdinaryInjective eq) env
+firstOrderPathSyntaxCoherent (FOAt p i) (FOAt q j) eq env ps valuation =
+  rewrite sym (commonPathAtIntervalInjective eq) in
+  firstOrderPathLookupCoherent p q (commonPathAtIndexInjective eq) ps env (evalDMVal valuation i)
+firstOrderPathSyntaxCoherent (FOPathUnitElim x b) (FOPathUnitElim y c) eq env ps valuation =
+  firstOrderPathSyntaxCoherent b c (commonPathUnitBodyInjective eq) env ps valuation
+firstOrderPathSyntaxCoherent (FOPathIf c t f) (FOPathIf c' t' f') eq env ps valuation with (interpretFirstOrderPath c env ps valuation) proof choice
+  firstOrderPathSyntaxCoherent (FOPathIf c t f) (FOPathIf c' t' f') eq env ps valuation | True =
+    rewrite sym (firstOrderPathSyntaxCoherent c c' (commonPathIfCondInjective eq) env ps valuation) in
+    rewrite choice in firstOrderPathSyntaxCoherent t t' (commonPathIfThenInjective eq) env ps valuation
+  firstOrderPathSyntaxCoherent (FOPathIf c t f) (FOPathIf c' t' f') eq env ps valuation | False =
+    rewrite sym (firstOrderPathSyntaxCoherent c c' (commonPathIfCondInjective eq) env ps valuation) in
+    rewrite choice in firstOrderPathSyntaxCoherent f f' (commonPathIfElseInjective eq) env ps valuation
+
+public export
+firstOrderPathCoherent : {0 t : CommonPathTerm n k d} -> {0 l, r : CommonPathHasType ctx paths t a} ->
+  (x : FirstOrderPathTerm l) -> (y : FirstOrderPathTerm r) -> (env : FirstOrderEnv ctx) ->
+  (ps : FirstOrderPaths ctx paths) -> (valuation : Fin d -> DM) ->
+  interpretFirstOrderPath x env ps valuation = interpretFirstOrderPath y env ps valuation
+firstOrderPathCoherent x y env ps valuation = firstOrderPathSyntaxCoherent x y
+  (trans (firstOrderPathSyntaxCorrect x) (sym (firstOrderPathSyntaxCorrect y))) env ps valuation
