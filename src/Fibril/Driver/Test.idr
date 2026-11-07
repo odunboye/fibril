@@ -1,6 +1,7 @@
 -- Bounded pure Bool suites, not IO interpretation or stdout assertions.
 module Fibril.Driver.Test
 
+import Fibril.Core.Erased
 import Fibril.Core.Context
 import Fibril.Core.Term
 import Fibril.Core.Evaluation
@@ -22,14 +23,14 @@ testInline fuel manifest = do
   pure $ do
     graph <- case loaded of Left err => Left (renderGraphError err); Right graph => Right graph
     project <- case checkModuleGraph graph of Left err => Left (renderGraphError err); Right project => Right project
-    case checkRuntime checkingDepth typeReductionFuel Empty project.term BoolType of
+    case checkRuntimeGlobals project.globals checkingDepth typeReductionFuel Empty project.term BoolType of
       Left _ => Left (graph.entry ++ ": Test entry must have main : Bool")
       Right _ => Right ()
-    normal <- case normalizeRun fuel project.term of
+    normal <- case normalizeRunGlobals (globalValue (erasedGlobals project.globals)) fuel project.term of
       OutOfFuel _ => Left (graph.entry ++ ": Test evaluation fuel exhausted (" ++ show fuel ++
                            "); no pass result. Raise it with test --fuel N (0..4096)")
       Normal term => Right term
-    case checkRuntime checkingDepth typeReductionFuel Empty normal BoolType of
+    case checkRuntimeGlobals project.globals checkingDepth typeReductionFuel Empty normal BoolType of
       Left _ => Left (graph.entry ++ ": Test post-reduction checking failed")
       Right _ => Right ()
     case normal of

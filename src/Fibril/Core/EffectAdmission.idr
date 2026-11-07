@@ -19,6 +19,7 @@ mutual
   scan binary (ReadInputFile x) = not binary || scan binary x
   scan binary (FileHandleValue _ _) = not binary
   scan binary (FileHandleType x) = not binary || scan binary x
+  scan _ (GlobalRef _) = True
   scan _ (Variable _) = False
   scan _ (Universe _) = False
   scan _ UnitType = False

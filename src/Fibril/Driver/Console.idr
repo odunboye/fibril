@@ -2,7 +2,10 @@
 module Fibril.Driver.Console
 
 import Data.List
+import Fibril.Core.Erased
+import Fibril.Core.SharedProgram
 import Fibril.Core.Context
+import Fibril.Core.Quantity
 import Fibril.Core.Term
 import Fibril.Core.Evaluation
 import Fibril.Core.EffectAdmission
@@ -42,25 +45,25 @@ record Planned where
   actions : List ConsoleAction
   remaining : Nat
 
-validate : Term 0 -> Term 0 -> Either IOPlanError ()
-validate term ty = case checkRuntime checkingDepth typeReductionFuel Empty term ty of
+validateGlobals : RuntimeGlobals -> Term 0 -> Term 0 -> Either IOPlanError ()
+validateGlobals globals term ty = case checkRuntimeGlobals globals checkingDepth typeReductionFuel Empty term ty of
   Left err => Left (PlanTyping err)
   Right _ => Right ()
 
-normal : Nat -> Term 0 -> Either IOPlanError (Term 0)
-normal fuel term = case normalizeRun fuel term of
+normalGlobals : RuntimeGlobals -> Nat -> Term 0 -> Either IOPlanError (Term 0)
+normalGlobals globals fuel term = case normalizeRunGlobals (globalValue (erasedGlobals globals)) fuel term of
   OutOfFuel _ => Left PlanReductionLimit
   Normal result => Right result
 
 -- Thread one action allowance through both sides of bind; do not reset it
 -- for recursive subplans. Reduction fuel remains local to each reduction call.
-plan : Nat -> Nat -> Nat -> Term 0 -> Either IOPlanError Planned
-plan Z fuel remaining term = Left PlanDepthLimit
-plan (S depth) fuel remaining term = do
-  head <- case weakHeadRun fuel term of
+planGlobals : RuntimeGlobals -> Nat -> Nat -> Nat -> Term 0 -> Either IOPlanError Planned
+planGlobals globals Z fuel remaining term = Left PlanDepthLimit
+planGlobals globals (S depth) fuel remaining term = do
+  head <- case weakHeadRunGlobals (globalValue (erasedGlobals globals)) fuel term of
     HeadLimit _ => Left PlanReductionLimit
     HeadForm head => Right head
-  _ <- case inferRuntime checkingDepth typeReductionFuel Empty head of
+  _ <- case inferRuntimeGlobals globals checkingDepth typeReductionFuel Empty head of
     Left err => Left (PlanTyping err)
     Right checked => Right checked
   case head of
@@ -69,17 +72,17 @@ plan (S depth) fuel remaining term = do
       available <- case remaining of
         Z => Left PlanActionLimit
         S available => Right available
-      validate text StringType
-      literal <- normal fuel text
-      validate literal StringType
+      validateGlobals globals text StringType
+      literal <- normalGlobals globals fuel text
+      validateGlobals globals literal StringType
       case literal of
         StringValue value => Right (Result UnitValue [PrintLine value] available)
         _ => Left PlanExpectedString
     IOBind a b action next => do
-      first <- plan depth fuel remaining action
-      validate first.value a
-      following <- plan depth fuel first.remaining (Apply next first.value)
-      validate following.value b
+      first <- planGlobals globals depth fuel remaining action
+      validateGlobals globals first.value a
+      following <- planGlobals globals depth fuel first.remaining (Apply next first.value)
+      validateGlobals globals following.value b
       Right (Result following.value (first.actions ++ following.actions)
                     following.remaining)
     _ => Left (PlanUnsupported head)
@@ -88,13 +91,17 @@ plan (S depth) fuel remaining term = do
 ||| Depth/head/pure-normalization budgets are not time/allocation bounds.
 ||| This planner performs no host IO, even when a later action fails.
 public export
-prepareIO : Nat -> Nat -> Term 0 -> Either IOPlanError (List ConsoleAction)
-prepareIO depth fuel term = do
-  if containsBinaryRequest term then Left (PlanUnsupported term) else Right ()
-  validate term (IOType UnitType)
-  result <- plan depth fuel consoleActionLimit term
-  value <- normal fuel result.value
-  validate value UnitType
+prepareIOGlobals : RuntimeGlobals -> Nat -> Nat -> Term 0 -> Either IOPlanError (List ConsoleAction)
+prepareIOGlobals globals depth fuel term = do
+  declarations <- case reachableGlobals globals term of
+    Left _ => Left (PlanUnsupported term)
+    Right declarations => Right declarations
+  let syntax : List (Term 0) = term :: concatMap (\(_, _, ty, body) => [ty, body]) declarations
+  if any (containsBinaryRequest . maskGlobalRefs) syntax then Left (PlanUnsupported term) else Right ()
+  validateGlobals globals term (IOType UnitType)
+  result <- planGlobals globals depth fuel consoleActionLimit term
+  value <- normalGlobals globals fuel result.value
+  validateGlobals globals value UnitType
   case value of
     UnitValue => Right result.actions
     _ => Left PlanExpectedUnit
@@ -102,6 +109,15 @@ prepareIO depth fuel term = do
 ||| Convert only a successfully checked and fully prepared stdout plan into a
 ||| host protocol program. This does not interpret source-level input or run IO.
 public export
+prepareConsoleProgramGlobals : RuntimeGlobals -> Nat -> Nat -> Term 0 ->
+                        Either IOPlanError (ConsoleProgram (Either String ()))
+prepareConsoleProgramGlobals globals depth fuel term = outputProgram <$> prepareIOGlobals globals depth fuel term
+
+public export
+prepareIO : Nat -> Nat -> Term 0 -> Either IOPlanError (List ConsoleAction)
+prepareIO = prepareIOGlobals emptyRuntimeGlobals
+
+public export
 prepareConsoleProgram : Nat -> Nat -> Term 0 ->
                         Either IOPlanError (ConsoleProgram (Either String ()))
-prepareConsoleProgram depth fuel term = outputProgram <$> prepareIO depth fuel term
+prepareConsoleProgram = prepareConsoleProgramGlobals emptyRuntimeGlobals

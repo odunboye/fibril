@@ -15,6 +15,7 @@ mutual
   ||| Output preserves annotations/quantities and does not evaluate terms.
   public export
   renderTerm : Term n -> String
+  renderTerm (GlobalRef key) = "$global" ++ show key
   renderTerm (Variable i) = "v" ++ show (finToNat i)
   renderTerm (Universe level) = "Type" ++ show level
   renderTerm UnitType = "Unit"

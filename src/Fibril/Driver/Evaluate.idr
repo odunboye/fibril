@@ -1,6 +1,7 @@
 -- Checked ordinary reference evaluation; not a compiled runtime or IO interpreter.
 module Fibril.Driver.Evaluate
 
+import Fibril.Core.Erased
 import Fibril.Core.Context
 import Fibril.Core.Term
 import Fibril.Core.Evaluation
@@ -18,12 +19,12 @@ import Fibril.Driver.ModuleGraph
 
 -- Private: only called after source/project runtime checking. RuntimeSource is
 -- raw public data, not a certificate suitable for an unchecked public entrypoint.
-evaluatePrepared : Nat -> RuntimeSource -> Either DriverError (List String)
-evaluatePrepared fuel prepared = do
-  normal <- case normalizeRun fuel prepared.term of
+evaluatePrepared : RuntimeGlobals -> Nat -> RuntimeSource -> Either DriverError (List String)
+evaluatePrepared globals fuel prepared = do
+  normal <- case normalizeRunGlobals (globalValue (erasedGlobals globals)) fuel prepared.term of
     OutOfFuel _ => Left EvaluationLimit
     Normal term => Right term
-  case checkRuntime checkingDepth typeReductionFuel Empty normal prepared.inferredType of
+  case checkRuntimeGlobals globals checkingDepth typeReductionFuel Empty normal prepared.inferredType of
     Left err => Left (PostReductionFailure err)
     Right _ => Right ["Reference evaluation: normal form (not compiled execution)",
                       "Type: " ++ renderType prepared.inferredType,
@@ -35,7 +36,7 @@ public export
 evaluateSourceDetailed : Nat -> String -> Either DriverError (List String)
 evaluateSourceDetailed fuel source = do
   prepared <- prepareRuntimeSourceDetailed source
-  evaluatePrepared fuel prepared
+  evaluatePrepared emptyRuntimeGlobals fuel prepared
 
 ||| Check the full dependency graph, normalize its entry, then recheck the result.
 ||| Imported errors retain dependency provenance; result errors are unlocated at entry.
@@ -45,7 +46,7 @@ evaluateProjectFile fuel root entry = do
   checked <- checkProject root entry
   pure $ case checked of
     Left err => Left (renderGraphError err)
-    Right project => case evaluatePrepared fuel (PreparedRuntime project.term project.inferredType) of
+    Right project => case evaluatePrepared project.globals fuel (PreparedRuntime project.term project.inferredType) of
       Left err => Left (renderFileError project.graph.entry (show err))
       Right report => Right report
 

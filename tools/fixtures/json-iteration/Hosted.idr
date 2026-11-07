@@ -1,3 +1,4 @@
+-- Current size reports count reachable shared syntax; historical tree records are separate.
 -- Test-only adapters and counter-instrumented driver; execution remains Fibril.
 module Hosted
 
@@ -5,6 +6,11 @@ import Data.IORef
 import Data.List
 import Data.String
 import System
+import Fibril.Core.Quantity
+import Fibril.Core.Term
+import Fibril.Core.Runtime
+import Fibril.Core.Erased
+import Fibril.Core.SharedProgram
 import Fibril.Core.Size
 import Fibril.Elaboration.Expression.Payload
 import Fibril.Data.Bytes
@@ -49,7 +55,10 @@ main = do
   case checked of
     Left err => do putStrLn (renderGraphError err); exitFailure
     Right project => do
-      putStrLn ("SIZE " ++ show (coreNodes project.term) ++ " " ++ show (payloadSize project.term))
+      declarations <- case reachableGlobals project.globals project.term of
+        Left message => do putStrLn message; exitFailure
+        Right declarations => pure declarations
+      putStrLn ("SIZE " ++ show (sharedProgramNodes project.term declarations) ++ " " ++ show (sharedProgramPayload project.term declarations))
       case prepareInteractive 4096 4096 project.term of
         Left InteractiveUnsupported => putStrLn "INTERACTIVE_GATE rejected"
         _ => do putStrLn "INTERACTIVE_GATE unexpected"; exitFailure
@@ -57,7 +66,7 @@ main = do
       case resource.outcome of
         Left ResourceAdmission => putStrLn "RESOURCE_GATE rejected"
         _ => do putStrLn "RESOURCE_GATE unexpected"; exitFailure
-      result <- runBinaryTermWith 4096 4096 4096 8388608 host project.term
+      result <- runBinaryTermWithGlobals project.globals 4096 4096 4096 8388608 host project.term
       r <- readIORef reads
       w <- readIORef writes
       f <- readIORef flushes

@@ -17,6 +17,7 @@ unit-test: build
 	PACK="$(PACK)" IDRIS2="$(IDRIS2)" python3 tools/test_units.py
 
 test: unit-test
+	CC="$(CC)" python3 tools/test_shared_globals.py
 	python3 tools/test_cli.py
 	python3 tools/test_pattern_clauses.py
 	CC="$(CC)" python3 tools/test_native.py
@@ -223,6 +224,7 @@ examples: build
 	./build/exec/fibril run --source-dir examples/modules/direct-data-case examples/modules/direct-data-case/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/direct-data-case-dependent examples/modules/direct-data-case-dependent/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/email-service examples/modules/email-service/Main.fib
+	./build/exec/fibril run --source-dir examples/modules/email-service-full examples/modules/email-service-full/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/pattern-inference examples/modules/pattern-inference/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/pattern-inference examples/modules/pattern-inference/Dependent.fib
 	./build/exec/fibril run --source-dir examples/modules/pattern-inference examples/modules/pattern-inference/Minimal.fib

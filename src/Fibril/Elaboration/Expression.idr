@@ -4,6 +4,7 @@ module Fibril.Elaboration.Expression
 import Data.Fin
 import Data.List
 import Data.Vect
+import Fibril.Core.SharedProgram
 import Fibril.Core.Size
 import Fibril.Core.Term
 import Fibril.Core.Quantity
@@ -38,26 +39,26 @@ ambiguityMessage : String -> List String -> String
 ambiguityMessage name candidates =
   "Ambiguous imported name " ++ name ++ "; candidates: " ++ concat (intersperse ", " candidates) ++ "; use a qualified name"
 
-boundedResult : Position -> Term n -> Either ResolveError (Term n)
-boundedResult position result = do
+boundedResultGlobals : GlobalContext -> Position -> Term n -> Either ResolveError (Term n)
+boundedResultGlobals shared position result = do
   if typeNodes result > inferredResultNodes then Left (CannotElaborate position "Inferred motive result type exceeds 512 nodes; use an explicit return motive") else Right ()
-  normal <- case normalize typeReductionFuel result of
+  normal <- case normalizeGlobals (globalValue shared) typeReductionFuel result of
     Normal value => Right value
     OutOfFuel _ => Left (CannotElaborate position "Motive inference reduction budget exhausted; use an explicit return motive")
   if typeNodes normal > inferredResultNodes then Left (CannotElaborate position "Inferred motive result type exceeds 512 nodes; use an explicit return motive") else Right normal
 
-inferCase : Position -> Nat -> Context n -> Term n -> Term n -> Either ResolveError (Term n)
-inferCase position arity context scrutinee branch = do
-  branchType <- case inferErased checkingDepth typeReductionFuel context branch of
+inferCaseGlobals : GlobalContext -> Position -> Nat -> Context n -> Term n -> Term n -> Either ResolveError (Term n)
+inferCaseGlobals shared position arity context scrutinee branch = do
+  branchType <- case inferErasedGlobals shared checkingDepth typeReductionFuel context branch of
     Left err => Left (CannotElaborate position ("Cannot infer record branch type: " ++ show err))
     Right ty => Right ty
   case (arity, branch, branchType) of
     (1, Lambda q domain _, Pi _ _ result) => do
-      result <- boundedResult position result
+      result <- boundedResultGlobals shared position result
       motive <- unaryMotive position q domain result
       Right (BoxCase motive scrutinee branch)
     (2, Lambda q domain (Lambda r second _), Pi _ _ (Pi _ _ result)) => do
-      result <- boundedResult position result
+      result <- boundedResultGlobals shared position result
       motive <- binaryMotive position q r domain second result
       Right (PairCase motive scrutinee branch)
     _ => Left (CannotElaborate position "Record motive inference requires one or two typed pattern binders")
@@ -65,9 +66,9 @@ inferCase position arity context scrutinee branch = do
 ||| Infer a payload-independent result, comparing by bounded guarded conversion.
 ||| Dependent motives are handled separately from equation expected types.
 ||| The independent core checker still checks the resulting complete case.
-dataBranchResult : Position -> Context n -> Maybe (Quantity, Term n) -> Term n -> Either ResolveError (Term n)
-dataBranchResult position context descriptor branch = do
-  ty <- case inferErased checkingDepth typeReductionFuel context branch of
+dataBranchResultGlobals : GlobalContext -> Position -> Context n -> Maybe (Quantity, Term n) -> Term n -> Either ResolveError (Term n)
+dataBranchResultGlobals shared position context descriptor branch = do
+  ty <- case inferErasedGlobals shared checkingDepth typeReductionFuel context branch of
     Left err => Left (CannotElaborate position ("Cannot infer data-case branch type: " ++ show err ++ "; use an explicit return motive"))
     Right ty => Right ty
   case (descriptor, ty) of
@@ -82,28 +83,28 @@ dataBranchResult position context descriptor branch = do
         Just outer => Right outer
     _ => Left (CannotElaborate position "Cannot infer data-case payload result; use an explicit return motive")
 
-constantDataResult : Position -> Context n -> List (Maybe (Quantity, Term n)) -> List (Term n) -> Either ResolveError (Term n)
-constantDataResult position context [] [] = Left (CannotElaborate position "Cannot infer an empty data-case result")
-constantDataResult position context (descriptor :: descriptors) (branch :: branches) = do
-  first <- dataBranchResult position context descriptor branch
+constantDataResultGlobals : GlobalContext -> Position -> Context n -> List (Maybe (Quantity, Term n)) -> List (Term n) -> Either ResolveError (Term n)
+constantDataResultGlobals shared position context [] [] = Left (CannotElaborate position "Cannot infer an empty data-case result")
+constantDataResultGlobals shared position context (descriptor :: descriptors) (branch :: branches) = do
+  first <- dataBranchResultGlobals shared position context descriptor branch
   agree first descriptors branches
   Right first
   where
     agree : Term n -> List (Maybe (Quantity, Term n)) -> List (Term n) -> Either ResolveError ()
     agree first [] [] = Right ()
     agree first (descriptor :: descriptors) (branch :: branches) = do
-      result <- dataBranchResult position context descriptor branch
-      if guardedEqual typeReductionFuel first result then agree first descriptors branches
+      result <- dataBranchResultGlobals shared position context descriptor branch
+      if guardedEqualGlobals shared typeReductionFuel first result then agree first descriptors branches
         else Left (CannotElaborate position "Data-case branch results differ or guarded conversion was inconclusive; use an explicit return motive")
     agree first _ _ = Left (CannotElaborate position "Data-case branch count does not match shape")
-constantDataResult position context _ _ = Left (CannotElaborate position "Data-case branch count does not match shape")
+constantDataResultGlobals shared position context _ _ = Left (CannotElaborate position "Data-case branch count does not match shape")
 
 ||| A sequence cons branch has two payload binders; a constant result must
 ||| escape both, not just the most recent tail binder.
-constantSequenceResult : Position -> Context n -> Term n -> Term n -> Either ResolveError (Term n)
-constantSequenceResult position context base cons = do
-  first <- dataBranchResult position context Nothing base
-  ty <- case inferErased checkingDepth typeReductionFuel context cons of
+constantSequenceResultGlobals : GlobalContext -> Position -> Context n -> Term n -> Term n -> Either ResolveError (Term n)
+constantSequenceResultGlobals shared position context base cons = do
+  first <- dataBranchResultGlobals shared position context Nothing base
+  ty <- case inferErasedGlobals shared checkingDepth typeReductionFuel context cons of
     Left err => Left (CannotElaborate position ("Cannot infer sequence-case branch type: " ++ show err ++ "; use an explicit return motive"))
     Right result => Right result
   result <- case ty of
@@ -117,7 +118,7 @@ constantSequenceResult position context base cons = do
   common <- case dropNewest one of
     Nothing => Left (CannotElaborate position "Sequence-case result depends on the head; use an explicit return motive")
     Just outer => Right outer
-  if guardedEqual typeReductionFuel first common then Right first
+  if guardedEqualGlobals shared typeReductionFuel first common then Right first
     else Left (CannotElaborate position "Sequence-case branch results differ or conversion was inconclusive; use an explicit return motive")
 
 expectedDataMotive : Position -> Term n -> Term n -> Term n -> Either ResolveError (Term n)
@@ -227,31 +228,31 @@ mutual
   ||| Visibility is accepted only on a checked module declaration's leading
   ||| erased prefix, followed by a source-authored ordinary Pi.
   public export
-  elaborateSignature : List GlobalDefinition -> Maybe (Context n) -> Vect n String -> Expr -> Either ResolveError (Term n)
-  elaborateSignature globals context env signature = elaborateSignatureWith False globals context env signature
+  elaborateSignatureGlobals : GlobalContext -> List GlobalDefinition -> Maybe (Context n) -> Vect n String -> Expr -> Either ResolveError (Term n)
+  elaborateSignatureGlobals shared globals context env signature = elaborateSignatureWithGlobals shared False globals context env signature
 
   ||| Only generated declarations may have an implicit-only telescope, needed
   ||| for explicitly instantiated nullary data constructors.
   public export
-  elaborateSignatureWith : Bool -> List GlobalDefinition -> Maybe (Context n) -> Vect n String -> Expr -> Either ResolveError (Term n)
-  elaborateSignatureWith allowImplicitOnly globals context env (NImplicitPi span Erased name domain body) = do
+  elaborateSignatureWithGlobals : GlobalContext -> Bool -> List GlobalDefinition -> Maybe (Context n) -> Vect n String -> Expr -> Either ResolveError (Term n)
+  elaborateSignatureWithGlobals shared allowImplicitOnly globals context env (NImplicitPi span Erased name domain body) = do
     case body of
       NImplicitPi _ _ _ _ _ => Right ()
       NPi _ _ _ _ _ => Right ()
       _ => if allowImplicitOnly then Right () else Left (CannotElaborate span.start "Implicit prefix must be followed by an explicit Pi")
-    domain <- elaborateInWith globals context env domain
-    result <- elaborateSignatureWith allowImplicitOnly globals (map (\ctx => Extend ctx Erased domain) context) (name :: env) body
+    domain <- elaborateInWithGlobals shared globals context env domain
+    result <- elaborateSignatureWithGlobals shared allowImplicitOnly globals (map (\ctx => Extend ctx Erased domain) context) (name :: env) body
     Right (Pi Erased domain result)
-  elaborateSignatureWith allowImplicitOnly globals context env (NImplicitPi span _ _ _ _) =
+  elaborateSignatureWithGlobals shared allowImplicitOnly globals context env (NImplicitPi span _ _ _ _) =
     Left (CannotElaborate span.start "Implicit binders must have quantity 0")
-  elaborateSignatureWith allowImplicitOnly globals context env signature = elaborateInWith globals context env signature
+  elaborateSignatureWithGlobals shared allowImplicitOnly globals context env signature = elaborateInWithGlobals shared globals context env signature
 
-  elaborateTerms : List GlobalDefinition -> Maybe (Context n) -> Vect n String -> List Expr -> Either ResolveError (List (Term n))
-  elaborateTerms globals context env [] = Right []
-  elaborateTerms globals context env (x :: xs) = [| elaborateInWith globals context env x :: elaborateTerms globals context env xs |]
+  elaborateTermsGlobals : GlobalContext -> List GlobalDefinition -> Maybe (Context n) -> Vect n String -> List Expr -> Either ResolveError (List (Term n))
+  elaborateTermsGlobals shared globals context env [] = Right []
+  elaborateTermsGlobals shared globals context env (x :: xs) = [| elaborateInWithGlobals shared globals context env x :: elaborateTermsGlobals shared globals context env xs |]
 
-  dataCaseTag : Position -> Term n -> Either ResolveError Nat
-  dataCaseTag position value = case normalize typeReductionFuel value of
+  dataCaseTagGlobals : GlobalContext -> Position -> Term n -> Either ResolveError Nat
+  dataCaseTagGlobals shared position value = case normalizeGlobals (globalValue shared) typeReductionFuel value of
     OutOfFuel _ => Left (CannotElaborate position "Data-case constructor reduction budget exhausted")
     Normal (NominalValue _ (VariantValue _ tag Nothing)) => Right tag
     Normal (Lambda _ _ (NominalValue _ (VariantValue _ tag (Just (Variable FZ))))) => Right tag
@@ -265,10 +266,10 @@ mutual
     later <- orderDataArms position (S tag) rest (filter (\entry => fst entry /= tag) branches)
     Right (branch :: later)
 
-  elaborateDataArms : List GlobalDefinition -> Context n -> Vect n String -> Term n -> Term n -> List (Term n) ->
+  elaborateDataArmsGlobals : GlobalContext -> List GlobalDefinition -> Context n -> Vect n String -> Term n -> Term n -> List (Term n) ->
                       List (Maybe (Quantity, Term n)) -> Maybe (Term n) -> List (Token, List Token, Expr) -> Either ResolveError (List (Nat, Term n))
-  elaborateDataArms globals ctx env nominal shape indices descriptors hint [] = Right []
-  elaborateDataArms globals ctx env nominal shape indices descriptors hint ((name, binder, body) :: rest) = do
+  elaborateDataArmsGlobals shared globals ctx env nominal shape indices descriptors hint [] = Right []
+  elaborateDataArmsGlobals shared globals ctx env nominal shape indices descriptors hint ((name, binder, body) :: rest) = do
     if elem '.' (unpack name.spelling) then Right () else
       case lookupName name.spelling env of
         Just _ => Left (CannotElaborate name.span.start "Data-case constructor is shadowed by a local binder")
@@ -281,7 +282,7 @@ mutual
     if definition.quantity /= Unrestricted then Left (CannotElaborate name.span.start "Data-case constructor must be an unrestricted checked global") else Right ()
     if coreNodes definition.value > 512 then Left (CannotElaborate name.span.start "Data-case constructor exceeds 512 nodes") else Right ()
     let candidate = foldl Apply (rename absurd definition.value) indices
-    tag <- dataCaseTag name.span.start candidate
+    tag <- dataCaseTagGlobals shared name.span.start candidate
     descriptor <- case variantAt tag descriptors of
       Nothing => Left (CannotElaborate name.span.start "Data-case constructor tag is outside the scrutinee shape")
       Just descriptor => Right descriptor
@@ -290,28 +291,28 @@ mutual
       (Just (q, ty), [_]) =>
         Right (Lambda q ty (NominalValue (weaken nominal) (VariantValue (weaken shape) tag (Just (Variable FZ)))))
       _ => Left (CannotElaborate name.span.start "Data-case constructor payload arity does not match its branch")
-    case betaCompare typeReductionFuel candidate expected of
+    case betaCompareGlobals (globalValue shared) typeReductionFuel candidate expected of
       EqualNormalForms => Right ()
       DifferentNormalForms => Left (CannotElaborate name.span.start "Data-case constructor does not match the scrutinee type and shape")
       Inconclusive => Left (CannotElaborate name.span.start "Data-case constructor comparison budget exhausted")
     branch <- case (descriptor, binder) of
       (Nothing, []) => case hint of
-        Nothing => elaborateInWith globals (Just ctx) env body
+        Nothing => elaborateInWithGlobals shared globals (Just ctx) env body
         Just motive =>
           let applied = Apply motive (NominalValue nominal (VariantValue shape tag Nothing))
-              result = fromMaybe applied (guardedNormal typeReductionFuel applied) in
-            elaborateExpected globals ctx env result body
+              result = fromMaybe applied (guardedNormalGlobals shared typeReductionFuel applied) in
+            elaborateExpectedGlobals shared globals ctx env result body
       (Just (q, ty), [bound]) => do
         result <- case hint of
-          Nothing => elaborateInWith globals (Just (Extend ctx q ty)) (bound.spelling :: env) body
+          Nothing => elaborateInWithGlobals shared globals (Just (Extend ctx q ty)) (bound.spelling :: env) body
           Just motive =>
             let value = NominalValue (weaken nominal) (VariantValue (weaken shape) tag (Just (Variable FZ)))
                 applied = Apply (weaken motive) value
-                expectedResult = fromMaybe applied (guardedNormal typeReductionFuel applied) in
-              elaborateExpected globals (Extend ctx q ty) (bound.spelling :: env) expectedResult body
+                expectedResult = fromMaybe applied (guardedNormalGlobals shared typeReductionFuel applied) in
+              elaborateExpectedGlobals shared globals (Extend ctx q ty) (bound.spelling :: env) expectedResult body
         Right (Lambda q ty result)
       _ => Left (CannotElaborate name.span.start "Invalid data-case payload branch")
-    following <- elaborateDataArms globals ctx env nominal shape indices descriptors hint rest
+    following <- elaborateDataArmsGlobals shared globals ctx env nominal shape indices descriptors hint rest
     if any (\entry => fst entry == tag) following
        then Left (CannotElaborate name.span.start "Duplicate data-case constructor") else Right ()
     Right ((tag, branch) :: following)
@@ -319,64 +320,64 @@ mutual
   -- A result type is available here only for a direct equation body. The
   -- variable abstraction is a renaming, so it cannot duplicate subtrees.
   public export
-  elaborateExpected : List GlobalDefinition -> Context n -> Vect n String -> Term n -> Expr -> Either ResolveError (Term n)
-  elaborateExpected globals context env expected expression@(NApply span function argument) =
+  elaborateExpectedGlobals : GlobalContext -> List GlobalDefinition -> Context n -> Vect n String -> Term n -> Expr -> Either ResolveError (Term n)
+  elaborateExpectedGlobals shared globals context env expected expression@(NApply span function argument) =
     if hasImplicitCall globals env expression
-      then elaborateImplicitCall globals context env (Just expected) expression
+      then elaborateImplicitCallGlobals shared globals context env (Just expected) expression
       else do
-        resolved <- elaborateInWith globals (Just context) env function
-        elaborateApplication globals (Just context) env resolved argument
-  elaborateExpected globals context env expected expression@(NImplicitApply span _ _) =
-    elaborateImplicitCall globals context env (Just expected) expression
-  elaborateExpected globals context env expected (NDataCase span value Nothing arms) =
-    elaborateDataCase globals context env span value Nothing arms (Just expected)
-  elaborateExpected globals context env (Pi _ _ expected) (NLambda span q name domain body) = do
-    domain <- elaborateInWith globals (Just context) env domain
-    body <- elaborateExpected globals (Extend context q domain) (name :: env) expected body
+        resolved <- elaborateInWithGlobals shared globals (Just context) env function
+        elaborateApplicationGlobals shared globals (Just context) env resolved argument
+  elaborateExpectedGlobals shared globals context env expected expression@(NImplicitApply span _ _) =
+    elaborateImplicitCallGlobals shared globals context env (Just expected) expression
+  elaborateExpectedGlobals shared globals context env expected (NDataCase span value Nothing arms) =
+    elaborateDataCaseGlobals shared globals context env span value Nothing arms (Just expected)
+  elaborateExpectedGlobals shared globals context env (Pi _ _ expected) (NLambda span q name domain body) = do
+    domain <- elaborateInWithGlobals shared globals (Just context) env domain
+    body <- elaborateExpectedGlobals shared globals (Extend context q domain) (name :: env) expected body
     Right (Lambda q domain body)
-  elaborateExpected globals context env expected (NUnitCase span scrutinee body) = do
-    scrutinee <- elaborateInWith globals (Just context) env scrutinee
-    body <- elaborateExpected globals context env expected body
+  elaborateExpectedGlobals shared globals context env expected (NUnitCase span scrutinee body) = do
+    scrutinee <- elaborateInWithGlobals shared globals (Just context) env scrutinee
+    body <- elaborateExpectedGlobals shared globals context env expected body
     Right (UnitCase scrutinee body)
-  elaborateExpected globals context env expected (NIf span condition yes no) = do
-    condition <- elaborateInWith globals (Just context) env condition
-    yes <- elaborateExpected globals context env expected yes
-    no <- elaborateExpected globals context env expected no
+  elaborateExpectedGlobals shared globals context env expected (NIf span condition yes no) = do
+    condition <- elaborateInWithGlobals shared globals (Just context) env condition
+    yes <- elaborateExpectedGlobals shared globals context env expected yes
+    no <- elaborateExpectedGlobals shared globals context env expected no
     Right (BoolCase condition yes no)
-  elaborateExpected globals context env expected expression@(NLet span q name annotation value body) =
+  elaborateExpectedGlobals shared globals context env expected expression@(NLet span q name annotation value body) =
     if not (wantsExpected body || hasImplicitCall globals (name :: env) body) || typeNodes expected > inferredResultNodes
-      then elaborateInWith globals (Just context) env expression else do
-      ty <- elaborateInWith globals (Just context) env annotation
-      value <- elaborateExpected globals context env ty value
-      body <- elaborateExpected globals (Extend context q ty) (name :: env) (weaken expected) body
+      then elaborateInWithGlobals shared globals (Just context) env expression else do
+      ty <- elaborateInWithGlobals shared globals (Just context) env annotation
+      value <- elaborateExpectedGlobals shared globals context env ty value
+      body <- elaborateExpectedGlobals shared globals (Extend context q ty) (name :: env) (weaken expected) body
       Right (Apply (Lambda q ty body) value)
-  elaborateExpected globals context env expected body = elaborateInWith globals (Just context) env body
+  elaborateExpectedGlobals shared globals context env expected body = elaborateInWithGlobals shared globals (Just context) env body
 
   -- Try the authored scrutinee first to preserve exact-abstraction behavior.
   -- Only a fully admitted guarded normalization may supply a second proposal;
   -- both candidates are checked against the original, unnormalized result.
-  chooseExpectedMotive : Position -> Context n -> Term n -> Term n -> Term n -> Term n -> List (Term n) -> Either ResolveError (Term n)
-  chooseExpectedMotive position ctx nominal shape scrutinee result branches = do
+  chooseExpectedMotiveGlobals : GlobalContext -> Position -> Context n -> Term n -> Term n -> Term n -> Term n -> List (Term n) -> Either ResolveError (Term n)
+  chooseExpectedMotiveGlobals shared position ctx nominal shape scrutinee result branches = do
     exact <- expectedDataMotive position nominal result scrutinee
     let candidate = assembleDataCase nominal shape exact scrutinee branches
-    case checkErased checkingDepth typeReductionFuel ctx candidate result of
+    case checkErasedGlobals shared checkingDepth typeReductionFuel ctx candidate result of
       Right () => Right exact
-      Left _ => case guardedNormal typeReductionFuel scrutinee of
+      Left _ => case guardedNormalGlobals shared typeReductionFuel scrutinee of
         Nothing => Right exact
         Just normal => if sameSyntax normal scrutinee then Right exact else
           case expectedDataMotive position nominal result normal of
             Left _ => Right exact
             Right converted =>
               let alternative = assembleDataCase nominal shape converted scrutinee branches in
-                case checkErased checkingDepth typeReductionFuel ctx alternative result of
+                case checkErasedGlobals shared checkingDepth typeReductionFuel ctx alternative result of
                   Right () => Right converted
                   Left _ => Right exact
 
   -- Identify constructors from their checked closed values, never from the
   -- authored layout hint. Guard conversion before allocating normalized terms.
-  recursiveCaseArms : Position -> List GlobalDefinition -> Context n -> Vect n String -> Term n -> Maybe (Term n) -> List (Token, List Token, Expr) -> Either ResolveError (List (Nat, Term n))
-  recursiveCaseArms position globals ctx env ty hint [] = Right []
-  recursiveCaseArms position globals ctx env ty@(RecType key) hint ((name, binder, body) :: rest) = do
+  recursiveCaseArmsGlobals : GlobalContext -> Position -> List GlobalDefinition -> Context n -> Vect n String -> Term n -> Maybe (Term n) -> List (Token, List Token, Expr) -> Either ResolveError (List (Nat, Term n))
+  recursiveCaseArmsGlobals shared position globals ctx env ty hint [] = Right []
+  recursiveCaseArmsGlobals shared position globals ctx env ty@(RecType key) hint ((name, binder, body) :: rest) = do
     if elem '.' (unpack name.spelling) then Right () else case lookupName name.spelling env of
       Just _ => Left (CannotElaborate name.span.start "Data-case constructor is shadowed by a local binder")
       Nothing => Right ()
@@ -386,7 +387,7 @@ mutual
         _ => Left (Unbound name.span.start name.spelling)
       Just entry => Right entry
     if definition.quantity /= Unrestricted then Left (CannotElaborate name.span.start "Data-case constructor must be an unrestricted checked global") else Right ()
-    normal <- case guardedNormal typeReductionFuel definition.value of
+    normal <- case guardedNormalGlobals shared typeReductionFuel definition.value of
       Nothing => Left (CannotElaborate name.span.start "Recursive-case constructor comparison exhausted admission or reduction")
       Just result => Right result
     let terminal : Term 0 = RecEnd (RecType key)
@@ -396,49 +397,49 @@ mutual
                Left (CannotElaborate name.span.start "Recursive-case constructor does not match the scrutinee family")
     branch <- case (tag, binder) of
       (0, []) => case hint of
-        Nothing => elaborateInWith globals (Just ctx) env body
+        Nothing => elaborateInWithGlobals shared globals (Just ctx) env body
         Just motive =>
           let applied = Apply motive (RecEnd ty)
-              result = fromMaybe applied (guardedNormal typeReductionFuel applied) in
-            elaborateExpected globals ctx env result body
+              result = fromMaybe applied (guardedNormalGlobals shared typeReductionFuel applied) in
+            elaborateExpectedGlobals shared globals ctx env result body
       (1, [bound]) => do
         result <- case hint of
-          Nothing => elaborateInWith globals (Just (Extend ctx Linear ty)) (bound.spelling :: env) body
+          Nothing => elaborateInWithGlobals shared globals (Just (Extend ctx Linear ty)) (bound.spelling :: env) body
           Just motive =>
             let actual = RecMore (weaken ty) (Variable FZ)
                 applied = Apply (weaken motive) actual
-                expectedResult = fromMaybe applied (guardedNormal typeReductionFuel applied) in
-              elaborateExpected globals (Extend ctx Linear ty) (bound.spelling :: env) expectedResult body
+                expectedResult = fromMaybe applied (guardedNormalGlobals shared typeReductionFuel applied) in
+              elaborateExpectedGlobals shared globals (Extend ctx Linear ty) (bound.spelling :: env) expectedResult body
         Right (Lambda Linear ty result)
       _ => Left (CannotElaborate name.span.start "Recursive-case constructor payload arity does not match its branch")
-    following <- recursiveCaseArms position globals ctx env ty hint rest
+    following <- recursiveCaseArmsGlobals shared position globals ctx env ty hint rest
     if any (\entry => fst entry == tag) following
       then Left (CannotElaborate name.span.start "Duplicate recursive-case constructor") else Right ()
     Right ((tag, branch) :: following)
-  recursiveCaseArms position _ _ _ _ _ _ = Left (CannotElaborate position "Invalid recursive-case type")
+  recursiveCaseArmsGlobals shared position _ _ _ _ _ _ = Left (CannotElaborate position "Invalid recursive-case type")
 
-  chooseExpectedRecursiveMotive : Position -> Context n -> Term n -> Term n -> Term n -> Term n -> Term n -> Either ResolveError (Term n)
-  chooseExpectedRecursiveMotive position ctx ty scrutinee result base more = do
+  chooseExpectedRecursiveMotiveGlobals : GlobalContext -> Position -> Context n -> Term n -> Term n -> Term n -> Term n -> Term n -> Either ResolveError (Term n)
+  chooseExpectedRecursiveMotiveGlobals shared position ctx ty scrutinee result base more = do
     exact <- expectedDataMotive position ty result scrutinee
-    case checkErased checkingDepth typeReductionFuel ctx (RecCase exact scrutinee base more) result of
+    case checkErasedGlobals shared checkingDepth typeReductionFuel ctx (RecCase exact scrutinee base more) result of
       Right () => Right exact
-      Left _ => case guardedNormal typeReductionFuel scrutinee of
+      Left _ => case guardedNormalGlobals shared typeReductionFuel scrutinee of
         Nothing => Left (CannotElaborate position "Cannot infer recursive-case motive; use an explicit return motive")
         Just normal => if sameSyntax normal scrutinee
           then Left (CannotElaborate position "Cannot infer recursive-case motive; use an explicit return motive")
           else do
             converted <- expectedDataMotive position ty result normal
-            case checkErased checkingDepth typeReductionFuel ctx (RecCase converted scrutinee base more) result of
+            case checkErasedGlobals shared checkingDepth typeReductionFuel ctx (RecCase converted scrutinee base more) result of
               Right () => Right converted
               Left _ => Left (CannotElaborate position "Cannot infer recursive-case motive; use an explicit return motive")
 
-  elaborateRecursiveDataCase : List GlobalDefinition -> Context n -> Vect n String -> SourceSpan -> Term n -> Term n -> Maybe Expr -> List (Token, List Token, Expr) -> Maybe (Term n) -> Either ResolveError (Term n)
-  elaborateRecursiveDataCase globals ctx env span scrutinee ty motive arms expected = do
+  elaborateRecursiveDataCaseGlobals : GlobalContext -> List GlobalDefinition -> Context n -> Vect n String -> SourceSpan -> Term n -> Term n -> Maybe Expr -> List (Token, List Token, Expr) -> Maybe (Term n) -> Either ResolveError (Term n)
+  elaborateRecursiveDataCaseGlobals shared globals ctx env span scrutinee ty motive arms expected = do
     if typeNodes ty > inferredResultNodes || payloadSize ty > payloadLimit
       then Left (CannotElaborate span.start "Recursive-case type exceeds admission") else Right ()
     if length arms > 64 then Left (CannotElaborate span.start "Data-case branch admission exhausted (64)") else Right ()
     explicit <- the (Either ResolveError (Maybe (Term n))) $ case motive of
-      Just authored => Just <$> elaborateInWith globals (Just ctx) env authored
+      Just authored => Just <$> elaborateInWithGlobals shared globals (Just ctx) env authored
       Nothing => Right Nothing
     let hint : Maybe (Term n)
         hint = case explicit of
@@ -451,29 +452,29 @@ mutual
     let boundedHint = case hint of
           Just candidate => if typeNodes candidate <= inferredResultNodes && payloadSize candidate <= payloadLimit then Just candidate else Nothing
           Nothing => Nothing
-    checked <- recursiveCaseArms span.start globals ctx env ty boundedHint arms
+    checked <- recursiveCaseArmsGlobals shared span.start globals ctx env ty boundedHint arms
     ordered <- orderDataArms span.start 0 [Nothing, Just (Linear, ty)] checked
     case ordered of
       [base, more] => do
         selected <- case explicit of
           Just authored => Right authored
           Nothing => case expected of
-            Just result => case constantDataResult span.start ctx [Nothing, Just (Linear, ty)] ordered of
+            Just result => case constantDataResultGlobals shared span.start ctx [Nothing, Just (Linear, ty)] ordered of
               Right common =>
                 let constant = Lambda Erased ty (weaken common) in
-                  case checkErased checkingDepth typeReductionFuel ctx (RecCase constant scrutinee base more) result of
+                  case checkErasedGlobals shared checkingDepth typeReductionFuel ctx (RecCase constant scrutinee base more) result of
                     Right () => Right constant
-                    Left _ => chooseExpectedRecursiveMotive span.start ctx ty scrutinee result base more
-              Left _ => chooseExpectedRecursiveMotive span.start ctx ty scrutinee result base more
+                    Left _ => chooseExpectedRecursiveMotiveGlobals shared span.start ctx ty scrutinee result base more
+              Left _ => chooseExpectedRecursiveMotiveGlobals shared span.start ctx ty scrutinee result base more
             Nothing => do
-              result <- constantDataResult span.start ctx [Nothing, Just (Linear, ty)] ordered
+              result <- constantDataResultGlobals shared span.start ctx [Nothing, Just (Linear, ty)] ordered
               Right (Lambda Erased ty (weaken result))
         Right (RecCase selected scrutinee base more)
       _ => Left (CannotElaborate span.start "Recursive case requires exactly two branches")
 
-  natCaseArms : Position -> Quantity -> List GlobalDefinition -> Context n -> Vect n String -> Term n -> Maybe (Term n) -> List (Token, List Token, Expr) -> Either ResolveError (List (Nat, Term n))
-  natCaseArms position predQ globals ctx env ty hint [] = Right []
-  natCaseArms position predQ globals ctx env ty@NatType hint ((name, binder, body) :: rest) = do
+  natCaseArmsGlobals : GlobalContext -> Position -> Quantity -> List GlobalDefinition -> Context n -> Vect n String -> Term n -> Maybe (Term n) -> List (Token, List Token, Expr) -> Either ResolveError (List (Nat, Term n))
+  natCaseArmsGlobals shared position predQ globals ctx env ty hint [] = Right []
+  natCaseArmsGlobals shared position predQ globals ctx env ty@NatType hint ((name, binder, body) :: rest) = do
     if elem '.' (unpack name.spelling) then Right () else case lookupName name.spelling env of
       Just _ => Left (CannotElaborate name.span.start "Data-case constructor is shadowed by a local binder")
       Nothing => Right ()
@@ -483,7 +484,7 @@ mutual
         _ => Left (Unbound name.span.start name.spelling)
       Just entry => Right entry
     if definition.quantity /= Unrestricted then Left (CannotElaborate name.span.start "Data-case constructor must be an unrestricted checked global") else Right ()
-    normal <- case guardedNormal typeReductionFuel definition.value of
+    normal <- case guardedNormalGlobals shared typeReductionFuel definition.value of
       Nothing => Left (CannotElaborate name.span.start "Nat-case constructor comparison exhausted admission or reduction")
       Just result => Right result
     let terminal : Term 0 = NatZero
@@ -493,49 +494,49 @@ mutual
                Left (CannotElaborate name.span.start "Nat-case constructor does not match the scrutinee family")
     branch <- case (tag, binder) of
       (0, []) => case hint of
-        Nothing => elaborateInWith globals (Just ctx) env body
+        Nothing => elaborateInWithGlobals shared globals (Just ctx) env body
         Just motive =>
           let applied = Apply motive (NatZero)
-              result = fromMaybe applied (guardedNormal typeReductionFuel applied) in
-            elaborateExpected globals ctx env result body
+              result = fromMaybe applied (guardedNormalGlobals shared typeReductionFuel applied) in
+            elaborateExpectedGlobals shared globals ctx env result body
       (1, [bound]) => do
         result <- case hint of
-          Nothing => elaborateInWith globals (Just (Extend ctx predQ ty)) (bound.spelling :: env) body
+          Nothing => elaborateInWithGlobals shared globals (Just (Extend ctx predQ ty)) (bound.spelling :: env) body
           Just motive =>
             let actual = NatSucc (Variable FZ)
                 applied = Apply (weaken motive) actual
-                expectedResult = fromMaybe applied (guardedNormal typeReductionFuel applied) in
-              elaborateExpected globals (Extend ctx predQ ty) (bound.spelling :: env) expectedResult body
+                expectedResult = fromMaybe applied (guardedNormalGlobals shared typeReductionFuel applied) in
+              elaborateExpectedGlobals shared globals (Extend ctx predQ ty) (bound.spelling :: env) expectedResult body
         Right (Lambda predQ ty result)
       _ => Left (CannotElaborate name.span.start "Nat-case constructor payload arity does not match its branch")
-    following <- natCaseArms position predQ globals ctx env ty hint rest
+    following <- natCaseArmsGlobals shared position predQ globals ctx env ty hint rest
     if any (\entry => fst entry == tag) following
       then Left (CannotElaborate name.span.start "Duplicate Nat-case constructor") else Right ()
     Right ((tag, branch) :: following)
-  natCaseArms position _ _ _ _ _ _ _ = Left (CannotElaborate position "Invalid Nat-case type")
+  natCaseArmsGlobals shared position _ _ _ _ _ _ _ = Left (CannotElaborate position "Invalid Nat-case type")
 
-  chooseExpectedNatMotive : Position -> Context n -> Term n -> Term n -> Term n -> Term n -> Term n -> Either ResolveError (Term n)
-  chooseExpectedNatMotive position ctx ty scrutinee result base more = do
+  chooseExpectedNatMotiveGlobals : GlobalContext -> Position -> Context n -> Term n -> Term n -> Term n -> Term n -> Term n -> Either ResolveError (Term n)
+  chooseExpectedNatMotiveGlobals shared position ctx ty scrutinee result base more = do
     exact <- expectedDataMotive position ty result scrutinee
-    case checkErased checkingDepth typeReductionFuel ctx (NatCase exact scrutinee base more) result of
+    case checkErasedGlobals shared checkingDepth typeReductionFuel ctx (NatCase exact scrutinee base more) result of
       Right () => Right exact
-      Left _ => case guardedNormal typeReductionFuel scrutinee of
+      Left _ => case guardedNormalGlobals shared typeReductionFuel scrutinee of
         Nothing => Left (CannotElaborate position "Cannot infer Nat-case motive; use an explicit return motive")
         Just normal => if sameSyntax normal scrutinee
           then Left (CannotElaborate position "Cannot infer Nat-case motive; use an explicit return motive")
           else do
             converted <- expectedDataMotive position ty result normal
-            case checkErased checkingDepth typeReductionFuel ctx (NatCase converted scrutinee base more) result of
+            case checkErasedGlobals shared checkingDepth typeReductionFuel ctx (NatCase converted scrutinee base more) result of
               Right () => Right converted
               Left _ => Left (CannotElaborate position "Cannot infer Nat-case motive; use an explicit return motive")
 
-  elaborateNatDataCase : List GlobalDefinition -> Context n -> Vect n String -> SourceSpan -> Term n -> Term n -> Maybe Expr -> List (Token, List Token, Expr) -> Maybe (Term n) -> Either ResolveError (Term n)
-  elaborateNatDataCase globals ctx env span scrutinee ty motive arms expected = do
+  elaborateNatDataCaseGlobals : GlobalContext -> List GlobalDefinition -> Context n -> Vect n String -> SourceSpan -> Term n -> Term n -> Maybe Expr -> List (Token, List Token, Expr) -> Maybe (Term n) -> Either ResolveError (Term n)
+  elaborateNatDataCaseGlobals shared globals ctx env span scrutinee ty motive arms expected = do
     if typeNodes ty > inferredResultNodes || payloadSize ty > payloadLimit
       then Left (CannotElaborate span.start "Nat-case type exceeds admission") else Right ()
     if length arms > 64 then Left (CannotElaborate span.start "Data-case branch admission exhausted (64)") else Right ()
     explicit <- the (Either ResolveError (Maybe (Term n))) $ case motive of
-      Just authored => Just <$> elaborateInWith globals (Just ctx) env authored
+      Just authored => Just <$> elaborateInWithGlobals shared globals (Just ctx) env authored
       Nothing => Right Nothing
     let hint : Maybe (Term n)
         hint = case explicit of
@@ -548,29 +549,29 @@ mutual
     let boundedHint = case hint of
           Just candidate => if typeNodes candidate <= inferredResultNodes && payloadSize candidate <= payloadLimit then Just candidate else Nothing
           Nothing => Nothing
-    checked <- natCaseArms span.start (predecessorQuantity ctx env scrutinee) globals ctx env ty boundedHint arms
+    checked <- natCaseArmsGlobals shared span.start (predecessorQuantity ctx env scrutinee) globals ctx env ty boundedHint arms
     ordered <- orderDataArms span.start 0 [Nothing, Just (Linear, ty)] checked
     case ordered of
       [base, more] => do
         selected <- case explicit of
           Just authored => Right authored
           Nothing => case expected of
-            Just result => case constantDataResult span.start ctx [Nothing, Just (Linear, ty)] ordered of
+            Just result => case constantDataResultGlobals shared span.start ctx [Nothing, Just (Linear, ty)] ordered of
               Right common =>
                 let constant = Lambda Erased ty (weaken common) in
-                  case checkErased checkingDepth typeReductionFuel ctx (NatCase constant scrutinee base more) result of
+                  case checkErasedGlobals shared checkingDepth typeReductionFuel ctx (NatCase constant scrutinee base more) result of
                     Right () => Right constant
-                    Left _ => chooseExpectedNatMotive span.start ctx ty scrutinee result base more
-              Left _ => chooseExpectedNatMotive span.start ctx ty scrutinee result base more
+                    Left _ => chooseExpectedNatMotiveGlobals shared span.start ctx ty scrutinee result base more
+              Left _ => chooseExpectedNatMotiveGlobals shared span.start ctx ty scrutinee result base more
             Nothing => do
-              result <- constantDataResult span.start ctx [Nothing, Just (Linear, ty)] ordered
+              result <- constantDataResultGlobals shared span.start ctx [Nothing, Just (Linear, ty)] ordered
               Right (Lambda Erased ty (weaken result))
         Right (NatCase selected scrutinee base more)
       _ => Left (CannotElaborate span.start "Nat case requires exactly two branches")
 
-  sequenceCaseArms : Position -> List GlobalDefinition -> Context n -> Vect n String -> Term n -> Term n -> Maybe (Term n) -> List (Token, List Token, Expr) -> Either ResolveError (List (Nat, Term n))
-  sequenceCaseArms position globals ctx env ty element hint [] = Right []
-  sequenceCaseArms position globals ctx env ty element hint ((name, binders, body) :: rest) = do
+  sequenceCaseArmsGlobals : GlobalContext -> Position -> List GlobalDefinition -> Context n -> Vect n String -> Term n -> Term n -> Maybe (Term n) -> List (Token, List Token, Expr) -> Either ResolveError (List (Nat, Term n))
+  sequenceCaseArmsGlobals shared position globals ctx env ty element hint [] = Right []
+  sequenceCaseArmsGlobals shared position globals ctx env ty element hint ((name, binders, body) :: rest) = do
     if elem '.' (unpack name.spelling) then Right () else case lookupName name.spelling env of
       Just _ => Left (CannotElaborate name.span.start "Data-case constructor is shadowed by a local binder")
       Nothing => Right ()
@@ -579,53 +580,53 @@ mutual
         _ :: _ :: _ => Left (CannotElaborate name.span.start ("Ambiguous imported name " ++ name.spelling ++ "; use a qualified name"))
         _ => Left (Unbound name.span.start name.spelling)
       Just entry => Right entry
-    tag <- checkedSequenceConstructor name.span.start ctx ty element definition
+    tag <- checkedSequenceConstructorGlobals shared name.span.start ctx ty element definition
     let nil = SeqNil ty
     branch <- case (tag, binders) of
       (0, []) => case hint of
-        Nothing => elaborateInWith globals (Just ctx) env body
+        Nothing => elaborateInWithGlobals shared globals (Just ctx) env body
         Just motive =>
           let applied = Apply motive nil
-              result = fromMaybe applied (guardedNormal typeReductionFuel applied) in
-            elaborateExpected globals ctx env result body
+              result = fromMaybe applied (guardedNormalGlobals shared typeReductionFuel applied) in
+            elaborateExpectedGlobals shared globals ctx env result body
       (1, [head, tail]) => do
         let inner = Extend (Extend ctx Linear element) Linear (weaken ty)
         result <- case hint of
-          Nothing => elaborateInWith globals (Just inner) (tail.spelling :: head.spelling :: env) body
+          Nothing => elaborateInWithGlobals shared globals (Just inner) (tail.spelling :: head.spelling :: env) body
           Just motive =>
             let actual = SeqCons (weaken (weaken ty)) (Variable (FS FZ)) (Variable FZ)
                 applied = Apply (weaken (weaken motive)) actual
-                expectedResult = fromMaybe applied (guardedNormal typeReductionFuel applied) in
-              elaborateExpected globals inner (tail.spelling :: head.spelling :: env) expectedResult body
+                expectedResult = fromMaybe applied (guardedNormalGlobals shared typeReductionFuel applied) in
+              elaborateExpectedGlobals shared globals inner (tail.spelling :: head.spelling :: env) expectedResult body
         Right (Lambda Linear element (Lambda Linear (weaken ty) result))
       _ => Left (CannotElaborate name.span.start "Sequence-case constructor payload arity does not match its branch")
-    following <- sequenceCaseArms position globals ctx env ty element hint rest
+    following <- sequenceCaseArmsGlobals shared position globals ctx env ty element hint rest
     if any (\entry => fst entry == tag) following
       then Left (CannotElaborate name.span.start "Duplicate sequence-case constructor") else Right ()
     Right ((tag, branch) :: following)
 
-  chooseExpectedSequenceMotive : Position -> Context n -> Term n -> Term n -> Term n -> Term n -> Term n -> Either ResolveError (Term n)
-  chooseExpectedSequenceMotive position ctx ty scrutinee result base cons = do
+  chooseExpectedSequenceMotiveGlobals : GlobalContext -> Position -> Context n -> Term n -> Term n -> Term n -> Term n -> Term n -> Either ResolveError (Term n)
+  chooseExpectedSequenceMotiveGlobals shared position ctx ty scrutinee result base cons = do
     exact <- expectedDataMotive position ty result scrutinee
-    case checkErased checkingDepth typeReductionFuel ctx (SeqCase exact scrutinee base cons) result of
+    case checkErasedGlobals shared checkingDepth typeReductionFuel ctx (SeqCase exact scrutinee base cons) result of
       Right () => Right exact
-      Left _ => case guardedNormal typeReductionFuel scrutinee of
+      Left _ => case guardedNormalGlobals shared typeReductionFuel scrutinee of
         Nothing => Left (CannotElaborate position "Cannot infer sequence-case motive; use an explicit return motive")
         Just normal => if sameSyntax normal scrutinee
           then Left (CannotElaborate position "Cannot infer sequence-case motive; use an explicit return motive")
           else do
             converted <- expectedDataMotive position ty result normal
-            case checkErased checkingDepth typeReductionFuel ctx (SeqCase converted scrutinee base cons) result of
+            case checkErasedGlobals shared checkingDepth typeReductionFuel ctx (SeqCase converted scrutinee base cons) result of
               Right () => Right converted
               Left _ => Left (CannotElaborate position "Cannot infer sequence-case motive; use an explicit return motive")
 
-  elaborateSequenceDataCase : List GlobalDefinition -> Context n -> Vect n String -> SourceSpan -> Term n -> Term n -> Term n -> Maybe Expr -> List (Token, List Token, Expr) -> Maybe (Term n) -> Either ResolveError (Term n)
-  elaborateSequenceDataCase globals ctx env span scrutinee ty element motive arms expected = do
+  elaborateSequenceDataCaseGlobals : GlobalContext -> List GlobalDefinition -> Context n -> Vect n String -> SourceSpan -> Term n -> Term n -> Term n -> Maybe Expr -> List (Token, List Token, Expr) -> Maybe (Term n) -> Either ResolveError (Term n)
+  elaborateSequenceDataCaseGlobals shared globals ctx env span scrutinee ty element motive arms expected = do
     if typeNodes ty > inferredResultNodes || payloadSize ty > payloadLimit
       then Left (CannotElaborate span.start "Sequence-case type exceeds admission") else Right ()
     if length arms > 64 then Left (CannotElaborate span.start "Data-case branch admission exhausted (64)") else Right ()
     explicit <- the (Either ResolveError (Maybe (Term n))) $ case motive of
-      Just authored => Just <$> elaborateInWith globals (Just ctx) env authored
+      Just authored => Just <$> elaborateInWithGlobals shared globals (Just ctx) env authored
       Nothing => Right Nothing
     let hint : Maybe (Term n)
         hint = case explicit of
@@ -639,46 +640,46 @@ mutual
           Just candidate => if 5 + typeNodes candidate + typeNodes ty <= inferredResultNodes &&
                                payloadSize candidate + payloadSize ty <= payloadLimit then Just candidate else Nothing
           Nothing => Nothing
-    checked <- sequenceCaseArms span.start globals ctx env ty element boundedHint arms
+    checked <- sequenceCaseArmsGlobals shared span.start globals ctx env ty element boundedHint arms
     ordered <- orderDataArms span.start 0 [Nothing, Just (Linear, ty)] checked
     case ordered of
       [base, cons] => do
         selected <- case explicit of
           Just authored => Right authored
           Nothing => case expected of
-            Just result => case constantSequenceResult span.start ctx base cons of
+            Just result => case constantSequenceResultGlobals shared span.start ctx base cons of
               Right common =>
                 let constant = Lambda Erased ty (weaken common) in
-                  case checkErased checkingDepth typeReductionFuel ctx (SeqCase constant scrutinee base cons) result of
+                  case checkErasedGlobals shared checkingDepth typeReductionFuel ctx (SeqCase constant scrutinee base cons) result of
                     Right () => Right constant
-                    Left _ => chooseExpectedSequenceMotive span.start ctx ty scrutinee result base cons
-              Left _ => chooseExpectedSequenceMotive span.start ctx ty scrutinee result base cons
+                    Left _ => chooseExpectedSequenceMotiveGlobals shared span.start ctx ty scrutinee result base cons
+              Left _ => chooseExpectedSequenceMotiveGlobals shared span.start ctx ty scrutinee result base cons
             Nothing => do
-              result <- constantSequenceResult span.start ctx base cons
+              result <- constantSequenceResultGlobals shared span.start ctx base cons
               Right (Lambda Erased ty (weaken result))
         Right (SeqCase selected scrutinee base cons)
       _ => Left (CannotElaborate span.start "Sequence case requires exactly two branches")
 
-  elaborateDataCase : List GlobalDefinition -> Context n -> Vect n String -> SourceSpan -> Expr -> Maybe Expr -> List (Token, List Token, Expr) -> Maybe (Term n) -> Either ResolveError (Term n)
-  elaborateDataCase globals ctx env span value motive arms expected = do
-    scrutinee <- elaborateInWith globals (Just ctx) env value
-    inferred <- case inferErased checkingDepth typeReductionFuel ctx scrutinee of
+  elaborateDataCaseGlobals : GlobalContext -> List GlobalDefinition -> Context n -> Vect n String -> SourceSpan -> Expr -> Maybe Expr -> List (Token, List Token, Expr) -> Maybe (Term n) -> Either ResolveError (Term n)
+  elaborateDataCaseGlobals shared globals ctx env span value motive arms expected = do
+    scrutinee <- elaborateInWithGlobals shared globals (Just ctx) env value
+    inferred <- case inferErasedGlobals shared checkingDepth typeReductionFuel ctx scrutinee of
       Left err => Left (CannotElaborate span.start ("Cannot infer data-case scrutinee: " ++ show err))
       Right ty => Right ty
-    case weakHead typeReductionFuel inferred of
-      HeadForm ty@NatType => elaborateNatDataCase globals ctx env span scrutinee ty motive arms expected
-      HeadForm ty@(RecType _) => elaborateRecursiveDataCase globals ctx env span scrutinee ty motive arms expected
-      HeadForm ty@(SeqType _ element) => elaborateSequenceDataCase globals ctx env span scrutinee ty element motive arms expected
-      HeadForm ty@(NominalType _ _ _) => elaborateNominalDataCase globals ctx env span scrutinee ty motive arms expected
+    case weakHeadGlobals (globalValue shared) typeReductionFuel inferred of
+      HeadForm ty@NatType => elaborateNatDataCaseGlobals shared globals ctx env span scrutinee ty motive arms expected
+      HeadForm ty@(RecType _) => elaborateRecursiveDataCaseGlobals shared globals ctx env span scrutinee ty motive arms expected
+      HeadForm ty@(SeqType _ element) => elaborateSequenceDataCaseGlobals shared globals ctx env span scrutinee ty element motive arms expected
+      HeadForm ty@(NominalType _ _ _) => elaborateNominalDataCaseGlobals shared globals ctx env span scrutinee ty motive arms expected
       HeadLimit _ => Left (CannotElaborate span.start "Data-case scrutinee reduction budget exhausted")
       _ => Left (CannotElaborate span.start "Data case requires a supported nominal or recursive data scrutinee")
 
-  elaborateNominalDataCase : List GlobalDefinition -> Context n -> Vect n String -> SourceSpan -> Term n -> Term n -> Maybe Expr -> List (Token, List Token, Expr) -> Maybe (Term n) -> Either ResolveError (Term n)
-  elaborateNominalDataCase globals ctx env span scrutinee nominal motive arms expected = do
+  elaborateNominalDataCaseGlobals : GlobalContext -> List GlobalDefinition -> Context n -> Vect n String -> SourceSpan -> Term n -> Term n -> Maybe Expr -> List (Token, List Token, Expr) -> Maybe (Term n) -> Either ResolveError (Term n)
+  elaborateNominalDataCaseGlobals shared globals ctx env span scrutinee nominal motive arms expected = do
     let context = Just ctx
     if coreNodes nominal > 512 then Left (CannotElaborate span.start "Data-case nominal type exceeds 512 nodes") else Right ()
     shape <- the (Either ResolveError (Term n)) $ case nominal of
-      NominalType _ _ shape => case weakHead typeReductionFuel shape of
+      NominalType _ _ shape => case weakHeadGlobals (globalValue shared) typeReductionFuel shape of
         HeadForm shape@(VariantType _) => Right shape
         HeadLimit _ => Left (CannotElaborate span.start "Data-case shape reduction budget exhausted")
         _ => Left (CannotElaborate span.start "Data-case nominal shape is not a variant")
@@ -688,7 +689,7 @@ mutual
         if length descriptors > 64 then Left (CannotElaborate span.start "Data-case branch admission exhausted (64)") else Right ()
         let indices = case nominal of NominalType _ args _ => args; _ => []
         explicit <- the (Either ResolveError (Maybe (Term n))) $ case motive of
-          Just authored => Just <$> elaborateInWith globals context env authored
+          Just authored => Just <$> elaborateInWithGlobals shared globals context env authored
           Nothing => Right Nothing
         let hint : Maybe (Term n)
             hint = case explicit of
@@ -701,7 +702,7 @@ mutual
         let boundedHint = case hint of
               Just candidate => if typeNodes candidate <= inferredResultNodes then Just candidate else Nothing
               Nothing => Nothing
-        checked <- elaborateDataArms globals ctx env nominal shape indices descriptors boundedHint arms
+        checked <- elaborateDataArmsGlobals shared globals ctx env nominal shape indices descriptors boundedHint arms
         ordered <- orderDataArms span.start 0 descriptors checked
         selected <- case explicit of
           Just authored => Right authored
@@ -711,84 +712,84 @@ mutual
               -- checks against this expected type. This probe is erased-only;
               -- the completed declaration is independently checked again. Do
               -- not impose the abstraction size limit on the constant path.
-              case constantDataResult span.start ctx descriptors ordered of
+              case constantDataResultGlobals shared span.start ctx descriptors ordered of
                 Right common =>
                   let constant = Lambda Erased nominal (weaken common)
                       candidate = assembleDataCase nominal shape constant scrutinee ordered in
-                    case checkErased checkingDepth typeReductionFuel ctx candidate result of
+                    case checkErasedGlobals shared checkingDepth typeReductionFuel ctx candidate result of
                       Right () => Right constant
-                      Left _ => chooseExpectedMotive span.start ctx nominal shape scrutinee result ordered
-                Left _ => chooseExpectedMotive span.start ctx nominal shape scrutinee result ordered
+                      Left _ => chooseExpectedMotiveGlobals shared span.start ctx nominal shape scrutinee result ordered
+                Left _ => chooseExpectedMotiveGlobals shared span.start ctx nominal shape scrutinee result ordered
             _ => do
-              result <- constantDataResult span.start ctx descriptors ordered
+              result <- constantDataResultGlobals shared span.start ctx descriptors ordered
               Right (Lambda Erased nominal (weaken result))
         Right (assembleDataCase nominal shape selected scrutinee ordered)
       _ => Left (CannotElaborate span.start "Invalid data-case shape")
 
-  equationBody : List GlobalDefinition -> Context n -> Vect n String -> Term n -> List Token -> Expr -> Either ResolveError (Term n)
-  equationBody globals context env expected [argument] body@(NDataCase span (NRef _ scrutinee) Nothing [(zero, [], base), (binder, [], more)]) =
+  equationBodyGlobals : GlobalContext -> List GlobalDefinition -> Context n -> Vect n String -> Term n -> List Token -> Expr -> Either ResolveError (Term n)
+  equationBodyGlobals shared globals context env expected [argument] body@(NDataCase span (NRef _ scrutinee) Nothing [(zero, [], base), (binder, [], more)]) =
     if argument.spelling /= "$clauseScrutinee" || scrutinee /= argument.spelling ||
        not (case unpack binder.spelling of c :: _ => isLower c; [] => False) ||
        isJust (lookupName binder.spelling env) ||
        isJust (find (\entry => entry.name == binder.spelling) globals) ||
        not (null (qualifiedCandidates binder.spelling globals))
-    then ordinaryEquation globals context env expected argument body
+    then ordinaryEquationGlobals shared globals context env expected argument body
     else case expected of
       Pi q domain result => do
         if coreNodes domain > 512 then Left (CannotElaborate argument.span.start "Function equation parameter type exceeds 512 nodes") else Right ()
-        if not (maybe False (\ty => sameSyntax ty NatType) (guardedNormal typeReductionFuel domain))
-          then ordinaryEquation globals context env expected argument body else do
+        if not (maybe False (\ty => sameSyntax ty NatType) (guardedNormalGlobals shared typeReductionFuel domain))
+          then ordinaryEquationGlobals shared globals context env expected argument body else do
           let ctx = Extend context q domain
           let scope = argument.spelling :: env
           motive <- expectedDataMotive span.start NatType result (Variable FZ)
-          checked <- natCaseArms span.start Linear globals ctx scope NatType (Just motive) [(zero, [], base)]
+          checked <- natCaseArmsGlobals shared span.start Linear globals ctx scope NatType (Just motive) [(zero, [], base)]
           case checked of
             [(0, baseTerm)] => do
               let successorContext = Extend ctx Unrestricted NatType
               let actual = NatSucc (Variable FZ)
               let applied = Apply (weaken motive) actual
-              let branchResult = fromMaybe applied (guardedNormal typeReductionFuel applied)
-              branch <- elaborateExpected globals (Extend successorContext Unrestricted NatType)
+              let branchResult = fromMaybe applied (guardedNormalGlobals shared typeReductionFuel applied)
+              branch <- elaborateExpectedGlobals shared globals (Extend successorContext Unrestricted NatType)
                           (binder.spelling :: "$nat.predecessor" :: scope) (weaken branchResult) more
               let successor = Lambda Unrestricted NatType
                     (Apply (Lambda Unrestricted NatType branch) actual)
               Right (Lambda q domain (NatCase motive (Variable FZ) baseTerm successor))
             _ => Left (CannotElaborate zero.span.start "Nat catch-all requires Zero as its first clause")
-      _ => ordinaryEquation globals context env expected argument body
-  equationBody globals context env expected [] body = elaborateExpected globals context env expected body
-  equationBody globals context env expected (name :: rest) body = do
+      _ => ordinaryEquationGlobals shared globals context env expected argument body
+  equationBodyGlobals shared globals context env expected [] body = elaborateExpectedGlobals shared globals context env expected body
+  equationBodyGlobals shared globals context env expected (name :: rest) body = do
     -- Do not reduce an unchecked signature to expose Pi: head beta reduction
     -- can expand before any post-reduction node bound. Explicit Pi syntax is
     -- the deliberately narrower, pre-clone-accounted first slice.
     case expected of
       Pi q domain result => do
         if coreNodes domain > 512 then Left (CannotElaborate name.span.start "Function equation parameter type exceeds 512 nodes") else Right ()
-        following <- equationBody globals (Extend context q domain) (name.spelling :: env) result rest body
+        following <- equationBodyGlobals shared globals (Extend context q domain) (name.spelling :: env) result rest body
         Right (Lambda q domain following)
       _ => Left (CannotElaborate name.span.start "Function equation requires an explicit Pi for every named parameter")
 
-  ordinaryEquation : List GlobalDefinition -> Context n -> Vect n String -> Term n -> Token -> Expr -> Either ResolveError (Term n)
-  ordinaryEquation globals context env expected name body = case expected of
+  ordinaryEquationGlobals : GlobalContext -> List GlobalDefinition -> Context n -> Vect n String -> Term n -> Token -> Expr -> Either ResolveError (Term n)
+  ordinaryEquationGlobals shared globals context env expected name body = case expected of
     Pi q domain result => do
       if coreNodes domain > 512 then Left (CannotElaborate name.span.start "Function equation parameter type exceeds 512 nodes") else Right ()
-      following <- equationBody globals (Extend context q domain) (name.spelling :: env) result [] body
+      following <- equationBodyGlobals shared globals (Extend context q domain) (name.spelling :: env) result [] body
       Right (Lambda q domain following)
     _ => Left (CannotElaborate name.span.start "Function equation requires an explicit Pi for every named parameter")
 
-  elaborateArms : List GlobalDefinition -> Maybe (Context n) -> Vect n String -> List (Maybe (Quantity, Expr)) -> Either ResolveError (List (Maybe (Quantity, Term n)))
-  elaborateArms globals context env [] = Right []
-  elaborateArms globals context env (Nothing :: xs) = (Nothing ::) <$> elaborateArms globals context env xs
-  elaborateArms globals context env (Just (q, ty) :: xs) = do
-    ty <- elaborateInWith globals context env ty
-    rest <- elaborateArms globals context env xs
+  elaborateArmsGlobals : GlobalContext -> List GlobalDefinition -> Maybe (Context n) -> Vect n String -> List (Maybe (Quantity, Expr)) -> Either ResolveError (List (Maybe (Quantity, Term n)))
+  elaborateArmsGlobals shared globals context env [] = Right []
+  elaborateArmsGlobals shared globals context env (Nothing :: xs) = (Nothing ::) <$> elaborateArmsGlobals shared globals context env xs
+  elaborateArmsGlobals shared globals context env (Just (q, ty) :: xs) = do
+    ty <- elaborateInWithGlobals shared globals context env ty
+    rest <- elaborateArmsGlobals shared globals context env xs
     Right (Just (q, ty) :: rest)
 
   ||| Resolve with newest-first names. Binder domains see the old environment;
   ||| bodies see the new binder. Shadowing resolves to the nearest binder.
   ||| Underscore is a wildcard and cannot be referenced.
   public export
-  elaborateInWith : List GlobalDefinition -> Maybe (Context n) -> Vect n String -> Expr -> Either ResolveError (Term n)
-  elaborateInWith globals context env (NRef span name) =
+  elaborateInWithGlobals : GlobalContext -> List GlobalDefinition -> Maybe (Context n) -> Vect n String -> Expr -> Either ResolveError (Term n)
+  elaborateInWithGlobals shared globals context env (NRef span name) =
     if name == "_" then Left (Unbound span.start name)
        else case lookupName name env of
          Nothing => case lookupGlobal name globals of
@@ -797,206 +798,209 @@ mutual
              _ => Left (Unbound span.start name)
            Just value => Right (rename absurd value)
          Just index => Right (Variable index)
-  elaborateInWith globals context env (NQualifiedRef span name) =
+  elaborateInWithGlobals shared globals context env (NQualifiedRef span name) =
     case lookupGlobal name globals of
       Nothing => Left (Unbound span.start name)
       Just value => Right (rename absurd value)
-  elaborateInWith globals context env (NSort span level) = Right (Universe level)
-  elaborateInWith globals context env (NUnitType span) = Right UnitType
-  elaborateInWith globals context env (NUnitValue span) = Right UnitValue
-  elaborateInWith globals context env (NStringType span) = Right StringType
-  elaborateInWith globals context env (NStringValue span value) = Right (StringValue value)
+  elaborateInWithGlobals shared globals context env (NSort span level) = Right (Universe level)
+  elaborateInWithGlobals shared globals context env (NUnitType span) = Right UnitType
+  elaborateInWithGlobals shared globals context env (NUnitValue span) = Right UnitValue
+  elaborateInWithGlobals shared globals context env (NStringType span) = Right StringType
+  elaborateInWithGlobals shared globals context env (NStringValue span value) = Right (StringValue value)
   -- A numeric literal denotes the built-in Nat value directly, never the names Zero/Succ,
   -- so a user binding of those names cannot change what a literal means.
-  elaborateInWith globals context env (NNatValue span value) = Right (naturalTerm value)
-  elaborateInWith globals context env (NBoolType span) = Right BoolType
-  elaborateInWith globals context env (NBoolValue span True) = Right BoolTrue
-  elaborateInWith globals context env (NBoolValue span False) = Right BoolFalse
-  elaborateInWith globals context env (NIf span condition yes no) =
-    [| BoolCase (elaborateInWith globals context env condition) (elaborateInWith globals context env yes) (elaborateInWith globals context env no) |]
-  elaborateInWith globals context env (NUnitCase span scrutinee body) =
-    [| UnitCase (elaborateInWith globals context env scrutinee) (elaborateInWith globals context env body) |]
-  elaborateInWith globals context env (NSigma span q r name domain body) = do
-    domain <- elaborateInWith globals context env domain
-    body <- elaborateInWith globals (map (\ctx => Extend ctx q domain) context) (name :: env) body
+  elaborateInWithGlobals shared globals context env (NNatValue span value) = Right (naturalTerm value)
+  elaborateInWithGlobals shared globals context env (NBoolType span) = Right BoolType
+  elaborateInWithGlobals shared globals context env (NBoolValue span True) = Right BoolTrue
+  elaborateInWithGlobals shared globals context env (NBoolValue span False) = Right BoolFalse
+  elaborateInWithGlobals shared globals context env (NIf span condition yes no) =
+    [| BoolCase (elaborateInWithGlobals shared globals context env condition) (elaborateInWithGlobals shared globals context env yes) (elaborateInWithGlobals shared globals context env no) |]
+  elaborateInWithGlobals shared globals context env (NUnitCase span scrutinee body) =
+    [| UnitCase (elaborateInWithGlobals shared globals context env scrutinee) (elaborateInWithGlobals shared globals context env body) |]
+  elaborateInWithGlobals shared globals context env (NSigma span q r name domain body) = do
+    domain <- elaborateInWithGlobals shared globals context env domain
+    body <- elaborateInWithGlobals shared globals (map (\ctx => Extend ctx q domain) context) (name :: env) body
     Right (Sigma q r domain body)
-  elaborateInWith globals context env (NPairValue span ty first second) =
-    [| PairValue (elaborateInWith globals context env ty) (elaborateInWith globals context env first) (elaborateInWith globals context env second) |]
-  elaborateInWith globals context env (NRecType _ key) = Right (RecType key)
-  elaborateInWith globals context env (NRecEnd _ ty) = RecEnd <$> elaborateInWith globals context env ty
-  elaborateInWith globals context env (NRecMore _ ty tail) = [| RecMore (elaborateInWith globals context env ty) (elaborateInWith globals context env tail) |]
-  elaborateInWith globals context env (NRecFold _ motive base next value) = [| RecFold (elaborateInWith globals context env motive) (elaborateInWith globals context env base) (elaborateInWith globals context env next) (elaborateInWith globals context env value) |]
-  elaborateInWith globals context env (NSeqType _ key element) = SeqType key <$> elaborateInWith globals context env element
-  elaborateInWith globals context env (NSeqNil _ ty) = SeqNil <$> elaborateInWith globals context env ty
-  elaborateInWith globals context env (NSeqCons _ ty head tail) = [| SeqCons (elaborateInWith globals context env ty) (elaborateInWith globals context env head) (elaborateInWith globals context env tail) |]
-  elaborateInWith globals context env (NSeqFold _ motive base next value) = [| SeqFold (elaborateInWith globals context env motive) (elaborateInWith globals context env base) (elaborateInWith globals context env next) (elaborateInWith globals context env value) |]
-  elaborateInWith globals context env (NNominalType span key indices shape) = do
-    indices <- elaborateTerms globals context env indices
-    shape <- elaborateInWith globals context env shape
-    if mentionsNominal key shape then Left (CannotElaborate span.start "Recursive data is not supported") else Right ()
+  elaborateInWithGlobals shared globals context env (NPairValue span ty first second) =
+    [| PairValue (elaborateInWithGlobals shared globals context env ty) (elaborateInWithGlobals shared globals context env first) (elaborateInWithGlobals shared globals context env second) |]
+  elaborateInWithGlobals shared globals context env (NRecType _ key) = Right (RecType key)
+  elaborateInWithGlobals shared globals context env (NRecEnd _ ty) = RecEnd <$> elaborateInWithGlobals shared globals context env ty
+  elaborateInWithGlobals shared globals context env (NRecMore _ ty tail) = [| RecMore (elaborateInWithGlobals shared globals context env ty) (elaborateInWithGlobals shared globals context env tail) |]
+  elaborateInWithGlobals shared globals context env (NRecFold _ motive base next value) = [| RecFold (elaborateInWithGlobals shared globals context env motive) (elaborateInWithGlobals shared globals context env base) (elaborateInWithGlobals shared globals context env next) (elaborateInWithGlobals shared globals context env value) |]
+  elaborateInWithGlobals shared globals context env (NSeqType _ key element) = SeqType key <$> elaborateInWithGlobals shared globals context env element
+  elaborateInWithGlobals shared globals context env (NSeqNil _ ty) = SeqNil <$> elaborateInWithGlobals shared globals context env ty
+  elaborateInWithGlobals shared globals context env (NSeqCons _ ty head tail) = [| SeqCons (elaborateInWithGlobals shared globals context env ty) (elaborateInWithGlobals shared globals context env head) (elaborateInWithGlobals shared globals context env tail) |]
+  elaborateInWithGlobals shared globals context env (NSeqFold _ motive base next value) = [| SeqFold (elaborateInWithGlobals shared globals context env motive) (elaborateInWithGlobals shared globals context env base) (elaborateInWithGlobals shared globals context env next) (elaborateInWithGlobals shared globals context env value) |]
+  elaborateInWithGlobals shared globals context env (NNominalType span key indices shape) = do
+    indices <- elaborateTermsGlobals shared globals context env indices
+    shape <- elaborateInWithGlobals shared globals context env shape
+    recursive <- case mentionsNominalGlobals shared key shape of
+      Left message => Left (CannotElaborate span.start message)
+      Right recursive => Right recursive
+    if recursive then Left (CannotElaborate span.start "Recursive data is not supported") else Right ()
     Right (NominalType key indices shape)
-  elaborateInWith globals context env (NNominalValue _ ty value) = [| NominalValue (elaborateInWith globals context env ty) (elaborateInWith globals context env value) |]
-  elaborateInWith globals context env (NNominalCase _ motive value branch) = [| NominalCase (elaborateInWith globals context env motive) (elaborateInWith globals context env value) (elaborateInWith globals context env branch) |]
-  elaborateInWith globals context env (NVariantType _ arms) = VariantType <$> elaborateArms globals context env arms
-  elaborateInWith globals context env (NVariantValue _ ty tag Nothing) = (\t => VariantValue t tag Nothing) <$> elaborateInWith globals context env ty
-  elaborateInWith globals context env (NVariantValue _ ty tag (Just value)) = [| VariantValue (elaborateInWith globals context env ty) (pure tag) (Just <$> elaborateInWith globals context env value) |]
-  elaborateInWith globals context env (NVariantCase _ motive value branches) = [| VariantCase (elaborateInWith globals context env motive) (elaborateInWith globals context env value) (elaborateTerms globals context env branches) |]
-  elaborateInWith globals context env (NBoxType span q ty) = [| BoxType (pure q) (elaborateInWith globals context env ty) |]
-  elaborateInWith globals context env (NBoxValue span ty value) = [| BoxValue (elaborateInWith globals context env ty) (elaborateInWith globals context env value) |]
-  elaborateInWith globals context env (NBoxCase span motive value branch) =
-    [| BoxCase (elaborateInWith globals context env motive) (elaborateInWith globals context env value) (elaborateInWith globals context env branch) |]
-  elaborateInWith globals context env (NDataCase span value motive arms) = do
+  elaborateInWithGlobals shared globals context env (NNominalValue _ ty value) = [| NominalValue (elaborateInWithGlobals shared globals context env ty) (elaborateInWithGlobals shared globals context env value) |]
+  elaborateInWithGlobals shared globals context env (NNominalCase _ motive value branch) = [| NominalCase (elaborateInWithGlobals shared globals context env motive) (elaborateInWithGlobals shared globals context env value) (elaborateInWithGlobals shared globals context env branch) |]
+  elaborateInWithGlobals shared globals context env (NVariantType _ arms) = VariantType <$> elaborateArmsGlobals shared globals context env arms
+  elaborateInWithGlobals shared globals context env (NVariantValue _ ty tag Nothing) = (\t => VariantValue t tag Nothing) <$> elaborateInWithGlobals shared globals context env ty
+  elaborateInWithGlobals shared globals context env (NVariantValue _ ty tag (Just value)) = [| VariantValue (elaborateInWithGlobals shared globals context env ty) (pure tag) (Just <$> elaborateInWithGlobals shared globals context env value) |]
+  elaborateInWithGlobals shared globals context env (NVariantCase _ motive value branches) = [| VariantCase (elaborateInWithGlobals shared globals context env motive) (elaborateInWithGlobals shared globals context env value) (elaborateTermsGlobals shared globals context env branches) |]
+  elaborateInWithGlobals shared globals context env (NBoxType span q ty) = [| BoxType (pure q) (elaborateInWithGlobals shared globals context env ty) |]
+  elaborateInWithGlobals shared globals context env (NBoxValue span ty value) = [| BoxValue (elaborateInWithGlobals shared globals context env ty) (elaborateInWithGlobals shared globals context env value) |]
+  elaborateInWithGlobals shared globals context env (NBoxCase span motive value branch) =
+    [| BoxCase (elaborateInWithGlobals shared globals context env motive) (elaborateInWithGlobals shared globals context env value) (elaborateInWithGlobals shared globals context env branch) |]
+  elaborateInWithGlobals shared globals context env (NDataCase span value motive arms) = do
     ctx <- case context of Nothing => Left (CannotElaborate span.start "Data case requires a typed context"); Just ctx => Right ctx
-    elaborateDataCase globals ctx env span value motive arms Nothing
-  elaborateInWith globals context env (NEquationLambda span names signature body) = do
+    elaborateDataCaseGlobals shared globals ctx env span value motive arms Nothing
+  elaborateInWithGlobals shared globals context env (NEquationLambda span names signature body) = do
     ctx <- case context of Nothing => Left (CannotElaborate span.start "Function equations require a typed context"); Just ctx => Right ctx
-    expected <- elaborateSignature globals context env signature
-    equationBody globals ctx env expected names body
-  elaborateInWith globals context env (NPatternLambda span _ _) =
+    expected <- elaborateSignatureGlobals shared globals context env signature
+    equationBodyGlobals shared globals ctx env expected names body
+  elaborateInWithGlobals shared globals context env (NPatternLambda span _ _) =
     Left (CannotElaborate span.start "Inferred field binders require a constructor-named pattern")
-  elaborateInWith globals context env (NConstructorCase span arity constructor scrutinee branch motive) = do
+  elaborateInWithGlobals shared globals context env (NConstructorCase span arity constructor scrutinee branch motive) = do
     if not (namedConstructor constructor)
        then Left (CannotElaborate (extent constructor).start "Pattern constructor must be a named function, optionally explicitly instantiated") else Right ()
     typedContext <- case context of
       Nothing => Left (CannotElaborate span.start "Named pattern checking requires a typed context")
       Just ctx => Right ctx
-    candidate <- elaborateInWith globals context env constructor
-    value <- elaborateInWith globals context env scrutinee
-    named <- instantiateParameters (extent constructor).start arity typedContext candidate value
-    branch <- elaboratePatternBranch globals typedContext env (extent constructor).start arity named branch
+    candidate <- elaborateInWithGlobals shared globals context env constructor
+    value <- elaborateInWithGlobals shared globals context env scrutinee
+    named <- instantiateParametersGlobals shared (extent constructor).start arity typedContext candidate value
+    branch <- elaboratePatternBranchGlobals shared globals typedContext env (extent constructor).start arity named branch
     case motive of
-      Nothing => inferCase span.start arity typedContext value branch
+      Nothing => inferCaseGlobals shared span.start arity typedContext value branch
       Just authored => do
-        explicit <- elaborateInWith globals context env authored
+        explicit <- elaborateInWithGlobals shared globals context env authored
         Right (if arity == 1 then BoxCase explicit value branch else PairCase explicit value branch)
-  elaborateInWith globals context env (NInferCase span arity scrutinee branch) = do
+  elaborateInWithGlobals shared globals context env (NInferCase span arity scrutinee branch) = do
     typedContext <- case context of
       Nothing => Left (CannotElaborate span.start "Motive inference requires a typed context; use contextual expression elaboration")
       Just ctx => Right ctx
-    value <- elaborateInWith globals context env scrutinee
-    branch <- elaborateInWith globals context env branch
-    inferCase span.start arity typedContext value branch
-  elaborateInWith globals context env (NPairCase span motive value branch) =
-    [| PairCase (elaborateInWith globals context env motive) (elaborateInWith globals context env value) (elaborateInWith globals context env branch) |]
-  elaborateInWith globals context env (NImplicitPi span _ _ _ _) =
+    value <- elaborateInWithGlobals shared globals context env scrutinee
+    branch <- elaborateInWithGlobals shared globals context env branch
+    inferCaseGlobals shared span.start arity typedContext value branch
+  elaborateInWithGlobals shared globals context env (NPairCase span motive value branch) =
+    [| PairCase (elaborateInWithGlobals shared globals context env motive) (elaborateInWithGlobals shared globals context env value) (elaborateInWithGlobals shared globals context env branch) |]
+  elaborateInWithGlobals shared globals context env (NImplicitPi span _ _ _ _) =
     Left (CannotElaborate span.start "Implicit binders are supported only as the leading binder of a module declaration signature")
-  elaborateInWith globals context env (NConstraintPi span q name domain body) = do
-    domain <- elaborateInWith globals context env domain
-    constraintType span.start q domain
-    body <- elaborateInWith globals (map (\ctx => Extend ctx q domain) context) (name :: env) body
+  elaborateInWithGlobals shared globals context env (NConstraintPi span q name domain body) = do
+    domain <- elaborateInWithGlobals shared globals context env domain
+    constraintTypeGlobals shared span.start q domain
+    body <- elaborateInWithGlobals shared globals (map (\ctx => Extend ctx q domain) context) (name :: env) body
     Right (Pi q domain body)
-  elaborateInWith globals context env (NImplementationApply span origin function) = do
+  elaborateInWithGlobals shared globals context env (NImplementationApply span origin function) = do
     typed <- case context of
       Nothing => Left (CannotElaborate origin.start "Implementation lookup requires a typed context")
       Just ctx => Right ctx
-    function <- elaborateInWith globals context env function
-    selectImplementation origin.start globals typed function
-  elaborateInWith globals context env (NDictionaryApply span origin function argument) = do
+    function <- elaborateInWithGlobals shared globals context env function
+    selectImplementationGlobals shared origin.start globals typed function
+  elaborateInWithGlobals shared globals context env (NDictionaryApply span origin function argument) = do
     typed <- case context of
       Nothing => Left (CannotElaborate origin.start "Dictionary selection requires a typed context")
       Just ctx => Right ctx
-    function <- elaborateInWith globals context env function
+    function <- elaborateInWithGlobals shared globals context env function
     argument <- case argument of
       Nothing => Right Nothing
-      Just value => Just <$> elaborateInWith globals context env value
-    selectDictionary origin.start typed env function argument
-  elaborateInWith globals context env (NPi span q name domain body) = do
-    domain <- elaborateInWith globals context env domain
-    body <- elaborateInWith globals (map (\ctx => Extend ctx q domain) context) (name :: env) body
+      Just value => Just <$> elaborateInWithGlobals shared globals context env value
+    selectDictionaryGlobals shared origin.start typed env function argument
+  elaborateInWithGlobals shared globals context env (NPi span q name domain body) = do
+    domain <- elaborateInWithGlobals shared globals context env domain
+    body <- elaborateInWithGlobals shared globals (map (\ctx => Extend ctx q domain) context) (name :: env) body
     Right (Pi q domain body)
-  elaborateInWith globals context env (NLambda span q name domain body) = do
-    domain <- elaborateInWith globals context env domain
-    body <- elaborateInWith globals (map (\ctx => Extend ctx q domain) context) (name :: env) body
+  elaborateInWithGlobals shared globals context env (NLambda span q name domain body) = do
+    domain <- elaborateInWithGlobals shared globals context env domain
+    body <- elaborateInWithGlobals shared globals (map (\ctx => Extend ctx q domain) context) (name :: env) body
     Right (Lambda q domain body)
-  elaborateInWith globals context env (NInfix span function left right) = do
-    operator <- elaborateInWith globals context env function
-    first <- elaborateApplication globals context env operator left
-    elaborateApplication globals context env first right
-  elaborateInWith globals context env expression@(NApply span sourceFunction argument) =
+  elaborateInWithGlobals shared globals context env (NInfix span function left right) = do
+    operator <- elaborateInWithGlobals shared globals context env function
+    first <- elaborateApplicationGlobals shared globals context env operator left
+    elaborateApplicationGlobals shared globals context env first right
+  elaborateInWithGlobals shared globals context env expression@(NApply span sourceFunction argument) =
     if hasImplicitCall globals env expression then do
       ctx <- case context of
         Nothing => Left (CannotElaborate span.start "Implicit insertion requires a typed context; use explicit {arguments}")
         Just ctx => Right ctx
-      elaborateImplicitCall globals ctx env Nothing expression
+      elaborateImplicitCallGlobals shared globals ctx env Nothing expression
     else do
-      function <- elaborateInWith globals context env sourceFunction
-      elaborateApplication globals context env function argument
-  elaborateInWith globals context env expression@(NImplicitApply span sourceFunction argument) = do
+      function <- elaborateInWithGlobals shared globals context env sourceFunction
+      elaborateApplicationGlobals shared globals context env function argument
+  elaborateInWithGlobals shared globals context env expression@(NImplicitApply span sourceFunction argument) = do
     ctx <- case context of
       Nothing => Left (CannotElaborate span.start "Explicit {arguments} require a typed context")
       Just ctx => Right ctx
-    elaborateImplicitCall globals ctx env Nothing expression
+    elaborateImplicitCallGlobals shared globals ctx env Nothing expression
 
-  elaborateInWith globals context env (NSequence span first rest) = do
-    action <- elaborateInWith globals context env first
-    following <- elaborateInWith globals context env rest
+  elaborateInWithGlobals shared globals context env (NSequence span first rest) = do
+    action <- elaborateInWithGlobals shared globals context env first
+    following <- elaborateInWithGlobals shared globals context env rest
     Right (IOBind UnitType UnitType action
       (Lambda Linear UnitType (UnitCase (Variable FZ) (weaken following))))
-  elaborateInWith globals context env (NDoBind span name domain action body) = do
-    ty <- elaborateInWith globals context env domain
-    action <- elaborateInWith globals context env action
-    body <- elaborateInWith globals (map (\ctx => Extend ctx Linear ty) context) (name :: env) body
+  elaborateInWithGlobals shared globals context env (NDoBind span name domain action body) = do
+    ty <- elaborateInWithGlobals shared globals context env domain
+    action <- elaborateInWithGlobals shared globals context env action
+    body <- elaborateInWithGlobals shared globals (map (\ctx => Extend ctx Linear ty) context) (name :: env) body
     Right (IOBind ty UnitType action (Lambda Linear ty body))
   -- Checking an identity application enforces the expected domain using existing
   -- typing/compatibility rules. Linear use preserves the term's runtime usage.
-  elaborateInWith globals context env (NAscribe span term expected) = do
-    ty <- elaborateInWith globals context env expected
+  elaborateInWithGlobals shared globals context env (NAscribe span term expected) = do
+    ty <- elaborateInWithGlobals shared globals context env expected
     term <- case context of
-      Just ctx => elaborateExpected globals ctx env ty term
-      Nothing => elaborateInWith globals context env term
+      Just ctx => elaborateExpectedGlobals shared globals ctx env ty term
+      Nothing => elaborateInWithGlobals shared globals context env term
     Right (Apply (Lambda Linear ty (Variable FZ)) term)
 
   -- The binding is nonrecursive: annotation and value use the outer environment.
   -- A lambda/application enforces the annotation and declared resource quantity.
-  elaborateInWith globals context env (NLet span q name expected value body) = do
-    ty <- elaborateInWith globals context env expected
+  elaborateInWithGlobals shared globals context env (NLet span q name expected value body) = do
+    ty <- elaborateInWithGlobals shared globals context env expected
     value <- case context of
-      Just ctx => elaborateExpected globals ctx env ty value
-      Nothing => elaborateInWith globals context env value
-    body <- elaborateInWith globals (map (\ctx => Extend ctx q ty) context) (name :: env) body
+      Just ctx => elaborateExpectedGlobals shared globals ctx env ty value
+      Nothing => elaborateInWithGlobals shared globals context env value
+    body <- elaborateInWithGlobals shared globals (map (\ctx => Extend ctx q ty) context) (name :: env) body
     Right (Apply (Lambda q ty body) value)
 
-  elaborateInWith globals context env (NDoResult span result body) = do
-    ty <- elaborateInWith globals context env result
-    value <- elaborateDo globals context env ty body
+  elaborateInWithGlobals shared globals context env (NDoResult span result body) = do
+    ty <- elaborateInWithGlobals shared globals context env result
+    value <- elaborateDoGlobals shared globals context env ty body
     Right (Apply (Lambda Linear (IOType ty) (Variable FZ)) value)
 
   -- Traverse the authored spine structurally. Arguments are elaborated only
   -- as direct source subexpressions, preserving totality and source order.
-  collectImplicitCall : List GlobalDefinition -> Context n -> Vect n String -> Expr -> Either ResolveError (PendingImplicit n)
-  collectImplicitCall globals context env (NImplicitApply span function argument) = do
-    pending <- collectImplicitCall globals context env function
+  collectImplicitCallGlobals : GlobalContext -> List GlobalDefinition -> Context n -> Vect n String -> Expr -> Either ResolveError (PendingImplicit n)
+  collectImplicitCallGlobals shared globals context env (NImplicitApply span function argument) = do
+    pending <- collectImplicitCallGlobals shared globals context env function
     if not (null pending.ordinary) || isJust pending.applied
       then Left (CannotElaborate span.start "Explicit {arguments} must precede ordinary arguments") else Right ()
     if length pending.given >= pending.entry.implicitPrefix
       then Left (CannotElaborate span.start "Too many explicit {arguments}") else Right ()
-    value <- elaborateInWith globals (Just context) env argument
+    value <- elaborateInWithGlobals shared globals (Just context) env argument
     Right ({ given := pending.given ++ [value] } pending)
-  collectImplicitCall globals context env (NApply span function argument) = do
-    pending <- collectImplicitCall globals context env function
+  collectImplicitCallGlobals shared globals context env (NApply span function argument) = do
+    pending <- collectImplicitCallGlobals shared globals context env function
     case pending.applied of
       Just function => do
-        result <- elaborateApplication globals (Just context) env function argument
+        result <- elaborateApplicationGlobals shared globals (Just context) env function argument
         Right ({ applied := Just result } pending)
       Nothing => if length pending.given == pending.entry.implicitPrefix then do
-          result <- elaborateApplication globals (Just context) env (foldl Apply pending.function pending.given) argument
+          result <- elaborateApplicationGlobals shared globals (Just context) env (foldl Apply pending.function pending.given) argument
           Right ({ applied := Just result } pending)
         else do
           if length pending.ordinary >= implicitTelescopeLimit
             then Left (CannotElaborate span.start "Implicit inference telescope admission exhausted (64)") else Right ()
-          value <- elaborateInWith globals (Just context) env argument
-          proposed <- implicitArgumentType span.start implicitProposalDepth context value
+          value <- elaborateInWithGlobals shared globals (Just context) env argument
+          proposed <- implicitArgumentTypeGlobals shared span.start implicitProposalDepth context value
           state <- case pending.solver of
             Just state => Right state
             Nothing => beginImplicit span.start pending.entry.implicitPrefix
                          (rename absurd pending.entry.declaredType) pending.given
-          state <- advanceImplicit span.start state proposed
+          state <- advanceImplicitGlobals shared span.start state proposed
           let values = pending.ordinary ++ [value]
           if implicitSolved state then do
-            inferred <- finishImplicit span.start context state Nothing
+            inferred <- finishImplicitGlobals shared span.start context state Nothing
             Right ({ applied := Just (foldl Apply (foldl Apply pending.function inferred) values), ordinary := [], solver := Nothing } pending)
             else Right ({ ordinary := values, solver := Just state } pending)
-  collectImplicitCall globals context env head = do
+  collectImplicitCallGlobals shared globals context env head = do
     entry <- case implicitHead globals env head of
       Nothing => Left (implicitHeadFailure globals env head)
       Just entry => Right entry
@@ -1005,8 +1009,8 @@ mutual
       Just value => Right (rename absurd value)
     Right (PendingCall entry value [] [] Nothing Nothing)
 
-  elaborateImplicitCall : List GlobalDefinition -> Context n -> Vect n String -> Maybe (Term n) -> Expr -> Either ResolveError (Term n)
-  elaborateImplicitCall globals context env expected source = do
+  elaborateImplicitCallGlobals : GlobalContext -> List GlobalDefinition -> Context n -> Vect n String -> Maybe (Term n) -> Expr -> Either ResolveError (Term n)
+  elaborateImplicitCallGlobals shared globals context env expected source = do
     let (head, args) = applicationSpine source
     entry <- case implicitHead globals env head of
       Nothing => Left (implicitHeadFailure globals env head)
@@ -1018,7 +1022,7 @@ mutual
       then Left (CannotElaborate (extent source).start "Implicit function type exceeds 512 nodes; use explicit {arguments}") else Right ()
     if needsInference && payloadSize entry.declaredType > payloadLimit
       then Left (CannotElaborate (extent source).start "Implicit function type exceeds payload admission; use explicit {arguments}") else Right ()
-    pending <- collectImplicitCall globals context env source
+    pending <- collectImplicitCallGlobals shared globals context env source
     case pending.applied of
       Just result => Right result
       Nothing => if null pending.ordinary
@@ -1031,71 +1035,96 @@ mutual
           state <- case pending.solver of
             Just state => Right state
             Nothing => Left (CannotElaborate (extent source).start "Implicit inference state is unavailable")
-          inferred <- finishImplicit (extent source).start context state expected
+          inferred <- finishImplicitGlobals shared (extent source).start context state expected
           Right (foldl Apply (foldl Apply pending.function inferred) pending.ordinary)
 
-  elaborateApplication : List GlobalDefinition -> Maybe (Context n) -> Vect n String -> Term n -> Expr -> Either ResolveError (Term n)
-  elaborateApplication globals context env function argument = do
+  elaborateApplicationGlobals : GlobalContext -> List GlobalDefinition -> Maybe (Context n) -> Vect n String -> Term n -> Expr -> Either ResolveError (Term n)
+  elaborateApplicationGlobals shared globals context env function argument = do
     argument <- case context of
       Just ctx => if wantsExpected argument || hasImplicitCall globals env argument then
-        case inferErased checkingDepth typeReductionFuel ctx function of
+        case inferErasedGlobals shared checkingDepth typeReductionFuel ctx function of
           Right (Pi _ domain _) =>
             if typeNodes domain <= inferredResultNodes
-              then elaborateExpected globals ctx env domain argument
-              else elaborateInWith globals context env argument
-          _ => elaborateInWith globals context env argument
-        else elaborateInWith globals context env argument
-      Nothing => elaborateInWith globals context env argument
+              then elaborateExpectedGlobals shared globals ctx env domain argument
+              else elaborateInWithGlobals shared globals context env argument
+          _ => elaborateInWithGlobals shared globals context env argument
+        else elaborateInWithGlobals shared globals context env argument
+      Nothing => elaborateInWithGlobals shared globals context env argument
     Right (Apply function argument)
 
-  elaboratePatternBranch : List GlobalDefinition -> Context n -> Vect n String -> Position ->
+  elaboratePatternBranchGlobals : GlobalContext -> List GlobalDefinition -> Context n -> Vect n String -> Position ->
                            Nat -> Term n -> Expr -> Either ResolveError (Term n)
-  elaboratePatternBranch globals context env position arity constructor (NPatternLambda span names body) = do
-    fields <- inferConstructorFields position arity context constructor
+  elaboratePatternBranchGlobals shared globals context env position arity constructor (NPatternLambda span names body) = do
+    fields <- inferConstructorFieldsGlobals shared position arity context constructor
     case (fields, names) of
       (OneField q domain, [name]) => do
-        body <- elaborateInWith globals (Just (Extend context q domain)) (name.spelling :: env) body
+        body <- elaborateInWithGlobals shared globals (Just (Extend context q domain)) (name.spelling :: env) body
         Right (Lambda q domain body)
       (TwoFields q domain r second, [first, last]) => do
-        body <- elaborateInWith globals (Just (Extend (Extend context q domain) r second))
+        body <- elaborateInWithGlobals shared globals (Just (Extend (Extend context q domain) r second))
                   (last.spelling :: first.spelling :: env) body
         Right (Lambda q domain (Lambda r second body))
       _ => Left (CannotElaborate span.start "Constructor field count does not match the pattern names")
-  elaboratePatternBranch globals context env position arity constructor branch = do
-    resolved <- elaborateInWith globals (Just context) env branch
-    checkConstructor position arity context constructor resolved
+  elaboratePatternBranchGlobals shared globals context env position arity constructor branch = do
+    resolved <- elaborateInWithGlobals shared globals (Just context) env branch
+    checkConstructorGlobals shared position arity context constructor resolved
     Right resolved
 
   -- The block result is resolved outside its statements and weakened under each
   -- local binder. It must never be re-resolved under a shadowing statement name.
-  elaborateDo : List GlobalDefinition -> Maybe (Context n) -> Vect n String -> Term n -> Expr ->
+  elaborateDoGlobals : GlobalContext -> List GlobalDefinition -> Maybe (Context n) -> Vect n String -> Term n -> Expr ->
               Either ResolveError (Term n)
-  elaborateDo globals context env result (NSequence span first rest) = do
-    action <- elaborateInWith globals context env first
-    following <- elaborateDo globals context env result rest
+  elaborateDoGlobals shared globals context env result (NSequence span first rest) = do
+    action <- elaborateInWithGlobals shared globals context env first
+    following <- elaborateDoGlobals shared globals context env result rest
     Right (IOBind UnitType result action
       (Lambda Linear UnitType (UnitCase (Variable FZ) (weaken following))))
-  elaborateDo globals context env result (NDoBind span name domain action body) = do
-    ty <- elaborateInWith globals context env domain
-    action <- elaborateInWith globals context env action
-    body <- elaborateDo globals (map (\ctx => Extend ctx Linear ty) context) (name :: env) (weaken result) body
+  elaborateDoGlobals shared globals context env result (NDoBind span name domain action body) = do
+    ty <- elaborateInWithGlobals shared globals context env domain
+    action <- elaborateInWithGlobals shared globals context env action
+    body <- elaborateDoGlobals shared globals (map (\ctx => Extend ctx Linear ty) context) (name :: env) (weaken result) body
     Right (IOBind ty result action (Lambda Linear ty body))
-  elaborateDo globals context env result (NLet span q name expected value body) = do
-    ty <- elaborateInWith globals context env expected
+  elaborateDoGlobals shared globals context env result (NLet span q name expected value body) = do
+    ty <- elaborateInWithGlobals shared globals context env expected
     value <- case context of
-      Just ctx => elaborateExpected globals ctx env ty value
-      Nothing => elaborateInWith globals context env value
-    body <- elaborateDo globals (map (\ctx => Extend ctx q ty) context) (name :: env) (weaken result) body
+      Just ctx => elaborateExpectedGlobals shared globals ctx env ty value
+      Nothing => elaborateInWithGlobals shared globals context env value
+    body <- elaborateDoGlobals shared globals (map (\ctx => Extend ctx q ty) context) (name :: env) (weaken result) body
     Right (Apply (Lambda q ty body) value)
-  elaborateDo globals context env result term = case context of
-    Just ctx => elaborateExpected globals ctx env (IOType result) term
-    Nothing => elaborateInWith globals context env term
+  elaborateDoGlobals shared globals context env result term = case context of
+    Just ctx => elaborateExpectedGlobals shared globals ctx env (IOType result) term
+    Nothing => elaborateInWithGlobals shared globals context env term
 
 ||| Contextual elaboration of a closed source expression.
 public export
-elaborateClosedWith : List GlobalDefinition -> Expr -> Either ResolveError (Term 0)
-elaborateClosedWith globals = elaborateInWith globals (Just Empty) []
+elaborateClosedWithGlobals : GlobalContext -> List GlobalDefinition -> Expr -> Either ResolveError (Term 0)
+elaborateClosedWithGlobals shared globals = elaborateInWithGlobals shared globals (Just Empty) []
 
 public export
+elaborateClosedGlobals : GlobalContext -> Expr -> Either ResolveError (Term 0)
+elaborateClosedGlobals shared = elaborateClosedWithGlobals shared []
+
+-- Closed-syntax compatibility APIs. Shared programs pass their checked context explicitly.
+public export
 elaborateClosed : Expr -> Either ResolveError (Term 0)
-elaborateClosed = elaborateClosedWith []
+elaborateClosed = elaborateClosedGlobals emptyGlobals
+
+public export
+elaborateClosedWith : List GlobalDefinition -> Expr -> Either ResolveError (Term 0)
+elaborateClosedWith = elaborateClosedWithGlobals emptyGlobals
+
+public export
+elaborateExpected : List GlobalDefinition -> Context n -> Vect n String -> Term n -> Expr -> Either ResolveError (Term n)
+elaborateExpected = elaborateExpectedGlobals emptyGlobals
+
+public export
+elaborateInWith : List GlobalDefinition -> Maybe (Context n) -> Vect n String -> Expr -> Either ResolveError (Term n)
+elaborateInWith = elaborateInWithGlobals emptyGlobals
+
+public export
+elaborateSignature : List GlobalDefinition -> Maybe (Context n) -> Vect n String -> Expr -> Either ResolveError (Term n)
+elaborateSignature = elaborateSignatureGlobals emptyGlobals
+
+public export
+elaborateSignatureWith : Bool -> List GlobalDefinition -> Maybe (Context n) -> Vect n String -> Expr -> Either ResolveError (Term n)
+elaborateSignatureWith = elaborateSignatureWithGlobals emptyGlobals

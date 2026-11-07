@@ -23,6 +23,7 @@ mutual
                         ((i : Fin n) -> left i = right i) ->
                         (term : Term n) ->
                         substituteTerm left term = substituteTerm right term
+  substituteCongruent left right agree (GlobalRef key) = Refl
   substituteCongruent left right agree (Variable i) = agree i
   substituteCongruent left right agree (Universe _) = Refl
   substituteCongruent left right agree UnitType = Refl
@@ -144,6 +145,7 @@ mutual
   public export
   renameAsSubstitution : (env : Fin n -> Fin m) -> (term : Term n) ->
                          rename env term = substituteTerm (Variable . env) term
+  renameAsSubstitution env (GlobalRef key) = Refl
   renameAsSubstitution env (Variable _) = Refl
   renameAsSubstitution env (Universe _) = Refl
   renameAsSubstitution env UnitType = Refl

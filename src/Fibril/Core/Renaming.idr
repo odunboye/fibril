@@ -20,6 +20,7 @@ mutual
   renameCongruent : (left, right : Fin n -> Fin m) ->
                     ((i : Fin n) -> left i = right i) ->
                     (term : Term n) -> rename left term = rename right term
+  renameCongruent left right agree (GlobalRef key) = Refl
   renameCongruent left right agree (Variable i) = cong Variable (agree i)
   renameCongruent left right agree (Universe _) = Refl
   renameCongruent left right agree UnitType = Refl
@@ -138,6 +139,7 @@ mutual
   ||| Identity renaming preserves every scoped term, including beneath binders.
   public export
   renameIdentity : (term : Term n) -> rename Prelude.id term = term
+  renameIdentity (GlobalRef key) = Refl
   renameIdentity (Variable _) = Refl
   renameIdentity (Universe _) = Refl
   renameIdentity UnitType = Refl
@@ -262,6 +264,7 @@ mutual
   renameComposition : (first : Fin n -> Fin m) -> (second : Fin m -> Fin k) ->
                       (term : Term n) ->
                       rename second (rename first term) = rename (second . first) term
+  renameComposition first second (GlobalRef key) = Refl
   renameComposition first second (Variable _) = Refl
   renameComposition first second (Universe _) = Refl
   renameComposition first second UnitType = Refl

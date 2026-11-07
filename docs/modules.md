@@ -360,38 +360,27 @@ inert descriptions; only the checked entry's run path can execute a plan.
 
 ## Declared types and conversion are separate obligations
 
-Global resolution now embeds closed values through checked ascriptions. The prior
-raw-value lookup could expose a narrower inferred type than a published signature.
-The new lookup fixes that boundary, but is **not** a complete interface system:
-the module loader still must check every definition before installing it.
+Named module resolution now produces environment-local `GlobalRef` keys into
+an independently checked immutable environment. Each declaration is checked
+against its published signature before references can use that signature.
+Erased globals are available to type checking and are rejected in runtime use.
+Linear globals still require a future ownership/initialization protocol.
 
-For the first closed-global implementation, imported occurrences must enforce
-the declared type using the existing checked-ascription elaboration:
+The earlier closed-global representation embedded a checked ascription at each
+use, `(Lambda Linear declaredType (Variable 0)) closedValue`. That compatible
+representation remains available for raw/bootstrap globals, including the
+prelude. Module bodies and signatures are now retained once rather than copied
+at every local/imported reference. See [shared checked globals](shared-checked-globals.md)
+for environment admission, fuel, graph budgets and backend capability checks.
 
-    (Lambda Linear declaredType (Variable 0)) closedValue
+This representation remains computationally transparent: conversion can unfold
+a checked body within its reduction budget. Private means source-name visibility,
+not secret code or proof-level opacity. Public bodies/types can refer to checked
+private implementations; no module-abstraction theorem is claimed.
 
-Both terms are closed and validated before installation. This preserves the
-signature at lookup while using existing core rules rather than a new typing axiom.
-The entire resulting entry is still checked before acceptance/execution.
-
-This representation is **computationally transparent**: conversion/reference
-normalization can expose an inlined body through ordinary beta reduction.
-Private means name visibility, not secret code or proof-level opacity. Public
-bodies/types can contain checked closed private implementations. There is no
-module-abstraction theorem or information-hiding guarantee.
-
-Named-module top-level declarations use this closed-global path for same-module
-references too, including private definitions. A module header therefore is not
-merely ignored metadata. Headerless entry declarations and explicit local lets
-keep the old lowering. Erased top-level aliases are rejected in the new path,
-not quietly installed as unrestricted runtime values.
-
-Earlier local declarations retain their existing [opaque-let limitation](declarations.md#important-opacity-limitation).
-Imported closed values and local typed lets therefore have deliberately different
-conversion behavior in this first slice. Document and test that difference.
-Do not promise opaque imports, abstract types, transparent local aliases, or
-change delta-unfolding policy silently. Proper opaque globals require a separate
-core/interface design and rechecking affected artifacts.
+Headerless entry declarations and explicit local lets keep their existing
+lowering. Checked projects retain the environment with their entry term through
+hosted evaluation, console/binary execution and native emission.
 
 ## Dependency graph and atomic acceptance
 
@@ -416,7 +405,7 @@ Initial proposed admission limits:
 | Distinct reachable modules, including entry | 32 |
 | Aggregate source bytes | 524,288 |
 | Declarations per module | 64, existing framing limit |
-| Expanded core construction | 200,000 nodes, including annotations/ascriptions |
+| Core construction | 200,000 units; shared declarations plus local elaboration/cloning, including annotations |
 | Parser/check/type-reduction budgets | Existing independent limits |
 
 The bundled bootstrap prelude is a compiler input, not a local graph node;
@@ -424,9 +413,10 @@ its existing source consistency/type checks remain required. Source snapshots ar
 immutable in-memory contents, not a claim of an atomic filesystem transaction.
 A same-size concurrent edit is not detected by the existing bounded reader.
 
-Charge expanded construction before cloning an imported body/type; source-size
-and graph limits alone do not bound expansion from inlining. Count a reused file's
-source bytes once. Repeated imports still charge each actual expanded occurrence.
+Charge a declaration's construction once, and continue to account for local
+elaboration/substitution before cloning. Imported aliases retain the same checked
+global key. Count a reused file's source bytes once; source and graph limits do
+not bound later normalization costs.
 These are rejection limits, not a proof of bounded time/memory: normalization,
 substitution, string operations, and host allocation have separate costs.
 

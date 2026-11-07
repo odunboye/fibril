@@ -41,9 +41,11 @@ literals, append and equality, variables, lambdas and application, Unit case,
 finite nominal and variant values/cases, pure pairs and pair cases; Nat and the fixed unary and
 list-shaped recursive constructors, folds and direct cases; and the inert IO
 forms `pure`, `bind`, and `putStrLn`. Source lets and do notation lower to those ordinary core forms.
-The whole closed expanded entry is independently checked against `IO Unit`
-**before** code generation, including the original erased-global barriers and
-runtime quantity analysis. Checked module/package dependencies must all pass.
+The closed entry is independently checked against `IO Unit` in its checked
+global environment **before** code generation, including erased-global barriers
+and runtime quantity analysis. Every module/package declaration must pass
+admission; complete reachable signatures/bodies are also scanned for backend
+capabilities and counted before emission.
 
 The generated C contains a function for each supported core subterm, not a list
 of precomputed output strings. Arguments are lazy memoized thunks; closures keep
@@ -78,7 +80,7 @@ staging. Its evaluation/arena limits differ from the reference planner; success
 or exhaustion in one is not guaranteed to match the other. Once writing begins,
 a host error can leave partial output; writes are not transactional.
 
-Current prototype policies: at most 8192 raw core nodes and 8192 aggregate
+Current prototype policies: at most 8192 shared-graph core nodes and 8192 aggregate
 literal/key characters before emission; native execution admits at most 100000
 evaluation/planning entries, depth 512, 64 actions, and 16 MiB of requested
 arena payload. Allocation bookkeeping, libc overhead, C stack, executable data,
@@ -92,8 +94,10 @@ safety, bounded memory, hard deadlines, erasure, backend correctness or sandboxi
 The runtime uses C stack and host `malloc`, `fwrite` and `fflush`; platform failure
 behavior and compiler/library correctness remain trusted. There is no verified
 ABI or promise that output paths, source snapshots or external dependencies are
-immutable. Transparent checked globals are still expanded into closed core, so
-existing graph and expansion budgets continue to limit larger programs.
+immutable. Named module globals now use a [checked shared environment](shared-checked-globals.md).
+Admission counts the entry and each reachable signature/body once, including
+erased and dead syntax. Bootstrap prelude expansion and the existing graph,
+construction, conversion and runtime limits still constrain larger programs.
 
 Run the native integration suite with a C11 compiler available as `CC`:
 

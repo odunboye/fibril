@@ -8,6 +8,9 @@ and runtime-usage checking), named modules with transparent globals and checked
 imports, nominal data and records, explicit interfaces, and recursive functions
 that are structural or admitted by a size-change check. Cubical term checking, a
 JavaScript backend, embedded profiles and real-time guarantees are not implemented.
+[Shared checked globals](docs/shared-checked-globals.md) retain named module bodies
+once and use independently admitted references through checking, hosted execution
+and native emission.
 [Experimental C emission](docs/native-c.md) produces a real native executable for a checked console subset; it is not yet an application backend.
 
 Fibril's HoTT direction remains a goal, not a present capability. The

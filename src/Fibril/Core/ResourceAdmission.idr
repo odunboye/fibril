@@ -11,6 +11,7 @@ mutual
   containsFileReference : Term n -> Bool
   containsFileReference (FileHandleValue _ _) = True
   containsFileReference (ReadInputFile handle) = containsFileReference handle
+  containsFileReference (GlobalRef _) = True
   containsFileReference (Variable _) = False
   containsFileReference (Universe _) = False
   containsFileReference UnitType = False

@@ -24,6 +24,7 @@ mutual
                             (term : Term n) ->
                             rename env (substituteTerm sigma term) =
                               substituteTerm (rename env . sigma) term
+  renameAfterSubstitution env sigma (GlobalRef key) = Refl
   renameAfterSubstitution env sigma (Variable _) = Refl
   renameAfterSubstitution env sigma (Universe _) = Refl
   renameAfterSubstitution env sigma UnitType = Refl
@@ -156,6 +157,7 @@ mutual
                             (term : Term n) ->
                             substituteTerm sigma (rename env term) =
                               substituteTerm (sigma . env) term
+  substituteAfterRenaming env sigma (GlobalRef key) = Refl
   substituteAfterRenaming env sigma (Variable _) = Refl
   substituteAfterRenaming env sigma (Universe _) = Refl
   substituteAfterRenaming env sigma UnitType = Refl
@@ -298,6 +300,7 @@ mutual
                           (term : Term n) ->
                           substituteTerm second (substituteTerm first term) =
                             substituteTerm (substituteTerm second . first) term
+  substituteComposition first second (GlobalRef key) = Refl
   substituteComposition first second (Variable _) = Refl
   substituteComposition first second (Universe _) = Refl
   substituteComposition first second UnitType = Refl

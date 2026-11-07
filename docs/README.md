@@ -110,6 +110,7 @@ The generated homepage separates teaching chapters, references, and project reco
 
 - [Design discussion record](design.md): decisions, recommendations, open questions.
 - [Pipelines evaluation](pipelines-evaluation.md): dependency inspection, findings, and adoption gate.
+- [Shared checked globals](shared-checked-globals.md): independently admitted module references, whole-graph capability checks and hosted/native execution.
 - [Experimental runtime-usage checker](runtime-checker.md): ordinary resource accounting and restrictions.
 - [Experimental erased checker](erased-checker.md): implemented ordinary type checking and explicit limits.
 - [Reference reduction](reduction.md): beta steps, fuel, conversion outcomes, and limitations.

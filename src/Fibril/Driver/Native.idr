@@ -37,7 +37,7 @@ emitBinaryCProject root entry = do
   checked <- checkProject root entry
   pure $ case checked of
     Left err => Left (renderGraphError err)
-    Right project => emitCheckedBinaryC 4096 8388608 project.term
+    Right project => emitCheckedBinaryCGlobals project.globals 4096 8388608 project.term
 
 public export
 emitCProject : String -> String -> IO (Either String String)
@@ -45,7 +45,7 @@ emitCProject root entry = do
   checked <- checkProject root entry
   pure $ case checked of
     Left err => Left (renderGraphError err)
-    Right project => emitCheckedC project.term
+    Right project => emitCheckedCGlobals project.globals project.term
 
 public export
 emitCPackage : String -> IO (Either String String)
@@ -53,4 +53,4 @@ emitCPackage manifest = do
   checked <- checkPackage manifest
   pure $ case checked of
     Left err => Left (renderGraphError err)
-    Right project => emitCheckedC project.term
+    Right project => emitCheckedCGlobals project.globals project.term

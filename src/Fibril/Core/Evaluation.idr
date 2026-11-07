@@ -91,3 +91,26 @@ weakHeadRun fuel term =
       case fuel of
         Z => HeadLimit term
         S rest => weakHeadRun rest next
+
+||| Runtime evaluation with transparent globals; every unfolding spends fuel.
+public export
+stepRunGlobals : (Nat -> Maybe (Term 0)) -> Term 0 -> Maybe (Term 0)
+stepRunGlobals globals term = orElse (stepGlobals globals term) (unfoldOne term)
+
+public export
+normalizeRunGlobals : (Nat -> Maybe (Term 0)) -> Nat -> Term 0 -> ReductionResult 0
+normalizeRunGlobals globals fuel term =
+  case stepRunGlobals globals term of
+    Nothing => Normal term
+    Just next => case fuel of
+      Z => OutOfFuel term
+      S rest => normalizeRunGlobals globals rest next
+
+public export
+weakHeadRunGlobals : (Nat -> Maybe (Term 0)) -> Nat -> Term 0 -> HeadResult 0
+weakHeadRunGlobals globals fuel term =
+  case orElse (stepHeadGlobals globals term) (unfoldOne term) of
+    Nothing => HeadForm term
+    Just next => case fuel of
+      Z => HeadLimit term
+      S rest => weakHeadRunGlobals globals rest next

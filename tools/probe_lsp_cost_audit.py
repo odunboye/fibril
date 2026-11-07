@@ -41,6 +41,8 @@ def syntax_identity(node):
 
 
 def summarize(document, named_helpers=None):
+    if document.get('representation') == 'bounded-global-expansion':
+        raise ValueError('Legacy expanded-tree cost/admission probing cannot measure shared-graph admission; migrate the probe schema before collecting new evidence')
     """Disjoint ancestor-dominant roles; all list cells counted like coreNodes.
 
     Shape fingerprints deliberately omit variable indices, names, literals and

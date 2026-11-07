@@ -15,6 +15,8 @@ import Fibril.Data.Bytes
 public export
 data Term : Nat -> Type where
   Variable : Fin n -> Term n
+  ||| Environment-local immutable global key. Raw references require checked admission.
+  GlobalRef : Nat -> Term n
   Universe : Nat -> Term n
   ||| Primitive Unit : Type0; explicit case elimination, no eta rule (docs/unit.md).
   UnitType : Term n
@@ -228,6 +230,7 @@ mutual
   ||| Rename free variables; domain annotations remain outside the binder scope.
   public export
   rename : (Fin n -> Fin m) -> Term n -> Term m
+  rename env (GlobalRef key) = GlobalRef key
   rename env (Variable i) = Variable (env i)
   rename env (Universe l) = Universe l
   rename env UnitType = UnitType
@@ -323,6 +326,7 @@ mutual
   ||| Simultaneous capture-avoiding substitution; performs no reduction.
   public export
   substituteTerm : (Fin n -> Term m) -> Term n -> Term m
+  substituteTerm env (GlobalRef key) = GlobalRef key
   substituteTerm env (Variable i) = env i
   substituteTerm env (Universe l) = Universe l
   substituteTerm env UnitType = UnitType
@@ -425,6 +429,7 @@ mutual
   ||| Structural syntax equality only, not definitional equality or path equality.
   public export
   sameSyntax : Term n -> Term n -> Bool
+  sameSyntax (GlobalRef i) (GlobalRef j) = i == j
   sameSyntax (Variable i) (Variable j) = i == j
   sameSyntax (Universe l) (Universe k) = l == k
   sameSyntax UnitType UnitType = True
