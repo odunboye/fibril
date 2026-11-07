@@ -289,7 +289,65 @@ program admission, general-path checking, transport or the full multi-resource
 budget policy. `Tests.Cubical.RuntimeInterface` exercises exact work boundaries,
 quantities, dependence, effects, handles and unsupported beta wrappers. An
 external compile-negative fixture checks constructor opacity. General logical
-paths and the proof gates below remain unimplemented.
+paths remain unimplemented; the typed foundation below is only a partial step
+into proof gate 3.
+
+### Typed quantitative foundation (partial gate 3)
+
+`Fibril.Core.Quantitative.{Syntax,Substitution,Usage}` is an isolated,
+Idris-total proof fragment, not a change to ordinary Core checking or reduction.
+Its intrinsically simply typed syntax admits Unit, Bool, quantity-annotated
+nondependent functions, variables, lambdas/applications, Unit elimination and
+Boolean alternatives. Contexts and usage vectors are **newest first**: the
+extension written `G,x:A` above is represented by `A :: G`.
+
+The implemented typed theorem is by construction:
+
+```text
+sigma : ({A} -> Var G A -> Term D A)
+t : Term G B
+-----------------------------------
+substitute sigma t : Term D B
+
+v : Term G A      t : Term (A :: G) B
+-------------------------------------
+instantiate v t : Term G B
+```
+
+Typed renaming has the analogous result. Lifting preserves the new variable and
+weakens every outer replacement under each lambda. Function quantities remain
+part of the type indices. These operations impose **no quantitative premises**;
+typed renaming/substitution can contract resources or retain invalid internal
+binders. They are not quantitative-preservation theorems.
+
+Separately, `Uses t u` gives quantitative derivations with exact `allows` binder
+checks, retained captures, scaled application demand and joined alternatives.
+`Admits P u` is pointwise permission evidence, not numeric subusage.
+`admitJoin` proves that permissions admitting both vectors admit their
+alternative join, using `Quantity.joinAllows`. `inferUsage` returns a usage
+vector paired with a `Uses` derivation; `checkUsage` additionally returns
+`Admits` evidence after checking the combined ambient demand. No completeness
+or impossibility theorem for checker failures is claimed. Every argument and
+both alternatives require internal quantitative derivations, including arguments
+scaled by zero. This is deliberately stricter than `Core.Runtime`, which skips
+runtime analysis of erased arguments; no checker correspondence is established.
+
+In this representation the single-linear quantitative theorem **still missing**
+is: given `Uses t (Linear :: u)`, `Uses v w`, and
+`Admits P (combineUsage u w)`, construct some `r` together with
+`Uses (instantiate v t) r` and `Admits P r`. Neither that theorem nor graded
+simultaneous substitution, a Core.Term admission/translation connection,
+reduction preservation, erasure compatibility or ownership soundness is proved.
+The fragment is not a bounded production admission API.
+
+`Tests.Quantitative` checks open substitution under two binders, shadowing,
+outer-index lowering, simultaneous replacements at distinct types and
+function-valued substitution by definitional equalities. It includes direct
+quantitative derivations, permission-join evidence, positive usage examples,
+rejection of unused/duplicated linear binders and erased extraction, and
+counterexamples to interpreting arbitrary typed renaming/substitution as
+linear-permission preservation. The single-linear substitution examples are
+regressions, not a general proof. Gate 3 remains open.
 
 ## 9. Execution gates
 
