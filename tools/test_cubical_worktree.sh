@@ -630,3 +630,28 @@ for fixture in HigherOrderPathAlignmentInterval HigherOrderPathAlignmentIndex Hi
   fi
 done
 echo 'Higher-order path alignment interval, index and domain negative tests passed.'
+
+for fixture in DependentEndpointWrongAlignment DependentEndpointWrongFace DependentEndpointWrongPath; do
+  if "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1; then
+    echo "Dependent endpoint negative test unexpectedly succeeded: $fixture" >&2; exit 1
+  fi
+  case "$fixture" in
+    DependentEndpointWrongAlignment) expected='Mismatch between: LUnit and LBool.' ;;
+    DependentEndpointWrongFace) expected='Mismatch between: True and False.' ;;
+    DependentEndpointWrongPath) expected='Mismatch between: () and (carrier (commonArrowSetoid (commonProductSetoid (commonEnvironmentSetoid []) commonDMSetoid) (commonTypeSetoid LBool)), carrier (commonDependentPathEnvironmentSetoid [] [])).' ;;
+  esac
+  if [[ $(grep -c '^Error:' "$tmp/$fixture.log") -ne 1 ]] ||
+     ! grep -Fq 'Error: While processing right hand side of bad. When unifying:' "$tmp/$fixture.log" ||
+     ! grep -Fxq "$expected" "$tmp/$fixture.log" ||
+     grep -Eq 'Undefined name|While processing type of' "$tmp/$fixture.log"; then
+    echo "Dependent endpoint negative test failed for an unrelated reason: $fixture" >&2
+    cat "$tmp/$fixture.log" >&2; exit 1
+  fi
+  if [[ "$fixture" == DependentEndpointWrongPath ]] &&
+     { ! grep -Fq 'commonDependentPathLookup [] [LBool, LBool] LBool (LThere LHere)' "$tmp/$fixture.log" ||
+       ! grep -Fq 'commonDependentPathLookup [] [LBool, LBool] LBool LHere' "$tmp/$fixture.log"; }; then
+    echo 'Dependent endpoint wrong-path test did not report both path indices:' >&2
+    cat "$tmp/$fixture.log" >&2; exit 1
+  fi
+done
+echo 'Dependent endpoint wrong alignment, face and path negative tests passed.'

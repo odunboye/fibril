@@ -311,3 +311,12 @@ coherence needs either a justified way to align the erased derivation indices
 or explicit structural alignment, including intermediate application types;
 endpoint soundness additionally needs alignment with the witness actually
 chosen by admissibility. Neither is supplied by this same-witness lemma.
+
+`DependentEndpointAlignment` now indexes a structural alignment by the actual
+endpoint evidence extracted from a particular admissibility proof.
+`dependentDeclaredLeftAlignedAtFace` and `dependentDeclaredRightAlignedAtFace`
+use it to relate the declared path endpoint to an independently selected witness;
+the alignment is an explicit premise, not a semantic equality assumption. These
+lemmas are pointwise at one ordinary environment, not yet a theorem for actual
+`CommonFaceEqual` derivations or related dependent environments. No structural
+higher-order face-equality constructors or soundness cases are provided here.

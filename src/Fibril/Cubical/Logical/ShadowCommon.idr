@@ -1756,3 +1756,60 @@ dependentPathSameWitness : {ctx : Vect n LogicalType} -> {paths : Vect k Logical
   {0 typing : CommonPathHasType ctx paths t a} -> (w : HigherOrderPathTerm ctx paths a d typing) ->
   (valuation : Fin d -> DM) -> morphismsRelated (dependentPathSemantics w valuation) (dependentPathSemantics w valuation)
 dependentPathSameWitness w valuation x y xy = respectsRelation (dependentPathSemantics w valuation) xy
+
+||| Alignment is indexed by the endpoint evidence actually extracted from admissibility.
+public export
+DependentEndpointAlignment : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} -> {a : LogicalType} ->
+  {p : LogicalVar paths a} -> {term : CommonTerm n} ->
+  {ps : carrier (commonDependentPathEnvironmentSetoid ctx paths)} ->
+  {env : carrier (commonEnvironmentSetoid ctx)} -> {value : DM} ->
+  {0 ty : CommonHasType ctx term a} -> HigherOrderTerm ctx a ty ->
+  DependentEndpointAtFace ctx p term ps env value -> Type
+DependentEndpointAlignment selected (DependentAtFace actual _) = HigherOrderAlignment actual selected
+
+||| Transport an extracted endpoint to a structurally aligned selected witness.
+public export
+dependentEndpointAligned : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} -> {a : LogicalType} ->
+  {p : LogicalVar paths a} -> {term : CommonTerm n} ->
+  {ps : carrier (commonDependentPathEnvironmentSetoid ctx paths)} ->
+  {env : carrier (commonEnvironmentSetoid ctx)} -> {value : DM} ->
+  {0 ty : CommonHasType ctx term a} -> (selected : HigherOrderTerm ctx a ty) ->
+  (endpoint : DependentEndpointAtFace ctx p term ps env value) ->
+  DependentEndpointAlignment selected endpoint ->
+  related (commonTypeSetoid a)
+    (applyMorphism (applyMorphism (commonDependentPathLookup ctx paths a p) ps) (env, value))
+    (applyMorphism (higherOrderTermSemantics selected) env)
+dependentEndpointAligned {ctx} {a} {env} selected (DependentAtFace actual endpoint) alignment =
+  relationTrans (commonTypeSetoid a) endpoint
+    (higherOrderAlignedRelated alignment env env (relationRefl (commonEnvironmentSetoid ctx) env))
+
+||| The alignment obligation refers to the endpoint chosen by this admissibility proof.
+public export
+dependentDeclaredLeftAlignedAtFace : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} -> {a : LogicalType} ->
+  {0 decls : CommonDeclarations ctx paths} -> {p : LogicalVar paths a} -> {l, r : CommonTerm n} ->
+  (declared : CommonDeclaredPath decls p l r) -> (ps : carrier (commonDependentPathEnvironmentSetoid ctx paths)) ->
+  (admissible : DependentPathAdmissible decls ps) -> (env : carrier (commonEnvironmentSetoid ctx)) ->
+  (valuation : Fin d -> DM) -> (face : ScopedFace d) -> (i : ScopedInterval d) ->
+  (accepted : boundedEndpointEntails face i False = True) -> (holds : faceAtVal valuation face = True) ->
+  {0 ty : CommonHasType ctx l a} -> (selected : HigherOrderTerm ctx a ty) ->
+  DependentEndpointAlignment selected (dependentDeclaredLeftAtFace declared ps admissible env valuation face i accepted holds) ->
+  related (commonTypeSetoid a)
+    (applyMorphism (applyMorphism (commonDependentPathLookup ctx paths a p) ps) (env, evalDMVal valuation i))
+    (applyMorphism (higherOrderTermSemantics selected) env)
+dependentDeclaredLeftAlignedAtFace declared ps admissible env valuation face i accepted holds selected alignment =
+  dependentEndpointAligned selected (dependentDeclaredLeftAtFace declared ps admissible env valuation face i accepted holds) alignment
+
+public export
+dependentDeclaredRightAlignedAtFace : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} -> {a : LogicalType} ->
+  {0 decls : CommonDeclarations ctx paths} -> {p : LogicalVar paths a} -> {l, r : CommonTerm n} ->
+  (declared : CommonDeclaredPath decls p l r) -> (ps : carrier (commonDependentPathEnvironmentSetoid ctx paths)) ->
+  (admissible : DependentPathAdmissible decls ps) -> (env : carrier (commonEnvironmentSetoid ctx)) ->
+  (valuation : Fin d -> DM) -> (face : ScopedFace d) -> (i : ScopedInterval d) ->
+  (accepted : boundedEndpointEntails face i True = True) -> (holds : faceAtVal valuation face = True) ->
+  {0 ty : CommonHasType ctx r a} -> (selected : HigherOrderTerm ctx a ty) ->
+  DependentEndpointAlignment selected (dependentDeclaredRightAtFace declared ps admissible env valuation face i accepted holds) ->
+  related (commonTypeSetoid a)
+    (applyMorphism (applyMorphism (commonDependentPathLookup ctx paths a p) ps) (env, evalDMVal valuation i))
+    (applyMorphism (higherOrderTermSemantics selected) env)
+dependentDeclaredRightAlignedAtFace declared ps admissible env valuation face i accepted holds selected alignment =
+  dependentEndpointAligned selected (dependentDeclaredRightAtFace declared ps admissible env valuation face i accepted holds) alignment

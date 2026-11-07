@@ -2335,3 +2335,22 @@ alignedIfFalse = trans (dependentPathAlignedRelated Tests.Shadow.alignedIfWitnes
   ((Tests.Shadow.setoidIdentity, ()), (Tests.Shadow.alignedEnvPath1, ()))
   ((Tests.Shadow.setoidConditionalIdentity, ()), (Tests.Shadow.alignedEnvPath2, ()))
   ((Tests.Shadow.setoidIdentityEquivalent, Refl), Tests.Shadow.alignedEnvPathRelated)) Refl
+
+-- The alignment is checked against the witness extracted from admissibility.
+dependentLinearAlignedLeft : (b : Bool) -> dependentFlip b (False, False) =
+  applyMorphism (higherOrderTermSemantics Tests.Shadow.higherOrderLinearIfAgain) (b, ())
+dependentLinearAlignedLeft b = dependentDeclaredLeftAlignedAtFace CommonDeclaredHere
+  Tests.Shadow.dependentLinearPaths Tests.Shadow.dependentLinearAdmissible (b, ())
+  (\_ => (False, False)) (the (ScopedFace 1) (SEndpoint FZ False)) (Var FZ) Refl Refl
+  Tests.Shadow.higherOrderLinearIfAgain Tests.Shadow.higherOrderLinearAlignment
+
+dependentLinearAlignedTrue : dependentFlip True (False, False) = True
+dependentLinearAlignedTrue = trans (Tests.Shadow.dependentLinearAlignedLeft True) Refl
+
+dependentLinearAlignedFalse : dependentFlip False (False, False) = False
+dependentLinearAlignedFalse = trans (Tests.Shadow.dependentLinearAlignedLeft False) Refl
+
+dependentTailAlignedRight : applyMorphism Tests.Shadow.dependentTailPath ((), (True, True)) = True
+dependentTailAlignedRight = dependentDeclaredRightAlignedAtFace (CommonDeclaredThere CommonDeclaredHere)
+  Tests.Shadow.dependentTwoPaths Tests.Shadow.dependentTwoAdmissible () (\_ => (True, True))
+  (the (ScopedFace 1) (SEndpoint FZ True)) (Var FZ) Refl Refl (HOBool [] True) (AlignBool [] True)
