@@ -553,3 +553,28 @@ the transformed body) before solver calls; construction of substitutions and
 arbitrary caller-supplied functions are not a bounded public attacker API.
 There is no path-variable substitution, general context morphism, formal
 composition law, general open path calculus, or runtime authority in this slice.
+
+
+`substituteBoundDimensionsFinite` is the bounded experimental alternative for
+first-order vector environments. It rechecks the source, caps context and
+dimension counts at 12 (older input and output dimensions at 11 under the
+binder), then shares a node allowance between all environment entries and the
+entire substituted output, charging repeated replacements separately. Each vector
+cons costs one, each interval constructor in every entry costs one, and each
+transformed term and interval constructor costs one. Thus `[Zero]` and a
+`Variable` cost three units even when the entry is unused. The transformed
+term also has an independent hard cap of 10 nodes, regardless of caller budget:
+the source/output checker admits at most 12 combined nodes, including `STop`
+and the endpoint `Variable`, so a larger body cannot pass that checker. Only
+after this preflight does it construct and recheck the output. This ordering is
+established by source inspection; the exhaustion test does not instrument
+construction. Unused entries
+are still admitted. Vector length fixes the source dimension count; Fin indices
+are scoped by the types. The older function-valued API is host-only: arbitrary
+functions can perform unbounded work before their results are checked.
+
+The allowance is an admission measure, not a precise runtime or allocation
+bound: checks and solver calls have their own allowances, bounded Fin/vector
+lookup and weakening incur overhead, and inputs already exist. The source and
+output checker retain their fixed 12-node solver-input cap. No total allocation
+or formal substitution soundness theorem is claimed.

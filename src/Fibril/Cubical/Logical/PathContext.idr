@@ -120,3 +120,56 @@ substituteBoundDimensions budget env {ctx} {body} {l} {r} MkCheckedContextAbstra
   case checkContextAbstraction budget ctx body l r of
     Accepted => checkBoundAbstraction budget ctx (mapContextDimensions (liftContextDimensions env) body) l r
     other => Left other
+
+-- Admission and output accounting share one allowance. Counts are bounded
+-- before indexing the vector or traversing any Fin carried by the syntax.
+environmentNodes : Nat -> Vect n (ScopedInterval d) -> Maybe Nat
+environmentNodes fuel [] = Just fuel
+environmentNodes Z (_ :: _) = Nothing
+environmentNodes (S fuel) (x :: xs) = do
+  rest <- intervalNodes fuel x
+  environmentNodes rest xs
+
+substitutedIntervalNodes : Nat -> Vect n (ScopedInterval d) -> ScopedInterval (S n) -> Maybe Nat
+substitutedIntervalNodes Z _ _ = Nothing
+substitutedIntervalNodes (S fuel) env Zero = Just fuel
+substitutedIntervalNodes (S fuel) env One = Just fuel
+substitutedIntervalNodes (S fuel) env (Var FZ) = Just fuel
+substitutedIntervalNodes fuel env (Var (FS i)) = intervalNodes fuel (index i env)
+substitutedIntervalNodes (S fuel) env (Reverse x) = substitutedIntervalNodes fuel env x
+substitutedIntervalNodes (S fuel) env (Meet x y) = do
+  rest <- substitutedIntervalNodes fuel env x
+  substitutedIntervalNodes rest env y
+substitutedIntervalNodes (S fuel) env (Join x y) = do
+  rest <- substitutedIntervalNodes fuel env x
+  substitutedIntervalNodes rest env y
+
+||| Preflight counts every environment entry and every output occurrence,
+||| including unused entries and duplicated replacements. Context lengths and
+||| dimension counts are capped independently of the supplied allowance.
+||| The output term cap is 10: the checker also admits STop and Variable.
+public export
+boundedSubstitutionPreflight : {m, k, n, d : Nat} -> Nat -> Vect n (ScopedInterval d) -> ContextTerm m k (S n) -> Bool
+boundedSubstitutionPreflight {m} {k} {n} {d} budget env body =
+  if not (m <= 12 && k <= 12 && n <= 11 && d <= 11) then False else
+  isJust (environmentNodes budget env >>= \rest => outputNodes (min 10 rest) body)
+  where
+    outputNodes : Nat -> ContextTerm m k (S n) -> Maybe Nat
+    outputNodes Z _ = Nothing
+    outputNodes (S f) (Variable _) = Just f
+    outputNodes (S f) (ApplyPath _ r) = substitutedIntervalNodes f env r
+
+||| Finite first-order substitution for untrusted syntax. The original check
+||| precedes admission; output syntax is constructed only after preflight.
+export
+substituteBoundDimensionsFinite : {m, k, n, d : Nat} -> (budget : Nat) -> (env : Vect n (ScopedInterval d)) ->
+                            {ctx : PathContext m k} -> {body : ContextTerm m k (S n)} ->
+                            {l, r : Fin m} -> CheckedContextAbstraction ctx body l r ->
+                            Either Result (CheckedContextAbstraction ctx
+                              (mapContextDimensions (liftContextDimensions (\i => index i env)) body) l r)
+substituteBoundDimensionsFinite budget env {ctx} {body} {l} {r} MkCheckedContextAbstraction =
+  case checkContextAbstraction budget ctx body l r of
+    Accepted => if boundedSubstitutionPreflight budget env body
+      then checkBoundAbstraction budget ctx (mapContextDimensions (liftContextDimensions (\i => index i env)) body) l r
+      else Left Exhausted
+    other => Left other

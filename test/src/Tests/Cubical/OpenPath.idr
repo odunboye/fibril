@@ -48,6 +48,24 @@ sameContextTerm (Variable x) (Variable y) = x == y
 sameContextTerm (ApplyPath p r) (ApplyPath q s) = p == q && sameInterval r s
 sameContextTerm _ _ = False
 
+branching : Nat -> ScopedInterval n -> ScopedInterval n
+branching Z x = x
+branching (S n) x = let y = branching n x in Meet y y
+
+-- Compare the preflight with an independently constructed reference for small inputs.
+preflightReference : Nat -> ScopedInterval 1 -> ScopedInterval 2 -> Bool
+preflightReference fuel replacement input =
+  let env : Vect 1 (ScopedInterval 1) = [replacement]
+      body : ContextTerm 2 2 2 = ApplyPath FZ input
+      output = substituteScoped (liftContextDimensions (\i => index i env)) input
+      reference = case fuel of
+        Z => False
+        S f => case intervalNodes f replacement of
+          Nothing => False
+          Just Z => False
+          Just (S remaining) => isJust (intervalNodes (min 9 remaining) output) in
+  boundedSubstitutionPreflight fuel env body == reference
+
 export
 checks : List (String, Bool)
 checks =
@@ -75,6 +93,65 @@ checks =
                     _ => False
                 _ => False
             _ => False)
+  , ("finite substitution preflight counts duplicated output and unused environment",
+      let env : Vect 1 (ScopedInterval 1) = [Reverse (Var FZ)]
+          body : ContextTerm 2 2 2 = ApplyPath FZ (Meet (Var (FS FZ)) (Var (FS FZ)))
+          unused : ContextTerm 2 2 2 = Variable FZ in
+      not (boundedSubstitutionPreflight 8 env body) &&
+      boundedSubstitutionPreflight 9 env body &&
+      not (boundedSubstitutionPreflight 20 (the (Vect 1 (ScopedInterval 1)) [reversals 100 (Var FZ)]) unused) &&
+      not (boundedSubstitutionPreflight {d=12} 100 [Zero] unused) &&
+      not (boundedSubstitutionPreflight {m=13, k=0, n=0, d=0} 100 [] (Variable FZ)))
+  , ("finite preflight exact environment and term accounting",
+      let env : Vect 1 (ScopedInterval 0) = [Zero]
+          body : ContextTerm 2 2 2 = Variable FZ in
+      not (boundedSubstitutionPreflight 2 env body) &&
+      boundedSubstitutionPreflight 3 env body)
+  , ("finite preflight hard cap matches checker body admission",
+      let body : ContextTerm 2 2 2 = ApplyPath FZ (Var (FS FZ))
+          ten : Vect 1 (ScopedInterval 0) = [reversals 8 Zero]
+          eleven : Vect 1 (ScopedInterval 0) = [reversals 9 Zero] in
+      boundedSubstitutionPreflight 1000 ten body &&
+      not (boundedSubstitutionPreflight 1000 eleven body) &&
+      accepted (checkContextAbstraction {n=0} 1000
+        (the (PathContext 1 1) [PathBetween FZ FZ])
+        (ApplyPath FZ (reversals 8 Zero)) FZ FZ) &&
+      exhausted (checkContextAbstraction {n=0} 1000
+        (the (PathContext 1 1) [PathBetween FZ FZ])
+        (ApplyPath FZ (reversals 9 Zero)) FZ FZ))
+  , ("finite checked substitution enforces output cap with ample budget",
+      let body : ContextTerm 2 2 2 = ApplyPath FZ (Join (Var FZ) (Meet (Var (FS FZ)) Zero))
+          env : Vect 1 (ScopedInterval 0) = [reversals 8 Zero] in
+      case checkBoundAbstraction 1000 paths body FZ (FS FZ) of
+        Left _ => False
+        Right checked => case substituteBoundDimensionsFinite 1000 env checked of
+          Left Exhausted => True
+          _ => False)
+  , ("finite checked substitution preserves binder and reports exhaustion",
+      let body : ContextTerm 2 2 2 = ApplyPath FZ (Meet (Var FZ) (Join (Var (FS FZ)) One))
+          env : Vect 1 (ScopedInterval 1) = [Reverse (Var FZ)] in
+      case checkBoundAbstraction 12 paths body FZ (FS FZ) of
+        Left _ => False
+        Right checked =>
+          case (substituteBoundDimensionsFinite 12 env checked,
+                substituteBoundDimensionsFinite 12 (the (Vect 1 (ScopedInterval 1)) [reversals 100 (Var FZ)]) checked) of
+            (Right _, Left Exhausted) =>
+              case mapContextDimensions (liftContextDimensions (\i => index i env)) body of
+                ApplyPath FZ (Meet (Var FZ) (Join (Reverse (Var (FS FZ))) One)) => True
+                _ => False
+            _ => False)
+  , ("finite preflight agrees with small exhaustive reference",
+      let atoms : List (ScopedInterval 2) = [Zero, One, Var FZ, Var (FS FZ)]
+          inputs = atoms ++ map Reverse atoms ++
+                   concatMap (\x => map (Meet x) atoms ++ map (Join x) atoms) atoms
+          replacements : List (ScopedInterval 1) = [Zero, One, Var FZ, Reverse (Var FZ)] in
+      all (\r => all (\x => all (\fuel => preflightReference fuel r x) [0..20]) inputs) replacements)
+  , ("finite preflight rejects exponential output growth",
+      let env : Vect 1 (ScopedInterval 1) = [branching 8 (Var FZ)]
+          body : ContextTerm 2 2 2 = ApplyPath FZ (Meet (Var (FS FZ)) (Var (FS FZ))) in
+      not (boundedSubstitutionPreflight 100 env body) &&
+      not (boundedSubstitutionPreflight 1200 env body) &&
+      not (boundedSubstitutionPreflight 2000 env body))
   , ("mixed substitution commutes on a nonempty restricted face",
       let face : ScopedFace 1 = SEndpoint FZ False
           env : Fin 1 -> ScopedInterval 1 = \_ => Reverse (Var FZ)
