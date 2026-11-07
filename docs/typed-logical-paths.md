@@ -171,8 +171,14 @@ does not use Boolean vertices or identify `i ∧ ~i` with zero.
 congruence of `Path A` types using four checked endpoint typings and two
 proof-producing base equalities. `checkNeutralPathEqual` checks both abstractions at the exact requested base
 path type and compares their bodies at the weakened face. It is restricted to
-the abstraction forms already accepted by the typing checker. Neither checker
-yet synthesizes conversion into the typing checker. The full nested PathP square is
+the abstraction forms already accepted by the typing checker. The separately exposed `convertNeutralTyping`, `restrictNeutralTyping`, and
+`convertNeutralEquality` combine exact indexed input derivations with checked
+face-sensitive type equality or bounded face entailment, producing `NConvert`,
+`NFaceRestrict`, and `NEqualConvert` respectively. Equality conversion requires
+both target typings explicitly. They admit all displayed syntax under the same
+shared node and dimension caps before comparison, but do not inspect or bound
+the supplied derivation trees. These helpers do not synthesize conversion inside
+the typing checker. The full nested PathP square is
 therefore still declarative only: its outer boundaries require checking both
 abstractions at a common restricted path type using endpoint type conversion,
 then proving their bodies equal at the weakened restricted face. General PathP

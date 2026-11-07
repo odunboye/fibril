@@ -272,3 +272,49 @@ checkNeutralPathEqual {m} {k} {n} budget ctx face x y ty =
       Nothing => Left Exhausted
       Just _ => pathEqualAdmitted ctx face x y ty
   else Left Exhausted
+
+||| Convert an existing exact typing using the checker's face-sensitive type equality.
+public export
+convertNeutralTyping : {m, k, n : Nat} -> (budget : Nat) -> (ctx : PathContext m k) ->
+  (face : ScopedFace n) -> (term, sourceTy, targetTy : NeutralExpr m k n) ->
+  NeutralHasType ctx face term sourceTy -> Either CheckError (NeutralHasType ctx face term targetTy)
+convertNeutralTyping {m} {k} {n} budget ctx face term sourceTy targetTy derivation =
+  if m <= 12 && k <= 12 && n <= 12 then
+    case faceNodes (min 128 budget) face >>= \f => exprNodes f term >>= \g =>
+         exprNodes g sourceTy >>= \h => exprNodes h targetTy of
+      Nothing => Left Exhausted
+      Just _ => case typeEqualAdmitted ctx face sourceTy targetTy of
+        Left e => Left e
+        Right eq => Right (NConvert derivation eq)
+  else Left Exhausted
+
+||| Restrict an existing exact typing only when bounded entailment proves the inclusion.
+public export
+restrictNeutralTyping : {m, k, n : Nat} -> (budget : Nat) -> (ctx : PathContext m k) ->
+  (source, face : ScopedFace n) -> (term, ty : NeutralExpr m k n) ->
+  NeutralHasType ctx source term ty -> Either CheckError (NeutralHasType ctx face term ty)
+restrictNeutralTyping {m} {k} {n} budget ctx source face term ty derivation =
+  if m <= 12 && k <= 12 && n <= 12 then
+    case faceNodes (min 128 budget) source >>= \f => faceNodes f face >>= \g =>
+         exprNodes g term >>= \h => exprNodes h ty of
+      Nothing => Left Exhausted
+      Just _ => case decEq (boundedFaceEntails face source) True of
+        Yes witness => Right (NFaceRestrict derivation witness)
+        No _ => Left Unsupported
+  else Left Exhausted
+
+||| Convert an exact equality, requiring independently indexed target typings.
+public export
+convertNeutralEquality : {m, k, n : Nat} -> (budget : Nat) -> (ctx : PathContext m k) ->
+  (face : ScopedFace n) -> (x, y, sourceTy, targetTy : NeutralExpr m k n) ->
+  NeutralEqual ctx face x y sourceTy -> NeutralHasType ctx face x targetTy ->
+  NeutralHasType ctx face y targetTy -> Either CheckError (NeutralEqual ctx face x y targetTy)
+convertNeutralEquality {m} {k} {n} budget ctx face x y sourceTy targetTy derivation xp yp =
+  if m <= 12 && k <= 12 && n <= 12 then
+    case faceNodes (min 128 budget) face >>= \f => exprNodes f x >>= \g =>
+         exprNodes g y >>= \h => exprNodes h sourceTy >>= \i => exprNodes i targetTy of
+      Nothing => Left Exhausted
+      Just _ => case typeEqualAdmitted ctx face sourceTy targetTy of
+        Left e => Left e
+        Right eq => Right (NEqualConvert derivation eq xp yp)
+  else Left Exhausted

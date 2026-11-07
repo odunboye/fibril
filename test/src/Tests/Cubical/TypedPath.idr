@@ -260,10 +260,68 @@ checkerUnsupported : Either CheckError a -> Bool
 checkerUnsupported (Left Unsupported) = True
 checkerUnsupported _ = False
 
+escapeOriginal : NeutralExpr 2 1 0
+escapeOriginal = NPathType NType (NBase FZ) (NBase (FS FZ))
+escapeSource : NeutralExpr 2 1 0
+escapeSource = NPathType NType (NBase FZ) (NApply (NPath FZ) One)
+escapeMiddle : NeutralExpr 2 1 0
+escapeMiddle = NPathType NType (NBase FZ) (NApply (NPath FZ) (Meet One One))
+escapeTarget : NeutralExpr 2 1 0
+escapeTarget = NPathType NType (NBase FZ) (NApply (NPath FZ) (Meet (Meet One One) One))
+
+-- Both types have globally valid typings, obtained by two separate meet-one
+-- conversions; the checker cannot combine those steps on STop.
+equalityConversionFaceEscape : Bool
+equalityConversionFaceEscape =
+  case (checkNeutralTypeEqual {n = 0} 96 neutralContext STop escapeOriginal escapeSource,
+        checkNeutralTypeEqual {n = 0} 96 neutralContext STop escapeSource escapeMiddle,
+        checkNeutralTypeEqual {n = 0} 96 neutralContext STop escapeMiddle escapeTarget) of
+    (Right first, Right second, Right third) =>
+      let basePath : NeutralHasType Tests.Cubical.TypedPath.neutralContext STop (NPath FZ) escapeOriginal = NPathVar FZ
+          src = NConvert basePath first
+          dst = NConvert (NConvert src second) third
+          restrictedSrc = NFaceRestrict src Refl
+          restrictedDst = NFaceRestrict dst Refl in
+      checkerUnsupported (convertNeutralEquality 96 neutralContext STop
+        (NPath FZ) (NPath FZ) escapeSource escapeTarget (NRefl src) dst dst) &&
+      checkerSuccess (convertNeutralEquality 96 neutralContext SBottom
+        (NPath FZ) (NPath FZ) escapeSource escapeTarget (NRefl restrictedSrc) restrictedDst restrictedDst)
+    _ => False
+
 public export
 checkerChecks : List (String, Bool)
 checkerChecks =
-  [ ("checker path abstraction equality", checkerSuccess (checkNeutralPathEqual {n = 0} 64 coincidentContext SBottom
+  [ ("typing conversion on endpoint face", checkerSuccess (convertNeutralTyping {n = 1} 64 neutralContext (SEndpoint FZ False)
+      (NPath FZ) (NPathType NType (NBase FZ) (NBase (FS FZ)))
+      (NPathType NType (NApply (NPath FZ) (Var FZ)) (NBase (FS FZ))) (NPathVar FZ)))
+  , ("typing conversion cannot escape face", checkerUnsupported (convertNeutralTyping {n = 1} 64 neutralContext STop
+      (NPath FZ) (NPathType NType (NBase FZ) (NBase (FS FZ)))
+      (NPathType NType (NApply (NPath FZ) (Var FZ)) (NBase (FS FZ))) (NPathVar FZ)))
+  , ("typing conversion exhaustion", checkerExhausted (convertNeutralTyping {n = 0} 1 neutralContext STop
+      (NBase FZ) NType NType (NBaseVar FZ)))
+  , ("typing restriction", checkerSuccess (restrictNeutralTyping {n = 1} 32 neutralContext STop (SEndpoint FZ False)
+      (NBase FZ) NType (NBaseVar FZ)))
+  , ("typing restriction rejects escape", checkerUnsupported (restrictNeutralTyping {n = 1} 32 neutralContext (SEndpoint FZ False) STop
+      (NBase FZ) NType (NBaseVar FZ)))
+  , ("typing restriction admission exhaustion", checkerExhausted (restrictNeutralTyping {n = 1} 1 neutralContext STop (SEndpoint FZ False)
+      (NBase FZ) NType (NBaseVar FZ)))
+  , ("square left endpoint type conversion", checkerSuccess (convertNeutralTyping {n = 0} 64 neutralContext STop
+      (NAbstract (NBase FZ)) (NPathType NType (NBase FZ) (NBase FZ))
+      (NPathType NType (NBase FZ) (NApply (NPath FZ) Zero)) leftEdge))
+  , ("face-sensitive equality conversion", checkerSuccess (convertNeutralEquality {n = 1} 96 neutralContext (SEndpoint FZ False)
+      (NAbstract (NApply (NPath FZ) (Var (FS FZ)))) (NAbstract (NApply (NPath FZ) (Var (FS FZ))))
+      (NPathType NType (NApply (NPath FZ) (Var FZ)) (NApply (NPath FZ) (Var FZ)))
+      (NPathType NType (NBase FZ) (NBase FZ))
+      (NRefl (NIntro NBaseForm (NElim (NPathVar FZ) (Var FZ)) (NElim (NPathVar FZ) (Var FZ))
+        (NElim (NPathVar FZ) (Var (FS FZ)))
+        (NRefl (NElim (NPathVar FZ) (Var (FS FZ)))) (NRefl (NElim (NPathVar FZ) (Var (FS FZ))))))
+      restrictedConvertedPath restrictedConvertedPath))
+  , ("equality conversion", checkerSuccess (convertNeutralEquality {n = 0} 32 neutralContext STop
+      (NBase FZ) (NBase FZ) NType NType (NRefl (NBaseVar FZ)) (NBaseVar FZ) (NBaseVar FZ)))
+  , ("equality conversion admission exhaustion", checkerExhausted (convertNeutralEquality {n = 0} 1 neutralContext STop
+      (NBase FZ) (NBase FZ) NType NType (NRefl (NBaseVar FZ)) (NBaseVar FZ) (NBaseVar FZ)))
+  , ("equality conversion succeeds on bottom but direct global check is unsupported", equalityConversionFaceEscape)
+  , ("checker path abstraction equality", checkerSuccess (checkNeutralPathEqual {n = 0} 64 coincidentContext SBottom
       (NAbstract (NApply (NPath FZ) (Var FZ))) (NAbstract (NBase FZ))
       (NPathType NType (NBase FZ) (NBase FZ))))
   , ("checker path abstraction face escape", checkerUnsupported (checkNeutralPathEqual {n = 0} 64 coincidentContext STop
