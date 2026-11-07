@@ -415,7 +415,7 @@ reported, so navigation answers `null` rather than a wrong target. Runnable exam
 ### Mutual groups
 
 A `mutual where` block that is not the bounded two-worker Nat/Bool form is a general
-mutual group: two to four members that share one signature, over any types and with any
+mutual group: two to eight members that share one signature, over any types and with any
 number of parameters.
 
 ~~~fibril
@@ -453,9 +453,12 @@ check sees one recursive function whose body is a chain of member tests. Consequ
 - All members share one signature; members that disagree are rejected and the error names
   the group. Members must be function equations naming their parameters exactly as the
   signature does, take the same number of arguments, and be unrestricted ordinary names. No
-  implicit parameters, at most four members.
-- The tag is compared with `equalString`, so shadowing that prelude name changes how a
-  group behaves. Members of mutually recursive *data* are not supported.
+  implicit parameters, at most eight members.
+- The tag is compared with the primitive `primStringEqual`, so no user definition can change
+  how a group dispatches. The finer per-member check has fixed size limits (the closure of
+  call matrices holds at most 32); a large, densely connected group may exceed them and is
+  then judged as one function, so only groups of about five or more members that rely on
+  forwarding calls can be refused for size alone. Members of mutually recursive *data* are not supported.
 - Navigation and the formatter see the group exactly as written, including every member.
 
 Tests cover dependent renamed binders, ordinary/erased/linear quantities,
