@@ -3,8 +3,16 @@ module LSP
 -- SOURCE-ONLY prototype over validated typed events, not wire messages.
 -- PRECONDITION (not a refinement): a future decoder validates ID kind/payload
 -- and classifies request vs notification. Constructors are structurally forgeable.
--- Numeric payloads are opaque numeric spelling bytes; string payloads are opaque
--- decoded string bytes. No validation, normalization or ID comparison occurs here.
+-- NumericId: ASCII bytes (therefore strict UTF8), JSON integer spelling
+-- entire payload matches -?(0|[1-9][0-9]*), signed32 range [-2147483648,2147483647].
+-- Allow -0 and preserve opaque spelling; exclude leading +, leading zeros,
+-- fractions, exponents and bools.
+-- StringId: decoded Unicode scalar-valid string represented as strict UTF8,
+-- NOT a raw quoted JSON lexeme. NUL is allowed in decoded payload via Bytes;
+-- no console-text claim follows.
+-- Null is not admitted as an LSP typed RequestId. Malformed/out-of-domain wire
+-- IDs and their error responses are future decoder obligations, not implemented
+-- or wire-tested here. No validation, normalization or ID comparison occurs here.
 export
 data RequestId : Type where
   NumericId : (payload : Bytes) -> RequestId
