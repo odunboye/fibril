@@ -16,6 +16,13 @@ implemented for named modules and their hosted/native execution paths. This does
 not rerun the historical measurements below or deliver a wire-level server;
 composed workloads must be measured again under the explicit shared-graph policy.
 
+The [current composed-workload measurements](composed-workloads.md) now record
+that remeasurement at `e7a7d35`: full-ID and echo-plus-fixed-event admission fit,
+while JSON-plus-typed entries still hit construction admission. The dense
+64-byte JSON diagnostic uses 97366 native steps and 3176281 arena-payload bytes.
+These new rows do not replace the historical measurements below or establish a
+wire-level LSP server.
+
 ## Implemented Fibril-written foundations
 
 - Checked hosted/native binary IO, immutable Bytes and fallible strict UTF-8

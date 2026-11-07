@@ -89,6 +89,7 @@ The generated homepage separates teaching chapters, references, and project reco
 - [Unicode source text](unicode-source.md): validation, positions, and proposed identifier/notation rules.
 
 - [Reference benchmarks](benchmarks.md): reproducible exploratory measurements and limits.
+- [Composed workloads](composed-workloads.md): shared-graph checking, native work/allocation counters and failure thresholds.
 
 - [Safety and performance](safety-performance.md): present safeguards, risks, and planned benchmarks.
 - [Lessons from Zig](zig-lessons.md): allocation, errors, cleanup, specialization, and target design.

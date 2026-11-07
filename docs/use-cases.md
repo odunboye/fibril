@@ -119,6 +119,10 @@ and tests toward a future cubical checker; users cannot yet write checked genera
 path/cubical programs. Structural host proofs explain specific scope/substitution
 operations, not complete language soundness or verified erasure. [Benchmarks](benchmarks.md)
 help compare measured workloads, not establish universal performance bounds.
+[Composed workload measurements](composed-workloads.md) help compiler maintainers
+separate shared-graph admission, checking cost and native allocation/work limits
+before choosing an optimization. Use the smaller reference benchmarks when only
+an individual core operation is under investigation.
 
 The [internal finite-variant kernel](finite-variants.md) now provides checked
 nullary/payload alternatives and dependent cases for compiler development and
