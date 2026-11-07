@@ -210,6 +210,10 @@
         "path": "docs/shared-checked-globals.md"
       },
       {
+        "title": "Composed workload measurements",
+        "path": "docs/composed-workloads.md"
+      },
+      {
         "title": "Bare Type as Type 0",
         "path": "docs/bare-type.md"
       },
