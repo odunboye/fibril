@@ -10,7 +10,7 @@ private compiler builds. Parent review/integration remains pending.
 not a full grammar formal proof, production rollout, wire composition or an LSP
 implementation. [Normal evidence](assets/evidence/lsp-source-sharing.json) and
 [ASan/UBSan evidence](assets/evidence/lsp-source-sharing-sanitized.json) record
-fresh checks and executions. The [accepted audit](lsp-cost-audit.md), its evidence,
+pre-routing-fix checks and executions. The [accepted audit](lsp-cost-audit.md), its evidence,
 production Frame, JSON64 diagnostic and historical shared parser are unchanged;
 the existing audit hash-provenance regression still passes.
 
@@ -149,10 +149,14 @@ Named real-stdio cases also run through the hosted CLI and emitted native binary
 
 All **14 framing regressions** run on the candidate imports, including every
 existing size/truncation/header/octet boundary, bulk request/capacity accounting,
-two-frame flush sequencing and live fragmented-open-input behavior. Whole-buffer
-launches use the fixed owned-unreaped-anchor EOF helper. Only actual early-refusal,
-flush and fragmentation tests retain their own bounded live processes. No
-background sleeping poll, unrelated kill or shared/worktree cache cleanup is used.
+two-frame flush sequencing and live fragmented-open-input behavior. In those
+cached runs, the candidate's `j.checked` and `f.run` launches used the fixed
+owned-unreaped-anchor EOF helper, but the JSON CLI gates and three framing compiler
+launches still called raw `subprocess.run`. This incomplete routing was the P1
+review finding corrected below, not a universal cleanup guarantee for the cached
+runs. Actual early-refusal, flush and fragmentation tests retain their own bounded
+live processes. No background sleeping poll, unrelated kill or shared/worktree
+cache cleanup is used.
 
 Negative controls reject malformed candidate source and a missing alias helper;
 substantive non-alias source changes fail preservation. The actual nonempty parsed
@@ -200,7 +204,9 @@ The committed evidence files are byte-identical to those cached build outputs.
 During recovery, all **167 recorded input source hashes in each evidence file**
 matched the current files, including candidate README and executing Python
 scripts/tests. No runtime provenance was rewritten or inferred retroactively.
-Only this unmeasured narrative document changed after evidence capture.
+At recovery commit `840ba8f`, only this unmeasured narrative document had changed
+after evidence capture. The later harness-only P1 correction below changes the
+probe and its offline tests, **not the historical evidence or its 167 hashes**.
 The preserved pre-retry checkpoint is
 `/tmp/fibril-lsp-source-sharing-timeout-checkpoint.tar.gz`, SHA256
 `6e7c346a1e151e9be5ff426c5d590f806e0c375525120daad5a608299b6f10e5`.
@@ -209,7 +215,8 @@ An initial probe
 invocation exposed an unsupported `cwd` wrapper; it was fixed to use the owned
 helper. One early aggregate launch hit its outer 120-second tool deadline after
 the matrix, and is **not counted as a complete pass**; final foreground aggregates
-used a 600-second outer deadline with unchanged per-child 90/120-second bounds.
+used a 600-second outer deadline with unchanged per-child bounds (30 seconds for
+raw CLI gates, 90/120 seconds for the other launches).
 A draft construction counter used ambiguous infix arithmetic; explicit arithmetic
 and separately balancing debit/reservation fields replaced it before final evidence.
 The completed observation logs show no per-child timeout, budget increase or
@@ -217,6 +224,44 @@ sanitizer finding; nevertheless the enclosing **agent run timed out and failed**
 No cap expansion, full LSP execution, integration or retrospective overall pass
 is claimed.
 
-**Next gate:** independent review of this candidate-only preservation milestone.
+## Post-evidence P1 harness routing correction
+
+Review found that the old candidate injection missed two raw JSON CLI gate
+launches (`timeout=30`) and the three raw framing compiler launch sites
+(`timeout=90`). The cached normal/ASAN observations used that **pre-fix harness**.
+Their logs show no per-child timeout, but they do not validate the corrected
+harness. The enclosing thirty-minute agent timeout remains **FAILED**.
+
+The corrected probe now injects module-scoped `subprocess` proxies into only
+`test_json_iteration` and `test_framing`, alongside their candidate roots and
+`checked`/`run` wrappers. All non-live candidate launches use the existing fixed
+`run_process` helper. The proxy accepts only the captured-byte options used by
+the actual call sites and rejects unsupported stream/text/shell/check options.
+It preserves input bytes, separate stdout/stderr, caller timeout and nonzero
+return codes without weakening the original gate/compiler assertions. The
+checked wrapper still rejects nonzero status. Live `Popen` and constants delegate
+to the original stdlib module unchanged; stdlib `subprocess.run` is never patched.
+Every changed suite-module attribute is restored in `finally`, also on failure.
+
+Four new cheap routing regression groups exercise the existing CLI gate method
+and all three existing framing compiler call sites with an owned-helper spy
+(**no compiler executed**), cover `j.checked`/`f.run`, unsupported options,
+timeout/error propagation, successful/error-path restoration and untouched global
+stdlib/live `Popen`. One tiny Python child checks actual owned-helper byte
+capture, nonzero status, input, environment and working directory. Together with
+the original eight groups, **12 sharing tests pass**. The five historical audit
+and eight oracle groups are also rechecked; no JSON matrix, full framing suite,
+private checker build or compiler baseline was rerun for this correction.
+
+The evidence files remain byte-identical to `840ba8f`. Their two changed recorded
+paths, `tools/probe_lsp_source_sharing.py` and `tools/test_lsp_source_sharing.py`,
+are verified against that commit's historical blobs; the other **165 recorded
+paths still match current files**. No hash is rewritten to pretend the correction
+ran historically. The corrected harness is for **future execution only**, pending
+review; neither the cached matrices nor source-preservation observations are
+claimed as execution evidence for that harness change.
+
+**Next gate:** independent review of this candidate-only preservation milestone
+and bounded P1 harness correction.
 Keep the construction/node blockers visible; decide separately whether any
 production adoption or subsequent representation/API work is warranted.
