@@ -712,3 +712,28 @@ commonLinearIfCongruence : CommonFaceEqual
   (CPIf (CPOrdinary (CIf (CVar FZ) (CBool True) (CBool False))) (CPOrdinary (CBool True)) (CPOrdinary (CBool False))) LBool
 commonLinearIfCongruence = commonBodyEqual {decls = DeclarePath (shadowTerm Tests.Shadow.linearSource) (shadowTerm Tests.Shadow.linearSource) NoPaths}
   (BodyIfEqual (BodyEndpoint (DeclaredLeft DeclaredHere Refl)) (BodyRefl {x = Embed (LBoolean True)}) (BodyRefl {x = Embed (LBoolean False)}))
+
+-- A fresh binder varies even in a nonempty ambient dimension context.
+commonLinearAmbientSource : DeclaredShadowPath Tests.Shadow.shadowDeclarations
+  (the (ScopedFace 1) (SEndpoint FZ False))
+  (Embed (shadowTerm Tests.Shadow.linearSource)) (Embed (LBoolean False))
+commonLinearAmbientSource = ShadowAbstract (NeutralAt LHere (Var FZ))
+  (BodyEndpoint (DeclaredLeft DeclaredHere Refl))
+  (BodyEndpoint (DeclaredRight DeclaredHere Refl))
+
+commonLinearAmbientPath : CommonShadowPath (commonDeclarations Tests.Shadow.shadowDeclarations)
+  (the (ScopedFace 1) (SEndpoint FZ False))
+  (CPOrdinary (CIf (CVar FZ) (CBool True) (CBool False))) (CPOrdinary (CBool False)) LBool
+commonLinearAmbientPath = commonDeclaredShadowPath Tests.Shadow.commonLinearAmbientSource
+
+commonLinearAmbientApplication : applyCommonShadowPath Tests.Shadow.commonLinearAmbientPath (Var FZ) = CPAt FZ (Var FZ)
+commonLinearAmbientApplication = Refl
+
+commonLinearAmbientZero : CommonFaceEqual (commonDeclarations Tests.Shadow.shadowDeclarations)
+  (the (ScopedFace 1) (SEndpoint FZ False)) (CPAt FZ Zero)
+  (CPOrdinary (CIf (CVar FZ) (CBool True) (CBool False))) LBool
+commonLinearAmbientZero = commonShadowApplicationZero Tests.Shadow.commonLinearAmbientSource (DimLeft Refl)
+
+commonLinearAmbientOne : CommonFaceEqual (commonDeclarations Tests.Shadow.shadowDeclarations)
+  (the (ScopedFace 1) (SEndpoint FZ False)) (CPAt FZ One) (CPOrdinary (CBool False)) LBool
+commonLinearAmbientOne = commonShadowApplicationOne Tests.Shadow.commonLinearAmbientSource (DimRight Refl)

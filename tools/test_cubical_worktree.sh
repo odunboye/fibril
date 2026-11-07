@@ -41,6 +41,22 @@ cd "$tmp/tests"
 "$idris" --build tests.ipkg
 ./build/exec/fibril-tests
 cd negative
+for fixture in CommonAbstractWrongFace CommonAbstractWrongIndex CommonAbstractWrongBoundary; do
+  "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1 || true
+  case "$fixture" in
+    CommonAbstractWrongFace) expected='Mismatch between: False and True.' ;;
+    CommonAbstractWrongIndex) expected='Mismatch between: FZ and FS FZ.' ;;
+    CommonAbstractWrongBoundary) expected='Mismatch between: False and True.' ;;
+  esac
+  if [[ $(grep -c '^Error:' "$tmp/$fixture.log") -ne 1 ]] ||
+     ! grep -Fq 'Error: While processing right hand side of bad.' "$tmp/$fixture.log" ||
+     ! grep -Fq "$expected" "$tmp/$fixture.log" ||
+     grep -Eq 'Undefined name|While processing type of' "$tmp/$fixture.log"; then
+    echo "Common abstraction negative test failed: $fixture" >&2
+    cat "$tmp/$fixture.log" >&2; exit 1
+  fi
+done
+echo 'Common abstraction wrong face, index and boundary tests passed.'
 for fixture in ShadowCommonWrongType ShadowCommonWrongContext; do
   case "$fixture" in
     ShadowCommonWrongType) expected='CommonHasType [] (CBool True) LUnit' ;;

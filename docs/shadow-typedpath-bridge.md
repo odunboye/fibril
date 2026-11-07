@@ -88,8 +88,17 @@ congruences. They do not embed a source equality proof as a target axiom.
 The tests include the shadow of an actual linear Bool conditional, as a
 nonconstant declaration endpoint and within a conditional congruence.
 
-This is face-restricted equality, not a translation of `DeclaredShadowPath`
-abstraction or an introduction rule for common paths; those remain a separate
-milestone. Neither this judgment nor the shadow reflects to quantitative
+This judgment provides face-restricted equality; the abstraction translation
+described below builds on it. Neither this judgment nor the shadow reflects to quantitative
 `Uses`, runtime equality, or semantic soundness. Negative fixtures check wrong
 face, path index, type, and attempted `Uses` reflection.
+
+`CommonShadowPath` is an independent common-syntax abstraction with typed,
+possibly non-ordinary endpoints and checked boundaries at the weakened ambient
+face conjoined with the fresh dimension endpoint. `commonDeclaredShadowPath`
+translates both source boundaries; application substitutes in common syntax and
+commutes with source translation. Endpoint application requires the source
+`DimensionEvidence` certificate: budgeted entailment is not automatically
+stable under substitution. The separate source `Uses` derivation is not
+reflected by this logical judgment. This does not provide general PathP,
+semantics or ownership, or an embedding into all of `TypedPath`.

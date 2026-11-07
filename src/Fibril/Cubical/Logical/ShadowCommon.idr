@@ -202,3 +202,61 @@ commonBodyEqual (BodyRestrict eq check) = CommonRestrict (commonBodyEqual eq) ch
 commonBodyEqual (BodyAppEqual f x) = CommonAppEqual (commonBodyEqual f) (commonBodyEqual x)
 commonBodyEqual (BodyIfEqual c t f) = CommonIfEqual (commonBodyEqual c) (commonBodyEqual t) (commonBodyEqual f)
 commonBodyEqual (BodyUnitElimEqual x b) = CommonUnitElimEqual (commonBodyEqual x) (commonBodyEqual b)
+
+||| A common abstraction has independently typed endpoints and actual boundaries.
+public export
+data CommonShadowPath : {0 ctx : Vect n LogicalType} -> {0 paths : Vect k LogicalType} ->
+  CommonDeclarations ctx paths -> ScopedFace d -> CommonPathTerm n k d -> CommonPathTerm n k d -> LogicalType -> Type where
+  CommonAbstract : {0 ctx : Vect n LogicalType} -> {0 paths : Vect k LogicalType} ->
+    {0 decls : CommonDeclarations ctx paths} -> {0 face : ScopedFace d} ->
+    {0 left, right : CommonPathTerm n k d} ->
+    (0 leftType : CommonPathHasType ctx paths left a) ->
+    (0 rightType : CommonPathHasType ctx paths right a) ->
+    (body : CommonPathTerm n k (S d)) ->
+    (0 bodyType : CommonPathHasType ctx paths body a) ->
+    CommonFaceEqual decls (SConjunction (weakenFace face) (SEndpoint FZ False))
+      body (mapCommonPathDimensions (Var . FS) left) a ->
+    CommonFaceEqual decls (SConjunction (weakenFace face) (SEndpoint FZ True))
+      body (mapCommonPathDimensions (Var . FS) right) a ->
+    CommonShadowPath decls face left right a
+
+public export
+commonDeclaredShadowPath : {0 decls : PathDeclarations ctx paths} -> {0 face : ScopedFace d} ->
+  {0 left, right : PathBody ctx paths d a} ->
+  DeclaredShadowPath decls face left right ->
+  CommonShadowPath (commonDeclarations decls) face (commonPathTerm left) (commonPathTerm right) a
+commonDeclaredShadowPath {left} {right} (ShadowAbstract body zero one) =
+  CommonAbstract (commonPathTermTyped left) (commonPathTermTyped right) (commonPathTerm body)
+    (commonPathTermTyped body)
+    (rewrite sym (commonPathDimensionsCommute (Var . FS) left) in commonBodyEqual zero)
+    (rewrite sym (commonPathDimensionsCommute (Var . FS) right) in commonBodyEqual one)
+
+public export
+applyCommonShadowPath : {0 ctx : Vect n LogicalType} -> {0 paths : Vect k LogicalType} ->
+  {0 decls : CommonDeclarations ctx paths} -> {0 face : ScopedFace d} ->
+  {0 left, right : CommonPathTerm n k d} ->
+  CommonShadowPath decls face left right a -> ScopedInterval d -> CommonPathTerm n k d
+applyCommonShadowPath (CommonAbstract _ _ body _ _ _) i = mapCommonPathDimensions (atDimension i) body
+
+public export
+commonShadowApplicationCommutes : {0 decls : PathDeclarations ctx paths} -> {0 face : ScopedFace d} ->
+  {0 left, right : PathBody ctx paths d a} -> (path : DeclaredShadowPath decls face left right) ->
+  (i : ScopedInterval d) ->
+  commonPathTerm (applyDeclaredShadowPath path i) = applyCommonShadowPath (commonDeclaredShadowPath path) i
+commonShadowApplicationCommutes (ShadowAbstract body zero one) i = commonPathDimensionsCommute (atDimension i) body
+
+public export
+commonShadowApplicationZero : {0 decls : PathDeclarations ctx paths} -> {0 face : ScopedFace d} ->
+  {0 left, right : PathBody ctx paths d a} -> (path : DeclaredShadowPath decls face left right) ->
+  ZeroApplicationEvidence face left right path ->
+  CommonFaceEqual (commonDeclarations decls) face (applyCommonShadowPath (commonDeclaredShadowPath path) Zero) (commonPathTerm left) a
+commonShadowApplicationZero (ShadowAbstract body zero one) cert =
+  rewrite sym (commonPathDimensionsCommute (atDimension Zero) body) in commonBodyEqual (declaredShadowAtZero body zero one cert)
+
+public export
+commonShadowApplicationOne : {0 decls : PathDeclarations ctx paths} -> {0 face : ScopedFace d} ->
+  {0 left, right : PathBody ctx paths d a} -> (path : DeclaredShadowPath decls face left right) ->
+  OneApplicationEvidence face left right path ->
+  CommonFaceEqual (commonDeclarations decls) face (applyCommonShadowPath (commonDeclaredShadowPath path) One) (commonPathTerm right) a
+commonShadowApplicationOne (ShadowAbstract body zero one) cert =
+  rewrite sym (commonPathDimensionsCommute (atDimension One) body) in commonBodyEqual (declaredShadowAtOne body zero one cert)
