@@ -1,0 +1,9 @@
+module PureRead65
+import Protocol.JSON
+
+-- Diagnostic boundary reader only: supplies at most 65 bytes, not EOF framing.
+main : IO Unit
+main = bind ByteReadResult Unit (primReadBytes (primBytesLength (primUTF8Case Bytes Bytes (primUTF8Encode ".................................................................") primBytesEmpty (\(1 b : Bytes) => b)))) (\(1 result : ByteReadResult) => primByteReadCase (IO Unit) result primRejectBytes (\(1 input : Bytes) => case parseJSON input of
+  InvalidJSON => primWriteBytes (primBytesOctetMod256 Zero)
+  JSONTokens tokens => primWriteBytes tokens
+  JSONBoundedFailure => primWriteBytes (primBytesOctetMod256 (Succ Zero))))

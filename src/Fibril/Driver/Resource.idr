@@ -5,6 +5,7 @@ import Data.IORef
 import System.File
 import Fibril.Core.Term
 import Fibril.Core.Evaluation
+import Fibril.Core.EffectAdmission
 import Fibril.Core.Quantity
 import Fibril.Core.Context
 import Fibril.Core.Runtime
@@ -206,7 +207,7 @@ public export
 covering
 runResourceTermWith : Nat -> Nat -> Nat -> ResourceAdapters -> Term 0 -> IO ResourceExecution
 runResourceTermWith depth fuel requestLimit host term =
-  if containsFileReference term || coreNodes term > 8192 || payloadSize term > payloadLimit
+  if containsBinaryRequest term || containsFileReference term || coreNodes term > 8192 || payloadSize term > payloadLimit
     then pure (ExecutedResources (Left ResourceAdmission) [] 0)
     else case validate term (IOType UnitType) of
       Left err => pure (ExecutedResources (Left err) [] 0)

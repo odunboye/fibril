@@ -5,6 +5,7 @@ import Data.List
 import Fibril.Core.Context
 import Fibril.Core.Term
 import Fibril.Core.Evaluation
+import Fibril.Core.EffectAdmission
 import Fibril.Core.Runtime
 import Fibril.Core.Reduction
 import Fibril.Core.WeakHead
@@ -89,6 +90,7 @@ plan (S depth) fuel remaining term = do
 public export
 prepareIO : Nat -> Nat -> Term 0 -> Either IOPlanError (List ConsoleAction)
 prepareIO depth fuel term = do
+  if containsBinaryRequest term then Left (PlanUnsupported term) else Right ()
   validate term (IOType UnitType)
   result <- plan depth fuel consoleActionLimit term
   value <- normal fuel result.value

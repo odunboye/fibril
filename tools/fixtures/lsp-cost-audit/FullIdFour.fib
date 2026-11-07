@@ -1,0 +1,15 @@
+module FullIdFour
+import LSP
+import Observation
+import ControlObservation
+
+drive : (0 S : Type) -> (0 E : Type) -> (0 O : Type) ->
+  (next : (state : S) -> (event : E) -> O) ->
+  (observe : (step : O) -> (consume : (state : S) -> (1 encoded : Bytes) -> Bytes) -> Bytes) ->
+  (state : S) -> (event0 : E) -> (event1 : E) -> (event2 : E) -> (event3 : E) -> Bytes
+drive S E O next observe state event0 event1 event2 event3 = observe (next state event0) (\(state : S) => \(1 encoded : Bytes) => primBytesAppend encoded (observe (next state event1) (\(state : S) => \(1 encoded : Bytes) => primBytesAppend encoded (observe (next state event2) (\(state : S) => \(1 encoded : Bytes) => primBytesAppend encoded (observe (next state event3) (\(state : S) => \(1 encoded : Bytes) => encoded)))))))
+
+main : IO Unit
+main = let (sourceBytes : (text : String) -> Bytes) = \(text : String) =>
+  primUTF8Case Bytes Bytes (primUTF8Encode text) primBytesEmpty (\(1 value : Bytes) => value) in
+  primWriteBytes (drive State Event Step transition (observeStep Bytes) Preinitialize (Request (RequestDetails (NumericId (sourceBytes "1")) Initialize)) (Notify Initialized) (Request (RequestDetails (StringId (sourceBytes "1")) ShutdownRequest)) (Notify Exit))

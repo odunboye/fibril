@@ -1,14 +1,20 @@
-# Neovim and Vim highlighting, checking, and navigation
+# Legacy Vim/Neovim commands
+
+**Neovim's primary integration is now the standard [Fibril LSP server](lsp.md).**
+This page documents the retained legacy runtime and custom commands for Vim and
+existing configurations. New Neovim setups should use `editors/nvim` instead.
 
 ## Use cases
 
 Use editor commands to check a project, follow definitions, inspect references and preview supported lexical renames without guessing where an authored name came from.
 
-Use explicit navigation/manual edits when project-wide references or rename are needed; those capabilities and a full LSP are not implemented. Formatting and checking should not silently save buffers.
+These legacy reference commands remain same-file. The separate LSP server adds
+checked cross-file/module definitions and references; project-wide rename remains
+unsupported. Formatting and checking do not silently save buffers.
 
 Status: implemented optional Vim-runtime package for the current Fibril subsets.
 Includes optional compiler-backed runtime checking and same-file navigation. No Tree-sitter grammar,
-LSP server, semantic tokens, or cross-file navigation is added.
+LSP server startup or semantic tokens are added by this legacy runtime itself.
 
 ## Try a clean Neovim session
 

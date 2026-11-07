@@ -5,6 +5,7 @@ module Fibril.Core.Pretty
 import Data.Fin
 import Fibril.Core.Quantity
 import Fibril.Core.Term
+import Fibril.Data.Bytes
 
 %default total
 
@@ -37,9 +38,26 @@ mutual
   renderTerm (SeqNil ty) = "(SeqNil " ++ renderTerm ty ++ ")"
   renderTerm (SeqCons ty h t) = "(SeqCons " ++ renderTerm ty ++ " " ++ renderTerm h ++ " " ++ renderTerm t ++ ")"
   renderTerm (SeqFold p z s x) = "(SeqFold " ++ renderTerm p ++ " " ++ renderTerm z ++ " " ++ renderTerm s ++ " " ++ renderTerm x ++ ")"
+  renderTerm (IterateBinary stateType resultType count step initial) = "(IterateBinary " ++ renderTerm stateType ++ " " ++ renderTerm resultType ++ " " ++ renderTerm count ++ " " ++ renderTerm step ++ " " ++ renderTerm initial ++ ")"
+  renderTerm (ReadBytes x) = "(ReadBytes " ++ renderTerm x ++ ")"
+  renderTerm (WriteBytes x) = "(WriteBytes " ++ renderTerm x ++ ")"
+  renderTerm RejectBytes = "RejectBytes"
+  renderTerm FlushBytes = "FlushBytes"
   renderTerm ReadLine = "ReadLine"
   renderTerm (FileHandleValue identity generation) = "(RuntimeFileHandle " ++ show identity ++ " " ++ show generation ++ ")"
   renderTerm (ReadInputFile handle) = "(ReadInputFile " ++ renderTerm handle ++ ")"
+  renderTerm (BytesLengthIs a b) = "(BytesLengthIs " ++ renderTerm a ++ " " ++ renderTerm b ++ ")"
+  renderTerm (BytesIndex a b) = "(BytesIndex " ++ renderTerm a ++ " " ++ renderTerm b ++ ")"
+  renderTerm (BytesSlice a b c) = "(BytesSlice " ++ renderTerm a ++ " " ++ renderTerm b ++ " " ++ renderTerm c ++ ")"
+  renderTerm (UTF8Encode x) = "(UTF8Encode " ++ renderTerm x ++ ")"
+  renderTerm (UTF8Decode x) = "(UTF8Decode " ++ renderTerm x ++ ")"
+  renderTerm BytesType = "Bytes"
+  renderTerm (BytesValue value) = "(BytesValue " ++ show (toList value) ++ ")"
+  renderTerm (BytesShare x) = "(BytesShare " ++ renderTerm x ++ ")"
+  renderTerm (BytesLength x) = "(BytesLength " ++ renderTerm x ++ ")"
+  renderTerm (BytesOctet x) = "(BytesOctet " ++ renderTerm x ++ ")"
+  renderTerm (BytesAppend a b) = "(BytesAppend " ++ renderTerm a ++ " " ++ renderTerm b ++ ")"
+  renderTerm (WithRegion a b) = "(WithRegion " ++ renderTerm a ++ " " ++ renderTerm b ++ ")"
   renderTerm StringType = "String"
   renderTerm (StringValue value) = show value
   renderTerm (StringAppend left right) = "(StringAppend " ++ renderTerm left ++ " " ++ renderTerm right ++ ")"

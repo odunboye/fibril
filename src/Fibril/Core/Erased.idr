@@ -23,6 +23,7 @@ data CheckError : Type where
   NominalError : String -> CheckError
   RecursionError : String -> CheckError
   VariantError : String -> CheckError
+  RegionError : String -> CheckError
   CheckingLimit : CheckError
   ReductionLimit : CheckError
   ExpectedUniverse : {0 n : Nat} -> (found : Term n) -> CheckError
@@ -43,6 +44,7 @@ Show CheckError where
   show (NominalError message) = "Nominal: " ++ message
   show (RecursionError message) = "Recursion: " ++ message
   show (VariantError message) = "Variant: " ++ message
+  show (RegionError message) = "Region: " ++ message
   show CheckingLimit = "Checking recursion budget exhausted"
   show ReductionLimit = "Reduction budget exhausted"
   show (ExpectedUniverse found) = "Expected a universe; found: " ++ renderTerm found
@@ -65,6 +67,18 @@ exposeType budget term =
   case weakHead budget term of
     HeadForm result => Right result
     HeadLimit _ => Left ReductionLimit
+
+||| A region result is copied to the parent arena, so it must be first-order data.
+||| Shared with the runtime checker, which sees globals already expanded.
+public export
+checkRegionResult : Nat -> Term n -> Either CheckError ()
+checkRegionResult budget resultType = do
+  exposed <- exposeType budget resultType
+  case exposed of
+    Pi _ _ _ => Left (RegionError "result must be copyable data, not a function")
+    IOType _ => Left (RegionError "result must be copyable data, not an IO description")
+    FileHandleType _ => Left (RegionError "result must be copyable data, not a file handle")
+    _ => Right ()
 
 requireCompatible : Nat -> Term n -> Term n -> Either CheckError ()
 requireCompatible budget actual expected =
@@ -293,6 +307,84 @@ mutual
     case exposed of
       FileHandleType region => Right (IOType (fileReadResultType region))
       _ => Left (ExpectedFileHandle exposed)
+  infer (S depth) reduction context (BytesLengthIs count bytes) = do
+    countType <- infer depth reduction context count
+    requireCompatible reduction countType NatType
+    bytesType <- infer depth reduction context bytes
+    requireCompatible reduction bytesType BytesType
+    Right BoolType
+  infer (S depth) reduction context (BytesIndex index bytes) = do
+    indexType <- infer depth reduction context index
+    requireCompatible reduction indexType NatType
+    bytesType <- infer depth reduction context bytes
+    requireCompatible reduction bytesType BytesType
+    Right byteIndexResultType
+  infer (S depth) reduction context (BytesSlice start count bytes) = do
+    startType <- infer depth reduction context start
+    requireCompatible reduction startType NatType
+    countType <- infer depth reduction context count
+    requireCompatible reduction countType NatType
+    bytesType <- infer depth reduction context bytes
+    requireCompatible reduction bytesType BytesType
+    Right BytesType
+  infer (S depth) reduction context (UTF8Encode x) = do
+    ty <- infer depth reduction context x
+    requireCompatible reduction ty StringType
+    Right (utf8ResultType BytesType)
+  infer (S depth) reduction context (UTF8Decode x) = do
+    ty <- infer depth reduction context x
+    requireCompatible reduction ty BytesType
+    Right (utf8ResultType StringType)
+  infer (S depth) reduction context BytesType = Right (Universe 0)
+  infer (S depth) reduction context (BytesValue _) = Right BytesType
+  infer (S depth) reduction context (WithRegion resultType body) = do
+    resultSort <- infer depth reduction context resultType
+    requireCompatible reduction resultSort (Universe 0)
+    -- The result cannot mention the bound region, so it cannot escape it.
+    checkRegionResult reduction resultType
+    bodyType <- infer depth reduction context body
+    requireCompatible reduction bodyType (Pi Erased (Universe 0) (weaken resultType))
+    Right resultType
+  infer (S depth) reduction context (BytesAppend a b) = do
+    aType <- infer depth reduction context a
+    requireCompatible reduction aType BytesType
+    bType <- infer depth reduction context b
+    requireCompatible reduction bType BytesType
+    Right BytesType
+  infer (S depth) reduction context (BytesShare x) = do
+    ty <- infer depth reduction context x
+    requireCompatible reduction ty BytesType
+    Right (BoxType Unrestricted BytesType)
+  infer (S depth) reduction context (BytesLength x) = do
+    ty <- infer depth reduction context x
+    requireCompatible reduction ty BytesType
+    Right NatType
+  infer (S depth) reduction context (BytesOctet x) = do
+    ty <- infer depth reduction context x
+    requireCompatible reduction ty NatType
+    Right BytesType
+  infer (S depth) reduction context (IterateBinary stateType resultType count step initial) = do
+    stateSort <- infer depth reduction context stateType
+    requireCompatible reduction stateSort (Universe 0)
+    resultSort <- infer depth reduction context resultType
+    requireCompatible reduction resultSort (Universe 0)
+    countType <- infer depth reduction context count
+    requireCompatible reduction countType NatType
+    stepType <- infer depth reduction context step
+    requireCompatible reduction stepType (binaryStepType stateType resultType)
+    initialType <- infer depth reduction context initial
+    requireCompatible reduction initialType stateType
+    Right (IOType (loopVariantType stateType resultType))
+  infer (S depth) reduction context (ReadBytes x) = do
+    ty <- infer depth reduction context x
+    requireCompatible reduction ty NatType
+    Right (IOType byteReadResultType)
+  infer (S depth) reduction context (WriteBytes x) = do
+    ty <- infer depth reduction context x
+    requireCompatible reduction ty BytesType
+    Right (IOType UnitType)
+  infer (S depth) reduction context RejectBytes = Right (IOType UnitType)
+  infer (S depth) reduction context FlushBytes = Right (IOType UnitType)
   infer (S depth) reduction context StringType = Right (Universe 0)
   infer (S depth) reduction context (StringValue _) = Right StringType
   infer (S depth) reduction context (StringAppend left right) = do

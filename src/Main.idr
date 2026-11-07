@@ -9,10 +9,13 @@ import Fibril.Driver.Check
 import Fibril.Driver.CheckReport
 import Fibril.Driver.Evaluate
 import Fibril.Driver.Run
+import Fibril.Driver.Binary
 import Fibril.Driver.Interactive.Run
 -- Keep the experimental resource library in the application package's build
 -- closure so installed test dependencies include it; no CLI command exposes it.
 import Fibril.Driver.Resource
+-- Internal byte transport is built/installed, not exposed as a source primitive.
+import Fibril.Runtime.Binary
 import Fibril.Driver.Native
 import Fibril.Driver.Test
 import Fibril.Driver.ModuleGraph
@@ -50,6 +53,8 @@ Usage:
   fibril elaborate PATH         Inspect expanded named IR (unchecked; no effects)
   fibril reference LINE COLUMN PATH  Built-in documentation or bundled Prelude source
   fibril references LINE COLUMN PATH  Same-file lexical occurrences, including declarations
+  fibril references --source-dir ROOT --entry ENTRY LINE COLUMN PATH  Checked project occurrences
+  fibril references --package MANIFEST LINE COLUMN PATH  Checked package/inventory occurrences
   fibril definition --source-dir ROOT --entry ENTRY LINE COLUMN PATH  Checked project target
   fibril definition --package MANIFEST LINE COLUMN PATH  Checked application or library package target
   fibril definition LINE COLUMN PATH  Same-file lexical target (scalar coordinates)
@@ -61,6 +66,8 @@ Usage:
   fibril test                  Check all listed modules, evaluate tests main : Bool
   fibril test --package PATH   Same pure test workflow for an explicit package
   fibril emit-c PATH           Check and emit experimental C source to stdout
+  fibril emit-c-binary PATH      Emit explicit binary-only C (standalone)
+  fibril emit-c-binary --source-dir ROOT ENTRY  Emit checked binary project C
   fibril emit-c-interactive PATH  Emit incremental C with stdin support (standalone)
   fibril emit-c --source-dir ROOT ENTRY  Check modules and emit C
   fibril emit-c --package PATH  Check a local package and emit C
@@ -68,10 +75,13 @@ Usage:
   fibril module-graph          Inspect ./fibril.yaml source graph (syntax only)
   fibril check --package PATH   Check explicit local fibril.yaml dependency closure (POSIX)
   fibril run --package PATH     Check local packages, then execute the complete IO plan
+  fibril check --json --package PATH  Version-2 application/library package report
   fibril check --json --source-dir ROOT ENTRY  Version-2 project report with source snapshots
   fibril check --json PATH      JSON runtime-check report (no effect execution)
   fibril check --erased PATH    Check only the erased ordinary fragment
   fibril run PATH              Check main : IO Unit, then execute prepared stdout requests
+  fibril run-binary PATH       Execute checked borrowed binary stdio (standalone)
+  fibril run-binary --source-dir ROOT ENTRY  Execute checked binary project
   fibril run-interactive PATH  Execute incremental stdin/stdout IO (standalone)
   fibril run --source-dir ROOT ENTRY  Check modules, then execute the complete IO plan
   fibril eval --source-dir ROOT ENTRY  Checked module reference normalization
@@ -171,7 +181,11 @@ main = do
     ["emit-c", "--package", manifest] => emitCPackage manifest >>= printC
     ["emit-c", "--source-dir", root, entry] => emitCProject root entry >>= printC
     ["emit-c", path] => emitCFile path >>= printC
+    ["emit-c-binary", "--source-dir", root, entry] => emitBinaryCProject root entry >>= printC
+    ["run-binary", "--source-dir", root, entry] => runBinaryProject root entry >>= printExecution
+    ["emit-c-binary", path] => emitBinaryCFile path >>= printC
     ["emit-c-interactive", path] => emitInteractiveCFile path >>= printC
+    ["run-binary", path] => runBinaryFile path >>= printExecution
     ["run-interactive", path] => runInteractiveFile path >>= printExecution
     ["module-graph"] => packageGraph "fibril.yaml"
     ["module-graph", "--package", manifest] => packageGraph manifest
@@ -199,6 +213,10 @@ main = do
           putStrLn "Fuel must be decimal 0..4096."
           exitFailure
     ["rename-preview", line, column, name, path] => runLocationQuery (\row, col, file => renameFile row col name file) line column path
+    ["references", "--source-dir", root, "--entry", entry, line, column, path] =>
+      runLocationQuery (projectReferencesFile root entry) line column path
+    ["references", "--package", manifest, line, column, path] =>
+      runLocationQuery (packageReferencesFile manifest) line column path
     ["definition", "--source-dir", root, "--entry", entry, line, column, path] =>
       runLocationQuery (projectDefinitionFile root entry) line column path
     ["definition", "--package", manifest, line, column, path] =>
@@ -225,6 +243,10 @@ main = do
         Left err => do
           _ <- fPutStrLn stderr err
           exitFailure
+    ["check", "--json", "--package", manifest] => do
+      (accepted, report) <- packageCheckReport manifest
+      putStrLn report
+      if accepted then pure () else exitFailure
     ["check", "--json", "--source-dir", root, entry] => do
       outcome <- prepareProject root entry
       putStrLn (renderProjectReport entry outcome)

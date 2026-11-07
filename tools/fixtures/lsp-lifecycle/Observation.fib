@@ -1,0 +1,46 @@
+module Observation
+import LSP
+
+-- Test observation encoding ONLY, not JSON-RPC serialization. The test driver
+-- supplies IDs <=64 bytes, so its one-octet length prefix is exact.
+bytes : (text : String) -> Bytes
+bytes text = primUTF8Case Bytes Bytes (primUTF8Encode text) primBytesEmpty (\(1 payload : Bytes) => payload)
+
+export
+stateText : (state : State) -> String
+stateText state = case state return (\(0 self : State) => String) of
+  Preinitialize => "P"
+  AwaitInitialized => "A"
+  Running => "R"
+  Shutdown => "S"
+  Terminated => "T"
+
+encodeId : (bytes : (text : String) -> Bytes) -> (id : RequestId) -> Bytes
+encodeId bytes id = case id return (\(0 self : RequestId) => Bytes) of
+  NumericId payload => primBytesAppend (bytes "N") (primBytesAppend (primBytesOctetMod256 (primBytesLength payload)) payload)
+  StringId payload => primBytesAppend (bytes "S") (primBytesAppend (primBytesOctetMod256 (primBytesLength payload)) payload)
+
+export
+responseText : (response : Response) -> String
+responseText response = case response return (\(0 self : Response) => String) of
+  InitializeAccepted => "A"
+  NullResult => "N"
+  Error error => case error return (\(0 self : ResponseError) => String) of
+    ServerNotInitialized => "E-32002"
+    InvalidRequest => "E-32600"
+    MethodNotFound => "E-32601"
+
+encodeAction : (bytes : (text : String) -> Bytes) -> (action : Action) -> Bytes
+encodeAction bytes action = case action return (\(0 self : Action) => Bytes) of
+  Ignore => bytes "I"
+  Respond reply => case reply return (\(0 self : ResponseData) => Bytes) of
+    (id : RequestId) (response : Response) => primBytesAppend (bytes "Q") (primBytesAppend (encodeId bytes id) (bytes (responseText response)))
+  Terminate status => bytes (case status return (\(0 self : ExitStatus) => String) of
+    Success => "X0"
+    Failure => "X1")
+
+export
+observeStep : (0 R : Type) -> (step : Step) -> (consume : (state : State) -> (1 encoded : Bytes) -> R) -> R
+observeStep R step consume = let (toBytes : (text : String) -> Bytes) = bytes in
+  case step return (\(0 self : Step) => R) of
+    (state : State) (action : Action) => consume state (primBytesAppend (toBytes (stateText state)) (encodeAction toBytes action))

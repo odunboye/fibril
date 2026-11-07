@@ -9,8 +9,9 @@ runtime boundary. It is **not a production backend** or a networked email
 service: there is no native HTTP, SMTP, TLS, storage, UI, FFI, general recursive
 function or general data support yet. Nat, fixed unary and list-shaped recursive
 values, their structural folds and direct cases are supported. Finite
-nullary/unary nominal variants and cases are supported; pair/box payloads remain unsupported. For ordinary development, the existing bounded
-reference `fibril run` remains an alternative.
+nullary/unary nominal variants and cases are supported, including
+[pure pair payloads and record lowering](native-pure-pairs.md). For ordinary
+development, the existing bounded reference `fibril run` remains an alternative.
 
 ~~~sh
 # From projects/fibril; the shell owns the redirection and can truncate main.c.
@@ -33,7 +34,7 @@ redirect over source files. There is no atomic output-file or sandbox guarantee.
 
 The supported computational subset is Unit, Bool and conditionals, String
 literals, append and equality, variables, lambdas and application, Unit case,
-finite nominal and variant values/cases; Nat and the fixed unary and
+finite nominal and variant values/cases, pure pairs and pair cases; Nat and the fixed unary and
 list-shaped recursive constructors, folds and direct cases; and the inert IO
 forms `pure`, `bind`, and `putStrLn`. Source lets and do notation lower to those ordinary core forms.
 The whole closed expanded entry is independently checked against `IO Unit`
@@ -54,8 +55,9 @@ fold over the actual tail. Ordinary fold tails are erased; `natRecWith` retains
 its runtime predecessor. An erased payload remains an application to an erased
 binder and is never forced by checked code. Unsupported
 computational forms fail emission, including when encountered inside an argument
-that would later be erased. Pair/box values and cases, wider record payloads and
-arbitrary effects are not silently simulated.
+that would later be erased. Pure pair values and cases, including wider record
+payloads, lower in every native mode while retaining that mode's effect gates.
+Arbitrary effects are not silently simulated.
 
 Source strings are emitted as generated decimal UTF-8 byte arrays, not pasted
 into C literals or identifiers. Supported programs can compute strings, call
@@ -92,7 +94,7 @@ existing graph and expansion budgets continue to limit larger programs.
 Run the native integration suite with a C11 compiler available as `CC`:
 
 ~~~sh
-make native-test
+make -j8 native-test
 ~~~
 
 The suite checks real C compilation and output, finite and recursive constructor/

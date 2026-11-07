@@ -12,16 +12,32 @@ compiler backends, and real-time guarantees are not implemented.
 [Checked Fibril prelude functions](docs/console-runner.md) provide putStrLn,
 pure, and bind over experimental IO descriptions. A hosted runner executes stdout
 plans; a complete effect calculus and compiler backends remain future work.
+[Pure byte operations](docs/bytes.md) now check and normalize separately from
+text and have native lowering for the initial pure subset. [Checked binary
+IO](docs/io-binary-source.md) is available through hosted `run-binary` and native
+`emit-c-binary`, with separate admission from text/resource IO. [Explicit UTF-8 conversion](docs/utf8-values.md) is fallible
+and preserves valid NUL without relaxing console output policy.
+An internal [binary transport pilot](docs/io-binary.md) preserves arbitrary bytes
+through hosted/native stdio, with explicit budgets and checked flush. It is not
+a self-hosted LSP runtime. A first [Fibril-written frame echo](docs/binary-framing.md)
+now accepts canonical Content-Length frames with 0..4096-byte bodies, with one-
+and two-frame clients. A 64-byte JSON diagnostic and typed-event lifecycle now
+have checked hosted/native evidence, but are not a wire server. General headers,
+scalable decoding and compiler-service integration remain blocked; see the
+[current Fibril-written LSP status and next gate](docs/lsp-status.md).
 See [checker scope and limits](docs/erased-checker.md). The [local module/import work](docs/modules.md) now has shared metadata parsing and read-only POSIX dependency discovery;
 check/eval/run --source-dir now support checked closed qualified imports and
 hosted execution. Version-2 project JSON retains source identity/snapshots; FibrilCheckProject validates project snapshots with conservative loaded-buffer
 jumps. FibrilDefinitionProject provides checked cross-file lookup and opens targets automatically;
 project-wide reference indexing and rename remain unimplemented.
 
-Optional [Neovim/Vim highlighting, checking, and same-file navigation](docs/editor-highlighting.md),
-including [LazyVim installation](docs/editor-highlighting.md#install-in-lazyvim),
-is available for .fib files. Navigation uses a saved-buffer CLI command; cross-file
-navigation and an LSP server remain future work.
+The [Fibril LSP server](docs/lsp.md) supports unsaved buffers, UTF-16 positions,
+diagnostics, checked project/package definitions, symbols, hover, formatting and
+guarded same-file rename. Neovim uses a thin standard LSP client in `editors/nvim`;
+other editors can launch the same stdio server. Module/file definitions and
+references across checked application/package inventories are supported;
+project-wide rename and completion remain unsupported. The [legacy Vim runtime](docs/editor-highlighting.md)
+remains available during migration.
 
 [Implicit arguments](docs/implicit-arguments.md) infer a declared erased prefix from direct global calls and supported expected results.
 

@@ -30,11 +30,23 @@ FValue *f_nat_rec_runtime(FRuntime *r, FEnv *env, FEval base, FEval step, FEval 
 FValue *f_rec_fold(FRuntime *r, FEnv *env, FEval base, FEval step, FEval value);
 FValue *f_seq_fold(FRuntime *r, FEnv *env, FEval base, FEval step, FEval value);
 FValue *f_erased(FRuntime *r);
+/* Evaluate body in a sub-arena; first-order data is copied out, then the arena is freed. */
+FValue *f_with_region(FRuntime *r, FEnv *env, FEval body);
 FValue *f_literal(FRuntime *r, const unsigned char *bytes, size_t length);
 FValue *f_variable(FRuntime *r, FEnv *env, size_t index);
 FValue *f_lambda(FRuntime *r, FEnv *env, int erased, FEval body);
 FValue *f_apply(FRuntime *r, FEnv *env, FEval function, FEval argument);
 FValue *f_append(FRuntime *r, FEnv *env, FEval left, FEval right);
+/* Trusted literal storage must remain immutable/alive through the run. */
+FValue *f_bytes_literal(FRuntime *r, const unsigned char *bytes, size_t length);
+FValue *f_bytes_append(FRuntime *r, FEnv *env, FEval left, FEval right);
+FValue *f_bytes_length(FRuntime *r, FEnv *env, FEval value);
+FValue *f_utf8_encode(FRuntime *r, FEnv *env, FEval value);
+FValue *f_utf8_decode(FRuntime *r, FEnv *env, FEval value);
+FValue *f_bytes_octet(FRuntime *r, FEnv *env, FEval value);
+FValue *f_bytes_length_is(FRuntime *, FEnv *, FEval, FEval);
+FValue *f_bytes_index(FRuntime *r, FEnv *env, FEval index, FEval bytes);
+FValue *f_bytes_slice(FRuntime *r, FEnv *env, FEval start, FEval count, FEval bytes);
 FValue *f_unit_case(FRuntime *r, FEnv *env, FEval scrutinee, FEval body);
 FValue *f_pair(FRuntime *r, FEnv *env, int first_erased, int second_erased, FEval first, FEval second);
 FValue *f_pair_case(FRuntime *r, FEnv *env, FEval scrutinee, FEval branch);
@@ -46,6 +58,15 @@ FValue *f_bind(FRuntime *r, FEnv *env, FEval action, FEval continuation);
 FValue *f_write(FRuntime *r, FEnv *env, FEval text);
 /* Inert request; only the separate interactive runner may execute it. */
 FValue *f_read_line(FRuntime *r);
+FValue *f_read_bytes(FRuntime *r, FEnv *env, FEval capacity);
+FValue *f_write_bytes(FRuntime *r, FEnv *env, FEval bytes);
+FValue *f_flush_bytes(FRuntime *r);
+FValue *f_reject_bytes(FRuntime *r);
+/* Inert binary-only iteration; S/R erased. Tags 0 Done/Finished, 1 Continue/
+   Exhausted each require one payload. Not a trusted-fixture type proof. */
+FValue *f_iterate_binary(FRuntime *, FEnv *, FEval count, FEval step, FEval initial);
+/* Link fibril_binary_runtime.c instead of fibril_runtime.c for this runner. */
+int fibril_native_binary_run(FEval entry, size_t requests, size_t capacity);
 int fibril_native_run(FEval entry);
 /* Incremental execution may leave output before a later error. */
 int fibril_native_interactive_run(FEval entry, size_t requests, size_t line_characters);

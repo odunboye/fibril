@@ -4,6 +4,7 @@ module Fibril.Driver.Interactive
 import Fibril.Core.Context
 import Fibril.Core.Term
 import Fibril.Core.Evaluation
+import Fibril.Core.EffectAdmission
 import Fibril.Core.Runtime
 import Fibril.Core.Reduction
 import Fibril.Core.WeakHead
@@ -92,6 +93,7 @@ public export
 prepareInteractive : Nat -> Nat -> Term 0 ->
                      Either InteractiveError (ConsoleProgram (Either InteractiveError ()))
 prepareInteractive depth fuel term = do
+  if containsBinaryRequest term then Left InteractiveUnsupported else Right ()
   validate term (IOType UnitType)
   Right (thenConsole (compile depth fuel term) (\result => Finished (do
     value <- result

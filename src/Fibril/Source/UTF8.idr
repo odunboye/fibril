@@ -1,4 +1,4 @@
--- Strict scalar UTF-8 decoder; no replacement characters or normalization.
+-- Strict scalar UTF-8 codec; no replacement decoding or normalization.
 -- Encoding reference: RFC 3629, section 4; see docs/unicode-source.md.
 module Fibril.Source.UTF8
 
@@ -81,6 +81,29 @@ decode offset (a :: rest) =
                         else map (chr scalar ::) (decode (offset + 4) tail)
            _ => Left (Malformed offset TruncatedSequence)
       else Left (Malformed offset InvalidLead)
+
+encodeScalar : Nat -> Char -> Either UTF8Error (List Bits8)
+encodeScalar offset char =
+  let n = ord char in
+    if n < 0 || n > 0x10FFFF then Left (Malformed offset ScalarOutOfRange)
+    else if n >= 0xD800 && n <= 0xDFFF then Left (Malformed offset SurrogateEncoding)
+    else Right (map cast (if n < 128 then [n]
+      else if n < 2048 then [192 + div n 64, 128 + mod n 64]
+      else if n < 65536 then [224 + div n 4096, 128 + mod (div n 64) 64, 128 + mod n 64]
+      else [240 + div n 262144, 128 + mod (div n 4096) 64, 128 + mod (div n 64) 64, 128 + mod n 64]))
+
+encodeScalars : Nat -> List Char -> Either UTF8Error (List Bits8)
+encodeScalars offset [] = Right []
+encodeScalars offset (char :: rest) = do
+  encoded <- encodeScalar offset char
+  suffix <- encodeScalars (offset + length encoded) rest
+  Right (encoded ++ suffix)
+
+||| Encode scalar text without normalization or NUL filtering. Invalid trusted
+||| host characters fail; the error offset is the encoded valid-prefix length.
+public export
+encodeUTF8 : String -> Either UTF8Error (List Bits8)
+encodeUTF8 = encodeScalars 0 . unpack
 
 ||| Decode shortest-form UTF-8 scalar sequences, or report a malformed sequence.
 ||| Valid U+FFFD is preserved; it is never inserted to conceal invalid bytes.

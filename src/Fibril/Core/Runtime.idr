@@ -102,9 +102,46 @@ mutual
     baseUsage <- analyze depth reduction context base
     consUsage <- analyze depth reduction context cons
     Right (combineUsage valueUsage (joinUsage baseUsage consUsage))
+  analyze (S depth) reduction context (IterateBinary stateType resultType count step initial) = do
+    countUsage <- analyze depth reduction context count
+    stepUsage <- analyze depth reduction context step
+    initialUsage <- analyze depth reduction context initial
+    Right (combineUsage countUsage (combineUsage (scaleUsage Unrestricted stepUsage) initialUsage))
+  analyze (S depth) reduction context (ReadBytes x) = analyze depth reduction context x
+  analyze (S depth) reduction context (WriteBytes x) = analyze depth reduction context x
+  analyze (S depth) reduction context RejectBytes = Right zeroUsage
+  analyze (S depth) reduction context FlushBytes = Right zeroUsage
   analyze (S depth) reduction context ReadLine = Right zeroUsage
   analyze (S depth) reduction context (FileHandleValue _ _) = Right zeroUsage
   analyze (S depth) reduction context (ReadInputFile handle) = analyze depth reduction context handle
+  analyze (S depth) reduction context (BytesLengthIs a b) = do
+    x <- analyze depth reduction context a
+    y <- analyze depth reduction context b
+    Right (combineUsage x y)
+  analyze (S depth) reduction context (BytesIndex a b) = do
+    x <- analyze depth reduction context a
+    y <- analyze depth reduction context b
+    Right (combineUsage x y)
+  analyze (S depth) reduction context (BytesSlice a b c) = do
+    x <- analyze depth reduction context a
+    y <- analyze depth reduction context b
+    z <- analyze depth reduction context c
+    Right (combineUsage x (combineUsage y z))
+  analyze (S depth) reduction context (UTF8Encode x) = analyze depth reduction context x
+  analyze (S depth) reduction context (UTF8Decode x) = analyze depth reduction context x
+  analyze (S depth) reduction context BytesType = Left RuntimeTypeExpression
+  analyze (S depth) reduction context (BytesValue _) = Right zeroUsage
+  analyze (S depth) reduction context (BytesShare x) = analyze depth reduction context x
+  analyze (S depth) reduction context (BytesLength x) = analyze depth reduction context x
+  analyze (S depth) reduction context (BytesOctet x) = analyze depth reduction context x
+  -- The body is applied exactly once, so its permissions are not scaled.
+  analyze (S depth) reduction context (WithRegion resultType body) = do
+    liftTyping (checkRegionResult reduction resultType)
+    analyze depth reduction context body
+  analyze (S depth) reduction context (BytesAppend a b) = do
+    leftUsage <- analyze depth reduction context a
+    rightUsage <- analyze depth reduction context b
+    Right (combineUsage leftUsage rightUsage)
   analyze (S depth) reduction context StringType = Left RuntimeTypeExpression
   analyze (S depth) reduction context (StringValue _) = Right zeroUsage
   analyze (S depth) reduction context (StringAppend left right) = do

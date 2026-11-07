@@ -1,0 +1,149 @@
+module LSP
+
+-- SOURCE-ONLY prototype over validated typed events, not wire messages.
+-- PRECONDITION (not a refinement): a future decoder validates ID kind/payload
+-- and classifies request vs notification. Constructors are structurally forgeable.
+-- NumericId: ASCII bytes (therefore strict UTF8), JSON integer spelling
+-- entire payload matches -?(0|[1-9][0-9]*), signed32 range [-2147483648,2147483647].
+-- Allow -0 and preserve opaque spelling; exclude leading +, leading zeros,
+-- fractions, exponents and bools.
+-- StringId: decoded Unicode scalar-valid string represented as strict UTF8,
+-- NOT a raw quoted JSON lexeme. NUL is allowed in decoded payload via Bytes;
+-- no console-text claim follows.
+-- Null is not admitted as an LSP typed RequestId. Malformed/out-of-domain wire
+-- IDs and their error responses are future decoder obligations, not implemented
+-- or wire-tested here. No validation, normalization or ID comparison occurs here.
+export
+data RequestId : Type where
+  NumericId : (payload : Bytes) -> RequestId
+  StringId : (payload : Bytes) -> RequestId
+
+export
+data RequestMethod : Type where
+  Initialize : RequestMethod
+  ShutdownRequest : RequestMethod
+  OtherRequest : RequestMethod
+
+export
+data Notification : Type where
+  Initialized : Notification
+  Exit : Notification
+  OtherNotification : Notification
+
+export
+record RequestData : Type where
+  constructor RequestDetails
+  id : RequestId
+  method : RequestMethod
+
+export
+data Event : Type where
+  Request : (request : RequestData) -> Event
+  Notify : (notification : Notification) -> Event
+
+export
+data State : Type where
+  Preinitialize : State
+  AwaitInitialized : State
+  Running : State
+  Shutdown : State
+  Terminated : State
+
+export
+data ResponseError : Type where
+  ServerNotInitialized : ResponseError
+  InvalidRequest : ResponseError
+  MethodNotFound : ResponseError
+
+export
+data Response : Type where
+  InitializeAccepted : Response
+  NullResult : Response
+  Error : (error : ResponseError) -> Response
+
+export
+data ExitStatus : Type where
+  Success : ExitStatus
+  Failure : ExitStatus
+
+export
+record ResponseData : Type where
+  constructor ResponseDetails
+  id : RequestId
+  response : Response
+
+export
+data Action : Type where
+  Ignore : Action
+  Respond : (reply : ResponseData) -> Action
+  Terminate : (status : ExitStatus) -> Action
+
+export
+record Step : Type where
+  constructor Stepped
+  nextState : State
+  action : Action
+
+-- AwaitInitialized observes the handshake, NOT an extra request-readiness gate.
+-- InitializeAccepted is not a capabilities or serverInfo payload.
+-- OtherRequest is unsupported: no document work, cancellation or diagnostics.
+-- Erased representation parameters keep repeated transition branches from
+-- re-expanding nested result types. The public wrapper instantiates them once.
+transitionKernel : (0 S : Type) -> (0 M : Type) -> (0 I : Type) -> (0 E : Type) -> (0 A : Type) -> (0 O : Type) -> (0 Reply : Type) ->
+  (matchState : (0 R : Type) -> (state : S) -> (pre : R) -> (await : R) -> (running : R) -> (shutdown : R) -> (terminated : R) -> R) ->
+  (pre : S) -> (await : S) -> (running : S) -> (shutdown : S) -> (terminated : S) ->
+  (matchMethod : (0 R : Type) -> (method : M) -> (initialize : R) -> (shutdown : R) -> (other : R) -> R) ->
+  (eliminate : (0 R : Type) -> (event : E) ->
+    (onRequest : (id : I) -> (method : M) -> R) ->
+    (onNotify : (notification : Notification) -> R) -> R) ->
+  (stepped : (state : S) -> (action : A) -> O) ->
+  (ignore : A) -> (respond : (id : I) -> (response : Reply) -> A) ->
+  (terminate : (status : ExitStatus) -> A) ->
+  (accepted : Reply) -> (null : Reply) -> (before : Reply) -> (invalid : Reply) -> (missing : Reply) ->
+  (state : S) -> (event : E) -> O
+transitionKernel S M I E A O Reply matchState pre await running shutdown terminated matchMethod eliminate stepped ignore respond terminate accepted null before invalid missing state event = eliminate O event
+  (\(id : I) => \(method : M) =>
+    let (readyRequest : (current : S) -> O) = \(current : S) =>
+      matchMethod O method (stepped current (respond id invalid))
+        (stepped shutdown (respond id null)) (stepped current (respond id missing)) in
+    matchState O state
+    (matchMethod O method (stepped await (respond id accepted))
+      (stepped pre (respond id before)) (stepped pre (respond id before)))
+    (readyRequest await)
+    (readyRequest running)
+    (stepped shutdown (respond id invalid))
+    (stepped terminated ignore))
+  (\(notification : Notification) => case notification return (\(0 self : Notification) => O) of
+    Exit => let (failed : O) = stepped terminated (terminate Failure) in
+      matchState O state failed failed failed
+      (stepped terminated (terminate Success))
+      (stepped terminated ignore)
+    Initialized => stepped (matchState S state pre running running shutdown terminated) ignore
+    OtherNotification => stepped state ignore)
+
+export
+transition : (state : State) -> (event : Event) -> Step
+transition state event = transitionKernel State RequestMethod RequestId Event Action Step Response
+  (\(0 R : Type) => \(state : State) => \(pre : R) => \(await : R) => \(running : R) => \(shutdown : R) => \(terminated : R) =>
+    case state return (\(0 self : State) => R) of
+      Preinitialize => pre
+      AwaitInitialized => await
+      Running => running
+      Shutdown => shutdown
+      Terminated => terminated)
+  Preinitialize AwaitInitialized Running Shutdown Terminated
+  (\(0 R : Type) => \(method : RequestMethod) => \(initialize : R) => \(shutdown : R) => \(other : R) =>
+    case method return (\(0 self : RequestMethod) => R) of
+      Initialize => initialize
+      ShutdownRequest => shutdown
+      OtherRequest => other)
+  (\(0 R : Type) => \(event : Event) =>
+    \(onRequest : (id : RequestId) -> (method : RequestMethod) -> R) =>
+    \(onNotify : (notification : Notification) -> R) =>
+      case event return (\(0 self : Event) => R) of
+        Request request => case request return (\(0 self : RequestData) => R) of
+          (id : RequestId) (method : RequestMethod) => onRequest id method
+        Notify notification => onNotify notification)
+  Stepped Ignore (\(id : RequestId) => \(response : Response) => Respond (ResponseDetails id response))
+    Terminate InitializeAccepted NullResult
+    (Error ServerNotInitialized) (Error InvalidRequest) (Error MethodNotFound) state event

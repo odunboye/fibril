@@ -1,0 +1,3665 @@
+{
+  "scope": "validated typed events only; no parsed wire LSP",
+  "validation": {
+    "normal_groups_passed": 5,
+    "asan_ubsan_groups_passed": 5,
+    "normal_sanitized_rows_identical": true,
+    "output_fixtures_per_backend": 65,
+    "no_output_sessions_per_backend": 1,
+    "full_repository_suite_run": false,
+    "contract_fix_groups_rerun": true,
+    "contract_fix_rows_equal_initial_milestone": true,
+    "full_id_output_fixtures_per_backend": 53,
+    "control_only_output_fixtures_per_backend": 12
+  },
+  "composition_observation": {
+    "case": "full-ID-four-event-normal-handshake",
+    "core_nodes": 8467,
+    "payload_estimate": 5796,
+    "source_check": "accepted",
+    "binary_emission_exit": 1,
+    "binary_emission_error": "Native core admission exceeds 8192 nodes",
+    "execution": "not run; not an execution pass",
+    "provenance": "Retained initial milestone observation from 4b2187e; not rerun during the contract-only correction."
+  },
+  "rows": [
+    {
+      "case": "Preinitialize-Initialize-NumericId",
+      "backend": "hosted",
+      "initial": "Preinitialize",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "Initialize"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "41514e013141",
+      "output_hex": "41514e013141",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7291 4959\nMETRICS 0 1 1\nOUTPUT [65, 81, 78, 1, 49, 65]\nOK"
+    },
+    {
+      "case": "Preinitialize-Initialize-NumericId",
+      "backend": "native",
+      "initial": "Preinitialize",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "Initialize"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "41514e013141",
+      "output_hex": "41514e013141",
+      "metrics": [
+        0,
+        6,
+        1,
+        1,
+        6
+      ],
+      "observation": "METRICS 0 6 1 1 6\nOUTPUT [65, 81, 78, 1, 49, 65]\nCOST 552 20645\nOK",
+      "native_steps": 552,
+      "native_arena_payload": 20645
+    },
+    {
+      "case": "Preinitialize-Initialize-StringId",
+      "backend": "hosted",
+      "initial": "Preinitialize",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "StringId",
+          "31",
+          "Initialize"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "415153013141",
+      "output_hex": "415153013141",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7291 4959\nMETRICS 0 1 1\nOUTPUT [65, 81, 83, 1, 49, 65]\nOK"
+    },
+    {
+      "case": "Preinitialize-Initialize-StringId",
+      "backend": "native",
+      "initial": "Preinitialize",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "StringId",
+          "31",
+          "Initialize"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "415153013141",
+      "output_hex": "415153013141",
+      "metrics": [
+        0,
+        6,
+        1,
+        1,
+        6
+      ],
+      "observation": "METRICS 0 6 1 1 6\nOUTPUT [65, 81, 83, 1, 49, 65]\nCOST 552 20645\nOK",
+      "native_steps": 552,
+      "native_arena_payload": 20645
+    },
+    {
+      "case": "Preinitialize-ShutdownRequest-NumericId",
+      "backend": "hosted",
+      "initial": "Preinitialize",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "ShutdownRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "50514e0131452d3332303032",
+      "output_hex": "50514e0131452d3332303032",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7291 4959\nMETRICS 0 1 1\nOUTPUT [80, 81, 78, 1, 49, 69, 45, 51, 50, 48, 48, 50]\nOK"
+    },
+    {
+      "case": "Preinitialize-ShutdownRequest-NumericId",
+      "backend": "native",
+      "initial": "Preinitialize",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "ShutdownRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "50514e0131452d3332303032",
+      "output_hex": "50514e0131452d3332303032",
+      "metrics": [
+        0,
+        12,
+        1,
+        1,
+        12
+      ],
+      "observation": "METRICS 0 12 1 1 12\nOUTPUT [80, 81, 78, 1, 49, 69, 45, 51, 50, 48, 48, 50]\nCOST 572 21175\nOK",
+      "native_steps": 572,
+      "native_arena_payload": 21175
+    },
+    {
+      "case": "Preinitialize-ShutdownRequest-StringId",
+      "backend": "hosted",
+      "initial": "Preinitialize",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "StringId",
+          "31",
+          "ShutdownRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "5051530131452d3332303032",
+      "output_hex": "5051530131452d3332303032",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7291 4959\nMETRICS 0 1 1\nOUTPUT [80, 81, 83, 1, 49, 69, 45, 51, 50, 48, 48, 50]\nOK"
+    },
+    {
+      "case": "Preinitialize-ShutdownRequest-StringId",
+      "backend": "native",
+      "initial": "Preinitialize",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "StringId",
+          "31",
+          "ShutdownRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "5051530131452d3332303032",
+      "output_hex": "5051530131452d3332303032",
+      "metrics": [
+        0,
+        12,
+        1,
+        1,
+        12
+      ],
+      "observation": "METRICS 0 12 1 1 12\nOUTPUT [80, 81, 83, 1, 49, 69, 45, 51, 50, 48, 48, 50]\nCOST 572 21175\nOK",
+      "native_steps": 572,
+      "native_arena_payload": 21175
+    },
+    {
+      "case": "Preinitialize-OtherRequest-NumericId",
+      "backend": "hosted",
+      "initial": "Preinitialize",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "OtherRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "50514e0131452d3332303032",
+      "output_hex": "50514e0131452d3332303032",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7291 4959\nMETRICS 0 1 1\nOUTPUT [80, 81, 78, 1, 49, 69, 45, 51, 50, 48, 48, 50]\nOK"
+    },
+    {
+      "case": "Preinitialize-OtherRequest-NumericId",
+      "backend": "native",
+      "initial": "Preinitialize",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "OtherRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "50514e0131452d3332303032",
+      "output_hex": "50514e0131452d3332303032",
+      "metrics": [
+        0,
+        12,
+        1,
+        1,
+        12
+      ],
+      "observation": "METRICS 0 12 1 1 12\nOUTPUT [80, 81, 78, 1, 49, 69, 45, 51, 50, 48, 48, 50]\nCOST 572 21175\nOK",
+      "native_steps": 572,
+      "native_arena_payload": 21175
+    },
+    {
+      "case": "Preinitialize-OtherRequest-StringId",
+      "backend": "hosted",
+      "initial": "Preinitialize",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "StringId",
+          "31",
+          "OtherRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "5051530131452d3332303032",
+      "output_hex": "5051530131452d3332303032",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7291 4959\nMETRICS 0 1 1\nOUTPUT [80, 81, 83, 1, 49, 69, 45, 51, 50, 48, 48, 50]\nOK"
+    },
+    {
+      "case": "Preinitialize-OtherRequest-StringId",
+      "backend": "native",
+      "initial": "Preinitialize",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "StringId",
+          "31",
+          "OtherRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "5051530131452d3332303032",
+      "output_hex": "5051530131452d3332303032",
+      "metrics": [
+        0,
+        12,
+        1,
+        1,
+        12
+      ],
+      "observation": "METRICS 0 12 1 1 12\nOUTPUT [80, 81, 83, 1, 49, 69, 45, 51, 50, 48, 48, 50]\nCOST 572 21175\nOK",
+      "native_steps": 572,
+      "native_arena_payload": 21175
+    },
+    {
+      "case": "Preinitialize-Initialized",
+      "backend": "hosted",
+      "initial": "Preinitialize",
+      "projection": "full",
+      "events": [
+        [
+          "Notify",
+          "Initialized"
+        ]
+      ],
+      "core_nodes": 7000,
+      "payload_estimate": 4782,
+      "expected_hex": "5049",
+      "output_hex": "5049",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7000 4782\nMETRICS 0 1 1\nOUTPUT [80, 73]\nOK"
+    },
+    {
+      "case": "Preinitialize-Initialized",
+      "backend": "native",
+      "initial": "Preinitialize",
+      "projection": "full",
+      "events": [
+        [
+          "Notify",
+          "Initialized"
+        ]
+      ],
+      "core_nodes": 7000,
+      "payload_estimate": 4782,
+      "expected_hex": "5049",
+      "output_hex": "5049",
+      "metrics": [
+        0,
+        2,
+        1,
+        1,
+        2
+      ],
+      "observation": "METRICS 0 2 1 1 2\nOUTPUT [80, 73]\nCOST 306 11634\nOK",
+      "native_steps": 306,
+      "native_arena_payload": 11634
+    },
+    {
+      "case": "Preinitialize-Exit",
+      "backend": "hosted",
+      "initial": "Preinitialize",
+      "projection": "full",
+      "events": [
+        [
+          "Notify",
+          "Exit"
+        ]
+      ],
+      "core_nodes": 7000,
+      "payload_estimate": 4782,
+      "expected_hex": "545831",
+      "output_hex": "545831",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7000 4782\nMETRICS 0 1 1\nOUTPUT [84, 88, 49]\nOK"
+    },
+    {
+      "case": "Preinitialize-Exit",
+      "backend": "native",
+      "initial": "Preinitialize",
+      "projection": "full",
+      "events": [
+        [
+          "Notify",
+          "Exit"
+        ]
+      ],
+      "core_nodes": 7000,
+      "payload_estimate": 4782,
+      "expected_hex": "545831",
+      "output_hex": "545831",
+      "metrics": [
+        0,
+        3,
+        1,
+        1,
+        3
+      ],
+      "observation": "METRICS 0 3 1 1 3\nOUTPUT [84, 88, 49]\nCOST 324 12259\nOK",
+      "native_steps": 324,
+      "native_arena_payload": 12259
+    },
+    {
+      "case": "Preinitialize-OtherNotification",
+      "backend": "hosted",
+      "initial": "Preinitialize",
+      "projection": "full",
+      "events": [
+        [
+          "Notify",
+          "OtherNotification"
+        ]
+      ],
+      "core_nodes": 7000,
+      "payload_estimate": 4782,
+      "expected_hex": "5049",
+      "output_hex": "5049",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7000 4782\nMETRICS 0 1 1\nOUTPUT [80, 73]\nOK"
+    },
+    {
+      "case": "Preinitialize-OtherNotification",
+      "backend": "native",
+      "initial": "Preinitialize",
+      "projection": "full",
+      "events": [
+        [
+          "Notify",
+          "OtherNotification"
+        ]
+      ],
+      "core_nodes": 7000,
+      "payload_estimate": 4782,
+      "expected_hex": "5049",
+      "output_hex": "5049",
+      "metrics": [
+        0,
+        2,
+        1,
+        1,
+        2
+      ],
+      "observation": "METRICS 0 2 1 1 2\nOUTPUT [80, 73]\nCOST 279 10626\nOK",
+      "native_steps": 279,
+      "native_arena_payload": 10626
+    },
+    {
+      "case": "AwaitInitialized-Initialize-NumericId",
+      "backend": "hosted",
+      "initial": "AwaitInitialized",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "Initialize"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "41514e0131452d3332363030",
+      "output_hex": "41514e0131452d3332363030",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7291 4959\nMETRICS 0 1 1\nOUTPUT [65, 81, 78, 1, 49, 69, 45, 51, 50, 54, 48, 48]\nOK"
+    },
+    {
+      "case": "AwaitInitialized-Initialize-NumericId",
+      "backend": "native",
+      "initial": "AwaitInitialized",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "Initialize"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "41514e0131452d3332363030",
+      "output_hex": "41514e0131452d3332363030",
+      "metrics": [
+        0,
+        12,
+        1,
+        1,
+        12
+      ],
+      "observation": "METRICS 0 12 1 1 12\nOUTPUT [65, 81, 78, 1, 49, 69, 45, 51, 50, 54, 48, 48]\nCOST 576 21287\nOK",
+      "native_steps": 576,
+      "native_arena_payload": 21287
+    },
+    {
+      "case": "AwaitInitialized-Initialize-StringId",
+      "backend": "hosted",
+      "initial": "AwaitInitialized",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "StringId",
+          "31",
+          "Initialize"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "4151530131452d3332363030",
+      "output_hex": "4151530131452d3332363030",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7291 4959\nMETRICS 0 1 1\nOUTPUT [65, 81, 83, 1, 49, 69, 45, 51, 50, 54, 48, 48]\nOK"
+    },
+    {
+      "case": "AwaitInitialized-Initialize-StringId",
+      "backend": "native",
+      "initial": "AwaitInitialized",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "StringId",
+          "31",
+          "Initialize"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "4151530131452d3332363030",
+      "output_hex": "4151530131452d3332363030",
+      "metrics": [
+        0,
+        12,
+        1,
+        1,
+        12
+      ],
+      "observation": "METRICS 0 12 1 1 12\nOUTPUT [65, 81, 83, 1, 49, 69, 45, 51, 50, 54, 48, 48]\nCOST 576 21287\nOK",
+      "native_steps": 576,
+      "native_arena_payload": 21287
+    },
+    {
+      "case": "AwaitInitialized-ShutdownRequest-NumericId",
+      "backend": "hosted",
+      "initial": "AwaitInitialized",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "ShutdownRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "53514e01314e",
+      "output_hex": "53514e01314e",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7291 4959\nMETRICS 0 1 1\nOUTPUT [83, 81, 78, 1, 49, 78]\nOK"
+    },
+    {
+      "case": "AwaitInitialized-ShutdownRequest-NumericId",
+      "backend": "native",
+      "initial": "AwaitInitialized",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "ShutdownRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "53514e01314e",
+      "output_hex": "53514e01314e",
+      "metrics": [
+        0,
+        6,
+        1,
+        1,
+        6
+      ],
+      "observation": "METRICS 0 6 1 1 6\nOUTPUT [83, 81, 78, 1, 49, 78]\nCOST 555 20757\nOK",
+      "native_steps": 555,
+      "native_arena_payload": 20757
+    },
+    {
+      "case": "AwaitInitialized-ShutdownRequest-StringId",
+      "backend": "hosted",
+      "initial": "AwaitInitialized",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "StringId",
+          "31",
+          "ShutdownRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "53515301314e",
+      "output_hex": "53515301314e",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7291 4959\nMETRICS 0 1 1\nOUTPUT [83, 81, 83, 1, 49, 78]\nOK"
+    },
+    {
+      "case": "AwaitInitialized-ShutdownRequest-StringId",
+      "backend": "native",
+      "initial": "AwaitInitialized",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "StringId",
+          "31",
+          "ShutdownRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "53515301314e",
+      "output_hex": "53515301314e",
+      "metrics": [
+        0,
+        6,
+        1,
+        1,
+        6
+      ],
+      "observation": "METRICS 0 6 1 1 6\nOUTPUT [83, 81, 83, 1, 49, 78]\nCOST 555 20757\nOK",
+      "native_steps": 555,
+      "native_arena_payload": 20757
+    },
+    {
+      "case": "AwaitInitialized-OtherRequest-NumericId",
+      "backend": "hosted",
+      "initial": "AwaitInitialized",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "OtherRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "41514e0131452d3332363031",
+      "output_hex": "41514e0131452d3332363031",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7291 4959\nMETRICS 0 1 1\nOUTPUT [65, 81, 78, 1, 49, 69, 45, 51, 50, 54, 48, 49]\nOK"
+    },
+    {
+      "case": "AwaitInitialized-OtherRequest-NumericId",
+      "backend": "native",
+      "initial": "AwaitInitialized",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "OtherRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "41514e0131452d3332363031",
+      "output_hex": "41514e0131452d3332363031",
+      "metrics": [
+        0,
+        12,
+        1,
+        1,
+        12
+      ],
+      "observation": "METRICS 0 12 1 1 12\nOUTPUT [65, 81, 78, 1, 49, 69, 45, 51, 50, 54, 48, 49]\nCOST 576 21287\nOK",
+      "native_steps": 576,
+      "native_arena_payload": 21287
+    },
+    {
+      "case": "AwaitInitialized-OtherRequest-StringId",
+      "backend": "hosted",
+      "initial": "AwaitInitialized",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "StringId",
+          "31",
+          "OtherRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "4151530131452d3332363031",
+      "output_hex": "4151530131452d3332363031",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7291 4959\nMETRICS 0 1 1\nOUTPUT [65, 81, 83, 1, 49, 69, 45, 51, 50, 54, 48, 49]\nOK"
+    },
+    {
+      "case": "AwaitInitialized-OtherRequest-StringId",
+      "backend": "native",
+      "initial": "AwaitInitialized",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "StringId",
+          "31",
+          "OtherRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "4151530131452d3332363031",
+      "output_hex": "4151530131452d3332363031",
+      "metrics": [
+        0,
+        12,
+        1,
+        1,
+        12
+      ],
+      "observation": "METRICS 0 12 1 1 12\nOUTPUT [65, 81, 83, 1, 49, 69, 45, 51, 50, 54, 48, 49]\nCOST 576 21287\nOK",
+      "native_steps": 576,
+      "native_arena_payload": 21287
+    },
+    {
+      "case": "AwaitInitialized-Initialized",
+      "backend": "hosted",
+      "initial": "AwaitInitialized",
+      "projection": "full",
+      "events": [
+        [
+          "Notify",
+          "Initialized"
+        ]
+      ],
+      "core_nodes": 7000,
+      "payload_estimate": 4782,
+      "expected_hex": "5249",
+      "output_hex": "5249",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7000 4782\nMETRICS 0 1 1\nOUTPUT [82, 73]\nOK"
+    },
+    {
+      "case": "AwaitInitialized-Initialized",
+      "backend": "native",
+      "initial": "AwaitInitialized",
+      "projection": "full",
+      "events": [
+        [
+          "Notify",
+          "Initialized"
+        ]
+      ],
+      "core_nodes": 7000,
+      "payload_estimate": 4782,
+      "expected_hex": "5249",
+      "output_hex": "5249",
+      "metrics": [
+        0,
+        2,
+        1,
+        1,
+        2
+      ],
+      "observation": "METRICS 0 2 1 1 2\nOUTPUT [82, 73]\nCOST 306 11634\nOK",
+      "native_steps": 306,
+      "native_arena_payload": 11634
+    },
+    {
+      "case": "AwaitInitialized-Exit",
+      "backend": "hosted",
+      "initial": "AwaitInitialized",
+      "projection": "full",
+      "events": [
+        [
+          "Notify",
+          "Exit"
+        ]
+      ],
+      "core_nodes": 7000,
+      "payload_estimate": 4782,
+      "expected_hex": "545831",
+      "output_hex": "545831",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7000 4782\nMETRICS 0 1 1\nOUTPUT [84, 88, 49]\nOK"
+    },
+    {
+      "case": "AwaitInitialized-Exit",
+      "backend": "native",
+      "initial": "AwaitInitialized",
+      "projection": "full",
+      "events": [
+        [
+          "Notify",
+          "Exit"
+        ]
+      ],
+      "core_nodes": 7000,
+      "payload_estimate": 4782,
+      "expected_hex": "545831",
+      "output_hex": "545831",
+      "metrics": [
+        0,
+        3,
+        1,
+        1,
+        3
+      ],
+      "observation": "METRICS 0 3 1 1 3\nOUTPUT [84, 88, 49]\nCOST 324 12259\nOK",
+      "native_steps": 324,
+      "native_arena_payload": 12259
+    },
+    {
+      "case": "AwaitInitialized-OtherNotification",
+      "backend": "hosted",
+      "initial": "AwaitInitialized",
+      "projection": "full",
+      "events": [
+        [
+          "Notify",
+          "OtherNotification"
+        ]
+      ],
+      "core_nodes": 7000,
+      "payload_estimate": 4782,
+      "expected_hex": "4149",
+      "output_hex": "4149",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7000 4782\nMETRICS 0 1 1\nOUTPUT [65, 73]\nOK"
+    },
+    {
+      "case": "AwaitInitialized-OtherNotification",
+      "backend": "native",
+      "initial": "AwaitInitialized",
+      "projection": "full",
+      "events": [
+        [
+          "Notify",
+          "OtherNotification"
+        ]
+      ],
+      "core_nodes": 7000,
+      "payload_estimate": 4782,
+      "expected_hex": "4149",
+      "output_hex": "4149",
+      "metrics": [
+        0,
+        2,
+        1,
+        1,
+        2
+      ],
+      "observation": "METRICS 0 2 1 1 2\nOUTPUT [65, 73]\nCOST 279 10626\nOK",
+      "native_steps": 279,
+      "native_arena_payload": 10626
+    },
+    {
+      "case": "Running-Initialize-NumericId",
+      "backend": "hosted",
+      "initial": "Running",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "Initialize"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "52514e0131452d3332363030",
+      "output_hex": "52514e0131452d3332363030",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7291 4959\nMETRICS 0 1 1\nOUTPUT [82, 81, 78, 1, 49, 69, 45, 51, 50, 54, 48, 48]\nOK"
+    },
+    {
+      "case": "Running-Initialize-NumericId",
+      "backend": "native",
+      "initial": "Running",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "Initialize"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "52514e0131452d3332363030",
+      "output_hex": "52514e0131452d3332363030",
+      "metrics": [
+        0,
+        12,
+        1,
+        1,
+        12
+      ],
+      "observation": "METRICS 0 12 1 1 12\nOUTPUT [82, 81, 78, 1, 49, 69, 45, 51, 50, 54, 48, 48]\nCOST 576 21287\nOK",
+      "native_steps": 576,
+      "native_arena_payload": 21287
+    },
+    {
+      "case": "Running-Initialize-StringId",
+      "backend": "hosted",
+      "initial": "Running",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "StringId",
+          "31",
+          "Initialize"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "5251530131452d3332363030",
+      "output_hex": "5251530131452d3332363030",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7291 4959\nMETRICS 0 1 1\nOUTPUT [82, 81, 83, 1, 49, 69, 45, 51, 50, 54, 48, 48]\nOK"
+    },
+    {
+      "case": "Running-Initialize-StringId",
+      "backend": "native",
+      "initial": "Running",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "StringId",
+          "31",
+          "Initialize"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "5251530131452d3332363030",
+      "output_hex": "5251530131452d3332363030",
+      "metrics": [
+        0,
+        12,
+        1,
+        1,
+        12
+      ],
+      "observation": "METRICS 0 12 1 1 12\nOUTPUT [82, 81, 83, 1, 49, 69, 45, 51, 50, 54, 48, 48]\nCOST 576 21287\nOK",
+      "native_steps": 576,
+      "native_arena_payload": 21287
+    },
+    {
+      "case": "Running-ShutdownRequest-NumericId",
+      "backend": "hosted",
+      "initial": "Running",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "ShutdownRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "53514e01314e",
+      "output_hex": "53514e01314e",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7291 4959\nMETRICS 0 1 1\nOUTPUT [83, 81, 78, 1, 49, 78]\nOK"
+    },
+    {
+      "case": "Running-ShutdownRequest-NumericId",
+      "backend": "native",
+      "initial": "Running",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "ShutdownRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "53514e01314e",
+      "output_hex": "53514e01314e",
+      "metrics": [
+        0,
+        6,
+        1,
+        1,
+        6
+      ],
+      "observation": "METRICS 0 6 1 1 6\nOUTPUT [83, 81, 78, 1, 49, 78]\nCOST 555 20757\nOK",
+      "native_steps": 555,
+      "native_arena_payload": 20757
+    },
+    {
+      "case": "Running-ShutdownRequest-StringId",
+      "backend": "hosted",
+      "initial": "Running",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "StringId",
+          "31",
+          "ShutdownRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "53515301314e",
+      "output_hex": "53515301314e",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7291 4959\nMETRICS 0 1 1\nOUTPUT [83, 81, 83, 1, 49, 78]\nOK"
+    },
+    {
+      "case": "Running-ShutdownRequest-StringId",
+      "backend": "native",
+      "initial": "Running",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "StringId",
+          "31",
+          "ShutdownRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "53515301314e",
+      "output_hex": "53515301314e",
+      "metrics": [
+        0,
+        6,
+        1,
+        1,
+        6
+      ],
+      "observation": "METRICS 0 6 1 1 6\nOUTPUT [83, 81, 83, 1, 49, 78]\nCOST 555 20757\nOK",
+      "native_steps": 555,
+      "native_arena_payload": 20757
+    },
+    {
+      "case": "Running-OtherRequest-NumericId",
+      "backend": "hosted",
+      "initial": "Running",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "OtherRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "52514e0131452d3332363031",
+      "output_hex": "52514e0131452d3332363031",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7291 4959\nMETRICS 0 1 1\nOUTPUT [82, 81, 78, 1, 49, 69, 45, 51, 50, 54, 48, 49]\nOK"
+    },
+    {
+      "case": "Running-OtherRequest-NumericId",
+      "backend": "native",
+      "initial": "Running",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "OtherRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "52514e0131452d3332363031",
+      "output_hex": "52514e0131452d3332363031",
+      "metrics": [
+        0,
+        12,
+        1,
+        1,
+        12
+      ],
+      "observation": "METRICS 0 12 1 1 12\nOUTPUT [82, 81, 78, 1, 49, 69, 45, 51, 50, 54, 48, 49]\nCOST 576 21287\nOK",
+      "native_steps": 576,
+      "native_arena_payload": 21287
+    },
+    {
+      "case": "Running-OtherRequest-StringId",
+      "backend": "hosted",
+      "initial": "Running",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "StringId",
+          "31",
+          "OtherRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "5251530131452d3332363031",
+      "output_hex": "5251530131452d3332363031",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7291 4959\nMETRICS 0 1 1\nOUTPUT [82, 81, 83, 1, 49, 69, 45, 51, 50, 54, 48, 49]\nOK"
+    },
+    {
+      "case": "Running-OtherRequest-StringId",
+      "backend": "native",
+      "initial": "Running",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "StringId",
+          "31",
+          "OtherRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "5251530131452d3332363031",
+      "output_hex": "5251530131452d3332363031",
+      "metrics": [
+        0,
+        12,
+        1,
+        1,
+        12
+      ],
+      "observation": "METRICS 0 12 1 1 12\nOUTPUT [82, 81, 83, 1, 49, 69, 45, 51, 50, 54, 48, 49]\nCOST 576 21287\nOK",
+      "native_steps": 576,
+      "native_arena_payload": 21287
+    },
+    {
+      "case": "Running-Initialized",
+      "backend": "hosted",
+      "initial": "Running",
+      "projection": "full",
+      "events": [
+        [
+          "Notify",
+          "Initialized"
+        ]
+      ],
+      "core_nodes": 7000,
+      "payload_estimate": 4782,
+      "expected_hex": "5249",
+      "output_hex": "5249",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7000 4782\nMETRICS 0 1 1\nOUTPUT [82, 73]\nOK"
+    },
+    {
+      "case": "Running-Initialized",
+      "backend": "native",
+      "initial": "Running",
+      "projection": "full",
+      "events": [
+        [
+          "Notify",
+          "Initialized"
+        ]
+      ],
+      "core_nodes": 7000,
+      "payload_estimate": 4782,
+      "expected_hex": "5249",
+      "output_hex": "5249",
+      "metrics": [
+        0,
+        2,
+        1,
+        1,
+        2
+      ],
+      "observation": "METRICS 0 2 1 1 2\nOUTPUT [82, 73]\nCOST 306 11634\nOK",
+      "native_steps": 306,
+      "native_arena_payload": 11634
+    },
+    {
+      "case": "Running-Exit",
+      "backend": "hosted",
+      "initial": "Running",
+      "projection": "full",
+      "events": [
+        [
+          "Notify",
+          "Exit"
+        ]
+      ],
+      "core_nodes": 7000,
+      "payload_estimate": 4782,
+      "expected_hex": "545831",
+      "output_hex": "545831",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7000 4782\nMETRICS 0 1 1\nOUTPUT [84, 88, 49]\nOK"
+    },
+    {
+      "case": "Running-Exit",
+      "backend": "native",
+      "initial": "Running",
+      "projection": "full",
+      "events": [
+        [
+          "Notify",
+          "Exit"
+        ]
+      ],
+      "core_nodes": 7000,
+      "payload_estimate": 4782,
+      "expected_hex": "545831",
+      "output_hex": "545831",
+      "metrics": [
+        0,
+        3,
+        1,
+        1,
+        3
+      ],
+      "observation": "METRICS 0 3 1 1 3\nOUTPUT [84, 88, 49]\nCOST 324 12259\nOK",
+      "native_steps": 324,
+      "native_arena_payload": 12259
+    },
+    {
+      "case": "Running-OtherNotification",
+      "backend": "hosted",
+      "initial": "Running",
+      "projection": "full",
+      "events": [
+        [
+          "Notify",
+          "OtherNotification"
+        ]
+      ],
+      "core_nodes": 7000,
+      "payload_estimate": 4782,
+      "expected_hex": "5249",
+      "output_hex": "5249",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7000 4782\nMETRICS 0 1 1\nOUTPUT [82, 73]\nOK"
+    },
+    {
+      "case": "Running-OtherNotification",
+      "backend": "native",
+      "initial": "Running",
+      "projection": "full",
+      "events": [
+        [
+          "Notify",
+          "OtherNotification"
+        ]
+      ],
+      "core_nodes": 7000,
+      "payload_estimate": 4782,
+      "expected_hex": "5249",
+      "output_hex": "5249",
+      "metrics": [
+        0,
+        2,
+        1,
+        1,
+        2
+      ],
+      "observation": "METRICS 0 2 1 1 2\nOUTPUT [82, 73]\nCOST 279 10626\nOK",
+      "native_steps": 279,
+      "native_arena_payload": 10626
+    },
+    {
+      "case": "Shutdown-Initialize-NumericId",
+      "backend": "hosted",
+      "initial": "Shutdown",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "Initialize"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "53514e0131452d3332363030",
+      "output_hex": "53514e0131452d3332363030",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7291 4959\nMETRICS 0 1 1\nOUTPUT [83, 81, 78, 1, 49, 69, 45, 51, 50, 54, 48, 48]\nOK"
+    },
+    {
+      "case": "Shutdown-Initialize-NumericId",
+      "backend": "native",
+      "initial": "Shutdown",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "Initialize"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "53514e0131452d3332363030",
+      "output_hex": "53514e0131452d3332363030",
+      "metrics": [
+        0,
+        12,
+        1,
+        1,
+        12
+      ],
+      "observation": "METRICS 0 12 1 1 12\nOUTPUT [83, 81, 78, 1, 49, 69, 45, 51, 50, 54, 48, 48]\nCOST 547 20391\nOK",
+      "native_steps": 547,
+      "native_arena_payload": 20391
+    },
+    {
+      "case": "Shutdown-Initialize-StringId",
+      "backend": "hosted",
+      "initial": "Shutdown",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "StringId",
+          "31",
+          "Initialize"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "5351530131452d3332363030",
+      "output_hex": "5351530131452d3332363030",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7291 4959\nMETRICS 0 1 1\nOUTPUT [83, 81, 83, 1, 49, 69, 45, 51, 50, 54, 48, 48]\nOK"
+    },
+    {
+      "case": "Shutdown-Initialize-StringId",
+      "backend": "native",
+      "initial": "Shutdown",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "StringId",
+          "31",
+          "Initialize"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "5351530131452d3332363030",
+      "output_hex": "5351530131452d3332363030",
+      "metrics": [
+        0,
+        12,
+        1,
+        1,
+        12
+      ],
+      "observation": "METRICS 0 12 1 1 12\nOUTPUT [83, 81, 83, 1, 49, 69, 45, 51, 50, 54, 48, 48]\nCOST 547 20391\nOK",
+      "native_steps": 547,
+      "native_arena_payload": 20391
+    },
+    {
+      "case": "Shutdown-ShutdownRequest-NumericId",
+      "backend": "hosted",
+      "initial": "Shutdown",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "ShutdownRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "53514e0131452d3332363030",
+      "output_hex": "53514e0131452d3332363030",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7291 4959\nMETRICS 0 1 1\nOUTPUT [83, 81, 78, 1, 49, 69, 45, 51, 50, 54, 48, 48]\nOK"
+    },
+    {
+      "case": "Shutdown-ShutdownRequest-NumericId",
+      "backend": "native",
+      "initial": "Shutdown",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "ShutdownRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "53514e0131452d3332363030",
+      "output_hex": "53514e0131452d3332363030",
+      "metrics": [
+        0,
+        12,
+        1,
+        1,
+        12
+      ],
+      "observation": "METRICS 0 12 1 1 12\nOUTPUT [83, 81, 78, 1, 49, 69, 45, 51, 50, 54, 48, 48]\nCOST 547 20391\nOK",
+      "native_steps": 547,
+      "native_arena_payload": 20391
+    },
+    {
+      "case": "Shutdown-ShutdownRequest-StringId",
+      "backend": "hosted",
+      "initial": "Shutdown",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "StringId",
+          "31",
+          "ShutdownRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "5351530131452d3332363030",
+      "output_hex": "5351530131452d3332363030",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7291 4959\nMETRICS 0 1 1\nOUTPUT [83, 81, 83, 1, 49, 69, 45, 51, 50, 54, 48, 48]\nOK"
+    },
+    {
+      "case": "Shutdown-ShutdownRequest-StringId",
+      "backend": "native",
+      "initial": "Shutdown",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "StringId",
+          "31",
+          "ShutdownRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "5351530131452d3332363030",
+      "output_hex": "5351530131452d3332363030",
+      "metrics": [
+        0,
+        12,
+        1,
+        1,
+        12
+      ],
+      "observation": "METRICS 0 12 1 1 12\nOUTPUT [83, 81, 83, 1, 49, 69, 45, 51, 50, 54, 48, 48]\nCOST 547 20391\nOK",
+      "native_steps": 547,
+      "native_arena_payload": 20391
+    },
+    {
+      "case": "Shutdown-OtherRequest-NumericId",
+      "backend": "hosted",
+      "initial": "Shutdown",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "OtherRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "53514e0131452d3332363030",
+      "output_hex": "53514e0131452d3332363030",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7291 4959\nMETRICS 0 1 1\nOUTPUT [83, 81, 78, 1, 49, 69, 45, 51, 50, 54, 48, 48]\nOK"
+    },
+    {
+      "case": "Shutdown-OtherRequest-NumericId",
+      "backend": "native",
+      "initial": "Shutdown",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "OtherRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "53514e0131452d3332363030",
+      "output_hex": "53514e0131452d3332363030",
+      "metrics": [
+        0,
+        12,
+        1,
+        1,
+        12
+      ],
+      "observation": "METRICS 0 12 1 1 12\nOUTPUT [83, 81, 78, 1, 49, 69, 45, 51, 50, 54, 48, 48]\nCOST 547 20391\nOK",
+      "native_steps": 547,
+      "native_arena_payload": 20391
+    },
+    {
+      "case": "Shutdown-OtherRequest-StringId",
+      "backend": "hosted",
+      "initial": "Shutdown",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "StringId",
+          "31",
+          "OtherRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "5351530131452d3332363030",
+      "output_hex": "5351530131452d3332363030",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7291 4959\nMETRICS 0 1 1\nOUTPUT [83, 81, 83, 1, 49, 69, 45, 51, 50, 54, 48, 48]\nOK"
+    },
+    {
+      "case": "Shutdown-OtherRequest-StringId",
+      "backend": "native",
+      "initial": "Shutdown",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "StringId",
+          "31",
+          "OtherRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "5351530131452d3332363030",
+      "output_hex": "5351530131452d3332363030",
+      "metrics": [
+        0,
+        12,
+        1,
+        1,
+        12
+      ],
+      "observation": "METRICS 0 12 1 1 12\nOUTPUT [83, 81, 83, 1, 49, 69, 45, 51, 50, 54, 48, 48]\nCOST 547 20391\nOK",
+      "native_steps": 547,
+      "native_arena_payload": 20391
+    },
+    {
+      "case": "Shutdown-Initialized",
+      "backend": "hosted",
+      "initial": "Shutdown",
+      "projection": "full",
+      "events": [
+        [
+          "Notify",
+          "Initialized"
+        ]
+      ],
+      "core_nodes": 7000,
+      "payload_estimate": 4782,
+      "expected_hex": "5349",
+      "output_hex": "5349",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7000 4782\nMETRICS 0 1 1\nOUTPUT [83, 73]\nOK"
+    },
+    {
+      "case": "Shutdown-Initialized",
+      "backend": "native",
+      "initial": "Shutdown",
+      "projection": "full",
+      "events": [
+        [
+          "Notify",
+          "Initialized"
+        ]
+      ],
+      "core_nodes": 7000,
+      "payload_estimate": 4782,
+      "expected_hex": "5349",
+      "output_hex": "5349",
+      "metrics": [
+        0,
+        2,
+        1,
+        1,
+        2
+      ],
+      "observation": "METRICS 0 2 1 1 2\nOUTPUT [83, 73]\nCOST 306 11634\nOK",
+      "native_steps": 306,
+      "native_arena_payload": 11634
+    },
+    {
+      "case": "Shutdown-Exit",
+      "backend": "hosted",
+      "initial": "Shutdown",
+      "projection": "full",
+      "events": [
+        [
+          "Notify",
+          "Exit"
+        ]
+      ],
+      "core_nodes": 7000,
+      "payload_estimate": 4782,
+      "expected_hex": "545830",
+      "output_hex": "545830",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7000 4782\nMETRICS 0 1 1\nOUTPUT [84, 88, 48]\nOK"
+    },
+    {
+      "case": "Shutdown-Exit",
+      "backend": "native",
+      "initial": "Shutdown",
+      "projection": "full",
+      "events": [
+        [
+          "Notify",
+          "Exit"
+        ]
+      ],
+      "core_nodes": 7000,
+      "payload_estimate": 4782,
+      "expected_hex": "545830",
+      "output_hex": "545830",
+      "metrics": [
+        0,
+        3,
+        1,
+        1,
+        3
+      ],
+      "observation": "METRICS 0 3 1 1 3\nOUTPUT [84, 88, 48]\nCOST 323 12259\nOK",
+      "native_steps": 323,
+      "native_arena_payload": 12259
+    },
+    {
+      "case": "Shutdown-OtherNotification",
+      "backend": "hosted",
+      "initial": "Shutdown",
+      "projection": "full",
+      "events": [
+        [
+          "Notify",
+          "OtherNotification"
+        ]
+      ],
+      "core_nodes": 7000,
+      "payload_estimate": 4782,
+      "expected_hex": "5349",
+      "output_hex": "5349",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7000 4782\nMETRICS 0 1 1\nOUTPUT [83, 73]\nOK"
+    },
+    {
+      "case": "Shutdown-OtherNotification",
+      "backend": "native",
+      "initial": "Shutdown",
+      "projection": "full",
+      "events": [
+        [
+          "Notify",
+          "OtherNotification"
+        ]
+      ],
+      "core_nodes": 7000,
+      "payload_estimate": 4782,
+      "expected_hex": "5349",
+      "output_hex": "5349",
+      "metrics": [
+        0,
+        2,
+        1,
+        1,
+        2
+      ],
+      "observation": "METRICS 0 2 1 1 2\nOUTPUT [83, 73]\nCOST 279 10626\nOK",
+      "native_steps": 279,
+      "native_arena_payload": 10626
+    },
+    {
+      "case": "Terminated-Initialize-NumericId",
+      "backend": "hosted",
+      "initial": "Terminated",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "Initialize"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "5449",
+      "output_hex": "5449",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7291 4959\nMETRICS 0 1 1\nOUTPUT [84, 73]\nOK"
+    },
+    {
+      "case": "Terminated-Initialize-NumericId",
+      "backend": "native",
+      "initial": "Terminated",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "Initialize"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "5449",
+      "output_hex": "5449",
+      "metrics": [
+        0,
+        2,
+        1,
+        1,
+        2
+      ],
+      "observation": "METRICS 0 2 1 1 2\nOUTPUT [84, 73]\nCOST 311 12162\nOK",
+      "native_steps": 311,
+      "native_arena_payload": 12162
+    },
+    {
+      "case": "Terminated-Initialize-StringId",
+      "backend": "hosted",
+      "initial": "Terminated",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "StringId",
+          "31",
+          "Initialize"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "5449",
+      "output_hex": "5449",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7291 4959\nMETRICS 0 1 1\nOUTPUT [84, 73]\nOK"
+    },
+    {
+      "case": "Terminated-Initialize-StringId",
+      "backend": "native",
+      "initial": "Terminated",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "StringId",
+          "31",
+          "Initialize"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "5449",
+      "output_hex": "5449",
+      "metrics": [
+        0,
+        2,
+        1,
+        1,
+        2
+      ],
+      "observation": "METRICS 0 2 1 1 2\nOUTPUT [84, 73]\nCOST 311 12162\nOK",
+      "native_steps": 311,
+      "native_arena_payload": 12162
+    },
+    {
+      "case": "Terminated-ShutdownRequest-NumericId",
+      "backend": "hosted",
+      "initial": "Terminated",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "ShutdownRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "5449",
+      "output_hex": "5449",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7291 4959\nMETRICS 0 1 1\nOUTPUT [84, 73]\nOK"
+    },
+    {
+      "case": "Terminated-ShutdownRequest-NumericId",
+      "backend": "native",
+      "initial": "Terminated",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "ShutdownRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "5449",
+      "output_hex": "5449",
+      "metrics": [
+        0,
+        2,
+        1,
+        1,
+        2
+      ],
+      "observation": "METRICS 0 2 1 1 2\nOUTPUT [84, 73]\nCOST 311 12162\nOK",
+      "native_steps": 311,
+      "native_arena_payload": 12162
+    },
+    {
+      "case": "Terminated-ShutdownRequest-StringId",
+      "backend": "hosted",
+      "initial": "Terminated",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "StringId",
+          "31",
+          "ShutdownRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "5449",
+      "output_hex": "5449",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7291 4959\nMETRICS 0 1 1\nOUTPUT [84, 73]\nOK"
+    },
+    {
+      "case": "Terminated-ShutdownRequest-StringId",
+      "backend": "native",
+      "initial": "Terminated",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "StringId",
+          "31",
+          "ShutdownRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "5449",
+      "output_hex": "5449",
+      "metrics": [
+        0,
+        2,
+        1,
+        1,
+        2
+      ],
+      "observation": "METRICS 0 2 1 1 2\nOUTPUT [84, 73]\nCOST 311 12162\nOK",
+      "native_steps": 311,
+      "native_arena_payload": 12162
+    },
+    {
+      "case": "Terminated-OtherRequest-NumericId",
+      "backend": "hosted",
+      "initial": "Terminated",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "OtherRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "5449",
+      "output_hex": "5449",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7291 4959\nMETRICS 0 1 1\nOUTPUT [84, 73]\nOK"
+    },
+    {
+      "case": "Terminated-OtherRequest-NumericId",
+      "backend": "native",
+      "initial": "Terminated",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "OtherRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "5449",
+      "output_hex": "5449",
+      "metrics": [
+        0,
+        2,
+        1,
+        1,
+        2
+      ],
+      "observation": "METRICS 0 2 1 1 2\nOUTPUT [84, 73]\nCOST 311 12162\nOK",
+      "native_steps": 311,
+      "native_arena_payload": 12162
+    },
+    {
+      "case": "Terminated-OtherRequest-StringId",
+      "backend": "hosted",
+      "initial": "Terminated",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "StringId",
+          "31",
+          "OtherRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "5449",
+      "output_hex": "5449",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7291 4959\nMETRICS 0 1 1\nOUTPUT [84, 73]\nOK"
+    },
+    {
+      "case": "Terminated-OtherRequest-StringId",
+      "backend": "native",
+      "initial": "Terminated",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "StringId",
+          "31",
+          "OtherRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4959,
+      "expected_hex": "5449",
+      "output_hex": "5449",
+      "metrics": [
+        0,
+        2,
+        1,
+        1,
+        2
+      ],
+      "observation": "METRICS 0 2 1 1 2\nOUTPUT [84, 73]\nCOST 311 12162\nOK",
+      "native_steps": 311,
+      "native_arena_payload": 12162
+    },
+    {
+      "case": "Terminated-Initialized",
+      "backend": "hosted",
+      "initial": "Terminated",
+      "projection": "full",
+      "events": [
+        [
+          "Notify",
+          "Initialized"
+        ]
+      ],
+      "core_nodes": 7000,
+      "payload_estimate": 4782,
+      "expected_hex": "5449",
+      "output_hex": "5449",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7000 4782\nMETRICS 0 1 1\nOUTPUT [84, 73]\nOK"
+    },
+    {
+      "case": "Terminated-Initialized",
+      "backend": "native",
+      "initial": "Terminated",
+      "projection": "full",
+      "events": [
+        [
+          "Notify",
+          "Initialized"
+        ]
+      ],
+      "core_nodes": 7000,
+      "payload_estimate": 4782,
+      "expected_hex": "5449",
+      "output_hex": "5449",
+      "metrics": [
+        0,
+        2,
+        1,
+        1,
+        2
+      ],
+      "observation": "METRICS 0 2 1 1 2\nOUTPUT [84, 73]\nCOST 306 11634\nOK",
+      "native_steps": 306,
+      "native_arena_payload": 11634
+    },
+    {
+      "case": "Terminated-Exit",
+      "backend": "hosted",
+      "initial": "Terminated",
+      "projection": "full",
+      "events": [
+        [
+          "Notify",
+          "Exit"
+        ]
+      ],
+      "core_nodes": 7000,
+      "payload_estimate": 4782,
+      "expected_hex": "5449",
+      "output_hex": "5449",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7000 4782\nMETRICS 0 1 1\nOUTPUT [84, 73]\nOK"
+    },
+    {
+      "case": "Terminated-Exit",
+      "backend": "native",
+      "initial": "Terminated",
+      "projection": "full",
+      "events": [
+        [
+          "Notify",
+          "Exit"
+        ]
+      ],
+      "core_nodes": 7000,
+      "payload_estimate": 4782,
+      "expected_hex": "5449",
+      "output_hex": "5449",
+      "metrics": [
+        0,
+        2,
+        1,
+        1,
+        2
+      ],
+      "observation": "METRICS 0 2 1 1 2\nOUTPUT [84, 73]\nCOST 308 11746\nOK",
+      "native_steps": 308,
+      "native_arena_payload": 11746
+    },
+    {
+      "case": "Terminated-OtherNotification",
+      "backend": "hosted",
+      "initial": "Terminated",
+      "projection": "full",
+      "events": [
+        [
+          "Notify",
+          "OtherNotification"
+        ]
+      ],
+      "core_nodes": 7000,
+      "payload_estimate": 4782,
+      "expected_hex": "5449",
+      "output_hex": "5449",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7000 4782\nMETRICS 0 1 1\nOUTPUT [84, 73]\nOK"
+    },
+    {
+      "case": "Terminated-OtherNotification",
+      "backend": "native",
+      "initial": "Terminated",
+      "projection": "full",
+      "events": [
+        [
+          "Notify",
+          "OtherNotification"
+        ]
+      ],
+      "core_nodes": 7000,
+      "payload_estimate": 4782,
+      "expected_hex": "5449",
+      "output_hex": "5449",
+      "metrics": [
+        0,
+        2,
+        1,
+        1,
+        2
+      ],
+      "observation": "METRICS 0 2 1 1 2\nOUTPUT [84, 73]\nCOST 279 10626\nOK",
+      "native_steps": 279,
+      "native_arena_payload": 10626
+    },
+    {
+      "case": "normal",
+      "backend": "hosted",
+      "initial": "Preinitialize",
+      "projection": "control",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "Initialize"
+        ],
+        [
+          "Notify",
+          "Initialized"
+        ],
+        [
+          "Request",
+          "StringId",
+          "31",
+          "ShutdownRequest"
+        ],
+        [
+          "Notify",
+          "Exit"
+        ]
+      ],
+      "core_nodes": 8101,
+      "payload_estimate": 5729,
+      "expected_hex": "415141524953514e545830",
+      "output_hex": "415141524953514e545830",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 8101 5729\nMETRICS 0 1 1\nOUTPUT [65, 81, 65, 82, 73, 83, 81, 78, 84, 88, 48]\nOK"
+    },
+    {
+      "case": "normal",
+      "backend": "native",
+      "initial": "Preinitialize",
+      "projection": "control",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "Initialize"
+        ],
+        [
+          "Notify",
+          "Initialized"
+        ],
+        [
+          "Request",
+          "StringId",
+          "31",
+          "ShutdownRequest"
+        ],
+        [
+          "Notify",
+          "Exit"
+        ]
+      ],
+      "core_nodes": 8101,
+      "payload_estimate": 5729,
+      "expected_hex": "415141524953514e545830",
+      "output_hex": "415141524953514e545830",
+      "metrics": [
+        0,
+        11,
+        1,
+        1,
+        11
+      ],
+      "observation": "METRICS 0 11 1 1 11\nOUTPUT [65, 81, 65, 82, 73, 83, 81, 78, 84, 88, 48]\nCOST 1204 45640\nOK",
+      "native_steps": 1204,
+      "native_arena_payload": 45640
+    },
+    {
+      "case": "initialize-then-unsupported",
+      "backend": "hosted",
+      "initial": "Preinitialize",
+      "projection": "control",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "Initialize"
+        ],
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "OtherRequest"
+        ]
+      ],
+      "core_nodes": 7511,
+      "payload_estimate": 5289,
+      "expected_hex": "4151414151452d3332363031",
+      "output_hex": "4151414151452d3332363031",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7511 5289\nMETRICS 0 1 1\nOUTPUT [65, 81, 65, 65, 81, 69, 45, 51, 50, 54, 48, 49]\nOK"
+    },
+    {
+      "case": "initialize-then-unsupported",
+      "backend": "native",
+      "initial": "Preinitialize",
+      "projection": "control",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "Initialize"
+        ],
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "OtherRequest"
+        ]
+      ],
+      "core_nodes": 7511,
+      "payload_estimate": 5289,
+      "expected_hex": "4151414151452d3332363031",
+      "output_hex": "4151414151452d3332363031",
+      "metrics": [
+        0,
+        12,
+        1,
+        1,
+        12
+      ],
+      "observation": "METRICS 0 12 1 1 12\nOUTPUT [65, 81, 65, 65, 81, 69, 45, 51, 50, 54, 48, 49]\nCOST 722 27410\nOK",
+      "native_steps": 722,
+      "native_arena_payload": 27410
+    },
+    {
+      "case": "shutdown-without-initialized",
+      "backend": "hosted",
+      "initial": "Preinitialize",
+      "projection": "control",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "Initialize"
+        ],
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "ShutdownRequest"
+        ],
+        [
+          "Notify",
+          "Initialized"
+        ],
+        [
+          "Notify",
+          "Exit"
+        ]
+      ],
+      "core_nodes": 8101,
+      "payload_estimate": 5729,
+      "expected_hex": "41514153514e5349545830",
+      "output_hex": "41514153514e5349545830",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 8101 5729\nMETRICS 0 1 1\nOUTPUT [65, 81, 65, 83, 81, 78, 83, 73, 84, 88, 48]\nOK"
+    },
+    {
+      "case": "shutdown-without-initialized",
+      "backend": "native",
+      "initial": "Preinitialize",
+      "projection": "control",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "Initialize"
+        ],
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "ShutdownRequest"
+        ],
+        [
+          "Notify",
+          "Initialized"
+        ],
+        [
+          "Notify",
+          "Exit"
+        ]
+      ],
+      "core_nodes": 8101,
+      "payload_estimate": 5729,
+      "expected_hex": "41514153514e5349545830",
+      "output_hex": "41514153514e5349545830",
+      "metrics": [
+        0,
+        11,
+        1,
+        1,
+        11
+      ],
+      "observation": "METRICS 0 11 1 1 11\nOUTPUT [65, 81, 65, 83, 81, 78, 83, 73, 84, 88, 48]\nCOST 1204 45639\nOK",
+      "native_steps": 1204,
+      "native_arena_payload": 45639
+    },
+    {
+      "case": "duplicate-initialize-await",
+      "backend": "hosted",
+      "initial": "Preinitialize",
+      "projection": "control",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "Initialize"
+        ],
+        [
+          "Request",
+          "StringId",
+          "31",
+          "Initialize"
+        ]
+      ],
+      "core_nodes": 7511,
+      "payload_estimate": 5289,
+      "expected_hex": "4151414151452d3332363030",
+      "output_hex": "4151414151452d3332363030",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7511 5289\nMETRICS 0 1 1\nOUTPUT [65, 81, 65, 65, 81, 69, 45, 51, 50, 54, 48, 48]\nOK"
+    },
+    {
+      "case": "duplicate-initialize-await",
+      "backend": "native",
+      "initial": "Preinitialize",
+      "projection": "control",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "Initialize"
+        ],
+        [
+          "Request",
+          "StringId",
+          "31",
+          "Initialize"
+        ]
+      ],
+      "core_nodes": 7511,
+      "payload_estimate": 5289,
+      "expected_hex": "4151414151452d3332363030",
+      "output_hex": "4151414151452d3332363030",
+      "metrics": [
+        0,
+        12,
+        1,
+        1,
+        12
+      ],
+      "observation": "METRICS 0 12 1 1 12\nOUTPUT [65, 81, 65, 65, 81, 69, 45, 51, 50, 54, 48, 48]\nCOST 722 27410\nOK",
+      "native_steps": 722,
+      "native_arena_payload": 27410
+    },
+    {
+      "case": "duplicate-initialize-running",
+      "backend": "hosted",
+      "initial": "Preinitialize",
+      "projection": "control",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "Initialize"
+        ],
+        [
+          "Notify",
+          "Initialized"
+        ],
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "Initialize"
+        ]
+      ],
+      "core_nodes": 7806,
+      "payload_estimate": 5509,
+      "expected_hex": "41514152495251452d3332363030",
+      "output_hex": "41514152495251452d3332363030",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7806 5509\nMETRICS 0 1 1\nOUTPUT [65, 81, 65, 82, 73, 82, 81, 69, 45, 51, 50, 54, 48, 48]\nOK"
+    },
+    {
+      "case": "duplicate-initialize-running",
+      "backend": "native",
+      "initial": "Preinitialize",
+      "projection": "control",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "Initialize"
+        ],
+        [
+          "Notify",
+          "Initialized"
+        ],
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "Initialize"
+        ]
+      ],
+      "core_nodes": 7806,
+      "payload_estimate": 5509,
+      "expected_hex": "41514152495251452d3332363030",
+      "output_hex": "41514152495251452d3332363030",
+      "metrics": [
+        0,
+        14,
+        1,
+        1,
+        14
+      ],
+      "observation": "METRICS 0 14 1 1 14\nOUTPUT [65, 81, 65, 82, 73, 82, 81, 69, 45, 51, 50, 54, 48, 48]\nCOST 965 36481\nOK",
+      "native_steps": 965,
+      "native_arena_payload": 36481
+    },
+    {
+      "case": "repeated-notifications",
+      "backend": "hosted",
+      "initial": "Preinitialize",
+      "projection": "control",
+      "events": [
+        [
+          "Notify",
+          "Initialized"
+        ],
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "Initialize"
+        ],
+        [
+          "Notify",
+          "Initialized"
+        ],
+        [
+          "Notify",
+          "Initialized"
+        ]
+      ],
+      "core_nodes": 7810,
+      "payload_estimate": 5552,
+      "expected_hex": "504941514152495249",
+      "output_hex": "504941514152495249",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7810 5552\nMETRICS 0 1 1\nOUTPUT [80, 73, 65, 81, 65, 82, 73, 82, 73]\nOK"
+    },
+    {
+      "case": "repeated-notifications",
+      "backend": "native",
+      "initial": "Preinitialize",
+      "projection": "control",
+      "events": [
+        [
+          "Notify",
+          "Initialized"
+        ],
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "Initialize"
+        ],
+        [
+          "Notify",
+          "Initialized"
+        ],
+        [
+          "Notify",
+          "Initialized"
+        ]
+      ],
+      "core_nodes": 7810,
+      "payload_estimate": 5552,
+      "expected_hex": "504941514152495249",
+      "output_hex": "504941514152495249",
+      "metrics": [
+        0,
+        9,
+        1,
+        1,
+        9
+      ],
+      "observation": "METRICS 0 9 1 1 9\nOUTPUT [80, 73, 65, 81, 65, 82, 73, 82, 73]\nCOST 1094 41295\nOK",
+      "native_steps": 1094,
+      "native_arena_payload": 41295
+    },
+    {
+      "case": "preinitialize-errors",
+      "backend": "hosted",
+      "initial": "Preinitialize",
+      "projection": "control",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "OtherRequest"
+        ],
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "ShutdownRequest"
+        ],
+        [
+          "Notify",
+          "OtherNotification"
+        ],
+        [
+          "Notify",
+          "Exit"
+        ]
+      ],
+      "core_nodes": 8101,
+      "payload_estimate": 5729,
+      "expected_hex": "5051452d33323030325051452d33323030325049545831",
+      "output_hex": "5051452d33323030325051452d33323030325049545831",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 8101 5729\nMETRICS 0 1 1\nOUTPUT [80, 81, 69, 45, 51, 50, 48, 48, 50, 80, 81, 69, 45, 51, 50, 48, 48, 50, 80, 73, 84, 88, 49]\nOK"
+    },
+    {
+      "case": "preinitialize-errors",
+      "backend": "native",
+      "initial": "Preinitialize",
+      "projection": "control",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "OtherRequest"
+        ],
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "ShutdownRequest"
+        ],
+        [
+          "Notify",
+          "OtherNotification"
+        ],
+        [
+          "Notify",
+          "Exit"
+        ]
+      ],
+      "core_nodes": 8101,
+      "payload_estimate": 5729,
+      "expected_hex": "5051452d33323030325051452d33323030325049545831",
+      "output_hex": "5051452d33323030325051452d33323030325049545831",
+      "metrics": [
+        0,
+        23,
+        1,
+        1,
+        23
+      ],
+      "observation": "METRICS 0 23 1 1 23\nOUTPUT [80, 81, 69, 45, 51, 50, 48, 48, 50, 80, 81, 69, 45, 51, 50, 48, 48, 50, 80, 73, 84, 88, 49]\nCOST 1215 45585\nOK",
+      "native_steps": 1215,
+      "native_arena_payload": 45585
+    },
+    {
+      "case": "exit-before-shutdown-await",
+      "backend": "hosted",
+      "initial": "Preinitialize",
+      "projection": "control",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "Initialize"
+        ],
+        [
+          "Notify",
+          "Exit"
+        ],
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "Initialize"
+        ],
+        [
+          "Notify",
+          "Exit"
+        ]
+      ],
+      "core_nodes": 8101,
+      "payload_estimate": 5729,
+      "expected_hex": "41514154583154495449",
+      "output_hex": "41514154583154495449",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 8101 5729\nMETRICS 0 1 1\nOUTPUT [65, 81, 65, 84, 88, 49, 84, 73, 84, 73]\nOK"
+    },
+    {
+      "case": "exit-before-shutdown-await",
+      "backend": "native",
+      "initial": "Preinitialize",
+      "projection": "control",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "Initialize"
+        ],
+        [
+          "Notify",
+          "Exit"
+        ],
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "Initialize"
+        ],
+        [
+          "Notify",
+          "Exit"
+        ]
+      ],
+      "core_nodes": 8101,
+      "payload_estimate": 5729,
+      "expected_hex": "41514154583154495449",
+      "output_hex": "41514154583154495449",
+      "metrics": [
+        0,
+        10,
+        1,
+        1,
+        10
+      ],
+      "observation": "METRICS 0 10 1 1 10\nOUTPUT [65, 81, 65, 84, 88, 49, 84, 73, 84, 73]\nCOST 1119 42561\nOK",
+      "native_steps": 1119,
+      "native_arena_payload": 42561
+    },
+    {
+      "case": "exit-before-shutdown-running",
+      "backend": "hosted",
+      "initial": "Preinitialize",
+      "projection": "control",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "Initialize"
+        ],
+        [
+          "Notify",
+          "Initialized"
+        ],
+        [
+          "Notify",
+          "Exit"
+        ],
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "ShutdownRequest"
+        ]
+      ],
+      "core_nodes": 8101,
+      "payload_estimate": 5729,
+      "expected_hex": "41514152495458315449",
+      "output_hex": "41514152495458315449",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 8101 5729\nMETRICS 0 1 1\nOUTPUT [65, 81, 65, 82, 73, 84, 88, 49, 84, 73]\nOK"
+    },
+    {
+      "case": "exit-before-shutdown-running",
+      "backend": "native",
+      "initial": "Preinitialize",
+      "projection": "control",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "Initialize"
+        ],
+        [
+          "Notify",
+          "Initialized"
+        ],
+        [
+          "Notify",
+          "Exit"
+        ],
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "ShutdownRequest"
+        ]
+      ],
+      "core_nodes": 8101,
+      "payload_estimate": 5729,
+      "expected_hex": "41514152495458315449",
+      "output_hex": "41514152495458315449",
+      "metrics": [
+        0,
+        10,
+        1,
+        1,
+        10
+      ],
+      "observation": "METRICS 0 10 1 1 10\nOUTPUT [65, 81, 65, 82, 73, 84, 88, 49, 84, 73]\nCOST 1117 42450\nOK",
+      "native_steps": 1117,
+      "native_arena_payload": 42450
+    },
+    {
+      "case": "await-is-not-readiness-gate",
+      "backend": "hosted",
+      "initial": "AwaitInitialized",
+      "projection": "control",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "OtherRequest"
+        ],
+        [
+          "Notify",
+          "Initialized"
+        ],
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "OtherRequest"
+        ]
+      ],
+      "core_nodes": 7806,
+      "payload_estimate": 5509,
+      "expected_hex": "4151452d333236303152495251452d3332363031",
+      "output_hex": "4151452d333236303152495251452d3332363031",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7806 5509\nMETRICS 0 1 1\nOUTPUT [65, 81, 69, 45, 51, 50, 54, 48, 49, 82, 73, 82, 81, 69, 45, 51, 50, 54, 48, 49]\nOK"
+    },
+    {
+      "case": "await-is-not-readiness-gate",
+      "backend": "native",
+      "initial": "AwaitInitialized",
+      "projection": "control",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "OtherRequest"
+        ],
+        [
+          "Notify",
+          "Initialized"
+        ],
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "OtherRequest"
+        ]
+      ],
+      "core_nodes": 7806,
+      "payload_estimate": 5509,
+      "expected_hex": "4151452d333236303152495251452d3332363031",
+      "output_hex": "4151452d333236303152495251452d3332363031",
+      "metrics": [
+        0,
+        20,
+        1,
+        1,
+        20
+      ],
+      "observation": "METRICS 0 20 1 1 20\nOUTPUT [65, 81, 69, 45, 51, 50, 54, 48, 49, 82, 73, 82, 81, 69, 45, 51, 50, 54, 48, 49]\nCOST 989 37123\nOK",
+      "native_steps": 989,
+      "native_arena_payload": 37123
+    },
+    {
+      "case": "post-shutdown-requests",
+      "backend": "hosted",
+      "initial": "Shutdown",
+      "projection": "control",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "Initialize"
+        ],
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "ShutdownRequest"
+        ],
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "OtherRequest"
+        ]
+      ],
+      "core_nodes": 8097,
+      "payload_estimate": 5686,
+      "expected_hex": "5351452d33323630305351452d33323630305351452d3332363030",
+      "output_hex": "5351452d33323630305351452d33323630305351452d3332363030",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 8097 5686\nMETRICS 0 1 1\nOUTPUT [83, 81, 69, 45, 51, 50, 54, 48, 48, 83, 81, 69, 45, 51, 50, 54, 48, 48, 83, 81, 69, 45, 51, 50, 54, 48, 48]\nOK"
+    },
+    {
+      "case": "post-shutdown-requests",
+      "backend": "native",
+      "initial": "Shutdown",
+      "projection": "control",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "Initialize"
+        ],
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "ShutdownRequest"
+        ],
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "OtherRequest"
+        ]
+      ],
+      "core_nodes": 8097,
+      "payload_estimate": 5686,
+      "expected_hex": "5351452d33323630305351452d33323630305351452d3332363030",
+      "output_hex": "5351452d33323630305351452d33323630305351452d3332363030",
+      "metrics": [
+        0,
+        27,
+        1,
+        1,
+        27
+      ],
+      "observation": "METRICS 0 27 1 1 27\nOUTPUT [83, 81, 69, 45, 51, 50, 54, 48, 48, 83, 81, 69, 45, 51, 50, 54, 48, 48, 83, 81, 69, 45, 51, 50, 54, 48, 48]\nCOST 1016 38688\nOK",
+      "native_steps": 1016,
+      "native_arena_payload": 38688
+    },
+    {
+      "case": "terminal-absorbs",
+      "backend": "hosted",
+      "initial": "Terminated",
+      "projection": "control",
+      "events": [
+        [
+          "Notify",
+          "Initialized"
+        ],
+        [
+          "Notify",
+          "OtherNotification"
+        ],
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "ShutdownRequest"
+        ],
+        [
+          "Notify",
+          "Exit"
+        ]
+      ],
+      "core_nodes": 7810,
+      "payload_estimate": 5552,
+      "expected_hex": "5449544954495449",
+      "output_hex": "5449544954495449",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7810 5552\nMETRICS 0 1 1\nOUTPUT [84, 73, 84, 73, 84, 73, 84, 73]\nOK"
+    },
+    {
+      "case": "terminal-absorbs",
+      "backend": "native",
+      "initial": "Terminated",
+      "projection": "control",
+      "events": [
+        [
+          "Notify",
+          "Initialized"
+        ],
+        [
+          "Notify",
+          "OtherNotification"
+        ],
+        [
+          "Request",
+          "NumericId",
+          "31",
+          "ShutdownRequest"
+        ],
+        [
+          "Notify",
+          "Exit"
+        ]
+      ],
+      "core_nodes": 7810,
+      "payload_estimate": 5552,
+      "expected_hex": "5449544954495449",
+      "output_hex": "5449544954495449",
+      "metrics": [
+        0,
+        8,
+        1,
+        1,
+        8
+      ],
+      "observation": "METRICS 0 8 1 1 8\nOUTPUT [84, 73, 84, 73, 84, 73, 84, 73]\nCOST 984 37322\nOK",
+      "native_steps": 984,
+      "native_arena_payload": 37322
+    },
+    {
+      "case": "opaque-NumericId-2d30",
+      "backend": "hosted",
+      "initial": "Running",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "2d30",
+          "OtherRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4960,
+      "expected_hex": "52514e022d30452d3332363031",
+      "output_hex": "52514e022d30452d3332363031",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7291 4960\nMETRICS 0 1 1\nOUTPUT [82, 81, 78, 2, 45, 48, 69, 45, 51, 50, 54, 48, 49]\nOK"
+    },
+    {
+      "case": "opaque-NumericId-2d30",
+      "backend": "native",
+      "initial": "Running",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "2d30",
+          "OtherRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4960,
+      "expected_hex": "52514e022d30452d3332363031",
+      "output_hex": "52514e022d30452d3332363031",
+      "metrics": [
+        0,
+        13,
+        1,
+        1,
+        13
+      ],
+      "observation": "METRICS 0 13 1 1 13\nOUTPUT [82, 81, 78, 2, 45, 48, 69, 45, 51, 50, 54, 48, 49]\nCOST 579 21388\nOK",
+      "native_steps": 579,
+      "native_arena_payload": 21388
+    },
+    {
+      "case": "opaque-NumericId-2d32313437343833363438",
+      "backend": "hosted",
+      "initial": "Running",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "2d32313437343833363438",
+          "OtherRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4969,
+      "expected_hex": "52514e0b2d32313437343833363438452d3332363031",
+      "output_hex": "52514e0b2d32313437343833363438452d3332363031",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7291 4969\nMETRICS 0 1 1\nOUTPUT [82, 81, 78, 11, 45, 50, 49, 52, 55, 52, 56, 51, 54, 52, 56, 69, 45, 51, 50, 54, 48, 49]\nOK"
+    },
+    {
+      "case": "opaque-NumericId-2d32313437343833363438",
+      "backend": "native",
+      "initial": "Running",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "2d32313437343833363438",
+          "OtherRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4969,
+      "expected_hex": "52514e0b2d32313437343833363438452d3332363031",
+      "output_hex": "52514e0b2d32313437343833363438452d3332363031",
+      "metrics": [
+        0,
+        22,
+        1,
+        1,
+        22
+      ],
+      "observation": "METRICS 0 22 1 1 22\nOUTPUT [82, 81, 78, 11, 45, 50, 49, 52, 55, 52, 56, 51, 54, 52, 56, 69, 45, 51, 50, 54, 48, 49]\nCOST 606 22297\nOK",
+      "native_steps": 606,
+      "native_arena_payload": 22297
+    },
+    {
+      "case": "opaque-NumericId-32313437343833363437",
+      "backend": "hosted",
+      "initial": "Running",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "32313437343833363437",
+          "OtherRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4968,
+      "expected_hex": "52514e0a32313437343833363437452d3332363031",
+      "output_hex": "52514e0a32313437343833363437452d3332363031",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7291 4968\nMETRICS 0 1 1\nOUTPUT [82, 81, 78, 10, 50, 49, 52, 55, 52, 56, 51, 54, 52, 55, 69, 45, 51, 50, 54, 48, 49]\nOK"
+    },
+    {
+      "case": "opaque-NumericId-32313437343833363437",
+      "backend": "native",
+      "initial": "Running",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "NumericId",
+          "32313437343833363437",
+          "OtherRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4968,
+      "expected_hex": "52514e0a32313437343833363437452d3332363031",
+      "output_hex": "52514e0a32313437343833363437452d3332363031",
+      "metrics": [
+        0,
+        21,
+        1,
+        1,
+        21
+      ],
+      "observation": "METRICS 0 21 1 1 21\nOUTPUT [82, 81, 78, 10, 50, 49, 52, 55, 52, 56, 51, 54, 52, 55, 69, 45, 51, 50, 54, 48, 49]\nCOST 603 22196\nOK",
+      "native_steps": 603,
+      "native_arena_payload": 22196
+    },
+    {
+      "case": "opaque-StringId-",
+      "backend": "hosted",
+      "initial": "Running",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "StringId",
+          "",
+          "OtherRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4958,
+      "expected_hex": "52515300452d3332363031",
+      "output_hex": "52515300452d3332363031",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7291 4958\nMETRICS 0 1 1\nOUTPUT [82, 81, 83, 0, 69, 45, 51, 50, 54, 48, 49]\nOK"
+    },
+    {
+      "case": "opaque-StringId-",
+      "backend": "native",
+      "initial": "Running",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "StringId",
+          "",
+          "OtherRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4958,
+      "expected_hex": "52515300452d3332363031",
+      "output_hex": "52515300452d3332363031",
+      "metrics": [
+        0,
+        11,
+        1,
+        1,
+        11
+      ],
+      "observation": "METRICS 0 11 1 1 11\nOUTPUT [82, 81, 83, 0, 69, 45, 51, 50, 54, 48, 49]\nCOST 573 21186\nOK",
+      "native_steps": 573,
+      "native_arena_payload": 21186
+    },
+    {
+      "case": "opaque-StringId-71756f7465225c0a0d09",
+      "backend": "hosted",
+      "initial": "Running",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "StringId",
+          "71756f7465225c0a0d09",
+          "OtherRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4968,
+      "expected_hex": "5251530a71756f7465225c0a0d09452d3332363031",
+      "output_hex": "5251530a71756f7465225c0a0d09452d3332363031",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7291 4968\nMETRICS 0 1 1\nOUTPUT [82, 81, 83, 10, 113, 117, 111, 116, 101, 34, 92, 10, 13, 9, 69, 45, 51, 50, 54, 48, 49]\nOK"
+    },
+    {
+      "case": "opaque-StringId-71756f7465225c0a0d09",
+      "backend": "native",
+      "initial": "Running",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "StringId",
+          "71756f7465225c0a0d09",
+          "OtherRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4968,
+      "expected_hex": "5251530a71756f7465225c0a0d09452d3332363031",
+      "output_hex": "5251530a71756f7465225c0a0d09452d3332363031",
+      "metrics": [
+        0,
+        21,
+        1,
+        1,
+        21
+      ],
+      "observation": "METRICS 0 21 1 1 21\nOUTPUT [82, 81, 83, 10, 113, 117, 111, 116, 101, 34, 92, 10, 13, 9, 69, 45, 51, 50, 54, 48, 49]\nCOST 603 22196\nOK",
+      "native_steps": 603,
+      "native_arena_payload": 22196
+    },
+    {
+      "case": "opaque-StringId-610062",
+      "backend": "hosted",
+      "initial": "Running",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "StringId",
+          "610062",
+          "OtherRequest"
+        ]
+      ],
+      "core_nodes": 7344,
+      "payload_estimate": 4960,
+      "expected_hex": "52515303610062452d3332363031",
+      "output_hex": "52515303610062452d3332363031",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7344 4960\nMETRICS 0 1 1\nOUTPUT [82, 81, 83, 3, 97, 0, 98, 69, 45, 51, 50, 54, 48, 49]\nOK"
+    },
+    {
+      "case": "opaque-StringId-610062",
+      "backend": "native",
+      "initial": "Running",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "StringId",
+          "610062",
+          "OtherRequest"
+        ]
+      ],
+      "core_nodes": 7344,
+      "payload_estimate": 4960,
+      "expected_hex": "52515303610062452d3332363031",
+      "output_hex": "52515303610062452d3332363031",
+      "metrics": [
+        0,
+        14,
+        1,
+        1,
+        14
+      ],
+      "observation": "METRICS 0 14 1 1 14\nOUTPUT [82, 81, 83, 3, 97, 0, 98, 69, 45, 51, 50, 54, 48, 49]\nCOST 641 23687\nOK",
+      "native_steps": 641,
+      "native_arena_payload": 23687
+    },
+    {
+      "case": "opaque-StringId-c3a9f09f9880",
+      "backend": "hosted",
+      "initial": "Running",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "StringId",
+          "c3a9f09f9880",
+          "OtherRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4960,
+      "expected_hex": "52515306c3a9f09f9880452d3332363031",
+      "output_hex": "52515306c3a9f09f9880452d3332363031",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7291 4960\nMETRICS 0 1 1\nOUTPUT [82, 81, 83, 6, 195, 169, 240, 159, 152, 128, 69, 45, 51, 50, 54, 48, 49]\nOK"
+    },
+    {
+      "case": "opaque-StringId-c3a9f09f9880",
+      "backend": "native",
+      "initial": "Running",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "StringId",
+          "c3a9f09f9880",
+          "OtherRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 4960,
+      "expected_hex": "52515306c3a9f09f9880452d3332363031",
+      "output_hex": "52515306c3a9f09f9880452d3332363031",
+      "metrics": [
+        0,
+        17,
+        1,
+        1,
+        17
+      ],
+      "observation": "METRICS 0 17 1 1 17\nOUTPUT [82, 81, 83, 6, 195, 169, 240, 159, 152, 128, 69, 45, 51, 50, 54, 48, 49]\nCOST 591 21792\nOK",
+      "native_steps": 591,
+      "native_arena_payload": 21792
+    },
+    {
+      "case": "opaque-StringId-78787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878",
+      "backend": "hosted",
+      "initial": "Running",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "StringId",
+          "78787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878",
+          "OtherRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 5022,
+      "expected_hex": "5251534078787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878452d3332363031",
+      "output_hex": "5251534078787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878452d3332363031",
+      "metrics": [
+        0,
+        1,
+        1
+      ],
+      "observation": "SIZE 7291 5022\nMETRICS 0 1 1\nOUTPUT [82, 81, 83, 64, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 69, 45, 51, 50, 54, 48, 49]\nOK"
+    },
+    {
+      "case": "opaque-StringId-78787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878",
+      "backend": "native",
+      "initial": "Running",
+      "projection": "full",
+      "events": [
+        [
+          "Request",
+          "StringId",
+          "78787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878",
+          "OtherRequest"
+        ]
+      ],
+      "core_nodes": 7291,
+      "payload_estimate": 5022,
+      "expected_hex": "5251534078787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878452d3332363031",
+      "output_hex": "5251534078787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878452d3332363031",
+      "metrics": [
+        0,
+        75,
+        1,
+        1,
+        75
+      ],
+      "observation": "METRICS 0 75 1 1 75\nOUTPUT [82, 81, 83, 64, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 69, 45, 51, 50, 54, 48, 49]\nCOST 765 27650\nOK",
+      "native_steps": 765,
+      "native_arena_payload": 27650
+    },
+    {
+      "case": "pure-api-admission",
+      "core_nodes": 4359,
+      "payload_estimate": 3209
+    },
+    {
+      "case": "actual-no-output-session",
+      "backend": "hosted",
+      "metrics": [
+        0,
+        0,
+        1
+      ],
+      "core_nodes": 7033,
+      "payload_estimate": 4828,
+      "observation": "SIZE 7033 4828\nMETRICS 0 0 1\nOUTPUT []\nOK"
+    },
+    {
+      "case": "actual-no-output-session",
+      "backend": "native",
+      "metrics": [
+        0,
+        0,
+        1,
+        0,
+        0
+      ],
+      "core_nodes": 7033,
+      "payload_estimate": 4828,
+      "observation": "METRICS 0 0 1 0 0\nOUTPUT []\nCOST 558 20880\nOK"
+    }
+  ],
+  "inputs_sha256": {
+    "tools/fixtures/lsp-lifecycle/LSP.fib": "c4a1423a82c87f9b7c973b9864ba3dd9755bb4eea93e3155452fd86a629beb03",
+    "tools/fixtures/lsp-lifecycle/Transition.fib": "b06b574ef5cd38851ddd333c8a48ec7065acb0a45dc6ee0fe841e13cf766b04e",
+    "tools/fixtures/lsp-lifecycle/Observation.fib": "46f05f20bfa2a305bad3fdef1e102cda546cbe2f69fa76ec9754cb6478fef0bd",
+    "tools/fixtures/lsp-lifecycle/ControlObservation.fib": "6224bf08c75ef4a86f817676a0c28d8acac40941c791fe6b512f4fd2516d3f9d",
+    "tools/fixtures/lsp-lifecycle/NoOutput.fib": "5c9bd1d672acdd33a7b917377f48fc1497e31f5502e343cf8a1e563d4c54c023",
+    "tools/fixtures/lsp-lifecycle/Harness.idr": "a6930bca08c926f45cdb1e1a26b7db9361f2c66737e3ba6332c1b94e22e15e71",
+    "tools/fixtures/lsp-lifecycle/SourceHarness.c": "7c7802847a9ce8f254c63e418073b5bbefedc8cedcf0ca2efae2a97580fe6529",
+    "tools/fixtures/lsp-lifecycle/README.md": "5ffe693144f74e2164fc5af72d5da44c8922c1f22998ffb2ef4ff7584897ffc6",
+    "tools/test_lsp_lifecycle.py": "381746e611e0a82bc451389c22e7846a950fef88802c4f99701f9a81e2e1ecc5"
+  }
+}

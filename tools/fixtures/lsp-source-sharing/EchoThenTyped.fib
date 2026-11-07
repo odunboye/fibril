@@ -1,0 +1,14 @@
+module EchoThenTyped
+import Protocol.Frame
+import LSP
+import Observation
+
+-- ADMISSION PROBE ONLY: echo has no body continuation. This fixed typed event
+-- is independent of the echoed bytes; this is NOT frame-body JSON routing.
+main : IO Unit
+main = primBind Unit Unit Protocol.Frame.echoFrame (\(1 done : Unit) => case done of () =>
+  observeStep (IO Unit)
+    (transition Preinitialize (Request (RequestDetails (StringId primBytesEmpty) Initialize)))
+    (\(state : State) => \(1 encoded : Bytes) =>
+      if primBytesLengthIs (Succ (Succ (Succ (Succ (Succ Zero))))) encoded
+        then primPure Unit () else primRejectBytes))

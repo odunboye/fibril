@@ -371,6 +371,21 @@ main = first Zero
             parity.write_text(parity.read_text().replace('export\n', ''))
             self.assertNotEqual(run('check', *args).returncode, 0)
 
+    def test_pure_bytes_check_and_eval(self):
+        path = 'examples/core/bytes-pure.fib'
+        checked = run('check', path)
+        self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
+        evaluated = run('eval', path)
+        self.assertEqual(evaluated.returncode, 0, evaluated.stdout + evaluated.stderr)
+        self.assertIn('Normal: (Succ (Succ Zero))', evaluated.stdout)
+
+    def test_bytes_cannot_cross_text_write_boundary(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'bytes.fib'
+            path.write_text('main : IO Unit\nmain = putStrLn (primBytesOctetMod256 Zero)\n')
+            for command in ('check', 'run', 'run-interactive', 'emit-c', 'emit-c-interactive'):
+                result = run(command, str(path))
+                self.assertNotEqual(result.returncode, 0, (command, result.stdout, result.stderr))
 
     def test_timeout_cleans_up_wrapper_children_with_open_pipes(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -5089,8 +5104,9 @@ main = first Zero
                 self.assertEqual(local["range"]["start"],
                                  point(sources[entry], sources[entry].index("Text :")))
                 for token, skip in (("Text.Greeting.greet", 0), ("Text.Greeting.greet", len("Text")),
-                                    ('"local"', 1), ("import Text", 7)):
-                    self.assertIsNone(query(entry, sources[entry], token, skip))
+                                    ("import Text", 7)):
+                    expect(query(entry, sources[entry], token, skip), library, "Text.Greeting")
+                self.assertIsNone(query(entry, sources[entry], '"local"', 1))
                 self.assertIsNone(query(library, sources[library], "putStrLn"))
                 outside = root / "Unreachable.fib"
                 outside.write_text("module Unreachable\n", encoding="utf-8")

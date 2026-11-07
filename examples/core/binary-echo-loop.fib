@@ -1,0 +1,42 @@
+-- Explicitly bounded sequence: at most 16 two-byte chunks; EOF reads still
+-- spend their declared capacity. Output is flushed on successful completion.
+echo : IO Unit
+echo = bind ByteReadResult Unit
+  (primReadBytes
+    (Succ
+      (Succ Zero)))
+  (\(1 result : ByteReadResult) =>
+    primByteReadCase
+      (IO Unit) result
+      (pure Unit
+        ())
+      (\(1 bytes : Bytes) =>
+        primWriteBytes bytes))
+
+step : (0 n : Nat) -> (1 rest : IO Unit) -> IO Unit
+step = \(0 n : Nat) => \(1 rest : IO Unit) => do
+  rest
+  echo
+
+main : IO Unit
+main = natRec
+  (\(0 n : Nat) =>
+    IO Unit)
+  (pure Unit
+    ()) step
+  (Succ
+    (Succ
+      (Succ
+        (Succ
+          (Succ
+            (Succ
+              (Succ
+                (Succ
+                  (Succ
+                    (Succ
+                      (Succ
+                        (Succ
+                          (Succ
+                            (Succ
+                              (Succ
+                                (Succ Zero))))))))))))))))

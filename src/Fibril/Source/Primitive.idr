@@ -4,8 +4,12 @@ module Fibril.Source.Primitive
 import Data.Fin
 import Fibril.Core.Quantity
 import Fibril.Core.Term
+import Fibril.Data.Bytes
 import Fibril.Source.Global
 import Fibril.Source.Primitive.Input
+import Fibril.Source.Primitive.Bytes
+import Fibril.Source.Primitive.UTF8
+import Fibril.Source.Primitive.Binary
 import Fibril.Source.Primitive.Resource
 
 %default total
@@ -76,8 +80,23 @@ natRecWithValue = Lambda Erased natMotive
 public export
 primitiveGlobals : List GlobalDefinition
 primitiveGlobals =
-  resourcePrimitiveGlobals ++ inputPrimitiveGlobals ++
-  [ GlobalWithQuantity Erased "Nat" (Universe 0) NatType
+  binaryPrimitiveGlobals ++ utf8PrimitiveGlobals ++ bytePrimitiveGlobals ++ resourcePrimitiveGlobals ++ inputPrimitiveGlobals ++
+  [ GlobalWithQuantity Erased "Bytes" (Universe 0) BytesType
+  , Global "primBytesEmpty" BytesType (BytesValue empty)
+  , Global "primBytesOctetMod256" (Pi Linear NatType BytesType)
+      (Lambda Linear NatType (BytesOctet (Variable FZ)))
+  , Global "primBytesShare" (Pi Linear BytesType (BoxType Unrestricted BytesType))
+      (Lambda Linear BytesType (BytesShare (Variable FZ)))
+  , Global "primBytesLength" (Pi Linear BytesType NatType)
+      (Lambda Linear BytesType (BytesLength (Variable FZ)))
+  , Global "primBytesAppend" (Pi Linear BytesType (Pi Linear BytesType BytesType))
+      (Lambda Linear BytesType (Lambda Linear BytesType
+        (BytesAppend (Variable (FS FZ)) (Variable FZ))))
+  -- Scoped sub-arena; B is a Type0 first-order result that cannot mention the region.
+  , Global "primWithRegion" (Pi Erased (Universe 0) (Pi Linear (Pi Erased (Universe 0) (Variable (FS FZ))) (Variable (FS FZ))))
+      (Lambda Erased (Universe 0) (Lambda Linear (Pi Erased (Universe 0) (Variable (FS FZ)))
+        (WithRegion (Variable (FS FZ)) (Variable FZ))))
+  , GlobalWithQuantity Erased "Nat" (Universe 0) NatType
   , Global "Zero" NatType NatZero
   , Global "Succ" (Pi Linear NatType NatType) (Lambda Linear NatType (NatSucc (Variable FZ)))
   , Global "natRec" natRecType natRecValue

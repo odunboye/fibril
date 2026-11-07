@@ -1,0 +1,7 @@
+module Main
+import Protocol.JSON
+
+main : IO Unit
+main = bind ByteReadResult Unit (primReadBytes (Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ Zero))))))))))))))))) (\(1 result : ByteReadResult) => primByteReadCase (IO Unit) result primRejectBytes (\(1 input : Bytes) => case parseJSON input of
+  InvalidJSON => primWriteBytes (primBytesOctetMod256 Zero)
+  JSONTokens tokens => primWriteBytes tokens))

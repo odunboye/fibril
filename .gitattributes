@@ -1,0 +1,2 @@
+# Canonical protocol fixture bytes must not be newline-normalized.
+tools/fixtures/lsp-workload/*.frame -text whitespace=cr-at-eol

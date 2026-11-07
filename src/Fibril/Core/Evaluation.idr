@@ -8,17 +8,12 @@ import Fibril.Core.WeakHead
 
 %default total
 
-||| Head reduction that also unfolds Fix. Only for closed, checked runtime terms:
-||| it never enters binders, so an open term stays stuck instead of unfolding forever.
-public export
-weakHeadRun : Nat -> Term n -> HeadResult n
-weakHeadRun fuel term =
-  case stepHeadWith True term of
-    Nothing => HeadForm term
-    Just next =>
-      case fuel of
-        Z => HeadLimit term
-        S rest => weakHeadRun rest next
+-- Unfold the innermost Fix applied in an application spine:
+-- Apply (Apply fix a) b  becomes  Apply (Apply body[self := fix] a) b.
+unfoldSpine : Term n -> Maybe (Term n)
+unfoldSpine (Apply fix@(Fix _ body) argument) = Just (Apply (instantiateTerm fix body) argument)
+unfoldSpine (Apply function argument) = map (\next => Apply next argument) (unfoldSpine function)
+unfoldSpine _ = Nothing
 
 spineFix : Term n -> Bool
 spineFix (Fix _ _) = True
@@ -34,7 +29,7 @@ orElse Nothing other = other
 -- branch has been instantiated. Positions not listed here are left alone.
 unfoldOne : Term 0 -> Maybe (Term 0)
 unfoldOne (Apply function argument) =
-  if spineFix function then stepHeadWith True (Apply function argument)
+  if spineFix function then unfoldSpine (Apply function argument)
   else orElse (map (\f => Apply f argument) (unfoldOne function))
               (map (Apply function) (unfoldOne argument))
 unfoldOne (NatSucc x) = map NatSucc (unfoldOne x)
@@ -83,3 +78,16 @@ normalizeRun fuel term =
       case fuel of
         Z => OutOfFuel term
         S rest => normalizeRun rest next
+
+||| Head reduction that also unfolds Fix: the ordinary head step first, and a Fix
+||| application only once that is stuck. Only for closed, checked runtime terms:
+||| neither step enters binders, so an open term stays stuck instead of unfolding forever.
+public export
+weakHeadRun : Nat -> Term 0 -> HeadResult 0
+weakHeadRun fuel term =
+  case orElse (stepHead term) (unfoldOne term) of
+    Nothing => HeadForm term
+    Just next =>
+      case fuel of
+        Z => HeadLimit term
+        S rest => weakHeadRun rest next

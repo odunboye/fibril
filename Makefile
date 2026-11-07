@@ -1,7 +1,7 @@
 PACK ?= pack
 IDRIS2 ?= idris2
 
-.PHONY: prelude prelude-check build test io-test io-hosted-test io-runtime-test io-resource-runtime-test io-resource-emitter-test io-emitter-test io-interactive-test io-cli-test native-test editor-test examples bench bench-smoke python-embed-test docs handbook serve-docs clean
+.PHONY: prelude prelude-check build unit-test test io-test io-hosted-test io-runtime-test io-resource-runtime-test io-resource-emitter-test io-emitter-test io-interactive-test io-binary-test io-binary-bench io-cli-test native-test native-pair-test bytes-native-test binary-source-test binary-iteration-test binary-count-test binary-runtime-test binary-scale-test binary-number-test binary-number-bench json-oracle-test json-sharing-probe json-iteration-test lsp-lifecycle-test framing-test header-iteration-test editor-test lsp-test examples bench bench-smoke python-embed-test docs handbook serve-docs clean
 prelude:
 	python3 tools/embed_prelude.py
 
@@ -11,15 +11,38 @@ prelude-check:
 build: prelude-check
 	$(PACK) build fibril
 
-test: build
-	$(PACK) test fibril
+# A private package prefix avoids stale/shared Fibril installs across worktrees.
+# CLI-consuming suites wait for this staging phase.
+unit-test: build
+	PACK="$(PACK)" IDRIS2="$(IDRIS2)" python3 tools/test_units.py
+
+test: unit-test
 	python3 tools/test_cli.py
 	python3 tools/test_pattern_clauses.py
 	CC="$(CC)" python3 tools/test_native.py
+	IDRIS2="$(IDRIS2)" CC="$(CC)" python3 tools/test_native_pairs.py
+	CC="$(CC)" python3 tools/test_bytes_native.py
+	CC="$(CC)" python3 tools/test_binary_source.py
+	CC="$(CC)" python3 tools/test_binary_native.py
+	IDRIS2="$(IDRIS2)" CC="$(CC)" python3 tools/test_binary_count.py
+	IDRIS2="$(IDRIS2)" CC="$(CC)" python3 tools/test_binary_iteration.py
+	CC="$(CC)" python3 tools/test_binary_scalability.py
+	python3 tools/test_binary_numbers.py
+	python3 tools/test_json_oracle.py
+	IDRIS2="$(IDRIS2)" CC="$(CC)" python3 tools/test_json_iteration.py
+	CC="$(CC)" python3 tools/test_framing.py
 	CC="$(CC)" python3 tools/test_io_cli.py
+	python3 tools/test_lsp.py
 
 # Each suite builds in its own temporary directory, safe with make -j8.
-io-test: io-hosted-test io-runtime-test io-resource-runtime-test io-resource-emitter-test io-emitter-test io-interactive-test
+io-test: io-hosted-test io-runtime-test io-resource-runtime-test io-resource-emitter-test io-emitter-test io-interactive-test io-binary-test
+
+io-binary-test:
+	IDRIS2="$(IDRIS2)" CC="$(CC)" python3 tools/test_io_binary.py
+
+# Measurement only: validates output but never asserts timing thresholds.
+io-binary-bench:
+	IDRIS2="$(IDRIS2)" CC="$(CC)" python3 tools/bench_binary.py
 
 io-hosted-test:
 	IDRIS2="$(IDRIS2)" python3 tools/test_io_hosted.py
@@ -39,14 +62,65 @@ io-emitter-test:
 io-interactive-test:
 	IDRIS2="$(IDRIS2)" CC="$(CC)" python3 tools/test_io_interactive.py
 
-io-cli-test: build
+io-cli-test: unit-test
 	CC="$(CC)" python3 tools/test_io_cli.py
 
-native-test: build
+native-test: unit-test
 	CC="$(CC)" python3 tools/test_native.py
+	IDRIS2="$(IDRIS2)" CC="$(CC)" python3 tools/test_native_pairs.py
+	CC="$(CC)" python3 tools/test_bytes_native.py
+
+native-pair-test: unit-test
+	IDRIS2="$(IDRIS2)" CC="$(CC)" python3 tools/test_native_pairs.py
+
+binary-scale-test: unit-test
+	CC="$(CC)" python3 tools/test_binary_scalability.py
+
+json-oracle-test:
+	python3 tools/test_json_oracle.py
+
+json-sharing-probe: build
+	CC="$(CC)" python3 tools/observe_json_combined.py
+
+# Source-only 64-byte diagnostic, with independent oracle and private observers.
+json-iteration-test: build
+	IDRIS2="$(IDRIS2)" CC="$(CC)" python3 tools/test_json_iteration.py
+
+# Typed-event source-only lifecycle prototype, not a wire LSP implementation.
+lsp-lifecycle-test: build
+	IDRIS2="$(IDRIS2)" CC="$(CC)" python3 tools/test_lsp_lifecycle.py
+
+binary-number-test: unit-test
+	python3 tools/test_binary_numbers.py
+
+binary-number-bench: unit-test
+	CC="$(CC)" python3 tools/bench_binary_numbers.py
+
+framing-test: unit-test
+	CC="$(CC)" python3 tools/test_framing.py
+
+# Diagnostic source/observer coverage, not generalized framing acceptance.
+header-iteration-test: build
+	CC="$(CC)" python3 tools/test_header_iteration.py
+
+# Builds/installs only the worktree package into build/test-prefix.
+binary-count-test: build
+	IDRIS2="$(IDRIS2)" CC="$(CC)" python3 tools/test_binary_count.py
+
+binary-iteration-test: binary-count-test
+	IDRIS2="$(IDRIS2)" CC="$(CC)" python3 tools/test_binary_iteration.py
+
+binary-runtime-test:
+	CC="$(CC)" python3 tools/test_binary_native.py
+
+binary-source-test: unit-test
+	CC="$(CC)" python3 tools/test_binary_source.py
+	CC="$(CC)" python3 tools/test_binary_native.py
+
+bytes-native-test: unit-test
+	CC="$(CC)" python3 tools/test_bytes_native.py
 
 examples: build
-	./build/exec/fibril run --source-dir examples/modules/general-recursion examples/modules/general-recursion/Half.fib
 	$(PACK) run fibril-examples
 	./build/exec/fibril manifest examples/manifests/mailer/fibril.yaml
 	./build/exec/fibril manifest examples/manifests/email-core/fibril.yaml
@@ -59,6 +133,15 @@ examples: build
 	./build/exec/fibril run --package examples/packages/sum-client/fibril.yaml
 	./build/exec/fibril check --package examples/packages/request-api/fibril.yaml
 	./build/exec/fibril test --package examples/packages/request-api/fibril.yaml
+	./build/exec/fibril check --source-dir examples/modules/binary-frame examples/modules/binary-frame/Main.fib
+	./build/exec/fibril check --source-dir examples/modules/binary-frame examples/modules/binary-frame/Two.fib
+	./build/exec/fibril check examples/core/binary-echo.fib
+	./build/exec/fibril check examples/core/binary-echo-loop.fib
+	./build/exec/fibril run examples/core/utf8-bytes.fib
+	./build/exec/fibril run examples/core/bytes-ranges.fib
+	./build/exec/fibril run examples/core/bytes-native.fib
+	./build/exec/fibril check examples/core/bytes-pure.fib
+	./build/exec/fibril eval examples/core/bytes-pure.fib
 	./build/exec/fibril check examples/core/identity.fib
 	./build/exec/fibril check examples/core/identity-unicode.fib
 	./build/exec/fibril check --erased examples/core/identity-type.fib
@@ -151,14 +234,20 @@ bench-smoke:
 	python3 tools/benchmark.py --quick
 	python3 tools/test_benchmark.py
 
-# Editor integration invokes the CLI; do not race its linker under make -j8.
-editor-test: build
+lsp-test: unit-test
+	python3 tools/test_lsp.py
+
+# Wait for all compiler build/installation work before invoking editor clients.
+editor-test: unit-test
 	python3 tools/test_editor.py
 
 python-embed-test:
 	python3 tools/test_python_embed.py
 
-docs: build
+docs: unit-test
+	IDRIS2_PACKAGE_PATH="$$( $(PACK) --log-level=silence package-path )" \
+	IDRIS2_LIBS="$$( $(PACK) --log-level=silence libs-path )" \
+	IDRIS2_DATA="$$( $(PACK) --log-level=silence data-path )" \
 	$(IDRIS2) --mkdoc fibril.ipkg
 
 handbook: docs
