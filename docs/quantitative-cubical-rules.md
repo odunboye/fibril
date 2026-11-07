@@ -633,3 +633,21 @@ also checks dimensions and syntax before enumerating assignments. Unfolding and
 comparison fail closed on exhaustion. These caps and fuel do not claim a shared
 total-work bound. There is no general soundness proof, runtime authority, or
 core integration.
+
+### Checked squares (experimental)
+
+`Fibril.Cubical.Logical.Square` checks the explicit nondependent square
+fragment over the telescope's abstract A. A body has two bound dimensions
+(newest `j`, then `i`); each of its four supplied edges is an A-term abstracted
+in the other dimension. The checker weakens each edge under the missing binder
+and uses face-restricted conversion to check it against the body on that face.
+The opaque `CheckedSquare` is indexed by the exact telescope, body and edges.
+It is not an arbitrary higher-path judgment: edges are first-order terms, there
+are no path-valued variables, general nested applications, substitution API for
+checked squares, dependent path types, or integration with the trusted core.
+Rejection may mean conversion is unsupported. Before weakening, one shared
+admission allowance counts the complete telescope, body and all four edges,
+capped at 16 nodes or the caller allowance, whichever is smaller. This 16-node
+cap admits the meet square (13 nodes); each of the four subsequent conversions
+independently applies its own 12-node telescope/face/term cap and fuel. These
+are not a total-work budget.

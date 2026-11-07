@@ -2,6 +2,7 @@ module Tests.Cubical.OpenPath
 
 import Data.Fin
 import Data.Vect
+import Fibril.Cubical.Logical.Square
 import Fibril.Cubical.Logical.Telescope
 import Fibril.Cubical.Logical.PathContext
 import Fibril.Cubical.Logical.OpenPath
@@ -70,7 +71,52 @@ preflightReference fuel replacement input =
 export
 checks : List (String, Bool)
 checks =
-  [ ("restricted telescope follows open endpoint chains",
+  [ ("checked square has four genuine edges",
+      let ctx : Telescope 2 1 = Extend Empty (Tvar FZ) (Tvar (FS FZ))
+          body : Term 2 1 2 = Tapp FZ (Meet (Var FZ) (Var (FS FZ)))
+          edge : Term 2 1 1 = Tapp FZ (Var FZ)
+          zero : Term 2 1 1 = Tvar FZ
+          wrong : Term 2 1 1 = Tvar (FS FZ) in
+      accepted (checkSquare 13 ctx body zero edge zero edge) &&
+      exhausted (checkSquare 12 ctx body zero edge zero edge) &&
+      rejected (checkSquare 16 ctx body wrong edge zero edge) &&
+      rejected (checkSquare 16 ctx body zero wrong zero edge) &&
+      rejected (checkSquare 16 ctx body zero edge wrong edge) &&
+      rejected (checkSquare 16 ctx body zero edge zero wrong) &&
+      exhausted (checkSquare 2 ctx body zero edge zero edge) &&
+      case checkBoundSquare 16 ctx body zero edge zero edge of
+        Right _ => True
+        Left _ => False)
+  , ("square edges retain ambient dimensions under both binders",
+      let ctx : Telescope 2 1 = Extend Empty (Tvar FZ) (Tvar (FS FZ))
+          body : Term 2 1 3 = Tapp FZ (Var (FS (FS FZ)))
+          edge : Term 2 1 2 = Tapp FZ (Var (FS FZ))
+          captured : Term 2 1 2 = Tapp FZ (Var FZ) in
+      accepted (checkSquare 16 ctx body edge edge edge edge) &&
+      rejected (checkSquare 16 ctx body captured edge edge edge) &&
+      rejected (checkSquare 16 ctx body edge edge captured edge))
+  , ("square admission shares its budget across every input",
+      let ctx : Telescope 1 0 = Empty
+          body : Term 1 0 2 = Tvar FZ
+          edge : Term 1 0 1 = Tvar FZ in
+      exhausted (checkSquare 4 ctx body edge edge edge edge) &&
+      accepted (checkSquare 5 ctx body edge edge edge edge))
+  , ("asymmetric square distinguishes i and j edges",
+      let ctx : Telescope 2 1 = Extend Empty (Tvar FZ) (Tvar (FS FZ))
+          body : Term 2 1 2 = Tapp FZ (Var (FS FZ))
+          edge : Term 2 1 1 = Tapp FZ (Var FZ)
+          left : Term 2 1 1 = Tvar FZ
+          right : Term 2 1 1 = Tvar (FS FZ) in
+      accepted (checkSquare 12 ctx body left right edge edge) &&
+      rejected (checkSquare 12 ctx body edge right left edge) &&
+      rejected (checkSquare 12 ctx body left edge edge right))
+  , ("square does not assume excluded middle",
+      let ctx : Telescope 2 1 = Extend Empty (Tvar FZ) (Tvar (FS FZ))
+          i : ScopedInterval 2 = Var FZ
+          body : Term 2 1 2 = Tapp FZ (Meet i (Reverse i))
+          zero : Term 2 1 1 = Tvar FZ in
+      rejected (checkSquare 16 ctx body zero zero zero zero))
+  , ("restricted telescope follows open endpoint chains",
       let ctx : Telescope 2 2 = Extend (Extend Empty (Tvar FZ) (Tvar (FS FZ)))
                                          (Tapp FZ Zero) (Tapp FZ One)
           face : Restriction 1 = Under (SEndpoint FZ False) in

@@ -83,7 +83,7 @@ if ! grep -q 'RuntimeInterface.Admitted is private' "$tmp/forge-interface.log"; 
   exit 1
 fi
 echo 'Runtime interface opacity negative test passed.'
-for fixture in PathCapturesCoreVariable PathEscapesDimension OpenPathDimensionEscape OpenPathTermEscape ContextPathEscape ContextEndpointEscape ContextDimensionEscape ContextTermEscape ContextMappingEscape TelescopeCycle TelescopeDimensionEscape TelescopePathEscape TelescopeTermEscape; do
+for fixture in PathCapturesCoreVariable PathEscapesDimension OpenPathDimensionEscape OpenPathTermEscape ContextPathEscape ContextEndpointEscape ContextDimensionEscape ContextTermEscape ContextMappingEscape TelescopeCycle TelescopeDimensionEscape TelescopePathEscape TelescopeTermEscape SquareDimensionEscape; do
   "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1 || true
   if ! grep -Fq 'Mismatch between: S ?k and 0.' "$tmp/$fixture.log"; then
     echo "Negative scope test $fixture failed for an unrelated reason:" >&2
@@ -106,3 +106,17 @@ if ! grep -Fq 'While processing right hand side of bad. When unifying:' "$tmp/co
   exit 1
 fi
 echo 'Context witness opacity and context mismatch negative tests passed.'
+
+"$idris" -p fibril --check ForgeSquare.idr > "$tmp/forge-square.log" 2>&1 || true
+if ! grep -Fq 'Square.MkCheckedSquare is private' "$tmp/forge-square.log" || grep -Fq 'While processing type of bad' "$tmp/forge-square.log"; then
+  echo 'Square witness opacity test failed:' >&2
+  cat "$tmp/forge-square.log" >&2
+  exit 1
+fi
+"$idris" -p fibril --check SquareMismatch.idr > "$tmp/square-mismatch.log" 2>&1 || true
+if ! grep -Fq 'While processing right hand side of bad. When unifying:' "$tmp/square-mismatch.log" || ! grep -Fq 'Mismatch between:' "$tmp/square-mismatch.log" || grep -Fq 'While processing type of bad' "$tmp/square-mismatch.log"; then
+  echo 'Square witness mismatch test failed:' >&2
+  cat "$tmp/square-mismatch.log" >&2
+  exit 1
+fi
+echo 'Square witness opacity and mismatch negative tests passed.'
