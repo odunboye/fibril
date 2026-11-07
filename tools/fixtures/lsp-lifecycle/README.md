@@ -19,12 +19,26 @@ ResponseData = { id : RequestId, response : Response }
 Response = InitializeAccepted | NullResult | Error ResponseError
 ```
 
-**Validated-event PRECONDITION, not refinement:** constructors are structurally
-forgeable. A future decoder must validate numeric IDs and string payloads, and
-classify request versus notification and method. Numeric payloads preserve opaque
-numeric spelling bytes; string payloads preserve opaque decoded string bytes.
-Names do not validate wire data. This module does not inspect, normalize, compare
-or decode IDs. Requests return the supplied ID unchanged, including its kind.
+**Validated-event PRECONDITION (not a refinement):** constructors are structurally
+forgeable. A future decoder must validate ID kind/payload and classify request
+versus notification and method:
+
+- `NumericId`: ASCII bytes (therefore strict UTF8), JSON integer spelling;
+  entire payload matches `-?(0|[1-9][0-9]*)`, signed32 range `[-2147483648,2147483647]`.
+  Allow -0 and preserve opaque spelling; exclude leading +, leading zeros,
+  fractions, exponents and bools. The range applies to the integer value without
+  normalizing its stored spelling.
+- `StringId`: decoded Unicode scalar-valid string represented as strict UTF8,
+  NOT a raw quoted JSON lexeme. NUL is allowed in decoded payload via Bytes;
+  no console-text claim follows. Quoting/escape decoding belongs to the future
+  decoder, not this prototype.
+- Null is not admitted as an LSP typed RequestId. Malformed/out-of-domain wire
+  IDs and their error responses are future decoder obligations, not implemented
+  or wire-tested here. This is not a claim about error responses for rejected
+  wire IDs or general JSON-RPC null-ID policy.
+
+Names do not validate wire data. No validation, normalization or ID comparison
+occurs here. Requests return the supplied ID unchanged, including its kind.
 There is no null-ID constructor and notifications have no ID field.
 
 `Initialize`, `ShutdownRequest`, `OtherRequest` are request methods. `Initialized`,
@@ -97,7 +111,13 @@ Each normal and ASan/UBSan run passed five test groups:
   admission; the matrix still observes every cell with full IDs.
 - Eight opaque-ID fixtures: negative zero, signed 32-bit endpoints, empty string,
   quote/backslash/newline/CR/tab, embedded NUL, Unicode, 64-byte string. These are
-  typed payload-preservation tests, **not wire-ID validation**.
+  typed payload-preservation tests, **not wire-ID validation**. All eight payloads
+  satisfy the precondition above, including -0 and decoded-string NUL. The matrix
+  and episodes use numeric/string `1`, and the no-output consumer uses an empty
+  decoded string; these also satisfy it. No existing fixture is an out-of-contract
+  adversarial ID. Any future forged/out-of-domain fixture must be labelled
+  **adversarial opaque preservation only, not a valid LSP ID**, rather than counted
+  as decoder validation.
 - Pure API entry/source-scope checks (`Transition.fib`).
 - Actual no-output session (`NoOutput.fib`): demands the observation length before
   returning success. Both backends observed zero reads/writes, with only the
@@ -105,8 +125,10 @@ Each normal and ASan/UBSan run passed five test groups:
   and zero capacity. This is session evidence, not an inferred no-effect claim.
 
 There are 65 exact-output fixtures per backend, plus one no-output session per
-backend. All 133 evidence rows (130 outputs, two sessions, one pure admission row)
-are identical between normal and sanitizer runs. No mismatch, unexpected rejection,
+backend. Of those output fixtures, 53 are full-ID observations (45 matrix + eight
+opaque-ID fixtures), and 12 are control-only episodes. All 133 evidence rows (130
+outputs, two sessions, one pure admission row) are identical between normal and
+sanitizer runs. No mismatch, unexpected rejection,
 deadline or sanitizer finding occurred in those final runs. ASan/UBSan covers all
 66 emitted programs and the normal-handshake real binary-stdio execution. All
 commands have foreground deadlines; timeout/rejection is never a passing execution.
@@ -162,25 +184,36 @@ From the worktree, with the provided private environment/Pack adapter:
 source /tmp/fibril-iteration-env.sh
 export IDRIS2_PREFIX="$PWD/build/test-prefix"
 I=/Users/odunadeboye/.local/state/pack/install/74b33730b6fea649b15e8d01ab099df9effcc7a0/idris2/bin/idris2
-LSP_LIFECYCLE_EVIDENCE="$PWD/build/lsp-lifecycle-normal.json" \
+LSP_LIFECYCLE_EVIDENCE="$PWD/build/lsp-lifecycle-contract-normal.json" \
   make -j8 lsp-lifecycle-test PACK=/tmp/fibril-foundations-pack IDRIS2="$I"
-LSP_LIFECYCLE_EVIDENCE="$PWD/build/lsp-lifecycle-sanitized.json" \
+LSP_LIFECYCLE_EVIDENCE="$PWD/build/lsp-lifecycle-contract-sanitized.json" \
   CC='cc -fsanitize=address,undefined -fno-omit-frame-pointer' \
   make -j8 lsp-lifecycle-test PACK=/tmp/fibril-foundations-pack IDRIS2="$I"
 python3 - <<'PY'
+import hashlib
 import json
 from pathlib import Path
-normal = json.loads(Path('build/lsp-lifecycle-normal.json').read_text())
-san = json.loads(Path('build/lsp-lifecycle-sanitized.json').read_text())
+normal = json.loads(Path('build/lsp-lifecycle-contract-normal.json').read_text())
+san = json.loads(Path('build/lsp-lifecycle-contract-sanitized.json').read_text())
 assert normal == san
 assert len(normal['rows']) == 133
-assert normal['rows'] == json.loads(Path('tools/fixtures/lsp-lifecycle/evidence.json').read_text())['rows']
+recorded = json.loads(Path('tools/fixtures/lsp-lifecycle/evidence.json').read_text())
+assert normal['rows'] == recorded['rows']
+assert normal['inputs_sha256'] == recorded['inputs_sha256']
+for path, digest in normal['inputs_sha256'].items():
+    assert hashlib.sha256(Path(path).read_bytes()).hexdigest() == digest
 PY
 ```
 
 All package installs are private `build/test-prefix`; temporary artifacts are
 isolated and cleaned only by their owning test. [Recorded evidence](evidence.json)
 contains typed event constructors (request payloads are hex), exact expected/actual
-bytes, sizes, native costs and real session metrics. The event data reconstructs
-each source with `source_for`; it is not a parsed wire trace. Independent review
-and parent integration remain separate gates.
+bytes, sizes, native costs and real session metrics. `inputs_sha256` records the
+source, harness, test and contract-document bytes used by the run. The contract-only
+review correction changes comments/documentation and textual regression checks,
+not transition semantics or types. Both five-group suites are rerun for that
+correction; the newly recorded 133 rows match the initial milestone rows exactly.
+The composition-blocker observation is retained historical evidence from the
+initial milestone, not a newly claimed execution. The event data reconstructs each
+source with `source_for`; it is not a parsed wire trace. Independent review and
+parent integration remain separate gates.

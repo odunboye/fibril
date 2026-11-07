@@ -6,7 +6,11 @@
     "normal_sanitized_rows_identical": true,
     "output_fixtures_per_backend": 65,
     "no_output_sessions_per_backend": 1,
-    "full_repository_suite_run": false
+    "full_repository_suite_run": false,
+    "contract_fix_groups_rerun": true,
+    "contract_fix_rows_equal_initial_milestone": true,
+    "full_id_output_fixtures_per_backend": 53,
+    "control_only_output_fixtures_per_backend": 12
   },
   "composition_observation": {
     "case": "full-ID-four-event-normal-handshake",
@@ -15,7 +19,8 @@
     "source_check": "accepted",
     "binary_emission_exit": 1,
     "binary_emission_error": "Native core admission exceeds 8192 nodes",
-    "execution": "not run; not an execution pass"
+    "execution": "not run; not an execution pass",
+    "provenance": "Retained initial milestone observation from 4b2187e; not rerun during the contract-only correction."
   },
   "rows": [
     {
@@ -3645,5 +3650,16 @@
       "payload_estimate": 4828,
       "observation": "METRICS 0 0 1 0 0\nOUTPUT []\nCOST 558 20880\nOK"
     }
-  ]
+  ],
+  "inputs_sha256": {
+    "tools/fixtures/lsp-lifecycle/LSP.fib": "c4a1423a82c87f9b7c973b9864ba3dd9755bb4eea93e3155452fd86a629beb03",
+    "tools/fixtures/lsp-lifecycle/Transition.fib": "b06b574ef5cd38851ddd333c8a48ec7065acb0a45dc6ee0fe841e13cf766b04e",
+    "tools/fixtures/lsp-lifecycle/Observation.fib": "46f05f20bfa2a305bad3fdef1e102cda546cbe2f69fa76ec9754cb6478fef0bd",
+    "tools/fixtures/lsp-lifecycle/ControlObservation.fib": "6224bf08c75ef4a86f817676a0c28d8acac40941c791fe6b512f4fd2516d3f9d",
+    "tools/fixtures/lsp-lifecycle/NoOutput.fib": "5c9bd1d672acdd33a7b917377f48fc1497e31f5502e343cf8a1e563d4c54c023",
+    "tools/fixtures/lsp-lifecycle/Harness.idr": "a6930bca08c926f45cdb1e1a26b7db9361f2c66737e3ba6332c1b94e22e15e71",
+    "tools/fixtures/lsp-lifecycle/SourceHarness.c": "7c7802847a9ce8f254c63e418073b5bbefedc8cedcf0ca2efae2a97580fe6529",
+    "tools/fixtures/lsp-lifecycle/README.md": "5ffe693144f74e2164fc5af72d5da44c8922c1f22998ffb2ef4ff7584897ffc6",
+    "tools/test_lsp_lifecycle.py": "381746e611e0a82bc451389c22e7846a950fef88802c4f99701f9a81e2e1ecc5"
+  }
 }

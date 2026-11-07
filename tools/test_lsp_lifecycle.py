@@ -5,6 +5,7 @@ Python supplies typed source fixtures and a finite transition-table oracle;
 execution is the actual checked Fibril term on hosted and emitted-native runners.
 """
 import ast
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -147,7 +148,12 @@ class LSPLifecycle(unittest.TestCase):
     def tearDownClass(cls):
         target = os.environ.get('LSP_LIFECYCLE_EVIDENCE')
         if target:
-            Path(target).write_text(json.dumps({'scope': 'validated typed events only; no parsed wire LSP', 'rows': cls.rows}, indent=2) + '\n')
+            inputs = [FIXTURE / name for name in ('LSP.fib', 'Transition.fib', 'Observation.fib',
+                      'ControlObservation.fib', 'NoOutput.fib', 'Harness.idr', 'SourceHarness.c', 'README.md')]
+            inputs.append(Path(__file__).resolve())
+            provenance = {str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs}
+            Path(target).write_text(json.dumps({'scope': 'validated typed events only; no parsed wire LSP',
+                                               'inputs_sha256': provenance, 'rows': cls.rows}, indent=2) + '\n')
         cls.temporary.cleanup()
 
     def source(self, source):
@@ -228,6 +234,8 @@ class LSPLifecycle(unittest.TestCase):
         self.both('terminal-absorbs', 'Terminated', [notify('Initialized'), notify('OtherNotification'), request('ShutdownRequest'), notify('Exit')], control=True)
 
     def test_03_opaque_id_payloads(self):
+        # All eight are in-contract typed payloads, including -0 and decoded NUL.
+        # This checks preservation, not a wire decoder or invalid-ID errors.
         for kind, payload in [('NumericId', b'-0'), ('NumericId', b'-2147483648'), ('NumericId', b'2147483647'),
                               ('StringId', b''), ('StringId', b'quote"\\\n\r\t'), ('StringId', b'a\0b'),
                               ('StringId', 'é😀'.encode()), ('StringId', b'x' * 64)]:
@@ -243,8 +251,25 @@ class LSPLifecycle(unittest.TestCase):
         source = (FIXTURE / 'LSP.fib').read_text()
         for forbidden in ('primRead', 'primWrite', 'primFlush', 'primReject', 'primIterateBinary', 'IO '):
             self.assertNotIn(forbidden, source)
-        for precondition in ('PRECONDITION (not a refinement)', 'structurally forgeable', 'No validation'):
-            self.assertIn(precondition, source)
+        # Textual contract regressions only: no decoder or payload validator.
+        preconditions = (
+            'PRECONDITION (not a refinement)', 'structurally forgeable',
+            'ASCII bytes (therefore strict UTF8)', 'JSON integer spelling',
+            'entire payload matches -?(0|[1-9][0-9]*)', 'signed32 range [-2147483648,2147483647]',
+            'Allow -0 and preserve opaque spelling', 'exclude leading +, leading zeros,',
+            'fractions, exponents and bools',
+            'decoded Unicode scalar-valid string represented as strict UTF8',
+            'NOT a raw quoted JSON lexeme', 'NUL is allowed in decoded payload via Bytes',
+            'no console-text claim follows', 'Null is not admitted as an LSP typed RequestId',
+            'Malformed/out-of-domain wire IDs and their error responses are future decoder obligations,',
+            'not implemented or wire-tested here', 'No validation, normalization or ID comparison',
+        )
+        for name in ('LSP.fib', 'README.md'):
+            text = (FIXTURE / name).read_text().replace('--', '').replace('`', '')
+            text = ' '.join(text.split()).lower()
+            for precondition in preconditions:
+                with self.subTest(contract=name, precondition=precondition):
+                    self.assertIn(precondition.lower(), text)
 
     def test_05_actual_no_output_session(self):
         source = self.source((FIXTURE / 'NoOutput.fib').read_text().replace('module NoOutput', 'module Main'))
