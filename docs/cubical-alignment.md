@@ -427,6 +427,19 @@ incomplete: rejection or exhaustion is not a proof of inconsistency.
 
 This is an isolated one-dimensional API over `Tvar`/`Tapp`, not a new trusted
 core feature, quantitative path judgment, or general higher-path calculus.
-A body may depend on another dimension, but path-valued endpoints and checked
-square application are not represented. No runtime conversion or general nested
-path claim follows. See `Tests.Cubical.ReusablePath` and the opacity fixtures.
+A body may depend on another dimension, but path-valued endpoints are not
+represented. `Square.applySquare` fixes either i or j, retaining the other as
+the path binder and instantiating its two edges. Its result is independently
+checked by `checkPath`; a checked square alone does not establish the resulting
+abstract endpoint equalities in this incomplete fragment. `Rejected` means the
+checker could not prove them, not that they are unequal; `Exhausted` indicates
+an admission bound. Input and transformed output each have separate 32-node
+hard caps and use the supplied allowance; the independent path checker imposes
+its own 12-node cap and allowance. These are admission bounds, not operation
+fuel. Scoped substitution lifts the replacement under the retained binder.
+The total pure index maps `fixSquareI`, `fixSquareJ`, and
+`instantiateSquareEdge` are public so clients can reduce the exact result
+indices. Calling them directly performs no admission or checking and grants no
+witness; bounded witness construction remains exclusively in `applySquare`.
+No runtime conversion or general nested path claim follows. See
+`Tests.Cubical.OpenPath`, `Tests.Cubical.ReusablePath`, and the opacity fixtures.

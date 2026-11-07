@@ -3,6 +3,7 @@ module Tests.Cubical.OpenPath
 import Data.Fin
 import Data.Vect
 import Fibril.Cubical.Logical.Square
+import Fibril.Cubical.Logical.ReusablePath
 import Fibril.Cubical.Logical.Telescope
 import Fibril.Cubical.Logical.PathContext
 import Fibril.Cubical.Logical.OpenPath
@@ -68,10 +69,104 @@ preflightReference fuel replacement input =
           Just (S remaining) => isJust (intervalNodes (min 9 remaining) output) in
   boundedSubstitutionPreflight fuel env body == reference
 
+-- Compare each returned path face against the corresponding instantiated edge.
+asymmetricCtx : Telescope 2 1
+asymmetricCtx = Extend Empty (Tvar FZ) (Tvar (FS FZ))
+
+checkFixedI : (ctx : Telescope 2 1) ->
+              CheckedPath {n=1} ctx (Tapp FZ (Var (FS FZ)))
+                (Tapp FZ (Var FZ)) (Tapp FZ (Var FZ)) -> Bool
+checkFixedI ctx p = case (applyPath 12 p Zero, applyPath 12 p One) of
+  (Right l, Right r) =>
+    accepted (Telescope.convertRestricted 12 unrestricted ctx l (Tapp FZ (Var FZ))) &&
+    accepted (Telescope.convertRestricted 12 unrestricted ctx r (Tapp FZ (Var FZ))) &&
+    case (l, r) of
+      (Tapp FZ (Var FZ), Tapp FZ (Var FZ)) => True
+      _ => False
+  _ => False
+
+checkFixedJ : (ctx : Telescope 2 1) ->
+              CheckedPath {n=1} ctx (Tapp FZ (Var FZ))
+                (Tvar FZ) (Tvar (FS FZ)) -> Bool
+checkFixedJ ctx p = case (applyPath 12 p Zero, applyPath 12 p One) of
+  (Right l, Right r) =>
+    accepted (Telescope.convertRestricted 12 unrestricted ctx l (Tvar FZ)) &&
+    accepted (Telescope.convertRestricted 12 unrestricted ctx r (Tvar (FS FZ))) &&
+    case (l, r) of
+      (Tapp FZ Zero, Tapp FZ One) => True
+      _ => False
+  _ => False
+
 export
 checks : List (String, Bool)
 checks =
-  [ ("checked square has four genuine edges",
+  [ ("asymmetric square application selects and rechecks both pairs of edges",
+      case checkBoundSquare {n=1} 16 asymmetricCtx
+             (Tapp FZ (Var (FS FZ))) (Tvar FZ) (Tvar (FS FZ))
+             (Tapp FZ (Var FZ)) (Tapp FZ (Var FZ)) of
+        Left _ => False
+        Right sq => case (applySquare 32 FixI sq (Var FZ), applySquare 32 FixJ sq (Var FZ)) of
+          (Right pi, Right pj) => checkFixedI asymmetricCtx pi && checkFixedJ asymmetricCtx pj
+          _ => False)
+  , ("square application reaches and exhausts independent path recheck",
+      let body : Term 2 1 2 = Tapp FZ (Var (FS FZ))
+          edge : Term 2 1 1 = Tapp FZ (Var FZ)
+          left : Term 2 1 1 = Tvar FZ
+          right : Term 2 1 1 = Tvar (FS FZ)
+          r : ScopedInterval 0 = reversals 3 Zero in
+      case checkBoundSquare 16 asymmetricCtx body left right edge edge of
+        Left _ => False
+        Right sq => case (applySquare 32 FixI sq r,
+                          checkPath 32 asymmetricCtx (Tapp FZ (reversals 3 Zero)) (Tapp FZ r) (Tapp FZ r)) of
+          (Left Exhausted, Left Exhausted) => True
+          _ => False)
+  , ("square application rechecks both directions and beta",
+      let ctx : Telescope 2 1 = Extend Empty (Tvar FZ) (Tvar (FS FZ))
+          body : Term 2 1 3 = Tapp FZ (Meet (Var FZ) (Var (FS FZ)))
+          edge : Term 2 1 2 = Tapp FZ (Var FZ)
+          zero : Term 2 1 2 = Tvar FZ in
+      case checkBoundSquare 16 ctx body zero edge zero edge of
+        Left _ => False
+        Right sq => case (applySquare 32 FixI sq (Var FZ), applySquare 32 FixJ sq (Var FZ),
+                          applySquare 32 FixI sq Zero, applySquare 32 FixJ sq One) of
+          (Right pi, Right pj, Right _, Right _) =>
+            case (applyPath 12 pi One, applyPath 12 pj One) of
+              (Right (Tapp FZ (Meet One (Var FZ))),
+               Right (Tapp FZ (Meet (Var FZ) One))) => True
+              _ => False
+          _ => False)
+  , ("square application preserves ambient scope and bounds",
+      let ctx : Telescope 1 1 = Extend Empty (Tvar FZ) (Tvar FZ)
+          body : Term 1 1 3 = Tapp FZ (Var (FS (FS FZ)))
+          edge : Term 1 1 2 = Tapp FZ (Var (FS FZ)) in
+      case checkBoundSquare 16 ctx body edge edge edge edge of
+        Left _ => False
+        Right sq => case (applySquare 32 FixI sq (Reverse (Var FZ)),
+                          applySquare 0 FixJ sq Zero) of
+          (Right p, Left Exhausted) => case applyPath 12 p One of
+            Right (Tapp FZ (Var FZ)) => True
+            _ => False
+          _ => False)
+  , ("square application rejects amplified output with admitted input",
+      let ctx : Telescope 2 1 = Extend Empty (Tvar FZ) (Tvar (FS FZ))
+          body : Term 2 1 2 = Tapp FZ (Meet (Var FZ) (Var (FS FZ)))
+          edge : Term 2 1 1 = Tapp FZ (Var FZ)
+          zero : Term 2 1 1 = Tvar FZ in
+      case checkBoundSquare 16 ctx body zero edge zero edge of
+        Left _ => False
+        Right sq => case applySquare 32 FixI sq (reversals 12 Zero) of
+          Left Exhausted => True
+          _ => False)
+  , ("square application counts expanded output before substitution",
+      let ctx : Telescope 1 0 = Empty
+          body : Term 1 0 2 = Tvar FZ
+          edge : Term 1 0 1 = Tvar FZ in
+      case checkBoundSquare 16 ctx body edge edge edge edge of
+        Left _ => False
+        Right sq => case applySquare 32 FixI sq (reversals 32 Zero) of
+          Left Exhausted => True
+          _ => False)
+  , ("checked square has four genuine edges",
       let ctx : Telescope 2 1 = Extend Empty (Tvar FZ) (Tvar (FS FZ))
           body : Term 2 1 2 = Tapp FZ (Meet (Var FZ) (Var (FS FZ)))
           edge : Term 2 1 1 = Tapp FZ (Var FZ)

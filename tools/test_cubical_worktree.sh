@@ -134,3 +134,8 @@ if ! grep -Fq 'While processing right hand side of bad. When unifying:' "$tmp/re
   cat "$tmp/reusable-context.log" >&2; exit 1
 fi
 echo 'Reusable path context mismatch negative test passed.'
+"$idris" -p fibril --check SquareApplicationMismatch.idr > "$tmp/square-application-mismatch.log" 2>&1 || true
+if ! grep -Fq 'While processing right hand side of bad. When unifying:' "$tmp/square-application-mismatch.log" || ! grep -Fq 'Mismatch between:' "$tmp/square-application-mismatch.log" || grep -Fq 'While processing type of bad' "$tmp/square-application-mismatch.log"; then
+  cat "$tmp/square-application-mismatch.log" >&2; exit 1
+fi
+echo 'Square application endpoint mismatch negative test passed.'
