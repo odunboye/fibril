@@ -288,10 +288,65 @@ equalityConversionFaceEscape =
         (NPath FZ) (NPath FZ) escapeSource escapeTarget (NRefl restrictedSrc) restrictedDst restrictedDst)
     _ => False
 
+-- Independent one-variable reference for every interval of depth at most one.
+referenceInterval : ScopedInterval 0 -> ScopedInterval 1 -> ScopedInterval 0
+referenceInterval replacement Zero = Zero
+referenceInterval replacement One = One
+referenceInterval replacement (Var FZ) = replacement
+referenceInterval replacement (Reverse x) = Reverse (referenceInterval replacement x)
+referenceInterval replacement (Meet x y) = Meet (referenceInterval replacement x) (referenceInterval replacement y)
+referenceInterval replacement (Join x y) = Join (referenceInterval replacement x) (referenceInterval replacement y)
+
+sameInterval : ScopedInterval 0 -> ScopedInterval 0 -> Bool
+sameInterval Zero Zero = True
+sameInterval One One = True
+sameInterval (Reverse x) (Reverse y) = sameInterval x y
+sameInterval (Meet x y) (Meet a b) = sameInterval x a && sameInterval y b
+sameInterval (Join x y) (Join a b) = sameInterval x a && sameInterval y b
+sameInterval _ _ = False
+
+smallIntervals : List (ScopedInterval 1)
+smallIntervals = let atoms = [Zero, One, Var FZ] in
+  atoms ++ map Reverse atoms ++ concatMap (\x => map (Meet x) atoms) atoms ++
+  concatMap (\x => map (Join x) atoms) atoms
+
+substitutionReference : Bool
+substitutionReference = all (\replacement => all (\i =>
+  case boundedInstantiate {m = 2} {k = 1} 128 replacement (NApply (NPath FZ) i) of
+    Right (NApply (NPath FZ) actual) => sameInterval actual (referenceInterval replacement i)
+    _ => False) smallIntervals) (the (List (ScopedInterval 0)) [Zero, One])
+
 public export
 checkerChecks : List (String, Bool)
 checkerChecks =
-  [ ("typing conversion on endpoint face", checkerSuccess (convertNeutralTyping {n = 1} 64 neutralContext (SEndpoint FZ False)
+  [ ("small exhaustive substitution reference", substitutionReference)
+  , ("dependent formation", checkerSuccess (checkDependentFormation {n = 0} 128 neutralContext STop
+      (NPathType (NPathType NType (NApply (NPath FZ) (Var FZ)) (NApply (NPath FZ) (Var FZ)))
+        (NAbstract (NApply (NPath FZ) Zero)) (NAbstract (NApply (NPath FZ) One)))))
+  , ("dependent wrong endpoint", checkerUnsupported (checkDependentFormation {n = 0} 128 neutralContext STop
+      (NPathType (NPathType NType (NApply (NPath FZ) (Var FZ)) (NApply (NPath FZ) (Var FZ)))
+        (NAbstract (NApply (NPath FZ) One)) (NAbstract (NApply (NPath FZ) One)))))
+  , ("dependent wrong family", checkerUnsupported (checkDependentFormation {n = 0} 128 neutralContext STop
+      (NPathType (NBase FZ) (NBase FZ) (NBase FZ))))
+  , ("nested binder substitution", case boundedInstantiate {m = 2} {k = 1} {n = 0} 32 One
+      (NAbstract (NApply (NPath FZ) (Meet (Var FZ) (Var (FS FZ))))) of
+        Right (NAbstract (NApply (NPath FZ) (Meet (Var FZ) One))) => True
+        _ => False)
+  -- Input replacement: 3 nodes, source: 8 nodes, expanded output: 12 nodes.
+  , ("open nested substitution exact budget", case boundedInstantiate {m = 2} {k = 1} {n = 1} 23
+      (Meet (Var FZ) One)
+      (NAbstract (NApply (NPath FZ) (Join (Var FZ) (Meet (Var (FS FZ)) (Var (FS FZ)))))) of
+        Right (NAbstract (NApply (NPath FZ) (Join (Var FZ)
+          (Meet (Meet (Var (FS FZ)) One) (Meet (Var (FS FZ)) One))))) => True
+        _ => False)
+  , ("open nested substitution one short", checkerExhausted (boundedInstantiate {m = 2} {k = 1} {n = 1} 22
+      (Meet (Var FZ) One)
+      (NAbstract (NApply (NPath FZ) (Join (Var FZ) (Meet (Var (FS FZ)) (Var (FS FZ))))))))
+  , ("dependent dimension cap", checkerExhausted (checkDependentFormation {n = 12} 128 neutralContext STop
+      (NPathType NType (NBase FZ) (NBase FZ))))
+  , ("substitution expanded copies charged", checkerExhausted (boundedInstantiate {m = 2} {k = 1} {n = 0} 12
+      (Meet Zero One) (NApply (NPath FZ) (Meet (Var FZ) (Var FZ)))))
+  , ("typing conversion on endpoint face", checkerSuccess (convertNeutralTyping {n = 1} 64 neutralContext (SEndpoint FZ False)
       (NPath FZ) (NPathType NType (NBase FZ) (NBase (FS FZ)))
       (NPathType NType (NApply (NPath FZ) (Var FZ)) (NBase (FS FZ))) (NPathVar FZ)))
   , ("typing conversion cannot escape face", checkerUnsupported (convertNeutralTyping {n = 1} 64 neutralContext STop

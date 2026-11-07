@@ -45,6 +45,22 @@ checkAdmitted ctx face (NAbstract (NBase x)) (NPathType NType (NBase l) (NBase r
       No _ => Left Mismatch
       Yes Refl => Right (NIntro NBaseForm (NBaseVar r) (NBaseVar r)
                               (NBaseVar r) (NRefl (NBaseVar r)) (NRefl (NBaseVar r)))
+checkAdmitted ctx face (NAbstract (NApply (NPath p) Zero))
+  (NPathType NType (NApply (NPath q) Zero) (NApply (NPath r) Zero)) =
+  case decEq p q of
+    No _ => Left Mismatch
+    Yes Refl => case decEq q r of
+      No _ => Left Mismatch
+      Yes Refl => Right (NIntro NBaseForm (NElim (NPathVar r) Zero) (NElim (NPathVar r) Zero)
+        (NElim (NPathVar r) Zero) (NRefl (NElim (NPathVar r) Zero)) (NRefl (NElim (NPathVar r) Zero)))
+checkAdmitted ctx face (NAbstract (NApply (NPath p) One))
+  (NPathType NType (NApply (NPath q) One) (NApply (NPath r) One)) =
+  case decEq p q of
+    No _ => Left Mismatch
+    Yes Refl => case decEq q r of
+      No _ => Left Mismatch
+      Yes Refl => Right (NIntro NBaseForm (NElim (NPathVar r) One) (NElim (NPathVar r) One)
+        (NElim (NPathVar r) One) (NRefl (NElim (NPathVar r) One)) (NRefl (NElim (NPathVar r) One)))
 checkAdmitted ctx face (NAbstract (NApply (NPath p) (Var FZ)))
   (NPathType NType (NBase l) (NBase r)) =
   case decEq l (left (index p ctx)) of
@@ -318,3 +334,96 @@ convertNeutralEquality {m} {k} {n} budget ctx face x y sourceTy targetTy derivat
         Left e => Left e
         Right eq => Right (NEqualConvert derivation eq xp yp)
   else Left Exhausted
+
+-- Count the expanded result without constructing substitutions or weakened
+-- replacements. Weakening preserves interval node counts under each binder.
+subIntervalNodes : Nat -> (Fin n -> Nat) -> ScopedInterval n -> Maybe Nat
+subIntervalNodes f sizes (Var i) = spend f (sizes i)
+  where
+    spend : Nat -> Nat -> Maybe Nat
+    spend f Z = Just f
+    spend Z (S _) = Nothing
+    spend (S f) (S n) = spend f n
+subIntervalNodes Z _ _ = Nothing
+subIntervalNodes (S f) sizes Zero = Just f
+subIntervalNodes (S f) sizes One = Just f
+subIntervalNodes (S f) sizes (Reverse x) = subIntervalNodes f sizes x
+subIntervalNodes (S f) sizes (Meet x y) = subIntervalNodes f sizes x >>= \g => subIntervalNodes g sizes y
+subIntervalNodes (S f) sizes (Join x y) = subIntervalNodes f sizes x >>= \g => subIntervalNodes g sizes y
+
+subExprNodes : Nat -> (Fin n -> Nat) -> NeutralExpr m k n -> Maybe Nat
+subExprNodes Z _ _ = Nothing
+subExprNodes (S f) sizes (NBase _) = Just f
+subExprNodes (S f) sizes (NPath _) = Just f
+subExprNodes (S f) sizes NType = Just f
+subExprNodes (S f) sizes (NPathType a l r) =
+  subExprNodes f (liftSizes sizes) a >>= \g => subExprNodes g sizes l >>= \h => subExprNodes h sizes r
+  where
+    liftSizes : (Fin n -> Nat) -> Fin (S n) -> Nat
+    liftSizes sizes FZ = 1
+    liftSizes sizes (FS i) = sizes i
+subExprNodes (S f) sizes (NAbstract body) = subExprNodes f (liftSizes sizes) body
+  where
+    liftSizes : (Fin n -> Nat) -> Fin (S n) -> Nat
+    liftSizes sizes FZ = 1
+    liftSizes sizes (FS i) = sizes i
+subExprNodes (S f) sizes (NApply p i) = subExprNodes f sizes p >>= \g => subIntervalNodes g sizes i
+
+intervalSize : ScopedInterval n -> Nat
+intervalSize Zero = 1
+intervalSize One = 1
+intervalSize (Var _) = 1
+intervalSize (Reverse x) = S (intervalSize x)
+intervalSize (Meet x y) = S (intervalSize x + intervalSize y)
+intervalSize (Join x y) = S (intervalSize x + intervalSize y)
+
+||| Admit both inputs before counting the expanded output; each occurrence of
+||| the replacement is charged separately, including under nested binders.
+public export
+boundedInstantiate : {m, k, n : Nat} -> (budget : Nat) -> (i : ScopedInterval n) ->
+  (body : NeutralExpr m k (S n)) -> Either CheckError (NeutralExpr m k n)
+boundedInstantiate {m} {k} {n} budget i body =
+  if m <= 12 && k <= 12 && n <= 11 then
+    case intervalNodes (min 128 budget) i >>= \f => exprNodes f body of
+      Nothing => Left Exhausted
+      Just f => case subExprNodes f (sizes (intervalSize i)) body of
+        Nothing => Left Exhausted
+        Just _ => Right (mapNeutralDimensions (instantiateDimension i) body)
+  else Left Exhausted
+  where
+    sizes : Nat -> Fin (S n) -> Nat
+    sizes size FZ = size
+    sizes size (FS _) = 1
+
+-- Recursive dependent formation is deliberately limited by both a structural
+-- recursion allowance and fresh admission at every generated family/endpoint.
+dependentFormation : {m, k, n : Nat} -> Nat -> Nat -> (ctx : PathContext m k) ->
+  (face : ScopedFace n) -> (ty : NeutralExpr m k n) ->
+  Either CheckError (NeutralTypeFormed ctx face ty)
+dependentFormation Z budget ctx face ty = Left Exhausted
+dependentFormation (S depth) {m} {k} {n} budget ctx face ty =
+  if m <= 12 && k <= 12 && n <= 12 then
+    case faceNodes (min 128 budget) face >>= \f => exprNodes f ty of
+      Nothing => Left Exhausted
+      Just _ => form ty
+  else Left Exhausted
+  where
+    form : (ty : NeutralExpr m k n) -> Either CheckError (NeutralTypeFormed ctx face ty)
+    form NType = Right NBaseForm
+    form (NPathType family l r) = do
+      -- Each endpoint expansion is preflighted before its own construction.
+      _ <- boundedInstantiate budget Zero family
+      _ <- boundedInstantiate budget One family
+      fp <- dependentFormation depth budget ctx (weakenFace face) family
+      lp <- checkNeutral budget ctx face l (mapNeutralDimensions TypedPath.faceZero family)
+      rp <- checkNeutral budget ctx face r (mapNeutralDimensions TypedPath.faceOne family)
+      Right (NPathPForm fp lp rp)
+    form _ = Left Unsupported
+
+||| Formation of nested dependent path types, with independently checked
+||| endpoint typings and bounded endpoint instantiation at every level.
+public export
+checkDependentFormation : {m, k, n : Nat} -> (budget : Nat) -> (ctx : PathContext m k) ->
+  (face : ScopedFace n) -> (ty : NeutralExpr m k n) ->
+  Either CheckError (NeutralTypeFormed ctx face ty)
+checkDependentFormation budget = dependentFormation (min 12 budget) budget

@@ -181,8 +181,22 @@ the supplied derivation trees. These helpers do not synthesize conversion inside
 the typing checker. The full nested PathP square is
 therefore still declarative only: its outer boundaries require checking both
 abstractions at a common restricted path type using endpoint type conversion,
-then proving their bodies equal at the weakened restricted face. General PathP
-also requires preflight of dimension-substitution outputs before allocating them.
+then proving their bodies equal at the weakened restricted face. `boundedInstantiate` admits the interval and original family before counting
+its expanded output, including each duplicated occurrence under binders, and
+only then constructs the scoped substitution. `checkDependentFormation` uses
+this preflight separately for each endpoint instantiation, constructing the
+first before preflighting the second, recursively checks the family, and checks
+both endpoint typings using the existing incomplete term checker;
+it returns the exact `NPathPForm` derivation. This admits genuinely varying
+families when their endpoints are in that grammar, including constant Zero/One
+neutral-path applications. It is not a general dependent application or
+abstraction checker, and does not derive the nested square: the term checker
+still cannot synthesize the required restricted endpoint type conversions and
+dependent boundary equalities. The substitution action itself carries no
+typing-preservation claim. Each preflight shares its capped 128-node budget
+between inputs and expanded output; recursive formation re-admits each
+intermediate rather than providing a global solver-work bound. The source
+family dimension is capped at 12 (so the result dimension is at most 11).
 
 All syntax, including both annotations and the face, shares an admission
 allowance capped at 128 nodes; base, path, and dimension counts are capped at
