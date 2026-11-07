@@ -5820,7 +5820,7 @@ main = first Zero
             # None of these calls is the unique admitted recursive call on the
             # immediate predecessor; no failed match becomes a core fixpoint.
             bad_steps = ['double count', 'double (Succ smaller)',
-                         'Succ (double (double smaller))', 'Succ smaller',
+                         'Succ (double (double smaller))',
                          'double', 'double {Nat} smaller',
                          '(\\(1 smaller : Nat) => double smaller) smaller']
             for step in bad_steps:

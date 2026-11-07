@@ -9,13 +9,15 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES = ["hello-world", "console-sequence", "io-functions", "do-let",
-            "do-result", "string-append", "io-map"]
+            "do-result", "string-append", "io-map", "nat-case-zero", "nat-case-succ", "nat-case-predecessor"]
 PROGRAM = r'''module EmitChecks
 
 import Data.List
+import Data.Fin
 import System
 import System.File
 import Fibril.Core.Term
+import Fibril.Core.Quantity
 import Fibril.Source.File
 import Fibril.Driver.Check
 import Fibril.Driver.Console
@@ -43,6 +45,24 @@ emitExample directory name = do
         (Left err, _) => fail (name ++ ": " ++ show err)
         (_, Left err) => fail (name ++ ": " ++ err)
 
+natMotive : Term n
+natMotive = Lambda Erased NatType StringType
+
+emitNatCase : String -> String -> Term 0 -> String -> IO ()
+emitNatCase directory name value expected = do
+  let count = NatCase (Lambda Erased NatType NatType) value (NatSucc NatZero)
+        (Lambda Linear NatType (Variable FZ))
+  let text = NatRec natMotive (StringValue "x")
+        (Lambda Erased NatType (Lambda Linear StringType (StringAppend (Variable FZ) (StringValue "!")))) count
+  case emitCheckedC (WriteLine text) of
+    Left err => fail (name ++ ": " ++ err)
+    Right code => do
+      saved <- writeFile (directory ++ "/" ++ name ++ ".c") code
+      output <- writeFile (directory ++ "/" ++ name ++ ".expected") (expected ++ "\n")
+      case (saved, output) of
+        (Right (), Right ()) => pure ()
+        _ => fail ("writing fixture " ++ name)
+
 main : IO ()
 main = do
   directory <- getEnv "FIBRIL_IO_EMIT_FIXTURES"
@@ -52,6 +72,9 @@ main = do
       traverse_ (emitExample path)
         ["hello-world", "console-sequence", "io-functions", "do-let",
          "do-result", "string-append", "io-map"]
+      emitNatCase path "nat-case-zero" NatZero "x!"
+      emitNatCase path "nat-case-succ" (NatSucc NatZero) "x"
+      emitNatCase path "nat-case-predecessor" (NatSucc (NatSucc NatZero)) "x!"
       putStrLn "IO_EMISSION_OK"
 '''
 
@@ -66,7 +89,7 @@ def main():
         work = Path(directory)
         (work / "Fibril").symlink_to(ROOT / "src/Fibril", target_is_directory=True)
         (work / "EmitChecks.idr").write_text(PROGRAM, encoding="utf-8")
-        for name in EXAMPLES:
+        for name in EXAMPLES[:7]:
             shutil.copyfile(ROOT / "examples/core" / f"{name}.fib", work / f"{name}.fib")
         env["FIBRIL_IO_EMIT_FIXTURES"] = str(work)
         emitted = subprocess.run(

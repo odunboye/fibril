@@ -40,7 +40,7 @@ identity T item = item
 
 The signature supplies the argument types and quantities; `T` and `item` are
 local names for those arguments. This form supports one equation with an
-explicit signature, not recursive or constructor-pattern clauses.
+explicit signature. Flat constructor-pattern clauses are nonrecursive and subject to case coverage and quantity checks.
 
 ```sh
 ./build/exec/fibril run --source-dir examples/modules/function-equations examples/modules/function-equations/Main.fib

@@ -22,6 +22,7 @@ FValue *f_rec_end(FRuntime *r);
 FValue *f_rec_more(FRuntime *r, FEnv *env, FEval tail);
 FValue *f_seq_nil(FRuntime *r);
 FValue *f_seq_cons(FRuntime *r, FEnv *env, FEval head, FEval tail);
+FValue *f_nat_case(FRuntime *r, FEnv *env, FEval value, FEval base, FEval more);
 FValue *f_rec_case(FRuntime *r, FEnv *env, FEval value, FEval base, FEval more);
 FValue *f_seq_case(FRuntime *r, FEnv *env, FEval value, FEval base, FEval cons);
 FValue *f_nat_rec(FRuntime *r, FEnv *env, FEval base, FEval step, FEval value);

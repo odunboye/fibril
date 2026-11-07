@@ -91,6 +91,30 @@ mutual
     ty <- infer depth reduction context value
     requireCompatible reduction ty NatType
     Right NatType
+  infer (S depth) reduction context (NatCase motive value base more) = do
+    valueType <- infer depth reduction context value
+    requireCompatible reduction valueType NatType
+    motiveType <- infer depth reduction context motive
+    motiveHead <- exposeType reduction motiveType
+    case motiveHead of
+      Pi Erased parameter result => do
+        requireCompatible reduction parameter NatType
+        resultHead <- exposeType reduction result
+        case resultHead of
+          Universe _ => Right ()
+          _ => Left (ExpectedUniverse resultHead)
+      _ => Left (NatError "case motive must have an erased Nat binder and return a universe")
+    baseType <- infer depth reduction context base
+    requireCompatible reduction baseType (Apply motive NatZero)
+    moreType <- infer depth reduction context more
+    moreHead <- exposeType reduction moreType
+    quantity <- case moreHead of
+      Pi Linear _ _ => Right Linear
+      Pi Unrestricted _ _ => Right Unrestricted
+      _ => Left (NatError "case successor must have a linear or unrestricted Nat binder")
+    let resultType = Apply (weaken motive) (NatSucc (Variable FZ))
+    requireCompatible reduction moreType (Pi quantity NatType resultType)
+    Right (Apply motive value)
   infer (S depth) reduction context (NatRec motive base next value) = do
     valueType <- infer depth reduction context value
     requireCompatible reduction valueType NatType

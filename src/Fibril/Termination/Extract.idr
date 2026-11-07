@@ -128,6 +128,12 @@ mutual
     c <- walk k env base
     d <- walkCons k env (tailRow k env value) cons
     Right (a ++ b ++ c ++ d)
+  walk k env (NatCase motive value base more) = do
+    a <- walk k env motive
+    b <- walk k env value
+    c <- walk k env base
+    d <- walkMore k env (tailRow k env value) more
+    Right (a ++ b ++ c ++ d)
   walk k env (RecCase motive value base more) = do
     a <- walk k env motive
     b <- walk k env value
@@ -179,7 +185,7 @@ peel _ _ _ _ = Left "recursive body has fewer leading lambdas than its type has 
 
 ||| Extract one matrix per call site of the bound self in a Fix body. Matrices
 ||| are over the function's original parameters; Nothing is assumed about values
-||| built by constructors, and only a case tail can decrease.
+||| built by constructors, and only a case tail or predecessor can decrease.
 public export
 extractFix : Term n -> Term (S n) -> Either String (List Call)
 extractFix ty body = case arityOf ty of

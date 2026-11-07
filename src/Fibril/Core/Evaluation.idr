@@ -55,6 +55,7 @@ unfoldOne (StringEqual a b) =
 unfoldOne (BoolCase c yes no) = map (\x => BoolCase x yes no) (unfoldOne c)
 unfoldOne (UnitCase s body) = map (\x => UnitCase x body) (unfoldOne s)
 unfoldOne (SeqCase m v base cons) = map (\x => SeqCase m x base cons) (unfoldOne v)
+unfoldOne (NatCase m v base more) = map (\x => NatCase m x base more) (unfoldOne v)
 unfoldOne (RecCase m v base more) = map (\x => RecCase m x base more) (unfoldOne v)
 unfoldOne (NatRec m base next v) = map (NatRec m base next) (unfoldOne v)
 unfoldOne (NatRecRuntime m base next v) = map (NatRecRuntime m base next) (unfoldOne v)

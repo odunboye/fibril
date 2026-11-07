@@ -248,6 +248,17 @@ static FValue *recursive_value(FRuntime *r, FEnv *env, FTag tag, FEval head, FEv
 FValue *f_nat_succ(FRuntime *r, FEnv *env, FEval tail) { return recursive_value(r, env, V_NAT_SUCC, NULL, tail); }
 FValue *f_rec_more(FRuntime *r, FEnv *env, FEval tail) { return recursive_value(r, env, V_REC_MORE, NULL, tail); }
 FValue *f_seq_cons(FRuntime *r, FEnv *env, FEval head, FEval tail) { return recursive_value(r, env, V_SEQ_CONS, head, tail); }
+FValue *f_nat_case(FRuntime *r, FEnv *env, FEval scrutinee, FEval base, FEval more) {
+  if (!scrutinee || !base || !more) { fail(r, "missing native Nat-case expression"); return NULL; }
+  FValue *value = evaluate(r, scrutinee, env);
+  if (!value) return NULL;
+  if (value->tag == V_NAT_ZERO) return evaluate(r, base, env);
+  if (value->tag != V_NAT_SUCC || !value->as.recursive.tail) {
+    fail(r, "native Nat case expects a Nat value"); return NULL;
+  }
+  FValue *branch = evaluate(r, more, env);
+  return branch ? apply_thunk(r, branch, value->as.recursive.tail) : NULL;
+}
 FValue *f_rec_case(FRuntime *r, FEnv *env, FEval scrutinee, FEval base, FEval more) {
   if (!scrutinee || !base || !more) { fail(r, "missing native recursive-case expression"); return NULL; }
   FValue *value = evaluate(r, scrutinee, env);

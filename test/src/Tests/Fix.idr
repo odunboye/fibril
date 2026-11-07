@@ -132,6 +132,41 @@ headIs : HeadResult n -> Term n -> Bool
 headIs (HeadForm t) expected = sameSyntax t expected
 headIs _ _ = False
 
+-- Nat recursion through NatCase. Cons-arm environment: predecessor, parameter, self.
+natMotive : Term n
+natMotive = Lambda Erased NatType NatType
+
+-- countdown n = case n of Zero => 0; Succ p => countdown p
+countdownFix : Term 0
+countdownFix = Fix natToNat (Lambda Linear NatType
+  (NatCase natMotive (Variable FZ) NatZero
+    (Lambda Linear NatType (Apply (Variable (FS (FS FZ))) (Variable FZ)))))
+
+-- loopNat n = case n of Zero => 0; Succ p => loopNat (Succ p): rebuilt, so not smaller.
+rebuiltNatFix : Term 0
+rebuiltNatFix = Fix natToNat (Lambda Linear NatType
+  (NatCase natMotive (Variable FZ) NatZero
+    (Lambda Linear NatType (Apply (Variable (FS (FS FZ))) (NatSucc (Variable FZ))))))
+
+-- ack m n = case m of Zero => Succ n
+--                     Succ p => case n of Zero => ack p 1
+--                                         Succ q => ack p (ack m q)
+-- Unrestricted binders because m and n are used more than once. Environments:
+-- outer arm: p, n, m, self; inner arm: q, p, n, m, self.
+ackSig : Term 0
+ackSig = Pi Unrestricted NatType (Pi Unrestricted NatType NatType)
+
+ackFix : Term 0
+ackFix = Fix ackSig (Lambda Unrestricted NatType (Lambda Unrestricted NatType
+  (NatCase natMotive (Variable (FS FZ)) (NatSucc (Variable FZ))
+    (Lambda Unrestricted NatType
+      (NatCase natMotive (Variable (FS FZ))
+        (Apply (Apply (Variable (FS (FS (FS FZ)))) (Variable FZ)) (NatSucc NatZero))
+        (Lambda Unrestricted NatType
+          (Apply (Apply (Variable (FS (FS (FS (FS FZ))))) (Variable (FS FZ)))
+                 (Apply (Apply (Variable (FS (FS (FS (FS FZ))))) (Variable (FS (FS (FS FZ)))))
+                        (Variable FZ)))))))))
+
 normalIs : ReductionResult n -> Term n -> Bool
 normalIs (Normal t) expected = sameSyntax t expected
 normalIs _ _ = False
@@ -205,6 +240,18 @@ checks =
                   (Apply (Apply (weaken reverseFix) (Variable FZ)) nilList))))
   , ("run-mode evaluation agrees with the ordinary reducer on fix-free terms",
       normalIs (normalizeRun 8 (the (Term 0) (Apply (Lambda Linear NatType (Variable FZ)) one))) one)
+  , ("nat countdown through NatCase is admitted: the predecessor decreases",
+      isRight (inferErased 512 128 Empty countdownFix))
+  , ("nat countdown passes runtime usage checking",
+      isRight (inferRuntime 512 128 Empty countdownFix))
+  , ("rebuilding a nat from its predecessor is not a decrease",
+      isNotAdmitted (inferErased 512 128 Empty rebuiltNatFix))
+  , ("run-mode evaluation counts a nat down to zero",
+      normalIs (normalizeRun 200 (Apply countdownFix (NatSucc (NatSucc (NatSucc NatZero))))) NatZero)
+  , ("ackermann is admitted: lexicographic decrease over both arguments",
+      isRight (inferErased 512 128 Empty ackFix))
+  , ("ackermann evaluates: ack 1 1 is 3",
+      normalIs (normalizeRun 2000 (Apply (Apply ackFix one) one)) (NatSucc (NatSucc (NatSucc NatZero))))
   , ("fix is neutral: conversion never unfolds it",
       normalIs (normalize 64 (Apply looping NatZero)) (Apply looping NatZero))
   , ("fix normalization still reduces inside its body",

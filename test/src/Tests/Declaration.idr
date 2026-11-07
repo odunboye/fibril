@@ -2,6 +2,8 @@ module Tests.Declaration
 
 import Data.List
 import Fibril.Core.Term
+import Fibril.Core.Quantity
+import Fibril.Elaboration.Expression
 import Fibril.Source.Syntax
 import Fibril.Source.Text
 import Fibril.Source.Lexer
@@ -38,10 +40,35 @@ program = "not : (1 flag : Bool) -> Bool\nnot = \\(1 flag : Bool) => if flag the
 mutualSource : String
 mutualSource = "module Main\nmutual where\n  first : (1 n : Nat) -> Bool\n  first n = case n of\n    Zero => True\n    Succ k => second k\n  second : (1 n : Nat) -> Bool\n  second n = case n of\n    Zero => False\n    Succ k => first k\n"
 
+testSpan : SourceSpan
+testSpan = Between (At 0 1 1) (At 1 1 2)
+
+boxDomain : Nat -> Expr
+boxDomain Z = NBoolType testSpan
+boxDomain (S n) = NBoxType testSpan Unrestricted (boxDomain n)
+
+catchallDomainResult : Nat -> Either ResolveError (Term 0)
+catchallDomainResult depth =
+  let argument = Located Name "$clauseScrutinee" testSpan
+      zero = Located Name "Zero" testSpan
+      binder = Located Name "item" testSpan
+      signature = NPi testSpan Unrestricted "x" (boxDomain depth) (NBoolType testSpan)
+      body = NDataCase testSpan (NRef testSpan "$clauseScrutinee") Nothing
+               [(zero, [], NBoolValue testSpan True), (binder, [], NBoolValue testSpan False)]
+   in elaborateClosed (NEquationLambda testSpan [argument] signature body)
+
 public export
 checks : List (String, Bool)
 checks =
-  [ ("mutual authored groups count both declaration slots and preserve grouping",
+  [ ("catch-all equation domain node limit is checked before reduction",
+      (case catchallDomainResult 511 of
+         Left (ResolutionFailure _ message True) => message /= "Function equation parameter type exceeds 512 nodes"
+         Right _ => True
+         _ => False) &&
+      (case catchallDomainResult 512 of
+         Left (ResolutionFailure _ message True) => message == "Function equation parameter type exceeds 512 nodes"
+         _ => False))
+  , ("mutual authored groups count both declaration slots and preserve grouping",
       case (parseDocument 1 256 mutualSource, parseDocument 2 256 mutualSource) of
         (Left _, Right document) => case document.body of
           DeclarationDocument [MutualItem group] =>
@@ -80,6 +107,44 @@ checks =
       accepted False "identity : (0 A : Type) -> (1 item : A) -> A\nidentity T value = value\nmain : Bool\nmain = identity Bool True")
   , ("named function equation rejects linear duplication",
       not (accepted False "duplicate : (1 text : String) -> String\nduplicate text = appendString text text\nmain : String\nmain = duplicate \"x\""))
+  , ("repeated equations form one declaration with authored arms",
+      case parseDocument 32 256 "f : Bool -> Bool\nf Some = True\nf None = False\nmain : Bool\nmain = f True\n" of
+        Right document => case document.body of
+          DeclarationDocument [Ordinary decl, Ordinary _] =>
+            case decl.value of
+              NEquationLambda _ [_] _ (NDataCase _ _ Nothing [(first, [], _), (second, [], _)]) =>
+                first.spelling == "Some" && first.span.start.line == 2 &&
+                second.spelling == "None" && second.span.start.line == 3
+              _ => False
+          _ => False
+        _ => False)
+  , ("final bare clause head remains authored and unresolved",
+      case parseDocument 32 256 "f : Nat -> Nat\nf Zero = Zero\nf n = n\n" of
+        Right document => case document.body of
+          DeclarationDocument [Ordinary decl] => case decl.finalPattern of
+            Just (FinalBarePattern token) => token.spelling == "n" &&
+              token.span.start.line == 3 && token.span.start.column == 3 &&
+              token.span.finish.column == 4
+            _ => False
+          _ => False
+        _ => False)
+  , ("final payload pattern is not a bare head",
+      case parseDocument 32 256 "f : Nat -> Nat\nf Zero = Zero\nf Succ n = n\n" of
+        Right document => case document.body of
+          DeclarationDocument [Ordinary decl] => case decl.finalPattern of
+            Nothing => True
+            _ => False
+          _ => False
+        _ => False)
+  , ("repeated signature remains a duplicate declaration",
+      case parseDocument 32 256 "main : Bool\nmain = True\nmain : Bool\nmain = False\n" of
+        Left (SymbolParsing err) => err.message == "Duplicate declaration \"main\""
+        _ => False)
+  , ("mutual repeated equations are rejected explicitly",
+      case parseDocument 32 256 "module Main\nmutual where\n  first : Nat -> Bool\n  first Zero = True\n  first n = False\n  second : Nat -> Bool\n  second n = True\n" of
+        Left (SymbolParsing err) => err.position.line == 5 &&
+          err.message == "Multiple function clauses are not supported; use a case expression"
+        _ => False)
   , ("references API includes binding and uses in source order",
       case referencesAt "\\(1 x : Bool) => x" 1 18 of
         Right [binding, use] => binding.start.column == 5 && use.start.column == 18

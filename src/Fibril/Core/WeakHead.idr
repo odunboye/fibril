@@ -33,6 +33,9 @@ stepHeadWith unfold (RecFold motive base next value) = map (RecFold motive base 
 stepHeadWith unfold (RecCase motive (RecEnd _) base more) = Just base
 stepHeadWith unfold (RecCase motive (RecMore _ tail) base more) = Just (Apply more tail)
 stepHeadWith unfold (RecCase motive value base more) = map (\x => RecCase motive x base more) (stepHeadWith unfold value)
+stepHeadWith unfold (NatCase motive NatZero base more) = Just base
+stepHeadWith unfold (NatCase motive (NatSucc tail) base more) = Just (Apply more tail)
+stepHeadWith unfold (NatCase motive value base more) = map (\x => NatCase motive x base more) (stepHeadWith unfold value)
 stepHeadWith unfold (SeqCase motive (SeqNil _) base cons) = Just base
 stepHeadWith unfold (SeqCase motive (SeqCons _ head tail) base cons) = Just (Apply (Apply cons head) tail)
 stepHeadWith unfold (SeqCase motive value base cons) = map (\x => SeqCase motive x base cons) (stepHeadWith unfold value)

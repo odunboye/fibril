@@ -8,6 +8,10 @@ import Fibril.Source.Syntax
 
 %default total
 
+||| A final bare clause head is ambiguous until constructor resolution.
+public export
+data AuthoredFinalPattern = FinalBarePattern Token
+
 public export
 record Declaration where
   constructor DeclarationWithRole
@@ -21,10 +25,12 @@ record Declaration where
   name : String
   expected : Expr
   value : Expr
+  finalPattern : Maybe AuthoredFinalPattern
 
 public export
 Declared : Bool -> SourceSpan -> SourceSpan -> SourceSpan -> Bool -> Quantity -> String -> Expr -> Expr -> Declaration
-Declared = DeclarationWithRole False
+Declared generated span nameSpan definitionNameSpan exported quantity name expected value =
+  DeclarationWithRole False generated span nameSpan definitionNameSpan exported quantity name expected value Nothing
 
 public export
 Defined : SourceSpan -> SourceSpan -> SourceSpan -> Bool -> Quantity -> String -> Expr -> Expr -> Declaration

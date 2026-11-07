@@ -32,6 +32,7 @@ mutual
   admit (S budget) (RecMore ty x) = do a <- admit budget ty; admit a x
   admit (S budget) (RecFold p z s x) = do a <- admit budget p; b <- admit a z; c <- admit b s; admit c x
   admit (S budget) (RecCase p x z s) = do a <- admit budget p; b <- admit a x; c <- admit b z; admit c s
+  admit (S budget) (NatCase p x z s) = do a <- admit budget p; b <- admit a x; c <- admit b z; admit c s
   admit (S budget) (SeqCase p x z s) = do a <- admit budget p; b <- admit a x; c <- admit b z; admit c s
   admit (S budget) (SeqType _ a) = admit budget a
   admit (S budget) (SeqNil ty) = admit budget ty
@@ -124,6 +125,8 @@ mutual
   -- A recursive-case contraction selects a branch or constructs one Apply;
   -- it duplicates no subtree and is smaller than its already admitted input.
   safeRedexes size payload (RecCase p x z s) =
+    safeRedexes size payload p && safeRedexes size payload x && safeRedexes size payload z && safeRedexes size payload s
+  safeRedexes size payload (NatCase p x z s) =
     safeRedexes size payload p && safeRedexes size payload x && safeRedexes size payload z && safeRedexes size payload s
   -- Two applications replace the case and constructor nodes; no subtree is copied.
   safeRedexes size payload (SeqCase p x z s) =

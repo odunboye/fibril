@@ -74,6 +74,15 @@ mutual
       Nothing => case step base of
         Just z => Just (RecCase motive value z more)
         Nothing => RecCase motive value base <$> step more
+  step (NatCase motive NatZero base more) = Just base
+  step (NatCase motive (NatSucc tail) base more) = Just (Apply more tail)
+  step (NatCase motive value base more) = case step motive of
+    Just p => Just (NatCase p value base more)
+    Nothing => case step value of
+      Just x => Just (NatCase motive x base more)
+      Nothing => case step base of
+        Just z => Just (NatCase motive value z more)
+        Nothing => NatCase motive value base <$> step more
   step (SeqType key element) = SeqType key <$> step element
   step (SeqNil ty) = SeqNil <$> step ty
   step (SeqCons ty head tail) = case step ty of
