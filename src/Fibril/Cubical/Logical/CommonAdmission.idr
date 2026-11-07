@@ -953,3 +953,163 @@ admitCanonicalCommonEquality budget ctx raw face left right a cert = do
   (fuel, declarations) <- checkDeclarations (checkingNodes (syntaxBudget budget)) ctx raw
   (_, _, result) <- checkCanonicalEquality fuel (solverCalls budget) declarations face left right a cert
   Right (MkAdmittedCanonicalEqualityInput declarations result)
+
+||| Capture-avoiding fresh-dimension weakening; ordinary binders are unchanged.
+public export
+weakenAdmissionPath : AdmissionPathTerm n k d -> AdmissionPathTerm n k (S d)
+weakenAdmissionPath (APOrdinary t) = APOrdinary t
+weakenAdmissionPath (APAt p i) = APAt p (substituteScoped (Var . FS) i)
+weakenAdmissionPath (APLam b) = APLam (weakenAdmissionPath b)
+weakenAdmissionPath (APApp a f x) = APApp a (weakenAdmissionPath f) (weakenAdmissionPath x)
+weakenAdmissionPath (APUnitElim x b) = APUnitElim (weakenAdmissionPath x) (weakenAdmissionPath b)
+weakenAdmissionPath (APIf c t f) = APIf (weakenAdmissionPath c) (weakenAdmissionPath t) (weakenAdmissionPath f)
+
+public export
+eraseWeakenAdmissionPath : (t : AdmissionPathTerm n k d) ->
+  eraseAdmissionPath (weakenAdmissionPath t) = mapCommonPathDimensions (Var . FS) (eraseAdmissionPath t)
+eraseWeakenAdmissionPath (APOrdinary t) = Refl
+eraseWeakenAdmissionPath (APAt p i) = Refl
+eraseWeakenAdmissionPath (APLam b) = cong CPLam (eraseWeakenAdmissionPath b)
+eraseWeakenAdmissionPath (APApp a f x) = rewrite eraseWeakenAdmissionPath f in rewrite eraseWeakenAdmissionPath x in Refl
+eraseWeakenAdmissionPath (APUnitElim x b) = rewrite eraseWeakenAdmissionPath x in rewrite eraseWeakenAdmissionPath b in Refl
+eraseWeakenAdmissionPath (APIf c t f) = rewrite eraseWeakenAdmissionPath c in rewrite eraseWeakenAdmissionPath t in rewrite eraseWeakenAdmissionPath f in Refl
+
+-- This intermediate package permits transporting the exact checked syntax,
+-- without identifying typing derivations or computational witnesses.
+record CanonicalFace {ctx : Vect n LogicalType} {raw : AdmissionDeclarations n k}
+  (decls : AdmittedDeclarations ctx raw) (face : ScopedFace d)
+  (left, right : CommonPathTerm n k d) (a : LogicalType) where
+  constructor MkCanonicalFace
+  faceLeft : HigherOrderPathWitness ctx (admissionPathTypes raw) a d left
+  faceRight : HigherOrderPathWitness ctx (admissionPathTypes raw) a d right
+  checkedFace : CommonFaceEqual (checkedDeclarations decls) face left right a
+  faceEvidence : (ps : carrier (commonDependentPathEnvironmentSetoid ctx (admissionPathTypes raw))) ->
+    (valid : CanonicalPathAdmissible decls ps) ->
+    DependentEndpointFaceEvidence checkedFace (pathWitness faceLeft) (pathWitness faceRight)
+      ps (canonicalPathAdmissible decls ps valid)
+
+canonicalFace : {ctx : Vect n LogicalType} -> {raw : AdmissionDeclarations n k} ->
+  {decls : AdmittedDeclarations ctx raw} ->
+  {left, right : AdmissionPathTerm n k d} ->
+  AdmittedCanonicalEquality decls face left right a ->
+  CanonicalFace decls face (eraseAdmissionPath left) (eraseAdmissionPath right) a
+canonicalFace (MkAdmittedCanonicalEquality l r eq evidence) =
+  MkCanonicalFace (MkHigherOrderPathWitness (pathTyping l) (pathWitness l))
+    (MkHigherOrderPathWitness (pathTyping r) (pathWitness r)) eq evidence
+
+record CanonicalBoundary {ctx : Vect n LogicalType} {raw : AdmissionDeclarations n k}
+  (decls : AdmittedDeclarations ctx raw) (face : ScopedFace d)
+  {left, right : CommonPathTerm n k d} {a : LogicalType}
+  (bw : HigherOrderPathWitness ctx (admissionPathTypes raw) a d left)
+  (ew : HigherOrderPathWitness ctx (admissionPathTypes raw) a d right) where
+  constructor MkCanonicalBoundary
+  boundaryEquality : CommonFaceEqual (checkedDeclarations decls) face left right a
+  boundaryEvidence : (ps : carrier (commonDependentPathEnvironmentSetoid ctx (admissionPathTypes raw))) ->
+    (valid : CanonicalPathAdmissible decls ps) ->
+    DependentEndpointFaceEvidence boundaryEquality (pathWitness bw) (pathWitness ew)
+      ps (canonicalPathAdmissible decls ps valid)
+
+alignCanonicalBoundary : {ctx : Vect n LogicalType} -> {raw : AdmissionDeclarations n k} ->
+  {decls : AdmittedDeclarations ctx raw} -> {a : LogicalType} ->
+  {left, right : CommonPathTerm n k d} ->
+  (bw : HigherOrderPathWitness ctx (admissionPathTypes raw) a d left) ->
+  (ew : HigherOrderPathWitness ctx (admissionPathTypes raw) a d right) ->
+  CanonicalFace decls face left right a -> Either AdmissionError (CanonicalBoundary decls face bw ew)
+alignCanonicalBoundary bw ew (MkCanonicalFace l r eq evidence) = do
+  AlignedPaths bl <- maybe (Left SyntaxMismatch) Right (alignPathWitnesses (pathWitness bw) (pathWitness l))
+  AlignedPaths re <- maybe (Left SyntaxMismatch) Right (alignPathWitnesses (pathWitness r) (pathWitness ew))
+  Right (MkCanonicalBoundary eq (\ps, valid => DepEndpointAlign bl (evidence ps valid) re))
+
+||| Actual v0 abstraction and its computational witnesses. Semantic validity
+||| remains an explicit premise for an arbitrary actual canonical path model.
+public export
+record AdmittedCanonicalAbstraction {ctx : Vect n LogicalType} {raw : AdmissionDeclarations n k}
+  (decls : AdmittedDeclarations ctx raw) (face : ScopedFace d)
+  (left, right : AdmissionPathTerm n k d) (body : AdmissionPathTerm n k (S d)) (a : LogicalType) where
+  constructor MkAdmittedCanonicalAbstraction
+  abstractionLeft : AdmittedPathTerm ctx (admissionPathTypes raw) d left a
+  abstractionRight : AdmittedPathTerm ctx (admissionPathTypes raw) d right a
+  abstractionBody : AdmittedPathTerm ctx (admissionPathTypes raw) (S d) body a
+  abstractionZero : CommonFaceEqual (checkedDeclarations decls)
+    (SConjunction (weakenFace face) (SEndpoint FZ False)) (eraseAdmissionPath body)
+    (mapCommonPathDimensions (Var . FS) (eraseAdmissionPath left)) a
+  abstractionOne : CommonFaceEqual (checkedDeclarations decls)
+    (SConjunction (weakenFace face) (SEndpoint FZ True)) (eraseAdmissionPath body)
+    (mapCommonPathDimensions (Var . FS) (eraseAdmissionPath right)) a
+  abstractionEvidence : (ps : carrier (commonDependentPathEnvironmentSetoid ctx (admissionPathTypes raw))) ->
+    (valid : CanonicalPathAdmissible decls ps) ->
+    HigherOrderCommonShadowPath
+      (CommonAbstract {face} (pathTyping abstractionLeft) (pathTyping abstractionRight) (eraseAdmissionPath body)
+        (pathTyping abstractionBody) abstractionZero abstractionOne)
+      ps (canonicalPathAdmissible decls ps valid)
+
+public export
+abstractionPath : {ctx : Vect n LogicalType} -> {raw : AdmissionDeclarations n k} ->
+  {decls : AdmittedDeclarations ctx raw} -> {body : AdmissionPathTerm n k (S d)} ->
+  {left, right : AdmissionPathTerm n k d} ->
+  AdmittedCanonicalAbstraction decls face left right body a ->
+  CommonShadowPath (checkedDeclarations decls) face (eraseAdmissionPath left) (eraseAdmissionPath right) a
+abstractionPath result = CommonAbstract (pathTyping (abstractionLeft result)) (pathTyping (abstractionRight result))
+  (eraseAdmissionPath body) (pathTyping (abstractionBody result)) (abstractionZero result) (abstractionOne result)
+
+public export
+record AdmittedCanonicalAbstractionInput (ctx : Vect n LogicalType) (raw : AdmissionDeclarations n k)
+  (face : ScopedFace d) (left, right : AdmissionPathTerm n k d)
+  (body : AdmissionPathTerm n k (S d)) (a : LogicalType) where
+  constructor MkAdmittedCanonicalAbstractionInput
+  abstractionDeclarations : AdmittedDeclarations ctx raw
+  abstractionResult : AdmittedCanonicalAbstraction abstractionDeclarations face left right body a
+
+||| Both full certificates are preflighted before any endpoint expansion.
+||| Expansion conservatively reserves twice the original endpoint/face size:
+||| each dimension index acquires at most one FS. No arbitrary map is accepted.
+||| Checking and solver allowances are shared by declarations, typing and BOTH
+||| boundary checkers. Comparison/alignment/provider interpretation is unmetered,
+||| bounded structurally by checked syntax, not a whole host-time cost theorem.
+public export
+admitCanonicalCommonAbstraction : {d : Nat} -> CanonicalEqualityBudget -> (ctx : Vect n LogicalType) ->
+  (raw : AdmissionDeclarations n k) -> (face : ScopedFace d) ->
+  (left, right : AdmissionPathTerm n k d) -> (body : AdmissionPathTerm n k (S d)) ->
+  (a : LogicalType) -> (zero, one : AdmissionEquality n k (S d)) ->
+  Either AdmissionError (AdmittedCanonicalAbstractionInput ctx raw face left right body a)
+admitCanonicalCommonAbstraction budget ctx raw face left right body a zero one = do
+  fuel <- preflightContext (inputNodes (syntaxBudget budget)) ctx
+  fuel <- preflightDeclarations fuel raw
+  fuel <- preflightScope fuel (S d)
+  fuel <- preflightFace fuel face
+  fuel <- preflightType fuel a
+  fuel <- preflightPath fuel left
+  fuel <- preflightPath fuel right
+  fuel <- preflightPath fuel body
+  fuel <- preflightEquality fuel zero
+  fuel <- preflightEquality fuel one
+  -- Reserve all expansion output before constructing either weakened endpoint.
+  fuel <- preflightPath fuel left
+  fuel <- preflightPath fuel left
+  fuel <- preflightPath fuel right
+  fuel <- preflightPath fuel right
+  fuel <- preflightFace fuel face
+  fuel <- preflightFace fuel face
+  fuel <- preflightFace fuel face
+  fuel <- preflightFace fuel face
+  fuel <- preflightScope fuel 5 -- six nodes: two conjunctions/endpoints/FZs
+  (fuel, declarations) <- checkDeclarations (checkingNodes (syntaxBudget budget)) ctx raw
+  (fuel, l) <- checkPath fuel ctx (admissionPathTypes raw) d left a
+  (fuel, r) <- checkPath fuel ctx (admissionPathTypes raw) d right a
+  (fuel, b) <- checkPath fuel ctx (admissionPathTypes raw) (S d) body a
+  (fuel, calls, z) <- checkCanonicalEquality fuel (solverCalls budget) declarations
+    (SConjunction (weakenFace face) (SEndpoint FZ False)) body (weakenAdmissionPath left) a zero
+  (_, _, o) <- checkCanonicalEquality fuel calls declarations
+    (SConjunction (weakenFace face) (SEndpoint FZ True)) body (weakenAdmissionPath right) a one
+  let bw = MkHigherOrderPathWitness (pathTyping b) (pathWitness b)
+  let lw = MkHigherOrderPathWitness (pathTyping l) (pathWitness l)
+  let rw = MkHigherOrderPathWitness (pathTyping r) (pathWitness r)
+  z <- alignCanonicalBoundary bw (mapHigherOrderPathDimensions (Var . FS) (pathWitness lw))
+    (replace {p = \t => CanonicalFace declarations (SConjunction (weakenFace face) (SEndpoint FZ False)) (eraseAdmissionPath body) t a}
+      (eraseWeakenAdmissionPath left) (canonicalFace z))
+  o <- alignCanonicalBoundary bw (mapHigherOrderPathDimensions (Var . FS) (pathWitness rw))
+    (replace {p = \t => CanonicalFace declarations (SConjunction (weakenFace face) (SEndpoint FZ True)) (eraseAdmissionPath body) t a}
+      (eraseWeakenAdmissionPath right) (canonicalFace o))
+  Right (MkAdmittedCanonicalAbstractionInput declarations
+    (MkAdmittedCanonicalAbstraction l r b (boundaryEquality z) (boundaryEquality o)
+      (\ps, valid => HOCommonAbstract bw lw rw (boundaryEvidence z ps valid) (boundaryEvidence o ps valid))))

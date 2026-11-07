@@ -33,16 +33,16 @@ remain in the source quantitative judgment.
 | --- | --- | --- | --- |
 | Ordinary formation/typing | `CommonTerm`, `CommonHasType` | Scoped variables, Unit/Bool, lambda/application, conditional, unit elimination | `CommonAdmission` admits scoped annotated raw typing; production correspondence remains open |
 | Ordinary substitution | `CommonSubstitutionTyped`, `substituteCommonTyped` | Typed environments preserve ordinary typing; translation commutation | Production checker correspondence |
-| Dimension-scoped bodies | `CommonPathTerm`, `CommonPathHasType` | Ordinary embeddings, named application, lambda/application, if/unit | `CommonAdmission` admits scoped annotated bodies and canonical-context endpoint equality; abstraction admission remains open |
+| Dimension-scoped bodies | `CommonPathTerm`, `CommonPathHasType` | Ordinary embeddings, named application, lambda/application, if/unit | `CommonAdmission` admits scoped annotated bodies and canonical-context endpoint equality; bounded abstraction admission constructs both boundaries |
 | Named declarations | `CommonDeclarations`, `CommonDeclaredPath` | Dimension-independent typed ordinary endpoints, exact typed name lookup | `CommonAdmission` retains checked endpoint witnesses; canonical semantic validity is an explicit model premise, automatically converted to existing admissibility |
 | Face equality | `CommonFaceEqual` | Typed reflexivity, declared endpoints, symmetry/transitivity, stronger-face restriction, app/if/unit congruence | `CommonAdmission` constructs canonical-context endpoint/restriction and compositional evidence in a separate API; no lambda equality or beta/eta rule is added |
-| Homogeneous abstraction | `CommonShadowPath` / `CommonAbstract` | Typed body under fresh dimension and both actual face-restricted boundaries | Automatic construction of complete semantic certificates |
+| Homogeneous abstraction | `CommonShadowPath` / `CommonAbstract` | Typed body under fresh dimension and both actual face-restricted boundaries | `CommonAdmission` constructs both actual boundaries and semantic evidence under explicit canonical validity; production integration remains open |
 | Application | `applyCommonShadowPath` | Capture-avoiding substitution for fresh dimension | Production elaboration/reduction correspondence |
 | Term substitution of judgments | `substituteCommonDeclarations`, `substituteCommonFaceEqual`, `substituteCommonShadowPath` | Independent typed substitution preserves declarations/equalities/abstractions | Integrated quantitative cubical preservation |
 | Dimension substitution | `CommonDimensionEvidence`, `CommonPathDimensionEvidence`, `mapCommonShadowPathDimensions` | Rebuilds actual judgments with renewed indexed checks | Automatic recertification; unconditional stability is not claimed |
-| Interpretation | `HigherOrderTerm`, `HigherOrderPathTerm`, `dependentPathSemantics` | Explicit computational witnesses interpret as extensional setoid morphisms | `CommonAdmission` constructs typing witnesses automatically; complete equality/boundary certificates remain open |
+| Interpretation | `HigherOrderTerm`, `HigherOrderPathTerm`, `dependentPathSemantics` | Explicit computational witnesses interpret as extensional setoid morphisms | `CommonAdmission` constructs typing witnesses automatically; canonical equality/boundary evidence is automatic for supported raw certificates |
 | Semantic equality | `DependentEndpointFaceEvidence`, `dependentEndpointFaceEvidenceSound` | Actual derivations sound with explicit structural evidence and admissibility | Every admitted equality must construct this evidence |
-| Semantic abstraction/application | `HigherOrderCommonShadowPath`, `higherOrderCommonPathBoundary`, `higherOrderCommonPathApplicationRelated` | Exact witnessed abstraction/application and both endpoint relations | Automatic boundary evidence; full cubical model |
+| Semantic abstraction/application | `HigherOrderCommonShadowPath`, `higherOrderCommonPathBoundary`, `higherOrderCommonPathApplicationRelated` | Exact witnessed abstraction/application and both endpoint relations | Automatic boundary evidence is admitted under canonical validity; full cubical model remains open |
 
 Boundary faces weaken the ambient restriction and conjoin the fresh endpoint.
 Restriction checks **new face entails old face**. Endpoint equality's result type
@@ -74,8 +74,8 @@ The selected calculus itself is a declarative Idris proof interface.
 for scoped annotated raw ordinary/path syntax and first-order face-equality
 certificates (including declared endpoints under canonical semantic validity);
 see [its exact contract](common-admission.md). `TypedPathChecker` is not its
-checker. The full abstraction admission contract, including automatic
-construction of both boundary semantic certificates, remains open.
+checker. A separate bounded abstraction entry point now constructs both actual
+boundary derivations and semantic certificates under explicit canonical validity.
 
 Existing bounded entailment checks are incomplete. Unsupported cases and
 exhaustion must reject certificate construction; `False` is not a proof of
@@ -89,7 +89,7 @@ untrusted time/allocation guarantee.
 | Modules | Role after freeze |
 | --- | --- |
 | `ShadowCommon` | Authoritative v0 judgments and selected dependent semantic model |
-| `CommonAdmission` | Isolated annotated typing, raw declarations, preserved reflexive API and separate canonical-context endpoint/restriction equality admission with exact computational/semantic evidence; no abstraction admission |
+| `CommonAdmission` | Isolated annotated typing, raw declarations, preserved reflexive API and separate canonical-context endpoint/restriction equality admission with exact computational/semantic evidence, plus bounded raw abstraction admission with both exact boundaries |
 | `Shadow`, `ShadowSubstitution` | Intrinsic pure source-shadow language and proved source translation dependencies |
 | `ShadowPath` | Source-side path representation and translation/recertification dependency; not a competing production language |
 | `ShadowTypedBridge` | Restricted compatibility bridge; not the type-preserving v0 target |
@@ -112,14 +112,14 @@ presheaf model. Finite valuation substitution results do not establish general
 cubical naturality or fibrancy. No full production normalization, erasure,
 execution or ownership soundness theorem follows from v0.
 
-## Next gate: complete evidence-producing admission contract
+## Bounded evidence-producing admission contract; next gate: production integration
 
 The [first admission slice](common-admission.md) constructs exact ordinary/path
 typing and computational witnesses, without caller-supplied conclusions. It does
-not complete the abstraction gate or provide general conversion. Raw declarations,
-reflexive certificates and canonical-context declared endpoint/restriction
-certificates are now checked automatically, with no new v0 equations. Before adding
-language rules, finish the remaining obligations of a raw-input interface that:
+not provide general conversion. Raw declarations, reflexive certificates,
+canonical-context declared endpoint/restriction certificates and homogeneous
+abstractions with both boundaries are checked automatically, with no new v0
+equations. The bounded raw-input interface:
 
 1. Admits exact ordinary, named-path, dimension and face contexts.
 2. Produces `CommonPathHasType` and exact equality/abstraction derivations.
@@ -128,10 +128,13 @@ language rules, finish the remaining obligations of a raw-input interface that:
    arbitrary Boolean certificate or a promised existence theorem.
 5. Constructs semantic equality/boundary evidence for each supported rule.
 6. Rejects unsupported/exhausted checks with no runtime conversion fallback.
-7. Specifies separate input, expansion, solver and proof-search budgets.
+7. Specifies input, conservative pre-allocation expansion reservation, solver
+   and proof-search allowances; expansion reservation shares the input allowance.
 
-The first end-to-end acceptance example must contain an open nonconstant path,
-a genuinely linearly used source term, both endpoints and dimension substitution.
+The bounded end-to-end regression contains an open nonconstant path, a genuinely
+linearly used source term, both endpoints and exact dimension-substituted application.
+It uses the returned semantic provider under explicitly constructed canonical
+validity, not a model-existence claim.
 Keep diagnostic-specific wrong-type, wrong-face, wrong-index, erasure-reflection
 and exhaustion regressions. Run `bash tools/test_cubical_worktree.sh`, then broader
 hosted/native/ownership regressions at an integration gate.

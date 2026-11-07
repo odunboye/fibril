@@ -96,6 +96,31 @@ for fixture in CommonEndpointAdmissionWrongContext CommonEndpointAdmissionWrongF
 done
 echo 'Common endpoint admission exact context, face and canonical admissibility negatives passed.'
 
+"$idris" -p fibril --check CommonAbstractionAdmissionFixture.idr > "$tmp/CommonAbstractionAdmissionFixture.log" 2>&1 || {
+  cat "$tmp/CommonAbstractionAdmissionFixture.log" >&2; exit 1;
+}
+for fixture in CommonAbstractionAdmissionWrongFace CommonAbstractionAdmissionWrongBoundary CommonAbstractionAdmissionWrongBody CommonAbstractionAdmissionWrongType CommonAbstractionAdmissionWrongContext CommonAbstractionAdmissionWrongDimension CommonAbstractionAdmissionWrongAdmissibility; do
+  if "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1; then
+    echo "Abstraction admission negative unexpectedly succeeded: $fixture" >&2; exit 1
+  fi
+  case "$fixture" in
+    CommonAbstractionAdmissionWrongFace) expected='Mismatch between: STop and SBottom.' ;;
+    CommonAbstractionAdmissionWrongBoundary) expected='Mismatch between: True and False.' ;;
+    CommonAbstractionAdmissionWrongBody) expected='Mismatch between: FZ and FS FZ.' ;;
+    CommonAbstractionAdmissionWrongType|CommonAbstractionAdmissionWrongContext) expected='Mismatch between: LBool and LUnit.' ;;
+    CommonAbstractionAdmissionWrongDimension) expected='Mismatch between: S ?k and 0.' ;;
+    CommonAbstractionAdmissionWrongAdmissibility) expected="Can't solve constraint between: DependentPathAdmissible (checkedDeclarations (abstractionDeclarations input)) ps and CanonicalPathAdmissible (abstractionDeclarations input) ps." ;;
+  esac
+  if [[ $(grep -c '^Error:' "$tmp/$fixture.log") -ne 1 ]] ||
+     ! grep -Fq 'Error: While processing right hand side of bad.' "$tmp/$fixture.log" ||
+     ! grep -Fq "$expected" "$tmp/$fixture.log" ||
+     grep -Eq 'Undefined name|While processing type of' "$tmp/$fixture.log"; then
+    echo "Abstraction admission negative failed for an unrelated reason: $fixture" >&2
+    cat "$tmp/$fixture.log" >&2; exit 1
+  fi
+done
+echo 'Common abstraction admission exact face, endpoints, body, type, context, dimension and canonical admissibility negatives passed.'
+
 for fixture in CommonAbstractWrongFace CommonAbstractWrongIndex CommonAbstractWrongBoundary; do
   "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1 || true
   case "$fixture" in

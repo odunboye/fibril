@@ -1,7 +1,7 @@
-# CommonAdmission: bounded typing and certified face equality
+# CommonAdmission: bounded typing, face equality and path abstraction
 
-`Fibril.Cubical.Logical.CommonAdmission` admits **typing and first-order face
-equality certificates**, not a new calculus,
+`Fibril.Cubical.Logical.CommonAdmission` admits **typing, first-order face
+equality certificates and homogeneous path abstractions**, not a new calculus,
 conversion procedure, or production bridge. Common Path v0 in
 `cubical-experiment-contract.md` remains authoritative. No v0 rule changed.
 
@@ -79,7 +79,7 @@ substitutions. Constructive equality and lookup are total and run after bounded
 preflight, but no formal combined cost theorem is claimed. Rejection is not a
 proof of semantic inequality or a completeness claim for possible annotations.
 
-## Model assumptions and remaining certificate gate
+## Model assumptions and exact certificate contract
 
 Typing and higher-order witnesses can be constructed without interpreting a
 context. The chosen `dependentPathSemantics` interprets the returned witness in
@@ -88,7 +88,7 @@ types is not a declaration context and asserts no endpoint equations.
 
 The complete declaration/equality/abstraction gate must retain the following
 exact v0 evidence, without replacing it with a Boolean. The original reflexive-generator
-API and the separate canonical-context equality API below construct items 1 and 2
+API, canonical-context equality API and abstraction API below construct items 1–3
 for their supported grammars:
 
 1. `CommonDeclarations ctx paths`, each declaration's exact ordinary endpoints,
@@ -124,9 +124,10 @@ for their supported grammars:
    must rebuild the actual judgments and renew checks/evidence, never assume
    unconditional stability of solver acceptance or semantic certificates.
 
-**Abstraction certificate construction remains unimplemented.** Non-reflexive
-endpoint equality is now supported by the separate canonical-context API below;
-the original reflexive API is preserved. Existing witness dimension mapping is
+**Abstraction and both boundary certificates are now constructed automatically**
+by the separate canonical-context abstraction API below. Non-reflexive endpoint
+equality is supported by the canonical-context equality API; the original
+reflexive API is preserved. Existing witness dimension mapping is
 available, but is not an admission/resource theorem for host substitutions or
 automatic recertification of equality/abstraction boundaries.
 
@@ -227,9 +228,9 @@ admissibility, request the target semantic equation, or take a manual semantic
 certificate. The original API deliberately leaves endpoints unsupported. The separate
 canonical-context API below supplies that missing exact-witness contract.
 
-Homogeneous abstraction, automatically admitted abstraction boundaries, equality
-dimension recertification, and the full first end-to-end path abstraction gate
-remain open. Existing dimension mapping of returned typing witnesses is tested,
+The separate abstraction API below now admits homogeneous abstractions and both
+boundaries. Automatic equality dimension recertification remains open. Existing
+dimension mapping of returned typing witnesses is tested,
 but is not automatic mapping of equality certificates.
 
 ### Budgets and evidence
@@ -379,7 +380,100 @@ validity by arbitrary `DependentPathAdmissible` evidence.
 
 **Remaining:** there is no general conversion/equality decision procedure or
 completeness theorem, no general existence theorem for semantic contexts, no
-lambda equality rule, no automatic equality dimension recertification, and no
-admitted homogeneous path abstraction with both automatically constructed
-boundary certificates. This completes a genuine declared-endpoint equality
-admission contract, not the full path abstraction/production integration gate.
+lambda equality rule, or automatic recertification of arbitrary
+dimension-mapped equalities. The separate
+abstraction API below completes the bounded raw abstraction gate, not production
+integration.
+
+## Canonical-context homogeneous abstraction admission
+
+`admitCanonicalCommonAbstraction budget ctx declarations ambient left right body expected zero one`
+accepts only raw scoped inputs: endpoints at dimension scope `d`, a body at
+`S d`, and **two** raw `AdmissionEquality n k (S d)` certificates. It accepts
+no target derivation, equality, computational witness, structural alignment or
+semantic model. The original APIs and their exact budget boundaries are unchanged.
+
+`weakenAdmissionPath` shifts every existing dimension by `Var . FS`, including
+under ordinary lambdas, without changing ordinary indices or application domain
+annotations. `eraseWeakenAdmissionPath` proves that its actual erasure is exactly
+`mapCommonPathDimensions (Var . FS)`. The two certificates are checked at the
+actual faces `SConjunction (weakenFace ambient) (SEndpoint FZ False/True)` against
+the retained body and respective weakened endpoint, not at the ambient face alone.
+Declarations, endpoints and body are independently checked at the expected type.
+
+Success retains `abstractionDeclarations` and `abstractionResult`. The latter
+contains all three exact computational typing witnesses, `abstractionZero` and
+`abstractionOne`. `abstractionPath result` constructs **the actual** `CommonAbstract`
+with that exact raw body, endpoints and returned boundary derivations.
+`abstractionEvidence result ps valid` automatically produces
+`HigherOrderCommonShadowPath (abstractionPath result) ps
+(canonicalPathAdmissible declarations ps valid)` for arbitrary actual `ps` and
+its exact `CanonicalPathAdmissible` premise. There is no assertion that this model
+exists for every raw declaration context.
+
+Boundary checking may select different typing derivations from retained body and
+mapped endpoint witnesses. Admission inspects the actual computational witnesses,
+including hidden application domains, to construct structural alignments on
+**both sides of both boundaries**, then uses `DepEndpointAlign`. Equality of
+logical types or erasures is never used as a unique-typing/coherence assumption.
+Failure to build alignment rejects with `SyntaxMismatch`.
+
+### Preflight, expansion and shared budgets
+
+The existing `CanonicalEqualityBudget` is reused, with no resetting public wrapper
+calls. One shared input preflight visits context, every declaration/type/both
+ordinary endpoints, dimension scope, ambient face, expected type, both path
+endpoints, body, and **both complete certificate trees**, including annotations,
+restriction faces and transitivity middle terms. This finishes before any
+endpoint dimension expansion, erasure, checking, comparison or solver call.
+
+After original-input preflight, the remaining `inputNodes` must conservatively
+reserve the expansion output: twice each original raw endpoint size, twice each
+ambient face size **for each boundary**, and six nodes for the two conjunctions,
+endpoints and `FZ`s. Each shifted dimension index adds only one `FS`, so this
+bounds output size before constructing either weakened endpoint/face. This
+fixed weakening admits no arbitrary host substitution environment. A reservation
+failure is `InputLimit`, not an uncapped expansion fallback. Expansion has a
+separate accounting phase within `inputNodes`, not a new incompatible budget field.
+
+One sequential `checkingNodes` allowance pays for declarations, independent
+endpoint/body typing, then first and second internal canonical equality checks.
+The second check receives the first check's remaining rule fuel **and** solver
+allowance. Existing fixed authoritative face/interval/dimension solver caps also
+apply. All exhaustion rejects; there is no runtime/conversion fallback.
+Canonical equality's `TypeMismatch`, `SyntaxMismatch`, `FaceMismatch` (including
+capped/inconclusive solver rejection), `CheckingLimit` and `SolverLimit` semantics
+are unchanged. The original equality API still uses `UnsupportedEquality` for
+endpoint/restriction requests. No lambda equality or beta/eta rule was added.
+Comparison, alignment and provider interpretation are not separately metered;
+these reservations are not a formal combined host allocation/time theorem.
+
+### Executable and diagnostic evidence
+
+`Tests.Cubical.CommonAbstractionAdmission` admits the actual nonconstant `λi. p i`
+from an ordinary Boolean variable to the shadow of a source linear Boolean `If`.
+`Uses ... [Linear]` and its source image remain separate proofs. It constructs a
+canonical model for the checked declarations, invokes the returned semantic
+provider, checks both endpoints and both ordinary Boolean environments, and
+observes the exact returned application witness. The ambient face constrains an
+older dimension, while another older dimension is off-diagonal. Application
+soundness uses `higherOrderCommonPathApplicationRelated` directly; endpoint
+application soundness composes that theorem with `higherOrderCommonPathBoundary`,
+with **no manual witness alignment**. The convenience theorem
+`higherOrderCommonPathApplicationBoundary` currently exposes a private generated
+case during normalization for an opaque returned witness in this Idris compiler;
+the test uses the two authoritative constituent theorems instead, without
+changing their API or claiming that convenience-call gate passed.
+
+Additional checks cover application/lambda/transitivity boundary alignment,
+an arrow body capturing the ordinary context, dimension-dependent endpoints and
+capture-avoiding weakening, wrong boundaries/faces/dimensions/context/result,
+same-erasure annotation ambiguity, and complete preflight before checking.
+Exact small-case input/reservation and checking boundaries are **31/32** and
+**12/13**; the second boundary exhausts shared checking/solver allowances.
+Seven diagnostic-specific compile negatives protect exact face, endpoint, body,
+result type, ordinary context, dimension scope and canonical admissibility.
+
+This is bounded admission for the frozen grammar, not general conversion,
+completeness, arbitrary equality dimension recertification, a semantic-context
+existence theorem, a full cubical model, or a production integration theorem.
