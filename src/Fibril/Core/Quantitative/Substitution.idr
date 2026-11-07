@@ -64,3 +64,24 @@ headSubstitution value (There variable) = Ref variable
 public export
 instantiate : Term context a -> Term (a :: context) b -> Term context b
 instantiate value body = substitute (headSubstitution value) body
+
+||| A single deletion, with its replacement weakened under each retained binder.
+||| The constructors record the arbitrary prefix above the deleted variable.
+public export
+data SingleSubstitution : Vect (S n) Ty -> Vect n Ty -> Type where
+  SubstituteHere : Term context a -> SingleSubstitution (a :: context) context
+  SubstituteUnder : SingleSubstitution source target ->
+                    SingleSubstitution (b :: source) (b :: target)
+
+public export
+singleSubstitution : SingleSubstitution source target -> Substitution source target
+singleSubstitution (SubstituteHere value) = headSubstitution value
+singleSubstitution (SubstituteUnder substitution) = liftSubstitution (singleSubstitution substitution)
+
+||| Descending under a binder is exactly simultaneous-substitution lifting.
+public export
+singleSubstitutionUnder : (substitution : SingleSubstitution source target) ->
+  (variable : Var (b :: source) ty) ->
+  singleSubstitution (SubstituteUnder substitution) variable =
+    liftSubstitution (singleSubstitution substitution) variable
+singleSubstitutionUnder substitution variable = Refl

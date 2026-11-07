@@ -246,3 +246,29 @@ alternativeDemandNotSequential = Refl
 alternativeSequentialWouldDuplicate :
   combineUsage [Linear] [Linear] = [Unrestricted]
 alternativeSequentialWouldDuplicate = Refl
+
+-- The order is permission, not a numeric zero-to-one order.
+erasedNotBelowLinear : DemandLeq Erased Linear -> Void
+erasedNotBelowLinear Refl impossible
+
+linearNotBelowErased : DemandLeq Linear Erased -> Void
+linearNotBelowErased Refl impossible
+
+alternativeUpperExample : Admits [Unrestricted, Linear] [Erased, Linear]
+alternativeUpperExample = joinUsageUpperLeft [Erased, Linear] [Linear, Linear]
+
+scaledBoundExample : Admits [Unrestricted, Erased] [Linear, Erased]
+scaledBoundExample = scaleMonotone Linear Unrestricted [Linear, Erased] [Linear, Erased]
+  Refl (AdmitCons Refl (AdmitCons Refl AdmitNil))
+
+nestedSingleSubstitution :
+  singleSubstitution (SubstituteUnder (SubstituteUnder
+    (SubstituteHere (the (Term [UnitTy] UnitTy) (Ref Here)))))
+    (There (There Here)) = the (Term [BoolTy, BoolTy, UnitTy] UnitTy) (Ref (There (There Here)))
+nestedSingleSubstitution = Refl
+
+nestedBoundVariable :
+  singleSubstitution (SubstituteUnder
+    (SubstituteHere (the (Term [UnitTy] UnitTy) (Ref Here)))) Here =
+    the (Term [BoolTy, UnitTy] BoolTy) (Ref Here)
+nestedBoundVariable = Refl

@@ -372,9 +372,16 @@ relation must be permission (`allows`), not numerical order or equality. The
 replacement must still yield internal derivations when `q` is erased, because
 erased application arguments are checked. At alternatives, the candidate bound
 must account for potentially different `q`s and overlapping ambient demands;
-the common-demand equality alone is insufficient. This is a proof plan, not a
-machine-checked invariant: the required substitution/renaming commutation,
-permission algebra and binder-preservation induction are not established.
+the common-demand equality alone is insufficient. This is a proof plan, not a machine-checked invariant. `DemandLeq a b` is
+`allows b a = True`; reflexivity, transitivity, monotonicity of addition,
+multiplication and join, and both join upper bounds are checked exhaustively.
+`Admits` is its reversed-argument pointwise lift, with transitivity, monotonicity
+of vector addition, scaling and join, and vector join upper bounds. The
+`SingleSubstitution` deletion path represents a replacement under an arbitrary
+retained prefix, and `singleSubstitutionUnder` checks its lifting equation.
+The remaining distributive/interchange bounds, substitution/renaming
+commutation, internal derivation construction and exact binder-preservation
+induction are not established.
 Consequently neither validity nor a counterexample for the full theorem is
 claimed by this intermediate result.
 

@@ -143,6 +143,163 @@ data Admits : Usage n -> Usage n -> Type where
   AdmitCons : allows permission used = True -> Admits permissions usage ->
               Admits (permission :: permissions) (used :: usage)
 
+||| The permission preorder is oriented from actual demand to its bound.
+public export
+DemandLeq : Quantity -> Quantity -> Type
+DemandLeq actual bound = allows bound actual = True
+
+public export
+demandRefl : (q : Quantity) -> DemandLeq q q
+demandRefl Erased = Refl
+demandRefl Linear = Refl
+demandRefl Unrestricted = Refl
+
+public export
+demandTrans : (a, b, c : Quantity) -> DemandLeq a b -> DemandLeq b c -> DemandLeq a c
+demandTrans Erased Erased Erased _ _ = Refl
+demandTrans Erased Erased Unrestricted _ _ = Refl
+demandTrans Erased Unrestricted Unrestricted _ _ = Refl
+demandTrans Linear Linear Linear _ _ = Refl
+demandTrans Linear Linear Unrestricted _ _ = Refl
+demandTrans Linear Unrestricted Unrestricted _ _ = Refl
+demandTrans Unrestricted Unrestricted Unrestricted _ _ = Refl
+
+public export
+addMonotone : (a, b, c, d : Quantity) -> DemandLeq a b -> DemandLeq c d -> DemandLeq (add a c) (add b d)
+addMonotone Erased Erased Erased Erased _ _ = Refl
+addMonotone Erased Erased Erased Unrestricted _ _ = Refl
+addMonotone Erased Erased Linear Linear _ _ = Refl
+addMonotone Erased Erased Linear Unrestricted _ _ = Refl
+addMonotone Erased Erased Unrestricted Unrestricted _ _ = Refl
+addMonotone Erased Unrestricted Erased Erased _ _ = Refl
+addMonotone Erased Unrestricted Erased Unrestricted _ _ = Refl
+addMonotone Erased Unrestricted Linear Linear _ _ = Refl
+addMonotone Erased Unrestricted Linear Unrestricted _ _ = Refl
+addMonotone Erased Unrestricted Unrestricted Unrestricted _ _ = Refl
+addMonotone Linear Linear Erased Erased _ _ = Refl
+addMonotone Linear Linear Erased Unrestricted _ _ = Refl
+addMonotone Linear Linear Linear Linear _ _ = Refl
+addMonotone Linear Linear Linear Unrestricted _ _ = Refl
+addMonotone Linear Linear Unrestricted Unrestricted _ _ = Refl
+addMonotone Linear Unrestricted Erased Erased _ _ = Refl
+addMonotone Linear Unrestricted Erased Unrestricted _ _ = Refl
+addMonotone Linear Unrestricted Linear Linear _ _ = Refl
+addMonotone Linear Unrestricted Linear Unrestricted _ _ = Refl
+addMonotone Linear Unrestricted Unrestricted Unrestricted _ _ = Refl
+addMonotone Unrestricted Unrestricted Erased Erased _ _ = Refl
+addMonotone Unrestricted Unrestricted Erased Unrestricted _ _ = Refl
+addMonotone Unrestricted Unrestricted Linear Linear _ _ = Refl
+addMonotone Unrestricted Unrestricted Linear Unrestricted _ _ = Refl
+addMonotone Unrestricted Unrestricted Unrestricted Unrestricted _ _ = Refl
+
+public export
+multiplyMonotone : (a, b, c, d : Quantity) -> DemandLeq a b -> DemandLeq c d -> DemandLeq (multiply a c) (multiply b d)
+multiplyMonotone Erased Erased Erased Erased _ _ = Refl
+multiplyMonotone Erased Erased Erased Unrestricted _ _ = Refl
+multiplyMonotone Erased Erased Linear Linear _ _ = Refl
+multiplyMonotone Erased Erased Linear Unrestricted _ _ = Refl
+multiplyMonotone Erased Erased Unrestricted Unrestricted _ _ = Refl
+multiplyMonotone Erased Unrestricted Erased Erased _ _ = Refl
+multiplyMonotone Erased Unrestricted Erased Unrestricted _ _ = Refl
+multiplyMonotone Erased Unrestricted Linear Linear _ _ = Refl
+multiplyMonotone Erased Unrestricted Linear Unrestricted _ _ = Refl
+multiplyMonotone Erased Unrestricted Unrestricted Unrestricted _ _ = Refl
+multiplyMonotone Linear Linear Erased Erased _ _ = Refl
+multiplyMonotone Linear Linear Erased Unrestricted _ _ = Refl
+multiplyMonotone Linear Linear Linear Linear _ _ = Refl
+multiplyMonotone Linear Linear Linear Unrestricted _ _ = Refl
+multiplyMonotone Linear Linear Unrestricted Unrestricted _ _ = Refl
+multiplyMonotone Linear Unrestricted Erased Erased _ _ = Refl
+multiplyMonotone Linear Unrestricted Erased Unrestricted _ _ = Refl
+multiplyMonotone Linear Unrestricted Linear Linear _ _ = Refl
+multiplyMonotone Linear Unrestricted Linear Unrestricted _ _ = Refl
+multiplyMonotone Linear Unrestricted Unrestricted Unrestricted _ _ = Refl
+multiplyMonotone Unrestricted Unrestricted Erased Erased _ _ = Refl
+multiplyMonotone Unrestricted Unrestricted Erased Unrestricted _ _ = Refl
+multiplyMonotone Unrestricted Unrestricted Linear Linear _ _ = Refl
+multiplyMonotone Unrestricted Unrestricted Linear Unrestricted _ _ = Refl
+multiplyMonotone Unrestricted Unrestricted Unrestricted Unrestricted _ _ = Refl
+
+public export
+joinMonotone : (a, b, c, d : Quantity) -> DemandLeq a b -> DemandLeq c d -> DemandLeq (joinQuantity a c) (joinQuantity b d)
+joinMonotone Erased Erased Erased Erased _ _ = Refl
+joinMonotone Erased Erased Erased Unrestricted _ _ = Refl
+joinMonotone Erased Erased Linear Linear _ _ = Refl
+joinMonotone Erased Erased Linear Unrestricted _ _ = Refl
+joinMonotone Erased Erased Unrestricted Unrestricted _ _ = Refl
+joinMonotone Erased Unrestricted Erased Erased _ _ = Refl
+joinMonotone Erased Unrestricted Erased Unrestricted _ _ = Refl
+joinMonotone Erased Unrestricted Linear Linear _ _ = Refl
+joinMonotone Erased Unrestricted Linear Unrestricted _ _ = Refl
+joinMonotone Erased Unrestricted Unrestricted Unrestricted _ _ = Refl
+joinMonotone Linear Linear Erased Erased _ _ = Refl
+joinMonotone Linear Linear Erased Unrestricted _ _ = Refl
+joinMonotone Linear Linear Linear Linear _ _ = Refl
+joinMonotone Linear Linear Linear Unrestricted _ _ = Refl
+joinMonotone Linear Linear Unrestricted Unrestricted _ _ = Refl
+joinMonotone Linear Unrestricted Erased Erased _ _ = Refl
+joinMonotone Linear Unrestricted Erased Unrestricted _ _ = Refl
+joinMonotone Linear Unrestricted Linear Linear _ _ = Refl
+joinMonotone Linear Unrestricted Linear Unrestricted _ _ = Refl
+joinMonotone Linear Unrestricted Unrestricted Unrestricted _ _ = Refl
+joinMonotone Unrestricted Unrestricted Erased Erased _ _ = Refl
+joinMonotone Unrestricted Unrestricted Erased Unrestricted _ _ = Refl
+joinMonotone Unrestricted Unrestricted Linear Linear _ _ = Refl
+joinMonotone Unrestricted Unrestricted Linear Unrestricted _ _ = Refl
+joinMonotone Unrestricted Unrestricted Unrestricted Unrestricted _ _ = Refl
+
+public export
+joinUpperLeft : (a, b : Quantity) -> DemandLeq a (joinQuantity a b)
+joinUpperLeft Erased Erased = Refl
+joinUpperLeft Erased Linear = Refl
+joinUpperLeft Erased Unrestricted = Refl
+joinUpperLeft Linear Erased = Refl
+joinUpperLeft Linear Linear = Refl
+joinUpperLeft Linear Unrestricted = Refl
+joinUpperLeft Unrestricted Erased = Refl
+joinUpperLeft Unrestricted Linear = Refl
+joinUpperLeft Unrestricted Unrestricted = Refl
+
+public export
+joinUpperRight : (a, b : Quantity) -> DemandLeq b (joinQuantity a b)
+joinUpperRight Erased Erased = Refl
+joinUpperRight Erased Linear = Refl
+joinUpperRight Erased Unrestricted = Refl
+joinUpperRight Linear Erased = Refl
+joinUpperRight Linear Linear = Refl
+joinUpperRight Linear Unrestricted = Refl
+joinUpperRight Unrestricted Erased = Refl
+joinUpperRight Unrestricted Linear = Refl
+joinUpperRight Unrestricted Unrestricted = Refl
+
+||| Admits is the pointwise lifting of DemandLeq with arguments reversed.
+public export
+admitTrans : (bounds, middle, actual : Usage n) -> Admits bounds middle -> Admits middle actual -> Admits bounds actual
+admitTrans [] [] [] AdmitNil AdmitNil = AdmitNil
+admitTrans (bound :: bounds) (mid :: middle) (actual :: rest) (AdmitCons p ps) (AdmitCons q qs) =
+  AdmitCons (demandTrans actual mid bound q p) (admitTrans bounds middle rest ps qs)
+
+public export
+combineMonotone : (a, b, c, d : Usage n) -> Admits b a -> Admits d c ->
+  Admits (combineUsage b d) (combineUsage a c)
+combineMonotone [] [] [] [] AdmitNil AdmitNil = AdmitNil
+combineMonotone (a :: as) (b :: bs) (c :: cs) (d :: ds) (AdmitCons p ps) (AdmitCons q qs) =
+  AdmitCons (addMonotone a b c d p q) (combineMonotone as bs cs ds ps qs)
+
+public export
+scaleMonotone : (q, r : Quantity) -> (a, b : Usage n) -> DemandLeq q r -> Admits b a ->
+  Admits (scaleUsage r b) (scaleUsage q a)
+scaleMonotone q r [] [] qr AdmitNil = AdmitNil
+scaleMonotone q r (a :: as) (b :: bs) qr (AdmitCons p ps) =
+  AdmitCons (multiplyMonotone q r a b qr p) (scaleMonotone q r as bs qr ps)
+
+public export
+joinMonotoneUsage : (a, b, c, d : Usage n) -> Admits b a -> Admits d c ->
+  Admits (joinUsage b d) (joinUsage a c)
+joinMonotoneUsage [] [] [] [] AdmitNil AdmitNil = AdmitNil
+joinMonotoneUsage (a :: as) (b :: bs) (c :: cs) (d :: ds) (AdmitCons p ps) (AdmitCons q qs) =
+  AdmitCons (joinMonotone a b c d p q) (joinMonotoneUsage as bs cs ds ps qs)
+
 ||| Permissions admitting both branches admit their alternative join.
 ||| This lifts Quantity.joinAllows pointwise; it is not a term-substitution law.
 public export
@@ -314,3 +471,16 @@ checkUsage permissions term = do
   (usage ** derivation) <- inferUsage term
   permitted <- admitUsage permissions usage
   Right (usage ** (derivation, permitted))
+
+||| Each branch's demand lies below its pointwise alternative join.
+public export
+joinUsageUpperLeft : (left, right : Usage n) -> Admits (joinUsage left right) left
+joinUsageUpperLeft [] [] = AdmitNil
+joinUsageUpperLeft (x :: xs) (y :: ys) =
+  AdmitCons (joinUpperLeft x y) (joinUsageUpperLeft xs ys)
+
+public export
+joinUsageUpperRight : (left, right : Usage n) -> Admits (joinUsage left right) right
+joinUsageUpperRight [] [] = AdmitNil
+joinUsageUpperRight (x :: xs) (y :: ys) =
+  AdmitCons (joinUpperRight x y) (joinUsageUpperRight xs ys)
