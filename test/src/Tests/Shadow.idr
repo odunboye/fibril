@@ -286,3 +286,52 @@ nestedAmbientZero = shadowApplicationZero STop Tests.Shadow.nestedAmbientBody Te
 nestedAmbientOne : BodyEqual Tests.Shadow.shadowDeclarations (the (ScopedFace 1) STop)
   (applyDeclaredShadowPath Tests.Shadow.nestedAmbientPath One) Tests.Shadow.nestedAmbientBody
 nestedAmbientOne = shadowApplicationOne STop Tests.Shadow.nestedAmbientBody Tests.Shadow.nestedAmbientBody Tests.Shadow.nestedAmbientPath DimRefl
+
+hasRecertification : (Nat, Maybe a) -> Bool
+hasRecertification (_, Nothing) = False
+hasRecertification (_, Just _) = True
+
+recertifiedWithFuel : Nat -> (Nat, Maybe a) -> Bool
+recertifiedWithFuel expected (remaining, Just _) = remaining == expected
+recertifiedWithFuel _ (_, Nothing) = False
+
+rejectedWithFuel : Nat -> (Nat, Maybe a) -> Bool
+rejectedWithFuel expected (remaining, Nothing) = remaining == expected
+rejectedWithFuel _ (_, Just _) = False
+
+hasAutomaticBoundary : Maybe a -> Bool
+hasAutomaticBoundary Nothing = False
+hasAutomaticBoundary (Just _) = True
+
+
+restrictedEndpoint : BodyEqual Tests.Shadow.shadowDeclarations (the (ScopedFace 1) (SEndpoint FZ False))
+  (NeutralAt LHere (Var FZ)) (Embed (shadowTerm Tests.Shadow.linearSource))
+restrictedEndpoint = BodyRestrict {source = SEndpoint FZ False} Tests.Shadow.bodyEndpointEqual Refl
+
+laterTransEndpoint : BodyEqual Tests.Shadow.shadowDeclarations (the (ScopedFace 1) (SEndpoint FZ False))
+  (NeutralAt LHere (Var FZ)) (Embed (shadowTerm Tests.Shadow.linearSource))
+laterTransEndpoint = BodyTrans BodyRefl Tests.Shadow.bodyEndpointEqual
+
+public export
+checks : List (String, Bool)
+checks =
+  [ ("recertify sym/trans", hasRecertification (recertifyDimensionEvidence 4 (atDimension Zero) STop Tests.Shadow.bodyTransEndpoint))
+  , ("recertify success remaining fuel", recertifiedWithFuel 5 (recertifyDimensionEvidence 9 (atDimension Zero) STop Tests.Shadow.bodyTransEndpoint))
+  , ("recertify failed endpoint remaining fuel", rejectedWithFuel 8 (recertifyDimensionEvidence 9 Var STop Tests.Shadow.bodyEndpointEqual))
+  , ("recertify later trans failure remaining fuel", rejectedWithFuel 6 (recertifyDimensionEvidence 9 Var STop Tests.Shadow.laterTransEndpoint))
+  , ("recertify later app failure remaining fuel", rejectedWithFuel 6 (recertifyDimensionEvidence 9 Var STop Tests.Shadow.bodyAppCongruence))
+  , ("recertify shared fuel", rejectedWithFuel 0 (recertifyDimensionEvidence 3 (atDimension Zero) STop Tests.Shadow.bodyTransEndpoint))
+  , ("recertify app", hasRecertification (recertifyDimensionEvidence 3 (atDimension Zero) STop Tests.Shadow.bodyAppCongruence))
+  , ("recertify if", hasRecertification (recertifyDimensionEvidence 4 (atDimension Zero) STop Tests.Shadow.bodyIfCongruence))
+  , ("recertify unit elimination", hasRecertification (recertifyDimensionEvidence 3 (atDimension Zero) STop Tests.Shadow.bodyUnitElimCongruence))
+  , ("recertify wrong face", not (hasRecertification (recertifyDimensionEvidence 1 Var STop Tests.Shadow.bodyEndpointEqual)))
+  , ("recertify same index", hasRecertification (recertifyDimensionEvidence 1 Var (SEndpoint FZ False) Tests.Shadow.bodyEndpointEqual))
+  , ("recertify huge replacement", not (hasRecertification (recertifyDimensionEvidence 1 (\_ => Tests.Shadow.longReverse 1000) SBottom Tests.Shadow.bodyEndpointEqual)))
+  , ("recertify reverse limit", not (hasRecertification (recertifyDimensionEvidence 1 (atDimension Tests.Shadow.largeDimension) SBottom Tests.Shadow.bodyEndpointEqual)))
+  , ("recertify restriction", hasRecertification (recertifyDimensionEvidence 2 (atDimension Zero) STop Tests.Shadow.restrictedEndpoint))
+  , ("recertify restriction mismatch", not (hasRecertification (recertifyDimensionEvidence 2 Var STop Tests.Shadow.restrictedEndpoint)))
+  , ("auto neutral zero", hasAutomaticBoundary (shadowApplicationZeroAuto 1 STop (Embed (shadowTerm Tests.Shadow.linearSource)) (Embed (LBoolean False)) Tests.Shadow.shadowNeutralPath))
+  , ("auto neutral one", hasAutomaticBoundary (shadowApplicationOneAuto 1 STop (Embed (shadowTerm Tests.Shadow.linearSource)) (Embed (LBoolean False)) Tests.Shadow.shadowNeutralPath))
+  , ("auto no fuel", not (hasAutomaticBoundary (shadowApplicationZeroAuto 0 STop (Embed (shadowTerm Tests.Shadow.linearSource)) (Embed (LBoolean False)) Tests.Shadow.shadowNeutralPath)))
+  , ("auto ambient", hasAutomaticBoundary (shadowApplicationOneAuto 1 (SEndpoint FZ False) (Embed (shadowTerm Tests.Shadow.linearSource)) (Embed (shadowTerm Tests.Shadow.linearSource)) Tests.Shadow.ambientFaceShadowPath))
+  ]

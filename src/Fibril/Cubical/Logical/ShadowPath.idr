@@ -1,5 +1,6 @@
 module Fibril.Cubical.Logical.ShadowPath
 
+import Decidable.Equality
 import Data.Fin
 import Data.Vect
 import Fibril.Cubical.Logical.Shadow
@@ -175,10 +176,10 @@ boundedEndpointEntails face i endpoint =
 public export
 data DeclaredEndpoint : PathDeclarations context paths -> ScopedFace d ->
   PathBody context paths d a -> PathBody context paths d a -> Type where
-  DeclaredLeft : DeclaredPath declarations p left right ->
+  DeclaredLeft : {0 context : Vect n LogicalType} -> {0 paths : Vect k LogicalType} -> {0 declarations : PathDeclarations context paths} -> {0 face : ScopedFace d} -> {0 p : LogicalVar paths a} -> {0 left, right : LogicalTerm context a} -> {i : ScopedInterval d} -> DeclaredPath declarations p left right ->
     boundedEndpointEntails face i False = True ->
     DeclaredEndpoint declarations face (NeutralAt p i) (Embed left)
-  DeclaredRight : DeclaredPath declarations p left right ->
+  DeclaredRight : {0 context : Vect n LogicalType} -> {0 paths : Vect k LogicalType} -> {0 declarations : PathDeclarations context paths} -> {0 face : ScopedFace d} -> {0 p : LogicalVar paths a} -> {0 left, right : LogicalTerm context a} -> {i : ScopedInterval d} -> DeclaredPath declarations p left right ->
     boundedEndpointEntails face i True = True ->
     DeclaredEndpoint declarations face (NeutralAt p i) (Embed right)
 
@@ -215,7 +216,7 @@ data BodyEqual : PathDeclarations context paths -> ScopedFace d ->
   BodyTrans : BodyEqual declarations face x y -> BodyEqual declarations face y z ->
               BodyEqual declarations face x z
   BodyEndpoint : DeclaredEndpoint declarations face x y -> BodyEqual declarations face x y
-  BodyRestrict : BodyEqual declarations source x y ->
+  BodyRestrict : {0 context : Vect n LogicalType} -> {0 paths : Vect k LogicalType} -> {0 declarations : PathDeclarations context paths} -> {0 face : ScopedFace d} -> {0 x, y : PathBody context paths d a} -> {source : ScopedFace d} -> BodyEqual declarations source x y ->
     boundedFaceEntails face source = True -> BodyEqual declarations face x y
   BodyAppEqual : BodyEqual declarations face f g -> BodyEqual declarations face x y ->
     BodyEqual declarations face (BodyApp f x) (BodyApp g y)
@@ -263,6 +264,60 @@ data DimensionEvidence : {0 context : Vect n LogicalType} -> {0 paths : Vect k L
   DimIf : {0 c : BodyEqual declarations face c1 c2} -> {0 t : BodyEqual declarations face t1 t2} -> {0 f : BodyEqual declarations face f1 f2} -> DimensionEvidence env target c -> DimensionEvidence env target t -> DimensionEvidence env target f ->
     DimensionEvidence env target (BodyIfEqual c t f)
   DimUnitElim : {0 x : BodyEqual declarations face x1 x2} -> {0 b : BodyEqual declarations face b1 b2} -> DimensionEvidence env target x -> DimensionEvidence env target b -> DimensionEvidence env target (BodyUnitElimEqual x b)
+
+||| Trusted-host recertification: fuel counts proof nodes, shared left to right.
+||| Substitution functions and their results are not resource bounded.
+public export
+recertifyDimensionEvidence : {e : Nat} -> {0 declarations : PathDeclarations context paths} ->
+  {0 face : ScopedFace d} -> {0 x, y : PathBody context paths d a} ->
+  (fuel : Nat) -> (env : Fin d -> ScopedInterval e) -> (target : ScopedFace e) ->
+  (eq : BodyEqual declarations face x y) -> (Nat, Maybe (DimensionEvidence env target eq))
+recertifyDimensionEvidence Z env target eq = (Z, Nothing)
+recertifyDimensionEvidence (S fuel) env target BodyRefl = (fuel, Just DimRefl)
+recertifyDimensionEvidence (S fuel) env target (BodySym eq) =
+  let (remaining, result) = recertifyDimensionEvidence fuel env target eq in
+  (remaining, map DimSym result)
+recertifyDimensionEvidence (S fuel) env target (BodyTrans x y) =
+  case recertifyDimensionEvidence fuel env target x of
+    (remaining, Nothing) => (remaining, Nothing)
+    (remaining, Just cx) =>
+      case recertifyDimensionEvidence remaining env target y of
+        (rest, Nothing) => (rest, Nothing)
+        (rest, Just cy) => (rest, Just (DimTrans cx cy))
+recertifyDimensionEvidence (S fuel) env target (BodyEndpoint (DeclaredLeft {i} p entails)) =
+  case decEq (boundedEndpointEntails target (substituteScoped env i) False) True of
+    Yes check => (fuel, Just (DimLeft check))
+    No _ => (fuel, Nothing)
+recertifyDimensionEvidence (S fuel) env target (BodyEndpoint (DeclaredRight {i} p entails)) =
+  case decEq (boundedEndpointEntails target (substituteScoped env i) True) True of
+    Yes check => (fuel, Just (DimRight check))
+    No _ => (fuel, Nothing)
+recertifyDimensionEvidence (S fuel) env target (BodyRestrict {source} eq entails) =
+  case decEq (boundedFaceEntails target (substituteScopedFace env source)) True of
+    No _ => (fuel, Nothing)
+    Yes check => case recertifyDimensionEvidence fuel env (substituteScopedFace env source) eq of
+      (rest, Nothing) => (rest, Nothing)
+      (rest, Just cert) => (rest, Just (DimRestrict cert check))
+recertifyDimensionEvidence (S fuel) env target (BodyAppEqual f x) =
+  case recertifyDimensionEvidence fuel env target f of
+    (remaining, Nothing) => (remaining, Nothing)
+    (remaining, Just cf) => case recertifyDimensionEvidence remaining env target x of
+      (rest, Nothing) => (rest, Nothing)
+      (rest, Just cx) => (rest, Just (DimApp cf cx))
+recertifyDimensionEvidence (S fuel) env target (BodyIfEqual c t f) =
+  case recertifyDimensionEvidence fuel env target c of
+    (remaining, Nothing) => (remaining, Nothing)
+    (remaining, Just cc) => case recertifyDimensionEvidence remaining env target t of
+      (remaining2, Nothing) => (remaining2, Nothing)
+      (remaining2, Just ct) => case recertifyDimensionEvidence remaining2 env target f of
+        (rest, Nothing) => (rest, Nothing)
+        (rest, Just cf) => (rest, Just (DimIf cc ct cf))
+recertifyDimensionEvidence (S fuel) env target (BodyUnitElimEqual x b) =
+  case recertifyDimensionEvidence fuel env target x of
+    (remaining, Nothing) => (remaining, Nothing)
+    (remaining, Just cx) => case recertifyDimensionEvidence remaining env target b of
+      (rest, Nothing) => (rest, Nothing)
+      (rest, Just cb) => (rest, Just (DimUnitElim cx cb))
 
 public export
 mapBodyEqualDimensions : {0 declarations : PathDeclarations context paths} ->
@@ -351,6 +406,28 @@ shadowApplicationOne : (face : ScopedFace d) -> (left, right : PathBody context 
 shadowApplicationOne face left right (ShadowAbstract body zero one) cert =
   declaredShadowAtOne body zero one cert
 
+||| Attempt the zero boundary for a trusted host input and proof-node budget.
+public export
+shadowApplicationZeroAuto : {d : Nat} -> (fuel : Nat) -> (face : ScopedFace d) ->
+  (left, right : PathBody context paths d a) ->
+  (path : DeclaredShadowPath declarations face left right) ->
+  Maybe (BodyEqual declarations face (applyDeclaredShadowPath path Zero) left)
+shadowApplicationZeroAuto fuel face left right (ShadowAbstract body zero one) =
+  case recertifyDimensionEvidence fuel (atDimension Zero) face zero of
+    (_, Nothing) => Nothing
+    (_, Just cert) => Just (declaredShadowAtZero body zero one cert)
+
+||| Attempt the one boundary for a trusted host input and proof-node budget.
+public export
+shadowApplicationOneAuto : {d : Nat} -> (fuel : Nat) -> (face : ScopedFace d) ->
+  (left, right : PathBody context paths d a) ->
+  (path : DeclaredShadowPath declarations face left right) ->
+  Maybe (BodyEqual declarations face (applyDeclaredShadowPath path One) right)
+shadowApplicationOneAuto fuel face left right (ShadowAbstract body zero one) =
+  case recertifyDimensionEvidence fuel (atDimension One) face one of
+    (_, Nothing) => Nothing
+    (_, Just cert) => Just (declaredShadowAtOne body zero one cert)
+
 public export
 substituteDeclaredShadowPath : {0 context : Vect n LogicalType} -> {0 target : Vect m LogicalType} ->
   {0 paths : Vect k LogicalType} -> {0 d : Nat} -> {0 a : LogicalType} ->
@@ -370,7 +447,7 @@ substituteDeclaredShadowPath {left} {right} sigma (ShadowAbstract body zero one)
 public export
 mapDeclaredLeftDimensions : {0 declarations : PathDeclarations context paths} ->
   {0 face : ScopedFace d} -> {0 p : LogicalVar paths a} ->
-  {0 left, right : LogicalTerm context a} -> {0 i : ScopedInterval d} ->
+  {0 left, right : LogicalTerm context a} -> {i : ScopedInterval d} ->
   (env : Fin d -> ScopedInterval e) -> DeclaredPath declarations p left right ->
   boundedEndpointEntails (substituteScopedFace env face) (substituteScoped env i) False = True ->
   DeclaredEndpoint declarations (substituteScopedFace env face)
@@ -380,7 +457,7 @@ mapDeclaredLeftDimensions env declared entails = DeclaredLeft declared entails
 public export
 mapDeclaredRightDimensions : {0 declarations : PathDeclarations context paths} ->
   {0 face : ScopedFace d} -> {0 p : LogicalVar paths a} ->
-  {0 left, right : LogicalTerm context a} -> {0 i : ScopedInterval d} ->
+  {0 left, right : LogicalTerm context a} -> {i : ScopedInterval d} ->
   (env : Fin d -> ScopedInterval e) -> DeclaredPath declarations p left right ->
   boundedEndpointEntails (substituteScopedFace env face) (substituteScoped env i) True = True ->
   DeclaredEndpoint declarations (substituteScopedFace env face)

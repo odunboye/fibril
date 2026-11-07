@@ -773,8 +773,8 @@ arbitrary `DeclaredShadowPath`, requiring only `DimensionEvidence` for the
 actual boundary derivation at the ambient face. Their conclusions are
 `BodyEqual` on that face, not unrestricted runtime equality. Recertification
 can fail even for semantically valid equalities, so this remains a conditional
-generic endpoint law, not an unconditional one. No automatic recertification
-algorithm is provided.
+generic endpoint law, not an unconditional one. The trusted-host automatic
+recertifier and endpoint helpers are described below.
 
 A concrete failure of substitution stability is checked in `Tests.Shadow`:
 `i=0` entails the zero endpoint of `i`, but substituting twelve nested
@@ -783,3 +783,27 @@ reversals of zero exceeds `boundedEndpointEntails`' interval-node budget. Its
 `ShadowMappedFaceEscape` fixture also prevents changing an `i=0` endpoint
 proof into an `STop` proof without the necessary recertification. These shadow
 judgments carry no runtime or quantitative authority.
+
+#### Experimental recertification (trusted host only)
+
+`recertifyDimensionEvidence` traverses the actual `BodyEqual` proof and returns
+remaining proof-node fuel and, on success, `DimensionEvidence` for that exact
+proof, substitution, and target. Fuel is shared left-to-right across branches;
+zero fuel and any failed bounded entailment return no evidence. Restriction
+nodes recheck the target against the mapped source and recurse under that mapped
+source. `shadowApplicationZeroAuto` and `shadowApplicationOneAuto` use this
+procedure for the actual abstraction boundary; the explicit-evidence APIs
+remain available. Rejection can mean solver exhaustion, not non-entailment.
+
+This is **not an untrusted-input resource bound**. The substitution is an
+arbitrary host function; its evaluation, substituted interval/face expansion,
+proof fields, and the bounded solvers' work are not bounded by proof-node fuel.
+In particular there is no preflight on substitution results before expansion.
+Only use this interface with trusted host values and independently bounded
+substitutions. This is an **API-breaking change** to the experimental proof
+representation: `DeclaredLeft` and `DeclaredRight` retain their interval, and
+`BodyRestrict` retains its source face, as runtime implicit fields. The
+`mapDeclaredLeftDimensions` and `mapDeclaredRightDimensions` helper signatures
+also require an accessible runtime interval rather than an erased one. Existing
+callers that relied on erasure may need changes. Retaining these fields increases
+proof memory use. No runtime checker or quantitative guarantee is changed.
