@@ -34,6 +34,66 @@ commonFaceValAgreement valuation (SConjunction x y) =
 commonFaceValAgreement valuation (SDisjunction x y) =
   rewrite commonFaceValAgreement valuation x in rewrite commonFaceValAgreement valuation y in Refl
 
+||| Extend a pair valuation by one fresh dimension.
+public export
+extendCommonValuation : DM -> (Fin d -> DM) -> Fin (S d) -> DM
+extendCommonValuation value valuation FZ = value
+extendCommonValuation value valuation (FS i) = valuation i
+
+||| Evaluating a weakened interval ignores the fresh dimension, even when its
+||| value or an older value is a non-Boolean De Morgan pair.
+public export
+commonIntervalWeakeningVal : (value : DM) -> (valuation : Fin d -> DM) ->
+  (i : ScopedInterval d) ->
+  evalDMVal (extendCommonValuation value valuation) (weakenInterval i) = evalDMVal valuation i
+commonIntervalWeakeningVal value valuation Zero = Refl
+commonIntervalWeakeningVal value valuation One = Refl
+commonIntervalWeakeningVal value valuation (Var i) = Refl
+commonIntervalWeakeningVal value valuation (Reverse i) =
+  cong dmReverse (commonIntervalWeakeningVal value valuation i)
+commonIntervalWeakeningVal value valuation (Meet i j) =
+  cong2 dmMeet (commonIntervalWeakeningVal value valuation i) (commonIntervalWeakeningVal value valuation j)
+commonIntervalWeakeningVal value valuation (Join i j) =
+  cong2 dmJoin (commonIntervalWeakeningVal value valuation i) (commonIntervalWeakeningVal value valuation j)
+
+||| Pointwise equal valuations give the same observation for any interval.
+public export
+commonIntervalValCongruence : (left, right : Fin d -> DM) ->
+  ((i : Fin d) -> left i = right i) -> (term : ScopedInterval d) ->
+  evalDMVal left term = evalDMVal right term
+commonIntervalValCongruence left right eq Zero = Refl
+commonIntervalValCongruence left right eq One = Refl
+commonIntervalValCongruence left right eq (Var i) = eq i
+commonIntervalValCongruence left right eq (Reverse i) = cong dmReverse (commonIntervalValCongruence left right eq i)
+commonIntervalValCongruence left right eq (Meet i j) = cong2 dmMeet (commonIntervalValCongruence left right eq i) (commonIntervalValCongruence left right eq j)
+commonIntervalValCongruence left right eq (Join i j) = cong2 dmJoin (commonIntervalValCongruence left right eq i) (commonIntervalValCongruence left right eq j)
+
+||| Weakening a face preserves its actual pair-model observation.
+public export
+commonFaceWeakeningVal : (value : DM) -> (valuation : Fin d -> DM) ->
+  (face : ScopedFace d) ->
+  faceAtVal (extendCommonValuation value valuation) (weakenFace face) = faceAtVal valuation face
+commonFaceWeakeningVal value valuation SBottom = Refl
+commonFaceWeakeningVal value valuation STop = Refl
+commonFaceWeakeningVal value valuation (SEndpoint i b) = Refl
+commonFaceWeakeningVal value valuation (SConjunction x y) =
+  rewrite commonFaceWeakeningVal value valuation x in
+  rewrite commonFaceWeakeningVal value valuation y in Refl
+commonFaceWeakeningVal value valuation (SDisjunction x y) =
+  rewrite commonFaceWeakeningVal value valuation x in
+  rewrite commonFaceWeakeningVal value valuation y in Refl
+
+||| An ambient face that holds also holds at either fresh endpoint.
+public export
+commonEndpointFaceHolds : (side : Bool) -> (valuation : Fin d -> DM) ->
+  (face : ScopedFace d) -> faceAtVal valuation face = True ->
+  faceAtVal (extendCommonValuation (side, side) valuation)
+    (SConjunction (weakenFace face) (SEndpoint FZ side)) = True
+commonEndpointFaceHolds False valuation face holds =
+  rewrite commonFaceWeakeningVal (False, False) valuation face in rewrite holds in Refl
+commonEndpointFaceHolds True valuation face holds =
+  rewrite commonFaceWeakeningVal (True, True) valuation face in rewrite holds in Refl
+
 ||| An accepted bounded endpoint check really fixes the interval to that endpoint
 ||| in every satisfying four-pair valuation, including non-Boolean dimensions.
 public export
@@ -1664,6 +1724,66 @@ dependentPathAlignedRelated {a = (LArrow c dty)} (AlignPathUnitElim unit body) v
 dependentPathAlignedRelated {a = (LArrow c dty)} (AlignPathIf cond yes no) valuation x y xy =
   higherOrderChoiceRelated {a = (LArrow c dty)} _ _ (dependentPathAlignedRelated cond valuation x y xy)
     (dependentPathAlignedRelated yes valuation x y xy) (dependentPathAlignedRelated no valuation x y xy)
+
+||| Pointwise valuation agreement preserves dependent interpretation, including
+||| functions and named paths. This is not a naturality claim.
+public export
+dependentPathValuationCongruence : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} ->
+  {a : LogicalType} -> {d : Nat} -> {0 t : CommonPathTerm n k d} ->
+  {0 typing : CommonPathHasType ctx paths t a} ->
+  (w : HigherOrderPathTerm ctx paths a d typing) -> (left, right : Fin d -> DM) ->
+  ((i : Fin d) -> left i = right i) ->
+  (x, y : carrier (commonProductSetoid (commonEnvironmentSetoid ctx) (commonDependentPathEnvironmentSetoid ctx paths))) ->
+  related (commonProductSetoid (commonEnvironmentSetoid ctx) (commonDependentPathEnvironmentSetoid ctx paths)) x y ->
+  related (commonTypeSetoid a) (applyMorphism (dependentPathSemantics w left) x)
+    (applyMorphism (dependentPathSemantics w right) y)
+dependentPathValuationCongruence {a = LUnit} (HOPOrdinary ctx paths _ d w) left right eq x y xy =
+  respectsRelation (higherOrderTermSemantics w) (fst xy)
+dependentPathValuationCongruence {a = LUnit} (HOPAt ctx paths _ d p i) left right eq x y xy =
+  respectsRelation (commonDependentPathLookup ctx paths LUnit p) (snd xy)
+    (fst x, evalDMVal left i) (fst y, evalDMVal right i) (fst xy, commonIntervalValCongruence left right eq i)
+dependentPathValuationCongruence {a = LBool} (HOPOrdinary ctx paths _ d w) left right eq x y xy =
+  respectsRelation (higherOrderTermSemantics w) (fst xy)
+dependentPathValuationCongruence {a = LBool} (HOPAt ctx paths _ d p i) left right eq x y xy =
+  respectsRelation (commonDependentPathLookup ctx paths LBool p) (snd xy)
+    (fst x, evalDMVal left i) (fst y, evalDMVal right i) (fst xy, commonIntervalValCongruence left right eq i)
+dependentPathValuationCongruence {a = (LArrow c dty)} (HOPOrdinary ctx paths _ d w) left right eq x y xy =
+  respectsRelation (higherOrderTermSemantics w) (fst xy)
+dependentPathValuationCongruence {a = (LArrow c dty)} (HOPAt ctx paths _ d p i) left right eq x y xy =
+  respectsRelation (commonDependentPathLookup ctx paths (LArrow c dty) p) (snd xy)
+    (fst x, evalDMVal left i) (fst y, evalDMVal right i) (fst xy, commonIntervalValCongruence left right eq i)
+dependentPathValuationCongruence {a = (LArrow domain result)} (HOPLambda ctx paths _ _ d body) left right eq x y xy =
+  \u, v, uv => dependentPathValuationCongruence body left right eq
+    ((u, fst x), applyMorphism (weakenDependentPaths ctx paths domain) (snd x))
+    ((v, fst y), applyMorphism (weakenDependentPaths ctx paths domain) (snd y))
+    ((uv, fst xy), respectsRelation (weakenDependentPaths ctx paths domain) (snd xy))
+dependentPathValuationCongruence {a = LUnit} (HOPApplication ctx paths domain _ d fn arg) left right eq x y xy =
+  rewrite dependentPathApplicationBeta fn arg left x in
+  rewrite dependentPathApplicationBeta fn arg right y in
+  higherOrderApplicationRelated {arg = domain} {result = LUnit} (dependentPathValuationCongruence fn left right eq x y xy) (dependentPathValuationCongruence arg left right eq x y xy)
+dependentPathValuationCongruence {a = LUnit} (HOPUnitElim ctx paths _ d unit body) left right eq x y xy =
+  dependentPathValuationCongruence body left right eq x y xy
+dependentPathValuationCongruence {a = LUnit} (HOPIf ctx paths _ d cond yes no) left right eq x y xy =
+  higherOrderChoiceRelated {a = LUnit} _ _ (dependentPathValuationCongruence cond left right eq x y xy)
+    (dependentPathValuationCongruence yes left right eq x y xy) (dependentPathValuationCongruence no left right eq x y xy)
+dependentPathValuationCongruence {a = LBool} (HOPApplication ctx paths domain _ d fn arg) left right eq x y xy =
+  rewrite dependentPathApplicationBeta fn arg left x in
+  rewrite dependentPathApplicationBeta fn arg right y in
+  higherOrderApplicationRelated {arg = domain} {result = LBool} (dependentPathValuationCongruence fn left right eq x y xy) (dependentPathValuationCongruence arg left right eq x y xy)
+dependentPathValuationCongruence {a = LBool} (HOPUnitElim ctx paths _ d unit body) left right eq x y xy =
+  dependentPathValuationCongruence body left right eq x y xy
+dependentPathValuationCongruence {a = LBool} (HOPIf ctx paths _ d cond yes no) left right eq x y xy =
+  higherOrderChoiceRelated {a = LBool} _ _ (dependentPathValuationCongruence cond left right eq x y xy)
+    (dependentPathValuationCongruence yes left right eq x y xy) (dependentPathValuationCongruence no left right eq x y xy)
+dependentPathValuationCongruence {a = (LArrow c dty)} (HOPApplication ctx paths domain _ d fn arg) left right eq x y xy =
+  rewrite dependentPathApplicationBeta fn arg left x in
+  rewrite dependentPathApplicationBeta fn arg right y in
+  higherOrderApplicationRelated {arg = domain} {result = (LArrow c dty)} (dependentPathValuationCongruence fn left right eq x y xy) (dependentPathValuationCongruence arg left right eq x y xy)
+dependentPathValuationCongruence {a = (LArrow c dty)} (HOPUnitElim ctx paths _ d unit body) left right eq x y xy =
+  dependentPathValuationCongruence body left right eq x y xy
+dependentPathValuationCongruence {a = (LArrow c dty)} (HOPIf ctx paths _ d cond yes no) left right eq x y xy =
+  higherOrderChoiceRelated {a = (LArrow c dty)} _ _ (dependentPathValuationCongruence cond left right eq x y xy)
+    (dependentPathValuationCongruence yes left right eq x y xy) (dependentPathValuationCongruence no left right eq x y xy)
 
 public export
 data DependentPathAdmissible : {ctx : Vect n LogicalType} -> {paths : Vect k LogicalType} ->

@@ -337,3 +337,13 @@ unit elimination congruences; it embeds the original structural fragment.
 witnesses without assuming semantic relations. Its soundness theorem uses no
 target semantic relation as a premise. This remains evidence-indexed, not
 general face soundness.
+
+### Valuation lemmas and remaining boundary gap
+
+`commonIntervalWeakeningVal` and `commonFaceWeakeningVal` preserve observations
+under a fresh dimension; `commonEndpointFaceHolds` establishes the corresponding
+boundary face. `dependentPathValuationCongruence` relates interpretations of the
+**same witness** at pointwise-equal valuations and related environments. It does
+not compare a witness with its dimension-weakened witness. Computational witness
+weakening, its semantic preservation, a `CommonShadowPath` interpretation, and
+the general semantic abstraction-boundary theorem remain unimplemented.

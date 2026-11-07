@@ -2660,3 +2660,32 @@ dependentEndpointChoiceFalse :
     ((False, ()), Tests.Shadow.dependentLinearPaths) = False
 dependentEndpointChoiceFalse = trans (dependentEndpointFaceEvidenceSound Tests.Shadow.dependentEndpointChoiceEvidence
   (False, ()) (\_ => (False, False)) Refl) Refl
+
+-- Dimension weakening keeps non-Boolean older observations and ambient faces.
+commonWeakeningNonBoolean :
+  evalDMVal (extendCommonValuation (False, False) (\_ => (True, False)))
+    (weakenInterval (Meet (Var FZ) (Reverse (Var FZ)))) = (True, False)
+commonWeakeningNonBoolean = commonIntervalWeakeningVal (False, False) (the (Fin 1 -> DM) (\_ => (True, False)))
+  (Meet (Var FZ) (Reverse (Var FZ)))
+
+commonWeakeningEndpointTrue :
+  faceAtVal (extendCommonValuation (True, True) (\_ => (True, False)))
+    (SConjunction (weakenFace (the (ScopedFace 1) (SEndpoint FZ False))) (SEndpoint FZ True)) = False
+commonWeakeningEndpointTrue = Refl
+
+commonWeakeningEndpointHolds : (side : Bool) ->
+  faceAtVal (extendCommonValuation (side, side) (\_ => (True, False)))
+    (SConjunction (weakenFace (the (ScopedFace 1) STop)) (SEndpoint FZ side)) = True
+commonWeakeningEndpointHolds side = commonEndpointFaceHolds side (the (Fin 1 -> DM) (\_ => (True, False))) STop Refl
+
+-- Valuation congruence traverses the lambda and a dependent named path.
+dependentBinderValuationCongruence : related (commonTypeSetoid (LArrow LBool LBool))
+  (applyMorphism (dependentPathSemantics Tests.Shadow.dependentBinder (\_ => (True, False)))
+    ((False, ()), Tests.Shadow.dependentLinearPaths))
+  (applyMorphism (dependentPathSemantics Tests.Shadow.dependentBinder (\_ => (True, False)))
+    ((False, ()), (Tests.Shadow.dependentLinearPathAlternative, ())))
+dependentBinderValuationCongruence = dependentPathValuationCongruence Tests.Shadow.dependentBinder
+  (\_ => (True, False)) (\_ => (True, False)) (\_ => Refl)
+  ((False, ()), Tests.Shadow.dependentLinearPaths)
+  ((False, ()), (Tests.Shadow.dependentLinearPathAlternative, ()))
+  ((Refl, Refl), Tests.Shadow.dependentLinearPathsRelated)
