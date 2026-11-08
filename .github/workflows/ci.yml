@@ -43,12 +43,18 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # Evidence tests verify blobs from the imported recording history.
+          fetch-depth: 0
 
       - name: Prepare runner tools and Pack configuration
         run: |
           set -euo pipefail
           apt-get update
           apt-get install --yes --no-install-recommends python3 time zstd ca-certificates
+          # Checkout's temporary HOME does not persist into container run steps.
+          # Trust only this mounted checkout for the provenance verifier's Git calls.
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          PYTHONPATH=tools python3 -c 'from lsp_evidence_history import verify_recording_ancestry; verify_recording_ancestry()'
           echo "$PACK_BIN_DIR" >> "$GITHUB_PATH"
           mkdir -p "$PACK_USER_DIR" build/ci-logs
           cat > "$PACK_USER_DIR/pack.toml" <<'TOML'
