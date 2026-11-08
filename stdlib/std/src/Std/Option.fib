@@ -1,0 +1,29 @@
+module Std.Option
+
+-- A value that may be absent. Prefer this to a sentinel such as an empty String.
+export
+data Optional {0 A : Type} : Type where
+  Nothing : Optional A
+  Just : (value : A) -> Optional A
+
+export
+fromOptional : (0 A : Type) -> (fallback : A) -> (item : Optional A) -> A
+fromOptional A fallback item = case item of
+  Nothing => fallback
+  Just value => value
+
+export
+mapOptional : (0 A : Type) ->
+  (0 B : Type) ->
+  (f : (x : A) -> B) ->
+  (item : Optional A) ->
+  Optional B
+mapOptional A B f item = case item of
+  Nothing => Nothing {B}
+  Just value => Just {B} (f value)
+
+export
+isJust : (0 A : Type) -> (item : Optional A) -> Bool
+isJust A item = case item of
+  Nothing => False
+  Just value => True

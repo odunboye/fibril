@@ -1,0 +1,64 @@
+module StdTests.Main
+
+import Std.Option
+import Std.Result
+import Std.List
+
+three : Std.List.List Word
+three = Std.List.Cons {Word} 1w
+  (Std.List.Cons {Word} 2w
+    (Std.List.Cons {Word} 3w
+      (Std.List.Nil {Word})))
+
+none : Std.List.List Word
+none = Std.List.Nil {Word}
+
+natWord : (n : Nat) -> Word
+natWord n = primWordFromNat n
+
+sum : (items : Std.List.List Word) -> Word
+sum items = Std.List.foldLeft Word Word
+  (\(acc : Word) =>
+    \(x : Word) => primWordAdd acc x) 0w items
+
+double : (x : Word) -> Word
+double x = primWordMul x 2w
+
+big : (x : Word) -> Bool
+big x = primWordLt 1w x
+
+sizeIs : (expected : Word) -> (items : Std.List.List Word) -> Bool
+sizeIs expected items = primWordEq (natWord (Std.List.size Word items)) expected
+
+headOr : (fallback : Word) -> (items : Std.List.List Word) -> Word
+headOr fallback items = Std.Option.fromOptional Word fallback (Std.List.first Word items)
+
+okValue : Std.Result.Result String Word
+okValue = Std.Result.Ok {String} {Word} 7w
+
+errValue : Std.Result.Result String Word
+errValue = Std.Result.Err {String} {Word} "bad"
+
+main : Bool
+main = andBool
+  (sizeIs 3w three)
+  (andBool
+    (sizeIs 0w none)
+    (andBool
+      (sizeIs 6w
+        (Std.List.append Word three three))
+      (andBool
+        (sizeIs 3w
+          (Std.List.append Word none three))
+        (andBool
+          (primWordEq
+            (primWordAdd
+              (natWord
+                (Std.List.size Word three))
+              (natWord
+                (Std.List.size Word three)))
+            6w)
+          (andBool
+            (primWordEq
+              (sum three) 6w)
+            (True))))))

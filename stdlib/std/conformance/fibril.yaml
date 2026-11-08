@@ -1,0 +1,9 @@
+schema: 1
+name: std-conformance
+module-prefix: Conformance
+source-dir: src
+foundation: de-morgan
+entry: Main
+dependencies:
+  std:
+    path: ..

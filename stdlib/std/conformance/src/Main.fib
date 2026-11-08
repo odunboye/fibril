@@ -1,0 +1,72 @@
+module Main
+
+import Std.Option
+import Std.Result
+import Std.List
+
+three : Std.List.List Word
+three = Std.List.Cons {Word} 1w
+  (Std.List.Cons {Word} 2w
+    (Std.List.Cons {Word} 3w
+      (Std.List.Nil {Word})))
+
+none : Std.List.List Word
+none = Std.List.Nil {Word}
+
+natWord : (n : Nat) -> Word
+natWord n = primWordFromNat n
+
+sum : (items : Std.List.List Word) -> Word
+sum items = Std.List.foldLeft Word Word
+  (\(acc : Word) =>
+    \(x : Word) => primWordAdd acc x) 0w items
+
+double : (x : Word) -> Word
+double x = primWordMul x 2w
+
+big : (x : Word) -> Bool
+big x = primWordLt 1w x
+
+sizeIs : (expected : Word) -> (items : Std.List.List Word) -> Bool
+sizeIs expected items = primWordEq (natWord (Std.List.size Word items)) expected
+
+headOr : (fallback : Word) -> (items : Std.List.List Word) -> Word
+headOr fallback items = Std.Option.fromOptional Word fallback (Std.List.first Word items)
+
+okValue : Std.Result.Result String Word
+okValue = Std.Result.Ok {String} {Word} 7w
+
+errValue : Std.Result.Result String Word
+errValue = Std.Result.Err {String} {Word} "bad"
+
+report : (label : String) -> (holds : Bool) -> IO Unit
+report label holds = if holds
+  then putStrLn (appendString label ": ok")
+  else putStrLn (appendString label ": FAILED")
+
+main : IO Unit
+main = do
+  report "size of a three-element list" (sizeIs 3w three)
+  report "size of the empty list" (sizeIs 0w none)
+  report "append doubles the size" (sizeIs 6w (Std.List.append Word three three))
+  report "append to the empty list" (sizeIs 3w (Std.List.append Word none three))
+  report "a list can be used twice" (primWordEq (primWordAdd (natWord (Std.List.size Word three)) (natWord (Std.List.size Word three))) 6w)
+  report "foldLeft sums" (primWordEq (sum three) 6w)
+  report "foldLeft of the empty list" (primWordEq (sum none) 0w)
+  report "map then sum" (primWordEq (sum (Std.List.mapList Word Word double three)) 12w)
+  report "filter keeps matching elements" (sizeIs 2w (Std.List.filterList Word big three))
+  report "reverse puts the last element first" (primWordEq (headOr 0w (Std.List.reverse Word three)) 3w)
+  report "first of the empty list falls back" (primWordEq (headOr 9w none) 9w)
+  report "foldRight is right-associated" (primWordEq (Std.List.foldRight Word Word (\(x : Word) => \(acc : Word) => primWordSub x acc) 0w three) 2w)
+  report "any finds a match" (Std.List.any Word big three)
+  report "all fails when one element fails" (notBool (Std.List.all Word big three))
+  report "all holds for a filtered list" (Std.List.all Word big (Std.List.filterList Word big three))
+  report "any is false on the empty list" (notBool (Std.List.any Word big none))
+  report "first of a non-empty list is Just" (Std.Option.isJust Word (Std.List.first Word three))
+  report "first of the empty list is Nothing" (notBool (Std.Option.isJust Word (Std.List.first Word none)))
+  report "mapOptional transforms Just" (primWordEq (Std.Option.fromOptional Word 0w (Std.Option.mapOptional Word Word double (Std.Option.Just {Word} 4w))) 8w)
+  report "fromResult returns the Ok value" (primWordEq (Std.Result.fromResult String Word 0w okValue) 7w)
+  report "fromResult falls back on Err" (primWordEq (Std.Result.fromResult String Word 0w errValue) 0w)
+  report "mapResult transforms Ok" (primWordEq (Std.Result.fromResult String Word 0w (Std.Result.mapResult String Word Word double okValue)) 14w)
+  report "isOk is true for Ok" (Std.Result.isOk String Word okValue)
+  report "isOk is false for Err" (notBool (Std.Result.isOk String Word errValue))
