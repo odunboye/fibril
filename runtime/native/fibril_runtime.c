@@ -830,6 +830,48 @@ int fibril_native_resource_run(FEval entry, size_t requests, size_t line_charact
   while (r.allocations) { FAllocation *next = r.allocations->next; free(r.allocations); r.allocations = next; }
   return status;
 }
+FNativeResult fibril_native_embed(FEval entry, const FNativeHost *host) {
+  FNativeResult result = { F_NATIVE_OK, NULL };
+  if (!entry || !host || !host->write || !host->flush) {
+    result.status = F_NATIVE_INVALID_ARGUMENT;
+    result.message = "native embedding requires entry, write and flush callbacks";
+    return result;
+  }
+  /* Copy the callback table: a callback must not alter this invocation's sink. */
+  FNativeHost sink = *host;
+  FRuntime r = {0};
+  FValue *io = evaluate(&r, entry, NULL);
+  FThunk *final = io ? plan(&r, io) : NULL;
+  FValue *unit = final ? force(&r, final) : NULL;
+  if (!r.error && (!unit || unit->tag != V_UNIT)) fail(&r, "native main did not return unit");
+  /* Validate the entire staged output before crossing the host boundary. */
+  if (!r.error) for (FAction *a = r.head; a; a = a->next) {
+    if (a->length && memchr(a->bytes, 0, a->length)) {
+      fail(&r, "Console output contains NUL"); break;
+    }
+  }
+  if (r.error) {
+    result.status = F_NATIVE_PROGRAM_ERROR;
+    result.message = r.error;
+  } else {
+    static const unsigned char newline[] = { '\n' };
+    for (FAction *a = r.head; a; a = a->next) {
+      if ((a->length && sink.write(sink.context, a->bytes, a->length) != 0) ||
+          sink.write(sink.context, newline, sizeof(newline)) != 0) {
+        result.status = F_NATIVE_WRITE_ERROR;
+        result.message = "native host write failed";
+        break;
+      }
+    }
+    if (result.status == F_NATIVE_OK && sink.flush(sink.context) != 0) {
+      result.status = F_NATIVE_FLUSH_ERROR;
+      result.message = "native host flush failed";
+    }
+  }
+  while (r.allocations) { FAllocation *next = r.allocations->next; free(r.allocations); r.allocations = next; }
+  return result;
+}
+
 int fibril_native_run(FEval entry) {
   FRuntime r = {0};
   FValue *io = evaluate(&r, entry, NULL);

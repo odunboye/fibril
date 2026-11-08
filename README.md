@@ -12,6 +12,7 @@ JavaScript backend, embedded profiles and real-time guarantees are not implement
 once and use independently admitted references through checking, hosted execution
 and native emission.
 [Experimental C emission](docs/native-c.md) produces a real native executable for a checked console subset; it is not yet an application backend.
+[Native host embedding](docs/native-embedding.md) now lets a trusted C host run that subset with explicit output callbacks and structured failure results, without process-global console IO.
 
 Fibril's HoTT direction remains a goal, not a present capability. The
 [cubical alignment milestone](docs/cubical-alignment.md) sets out the first

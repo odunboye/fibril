@@ -25,6 +25,7 @@ The generated homepage separates teaching chapters, references, and project reco
 - [Implicit arguments](implicit-arguments.md): infer erased prefixes on direct checked global calls.
 
 - [Experimental checked C emission](native-c.md): compile a supported console subset without precomputing output.
+- [Native host embedding](native-embedding.md): explicit output callbacks, structured results and per-run cleanup for checked console programs.
 - [Abstract size-change certificates](size-change-certificates.md): a bounded graph-level checker that also admits core `Fix` terms; not a mechanized termination proof.
 - [Recursive group core and design](recursive-groups-design.md): raw syntax, restricted Nat/Bool checking and isolated fuelled reference execution; source and ordinary evaluation remain unintegrated.
 
