@@ -210,7 +210,7 @@ the family itself counts as smaller than the value being matched, so structural 
 a tree is admitted by the size-change check, while a call on a rebuilt node or on the value
 itself is refused.
 
-Not yet supported: function equations with constructor patterns (use `case`), `_` catch-all
+Clause equations work too (`marks Leaf = "."` and `marks (Node l r) = ...`), with the same recursion rule. Not yet supported: `_` catch-all
 arms, mutually recursive families, indexed families, a dependent motive inferred from the
 arms, and eliminator helpers. The experimental C backend lowers a family to native variants (see below). The plan and its soundness argument are in
 [general recursive data](general-recursive-data-plan.md).

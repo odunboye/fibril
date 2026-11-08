@@ -59,12 +59,15 @@ payload binder; the signature must expose a corresponding explicit Pi. The group
 exhaustiveness, motive inference and linear usage remain subject to those case
 rules. A lone constructor-looking equation remains an ordinary binder equation.
 Nested patterns, wildcard payloads, multiple matched arguments, guards, local or
-mutual clause groups, inferred signatures and general recursive clauses are not
-supported. The conservative clause recursion check rejects the function's bare
-name even in binder positions; qualified references such as `Other.f` are
-ordinary references. Use [direct data cases](direct-data-cases.md) for forms
-outside this slice. Small structural Nat, unary-data and list-shaped equations
-are separate exceptions below, not general termination checking.
+mutual clause groups and inferred signatures are not supported. A clause pattern may
+not bind the function's own name. A clause body may call the function: the group is then
+elaborated as [general recursion](#general-recursion) and admitted only if the size-change
+check proves termination. That works for `Nat`, the fixed recursive shapes and
+[general recursive data](data.md#general-recursive-data); a recursive clause group over any
+other type (for example a non-recursive data type) is refused when the recursive body is
+checked. Use [direct data cases](direct-data-cases.md) for forms outside this slice. Small
+structural Nat, unary-data and list-shaped equations are separate exceptions below, not
+general termination checking.
 
 ### Multi-field clause patterns
 
