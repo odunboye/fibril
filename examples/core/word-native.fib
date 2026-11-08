@@ -1,0 +1,12 @@
+-- Word arithmetic compiled to C: each line reports one wrapping/unsigned property.
+report : (label : String) -> (holds : Bool) -> IO Unit
+report label holds = if holds then putStrLn (appendString label ": ok") else putStrLn (appendString label ": FAILED")
+
+main : IO Unit
+main = do
+  putStrLn (appendString "max word: " (primWordToString (primWordSub 0w 1w)))
+  report "add wraps" (primWordEq (primWordAdd 18446744073709551615w 2w) 1w)
+  report "sub wraps" (primWordEq (primWordSub 0w 1w) 18446744073709551615w)
+  report "mul wraps" (primWordEq (primWordMul 4294967296w 4294967296w) 0w)
+  report "large product" (primWordEq (primWordMul 1000000007w 998244353w) 998244359987710471w)
+  report "unsigned order" (primWordLt 3w 18446744073709551615w)

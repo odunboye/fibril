@@ -61,6 +61,7 @@ mutual
   descend env hole target (StringValue value) = StringValue value
   descend env hole target (StringAppend a b) = StringAppend (abstractWith env hole target a) (abstractWith env hole target b)
   descend env hole target (StringEqual a b) = StringEqual (abstractWith env hole target a) (abstractWith env hole target b)
+  descend env hole target (Prim op args) = Prim op (abstractTerms env hole target args)
   descend env hole target (NominalType key indices shape) = NominalType key (abstractTerms env hole target indices) (abstractWith env hole target shape)
   descend env hole target (NominalValue a b) = NominalValue (abstractWith env hole target a) (abstractWith env hole target b)
   descend env hole target (NominalCase a b c) = NominalCase (abstractWith env hole target a) (abstractWith env hole target b) (abstractWith env hole target c)

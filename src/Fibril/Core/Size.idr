@@ -59,6 +59,7 @@ mutual
   coreNodes (StringValue _) = 1
   coreNodes (StringAppend a b) = 1 + coreNodes a + coreNodes b
   coreNodes (StringEqual a b) = 1 + coreNodes a + coreNodes b
+  coreNodes (Prim _ args) = 1 + variantTermNodes args
   coreNodes (NominalType _ indices shape) = 1 + variantTermNodes indices + coreNodes shape
   coreNodes (NominalValue ty value) = 1 + coreNodes ty + coreNodes value
   coreNodes (NominalCase motive value branch) = 1 + coreNodes motive + coreNodes value + coreNodes branch
@@ -151,6 +152,7 @@ mutual
   mentionsNominal key (StringValue _) = False
   mentionsNominal key (StringAppend a b) = mentionsNominal key a || mentionsNominal key b
   mentionsNominal key (StringEqual a b) = mentionsNominal key a || mentionsNominal key b
+  mentionsNominal key (Prim _ args) = anyNominalTerms key args
   mentionsNominal key (NominalType found indices shape) = key == found || anyNominalTerms key indices || mentionsNominal key shape
   mentionsNominal key (NominalValue ty value) = mentionsNominal key ty || mentionsNominal key value
   mentionsNominal key (NominalCase motive value branch) = mentionsNominal key motive || mentionsNominal key value || mentionsNominal key branch

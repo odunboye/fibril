@@ -76,12 +76,27 @@ natRecWithValue = Lambda Erased natMotive
         (NatRecRuntime (Variable (FS (FS (FS FZ)))) (Variable (FS (FS FZ)))
                        (Variable (FS FZ)) (Variable FZ)))))
 
+-- Word is copyable data, so its operands are unrestricted rather than linear.
+wordBinary : String -> PrimOp -> Term 0 -> GlobalDefinition
+wordBinary name op result =
+  Global name (Pi Unrestricted (Prim WordTypeOp []) (Pi Unrestricted (Prim WordTypeOp []) (weaken (weaken result))))
+    (Lambda Unrestricted (Prim WordTypeOp []) (Lambda Unrestricted (Prim WordTypeOp [])
+      (Prim op [Variable (FS FZ), Variable FZ])))
+
 ||| Small-type interface: A/B : Type0. IOType itself preserves arbitrary levels.
 public export
 primitiveGlobals : List GlobalDefinition
 primitiveGlobals =
   binaryPrimitiveGlobals ++ utf8PrimitiveGlobals ++ bytePrimitiveGlobals ++ resourcePrimitiveGlobals ++ inputPrimitiveGlobals ++
   [ GlobalWithQuantity Erased "Bytes" (Universe 0) BytesType
+  , GlobalWithQuantity Erased "Word" (Universe 0) (Prim WordTypeOp [])
+  , Global "primWordToString" (Pi Unrestricted (Prim WordTypeOp []) StringType)
+      (Lambda Unrestricted (Prim WordTypeOp []) (Prim WordToStringOp [Variable FZ]))
+  , wordBinary "primWordAdd" WordAddOp (Prim WordTypeOp [])
+  , wordBinary "primWordSub" WordSubOp (Prim WordTypeOp [])
+  , wordBinary "primWordMul" WordMulOp (Prim WordTypeOp [])
+  , wordBinary "primWordEq" WordEqOp BoolType
+  , wordBinary "primWordLt" WordLtOp BoolType
   , Global "primBytesEmpty" BytesType (BytesValue empty)
   , Global "primBytesOctetMod256" (Pi Linear NatType BytesType)
       (Lambda Linear NatType (BytesOctet (Variable FZ)))

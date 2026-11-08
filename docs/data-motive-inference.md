@@ -24,12 +24,12 @@ choose choice = case choice of
 See the runnable [dependent example](../examples/modules/direct-data-case-dependent/Main.fib),
 the [nested and arbitrary-scrutinee example](../examples/modules/motive-contexts/Main.fib),
 the [typed-do example](../examples/modules/motive-do/Main.fib),
-the pure [request API package](../examples/packages/request-api/src/Mail/Request.fib),
+the pure [request API package](../test/fixtures/packages/request-api/src/Mail/Request.fib),
 and the qualified, generic [Sum client](../examples/packages/sum-client/src/Main.fib).
 
 ~~~sh
 fibril run --source-dir examples/modules/direct-data-case-dependent examples/modules/direct-data-case-dependent/Main.fib
-fibril test --package examples/packages/request-api/fibril.yaml
+fibril test --package test/fixtures/packages/request-api/fibril.yaml
 ~~~
 
 The request package labels values; it does not implement an HTTP server or send

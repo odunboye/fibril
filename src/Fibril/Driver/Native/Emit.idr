@@ -136,6 +136,14 @@ wrapBranches decl index (branch :: rest) = do
   following <- wrapBranches decl (S index) rest
   Just (wrapBranch (fieldQuantities (parameterCount decl) chain) branch :: following)
 
+wordRuntimeFunction : PrimOp -> Maybe String
+wordRuntimeFunction WordAddOp = Just "f_word_add"
+wordRuntimeFunction WordSubOp = Just "f_word_sub"
+wordRuntimeFunction WordMulOp = Just "f_word_mul"
+wordRuntimeFunction WordEqOp = Just "f_word_eq"
+wordRuntimeFunction WordLtOp = Just "f_word_lt"
+wordRuntimeFunction _ = Nothing
+
 mutual
   generate : RuntimeGlobals -> NativeMode -> Nat -> Term n -> Either String Generated
   generate globals mode n (GlobalRef key) = case globalEntry (erasedGlobals globals) key of
@@ -219,6 +227,17 @@ mutual
     Right (Output n generated.next (code :: generated.definitions))
   generate globals mode n (Apply function argument) = binary globals mode n "f_apply" function argument
   generate globals mode n (StringAppend left right) = binary globals mode n "f_append" left right
+  generate globals mode n (Prim WordTypeOp _) = Right (constant n "f_erased(r)")
+  generate globals mode n (Prim (WordLitOp value) []) =
+    if value < 0 || value >= wordModulus
+      then Left "C backend rejects a Word literal outside 0 .. 2^64-1"
+      else Right (constant n ("f_word(r, UINT64_C(" ++ show value ++ "))"))
+  generate globals mode n (Prim WordToStringOp [argument]) = unary globals mode n "f_word_to_string" argument
+  generate globals mode n (Prim operation [left, right]) =
+    case wordRuntimeFunction operation of
+      Just function => binary globals mode n function left right
+      Nothing => Left "C backend rejects an unsupported primitive operation"
+  generate globals mode n (Prim _ _) = Left "C backend rejects a malformed primitive application"
   generate globals mode n (StringEqual left right) = binary globals mode n "f_string_equal" left right
   generate globals mode n (BoolCase condition yes no) = ternary globals mode n "f_bool_case" condition yes no
   generate globals mode n (NominalValue _ value) = unary globals mode n "f_nominal" value
@@ -340,10 +359,19 @@ emitEntryGlobals globals mode requests lineLimit term = do
         Interactive => "fibril_native_interactive_run(" ++ name code.root ++ ", " ++ show requests ++ ", " ++ show lineLimit ++ ")"
         Resources => "fibril_native_resource_run(" ++ name code.root ++ ", " ++ show requests ++ ", " ++ show lineLimit ++ ")"
         Binary => "fibril_native_binary_run(" ++ name code.root ++ ", " ++ show requests ++ ", " ++ show lineLimit ++ ")"
+  let mainCode = "int main(void) { return " ++ entry ++ "; }\n"
+  let entryCode = if mode == Preflight
+        then "FNativeResult fibril_program_embed(const FNativeHost *host) { return fibril_native_embed(" ++ name code.root ++ ", host); }\n" ++
+             "#ifndef FIBRIL_EMBED_ONLY\n" ++ mainCode ++ "#endif\n"
+        else if mode == Binary
+          then "FBinaryResult fibril_program_binary_embed(const FByteAdapters *host) { return fibril_native_binary_embed(" ++ name code.root ++ ", " ++ show requests ++ ", " ++ show lineLimit ++ ", host); }\n" ++
+               "#ifndef FIBRIL_EMBED_ONLY\n" ++ mainCode ++ "#endif\n"
+          else mainCode
+  let header = if mode == Binary then "fibril_binary_embed.h" else "fibril_runtime.h"
   Right ("/* Generated from checked Fibril core; experimental native subset. */\n" ++
-         "#include \"fibril_runtime.h\"\n" ++ concat (map (\(key, _, _, _) => "FValue *fibril_global_" ++ show key ++ "(FRuntime *, FEnv *);\n") declarations) ++
+         "#include \"" ++ header ++ "\"\n" ++ concat (map (\(key, _, _, _) => "FValue *fibril_global_" ++ show key ++ "(FRuntime *, FEnv *);\n") declarations) ++
          concat (prototypes 0 code.next) ++ concat globalCode ++ concat definitions ++
-         concat code.definitions ++ "int main(void) { return " ++ entry ++ "; }\n")
+         concat code.definitions ++ entryCode)
 
 emitEntry : NativeMode -> Nat -> Nat -> Term 0 -> Either String String
 emitEntry = emitEntryGlobals emptyRuntimeGlobals

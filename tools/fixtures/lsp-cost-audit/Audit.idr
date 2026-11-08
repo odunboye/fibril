@@ -103,6 +103,7 @@ mutual
   dump context role (StringValue value) = node "StringValue" role (textCodes value) (length value) (0) ([])
   dump context role (StringAppend a b) = node "StringAppend" role [] (0) (0) ([dump context "computational" a] ++ [dump context "computational" b])
   dump context role (StringEqual a b) = node "StringEqual" role [] (0) (0) ([dump context "computational" a] ++ [dump context "computational" b])
+  dump context role (Prim op args) = node "Prim" role [] (0) (0) (terms context "computational" args)
   dump context role (NominalType key indices shape) = node "NominalType" "metadata" (textCodes key) (0) (length key) (terms context "computational" indices ++ [dump context "computational" shape])
   dump context role (NominalValue ty value) = node "NominalValue" role [] (0) (0) ([dump context "metadata" ty] ++ [dump context "computational" value])
   dump context role (NominalCase motive value branch) = node "NominalCase" role [] (0) (0) ([dump context "metadata" motive] ++ [dump context "computational" value] ++ [dump context "computational" branch])

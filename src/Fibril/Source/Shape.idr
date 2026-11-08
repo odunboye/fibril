@@ -26,6 +26,7 @@ mutual
   sameExpr (NStringType _) (NStringType _) = True
   sameExpr (NStringValue _ a) (NStringValue _ b) = a == b
   sameExpr (NNatValue _ a) (NNatValue _ b) = a == b
+  sameExpr (NWordValue _ a) (NWordValue _ b) = a == b
   sameExpr (NBoolType _) (NBoolType _) = True
   sameExpr (NBoolValue _ a) (NBoolValue _ b) = a == b
   sameExpr (NIf _ a b c) (NIf _ x y z) = sameExpr a x && sameExpr b y && sameExpr c z

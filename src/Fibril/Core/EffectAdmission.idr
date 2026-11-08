@@ -59,6 +59,7 @@ mutual
   scan _ (StringValue _) = False
   scan b (StringAppend x y) = scan b x || scan b y
   scan b (StringEqual x y) = scan b x || scan b y
+  scan b (Prim _ args) = scans b args
   scan b (NominalType _ indices shape) = scans b indices || scan b shape
   scan b (NominalValue a x) = scan b a || scan b x
   scan b (NominalCase p x s) = scan b p || scan b x || scan b s

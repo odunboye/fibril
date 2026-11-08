@@ -9,7 +9,7 @@ import Fibril.Source.StringLiteral
 
 ||| Token categories for the initial explicitly annotated expression grammar.
 public export
-data TokenKind = Name | Number | StringToken | StringKeyword | TypeKeyword | UnitKeyword | BoolKeyword | TrueKeyword | FalseKeyword | IfKeyword | ThenKeyword | ElseKeyword | DoKeyword | CaseKeyword | OfKeyword | LetKeyword | InKeyword | ProjectionKeyword | ReturnKeyword | DataKeyword | RecordKeyword | InterfaceKeyword | ImplementationKeyword | MutualKeyword | ConstructorKeyword | EliminatorKeyword | WhereKeyword | ModuleKeyword | ImportKeyword | ExportKeyword | Dot | Comma | Equals | OpenParen | CloseParen | OpenBrace | DictionaryOpen | CloseBrace | Backtick | Colon | Arrow | BindArrow | BodyArrow | Lambda
+data TokenKind = Name | Number | StringToken | StringKeyword | TypeKeyword | UnitKeyword | BoolKeyword | TrueKeyword | FalseKeyword | IfKeyword | ThenKeyword | ElseKeyword | DoKeyword | CaseKeyword | OfKeyword | LetKeyword | InKeyword | ProjectionKeyword | ReturnKeyword | DataKeyword | RecordKeyword | InterfaceKeyword | ImplementationKeyword | MutualKeyword | ConstructorKeyword | EliminatorKeyword | WhereKeyword | ModuleKeyword | ImportKeyword | ExportKeyword | Dot | Comma | Equals | Bar | OpenParen | CloseParen | OpenBrace | DictionaryOpen | CloseBrace | Backtick | Colon | Arrow | BindArrow | BodyArrow | Lambda
 
 public export
 Show TokenKind where
@@ -46,6 +46,7 @@ Show TokenKind where
   show Dot = "."
   show Comma = ","
   show Equals = "="
+  show Bar = "|"
   show Backtick = "`"
   show OpenBrace = "{"
   show DictionaryOpen = "@{"
@@ -93,6 +94,7 @@ Eq TokenKind where
   Dot == Dot = True
   Comma == Comma = True
   Equals == Equals = True
+  Bar == Bar = True
   Backtick == Backtick = True
   OpenBrace == OpenBrace = True
   DictionaryOpen == DictionaryOpen = True
@@ -254,6 +256,7 @@ scan (S fuel) at (c :: rest) =
       '}' => Right CloseBrace
       ':' => Right Colon
       '=' => Right Equals
+      '|' => Right Bar
       '\\' => Right Lambda
       'λ' => Right Lambda
       '→' => Right Arrow

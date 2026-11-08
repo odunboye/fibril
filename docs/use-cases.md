@@ -23,6 +23,7 @@ for supported syntax, checking boundaries and resource limits.
 
 | Feature | Use it to… | Simpler alternative / limitation |
 | --- | --- | --- |
+| [Word](words.md) | Compute with counters, sizes and identifiers at machine-integer cost (`5w`, `primWordAdd`), with wrapping modulo 2^64. | Use `Nat` for recursion or pattern matching. Print with `primWordToString`; no parsing, division, shifts or Nat conversion. |
 | [Named records](records.md) | Package related fields behind an authored constructor and declared telescope. | Keep separate arguments if no reusable data shape is needed. Records are structural, not nominal class tags. |
 | [Dependent fields](records.md) | Package a type/index and a payload whose type depends on it, or a request type and response family. | Use independent fields when there is no dependency. |
 | [Implicit arguments](implicit-arguments.md) | Infer a declared erased prefix from argument types and a supported expected result. | Use explicit braces for phantom/ambiguous arguments; no general unification or implicit record headers. |
@@ -107,7 +108,7 @@ Runnable progression: [explicit dictionaries](../examples/modules/interfaces/Mai
 
 The [transactional-email plan](applications/transactional-email.md) drives an
 application-readiness milestone: durable authenticated submission, a remote TLS
-relay and a responsive web/mobile console. Its [first runnable Fibril model](../examples/modules/email-service/Main.fib)
+relay and a responsive web/mobile console. Its [first runnable Fibril model](../test/fixtures/modules/email-service/Main.fib)
 checks submission transitions and rejects blind dispatch after acknowledgement
 loss. It is not a network service, C deployment, delivered-email guarantee or
 completed UI; the plan identifies the backend/runtime blockers explicitly.

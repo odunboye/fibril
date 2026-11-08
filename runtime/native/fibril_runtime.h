@@ -2,6 +2,7 @@
 #ifndef FIBRIL_RUNTIME_H
 #define FIBRIL_RUNTIME_H
 #include <stddef.h>
+#include <stdint.h>
 
 typedef struct FRuntime FRuntime;
 typedef struct FEnv FEnv;
@@ -32,6 +33,15 @@ FValue *f_nat_rec_runtime(FRuntime *r, FEnv *env, FEval base, FEval step, FEval 
 FValue *f_rec_fold(FRuntime *r, FEnv *env, FEval base, FEval step, FEval value);
 FValue *f_seq_fold(FRuntime *r, FEnv *env, FEval base, FEval step, FEval value);
 FValue *f_erased(FRuntime *r);
+/* Unsigned 64-bit Word: arithmetic wraps modulo 2^64, comparisons are unsigned. */
+FValue *f_word(FRuntime *r, uint64_t value);
+/* Decimal digits, no sign or padding; the result is an ordinary String. */
+FValue *f_word_to_string(FRuntime *r, FEnv *env, FEval value);
+FValue *f_word_add(FRuntime *r, FEnv *env, FEval left, FEval right);
+FValue *f_word_sub(FRuntime *r, FEnv *env, FEval left, FEval right);
+FValue *f_word_mul(FRuntime *r, FEnv *env, FEval left, FEval right);
+FValue *f_word_eq(FRuntime *r, FEnv *env, FEval left, FEval right);
+FValue *f_word_lt(FRuntime *r, FEnv *env, FEval left, FEval right);
 /* Evaluate body in a sub-arena; first-order data is copied out, then the arena is freed. */
 FValue *f_with_region(FRuntime *r, FEnv *env, FEval body);
 FValue *f_literal(FRuntime *r, const unsigned char *bytes, size_t length);
@@ -75,6 +85,40 @@ FValue *f_reject_bytes(FRuntime *r);
 FValue *f_iterate_binary(FRuntime *, FEnv *, FEval count, FEval step, FEval initial);
 /* Link fibril_binary_runtime.c instead of fibril_runtime.c for this runner. */
 int fibril_native_binary_run(FEval entry, size_t requests, size_t capacity);
+/* Experimental embedding boundary for staged console IO only. Callbacks return
+   zero on success, nonzero on failure. Bytes are borrowed for the callback only;
+   writes may be split (including a separate newline). No callback is called
+   until evaluation and text validation succeed. Host effects are not rolled
+   back on callback failure. Callbacks must return normally; no longjmp across
+   the runtime. No runtime/value pointer escapes this synchronous invocation. */
+typedef int (*FNativeWrite)(void *context, const unsigned char *bytes, size_t length);
+typedef int (*FNativeFlush)(void *context);
+typedef struct {
+  void *context;
+  FNativeWrite write;
+  FNativeFlush flush;
+} FNativeHost;
+typedef enum {
+  F_NATIVE_OK = 0,
+  F_NATIVE_INVALID_ARGUMENT,
+  F_NATIVE_PROGRAM_ERROR,
+  F_NATIVE_WRITE_ERROR,
+  F_NATIVE_FLUSH_ERROR
+} FNativeStatus;
+typedef struct {
+  FNativeStatus status;
+  /* NULL on success; otherwise immutable static storage, valid after return.
+     Message wording is diagnostic, not a machine-readable error code. */
+  const char *message;
+} FNativeResult;
+/* No stdio or process termination; each call owns and releases its arena.
+   Both callbacks and entry are required. Existing fixed budgets still apply.
+   Host callbacks are trusted native code, not a checked Fibril FFI. */
+FNativeResult fibril_native_embed(FEval entry, const FNativeHost *host);
+/* Supplied by newly emitted `emit-c` console programs, NOT the runtime itself.
+   Compile generated C with -DFIBRIL_EMBED_ONLY to omit its standalone main.
+   One generated program per linked image; other emission modes do not expose it. */
+FNativeResult fibril_program_embed(const FNativeHost *host);
 int fibril_native_run(FEval entry);
 /* Incremental execution may leave output before a later error. */
 int fibril_native_interactive_run(FEval entry, size_t requests, size_t line_characters);

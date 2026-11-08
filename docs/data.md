@@ -223,6 +223,26 @@ right-nested pairs; a `case` is a variant case whose branches unpack that nest. 
 is checked against the hosted evaluator for constructors with zero to four fields, and the
 runtime's fixed step and depth budgets apply to recursion over these values as to any `Fix`.
 
+## Compact alternatives
+
+A data declaration may list its constructors with `=` and `|` instead of a
+`where` block:
+
+~~~fibril
+data Day = Monday | Tuesday
+data User = Guest | Staff String | Customer String String
+data Tree = Leaf | Node Tree Tree
+data Items (0 A : Type) = Empty | Prepend A (Items A)
+~~~
+
+This is parsing sugar for the `where` form: each alternative becomes a constructor
+whose result type is the family applied to its parameters, so every later check
+(positivity, termination, `case`, native lowering) is unchanged. Each field type is
+one token or one parenthesized group (write `(Maybe A)`, not `Maybe A`). Fields are
+positional and unrestricted, so linear fields, named fields, indices, universe levels
+above `Type 0` and the `eliminator` directive still need the `where` form.
+Alternatives may continue onto indented lines that begin with `|`.
+
 ## Use the optional eliminator
 
 The eliminator directive is optional and appears before constructor signatures.

@@ -51,6 +51,7 @@ mutual
   traverseGlobalRefs resolve (StringValue a0) = [| StringValue (pure a0) |]
   traverseGlobalRefs resolve (StringAppend a0 a1) = [| StringAppend (traverseGlobalRefs resolve a0) (traverseGlobalRefs resolve a1) |]
   traverseGlobalRefs resolve (StringEqual a0 a1) = [| StringEqual (traverseGlobalRefs resolve a0) (traverseGlobalRefs resolve a1) |]
+  traverseGlobalRefs resolve (Prim a0 a1) = [| Prim (pure a0) (traverseTerms resolve a1) |]
   traverseGlobalRefs resolve (NominalType a0 a1 a2) = [| NominalType (pure a0) (traverseTerms resolve a1) (traverseGlobalRefs resolve a2) |]
   traverseGlobalRefs resolve (NominalValue a0 a1) = [| NominalValue (traverseGlobalRefs resolve a0) (traverseGlobalRefs resolve a1) |]
   traverseGlobalRefs resolve (NominalCase a0 a1 a2) = [| NominalCase (traverseGlobalRefs resolve a0) (traverseGlobalRefs resolve a1) (traverseGlobalRefs resolve a2) |]

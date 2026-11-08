@@ -57,6 +57,7 @@ mutual
   containsFileReference (StringValue _) = False
   containsFileReference (StringAppend a b) = containsFileReference a || containsFileReference b
   containsFileReference (StringEqual a b) = containsFileReference a || containsFileReference b
+  containsFileReference (Prim _ args) = anyReferences args
   containsFileReference (NominalType _ indices shape) = anyReferences indices || containsFileReference shape
   containsFileReference (NominalValue a b) = containsFileReference a || containsFileReference b
   containsFileReference (NominalCase a b c) = containsFileReference a || containsFileReference b || containsFileReference c

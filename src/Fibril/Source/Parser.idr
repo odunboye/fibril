@@ -141,6 +141,15 @@ natLiteral token =
         then Left (ParseFailure token.span.start ("Numeric literal exceeds " ++ show maxNatLiteral))
         else Right value
 
+||| A decimal Word literal: canonical digits; the 2^64-1 range is checked at elaboration.
+public export
+wordLiteral : Token -> Either ParseError Integer
+wordLiteral token =
+  let digits = unpack token.spelling in
+    if length digits > 1 && head' digits == Just '0'
+      then Left (ParseFailure token.span.start "Numeric literal must not have leading zeros")
+      else Right (foldl (\acc, digit => acc * 10 + cast (ord digit - ord '0')) (the Integer 0) digits)
+
 ||| Decode a validated string token, shared by core and console parsing.
 public export
 literalValue : Token -> Either ParseError String
@@ -605,9 +614,19 @@ mutual
       StringToken => do
         value <- literalValue token
         Right (NStringValue token.span value, rest)
-      Number => do
-        value <- natLiteral token
-        Right (NNatValue token.span value, rest)
+      Number => case rest of
+        -- `5w` is a Word literal: the suffix must touch the digits.
+        (suffix :: after) =>
+          if suffix.kind == Name && suffix.spelling == "w" && suffix.span.start.offset == token.span.finish.offset
+            then do
+              value <- wordLiteral token
+              Right (NWordValue (Between token.span.start suffix.span.finish) value, after)
+            else do
+              value <- natLiteral token
+              Right (NNatValue token.span value, rest)
+        [] => do
+          value <- natLiteral token
+          Right (NNatValue token.span value, rest)
       StringKeyword => Right (NStringType token.span, rest)
       UnitKeyword => Right (NUnitType token.span, rest)
       BoolKeyword => Right (NBoolType token.span, rest)

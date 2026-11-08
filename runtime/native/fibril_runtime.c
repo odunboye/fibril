@@ -18,12 +18,13 @@ typedef struct FThunk FThunk;
 typedef struct FRegion { FAllocation *allocations; size_t bytes; } FRegion;
 typedef struct FAction { const unsigned char *bytes; size_t length; struct FAction *next; } FAction;
 typedef struct FInput { size_t identity, generation; FILE *file; const char *close_error; struct FInput *next; } FInput;
-struct FRuntime { FAllocation *allocations; FRegion *current; size_t bytes, steps, depth, actions; const char *error; FAction *head, *tail; FInput *inputs; size_t next_input; };
+struct FRuntime { FAllocation *allocations; FRegion *current; size_t bytes, steps, depth, actions; const char *error; FAction *head, *tail; FInput *inputs; size_t next_input; int binary_rejected; };
 struct FEnv { FThunk *value; FEnv *tail; };
 typedef enum { V_UNIT, V_ERASED, V_BOOL, V_STRING, V_BYTES, V_CLOSURE, V_NOMINAL, V_VARIANT,
                V_NAT_ZERO, V_NAT_SUCC, V_REC_END, V_REC_MORE, V_SEQ_NIL, V_SEQ_CONS,
                V_PURE, V_BIND, V_WRITE, V_READ, V_PAIR, V_INPUT_HANDLE,
-               V_WITH_INPUT, V_READ_INPUT, V_READ_BYTES, V_WRITE_BYTES, V_FLUSH_BYTES, V_REJECT_BYTES, V_ITERATE_BINARY } FTag;
+               V_WITH_INPUT, V_READ_INPUT, V_READ_BYTES, V_WRITE_BYTES, V_FLUSH_BYTES, V_REJECT_BYTES, V_ITERATE_BINARY,
+               V_WORD } FTag;
 typedef enum { F_NAT, F_NAT_RUNTIME, F_REC, F_SEQ } FFoldKind;
 struct FValue {
   FTag tag;
@@ -31,6 +32,7 @@ struct FValue {
     struct { const unsigned char *bytes; size_t length; } string;
     struct { const unsigned char *data; size_t length; } bytes;
     int boolean;
+    uint64_t word;
     FThunk *nominal;
     struct { size_t tag; FThunk *payload; } variant;
     struct { FThunk *head, *tail; } recursive;
@@ -315,6 +317,7 @@ static FValue *copy_value(FRuntime *r, FValue *source, size_t depth) {
     switch (source->tag) {
     case V_UNIT: case V_ERASED: case V_NAT_ZERO: case V_REC_END: case V_SEQ_NIL: break;
     case V_BOOL: copy->as.boolean = source->as.boolean; break;
+    case V_WORD: copy->as.word = source->as.word; break;
     case V_STRING: case V_BYTES: {
       size_t n = source->as.string.length;
       unsigned char *data = allocate(r, n ? n : 1);
@@ -420,6 +423,43 @@ FValue *f_bool_case(FRuntime *r, FEnv *env, FEval scrutinee, FEval yes, FEval no
   if (!value || value->tag != V_BOOL) { fail(r, "native boolean case expects Bool"); return NULL; }
   return evaluate(r, value->as.boolean ? yes : no, env);
 }
+FValue *f_word(FRuntime *r, uint64_t value) {
+  FValue *v = new_value(r, V_WORD);
+  if (v) v->as.word = value;
+  return v;
+}
+/* Both operands are forced left to right, like the reference reducer. */
+static int word_operands(FRuntime *r, FEnv *env, FEval left, FEval right, uint64_t *a, uint64_t *b) {
+  FValue *x = evaluate(r, left, env);
+  FValue *y = x ? evaluate(r, right, env) : NULL;
+  if (!x || !y || x->tag != V_WORD || y->tag != V_WORD) { fail(r, "native Word operation expects Word operands"); return 0; }
+  *a = x->as.word; *b = y->as.word;
+  return 1;
+}
+#define FIBRIL_WORD_OP(NAME, RESULT) \
+  FValue *NAME(FRuntime *r, FEnv *env, FEval left, FEval right) { \
+    uint64_t a, b; \
+    if (!word_operands(r, env, left, right, &a, &b)) return NULL; \
+    return RESULT; \
+  }
+FValue *f_word_to_string(FRuntime *r, FEnv *env, FEval value) {
+  FValue *v = evaluate(r, value, env);
+  if (!v || v->tag != V_WORD) { fail(r, "native Word formatting expects a Word"); return NULL; }
+  unsigned char digits[20]; /* UINT64_MAX has 20 decimal digits */
+  size_t count = 0;
+  uint64_t rest = v->as.word;
+  do { digits[count++] = (unsigned char)('0' + rest % 10); rest /= 10; } while (rest);
+  unsigned char *bytes = allocate(r, count);
+  if (!bytes) return NULL;
+  for (size_t i = 0; i < count; i++) bytes[i] = digits[count - 1 - i];
+  return f_literal(r, bytes, count);
+}
+FIBRIL_WORD_OP(f_word_add, f_word(r, a + b))
+FIBRIL_WORD_OP(f_word_sub, f_word(r, a - b))
+FIBRIL_WORD_OP(f_word_mul, f_word(r, a * b))
+FIBRIL_WORD_OP(f_word_eq, f_bool(r, a == b))
+FIBRIL_WORD_OP(f_word_lt, f_bool(r, a < b))
+#undef FIBRIL_WORD_OP
 FValue *f_string_equal(FRuntime *r, FEnv *env, FEval left, FEval right) {
   FValue *a = evaluate(r, left, env);
   FValue *b = a ? evaluate(r, right, env) : NULL;
@@ -830,6 +870,48 @@ int fibril_native_resource_run(FEval entry, size_t requests, size_t line_charact
   while (r.allocations) { FAllocation *next = r.allocations->next; free(r.allocations); r.allocations = next; }
   return status;
 }
+FNativeResult fibril_native_embed(FEval entry, const FNativeHost *host) {
+  FNativeResult result = { F_NATIVE_OK, NULL };
+  if (!entry || !host || !host->write || !host->flush) {
+    result.status = F_NATIVE_INVALID_ARGUMENT;
+    result.message = "native embedding requires entry, write and flush callbacks";
+    return result;
+  }
+  /* Copy the callback table: a callback must not alter this invocation's sink. */
+  FNativeHost sink = *host;
+  FRuntime r = {0};
+  FValue *io = evaluate(&r, entry, NULL);
+  FThunk *final = io ? plan(&r, io) : NULL;
+  FValue *unit = final ? force(&r, final) : NULL;
+  if (!r.error && (!unit || unit->tag != V_UNIT)) fail(&r, "native main did not return unit");
+  /* Validate the entire staged output before crossing the host boundary. */
+  if (!r.error) for (FAction *a = r.head; a; a = a->next) {
+    if (a->length && memchr(a->bytes, 0, a->length)) {
+      fail(&r, "Console output contains NUL"); break;
+    }
+  }
+  if (r.error) {
+    result.status = F_NATIVE_PROGRAM_ERROR;
+    result.message = r.error;
+  } else {
+    static const unsigned char newline[] = { '\n' };
+    for (FAction *a = r.head; a; a = a->next) {
+      if ((a->length && sink.write(sink.context, a->bytes, a->length) != 0) ||
+          sink.write(sink.context, newline, sizeof(newline)) != 0) {
+        result.status = F_NATIVE_WRITE_ERROR;
+        result.message = "native host write failed";
+        break;
+      }
+    }
+    if (result.status == F_NATIVE_OK && sink.flush(sink.context) != 0) {
+      result.status = F_NATIVE_FLUSH_ERROR;
+      result.message = "native host flush failed";
+    }
+  }
+  while (r.allocations) { FAllocation *next = r.allocations->next; free(r.allocations); r.allocations = next; }
+  return result;
+}
+
 int fibril_native_run(FEval entry) {
   FRuntime r = {0};
   FValue *io = evaluate(&r, entry, NULL);

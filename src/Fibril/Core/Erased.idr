@@ -25,6 +25,7 @@ public export
 data CheckError : Type where
   GlobalError : String -> CheckError
   NatError : String -> CheckError
+  PrimError : String -> CheckError
   RecursiveDataError : String -> CheckError
   NominalError : String -> CheckError
   RecursionError : String -> CheckError
@@ -47,6 +48,7 @@ public export
 Show CheckError where
   show (GlobalError message) = "Global: " ++ message
   show (NatError message) = "Nat: " ++ message
+  show (PrimError message) = "Primitive: " ++ message
   show (RecursiveDataError message) = "Recursive data: " ++ message
   show (NominalError message) = "Nominal: " ++ message
   show (RecursionError message) = "Recursion: " ++ message
@@ -537,6 +539,28 @@ mutual
     Right (IOType UnitType)
   infer globals (S depth) reduction context RejectBytes = Right (IOType UnitType)
   infer globals (S depth) reduction context FlushBytes = Right (IOType UnitType)
+  infer globals (S depth) reduction context (Prim WordTypeOp []) = Right (Universe 0)
+  infer globals (S depth) reduction context (Prim (WordLitOp value) []) =
+    if value < 0 || value >= wordModulus
+      then Left (PrimError "Word literal outside 0 .. 2^64-1")
+      else Right (Prim WordTypeOp [])
+  infer globals (S depth) reduction context (Prim op [argument]) =
+    case wordUnaryResult op of
+      Nothing => Left (PrimError ("operation " ++ show op ++ " does not take one argument"))
+      Just result => do
+        argumentType <- infer globals depth reduction context argument
+        requireCompatible globals reduction argumentType (Prim WordTypeOp [])
+        Right result
+  infer globals (S depth) reduction context (Prim op [left, right]) =
+    case wordBinaryResult op of
+      Nothing => Left (PrimError ("operation " ++ show op ++ " does not take two arguments"))
+      Just result => do
+        leftType <- infer globals depth reduction context left
+        requireCompatible globals reduction leftType (Prim WordTypeOp [])
+        rightType <- infer globals depth reduction context right
+        requireCompatible globals reduction rightType (Prim WordTypeOp [])
+        Right result
+  infer globals (S depth) reduction context (Prim op _) = Left (PrimError ("malformed application of " ++ show op))
   infer globals (S depth) reduction context StringType = Right (Universe 0)
   infer globals (S depth) reduction context (StringValue _) = Right StringType
   infer globals (S depth) reduction context (StringAppend left right) = do

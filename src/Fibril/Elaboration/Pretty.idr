@@ -21,6 +21,7 @@ mutual
   renderExpr (NStringType _) = "String"
   renderExpr (NStringValue _ value) = show value
   renderExpr (NNatValue _ value) = show value
+  renderExpr (NWordValue _ value) = show value ++ "w"
   renderExpr (NBoolType _) = "Bool"
   renderExpr (NBoolValue _ value) = if value then "True" else "False"
   renderExpr (NIf _ condition yes no) = node "if" [renderExpr condition, renderExpr yes, renderExpr no]

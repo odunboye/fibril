@@ -10,6 +10,43 @@ import Fibril.Data.Bytes
 
 %default total
 
+||| Table-driven primitive operations. New primitives add a row here and in
+||| `primSignature`/`evalPrim`, not a new Term constructor in every core pass.
+||| Word is an unsigned 64-bit machine integer; arithmetic wraps modulo 2^64.
+public export
+data PrimOp
+  = WordTypeOp
+  | WordLitOp Integer
+  | WordAddOp
+  | WordSubOp
+  | WordMulOp
+  | WordEqOp
+  | WordLtOp
+  | WordToStringOp
+
+public export
+Eq PrimOp where
+  WordTypeOp == WordTypeOp = True
+  WordLitOp a == WordLitOp b = a == b
+  WordAddOp == WordAddOp = True
+  WordSubOp == WordSubOp = True
+  WordMulOp == WordMulOp = True
+  WordEqOp == WordEqOp = True
+  WordLtOp == WordLtOp = True
+  WordToStringOp == WordToStringOp = True
+  _ == _ = False
+
+public export
+Show PrimOp where
+  show WordTypeOp = "Word"
+  show (WordLitOp a) = show a
+  show WordAddOp = "wordAdd"
+  show WordSubOp = "wordSub"
+  show WordMulOp = "wordMul"
+  show WordEqOp = "wordEq"
+  show WordLtOp = "wordLt"
+  show WordToStringOp = "wordToString"
+
 ||| Terms in a context of n computational variables; 0 is newest.
 ||| Binder annotations are syntax, not evidence that usage has been checked.
 public export
@@ -132,6 +169,45 @@ data Term : Nat -> Type where
   Fix : Term n -> Term (S n) -> Term n
   ||| Consume a Unit scrutinee, then return a body with no new pattern binders.
   UnitCase : Term n -> Term n -> Term n
+  ||| Primitive operation applied to exactly its arity of arguments (checked by typing).
+  Prim : PrimOp -> List (Term n) -> Term n
+
+||| Word range is 0 .. 2^64-1; literals outside it are rejected by typing.
+public export
+wordModulus : Integer
+wordModulus = 18446744073709551616
+
+public export
+wordTerm : Integer -> Term n
+wordTerm value = Prim (WordLitOp value) []
+
+||| Arithmetic wraps modulo 2^64 (the double mod keeps subtraction non-negative).
+||| Comparisons are unsigned. Returns Nothing until every argument is a literal.
+public export
+evalPrim : PrimOp -> List (Term n) -> Maybe (Term n)
+evalPrim WordAddOp [Prim (WordLitOp a) [], Prim (WordLitOp b) []] = Just (wordTerm ((a + b) `mod` wordModulus))
+evalPrim WordSubOp [Prim (WordLitOp a) [], Prim (WordLitOp b) []] = Just (wordTerm (((a - b) `mod` wordModulus + wordModulus) `mod` wordModulus))
+evalPrim WordMulOp [Prim (WordLitOp a) [], Prim (WordLitOp b) []] = Just (wordTerm ((a * b) `mod` wordModulus))
+evalPrim WordEqOp [Prim (WordLitOp a) [], Prim (WordLitOp b) []] = Just (if a == b then BoolTrue else BoolFalse)
+evalPrim WordLtOp [Prim (WordLitOp a) [], Prim (WordLitOp b) []] = Just (if a < b then BoolTrue else BoolFalse)
+evalPrim WordToStringOp [Prim (WordLitOp a) []] = Just (StringValue (show a))
+evalPrim _ _ = Nothing
+
+||| Result type of a unary Word operation; Nothing if the operation is not unary.
+public export
+wordUnaryResult : PrimOp -> Maybe (Term n)
+wordUnaryResult WordToStringOp = Just StringType
+wordUnaryResult _ = Nothing
+
+||| Result type of a binary Word operation; Nothing if the operation is not binary.
+public export
+wordBinaryResult : PrimOp -> Maybe (Term n)
+wordBinaryResult WordAddOp = Just (Prim WordTypeOp [])
+wordBinaryResult WordSubOp = Just (Prim WordTypeOp [])
+wordBinaryResult WordMulOp = Just (Prim WordTypeOp [])
+wordBinaryResult WordEqOp = Just BoolType
+wordBinaryResult WordLtOp = Just BoolType
+wordBinaryResult _ = Nothing
 
 ||| Canonical unary natural; construction itself performs no external effect.
 public export
@@ -291,6 +367,7 @@ mutual
   rename env (IOType ty) = IOType (rename env ty)
   rename env (WithInputFile result path body) = WithInputFile (rename env result) (rename env path) (rename env body)
   rename env (FileHandleType region) = FileHandleType (rename env region)
+  rename env (Prim op args) = Prim op (renameTerms env args)
   rename env (NominalType key indices shape) = NominalType key (renameTerms env indices) (rename env shape)
   rename env (NominalValue ty value) = NominalValue (rename env ty) (rename env value)
   rename env (NominalCase motive value branch) = NominalCase (rename env motive) (rename env value) (rename env branch)
@@ -393,6 +470,7 @@ mutual
   substituteTerm env (IOType ty) = IOType (substituteTerm env ty)
   substituteTerm env (WithInputFile result path body) = WithInputFile (substituteTerm env result) (substituteTerm env path) (substituteTerm env body)
   substituteTerm env (FileHandleType region) = FileHandleType (substituteTerm env region)
+  substituteTerm env (Prim op args) = Prim op (substituteTerms env args)
   substituteTerm env (NominalType key indices shape) = NominalType key (substituteTerms env indices) (substituteTerm env shape)
   substituteTerm env (NominalValue ty value) = NominalValue (substituteTerm env ty) (substituteTerm env value)
   substituteTerm env (NominalCase motive value branch) = NominalCase (substituteTerm env motive) (substituteTerm env value) (substituteTerm env branch)
@@ -493,6 +571,7 @@ mutual
   sameSyntax (StringAppend a b) (StringAppend c d) = sameSyntax a c && sameSyntax b d
   sameSyntax (BoxValue a b) (BoxValue c d) = sameSyntax a c && sameSyntax b d
   sameSyntax (StringEqual a b) (StringEqual c d) = sameSyntax a c && sameSyntax b d
+  sameSyntax (Prim a xs) (Prim b ys) = a == b && sameTerms xs ys
   sameSyntax (NominalType k xs a) (NominalType l ys b) = k == l && sameTerms xs ys && sameSyntax a b
   sameSyntax (NominalValue a x) (NominalValue b y) = sameSyntax a b && sameSyntax x y
   sameSyntax (NominalCase p x f) (NominalCase q y g) = sameSyntax p q && sameSyntax x y && sameSyntax f g

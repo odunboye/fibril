@@ -66,6 +66,7 @@ mutual
   admitGlobals shared (S budget) (StringValue _) = Just budget
   admitGlobals shared (S budget) (StringAppend a b) = do x <- admitGlobals shared budget a; admitGlobals shared x b
   admitGlobals shared (S budget) (StringEqual a b) = do x <- admitGlobals shared budget a; admitGlobals shared x b
+  admitGlobals shared (S budget) (Prim _ args) = admitTermsGlobals shared budget args
   admitGlobals shared (S budget) (NominalType _ indices shape) = do x <- admitTermsGlobals shared budget indices; admitGlobals shared x shape
   admitGlobals shared (S budget) (NominalValue a b) = do x <- admitGlobals shared budget a; admitGlobals shared x b
   admitGlobals shared (S budget) (NominalCase a b c) = do x <- admitGlobals shared budget a; y <- admitGlobals shared x b; admitGlobals shared y c
@@ -202,6 +203,7 @@ mutual
   safeRedexesGlobals shared size payload (StringValue _) = True
   safeRedexesGlobals shared size payload (StringAppend a b) = safeRedexesGlobals shared size payload a && safeRedexesGlobals shared size payload b
   safeRedexesGlobals shared size payload (StringEqual a b) = safeRedexesGlobals shared size payload a && safeRedexesGlobals shared size payload b
+  safeRedexesGlobals shared size payload (Prim _ args) = safeTermsGlobals shared size payload args
   safeRedexesGlobals shared size payload (NominalType _ indices shape) = safeTermsGlobals shared size payload indices && safeRedexesGlobals shared size payload shape
   safeRedexesGlobals shared size payload (NominalValue a b) = safeRedexesGlobals shared size payload a && safeRedexesGlobals shared size payload b
   safeRedexesGlobals shared size payload (NominalCase a b c) = safeRedexesGlobals shared size payload a && safeRedexesGlobals shared size payload b && safeRedexesGlobals shared size payload c

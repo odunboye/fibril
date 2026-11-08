@@ -17,6 +17,7 @@ data Expr
   | NStringType SourceSpan
   | NStringValue SourceSpan String
   | NNatValue SourceSpan Nat
+  | NWordValue SourceSpan Integer
   | NBoolType SourceSpan
   | NBoolValue SourceSpan Bool
   | NIf SourceSpan Expr Expr Expr
@@ -96,6 +97,7 @@ extent (NUnitValue span) = span
 extent (NStringType span) = span
 extent (NStringValue span _) = span
 extent (NNatValue span _) = span
+extent (NWordValue span _) = span
 extent (NBoolType span) = span
 extent (NBoolValue span _) = span
 extent (NIf span _ _ _) = span
@@ -154,6 +156,7 @@ withExtent span (NUnitValue _) = NUnitValue span
 withExtent span (NStringType _) = NStringType span
 withExtent span (NStringValue _ value) = NStringValue span value
 withExtent span (NNatValue _ value) = NNatValue span value
+withExtent span (NWordValue _ value) = NWordValue span value
 withExtent span (NBoolType _) = NBoolType span
 withExtent span (NBoolValue _ value) = NBoolValue span value
 withExtent span (NIf _ condition yes no) = NIf span condition yes no

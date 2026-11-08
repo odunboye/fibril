@@ -187,6 +187,7 @@ class TextbookTests(unittest.TestCase):
     def test_idris_and_fibril_source_pages_are_highlighted(self):
         cases = [
             ("examples/core/hello-world.fib", "fibril"),
+            ("test/fixtures/modules/email-service-full/Delivery.fib", "fibril"),
             ("src/Fibril/Core/Term.idr", "idris"),
         ]
         for path, language in cases:

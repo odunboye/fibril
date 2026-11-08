@@ -127,7 +127,7 @@ class SharedGlobalTests(unittest.TestCase):
             self.assertIn('literal admission', result.stderr)
 
     def test_full_email_state_model_runs_hosted_and_native(self):
-        root = ROOT / 'examples/modules/email-service-full'
+        root = ROOT / 'test/fixtures/modules/email-service-full'
         args = ['--source-dir', str(root), str(root / 'Main.fib')]
         expected = b'sending\ndeferred\nqueued\nfailed\ndelivered\nbounced\nsubmission unknown\ntransition rejected\n'
         result = run_cli('run', *args, text=False, timeout=120)
