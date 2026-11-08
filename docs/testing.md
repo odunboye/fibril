@@ -17,6 +17,25 @@ with the stock compiler. Both deterministic checks and properties
 must pass; a failure exits nonzero. Run `make examples` and `make handbook`
 when completing a documented task.
 
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on pull requests, pushes to `master`, a weekly
+schedule, and manual dispatch. Every job starts with empty Fibril, test-prefix,
+test-build and local-adapter caches. It runs `make build`, `make host-compiler-test`,
+`make unit-test`, and the CLI/pattern-clause regression suites. Build CPU timings,
+elapsed time, maximum RSS, test logs and the adapter identity manifest are retained
+as GitHub Actions artifacts for 14 days, including after failures.
+
+The official Pack container and GitHub Actions are pinned to immutable digests or
+commits. The project `pack.toml` selects the compiler/dependency collection; the
+adapter additionally validates the exact host revision and source hash. Only
+external Pack toolchains/dependencies are cached, keyed by runner architecture,
+the project collection configuration, workflow and package declarations. Compatible
+toolchains can be restored when only package declarations change. Project `build/` and
+`test/build/` are never restored. Scheduled runs skip that additional cache;
+manual runs can do the same with `cold_toolchain`. The base image still provides
+Pack. Timeouts bound stalled jobs rather than asserting noisy performance limits.
+
 Runtime-specific deterministic checks in
 [Tests.Runtime](../test/src/Tests/Runtime.idr) cover exact use, erased arguments,
 closure capture/duplication, and diagnostics. Erased generators are not treated

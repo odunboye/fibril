@@ -1,0 +1,120 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  schedule:
+    - cron: '23 6 * * 1'
+  workflow_dispatch:
+    inputs:
+      cold_toolchain:
+        description: Skip the additional Pack toolchain/dependency cache
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  clean-build:
+    name: Clean build and regression checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    # Official Pack Ubuntu Noble image, pinned independently of its mutable tag.
+    container:
+      image: ghcr.io/stefan-hoeck/idris2-pack@sha256:fa2fe996d498a63fc1faf357b101853c61979640c2d9421c321b49488102ef4e
+    env:
+      PACK_USER_DIR: /root/.config/pack
+      PACK_STATE_DIR: /root/.local/state/pack
+      PACK_CACHE_DIR: /root/.cache/pack
+      PACK_BIN_DIR: /root/.local/bin
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Prepare runner tools and Pack configuration
+        run: |
+          set -euo pipefail
+          apt-get update
+          apt-get install --yes --no-install-recommends python3 time zstd ca-certificates
+          echo "$PACK_BIN_DIR" >> "$GITHUB_PATH"
+          mkdir -p "$PACK_USER_DIR" build/ci-logs
+          cat > "$PACK_USER_DIR/pack.toml" <<'TOML'
+          [install]
+          with-src = true
+          safety-prompt = false
+          gc-prompt = false
+          [idris2]
+          scheme = "chezscheme"
+          TOML
+
+      - name: Restore external toolchain and dependencies
+        if: ${{ github.event_name != 'schedule' && !inputs.cold_toolchain }}
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            /root/.local/state/pack
+            /root/.cache/pack
+          key: ${{ runner.os }}-${{ runner.arch }}-pack-ci-v1-${{ hashFiles('pack.toml', '.github/workflows/ci.yml') }}-${{ hashFiles('fibril.ipkg', 'test/tests.ipkg') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-pack-ci-v1-${{ hashFiles('pack.toml', '.github/workflows/ci.yml') }}-
+
+      - name: Install dependencies from the project collection
+        timeout-minutes: 35
+        run: |
+          pack --no-prompt --with-src install idris2 yaml hedgehog 2>&1 | tee build/ci-logs/toolchain.log
+          compiler="$(pack --log-level=silence app-path idris2)"
+          "$compiler" --version | tee build/ci-logs/compiler-version.txt
+
+      - name: Verify project and adapter caches are empty
+        run: |
+          for cache in build/ttc build/host-compiler build/test-prefix test/build; do
+            if [[ -e "$cache" ]]; then
+              echo "Unexpected project cache before clean build: $cache" >&2
+              exit 1
+            fi
+          done
+
+      - name: Build from clean sources, including adapter bootstrap
+        timeout-minutes: 15
+        run: |
+          /usr/bin/time -v -o build/ci-logs/build-resources.txt \
+            make build IDRIS2="'${PWD}/tools/fibril_idris.py' --timing 3" \
+            2>&1 | tee build/ci-logs/build.log
+
+      - name: Compare the host checker with stock Idris
+        timeout-minutes: 10
+        run: make host-compiler-test 2>&1 | tee build/ci-logs/host-compiler-test.log
+
+      - name: Run private unit tests
+        timeout-minutes: 15
+        run: make unit-test 2>&1 | tee build/ci-logs/unit-test.log
+
+      - name: Run CLI and pattern-clause regressions
+        timeout-minutes: 15
+        run: |
+          python3 tools/test_cli.py 2>&1 | tee build/ci-logs/cli-test.log
+          python3 tools/test_pattern_clauses.py 2>&1 | tee build/ci-logs/pattern-clause-test.log
+
+      - name: Preserve logs and compiler identity
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ci-logs-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            build/ci-logs/
+            build/host-compiler/**/manifest.json
+          if-no-files-found: ignore
+          retention-days: 14
