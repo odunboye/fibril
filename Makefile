@@ -1,5 +1,6 @@
 PACK ?= pack
 IDRIS2 ?= '$(CURDIR)/tools/fibril_idris.py'
+TEST_JOBS ?= 4
 
 .PHONY: prelude prelude-check build unit-test test io-test io-hosted-test io-runtime-test io-resource-runtime-test io-resource-emitter-test io-emitter-test io-interactive-test io-binary-test io-binary-bench io-cli-test native-test region-test native-pair-test bytes-native-test binary-source-test binary-iteration-test binary-count-test binary-runtime-test binary-scale-test binary-number-test binary-number-bench json-oracle-test json-sharing-probe json-iteration-test lsp-lifecycle-test framing-test header-iteration-test editor-test lsp-test examples bench bench-smoke composed-bench python-embed-test docs handbook serve-docs clean cubical-source-test
 .PHONY: host-compiler-test
@@ -25,29 +26,9 @@ cubical-source-test: build
 unit-test: build
 	PACK="$(PACK)" IDRIS2="$(IDRIS2)" python3 tools/test_units.py
 
-test: unit-test
-	CC="$(CC)" python3 tools/test_construction.py
-	CC="$(CC)" python3 tools/test_native_forwarding.py
-	python3 tools/test_lsp_cost_audit.py
-	CC="$(CC)" python3 tools/test_composed_probe.py
-	CC="$(CC)" python3 tools/test_shared_globals.py
-	python3 tools/test_cli.py
-	python3 tools/test_pattern_clauses.py
-	CC="$(CC)" python3 tools/test_native.py
-	CC="$(CC)" python3 tools/test_region.py
-	IDRIS2="$(IDRIS2)" CC="$(CC)" python3 tools/test_native_pairs.py
-	CC="$(CC)" python3 tools/test_bytes_native.py
-	CC="$(CC)" python3 tools/test_binary_source.py
-	CC="$(CC)" python3 tools/test_binary_native.py
-	IDRIS2="$(IDRIS2)" CC="$(CC)" python3 tools/test_binary_count.py
-	IDRIS2="$(IDRIS2)" CC="$(CC)" python3 tools/test_binary_iteration.py
-	CC="$(CC)" python3 tools/test_binary_scalability.py
-	python3 tools/test_binary_numbers.py
-	python3 tools/test_json_oracle.py
-	IDRIS2="$(IDRIS2)" CC="$(CC)" python3 tools/test_json_iteration.py
-	CC="$(CC)" python3 tools/test_framing.py
-	CC="$(CC)" python3 tools/test_io_cli.py
-	python3 tools/test_lsp.py
+# Stage once before suites run concurrently; TEST_JOBS=1 is the serial baseline.
+test: build
+	PACK="$(PACK)" IDRIS2="$(IDRIS2)" CC="$(CC)" python3 tools/test_all.py --jobs $(TEST_JOBS)
 
 # Each suite builds in its own temporary directory, safe with make -j8.
 io-test: io-hosted-test io-runtime-test io-resource-runtime-test io-resource-emitter-test io-emitter-test io-interactive-test io-binary-test

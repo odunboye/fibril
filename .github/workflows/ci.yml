@@ -98,15 +98,11 @@ jobs:
         timeout-minutes: 10
         run: make host-compiler-test 2>&1 | tee build/ci-logs/host-compiler-test.log
 
-      - name: Run private unit tests
-        timeout-minutes: 15
-        run: make unit-test 2>&1 | tee build/ci-logs/unit-test.log
-
-      - name: Run CLI and pattern-clause regressions
-        timeout-minutes: 15
+      - name: Run complete regression suite
+        timeout-minutes: 25
         run: |
-          python3 tools/test_cli.py 2>&1 | tee build/ci-logs/cli-test.log
-          python3 tools/test_pattern_clauses.py 2>&1 | tee build/ci-logs/pattern-clause-test.log
+          python3 tools/test_test_runner.py 2>&1 | tee build/ci-logs/test-runner.log
+          make -o build test TEST_JOBS=2 2>&1 | tee build/ci-logs/test.log
 
       - name: Preserve logs and compiler identity
         if: ${{ always() }}
@@ -115,6 +111,7 @@ jobs:
           name: ci-logs-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             build/ci-logs/
+            build/test-logs/
             build/host-compiler/**/manifest.json
           if-no-files-found: ignore
           retention-days: 14

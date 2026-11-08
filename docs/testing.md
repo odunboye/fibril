@@ -17,12 +17,31 @@ with the stock compiler. Both deterministic checks and properties
 must pass; a failure exits nonzero. Run `make examples` and `make handbook`
 when completing a documented task.
 
+`make test` stages the current library once, runs the private unit package, then
+runs all 22 integration suites with at most four workers. Shared package writes
+finish before concurrent suites start; fixture builds use temporary directories.
+The CLI suite is split into discovered test batches so it can use multiple workers;
+every case runs exactly once with its usual unittest setup and teardown.
+Use `make test TEST_JOBS=1` for serial execution, or lower the worker count on
+machines with limited memory. Coverage and assertions are identical at every
+worker count. Each suite has a 15-minute timeout and a separate log in
+`build/test-logs/`; `summary.json` records elapsed time and exit status. Failures
+produce a nonzero exit and print the end of the failing log. Standalone suite
+commands still prepare their own private package when needed. Avoid running
+another build or test command in the same worktree during a test run.
+
+A warm local validation on 2026-11-08 completed `make test` in 193.16 seconds
+with four workers (183.92 seconds in staging/tests, plus the incremental build).
+All existing suites and all 190 CLI cases passed. This is a local measurement,
+not a CI timing limit or an estimate for a clean compiler/dependency bootstrap.
+
 ## Continuous integration
 
 `.github/workflows/ci.yml` runs on pull requests, pushes to `master`, a weekly
 schedule, and manual dispatch. Every job starts with empty Fibril, test-prefix,
 test-build and local-adapter caches. It runs `make build`, `make host-compiler-test`,
-`make unit-test`, and the CLI/pattern-clause regression suites. Build CPU timings,
+runner regression checks, and the complete `make test` suite with two workers.
+Build CPU timings,
 elapsed time, maximum RSS, test logs and the adapter identity manifest are retained
 as GitHub Actions artifacts for 14 days, including after failures.
 

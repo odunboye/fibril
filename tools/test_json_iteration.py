@@ -15,6 +15,8 @@ import subprocess
 import tempfile
 import unittest
 
+from test_units import prepare_environment
+
 from observe_json_state_sharing import cases, oracle, check_source_preservation
 from test_binary_iteration import observe
 
@@ -63,22 +65,8 @@ class JSONIteration(unittest.TestCase):
         cls.temporary = tempfile.TemporaryDirectory(prefix='fibril-json-iteration-')
         cls.work = Path(cls.temporary.name)
         cls.rows = []
-        env = os.environ.copy()
-        for key, flag in [('IDRIS2_PACKAGE_PATH', 'package-path'), ('IDRIS2_LIBS', 'libs-path'), ('IDRIS2_DATA', 'data-path')]:
-            lines = checked(shlex.split(env.get('PACK', 'pack')) + ['--log-level=silence', flag], cwd=ROOT).stdout.decode().splitlines()
-            paths = [line for line in lines if line.startswith('/')]
-            if len(paths) != 1:
-                raise AssertionError(('ambiguous package paths', paths))
-            env[key] = paths[0]
-        env['IDRIS2_PACKAGE_PATH'] = os.pathsep.join(p for p in env['IDRIS2_PACKAGE_PATH'].split(os.pathsep) if Path(p).parent.parent.name != 'fibril')
-        stage = ROOT / 'build/test-prefix'
-        assert not stage.is_symlink() and stage.resolve().is_relative_to(ROOT)
-        env['IDRIS2_PREFIX'] = str(stage)
-        compiler = shlex.split(env.get('IDRIS2', 'idris2'))
-        installed = Path(checked(compiler + ['--dump-installdir', 'fibril.ipkg'], cwd=ROOT, env=env).stdout.decode().strip())
-        assert installed.resolve().is_relative_to(stage.resolve())
-        checked(compiler + ['--install', 'fibril.ipkg'], cwd=ROOT, env=env)
-        env['IDRIS2_PACKAGE_PATH'] = str(installed.parent) + os.pathsep + env['IDRIS2_PACKAGE_PATH']
+        env = prepare_environment()
+        compiler = shlex.split(env.get('IDRIS2', str(ROOT / 'tools/fibril_idris.py')))
         # Exact observer insertion, no rewritten evaluator decisions or budgets.
         driver = (ROOT / 'src/Fibril/Driver/Binary.idr').read_text()
         needle = '        response <- executeGlobals globals depth fuel transport (Apply step ready)'

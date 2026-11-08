@@ -4,7 +4,6 @@
 Run after a local compiler build. Installs only into build/test-prefix. Observer
 copies add counters, never rewrite evaluator bodies or any admission/budget.
 """
-import os
 import ast
 import json
 from pathlib import Path
@@ -14,6 +13,8 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+
+from test_units import prepare_environment
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = ROOT / 'tools/fixtures/binary-iteration'
@@ -57,30 +58,8 @@ class BinaryIteration(unittest.TestCase):
     def setUpClass(cls):
         cls.temporary = tempfile.TemporaryDirectory(prefix='fibril-iteration-')
         cls.work = Path(cls.temporary.name)
-        env = os.environ.copy()
-        pack = shlex.split(env.get('PACK', 'pack'))
-        for key, command in [('IDRIS2_PACKAGE_PATH', 'package-path'), ('IDRIS2_LIBS', 'libs-path'), ('IDRIS2_DATA', 'data-path')]:
-            value = env.get(key)
-            if not value:
-                # Pack can emit cache warnings on stdout. Never treat those as
-                # paths, and never clean a shared cache to silence a warning.
-                lines = checked(pack + ['--log-level=silence', command], cwd=ROOT).stdout.decode().splitlines()
-                paths = [line for line in lines if line.startswith('/')]
-                if len(paths) != 1:
-                    raise AssertionError(('ambiguous curated paths', command, lines))
-                value = paths[0]
-            if key == 'IDRIS2_PACKAGE_PATH':
-                value = os.pathsep.join(p for p in value.split(os.pathsep) if Path(p).parent.parent.name != 'fibril')
-            env[key] = value
-        stage = ROOT / 'build/test-prefix'
-        if stage.is_symlink() or not stage.resolve().is_relative_to(ROOT):
-            raise AssertionError('test prefix outside worktree')
-        env['IDRIS2_PREFIX'] = str(stage)
-        compiler = shlex.split(env.get('IDRIS2', 'idris2'))
-        checked(compiler + ['--install', 'fibril.ipkg'], cwd=ROOT, env=env)
-        installed = checked(compiler + ['--dump-installdir', 'fibril.ipkg'], cwd=ROOT, env=env).stdout.decode().strip()
-        assert Path(installed).resolve().is_relative_to(stage.resolve())
-        env['IDRIS2_PACKAGE_PATH'] = os.pathsep.join([str(Path(installed).parent), env['IDRIS2_PACKAGE_PATH']])
+        env = prepare_environment()
+        compiler = shlex.split(env.get('IDRIS2', str(ROOT / 'tools/fibril_idris.py')))
         shutil.copyfile(FIXTURE / 'Hosted.idr', cls.work / 'Hosted.idr')
         (cls.work / 'hosted.ipkg').write_text('package iteration-hosted\nsourcedir = "."\ndepends = fibril, yaml\nmodules = Hosted\nmain = Hosted\nexecutable = hosted\n')
         checked(compiler + ['--build', 'hosted.ipkg'], cwd=cls.work, env=env)
