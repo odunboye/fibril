@@ -2,6 +2,7 @@ module Tests.Word
 
 import Data.Fin
 import Data.List
+import Data.String
 import Fibril.Core.Term
 import Fibril.Core.Quantity
 import Fibril.Core.Context
@@ -73,7 +74,8 @@ checks =
    ("Word values may be duplicated", accepted dup (Pi Unrestricted wordType wordType) && normal (Apply dup (wordTerm 21)) (wordTerm 42)),
    ("Word syntax transports structurally", all (\t => sameSyntax (rename id t) t && sameSyntax (substituteTerm Variable t) t) openTerms),
    ("Word node counts agree with substitution estimator", all (\t => coreNodes t == substitutionNodes (const 1) t) openTerms),
-   ("native emission rejects Word explicitly", either (const True) (const False) (emitCheckedC (BoolCase (op WordLtOp 1 2) (WriteLine (StringValue "a")) (WriteLine (StringValue "b"))))),
+   ("native emission lowers Word arithmetic and comparison", either (const False) (\code => isInfixOf "f_word_lt(" code && isInfixOf "UINT64_C(2)" code) (emitCheckedC (BoolCase (op WordLtOp 1 2) (WriteLine (StringValue "a")) (WriteLine (StringValue "b"))))),
+   ("native emission rejects an out-of-range Word literal", either (const True) (const False) (emitCheckedC (BoolCase (op WordLtOp 1 18446744073709551616) (WriteLine (StringValue "a")) (WriteLine (StringValue "b"))))),
    ("source literal arithmetic checks", sourceAccepted "main : Word\nmain = primWordAdd 1w 2w"),
    ("source rejects Word where Nat is expected", not (sourceAccepted "main : Nat\nmain = 5w")),
    ("source rejects literal beyond 2^64-1", not (sourceAccepted "main : Word\nmain = 18446744073709551616w")),

@@ -2,6 +2,7 @@
 #ifndef FIBRIL_RUNTIME_H
 #define FIBRIL_RUNTIME_H
 #include <stddef.h>
+#include <stdint.h>
 
 typedef struct FRuntime FRuntime;
 typedef struct FEnv FEnv;
@@ -32,6 +33,13 @@ FValue *f_nat_rec_runtime(FRuntime *r, FEnv *env, FEval base, FEval step, FEval 
 FValue *f_rec_fold(FRuntime *r, FEnv *env, FEval base, FEval step, FEval value);
 FValue *f_seq_fold(FRuntime *r, FEnv *env, FEval base, FEval step, FEval value);
 FValue *f_erased(FRuntime *r);
+/* Unsigned 64-bit Word: arithmetic wraps modulo 2^64, comparisons are unsigned. */
+FValue *f_word(FRuntime *r, uint64_t value);
+FValue *f_word_add(FRuntime *r, FEnv *env, FEval left, FEval right);
+FValue *f_word_sub(FRuntime *r, FEnv *env, FEval left, FEval right);
+FValue *f_word_mul(FRuntime *r, FEnv *env, FEval left, FEval right);
+FValue *f_word_eq(FRuntime *r, FEnv *env, FEval left, FEval right);
+FValue *f_word_lt(FRuntime *r, FEnv *env, FEval left, FEval right);
 /* Evaluate body in a sub-arena; first-order data is copied out, then the arena is freed. */
 FValue *f_with_region(FRuntime *r, FEnv *env, FEval body);
 FValue *f_literal(FRuntime *r, const unsigned char *bytes, size_t length);

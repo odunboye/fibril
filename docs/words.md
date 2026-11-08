@@ -1,7 +1,9 @@
 # Word: unsigned 64-bit machine integers
 
-Status: **checked and evaluated in the reference checker/evaluator only.** There is
-no native C lowering yet: `emit-c` rejects any program that uses a Word primitive.
+Status: checked, evaluated by the reference runner, and lowered to C by `emit-c` in
+every native mode. A Word cannot yet be **printed**: there is no Word-to-String
+conversion, so a program observes Words only through `Bool` results such as
+`primWordEq`/`primWordLt` branches (see `examples/core/word-native.fib`).
 
 ## Use cases
 
@@ -48,6 +50,17 @@ checker, so a hand-built term cannot smuggle one in.
 
 ## Not provided
 
-No division, remainder, shifts, bitwise operations, `Nat`/`Word` conversion or signed
-variant; no `Word` in records of native programs; no native lowering; no overflow
-detection (wraparound is the only semantics). Each is a follow-up, not a guarantee.
+No division, remainder, shifts, bitwise operations, `Nat`/`Word` conversion, Word-to-
+String formatting or signed variant; no overflow detection (wraparound is the only
+semantics). Each is a follow-up, not a guarantee.
+
+## Native lowering
+
+A Word is a tagged `uint64_t` value in the lazy runtime; `+ - *` use C unsigned
+arithmetic, so wraparound is defined behavior and equals the reference evaluator's
+modulo-2^64 rule. Literals are emitted as `UINT64_C(<decimal>)` after the emitter
+re-checks the range. `tools/test_native_words.py` compiles with `-Wall -Wextra -Werror
+-pedantic` (and ASan/UBSan with `FIBRIL_WORD_SANITIZE=1`) and requires native output
+to equal `fibril run` output. That is sampled differential evidence, not a proof of
+semantic preservation. Word values still run under the shared native step/depth/memory
+budgets.

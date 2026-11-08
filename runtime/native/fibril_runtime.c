@@ -23,7 +23,8 @@ struct FEnv { FThunk *value; FEnv *tail; };
 typedef enum { V_UNIT, V_ERASED, V_BOOL, V_STRING, V_BYTES, V_CLOSURE, V_NOMINAL, V_VARIANT,
                V_NAT_ZERO, V_NAT_SUCC, V_REC_END, V_REC_MORE, V_SEQ_NIL, V_SEQ_CONS,
                V_PURE, V_BIND, V_WRITE, V_READ, V_PAIR, V_INPUT_HANDLE,
-               V_WITH_INPUT, V_READ_INPUT, V_READ_BYTES, V_WRITE_BYTES, V_FLUSH_BYTES, V_REJECT_BYTES, V_ITERATE_BINARY } FTag;
+               V_WITH_INPUT, V_READ_INPUT, V_READ_BYTES, V_WRITE_BYTES, V_FLUSH_BYTES, V_REJECT_BYTES, V_ITERATE_BINARY,
+               V_WORD } FTag;
 typedef enum { F_NAT, F_NAT_RUNTIME, F_REC, F_SEQ } FFoldKind;
 struct FValue {
   FTag tag;
@@ -31,6 +32,7 @@ struct FValue {
     struct { const unsigned char *bytes; size_t length; } string;
     struct { const unsigned char *data; size_t length; } bytes;
     int boolean;
+    uint64_t word;
     FThunk *nominal;
     struct { size_t tag; FThunk *payload; } variant;
     struct { FThunk *head, *tail; } recursive;
@@ -315,6 +317,7 @@ static FValue *copy_value(FRuntime *r, FValue *source, size_t depth) {
     switch (source->tag) {
     case V_UNIT: case V_ERASED: case V_NAT_ZERO: case V_REC_END: case V_SEQ_NIL: break;
     case V_BOOL: copy->as.boolean = source->as.boolean; break;
+    case V_WORD: copy->as.word = source->as.word; break;
     case V_STRING: case V_BYTES: {
       size_t n = source->as.string.length;
       unsigned char *data = allocate(r, n ? n : 1);
@@ -420,6 +423,31 @@ FValue *f_bool_case(FRuntime *r, FEnv *env, FEval scrutinee, FEval yes, FEval no
   if (!value || value->tag != V_BOOL) { fail(r, "native boolean case expects Bool"); return NULL; }
   return evaluate(r, value->as.boolean ? yes : no, env);
 }
+FValue *f_word(FRuntime *r, uint64_t value) {
+  FValue *v = new_value(r, V_WORD);
+  if (v) v->as.word = value;
+  return v;
+}
+/* Both operands are forced left to right, like the reference reducer. */
+static int word_operands(FRuntime *r, FEnv *env, FEval left, FEval right, uint64_t *a, uint64_t *b) {
+  FValue *x = evaluate(r, left, env);
+  FValue *y = x ? evaluate(r, right, env) : NULL;
+  if (!x || !y || x->tag != V_WORD || y->tag != V_WORD) { fail(r, "native Word operation expects Word operands"); return 0; }
+  *a = x->as.word; *b = y->as.word;
+  return 1;
+}
+#define FIBRIL_WORD_OP(NAME, RESULT) \
+  FValue *NAME(FRuntime *r, FEnv *env, FEval left, FEval right) { \
+    uint64_t a, b; \
+    if (!word_operands(r, env, left, right, &a, &b)) return NULL; \
+    return RESULT; \
+  }
+FIBRIL_WORD_OP(f_word_add, f_word(r, a + b))
+FIBRIL_WORD_OP(f_word_sub, f_word(r, a - b))
+FIBRIL_WORD_OP(f_word_mul, f_word(r, a * b))
+FIBRIL_WORD_OP(f_word_eq, f_bool(r, a == b))
+FIBRIL_WORD_OP(f_word_lt, f_bool(r, a < b))
+#undef FIBRIL_WORD_OP
 FValue *f_string_equal(FRuntime *r, FEnv *env, FEval left, FEval right) {
   FValue *a = evaluate(r, left, env);
   FValue *b = a ? evaluate(r, right, env) : NULL;

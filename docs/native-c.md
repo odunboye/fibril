@@ -71,6 +71,8 @@ into C literals or identifiers. Supported programs can compute strings, call
 functions and build continuations at runtime. `tools/test_native.py` compiles
 and executes emitted C and compares successful supported samples with `run`;
 this is sampled evidence, not a semantics-preservation proof.
+[Unsigned 64-bit Word](words.md) arithmetic and comparison are supported natively, with
+`tools/test_native_words.py` as its differential test.
 
 ## Runtime boundary and limits
 

@@ -136,6 +136,14 @@ wrapBranches decl index (branch :: rest) = do
   following <- wrapBranches decl (S index) rest
   Just (wrapBranch (fieldQuantities (parameterCount decl) chain) branch :: following)
 
+wordRuntimeFunction : PrimOp -> Maybe String
+wordRuntimeFunction WordAddOp = Just "f_word_add"
+wordRuntimeFunction WordSubOp = Just "f_word_sub"
+wordRuntimeFunction WordMulOp = Just "f_word_mul"
+wordRuntimeFunction WordEqOp = Just "f_word_eq"
+wordRuntimeFunction WordLtOp = Just "f_word_lt"
+wordRuntimeFunction _ = Nothing
+
 mutual
   generate : RuntimeGlobals -> NativeMode -> Nat -> Term n -> Either String Generated
   generate globals mode n (GlobalRef key) = case globalEntry (erasedGlobals globals) key of
@@ -219,7 +227,16 @@ mutual
     Right (Output n generated.next (code :: generated.definitions))
   generate globals mode n (Apply function argument) = binary globals mode n "f_apply" function argument
   generate globals mode n (StringAppend left right) = binary globals mode n "f_append" left right
-  generate globals mode n (Prim _ _) = Left "C backend does not yet support Word primitives"
+  generate globals mode n (Prim WordTypeOp _) = Right (constant n "f_erased(r)")
+  generate globals mode n (Prim (WordLitOp value) []) =
+    if value < 0 || value >= wordModulus
+      then Left "C backend rejects a Word literal outside 0 .. 2^64-1"
+      else Right (constant n ("f_word(r, UINT64_C(" ++ show value ++ "))"))
+  generate globals mode n (Prim operation [left, right]) =
+    case wordRuntimeFunction operation of
+      Just function => binary globals mode n function left right
+      Nothing => Left "C backend rejects an unsupported primitive operation"
+  generate globals mode n (Prim _ _) = Left "C backend rejects a malformed primitive application"
   generate globals mode n (StringEqual left right) = binary globals mode n "f_string_equal" left right
   generate globals mode n (BoolCase condition yes no) = ternary globals mode n "f_bool_case" condition yes no
   generate globals mode n (NominalValue _ value) = unary globals mode n "f_nominal" value

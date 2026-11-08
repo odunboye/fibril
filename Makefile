@@ -80,6 +80,7 @@ native-test: unit-test
 	CC="$(CC)" python3 tools/test_native.py
 	IDRIS2="$(IDRIS2)" CC="$(CC)" python3 tools/test_native_pairs.py
 	CC="$(CC)" python3 tools/test_bytes_native.py
+	CC="$(CC)" python3 tools/test_native_words.py
 
 native-pair-test: unit-test
 	IDRIS2="$(IDRIS2)" CC="$(CC)" python3 tools/test_native_pairs.py
@@ -162,6 +163,7 @@ examples: build
 	./build/exec/fibril eval examples/core/local-identity.fib
 	./build/exec/fibril eval examples/core/unit.fib
 	./build/exec/fibril eval examples/core/word-arithmetic.fib
+	./build/exec/fibril run examples/core/word-native.fib
 	./build/exec/fibril eval examples/core/consume-unit.fib
 	./build/exec/fibril eval examples/core/boolean.fib
 	./build/exec/fibril eval examples/core/branch-permissions.fib
