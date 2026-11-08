@@ -13,6 +13,15 @@ public export
 data AuthoredFinalPattern = FinalBarePattern Token
 
 public export
+data CubicalRule = ConstantRefl | SemanticBoolCases
+
+public export
+Eq CubicalRule where
+  ConstantRefl == ConstantRefl = True
+  SemanticBoolCases == SemanticBoolCases = True
+  _ == _ = False
+
+public export
 record Declaration where
   constructor DeclarationWithRole
   dictionary : Bool
@@ -26,11 +35,15 @@ record Declaration where
   expected : Expr
   value : Expr
   finalPattern : Maybe AuthoredFinalPattern
+  ||| Standalone proof metadata is checked after ordinary elaboration,
+  ||| before runtime checking/execution; it never supplies a core value.
+  cubicalProof : Maybe (CubicalRule, String, String)
+  requiredPath : Maybe String
 
 public export
 Declared : Bool -> SourceSpan -> SourceSpan -> SourceSpan -> Bool -> Quantity -> String -> Expr -> Expr -> Declaration
 Declared generated span nameSpan definitionNameSpan exported quantity name expected value =
-  DeclarationWithRole False generated span nameSpan definitionNameSpan exported quantity name expected value Nothing
+  DeclarationWithRole False generated span nameSpan definitionNameSpan exported quantity name expected value Nothing Nothing Nothing
 
 public export
 Defined : SourceSpan -> SourceSpan -> SourceSpan -> Bool -> Quantity -> String -> Expr -> Expr -> Declaration
@@ -139,6 +152,13 @@ public export
 data AuthoredDeclaration = Ordinary Declaration | DataItem DataDeclaration | RecordItem RecordDeclaration
                          | InterfaceItem RecordDeclaration | ImplementationItem Declaration
                          | ImplementationBlock ImplementationDefinition | MutualItem MutualDeclaration
+
+public export
+hasPathMetadata : AuthoredDeclaration -> Bool
+hasPathMetadata (Ordinary decl) = case (decl.cubicalProof, decl.requiredPath) of
+  (Nothing, Nothing) => False
+  _ => True
+hasPathMetadata _ = False
 
 public export
 declarationExported : AuthoredDeclaration -> Bool

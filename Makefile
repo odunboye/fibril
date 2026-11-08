@@ -13,6 +13,7 @@ build: prelude-check
 
 cubical-source-test: build
 	python3 tools/test_cubical_frontend.py
+	python3 tools/test_cubical_application.py
 
 # A private package prefix avoids stale/shared Fibril installs across worktrees.
 # CLI-consuming suites wait for this staging phase.

@@ -333,6 +333,7 @@ public export
 documentReferences : String -> Either SymbolError (List Reference)
 documentReferences source = do
   document <- parseDocument 64 256 source
+  rejectCubicalMetadataInspection document
   Right (documentReferencesUsing id (const Nothing) document)
 
 contains : Nat -> Nat -> SourceSpan -> Bool

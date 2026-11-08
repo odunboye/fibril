@@ -84,6 +84,7 @@ sameProjection a b = a.name.spelling == b.name.spelling && a.field.spelling == b
 
 sameDeclaration : Declaration -> Declaration -> Bool
 sameDeclaration a b = a.name == b.name && a.quantity == b.quantity &&
+  a.cubicalProof == b.cubicalProof && a.requiredPath == b.requiredPath &&
   a.exported == b.exported && a.generated == b.generated && a.dictionary == b.dictionary && sameExpr a.expected b.expected && sameExpr a.value b.value
 
 sameAuthored : AuthoredDeclaration -> AuthoredDeclaration -> Bool
@@ -93,10 +94,8 @@ sameAuthored (MutualItem a) (MutualItem b) =
 sameAuthored (ImplementationBlock a) (ImplementationBlock b) =
   a.name.spelling == b.name.spelling && a.exported == b.exported && sameExpr a.target b.target &&
     sameList (\x, y => x.name.spelling == y.name.spelling && sameExpr x.value y.value) a.methods b.methods
-sameAuthored (Ordinary a) (Ordinary b) = a.name == b.name && a.quantity == b.quantity &&
-  a.exported == b.exported && a.generated == b.generated && a.dictionary == b.dictionary && sameExpr a.expected b.expected && sameExpr a.value b.value
-sameAuthored (ImplementationItem a) (ImplementationItem b) = a.name == b.name && a.quantity == b.quantity &&
-  a.exported == b.exported && a.generated == b.generated && a.dictionary == b.dictionary && sameExpr a.expected b.expected && sameExpr a.value b.value
+sameAuthored (Ordinary a) (Ordinary b) = sameDeclaration a b
+sameAuthored (ImplementationItem a) (ImplementationItem b) = sameDeclaration a b
 sameAuthored (DataItem a) (DataItem b) = a.name.spelling == b.name.spelling && a.level == b.level &&
   a.exported == b.exported && a.implicitConstructors == b.implicitConstructors && sameList sameParameter a.params b.params &&
   map (\(_, name) => name.spelling) a.eliminator == map (\(_, name) => name.spelling) b.eliminator &&

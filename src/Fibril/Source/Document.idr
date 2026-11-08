@@ -43,6 +43,17 @@ record ParsedDocument where
   end : Position
   body : DocumentBody
 
+||| Syntax-only clients must not report the internal framing of proof metadata
+||| as ordinary values, or offer incomplete proof-reference rename previews.
+public export
+rejectCubicalMetadataInspection : ParsedDocument -> Either DocumentError ()
+rejectCubicalMetadataInspection document = case document.body of
+  DeclarationDocument authored => case find hasPathMetadata authored of
+    Just (Ordinary decl) => Left (SymbolParsing (ParseFailure decl.nameSpan.start
+      "Cubical metadata inspection is unsupported; use check (format preserves metadata)"))
+    _ => Right ()
+  _ => Right ()
+
 component : String -> Bool
 component = validModuleComponent
 

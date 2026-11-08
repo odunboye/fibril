@@ -37,6 +37,7 @@ public export
 documentSymbols : String -> Either SymbolError (List DocumentSymbol)
 documentSymbols source = do
   document <- parseDocument 64 256 source
+  rejectCubicalMetadataInspection document
   case document.body of
     DeclarationDocument values => Right (map fromDeclaration (concatMap bindingSites values))
     _ => Right []

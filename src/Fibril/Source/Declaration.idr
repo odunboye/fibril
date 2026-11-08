@@ -453,7 +453,31 @@ parseMutual _ end _ = Left (ParseFailure end "Expected mutual where and at least
 
 parseOne : Nat -> Position -> List Token -> Either ParseError (AuthoredDeclaration, List Token)
 parseOne budget end tokens@(token :: rest) =
-  if token.kind == ExportKeyword then do
+  if token.kind == Name && token.spelling == "cubical" &&
+     (case rest of next :: _ => next.kind == Name; [] => False) then do
+    (name, following) <- expect Name end rest
+    (_, following) <- expect Colon end following
+    (left, following) <- expect Name end following
+    (_, following) <- expect Equals end following
+    (right, following) <- expect Name end following
+    (by, following) <- expect Name end following
+    (certificate, following) <- expect Name end following
+    if token.span.start.column /= 1 || certificate.span.start.line /= token.span.start.line ||
+       by.spelling /= "by" || (certificate.spelling /= "refl" && certificate.spelling /= "boolCases") ||
+       (case following of next :: _ => next.span.start.line == token.span.start.line; [] => False)
+      then Left (ParseFailure token.span.start "Expected cubical NAME : LEFT = RIGHT by refl or boolCases on its own line") else Right ()
+    let region = Between token.span.start certificate.span.finish
+    let decl = Defined region name.span name.span False Erased name.spelling (NUnitType region) (NUnitValue region)
+    Right (Ordinary ({ cubicalProof := Just (if certificate.spelling == "refl" then ConstantRefl else SemanticBoolCases, left.spelling, right.spelling) } decl), following)
+  else if token.kind == Name && token.spelling == "requires" &&
+          (case rest of next :: _ => next.kind == Name; [] => False) then do
+    (requirement, following) <- expect Name end rest
+    if token.span.start.column /= 1 || requirement.span.start.line /= token.span.start.line ||
+       (case following of next :: _ => next.span.start.line == token.span.start.line; [] => False)
+      then Left (ParseFailure token.span.start "requires NAME must precede one ordinary declaration on its own line") else Right ()
+    (decl, remaining) <- parsePair budget end following
+    Right (Ordinary ({ requiredPath := Just requirement.spelling } decl), remaining)
+  else if token.kind == ExportKeyword then do
     if token.span.start.column /= 1
        then Left (ParseFailure token.span.start "export must start in column 1") else Right ()
     case rest of
@@ -518,6 +542,7 @@ public export
 parseDeclarations : Nat -> Nat -> Position -> List Token -> Either ParseError (List Declaration)
 parseDeclarations budget expressions end tokens = do
   authored <- parseAuthoredDeclarations budget expressions end tokens
+  if any hasPathMetadata authored then Left (ParseFailure end "Cubical guards require the checked document pipeline") else Right ()
   if any requiresElaboration authored then Left (ParseFailure end "Records/interfaces/implementations require the authored document/elaboration pipeline")
      else Right (ordinaryDeclarations authored)
 
@@ -532,6 +557,8 @@ legacyLowerDeclarations end (decl :: rest) =
 
 public export
 declarationAhead : List Token -> Bool
+declarationAhead (Located Name "cubical" _ :: Located Name _ _ :: _) = True
+declarationAhead (Located Name "requires" _ :: Located Name _ _ :: _) = True
 declarationAhead (Located Name _ _ :: Located Colon _ _ :: _) = True
 declarationAhead (Located Name _ _ :: Located Equals _ _ :: _) = True
 declarationAhead (Located Number _ _ :: _) = True

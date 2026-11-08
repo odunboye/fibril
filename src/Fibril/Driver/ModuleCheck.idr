@@ -1727,6 +1727,11 @@ compileGraphGlobals shared requireEntry graph prelude interfaces remaining sites
   if requireEntry then Left (GraphFailure graph.entry "" Nothing "No entry snapshot in graph")
     else Right (Nothing, exportIndex interfaces, sites)
 compileGraphGlobals shared requireEntry graph prelude interfaces remaining sites (snapshot :: rest) = do
+  case snapshot.document.body of
+    DeclarationDocument authored => if any hasPathMetadata authored
+      then Left (problem snapshot Nothing "Cubical constant-path guards currently require standalone files (no project/module/import checking)")
+      else Right ()
+    _ => Right ()
   if requireEntry && snapshot.path == graph.entry && not (null rest)
      then Left (problem snapshot Nothing "Entry snapshot must be last in dependency order")
      else Right ()

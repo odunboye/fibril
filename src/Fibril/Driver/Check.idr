@@ -23,6 +23,7 @@ import Fibril.Driver.Prelude
 import Fibril.Driver.Console
 
 import Fibril.Driver.Limits
+import Fibril.Cubical.Source.Application
 
 %default total
 
@@ -102,7 +103,7 @@ renderDriverError path source err = renderFileError path (show err)
 
 ||| Source syntax and resolved raw terms are not checking certificates.
 public export
-data SourceProgram = CoreSource (Term 0)
+data SourceProgram = CoreSource (Term 0) (List String)
 
 ||| Every program uses the same parser and lexical/global resolver, including IO.
 public export
@@ -118,15 +119,16 @@ prepareSource source = do
   case document.imports of
     first :: _ => Left (Parsing (ParseFailure first.span.start "Import checking requires --source-dir"))
     [] => Right ()
-  syntax <- case document.body of
-    ExpressionDocument expression => Right expression
+  (syntax, declarations) <- case document.body of
+    ExpressionDocument expression => Right (expression, [])
     EmptyDocument => Left (Parsing (ParseFailure document.end "Expected expression"))
     DeclarationDocument authored => do
       declarations <- case elaborateDeclarations 64 authored of
         Left err => Left (Elaborating err)
         Right declarations => Right declarations
-      if any (\decl => decl.name == "main") declarations
-         then Right (lowerDeclarations document.end declarations)
+      let executable = executableDeclarations declarations
+      if any (\decl => decl.name == "main") executable
+         then Right (lowerDeclarations document.end executable, declarations)
          else Left (Parsing (ParseFailure document.end "Declaration file requires a main definition"))
   globals <- case preludeGlobals of
     Left err => Left (PreludeUnavailable err)
@@ -135,12 +137,15 @@ prepareSource source = do
     Left err => if err.elaborating
                    then Left (Elaborating (ElaborationFailure err.position err.name))
                    else Left (Resolving err)
-    Right term => Right (CoreSource term)
+    Right term => do
+      case checkCubicalProofs document declarations term of
+        Left err => Left (Elaborating err)
+        Right reports => Right (CoreSource term reports)
 
 public export
 resolveSource : String -> Either FrontendError (Term 0)
 resolveSource source = do
-  CoreSource term <- prepareSource source
+  CoreSource term _ <- prepareSource source
   Right term
 
 public export
@@ -175,16 +180,16 @@ renderType ty = case normalize 128 ty of
 public export
 checkSourceDetailed : Bool -> String -> Either DriverError (List String)
 checkSourceDetailed erasedOnly source = do
-  term <- case resolveSource source of
+  CoreSource term reports <- case prepareSource source of
     Left err => Left (FrontendFailure err)
-    Right term => Right term
+    Right prepared => Right prepared
   if erasedOnly
      then case inferErased checkingDepth typeReductionFuel Empty term of
        Left err => Left (ErasedFailure err)
-       Right ty => Right ["Erased checking: accepted (no runtime-use guarantee)", "Type: " ++ renderType ty]
+       Right ty => Right (reports ++ ["Erased checking: accepted (no runtime-use guarantee)", "Type: " ++ renderType ty])
      else case inferRuntime checkingDepth typeReductionFuel Empty term of
        Left err => Left (RuntimeFailure err)
-       Right checked => Right ["Runtime checking: accepted", "Type: " ++ renderType checked.inferredType]
+       Right checked => Right (reports ++ ["Runtime checking: accepted", "Type: " ++ renderType checked.inferredType])
 
 public export
 checkSource : Bool -> String -> Either String (List String)
