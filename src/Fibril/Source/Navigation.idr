@@ -108,6 +108,8 @@ mutual
   walk context env (NSeqNil _ _) = []
   walk context env (NSeqCons _ _ _ _) = []
   walk context env (NSeqFold _ _ _ _ _) = []
+  walk context env (NDataType _ _) = []
+  walk context env (NDataCon _ _ _ _) = []
   walk context env (NNominalType _ _ _ _) = []
   walk context env (NNominalValue _ _ _) = []
   walk context env (NNominalCase _ _ _ _) = []
@@ -230,7 +232,7 @@ clauseHeaders context decl = case decl.value of
   where
     header : (Token, List Token, Expr) -> List (ReferenceTo destination)
     header (constructor, _, _) =
-      case find (\token => token.span.finish.offset <= constructor.span.start.offset) (reverse context.tokens) of
+      case find (\token => token.span.finish.offset <= constructor.span.start.offset && token.kind /= OpenParen) (reverse context.tokens) of
         Just token => if token.kind == Name && token.spelling == decl.name &&
                          token.span.start.line == constructor.span.start.line &&
                          token.span.start.offset /= decl.definitionNameSpan.start.offset

@@ -1,0 +1,58 @@
+module Main
+
+data User : Type where
+  Guest : User
+  Customer : (email : String) -> (password : String) -> User
+  Staff : (email : String) -> User
+
+data Order : Type where
+  Empty : Order
+  Line : (1 item : String) -> (1 note : String) -> (1 count : String) -> (1 sku : String) -> Order
+
+-- Two fields, no explicit motive; unrestricted fields may go unused.
+login : User -> Bool
+login u = case u of
+  Guest => True
+  Customer e p => False
+  Staff e => True
+
+-- Fields are usable in the branch body.
+describe : (1 user : User) -> String
+describe user = case user of
+  Guest => "guest"
+  Customer email password => appendString "customer " email
+  Staff email => appendString "staff " email
+
+-- Explicit constant motive.
+label : (1 user : User) -> String
+label user = case user return (\(0 self : User) => String) of
+  Guest => "G"
+  Customer email password => email
+  Staff email => email
+
+-- Four linear fields: each must be consumed exactly once.
+render : (1 order : Order) -> String
+render order = case order of
+  Empty => "empty"
+  Line item note count sku => appendString item (appendString note (appendString count sku))
+
+-- The same matching as clause equations: a parenthesized pattern binds every field.
+kindOf : (1 user : User) -> String
+kindOf Guest = "guest"
+kindOf (Customer email password) = appendString "customer " email
+kindOf Staff email = appendString "staff " email
+
+-- `_` covers multi-field constructors whose fields are unrestricted.
+isGuest : User -> Bool
+isGuest Guest = True
+isGuest _ = False
+
+main : IO Unit
+main = do
+  putStrLn (describe (Customer "ada@example.com" "pw"))
+  putStrLn (describe (Staff "bob"))
+  putStrLn (label (Customer "carol" "pw"))
+  putStrLn (render (Line "a" "b" "c" "d"))
+  putStrLn (render Empty)
+  putStrLn (kindOf (Customer "dave" "pw"))
+  putStrLn (kindOf Guest)

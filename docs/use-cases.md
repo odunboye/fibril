@@ -124,6 +124,11 @@ separate shared-graph admission, checking cost and native allocation/work limits
 before choosing an optimization. Use the smaller reference benchmarks when only
 an individual core operation is under investigation.
 
+[Construction accounting](construction-accounting.md) supports composing named
+libraries without permanently spending their worst-case output reservations.
+Use its offline ledger to distinguish conservative admission from emitted size;
+it does not measure normalization work or execution performance.
+
 [Native variable forwarding](native-variable-forwarding.md) reuses lazy cells
 when helper functions receive existing local values. It reduces measured native
 work/allocation without source changes; ordinary application remains the path

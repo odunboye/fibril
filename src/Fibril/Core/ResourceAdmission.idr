@@ -63,6 +63,9 @@ mutual
   containsFileReference (VariantType arms) = armReferences arms
   containsFileReference (VariantValue ty _ Nothing) = containsFileReference ty
   containsFileReference (VariantValue ty _ (Just payload)) = containsFileReference ty || containsFileReference payload
+  containsFileReference (DataType _) = False
+  containsFileReference (DataCon _ _ _) = False
+  containsFileReference (DataCase _ a b branches) = containsFileReference a || containsFileReference b || anyReferences branches
   containsFileReference (VariantCase a b branches) = containsFileReference a || containsFileReference b || anyReferences branches
   containsFileReference (BoxType _ a) = containsFileReference a
   containsFileReference (BoxValue a b) = containsFileReference a || containsFileReference b

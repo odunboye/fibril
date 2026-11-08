@@ -67,6 +67,9 @@ mutual
   descend env hole target (VariantType arms) = VariantType (abstractArms env hole target arms)
   descend env hole target (VariantValue ty tag Nothing) = VariantValue (abstractWith env hole target ty) tag Nothing
   descend env hole target (VariantValue ty tag (Just value)) = VariantValue (abstractWith env hole target ty) tag (Just (abstractWith env hole target value))
+  descend env hole target (DataType key) = DataType key
+  descend env hole target (DataCon key index leading) = DataCon key index leading
+  descend env hole target (DataCase key a b branches) = DataCase key (abstractWith env hole target a) (abstractWith env hole target b) (abstractTerms env hole target branches)
   descend env hole target (VariantCase a b branches) = VariantCase (abstractWith env hole target a) (abstractWith env hole target b) (abstractTerms env hole target branches)
   descend env hole target (BoxType q ty) = BoxType q (abstractWith env hole target ty)
   descend env hole target (BoxValue a b) = BoxValue (abstractWith env hole target a) (abstractWith env hole target b)

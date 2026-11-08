@@ -45,8 +45,7 @@ one layer of an imported unary recursive family, then uses its fold. The
 [recursive-list example](../examples/modules/recursive-list/Main.fib) matches a
 linear head and tail before folding the tail. The [request API](../examples/packages/request-api/src/Mail/Request.fib) exercises
 three email-service alternatives locally and from a qualified-import test package;
-it is a pure model, not an email server. A real submission needing a recipient,
-subject and body exposes the current wider-payload matching gap. The separate
+it is a pure model, not an email server. The separate
 [sum-client package](../examples/packages/sum-client/src/Main.fib) directly
 imports the external [sum-library](../examples/packages/sum-library/src/Data/Sum.fib)
 and matches `Data.Sum.Left`/`Data.Sum.Right` without requesting its eliminator.
@@ -54,6 +53,50 @@ Run `fibril run --package examples/packages/sum-client/fibril.yaml` from the
 compiler project. A separate [dependent-motive
 example](../examples/modules/direct-data-case-dependent/Main.fib) defines a
 family indexed by a finite choice and returns a different value type per branch.
+
+## Multi-field constructors
+
+A constructor with two or more fields stores them as one right-nested pair
+payload. A direct arm for it must bind exactly one name per field:
+
+~~~fibril
+data User : Type where
+  Guest : User
+  Customer : (email : String) -> (password : String) -> User
+  Staff : (email : String) -> User
+
+describe : (1 user : User) -> String
+describe user = case user of
+  Guest => "guest"
+  Customer email password => appendString "customer " email
+  Staff email => appendString "staff " email
+~~~
+
+The [runnable example](../examples/modules/multi-field-case/Main.fib) also
+matches a four-field constructor with linear fields. Elaboration builds the
+branch as a payload lambda over nested `PairCase` eliminations, one level per
+extra field (the same shape as the named eliminator's branches), so no new core
+term is introduced and the core checker validates the result independently.
+
+- Each bound name has the field's declared quantity, so a linear field must be
+  used exactly once and an unrestricted one may be unused. The linear payload and
+  intermediate tails are consumed by the generated eliminations.
+- The arm's constructor must build exactly the scrutinee's nominal type and
+  shape with exactly that many fields; a different type's constructor, a wrong
+  arity, a missing or duplicate constructor are rejected.
+- Result types are inferred as for unary arms: an expected type or `return`
+  motive gives a dependent motive, otherwise the result must not depend on a
+  field (use an explicit motive when it does).
+- A trailing catch-all clause covers a multi-field constructor by destructuring
+  its payload: `_` drops the fields and a name (`other => ...`) rebuilds the
+  value from them through an unrestricted binding. Either way every field must
+  be unrestricted or erased; a linear field is rejected by the usual
+  binder-usage check, so name such constructors explicitly.
+- A pattern must bind exactly as many names as the constructor has fields;
+  otherwise elaboration reports "has N field(s) but the pattern binds M".
+- Patterns are flat. Nested patterns and typed binders inside arms remain
+  unsupported. Function clause groups accept the same patterns in
+  [parenthesized form](function-equations.md#multi-field-clause-patterns).
 
 ![Direct case checking boundary](diagrams/direct-data-cases.svg)
 
@@ -74,12 +117,12 @@ family indexed by a finite choice and returns a different value type per branch.
   braced headers can opt constructors into [implicit parameters](data.md). The
   case derives actual nominal arguments from the scrutinee and applies them when
   checking branch names; generic erased type parameters are supported.
-- This slice supports nullary and **single-field** nominal constructors, the
-  fixed terminal/unary-self family, and the fixed parameterized list shape. A
-  direct list branch binds its head and tail **linearly**, while a fold exposes
-  an erased tail plus a linear induction result. General multi-field and
-  dependent-field constructors remain usable through named eliminators, but are
-  not silently treated as these fixed patterns. No nested patterns,
+- This slice supports nullary, **single-field** and **multi-field** nominal
+  constructors, the fixed terminal/unary-self family, and the fixed
+  parameterized list shape. A direct list branch binds its head and tail
+  **linearly**, while a fold exposes an erased tail plus a linear induction
+  result. A multi-field arm binds one name per field, `Customer email password
+  => ...`, with each field's declared quantity (see below). No nested patterns,
   constructor wildcard/implicit coverage or general-purpose dependent motive inference is provided.
 - This slice runs through named-module project checking (`--source-dir` or
   `--package`); standalone declaration-file checking does not publish the

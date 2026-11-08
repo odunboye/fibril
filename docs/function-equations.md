@@ -66,6 +66,28 @@ ordinary references. Use [direct data cases](direct-data-cases.md) for forms
 outside this slice. Small structural Nat, unary-data and list-shaped equations
 are separate exceptions below, not general termination checking.
 
+### Multi-field clause patterns
+
+A clause may write its constructor pattern in parentheses, with one name per
+field: `describe (Customer email password) = ...`. The parenthesized form takes
+any number of binders (including none, `(Guest)`), and `_` may stand for a field
+that the body ignores. The flat form above, `describe Staff e = ...`, still takes
+zero or one binder, since `f A b` is otherwise ambiguous with two arguments.
+
+~~~fibril
+describe : (1 user : User) -> String
+describe Guest = "guest"
+describe (Customer email password) = appendString "customer " email
+describe Staff email = appendString "staff " email
+~~~
+
+The group lowers to the same direct data case as before, so a multi-field arm
+follows the [multi-field case rules](direct-data-cases.md#multi-field-constructors):
+exact arity, field quantities, and the optional `_` catch-all over unrestricted
+payloads. A lone parenthesized equation is not a clause group and is still
+rejected ("parameters must be names"); only the pattern is parenthesized, so
+nested patterns and several matched arguments remain unsupported.
+
 A bounded Nat catch-all is also supported: `f Zero = ...` followed by
 `f item = ...`, where `item` is a previously unresolved lowercase name, binds
 the entire successor value (and may be unused). Visible or ambiguous names are

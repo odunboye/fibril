@@ -57,6 +57,9 @@ mutual
   traverseGlobalRefs resolve (VariantType a0) = [| VariantType (traverseArms resolve a0) |]
   traverseGlobalRefs resolve (VariantValue ty tag Nothing) = (\next => VariantValue next tag Nothing) <$> traverseGlobalRefs resolve ty
   traverseGlobalRefs resolve (VariantValue ty tag (Just value)) = (\next, body => VariantValue next tag (Just body)) <$> traverseGlobalRefs resolve ty <*> traverseGlobalRefs resolve value
+  traverseGlobalRefs resolve (DataType a0) = [| DataType (pure a0) |]
+  traverseGlobalRefs resolve (DataCon a0 a1 a2) = [| DataCon (pure a0) (pure a1) (pure a2) |]
+  traverseGlobalRefs resolve (DataCase a0 a1 a2 a3) = [| DataCase (pure a0) (traverseGlobalRefs resolve a1) (traverseGlobalRefs resolve a2) (traverseTerms resolve a3) |]
   traverseGlobalRefs resolve (VariantCase a0 a1 a2) = [| VariantCase (traverseGlobalRefs resolve a0) (traverseGlobalRefs resolve a1) (traverseTerms resolve a2) |]
   traverseGlobalRefs resolve (BoxType a0 a1) = [| BoxType (pure a0) (traverseGlobalRefs resolve a1) |]
   traverseGlobalRefs resolve (BoxValue a0 a1) = [| BoxValue (traverseGlobalRefs resolve a0) (traverseGlobalRefs resolve a1) |]

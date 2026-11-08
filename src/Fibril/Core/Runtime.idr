@@ -6,6 +6,7 @@ import Data.Fin
 import Data.Vect
 import Fibril.Core.Quantity
 import Fibril.Core.Term
+import Fibril.Core.DataDecl
 import Fibril.Core.Context
 import Fibril.Core.Usage
 import Fibril.Core.WeakHead
@@ -207,6 +208,15 @@ mutual
         (Just (Just (q, _)), Just value) => scaleUsage q <$> analyze globals depth reduction context value
         _ => Left (TypingError (VariantError "invalid runtime tag or payload arity"))
       _ => Left (TypingError (VariantError "runtime constructor requires variant type"))
+  -- General recursive data: a family is a type, a constructor constant costs nothing (its
+  -- fields are charged by the application, through the quantities in its Pi type), and a
+  -- case joins its branches like any other alternative.
+  analyze globals (S depth) reduction context (DataType _) = Left RuntimeTypeExpression
+  analyze globals (S depth) reduction context (DataCon _ _ _) = Right zeroUsage
+  analyze globals (S depth) reduction context (DataCase _ motive value branches) = do
+    valueUsage <- analyze globals depth reduction context value
+    branchUsage <- variantUsages globals depth reduction context branches
+    Right (combineUsage valueUsage branchUsage)
   analyze globals (S depth) reduction context (VariantCase motive value branches) = do
     valueUsage <- analyze globals depth reduction context value
     branchUsage <- variantUsages globals depth reduction context branches
@@ -331,6 +341,13 @@ extendRuntimeGlobals depth reduction globals key q ty body = do
     _ => do
       _ <- checkRuntimeGlobals globals depth reduction Empty body ty
       Right ()
+  Right (CheckedRuntimeGlobals next)
+
+||| Admit a general recursive family. Families have no runtime body to check.
+public export
+extendDataRuntimeGlobals : Nat -> Nat -> RuntimeGlobals -> DataDecl -> Either RuntimeError RuntimeGlobals
+extendDataRuntimeGlobals depth reduction globals decl = do
+  next <- liftTyping (extendDataGlobals depth reduction (erasedGlobals globals) decl)
   Right (CheckedRuntimeGlobals next)
 
 public export

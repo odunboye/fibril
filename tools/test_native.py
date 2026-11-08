@@ -88,6 +88,32 @@ class NativeTests(unittest.TestCase):
                 self.assertEqual(native.stdout, output)
                 self.assertEqual(native.stdout, reference.stdout)
 
+    def test_general_recursive_data_matches_reference(self):
+        # General recursive families lower to native variants whose payload is a nest of pairs.
+        # Native output must agree with the hosted evaluator for the shipped example and for
+        # constructors with zero, one, two and four fields (linear and unrestricted).
+        example = ROOT / 'examples/modules/general-data'
+        wide = ('module Main\n\ndata Wide : Type where\n  Unit0 : Wide\n  One : (a : String) -> Wide\n'
+                '  Two : (a : String) -> (rest : Wide) -> Wide\n'
+                '  Four : (a : String) -> (b : String) -> (left : Wide) -> (right : Wide) -> Wide\n\n'
+                'show : (w : Wide) -> String\nshow w = case w of\n  Unit0 => "u"\n  One a => a\n'
+                '  Two a rest => appendString a (show rest)\n'
+                '  Four a b left right => appendString a (appendString b (appendString (show left) (show right)))\n\n'
+                'main : IO Unit\nmain = putStrLn (show (Four "a" "b" (Two "c" (One "d")) (Four "e" "f" Unit0 (One "g"))))\n')
+        cases = [('shipped example', ['--source-dir', str(example), str(example / 'Main.fib')], b'...\n(b(bb))\n')]
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Main.fib'
+            path.write_text(wide)
+            cases.append(('wide constructors', ['--source-dir', directory, str(path)], b'abcdefug\n'))
+            for label, args, output in cases:
+                with self.subTest(program=label), tempfile.TemporaryDirectory() as build:
+                    _, native = self.compile_and_run(args, build)
+                    reference = run_cli('run', *args[:-1], '--fuel', '4096', args[-1], text=False, timeout=120)
+                    self.assertEqual(reference.returncode, 0, reference.stderr)
+                    self.assertEqual(native.returncode, 0, native.stderr)
+                    self.assertEqual(native.stdout, output)
+                    self.assertEqual(native.stdout, reference.stdout)
+
     def test_fix_native_budget_is_the_fixed_runtime_limit(self):
         # Native Fix inherits the runtime's fixed evaluation budget; it does not widen it.
         with tempfile.TemporaryDirectory() as directory:

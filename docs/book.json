@@ -214,6 +214,14 @@
         "path": "docs/composed-workloads.md"
       },
       {
+        "title": "General recursive data plan",
+        "path": "docs/general-recursive-data-plan.md"
+      },
+      {
+        "title": "Construction reservations and committed syntax",
+        "path": "docs/construction-accounting.md"
+      },
+      {
         "title": "Bare Type as Type 0",
         "path": "docs/bare-type.md"
       },
@@ -244,6 +252,10 @@
       {
         "title": "Experimental checked C emission",
         "path": "docs/native-c.md"
+      },
+      {
+        "title": "Native variable-argument forwarding",
+        "path": "docs/native-variable-forwarding.md"
       },
       {
         "title": "Experimental native pure pairs",
@@ -381,6 +393,14 @@
       {
         "title": "Frozen cubical experiment contract",
         "path": "docs/cubical-experiment-contract.md"
+      },
+      {
+        "title": "CommonAdmission: bounded typing and paths",
+        "path": "docs/common-admission.md"
+      },
+      {
+        "title": "Experimental cubical source",
+        "path": "docs/cubical-source.md"
       },
       {
         "title": "Quantitative cubical rules",

@@ -41,6 +41,8 @@ mutual
   renderExpr (NSeqNil _ ty) = node "sequence-empty" [renderExpr ty]
   renderExpr (NSeqCons _ ty head tail) = node "sequence-cons" [renderExpr ty, renderExpr head, renderExpr tail]
   renderExpr (NSeqFold _ motive base next value) = node "sequence-fold" [renderExpr motive, renderExpr base, renderExpr next, renderExpr value]
+  renderExpr (NDataType _ key) = node "data-type" [show key]
+  renderExpr (NDataCon _ key index leading) = node "data-con" [show key, show index, show leading]
   renderExpr (NNominalType _ key indices shape) = node "nominal-type" [show key, node "indices" (renderTerms indices), renderExpr shape]
   renderExpr (NNominalValue _ ty value) = node "nominal-value" [renderExpr ty, renderExpr value]
   renderExpr (NNominalCase _ motive value branch) = node "nominal-case" [renderExpr motive, renderExpr value, renderExpr branch]

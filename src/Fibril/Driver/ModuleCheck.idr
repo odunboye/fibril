@@ -8,10 +8,12 @@ import Data.String
 import Data.SortedSet
 import Data.SortedMap
 import Data.Vect
+import Decidable.Equality
 import Fibril.Core.Quantity
 import Fibril.Core.Size
 import Fibril.Core.Term
 import Fibril.Core.Context
+import Fibril.Core.DataDecl
 import Fibril.Core.Runtime
 import Fibril.Core.Erased
 import Fibril.Core.Reduction
@@ -128,6 +130,8 @@ mutual
     NSeqNil _ ty => 1 + cost limit globals env ty
     NSeqCons _ ty head tail => 1 + cost limit globals env ty + cost limit globals env head + cost limit globals env tail
     NSeqFold _ motive base next value => 1 + cost limit globals env motive + cost limit globals env base + cost limit globals env next + cost limit globals env value
+    NDataType _ _ => 1
+    NDataCon _ _ _ _ => 1
     NNominalType _ _ indices shape => 1 + listCost limit globals env indices + cost limit globals env shape
     NNominalValue _ ty value => 1 + cost limit globals env ty + cost limit globals env value
     NNominalCase _ p value branch => 1 + cost limit globals env p + cost limit globals env value + cost limit globals env branch
@@ -1322,7 +1326,8 @@ compileMutualGlobals shared snapshot moduleName globals group remaining = do
   ty1 <- signature group.second
   let value0 = planned.firstValue
   let value1 = planned.secondValue
-  if nodes ty0 + nodes ty1 + nodes value0 + nodes value1 > reservation
+  let constructed = nodes ty0 + nodes ty1 + nodes value0 + nodes value1
+  if constructed > reservation
     then Left (problem snapshot Nothing "Internal mutual construction reservation was insufficient") else Right ()
   checked group.first value0 ty0
   checked group.second value1 ty1
@@ -1337,7 +1342,7 @@ compileMutualGlobals shared snapshot moduleName globals group remaining = do
   let two = { global := sharedGlobal (S firstKey) (definition group.second ty1 value1).global } (definition group.second ty1 value1)
   let sites = [StructuralSite snapshot.path (callToken planned.firstCall) (if planned.firstTarget then group.first.definitionNameSpan else group.second.definitionNameSpan),
                StructuralSite snapshot.path (callToken planned.secondCall) (if planned.secondTarget then group.first.definitionNameSpan else group.second.definitionNameSpan)]
-  Right (Definitions [one, two] (if group.exported then [qualify one, qualify two] else []) sites (minus remaining reservation) next1)
+  Right (Definitions [one, two] (if group.exported then [qualify one, qualify two] else []) sites (minus remaining constructed) next1)
   where
     signature : Declaration -> Either GraphError (Term 0)
     signature decl = case elaborateSignatureWithGlobals (erasedGlobals shared) False (map global globals) (Just Empty) [] decl.expected of
@@ -1368,6 +1373,64 @@ compileMutualGlobals shared snapshot moduleName globals group remaining = do
         Just token => token.span
         Nothing => span
 
+-- General recursive families (docs/general-recursive-data-plan.md, phase 5). ----------------
+
+-- The scope reached after a list of binders, of whatever depth.
+record FamilyScope where
+  constructor MkFamilyScope
+  width : Nat
+  context : Context width
+  names : Vect width String
+
+-- A telescope together with the scope after it.
+data FamilyPart : Nat -> Type where
+  MkFamilyPart : Telescope n -> FamilyScope -> FamilyPart n
+
+-- A field or parameter type, elaborated in its scope. Reducing it exposes the family itself
+-- (its name is inlined as a lambda over the parameters) so admission can recognise it.
+familyType : ModuleSnapshot -> GlobalContext -> List GlobalDefinition -> Context n -> Vect n String -> Expr -> Either GraphError (Term n)
+familyType snapshot globals defs ctx env expr =
+  case elaborateSignatureGlobals globals defs (Just ctx) env expr of
+    Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
+    Right term => Right (case normalize 64 term of
+      Normal reduced => reduced
+      OutOfFuel _ => term)
+
+familyBinders : {n : Nat} -> ModuleSnapshot -> GlobalContext -> List GlobalDefinition -> Context n -> Vect n String ->
+                List (Quantity, String, Expr) -> Either GraphError (FamilyPart n)
+familyBinders {n} snapshot globals defs ctx env [] = Right (MkFamilyPart Done (MkFamilyScope n ctx env))
+familyBinders snapshot globals defs ctx env ((q, name, domain) :: rest) = do
+  ty <- familyType snapshot globals defs ctx env domain
+  MkFamilyPart tel scope <- familyBinders snapshot globals defs (Extend ctx q ty) (name :: env) rest
+  Right (MkFamilyPart (Field q ty tel) scope)
+
+familyConstructors : ModuleSnapshot -> GlobalContext -> List GlobalDefinition -> (params : Telescope 0) -> FamilyScope ->
+                     List DataConstructor -> Either GraphError (List (Constructor (telescopeLength params)))
+familyConstructors snapshot globals defs params scope [] = Right []
+familyConstructors snapshot globals defs params (MkFamilyScope width ctx names) (ctor :: rest) = do
+  let binders = map (\field => (field.quantity, field.token.spelling, field.ty)) ctor.fields
+  part <- familyBinders snapshot globals defs ctx names binders
+  following <- familyConstructors snapshot globals defs params (MkFamilyScope width ctx names) rest
+  case part of
+    MkFamilyPart fields _ => case decEq width (telescopeLength params) of
+      Yes Refl => Right (MkConstructor ctor.name.spelling fields :: following)
+      No _ => Left (problem snapshot (Just ctor.name.span.start) "Internal family scope does not match its parameters")
+
+-- Admit the family: elaborate its parameters, then its constructor fields with the family's own
+-- name standing for the family, then check the declaration (positivity, Type 0 fields).
+registerFamily : RuntimeGlobals -> ModuleSnapshot -> List Weighted -> DataDeclaration -> String -> Either GraphError RuntimeGlobals
+registerFamily shared snapshot globals sourceData key = do
+  let defs = map global globals
+  MkFamilyPart params scope <- familyBinders snapshot (erasedGlobals shared) defs Empty []
+    (map (\param => (param.quantity, param.name, param.domain)) sourceData.params)
+  let provisional = MkDataDecl key params []
+  let own = GlobalEntry Nothing Nothing 0 Erased sourceData.name.spelling (formerType provisional) (formerValue provisional)
+  let visible = withProvisionalFamily (erasedGlobals shared) provisional
+  constructors <- familyConstructors snapshot visible (own :: defs) params scope sourceData.constructors
+  case extendDataRuntimeGlobals checkingDepth typeReductionFuel shared (MkDataDecl key params constructors) of
+    Left err => Left (problem snapshot (Just sourceData.name.span.start) ("Data declaration: " ++ show err))
+    Right next => Right next
+
 compileDeclarationsGlobals : RuntimeGlobals -> ModuleSnapshot -> List String -> List Weighted -> List LoweredItem -> Nat ->
                       Either GraphError Compiled
 compileDeclarationsGlobals shared snapshot name globals [] remaining = Right (Definitions [] [] [] remaining shared)
@@ -1377,6 +1440,9 @@ compileDeclarationsGlobals shared snapshot name globals (MutualNatBool group :: 
   following <- compileDeclarationsGlobals own.checkedGlobals snapshot name (own.locals ++ qualified ++ globals) rest own.remaining
   Right (Definitions (own.locals ++ following.locals) (own.exports ++ following.exports)
     (own.sites ++ following.sites) following.remaining following.checkedGlobals)
+compileDeclarationsGlobals shared snapshot name globals (DataFamily sourceData key :: rest) remaining = do
+  next <- registerFamily shared snapshot globals sourceData key
+  compileDeclarationsGlobals next snapshot name globals rest remaining
 compileDeclarationsGlobals shared snapshot name globals (Single decl :: rest) remaining = do
   if decl.quantity == Linear || decl.name == "_"
      then Left (problem snapshot (Just decl.nameSpan.start)
@@ -1448,7 +1514,8 @@ compileDeclarationsGlobals shared snapshot name globals (Single decl :: rest) re
               -- definition does. This is the error that is actually about the program.
               Left bound => Left ({ stage := if bound.elaborating then "elaboration" else "resolution" }
                                    (problem snapshot (Just bound.position) (show bound ++ mutualHint decl)))
-  if nodes ty + nodes value > estimate
+  let constructed = nodes ty + nodes value
+  if constructed > estimate
      then Left (problem snapshot Nothing "Internal module expansion estimate was insufficient")
      else Right ()
   let key = length (globalDeclarations (erasedGlobals shared))
@@ -1465,7 +1532,11 @@ compileDeclarationsGlobals shared snapshot name globals (Single decl :: rest) re
   let definition = sharedGlobal key (GlobalEntry (if provider then Just identity else Nothing) (Just identity) implicitPrefix decl.quantity decl.name ty value)
   let local = weighted definition
   let qualified = Weight ({ name := identity } definition) local.size
-  following <- compileDeclarationsGlobals next snapshot name (local :: qualified :: globals) rest (minus remaining estimate)
+  -- The estimate reserves room before construction; it is not emitted syntax.
+  -- Commit the independently size-checked signature/body once, releasing unused
+  -- reservation. Thus prior emitted nodes + the next reservation must still fit
+  -- the same project allowance, including across imports and unused globals.
+  following <- compileDeclarationsGlobals next snapshot name (local :: qualified :: globals) rest (minus remaining constructed)
   let ownSites = case recursive of
         Just _ => structuralSites snapshot decl
         Nothing => map (\call => StructuralSite snapshot.path call.span decl.definitionNameSpan)

@@ -23,6 +23,13 @@ while JSON-plus-typed entries still hit construction admission. The dense
 These new rows do not replace the historical measurements below or establish a
 wire-level LSP server.
 
+The later [construction-accounting audit](construction-accounting.md) removes
+permanent charges for unused declaration reservations. `JSONThenTyped` now checks
+and emits within the existing native gate (8041 nodes). The original echo/JSON
+fixture advances to an unexported-helper error; an explicitly exported test copy
+still exceeds native graph admission. These are fixed-input admission probes,
+not decoded wire requests or a complete initialization exchange.
+
 ## Implemented Fibril-written foundations
 
 - Checked hosted/native binary IO, immutable Bytes and fallible strict UTF-8

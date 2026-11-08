@@ -32,6 +32,18 @@ main = get ({constructor} Bool Bool True)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn('Normal: True', result.stdout)
 
+    def test_parenthesized_pattern_is_the_same_clause(self):
+        # A parenthesized pattern is an accepted spelling of the flat clause.
+        for constructor in ('Left', 'Right'):
+            result = self.run_source(DATA + f'''get : (1 value : Sum Bool Bool) -> Bool
+get (Left x) = x
+get Right y = y
+main : Bool
+main = get ({constructor} Bool Bool True)
+''')
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn('Normal: True', result.stdout)
+
     def test_rejections(self):
         cases = [
             'get Left x = x\nget Left y = y',
@@ -39,7 +51,6 @@ main = get ({constructor} Bool Bool True)
             'get Left x = x\nget Right = True',
             'get Left x = get (Left Bool Bool x)\nget Right y = y',
             'get Left x = x\nget y = y',
-            'get (Left x) = x\nget Right y = y',
             'get Left x = x\nget Right y = x',
             'get Left x = True\nget Right y = y',
             'get Left x = if x then x else x\nget Right y = y',

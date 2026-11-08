@@ -4,6 +4,7 @@ module Fibril.Elaboration.Declaration
 import Data.List
 import Data.String
 import Data.List1
+import Data.Maybe
 import Fibril.Elaboration.Data
 import Fibril.Core.Quantity
 import Fibril.Source.Text
@@ -672,6 +673,14 @@ mutual
   authoredPosition (RecordItem sourceRecord) = sourceRecord.name.span.start
   authoredPosition (InterfaceItem sourceRecord) = sourceRecord.name.span.start
 
+  -- A general recursive family is registered before the declarations that mention it.
+  familyItems : Maybe String -> AuthoredDeclaration -> List LoweredItem
+  familyItems (Just qualifier) (DataItem sourceData) =
+    case dataKey (forget (Data.String.split (== '.') qualifier)) sourceData.name.spelling of
+      Right key => if generalRecursive key sourceData then [DataFamily sourceData key] else []
+      Left _ => []
+  familyItems _ _ = []
+
   lowerModule : Maybe String -> List InterfaceSchema -> List String -> Nat -> Nat -> List String -> List AuthoredDeclaration -> Either ElaborationError (List LoweredItem)
   lowerModule moduleName schemas imported nodes slots seen [] = Right []
   lowerModule moduleName schemas imported nodes slots seen (item :: rest) = do
@@ -686,7 +695,7 @@ mutual
             Right (0, declarations, map Single declarations)
       _ => do
         (used, declarations) <- lowerItem moduleName schemas imported seen nodes item
-        Right (used, declarations, map Single declarations)
+        Right (used, declarations, familyItems moduleName item ++ map Single declarations)
     (remaining, names) <- admit slots seen declarations
     let retained = filter (\schema => not (elem schema.name (map name (bindingSites item)))) schemas
     let visible = case item of InterfaceItem authored => localSchemas moduleName authored ++ retained; _ => retained
@@ -1035,11 +1044,57 @@ mutual
       Just (terminal, successor, field) => lowerUnaryRecursiveData key budget sourceData terminal successor field
       Nothing => case sequenceRecursiveShape key sourceData of
         Just (parameter, terminal, successor, head, tail) => lowerSequenceRecursiveData key budget sourceData parameter terminal successor head tail
-        Nothing => lowerNonrecursiveData key estimate sourceData
+        Nothing =>
+          if generalRecursive key sourceData then lowerGeneralData key budget sourceData
+          else lowerNonrecursiveData key estimate sourceData
     where
       lowerNonrecursiveData : String -> Nat -> DataDeclaration -> Either ElaborationError (Nat, List Declaration)
       lowerNonrecursiveData key estimate sourceData = do
         lowerOrdinaryData key estimate sourceData
+
+  -- A recursive declaration that is neither fixed shape: trees, multi-field or multi-constructor
+  -- recursion. It is checked as general recursive data, not generated from templates.
+  public export
+  generalRecursive : String -> DataDeclaration -> Bool
+  generalRecursive key sourceData =
+    isNothing (unaryRecursiveShape key sourceData) && isNothing (sequenceRecursiveShape key sourceData) &&
+    any (\ctor => any (\field => mentions sourceData.name.spelling field.ty || mentions key field.ty) ctor.fields) sourceData.constructors
+
+  -- The family and each constructor become ordinary global declarations whose values are the
+  -- core constants. The family itself is registered separately (see `DataFamily`), because its
+  -- constructor types must be checked with the family already in scope.
+  lowerGeneralData : String -> Nat -> DataDeclaration -> Either ElaborationError (Nat, List Declaration)
+  lowerGeneralData key budget sourceData = do
+    let refs = map (\param => NRef param.span param.name) sourceData.params
+    let ownName = sourceData.name.spelling
+    if any (\param => param.name == ownName || mentions ownName param.domain || mentions key param.domain) sourceData.params
+       then Left (ElaborationFailure sourceData.name.span.start "Data parameters must not shadow or reference their own type") else Right ()
+    traverse_ (\ctor => do
+      validateFields [] sourceData.params ctor.fields
+      if any (\field => field.token.spelling == ownName) ctor.fields
+         then Left (ElaborationFailure ctor.name.span.start "A field may not be named like its data type") else Right ()
+      case dictionaryTarget ctor.result [] of
+        Just (target, args) => if (target == ownName || target == key) &&
+          mapMaybe (\arg => case arg of NRef _ name => Just name; _ => Nothing) args == map (\p => p.name) sourceData.params &&
+          length args == length sourceData.params
+          then Right () else Left (ElaborationFailure (extent ctor.result).start "Constructor result must be its data type applied to all parameters in order")
+        _ => Left (ElaborationFailure (extent ctor.result).start "Constructor result must name its data type")) sourceData.constructors
+    let leading = length sourceData.params
+    let applied = foldl (\function, argument => NApply sourceData.span function argument) (NDataType sourceData.span key) refs
+    let family = Declared True sourceData.span sourceData.name.span sourceData.name.span sourceData.exported Erased ownName
+          (parameterPis sourceData.span sourceData.params (NSort sourceData.name.span sourceData.level))
+          (parameterLambdas sourceData.span sourceData.params applied)
+    let constructor = \entry =>
+          let ctor = snd entry
+              region = ctor.span
+              typeRef = applyParameters region (NQualifiedRef sourceData.name.span sourceData.name.spelling) sourceData.params
+           in Declared True region ctor.name.span ctor.name.span sourceData.exported Unrestricted ctor.name.spelling
+                (constructorParameterPis sourceData.implicitConstructors region sourceData.params (fieldPis region ctor.fields typeRef))
+                (NDataCon region key (fst entry) leading)
+    let generated = family :: map constructor (dataBranches 0 sourceData.constructors)
+    let actual = foldl (\accum, decl => capped (accum + syntaxNodes decl.expected + syntaxNodes decl.value)) 0 generated
+    if actual > budget then Left (ElaborationFailure sourceData.name.span.start "Generated data construction budget exhausted") else Right ()
+    Right (actual, generated)
 
   lowerOrdinaryData : String -> Nat -> DataDeclaration -> Either ElaborationError (Nat, List Declaration)
   lowerOrdinaryData key estimate sourceData = do

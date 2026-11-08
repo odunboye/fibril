@@ -2988,6 +2988,74 @@ main = first Zero
             self.assertIn('n = Succ (Succ 12)', formatted.stdout)
             self.assertIn('m = 256', formatted.stdout)
 
+    def test_general_recursive_data(self):
+        tree = ('module Main\n\ndata Tree : Type where\n  Leaf : Tree\n'
+                '  Node : (left : Tree) -> (right : Tree) -> Tree\n\n')
+        main = '\nmain : IO Unit\nmain = putStrLn (marks (Node (Node Leaf Leaf) Leaf))\n'
+        marks = ('marks : (t : Tree) -> String\nmarks t = case t of\n  Leaf => "."\n'
+                 '  Node l r => appendString (marks l) (marks r)\n')
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Main.fib'
+            def check(source, command='check'):
+                path.write_text(source)
+                args = ['--fuel', '4096'] if command == 'run' else []
+                return run(command, '--source-dir', directory, *args, str(path))
+            # A tree, not one of the two fixed shapes, declares, recurses on both subtrees and runs.
+            ran = check(tree + marks + main, 'run')
+            self.assertEqual((ran.returncode, ran.stdout), (0, '...\n'), ran.stderr)
+            example = ROOT / 'examples/modules/general-data'
+            shipped = run('run', '--source-dir', str(example), '--fuel', '4096', str(example / 'Main.fib'))
+            self.assertEqual((shipped.returncode, shipped.stdout), (0, '...\n(b(bb))\n'), shipped.stderr)
+            # A parameterized family, with the parameter passed explicitly to its constructors.
+            rose = ('module Main\n\ndata Rose (0 A : Type) : Type where\n  Bud : (value : A) -> Rose A\n'
+                    '  Branch : (value : A) -> (first : Rose A) -> (second : Rose A) -> Rose A\n\n'
+                    'size : (t : Rose Nat) -> String\nsize t = case t of\n  Bud v => "b"\n'
+                    '  Branch v a b => appendString "n" (appendString (size a) (size b))\n\n'
+                    'main : IO Unit\nmain = putStrLn (size (Branch Nat Zero (Bud Nat Zero) (Bud Nat Zero)))\n')
+            rose_run = check(rose, 'run')
+            self.assertEqual((rose_run.returncode, rose_run.stdout), (0, 'nbb\n'), rose_run.stderr)
+            # A family crosses a module boundary with its constructors, and an imported recursive
+            # function over it still runs. Two modules may each declare a `Tree`: the keys differ.
+            (Path(directory) / 'Data').mkdir()
+            shapes = ('module Data.Shapes\n\nexport\ndata Tree : Type where\n  Leaf : Tree\n'
+                      '  Node : (left : Tree) -> (right : Tree) -> Tree\n\nexport\nmarks : (t : Tree) -> String\n'
+                      'marks t = case t of\n  Leaf => "."\n  Node l r => appendString (marks l) (marks r)\n')
+            (Path(directory) / 'Data' / 'Shapes.fib').write_text(shapes)
+            importer = ('module Main\n\nimport Data.Shapes\n\n'
+                        'depth : (t : Data.Shapes.Tree) -> String\ndepth t = case t of\n  Data.Shapes.Leaf => "L"\n'
+                        '  Data.Shapes.Node l r => appendString "(" (appendString (depth l) (appendString (depth r) ")"))\n\n'
+                        'main : IO Unit\nmain = do\n'
+                        '  putStrLn (Data.Shapes.marks (Data.Shapes.Node Data.Shapes.Leaf Data.Shapes.Leaf))\n'
+                        '  putStrLn (depth (Data.Shapes.Node Data.Shapes.Leaf (Data.Shapes.Node Data.Shapes.Leaf Data.Shapes.Leaf)))\n')
+            imported = check(importer, 'run')
+            self.assertEqual((imported.returncode, imported.stdout), (0, '..\n(L(LL))\n'), imported.stderr)
+            # The imported family is not the local one with the same name.
+            clash = check('module Main\n\nimport Data.Shapes\n\ndata Tree : Type where\n  Leaf : Tree\n'
+                          '  Node : (left : Tree) -> (right : Tree) -> Tree\n\n'
+                          'mix : (t : Main.Tree) -> String\nmix t = Data.Shapes.marks t\n\n'
+                          'main : IO Unit\nmain = putStrLn "x"\n')
+            self.assertNotEqual(clash.returncode, 0)
+            self.assertIn('not compatible', clash.stderr)
+            # Recursion that does not shrink is refused by the same gate as other recursion.
+            for body in ('Node l r => marks (Node l r)', 'Node l r => marks t'):
+                refused = check(tree + 'marks : (t : Tree) -> String\nmarks t = case t of\n  Leaf => "."\n  '
+                                + body + '\n' + main)
+                self.assertNotEqual(refused.returncode, 0, body)
+                self.assertIn('no argument decreases', refused.stderr)
+            # A recursive field under a function type is not strictly positive.
+            negative = check('module Main\n\ndata Bad : Type where\n  Leaf : Bad\n'
+                             '  Wrap : (child : (n : Nat) -> Bad) -> Bad\n\nmain : IO Unit\nmain = putStrLn "x"\n')
+            self.assertNotEqual(negative.returncode, 0)
+            self.assertIn('under a function type', negative.stderr)
+            # A case must cover every constructor and bind exactly its fields.
+            missing = check(tree + 'marks : (t : Tree) -> String\nmarks t = case t of\n  Leaf => "."\n' + main)
+            self.assertNotEqual(missing.returncode, 0)
+            self.assertIn('every constructor', missing.stderr)
+            arity = check(tree + 'marks : (t : Tree) -> String\nmarks t = case t of\n  Leaf => "."\n'
+                          '  Node l => "x"\n' + main)
+            self.assertNotEqual(arity.returncode, 0)
+            self.assertIn('fields', arity.stderr)
+
     def test_general_mutual_groups(self):
         root = ROOT / 'examples/modules/general-recursion'
         # Two members over user data, and a three-member ring with two parameters: both are outside
@@ -3725,7 +3793,6 @@ main = first Zero
                 base.replace('main : IO Unit', 'bad : Flag Bool\nbad = MkFlag String\nmain : IO Unit'),
                 base.replace('main : IO Unit', 'data Other (0 A : Type 0) : Type 0 where\n  MkOther : Other A\nbad : Flag String\nbad = MkOther String\nmain : IO Unit'),
                 base.replace('MkFlag : Flag A', 'MkFlag : Flag String'),
-                base.replace('MkFlag : Flag A', 'MkFlag : (1 child : Flag A) -> Flag A'),
                 base.replace('MkFlag : Flag A', 'MkFlag : (1 child : Main.Flag A) -> Flag A'),
                 base.replace('MkFlag : Flag A', 'MkFlag : (1 child : Later) -> Flag A'),
                 base.replace('(0 A : Type 0)', '(A : Type 0)'),
@@ -3737,6 +3804,11 @@ main = first Zero
                 result = run("run", "--source-dir", str(root), str(path))
                 self.assertNotEqual(result.returncode, 0, bad + result.stdout + result.stderr)
                 self.assertEqual(result.stdout, "")
+            # A recursive constructor with no base case is a legal general family (it has no
+            # values), no longer a refusal: recursion is checked by positivity, not forbidden.
+            path.write_text(base.replace('MkFlag : Flag A', 'MkFlag : (1 child : Flag A) -> Flag A'))
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertEqual((result.returncode, result.stdout), (0, "flags\n"), result.stderr)
             # Ordinary helper arguments cannot pretend to share a linear capture.
             path.write_text('module Main\ndata Choice : Type 0 where\n  eliminator useChoice\n  Left : Choice\n  Right : Choice\nbad : (1 text : String) -> (1 choice : Choice) -> String\nbad = \\(1 text : String) => \\(1 choice : Choice) => useChoice (\\(0 self : Choice) => String) choice text text\nmain : IO Unit\nmain = putStrLn (bad "x" Left)\n')
             result = run("run", "--source-dir", str(root), str(path))
@@ -6706,6 +6778,99 @@ main = first Zero
             self.assertNotEqual(error.returncode, 0)
             self.assertIn('Unbound', error.stdout + error.stderr)
             self.assertNotIn('Parsing:', error.stdout + error.stderr)
+
+    def test_multi_field_data_case(self):
+        fixture = ROOT / 'examples/modules/multi-field-case/Main.fib'
+        source = fixture.read_text()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Main.fib'
+            def project(command):
+                return run(command, '--source-dir', directory, str(path))
+            path.write_text(source)
+            result = project('run')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'customer ada@example.com\nstaff bob\ncarol\nabcd\nempty\ncustomer dave\nguest\n')
+            formatted = run('format', str(path))
+            self.assertEqual(formatted.returncode, 0, formatted.stderr)
+            path.write_text(formatted.stdout)
+            self.assertEqual(project('run').stdout, result.stdout)
+            # Wrong arity, a constructor of another type, a missing or duplicate
+            # constructor, and an unconsumed linear field are all rejected.
+            for changed in [
+                source.replace('  Customer email password => appendString "customer " email', '  Customer email => email', 1),
+                source.replace('  Customer email password => appendString "customer " email', '  Customer email password extra => email', 1),
+                source.replace('  Customer email password => appendString "customer " email\n', '', 1),
+                source.replace('  Staff email => appendString "staff " email', '  Customer email password => email\n  Staff email => email', 1),
+                source.replace('appendString item (appendString note (appendString count sku))', 'appendString item (appendString note count)', 1),
+            ]:
+                path.write_text(changed)
+                rejected = project('run')
+                self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
+                self.assertEqual(rejected.stdout, '')
+            other = ('module Main\ndata User : Type where\n  Guest : User\n  Customer : (email : String) -> (password : String) -> User\n'
+                     'data Other : Type where\n  Nope : Other\n  Pair : (a : String) -> (b : String) -> Other\n'
+                     'f : User -> Bool\nf u = case u of\n  Guest => True\n  Pair a b => False\n'
+                     'main : IO Unit\nmain = putStrLn "never"\n')
+            path.write_text(other)
+            rejected = project('run')
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertIn('does not match the scrutinee type and shape', rejected.stdout + rejected.stderr)
+            # An expected dependent result type selects the motive, with two and
+            # three fields.
+            dependent = ('module Main\ndata Triple : Type where\n  Mk : (a : String) -> (b : String) -> (c : String) -> Triple\n  None : Triple\n'
+                         '0 Q : (0 t : Triple) -> Type 1\nQ t = case t of\n  Mk a b c => (String : Type 1)\n  None => (Bool : Type 1)\n'
+                         'k : (1 t : Triple) -> Q t\nk t = case t of\n  Mk a b c => appendString a (appendString b c)\n  None => True\n'
+                         'main : IO Unit\nmain = putStrLn (k (Mk "1" "2" "3"))\n')
+            path.write_text(dependent)
+            result = project('run')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, '123\n')
+
+    def test_multi_field_clause_patterns_and_wildcard(self):
+        header = ('module Main\ndata User : Type where\n  Guest : User\n'
+                  '  Customer : (email : String) -> (password : String) -> User\n  Staff : (email : String) -> User\n'
+                  'data Order : Type where\n  Empty : Order\n'
+                  '  Line : (1 item : String) -> (1 note : String) -> Order\n')
+        main = 'main : IO Unit\nmain = putStrLn (describe (Customer "ada" "pw"))\n'
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Main.fib'
+            def project(command):
+                return run(command, '--source-dir', directory, str(path))
+            clauses = ('describe : (1 user : User) -> String\n'
+                       'describe (Customer e p) = appendString "customer " e\n'
+                       'describe Guest = "guest"\ndescribe Staff e = e\n')
+            path.write_text(header + clauses + main)
+            result = project('run')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'customer ada\n')
+            formatted = run('format', str(path))
+            self.assertEqual(formatted.stdout, header + clauses + main)
+            # A lone parenthesized equation is still not a clause group.
+            path.write_text(header + 'describe : User -> String\ndescribe (Customer e p) = e\n' + main)
+            rejected = project('check')
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertIn('must be names', rejected.stdout + rejected.stderr)
+            for bad in ['describe (Customer e) = e', 'describe (Customer e e) = e', 'describe () = e']:
+                path.write_text(header + 'describe : User -> String\n' + bad + '\ndescribe Guest = "g"\ndescribe Staff e = e\n' + main)
+                self.assertNotEqual(project('check').returncode, 0, bad)
+            # `_` covers an unrestricted multi-field constructor but cannot drop linear fields.
+            path.write_text(header + 'isGuest : User -> Bool\nisGuest Guest = True\nisGuest _ = False\n' + 'main : IO Unit\nmain = putStrLn "x"\n')
+            self.assertEqual(project('check').returncode, 0)
+            for linear in ['isEmpty Empty = True\nisEmpty _ = False\n', 'isEmpty Empty = True\nisEmpty other = False\n']:
+                path.write_text(header + 'isEmpty : (1 order : Order) -> Bool\n' + linear + 'main : IO Unit\nmain = putStrLn "x"\n')
+                rejected = project('check')
+                self.assertNotEqual(rejected.returncode, 0)
+                self.assertIn('Binder usage', rejected.stdout + rejected.stderr)
+            # A named catch-all rebuilds the multi-field value from unrestricted fields.
+            path.write_text(header + 'describe : User -> String\ndescribe Staff e = e\ndescribe other = "other"\n'
+                            + 'main : IO Unit\nmain = putStrLn (describe (Customer "a" "b"))\n')
+            named = project('run')
+            self.assertEqual(named.returncode, 0, named.stdout + named.stderr)
+            self.assertEqual(named.stdout, 'other\n')
+            # Arity is reported precisely.
+            path.write_text(header + 'f : User -> Bool\nf u = case u of\n  Guest => True\n  Customer e => False\n  Staff e => True\n' + 'main : IO Unit\nmain = putStrLn "x"\n')
+            rejected = project('check')
+            self.assertIn('has 2 field(s) but the pattern binds 1', rejected.stdout + rejected.stderr)
 
     def test_inferred_data_case_motives(self):
         fixture = ROOT / 'examples/modules/direct-data-case/Main.fib'

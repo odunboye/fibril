@@ -64,6 +64,10 @@ it is not process RSS. The 64-byte parser cap, retained values, closure creation
 and frontend construction blockers remain. These samples are not a soundness,
 memory-safety or production throughput proof.
 
+A later [construction-accounting change](construction-accounting.md) addresses
+the reservation blocker for the fixed JSON/typed admission probe; it leaves the
+parser cap and runtime measurements above unchanged.
+
 Local raw reports (ignored artifacts):
 
 - `build/benchmarks/json-evaluation-before.json`, SHA-256
