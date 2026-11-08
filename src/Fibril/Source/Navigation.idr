@@ -108,6 +108,8 @@ mutual
   walk context env (NSeqNil _ _) = []
   walk context env (NSeqCons _ _ _ _) = []
   walk context env (NSeqFold _ _ _ _ _) = []
+  walk context env (NDataType _ _) = []
+  walk context env (NDataCon _ _ _ _) = []
   walk context env (NNominalType _ _ _ _) = []
   walk context env (NNominalValue _ _ _) = []
   walk context env (NNominalCase _ _ _ _) = []

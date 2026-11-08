@@ -14,6 +14,7 @@ import Fibril.Source.Syntax
 import Fibril.Source.Global
 import public Fibril.Source.Resolve.Error
 import Fibril.Core.Context
+import Fibril.Core.DataDecl
 import Fibril.Core.Erased
 import Fibril.Core.Reduction
 import Fibril.Core.Limits
@@ -884,6 +885,82 @@ mutual
         Right (SeqCase selected scrutinee base cons)
       _ => Left (CannotElaborate span.start "Sequence case requires exactly two branches")
 
+  -- A constructor named in a case arm: its index in the family, found from the global's value
+  -- (`DataCon key index leading`), so a renamed or qualified import still resolves.
+  familyArmIndex : GlobalContext -> Position -> List GlobalDefinition -> Vect n String -> String -> Token -> Either ResolveError Nat
+  familyArmIndex shared position globals env key name = do
+    if elem '.' (unpack name.spelling) then Right () else case lookupName name.spelling env of
+      Just _ => Left (CannotElaborate name.span.start "Data-case constructor is shadowed by a local binder")
+      Nothing => Right ()
+    definition <- case find (\entry => entry.name == name.spelling) globals of
+      Nothing => case qualifiedCandidates name.spelling globals of
+        _ :: _ :: _ => Left (CannotElaborate name.span.start ("Ambiguous imported name " ++ name.spelling ++ "; use a qualified name"))
+        _ => Left (Unbound name.span.start name.spelling)
+      Just entry => Right entry
+    case definition.value of
+      DataCon other index _ => if other == key then Right index
+        else Left (CannotElaborate name.span.start (name.spelling ++ " is a constructor of another family"))
+      _ => Left (CannotElaborate name.span.start (name.spelling ++ " is not a constructor of this family"))
+
+  -- One arm: bind the constructor's fields (with the quantities of its type) and elaborate the
+  -- body against the motive applied to the constructor rebuilt from them.
+  familyArmBody : GlobalContext -> List GlobalDefinition -> Context m -> Vect m String -> Term m -> List Token -> Term m ->
+                  Maybe (Term m) -> SourceSpan -> Expr -> Either ResolveError (Term m)
+  familyArmBody shared globals ctx env (Pi q domain rest) (binder :: binders) built motive span body = do
+    inner <- familyArmBody shared globals (Extend ctx q domain) (binder.spelling :: env) rest binders
+               (Apply (weaken built) (Variable FZ)) (map weaken motive) span body
+    Right (Lambda q domain inner)
+  familyArmBody shared globals ctx env (Pi _ _ _) [] built motive span body =
+    Left (CannotElaborate span.start "Data-case constructor has more fields than its branch binds")
+  familyArmBody shared globals ctx env _ (binder :: _) built motive span body =
+    Left (CannotElaborate binder.span.start "Data-case constructor has fewer fields than its branch binds")
+  familyArmBody shared globals ctx env _ [] built motive span body = case motive of
+    Nothing => elaborateInWithGlobals shared globals (Just ctx) env body
+    Just chosen =>
+      let applied = Apply chosen built
+          result = fromMaybe applied (guardedNormalGlobals shared typeReductionFuel applied) in
+        elaborateExpectedGlobals shared globals ctx env result body
+
+  familyArms : GlobalContext -> List GlobalDefinition -> Context n -> Vect n String -> DataDecl -> List (Term n) ->
+               Maybe (Term n) -> List (Token, List Token, Expr) -> Either ResolveError (List (Nat, Term n))
+  familyArms shared globals ctx env decl actuals motive [] = Right []
+  familyArms shared globals ctx env decl actuals motive ((name, binders, body) :: rest) = do
+    index <- familyArmIndex shared name.span.start globals env decl.key name
+    closed <- case constructorType decl index of
+      Nothing => Left (CannotElaborate name.span.start "Data-case constructor index is out of range")
+      Just ty => Right (rename absurd ty)
+    chain <- case instantiateParameters actuals closed of
+      Left err => Left (CannotElaborate name.span.start (show err))
+      Right ty => Right ty
+    branch <- familyArmBody shared globals ctx env chain binders (applyAll (DataCon decl.key index (parameterCount decl)) actuals)
+                motive name.span body
+    following <- familyArms shared globals ctx env decl actuals motive rest
+    if any (\entry => fst entry == index) following
+      then Left (CannotElaborate name.span.start "Duplicate data-case constructor") else Right ()
+    Right ((index, branch) :: following)
+
+  -- `remaining` counts the constructors still to place, so the recursion shrinks.
+  orderFamilyArms : Position -> Nat -> Nat -> List (Nat, Term n) -> Either ResolveError (List (Term n))
+  orderFamilyArms position Z index arms = Right []
+  orderFamilyArms position (S remaining) index arms = case lookup index arms of
+    Nothing => Left (CannotElaborate position "Data case does not cover every constructor")
+    Just branch => map (branch ::) (orderFamilyArms position remaining (S index) arms)
+
+  elaborateFamilyDataCaseGlobals : GlobalContext -> List GlobalDefinition -> Context n -> Vect n String -> SourceSpan -> Term n -> Term n ->
+                                   DataDecl -> List (Term n) -> Maybe Expr -> List (Token, List Token, Expr) -> Maybe (Term n) -> Either ResolveError (Term n)
+  elaborateFamilyDataCaseGlobals shared globals ctx env span scrutinee ty decl actuals motive arms expected = do
+    if length arms > 64 then Left (CannotElaborate span.start "Data-case branch admission exhausted (64)") else Right ()
+    explicit <- the (Either ResolveError (Maybe (Term n))) $ case motive of
+      Just authored => Just <$> elaborateInWithGlobals shared globals (Just ctx) env authored
+      Nothing => Right Nothing
+    selected <- case (explicit, expected) of
+      (Just authored, _) => Right authored
+      (Nothing, Just result) => Right (Lambda Erased ty (weaken result))
+      (Nothing, Nothing) => Left (CannotElaborate span.start "A case on this data needs an expected result type or an explicit motive")
+    checked <- familyArms shared globals ctx env decl actuals (Just selected) arms
+    ordered <- orderFamilyArms span.start (constructorCount decl) 0 checked
+    Right (DataCase decl.key selected scrutinee ordered)
+
   elaborateDataCaseGlobals : GlobalContext -> List GlobalDefinition -> Context n -> Vect n String -> SourceSpan -> Expr -> Maybe Expr -> List (Token, List Token, Expr) -> Maybe (Term n) -> Either ResolveError (Term n)
   elaborateDataCaseGlobals shared globals ctx env span value motive arms expected = do
     scrutinee <- elaborateInWithGlobals shared globals (Just ctx) env value
@@ -896,7 +973,11 @@ mutual
       HeadForm ty@(SeqType _ element) => elaborateSequenceDataCaseGlobals shared globals ctx env span scrutinee ty element motive arms expected
       HeadForm ty@(NominalType _ _ _) => elaborateNominalDataCaseGlobals shared globals ctx env span scrutinee ty motive arms expected
       HeadLimit _ => Left (CannotElaborate span.start "Data-case scrutinee reduction budget exhausted")
-      _ => Left (CannotElaborate span.start "Data case requires a supported nominal or recursive data scrutinee")
+      HeadForm ty => case dataTypeSpine ty of
+        Just (key, actuals) => case dataDeclaration shared key of
+          Just decl => elaborateFamilyDataCaseGlobals shared globals ctx env span scrutinee ty decl actuals motive arms expected
+          Nothing => Left (CannotElaborate span.start "Data case requires a supported nominal or recursive data scrutinee")
+        Nothing => Left (CannotElaborate span.start "Data case requires a supported nominal or recursive data scrutinee")
 
   elaborateNominalDataCaseGlobals : GlobalContext -> List GlobalDefinition -> Context n -> Vect n String -> SourceSpan -> Term n -> Term n -> Maybe Expr -> List (Token, List Token, Expr) -> Maybe (Term n) -> Either ResolveError (Term n)
   elaborateNominalDataCaseGlobals shared globals ctx env span scrutinee nominal motive arms expected = do
@@ -1058,6 +1139,8 @@ mutual
   elaborateInWithGlobals shared globals context env (NSeqNil _ ty) = SeqNil <$> elaborateInWithGlobals shared globals context env ty
   elaborateInWithGlobals shared globals context env (NSeqCons _ ty head tail) = [| SeqCons (elaborateInWithGlobals shared globals context env ty) (elaborateInWithGlobals shared globals context env head) (elaborateInWithGlobals shared globals context env tail) |]
   elaborateInWithGlobals shared globals context env (NSeqFold _ motive base next value) = [| SeqFold (elaborateInWithGlobals shared globals context env motive) (elaborateInWithGlobals shared globals context env base) (elaborateInWithGlobals shared globals context env next) (elaborateInWithGlobals shared globals context env value) |]
+  elaborateInWithGlobals shared globals context env (NDataType _ key) = Right (DataType key)
+  elaborateInWithGlobals shared globals context env (NDataCon _ key index leading) = Right (DataCon key index leading)
   elaborateInWithGlobals shared globals context env (NNominalType span key indices shape) = do
     indices <- elaborateTermsGlobals shared globals context env indices
     shape <- elaborateInWithGlobals shared globals context env shape

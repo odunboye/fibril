@@ -95,129 +95,158 @@ tailRow k env (Variable i) = case slot env i of
   _ => unknownRow k
 tailRow k _ _ = unknownRow k
 
+||| How many fields constructor `index` of the family `key` has, when that family is known.
+||| The extractor cannot see declarations, so the caller supplies this.
+public export
+FieldCounts : Type
+FieldCounts = String -> Nat -> Maybe Nat
+
+public export
+noFamilies : FieldCounts
+noFamilies _ _ = Nothing
+
+-- Is this binder annotation the family itself (applied to any parameters)? A field of that
+-- type is a proper component of the value being matched.
+isFamily : String -> Term m -> Bool
+isFamily key (DataType other) = key == other
+isFamily key (Apply function _) = isFamily key function
+isFamily _ _ = False
+
 mutual
-  walk : Nat -> List Entry -> Term m -> Either String (List Raw)
-  walk k env (Variable i) = case slot env i of
+  walk : FieldCounts -> Nat -> List Entry -> Term m -> Either String (List Raw)
+  walk info k env (Variable i) = case slot env i of
     SelfSlot => Left "the recursive function is used other than as the head of a saturated call"
     Partial _ _ => Left "the recursive function is used other than as the head of a saturated call"
     _ => Right []
   -- A global is closed and cannot contain this Fix's locally bound self.
   -- Typing validates its identity against an earlier acyclic environment before
   -- admission. No decrease is inferred from a global-headed result.
-  walk k env (GlobalRef _) = Right []
-  walk k env (Universe _) = Right []
-  walk k env UnitType = Right []
-  walk k env UnitValue = Right []
-  walk k env BoolType = Right []
-  walk k env BoolTrue = Right []
-  walk k env BoolFalse = Right []
-  walk k env NatType = Right []
-  walk k env NatZero = Right []
-  walk k env StringType = Right []
-  walk k env (StringValue _) = Right []
-  walk k env (RecType _) = Right []
-  walk k env (NatSucc x) = walk k env x
-  walk k env (StringAppend a b) = do x <- walk k env a; y <- walk k env b; Right (x ++ y)
-  walk k env (StringEqual a b) = do x <- walk k env a; y <- walk k env b; Right (x ++ y)
-  walk k env (UnitCase a b) = do x <- walk k env a; y <- walk k env b; Right (x ++ y)
-  walk k env (BoolCase c y n) = do
-    a <- walk k env c
-    b <- walk k env y
-    d <- walk k env n
+  walk info k env (GlobalRef _) = Right []
+  walk info k env (Universe _) = Right []
+  walk info k env UnitType = Right []
+  walk info k env UnitValue = Right []
+  walk info k env BoolType = Right []
+  walk info k env BoolTrue = Right []
+  walk info k env BoolFalse = Right []
+  walk info k env NatType = Right []
+  walk info k env NatZero = Right []
+  walk info k env StringType = Right []
+  walk info k env (StringValue _) = Right []
+  walk info k env (RecType _) = Right []
+  walk info k env (NatSucc x) = walk info k env x
+  walk info k env (StringAppend a b) = do x <- walk info k env a; y <- walk info k env b; Right (x ++ y)
+  walk info k env (StringEqual a b) = do x <- walk info k env a; y <- walk info k env b; Right (x ++ y)
+  walk info k env (UnitCase a b) = do x <- walk info k env a; y <- walk info k env b; Right (x ++ y)
+  walk info k env (BoolCase c y n) = do
+    a <- walk info k env c
+    b <- walk info k env y
+    d <- walk info k env n
     Right (a ++ b ++ d)
-  walk k env (SeqType _ e) = walk k env e
-  walk k env (SeqNil t) = walk k env t
-  walk k env (SeqCons t h tl) = do
-    a <- walk k env t
-    b <- walk k env h
-    c <- walk k env tl
+  walk info k env (SeqType _ e) = walk info k env e
+  walk info k env (SeqNil t) = walk info k env t
+  walk info k env (SeqCons t h tl) = do
+    a <- walk info k env t
+    b <- walk info k env h
+    c <- walk info k env tl
     Right (a ++ b ++ c)
-  walk k env (RecEnd t) = walk k env t
-  walk k env (RecMore t v) = do x <- walk k env t; y <- walk k env v; Right (x ++ y)
-  walk k env (PairValue t a b) = do
-    x <- walk k env t
-    y <- walk k env a
-    z <- walk k env b
+  walk info k env (RecEnd t) = walk info k env t
+  walk info k env (RecMore t v) = do x <- walk info k env t; y <- walk info k env v; Right (x ++ y)
+  walk info k env (PairValue t a b) = do
+    x <- walk info k env t
+    y <- walk info k env a
+    z <- walk info k env b
     Right (x ++ y ++ z)
-  walk k env (PairCase m s b) = do
-    x <- walk k env m
-    y <- walk k env s
-    z <- walk k env b
+  walk info k env (PairCase m s b) = do
+    x <- walk info k env m
+    y <- walk info k env s
+    z <- walk info k env b
     Right (x ++ y ++ z)
-  walk k env (Pi _ d b) = do
-    x <- walk k env d
-    y <- walk k (Val (unknownRow k) :: env) b
+  walk info k env (Pi _ d b) = do
+    x <- walk info k env d
+    y <- walk info k (Val (unknownRow k) :: env) b
     Right (x ++ y)
-  walk k env (Sigma _ _ d b) = do
-    x <- walk k env d
-    y <- walk k (Val (unknownRow k) :: env) b
+  walk info k env (Sigma _ _ d b) = do
+    x <- walk info k env d
+    y <- walk info k (Val (unknownRow k) :: env) b
     Right (x ++ y)
   -- A lambda away from the leading parameters may run later or repeatedly, so
   -- a call under it is not accounted for and is refused.
-  walk k env (Lambda _ d b) = do
-    x <- walk k env d
-    y <- walk k (Val (unknownRow k) :: env) b
+  walk info k env (Lambda _ d b) = do
+    x <- walk info k env d
+    y <- walk info k (Val (unknownRow k) :: env) b
     case y of
       [] => Right x
       _ => Left "recursive call under a non-leading lambda"
-  walk k env (SeqCase motive value base cons) = do
-    a <- walk k env motive
-    b <- walk k env value
-    c <- walk k env base
-    d <- walkCons k env (tailRow k env value) cons
+  walk info k env (DataType _) = Right []
+  walk info k env (DataCon _ _ _) = Right []
+  -- A case on general data: each branch is a lambda over the constructor's fields. A field
+  -- whose type is the family itself is a proper component of the scrutinee, hence smaller.
+  -- Every component of a finite value is smaller, but only family-typed fields are credited
+  -- here, as for the fixed shapes. The field count comes from the declaration, so a lambda
+  -- beyond the fields (a branch returning a function) is never taken for a field.
+  walk info k env (DataCase key motive value branches) = do
+    a <- walk info k env motive
+    b <- walk info k env value
+    c <- walkDataBranches info k env key (tailRow k env value) 0 branches
+    Right (a ++ b ++ c)
+  walk info k env (SeqCase motive value base cons) = do
+    a <- walk info k env motive
+    b <- walk info k env value
+    c <- walk info k env base
+    d <- walkCons info k env (tailRow k env value) cons
     Right (a ++ b ++ c ++ d)
   -- Recursors and folds may be used (a helper inlined from a global), but not
   -- recursed through: the step is a lambda, so a self call inside it is refused
   -- below. Motive, base and value are ordinary evaluation positions.
-  walk k env (NatRec motive base step value) = walk4 k env motive base step value
-  walk k env (NatRecRuntime motive base step value) = walk4 k env motive base step value
-  walk k env (RecFold motive base step value) = walk4 k env motive base step value
-  walk k env (SeqFold motive base step value) = walk4 k env motive base step value
-  walk k env (NatCase motive value base more) = do
-    a <- walk k env motive
-    b <- walk k env value
-    c <- walk k env base
-    d <- walkMore k env (tailRow k env value) more
+  walk info k env (NatRec motive base step value) = walk4 info k env motive base step value
+  walk info k env (NatRecRuntime motive base step value) = walk4 info k env motive base step value
+  walk info k env (RecFold motive base step value) = walk4 info k env motive base step value
+  walk info k env (SeqFold motive base step value) = walk4 info k env motive base step value
+  walk info k env (NatCase motive value base more) = do
+    a <- walk info k env motive
+    b <- walk info k env value
+    c <- walk info k env base
+    d <- walkMore info k env (tailRow k env value) more
     Right (a ++ b ++ c ++ d)
-  walk k env (RecCase motive value base more) = do
-    a <- walk k env motive
-    b <- walk k env value
-    c <- walk k env base
-    d <- walkMore k env (tailRow k env value) more
+  walk info k env (RecCase motive value base more) = do
+    a <- walk info k env motive
+    b <- walk info k env value
+    c <- walk info k env base
+    d <- walkMore info k env (tailRow k env value) more
     Right (a ++ b ++ c ++ d)
   -- A let (a lambda applied at once) runs its body once, in the same evaluation context, so
   -- calls inside it count. The bound variable inherits what is known about its value.
-  walk k env (Apply (Lambda _ d inner) x) = do
-    a <- walk k env d
-    (entry, ex) <- entryOf k env x
-    b <- walk k (entry :: env) inner
+  walk info k env (Apply (Lambda _ d inner) x) = do
+    a <- walk info k env d
+    (entry, ex) <- entryOf info k env x
+    b <- walk info k (entry :: env) inner
     Right (a ++ ex ++ b)
-  walk k env (Apply f x) = do
-    ex <- walk k env x
-    walkApp k env f [argRow k env x] (literalOf x) ex
-  walk _ _ other = Left ("unsupported term form in a recursive body: " ++ pack (take 48 (unpack (renderTerm other))))
+  walk info k env (Apply f x) = do
+    ex <- walk info k env x
+    walkApp info k env f [argRow k env x] (literalOf x) ex
+  walk info _ _ other = Left ("unsupported term form in a recursive body: " ++ pack (take 48 (unpack (renderTerm other))))
 
   -- The rows of a partial application of the recursive function (or of an alias to one),
   -- with the calls nested in its arguments; Nothing when the head is something else.
-  aliasOf : Nat -> List Entry -> Term m -> Either String (Maybe (List Row, Maybe String, List Raw))
-  aliasOf k env (Variable i) = Right (case slot env i of
+  aliasOf : FieldCounts -> Nat -> List Entry -> Term m -> Either String (Maybe (List Row, Maybe String, List Raw))
+  aliasOf info k env (Variable i) = Right (case slot env i of
     SelfSlot => Just ([], Nothing, [])
     Partial held tag => Just (held, tag, [])
     _ => Nothing)
-  aliasOf k env (Apply g y) = do
-    inner <- aliasOf k env g
+  aliasOf info k env (Apply g y) = do
+    inner <- aliasOf info k env g
     case inner of
       Nothing => Right Nothing
       Just (rows, tag, calls) => do
-        ey <- walk k env y
+        ey <- walk info k env y
         Right (Just (rows ++ [argRow k env y], if null rows then literalOf y else tag, calls ++ ey))
-  aliasOf _ _ _ = Right Nothing
+  aliasOf info _ _ _ = Right Nothing
 
   -- What a let-bound value stands for: an alias of a not-yet-saturated call of the recursive
   -- function, the size relation of a variable it copies, or otherwise an unknown value.
-  entryOf : Nat -> List Entry -> Term m -> Either String (Entry, List Raw)
-  entryOf k env x = do
-    found <- aliasOf k env x
+  entryOf : FieldCounts -> Nat -> List Entry -> Term m -> Either String (Entry, List Raw)
+  entryOf info k env x = do
+    found <- aliasOf info k env x
     case found of
       Just (rows, tag, calls) =>
         if length rows < k then Right (Alias rows tag, calls) else other
@@ -225,7 +254,7 @@ mutual
     where
       unknown : Either String (Entry, List Raw)
       unknown = do
-        calls <- walk k env x
+        calls <- walk info k env x
         Right (Val (unknownRow k), calls)
       other : Either String (Entry, List Raw)
       other = case x of
@@ -234,38 +263,56 @@ mutual
           _ => unknown
         _ => unknown
 
-  walk4 : Nat -> List Entry -> Term m -> Term m -> Term m -> Term m -> Either String (List Raw)
-  walk4 k env a b c d = do
-    w <- walk k env a
-    x <- walk k env b
-    y <- walk k env c
-    z <- walk k env d
+  walkDataBranches : FieldCounts -> Nat -> List Entry -> String -> Row -> Nat -> List (Term m) -> Either String (List Raw)
+  walkDataBranches info k env key component index [] = Right []
+  walkDataBranches info k env key component index (branch :: rest) = case info key index of
+    Nothing => Left ("case on a family the extractor cannot see: " ++ key)
+    Just count => do
+      x <- walkDataFields info k env key component count branch
+      y <- walkDataBranches info k env key component (S index) rest
+      Right (x ++ y)
+
+  -- Peel exactly `count` field lambdas; the newest binder is the last field.
+  walkDataFields : FieldCounts -> Nat -> List Entry -> String -> Row -> Nat -> Term m -> Either String (List Raw)
+  walkDataFields info k env key component (S remaining) (Lambda _ domain inner) = do
+    x <- walk info k env domain
+    let entry = if isFamily key domain then Val component else Val (unknownRow k)
+    y <- walkDataFields info k (entry :: env) key component remaining inner
+    Right (x ++ y)
+  walkDataFields info k env key component _ other = walk info k env other
+
+  walk4 : FieldCounts -> Nat -> List Entry -> Term m -> Term m -> Term m -> Term m -> Either String (List Raw)
+  walk4 info k env a b c d = do
+    w <- walk info k env a
+    x <- walk info k env b
+    y <- walk info k env c
+    z <- walk info k env d
     Right (w ++ x ++ y ++ z)
 
   -- The cons arm binds the head, then the tail as the newest variable.
-  walkCons : Nat -> List Entry -> Row -> Term m -> Either String (List Raw)
-  walkCons k env tl (Lambda _ d1 (Lambda _ d2 inner)) = do
-    x <- walk k env d1
-    y <- walk k (Val (unknownRow k) :: env) d2
-    z <- walk k (Val tl :: Val (unknownRow k) :: env) inner
+  walkCons : FieldCounts -> Nat -> List Entry -> Row -> Term m -> Either String (List Raw)
+  walkCons info k env tl (Lambda _ d1 (Lambda _ d2 inner)) = do
+    x <- walk info k env d1
+    y <- walk info k (Val (unknownRow k) :: env) d2
+    z <- walk info k (Val tl :: Val (unknownRow k) :: env) inner
     Right (x ++ y ++ z)
-  walkCons k env _ other = walk k env other
+  walkCons info k env _ other = walk info k env other
 
-  walkMore : Nat -> List Entry -> Row -> Term m -> Either String (List Raw)
-  walkMore k env tl (Lambda _ d inner) = do
-    x <- walk k env d
-    y <- walk k (Val tl :: env) inner
+  walkMore : FieldCounts -> Nat -> List Entry -> Row -> Term m -> Either String (List Raw)
+  walkMore info k env tl (Lambda _ d inner) = do
+    x <- walk info k env d
+    y <- walk info k (Val tl :: env) inner
     Right (x ++ y)
-  walkMore k env _ other = walk k env other
+  walkMore info k env _ other = walk info k env other
 
   -- Spine walk: arguments are collected as rows and also walked for nested calls.
   -- The extra argument is the literal of the argument nearest the head so far; when the head
   -- is reached it is the first argument of the call.
-  walkApp : Nat -> List Entry -> Term m -> List Row -> Maybe String -> List Raw -> Either String (List Raw)
-  walkApp k env (Apply g y) rows firstTag acc = do
-    ey <- walk k env y
-    walkApp k env g (argRow k env y :: rows) (literalOf y) (acc ++ ey)
-  walkApp k env (Variable i) rows firstTag acc = case slot env i of
+  walkApp : FieldCounts -> Nat -> List Entry -> Term m -> List Row -> Maybe String -> List Raw -> Either String (List Raw)
+  walkApp info k env (Apply g y) rows firstTag acc = do
+    ey <- walk info k env y
+    walkApp info k env g (argRow k env y :: rows) (literalOf y) (acc ++ ey)
+  walkApp info k env (Variable i) rows firstTag acc = case slot env i of
     SelfSlot => if length rows == k then Right (MkRaw firstTag rows :: acc)
                 else Left "recursive call is not saturated"
     Partial held heldTag =>
@@ -273,8 +320,8 @@ mutual
         then Right (MkRaw (if null held then firstTag else heldTag) (held ++ rows) :: acc)
         else Left "recursive call is not saturated"
     _ => Right acc
-  walkApp k env other rows firstTag acc = do
-    e <- walk k env other
+  walkApp info k env other rows firstTag acc = do
+    e <- walk info k env other
     Right (acc ++ e)
 
 -- A dispatch test: the tag, which is the first of the k parameters and so the outermost
@@ -300,22 +347,22 @@ chainOf _ _ = Nothing
 -- (the tested names, then the fallback arm last).
 data Analysis = Plain (List Raw) | Dispatch (List String) (List (List Raw))
 
-bodyAnalysis : Nat -> List Entry -> Term m -> Either String Analysis
-bodyAnalysis k env body = case chainOf k body of
-  Nothing => map Plain (walk k env body)
+bodyAnalysis : FieldCounts -> Nat -> List Entry -> Term m -> Either String Analysis
+bodyAnalysis info k env body = case chainOf k body of
+  Nothing => map Plain (walk info k env body)
   Just (tests, fallback) => do
-    armCalls <- traverse (\(_, arm) => walk k env arm) tests
-    fallbackCalls <- walk k env fallback
+    armCalls <- traverse (\(_, arm) => walk info k env arm) tests
+    fallbackCalls <- walk info k env fallback
     Right (Dispatch (map fst tests) (armCalls ++ [fallbackCalls]))
 
 -- The body must begin with one lambda per function argument in the type.
-peel : Nat -> Nat -> List Entry -> Term m -> Either String (List Raw, Analysis)
-peel k Z env body = map (\analysis => ([], analysis)) (bodyAnalysis k env body)
-peel k (S r) env (Lambda _ dom inner) = do
-  x <- walk k env dom
-  (more, analysis) <- peel k r (Val (paramRow k (minus k (S r))) :: env) inner
+peel : FieldCounts -> Nat -> Nat -> List Entry -> Term m -> Either String (List Raw, Analysis)
+peel info k Z env body = map (\analysis => ([], analysis)) (bodyAnalysis info k env body)
+peel info k (S r) env (Lambda _ dom inner) = do
+  x <- walk info k env dom
+  (more, analysis) <- peel info k r (Val (paramRow k (minus k (S r))) :: env) inner
   Right (x ++ more, analysis)
-peel _ _ _ _ = Left "recursive body has fewer leading lambdas than its type has arguments"
+peel info _ _ _ _ = Left "recursive body has fewer leading lambdas than its type has arguments"
 
 -- Every call attributed to a single node, whatever its tag.
 merged : List Raw -> List Call
@@ -362,17 +409,26 @@ finish domainCalls (Dispatch names arms) =
 ||| Size-change composition then follows real call paths only, so a member that merely
 ||| forwards its arguments to one that shrinks them is accepted. Anything else is one node.
 public export
-extractFix : Term n -> Term (S n) -> Either String Extraction
-extractFix ty body = case arityOf ty of
+extractFixWith : FieldCounts -> Term n -> Term (S n) -> Either String Extraction
+extractFixWith info ty body = case arityOf ty of
   Z => Left "recursive definition must have a function type"
   k => if k > 8 then Left "recursive definition has more than 8 arguments"
        else do
-         (domainCalls, analysis) <- peel k k [] body
+         (domainCalls, analysis) <- peel info k k [] body
          Right (finish domainCalls analysis)
+
+||| Extraction when no general data family is in scope; a case on one is then unsupported.
+public export
+extractFix : Term n -> Term (S n) -> Either String Extraction
+extractFix = extractFixWith noFamilies
 
 ||| Preserve the extractor's supported closed-syntax boundary when a helper is
 ||| stored in a checked global environment instead of being embedded at its use.
 ||| Global references here are checked separately by the caller's acyclic walk.
 public export
+checkClosedGlobalSyntaxWith : FieldCounts -> Term 0 -> Either String ()
+checkClosedGlobalSyntaxWith info term = () <$ walk info 0 [] term
+
+public export
 checkClosedGlobalSyntax : Term 0 -> Either String ()
-checkClosedGlobalSyntax term = () <$ walk 0 [] term
+checkClosedGlobalSyntax = checkClosedGlobalSyntaxWith noFamilies

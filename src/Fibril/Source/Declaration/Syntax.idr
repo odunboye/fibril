@@ -130,8 +130,10 @@ record MutualDeclaration where
   others : List Declaration
   exported : Bool
 
+||| `DataFamily` registers a general recursive family (its authored declaration and qualified key)
+||| before the ordinary declarations that name its type and constructors.
 public export
-data LoweredItem = Single Declaration | MutualNatBool MutualDeclaration
+data LoweredItem = Single Declaration | MutualNatBool MutualDeclaration | DataFamily DataDeclaration String
 
 public export
 data AuthoredDeclaration = Ordinary Declaration | DataItem DataDeclaration | RecordItem RecordDeclaration

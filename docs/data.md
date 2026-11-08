@@ -176,6 +176,51 @@ construction and are post-counted; these are admissions, not hard resource
 bounds. The experimental C backend also supports these fixed recursive values,
 cases and folds, subject to its own limits.
 
+## General recursive data
+
+A `data` declaration whose recursive fields match neither fixed shape (a tree with two
+recursive fields, several recursive constructors, extra payload fields) is checked as a
+general recursive family. There is no new syntax: write the declaration as usual.
+
+~~~fibril
+data Tree : Type where
+  Leaf : Tree
+  Node : (left : Tree) -> (right : Tree) -> Tree
+
+marks : (t : Tree) -> String
+marks t = case t of
+  Leaf => "."
+  Node l r => appendString (marks l) (marks r)
+~~~
+
+See the [runnable example](../examples/modules/general-data/Main.fib), which also has a
+parameterized `Rose A`. The rule that keeps these declarations sound is deliberately narrow:
+a recursive occurrence must be the **whole type of a field**, applied to the declaration's own
+parameters unchanged. A recursive field under a function type, inside another type former, or
+with different parameters is refused (`Wrap : (child : (n : Nat) -> Bad) -> Bad` fails with
+"a recursive occurrence under a function type is not accepted"). Parameters must be erased;
+field types must live in `Type 0`; and a family has at most 4 parameters, 16 constructors and
+8 fields per constructor.
+
+A `case` on such a value needs one arm per constructor, binding exactly that constructor's
+fields with the quantities its declaration gives them. It needs an expected result type (or an
+explicit motive); the arms are then checked against that constant result. Recursion uses
+[general recursion](function-equations.md#general-recursion): a call on a field whose type is
+the family itself counts as smaller than the value being matched, so structural recursion over
+a tree is admitted by the size-change check, while a call on a rebuilt node or on the value
+itself is refused.
+
+Not yet supported: function equations with constructor patterns (use `case`), `_` catch-all
+arms, mutually recursive families, indexed families, a dependent motive inferred from the
+arms, and eliminator helpers. The experimental C backend lowers a family to native variants (see below). The plan and its soundness argument are in
+[general recursive data](general-recursive-data-plan.md).
+
+The C backend needs no new runtime support. A constructor is emitted as a lambda chain over its
+erased parameters and its fields that builds a tagged variant, whose payload is the fields as
+right-nested pairs; a `case` is a variant case whose branches unpack that nest. Native output
+is checked against the hosted evaluator for constructors with zero to four fields, and the
+runtime's fixed step and depth budgets apply to recursion over these values as to any `Fix`.
+
 ## Use the optional eliminator
 
 The eliminator directive is optional and appears before constructor signatures.

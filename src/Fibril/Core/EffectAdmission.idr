@@ -65,6 +65,9 @@ mutual
   scan b (VariantType arms) = scanArms b arms
   scan b (VariantValue ty _ Nothing) = scan b ty
   scan b (VariantValue ty _ (Just x)) = scan b ty || scan b x
+  scan _ (DataType _) = False
+  scan _ (DataCon _ _ _) = False
+  scan b (DataCase _ p x branches) = scan b p || scan b x || scans b branches
   scan b (VariantCase p x branches) = scan b p || scan b x || scans b branches
   scan b (BoxType _ x) = scan b x
   scan b (BoxValue a x) = scan b a || scan b x

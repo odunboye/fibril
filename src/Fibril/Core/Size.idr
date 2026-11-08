@@ -65,6 +65,9 @@ mutual
   coreNodes (VariantType arms) = 1 + variantArmNodes arms
   coreNodes (VariantValue ty _ Nothing) = 1 + coreNodes ty
   coreNodes (VariantValue ty _ (Just value)) = 1 + coreNodes ty + coreNodes value
+  coreNodes (DataType _) = 1
+  coreNodes (DataCon _ _ _) = 1
+  coreNodes (DataCase _ motive value branches) = 1 + coreNodes motive + coreNodes value + variantTermNodes branches
   coreNodes (VariantCase motive value branches) = 1 + coreNodes motive + coreNodes value + variantTermNodes branches
   coreNodes (BoxType _ a) = 1 + coreNodes a
   coreNodes (BoxValue a b) = 1 + coreNodes a + coreNodes b
@@ -154,6 +157,9 @@ mutual
   mentionsNominal key (VariantType arms) = anyNominalArms key arms
   mentionsNominal key (VariantValue ty _ Nothing) = mentionsNominal key ty
   mentionsNominal key (VariantValue ty _ (Just value)) = mentionsNominal key ty || mentionsNominal key value
+  mentionsNominal key (DataType other) = key == other
+  mentionsNominal key (DataCon other _ _) = key == other
+  mentionsNominal key (DataCase other motive value branches) = key == other || mentionsNominal key motive || mentionsNominal key value || anyNominalTerms key branches
   mentionsNominal key (VariantCase motive value branches) = mentionsNominal key motive || mentionsNominal key value || anyNominalTerms key branches
   mentionsNominal key (BoxType _ a) = mentionsNominal key a
   mentionsNominal key (BoxValue a b) = mentionsNominal key a || mentionsNominal key b

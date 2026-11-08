@@ -72,6 +72,9 @@ mutual
   admitGlobals shared (S budget) (VariantType arms) = admitArmsGlobals shared budget arms
   admitGlobals shared (S budget) (VariantValue ty _ Nothing) = admitGlobals shared budget ty
   admitGlobals shared (S budget) (VariantValue ty _ (Just value)) = do x <- admitGlobals shared budget ty; admitGlobals shared x value
+  admitGlobals shared (S budget) (DataType _) = Just budget
+  admitGlobals shared (S budget) (DataCon _ _ _) = Just budget
+  admitGlobals shared (S budget) (DataCase _ motive value branches) = do x <- admitGlobals shared budget motive; y <- admitGlobals shared x value; admitTermsGlobals shared y branches
   admitGlobals shared (S budget) (VariantCase motive value branches) = do x <- admitGlobals shared budget motive; y <- admitGlobals shared x value; admitTermsGlobals shared y branches
   admitGlobals shared (S budget) (BoxType _ a) = admitGlobals shared budget a
   admitGlobals shared (S budget) (BoxValue a b) = do x <- admitGlobals shared budget a; admitGlobals shared x b
@@ -205,6 +208,9 @@ mutual
   safeRedexesGlobals shared size payload (VariantType arms) = safeArmsGlobals shared size payload arms
   safeRedexesGlobals shared size payload (VariantValue ty _ Nothing) = safeRedexesGlobals shared size payload ty
   safeRedexesGlobals shared size payload (VariantValue ty _ (Just value)) = safeRedexesGlobals shared size payload ty && safeRedexesGlobals shared size payload value
+  safeRedexesGlobals shared size payload (DataType _) = True
+  safeRedexesGlobals shared size payload (DataCon _ _ _) = True
+  safeRedexesGlobals shared size payload (DataCase _ a b branches) = safeRedexesGlobals shared size payload a && safeRedexesGlobals shared size payload b && safeTermsGlobals shared size payload branches
   safeRedexesGlobals shared size payload (VariantCase a b branches) = safeRedexesGlobals shared size payload a && safeRedexesGlobals shared size payload b && safeTermsGlobals shared size payload branches
   safeRedexesGlobals shared size payload (BoxType _ a) = safeRedexesGlobals shared size payload a
   safeRedexesGlobals shared size payload (BoxValue a b) = safeRedexesGlobals shared size payload a && safeRedexesGlobals shared size payload b

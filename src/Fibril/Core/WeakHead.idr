@@ -61,6 +61,10 @@ stepHeadWithGlobals globals (BoolCase condition yes no) =
   mapStep (\next => BoolCase next yes no) (stepHeadWithGlobals globals condition)
 stepHeadWithGlobals globals (NominalCase motive (NominalValue ty value) branch) = pure (Just (Apply branch value))
 stepHeadWithGlobals globals (NominalCase motive value branch) = mapStep (\next => NominalCase motive next branch) (stepHeadWithGlobals globals value)
+stepHeadWithGlobals globals (DataCase key motive value branches) =
+  case dataContract key value branches of
+    Just result => pure (Just result)
+    Nothing => mapStep (\next => DataCase key motive next branches) (stepHeadWithGlobals globals value)
 stepHeadWithGlobals globals (VariantCase motive (VariantValue ty tag payload) branches) = pure (variantContract tag payload branches)
 stepHeadWithGlobals globals (VariantCase motive value branches) = mapStep (\next => VariantCase motive next branches) (stepHeadWithGlobals globals value)
 stepHeadWithGlobals globals (BoxCase motive (BoxValue ty value) branch) = pure (Just (Apply branch value))

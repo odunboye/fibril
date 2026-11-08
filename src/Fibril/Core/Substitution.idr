@@ -78,6 +78,9 @@ mutual
   substituteCongruent left right agree (VariantType arms) = rewrite substituteCongruentArms left right agree arms in Refl
   substituteCongruent left right agree (VariantValue ty tag Nothing) = rewrite substituteCongruent left right agree ty in Refl
   substituteCongruent left right agree (VariantValue ty tag (Just value)) = rewrite substituteCongruent left right agree ty in rewrite substituteCongruent left right agree value in Refl
+  substituteCongruent left right agree (DataType key) = Refl
+  substituteCongruent left right agree (DataCon key index leading) = Refl
+  substituteCongruent left right agree (DataCase key motive value branches) = rewrite substituteCongruent left right agree motive in rewrite substituteCongruent left right agree value in rewrite substituteCongruentTerms left right agree branches in Refl
   substituteCongruent left right agree (VariantCase motive value branches) = rewrite substituteCongruent left right agree motive in rewrite substituteCongruent left right agree value in rewrite substituteCongruentTerms left right agree branches in Refl
   substituteCongruent left right agree (BoxType q value) = cong (BoxType q) (substituteCongruent left right agree value)
   substituteCongruent left right agree (IOPure value) = cong IOPure (substituteCongruent left right agree value)
@@ -200,6 +203,9 @@ mutual
   renameAsSubstitution env (VariantType arms) = rewrite renameAsSubstitutionArms env arms in Refl
   renameAsSubstitution env (VariantValue ty tag Nothing) = rewrite renameAsSubstitution env ty in Refl
   renameAsSubstitution env (VariantValue ty tag (Just value)) = rewrite renameAsSubstitution env ty in rewrite renameAsSubstitution env value in Refl
+  renameAsSubstitution env (DataType key) = Refl
+  renameAsSubstitution env (DataCon key index leading) = Refl
+  renameAsSubstitution env (DataCase key motive value branches) = rewrite renameAsSubstitution env motive in rewrite renameAsSubstitution env value in rewrite renameAsSubstitutionTerms env branches in Refl
   renameAsSubstitution env (VariantCase motive value branches) = rewrite renameAsSubstitution env motive in rewrite renameAsSubstitution env value in rewrite renameAsSubstitutionTerms env branches in Refl
   renameAsSubstitution env (BoxType q value) = cong (BoxType q) (renameAsSubstitution env value)
   renameAsSubstitution env (IOPure value) = cong IOPure (renameAsSubstitution env value)

@@ -49,10 +49,15 @@ decide nodes arity edges = case produce (replicate nodes arity) edges of
 ||| does. If it only exceeds the checker's size limits, the merged graph decides instead,
 ||| so refining can never refuse a function that was admitted before.
 public export
-admitFix : Term n -> Term (S n) -> Either String ()
-admitFix ty body = do
-  extraction <- extractFix ty body
+admitFixWith : FieldCounts -> Term n -> Term (S n) -> Either String ()
+admitFixWith info ty body = do
+  extraction <- extractFixWith info ty body
   let arity = arityOf ty
   if extraction.nodes > 1 && gaveUp (produce (replicate extraction.nodes arity) extraction.calls)
     then decide 1 arity extraction.coarse
     else decide extraction.nodes arity extraction.calls
+
+||| Admission when no general data family is in scope.
+public export
+admitFix : Term n -> Term (S n) -> Either String ()
+admitFix = admitFixWith noFamilies
