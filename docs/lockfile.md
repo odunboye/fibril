@@ -21,8 +21,9 @@ and per-target conditions. Those need their own designs
 
 `fibril.lock` sits beside the root `fibril.yaml`. It is machine-written and
 **JSON** (reusing [Driver.JSON](../src/Fibril/Driver/JSON.idr) escaping), not
-YAML, so the strict YAML profile need not grow a writer and diffs stay stable
-through sorted keys and two-space indentation.
+YAML, so the strict YAML profile need not grow a writer. Output is canonical: fixed key order,
+packages sorted by name, one package object per line (so diffs are per package),
+trailing newline. `Fibril.Project.Lock.encodeLock` implements exactly this.
 
 ```json
 {
@@ -82,10 +83,15 @@ scripts, or rewrites the lock implicitly.
 
 ## Implementation slices
 
-1. Pure `Project.Lock` module: tree digest and lock encode/decode, with tests on
-   fixed inputs (ordering, empty tree, CRLF, non-ASCII path, duplicate name).
-2. SHA-256 per open question 1, checked against published test vectors.
-3. `fibril lock` plus verification inside the existing `--package` closure loader.
+1. **Done (encode and drift only):** pure `Fibril.Project.Lock` with `treeDigest`
+   (rejects empty, absolute, `.`/`..`, NUL and duplicate paths), `encodeLock` and
+   `lockDrift`. Tested against digests computed independently with Python
+   hashlib. **No decoder yet:** verification needs a strict reader that rejects
+   unknown keys, duplicate keys and wrong types before the loader trusts a lock.
+2. **Done:** SHA-256 per open question 1, checked against published vectors.
+3. Strict lock decoder, then `fibril lock` plus verification inside the existing
+   `--package` closure loader (reads files, builds the current `Lock`, calls
+   `lockDrift`).
 4. CLI tests in `tools/test_cli.py`: edit a dependency file and expect a named
    mismatch; add/remove a package; `--locked` without a lock.
 
