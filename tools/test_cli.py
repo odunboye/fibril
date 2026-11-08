@@ -3014,6 +3014,28 @@ main = first Zero
                     'main : IO Unit\nmain = putStrLn (size (Branch Nat Zero (Bud Nat Zero) (Bud Nat Zero)))\n')
             rose_run = check(rose, 'run')
             self.assertEqual((rose_run.returncode, rose_run.stdout), (0, 'nbb\n'), rose_run.stderr)
+            # A family crosses a module boundary with its constructors, and an imported recursive
+            # function over it still runs. Two modules may each declare a `Tree`: the keys differ.
+            (Path(directory) / 'Data').mkdir()
+            shapes = ('module Data.Shapes\n\nexport\ndata Tree : Type where\n  Leaf : Tree\n'
+                      '  Node : (left : Tree) -> (right : Tree) -> Tree\n\nexport\nmarks : (t : Tree) -> String\n'
+                      'marks t = case t of\n  Leaf => "."\n  Node l r => appendString (marks l) (marks r)\n')
+            (Path(directory) / 'Data' / 'Shapes.fib').write_text(shapes)
+            importer = ('module Main\n\nimport Data.Shapes\n\n'
+                        'depth : (t : Data.Shapes.Tree) -> String\ndepth t = case t of\n  Data.Shapes.Leaf => "L"\n'
+                        '  Data.Shapes.Node l r => appendString "(" (appendString (depth l) (appendString (depth r) ")"))\n\n'
+                        'main : IO Unit\nmain = do\n'
+                        '  putStrLn (Data.Shapes.marks (Data.Shapes.Node Data.Shapes.Leaf Data.Shapes.Leaf))\n'
+                        '  putStrLn (depth (Data.Shapes.Node Data.Shapes.Leaf (Data.Shapes.Node Data.Shapes.Leaf Data.Shapes.Leaf)))\n')
+            imported = check(importer, 'run')
+            self.assertEqual((imported.returncode, imported.stdout), (0, '..\n(L(LL))\n'), imported.stderr)
+            # The imported family is not the local one with the same name.
+            clash = check('module Main\n\nimport Data.Shapes\n\ndata Tree : Type where\n  Leaf : Tree\n'
+                          '  Node : (left : Tree) -> (right : Tree) -> Tree\n\n'
+                          'mix : (t : Main.Tree) -> String\nmix t = Data.Shapes.marks t\n\n'
+                          'main : IO Unit\nmain = putStrLn "x"\n')
+            self.assertNotEqual(clash.returncode, 0)
+            self.assertIn('not compatible', clash.stderr)
             # Recursion that does not shrink is refused by the same gate as other recursion.
             for body in ('Node l r => marks (Node l r)', 'Node l r => marks t'):
                 refused = check(tree + 'marks : (t : Tree) -> String\nmarks t = case t of\n  Leaf => "."\n  '
