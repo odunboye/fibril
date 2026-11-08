@@ -18,7 +18,7 @@ typedef struct FThunk FThunk;
 typedef struct FRegion { FAllocation *allocations; size_t bytes; } FRegion;
 typedef struct FAction { const unsigned char *bytes; size_t length; struct FAction *next; } FAction;
 typedef struct FInput { size_t identity, generation; FILE *file; const char *close_error; struct FInput *next; } FInput;
-struct FRuntime { FAllocation *allocations; FRegion *current; size_t bytes, steps, depth, actions; const char *error; FAction *head, *tail; FInput *inputs; size_t next_input; };
+struct FRuntime { FAllocation *allocations; FRegion *current; size_t bytes, steps, depth, actions; const char *error; FAction *head, *tail; FInput *inputs; size_t next_input; int binary_rejected; };
 struct FEnv { FThunk *value; FEnv *tail; };
 typedef enum { V_UNIT, V_ERASED, V_BOOL, V_STRING, V_BYTES, V_CLOSURE, V_NOMINAL, V_VARIANT,
                V_NAT_ZERO, V_NAT_SUCC, V_REC_END, V_REC_MORE, V_SEQ_NIL, V_SEQ_CONS,

@@ -107,7 +107,10 @@ static FThunk *interact_binary(FBinaryContext *context, FByteSession *session, F
         if (status == FB_OK) result = ready(r, f_unit(r));
         else context->fault = status;
       }
-    } else if (io->tag == V_REJECT_BYTES) fail(r, "Binary program rejected input");
+    } else if (io->tag == V_REJECT_BYTES) {
+      r->binary_rejected = 1;
+      fail(r, "Binary program rejected input");
+    }
     else if (io->tag == V_FLUSH_BYTES) {
       FByteStatus status = fibril_bytes_flush(session);
       if (status == FB_OK) result = ready(r, f_unit(r));
@@ -208,7 +211,7 @@ FBinaryResult fibril_native_binary_embed(FEval entry, size_t requests,
   FBinaryContext context = {&runtime, entry, FB_OK, 0, 0};
   FByteStatus status = fibril_bytes_run_with(requests, capacity, *host, binary_body, &context);
   if (runtime.error) {
-    result.status = F_BINARY_PROGRAM_ERROR;
+    result.status = runtime.binary_rejected ? F_BINARY_REJECTED : F_BINARY_PROGRAM_ERROR;
     result.message = runtime.error;
   } else if (status != FB_OK) {
     result.status = F_BINARY_TRANSPORT_ERROR;

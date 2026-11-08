@@ -66,7 +66,7 @@ jobs:
         run: |
           set -euo pipefail
           apt-get update
-          apt-get install --yes --no-install-recommends python3 time zstd ca-certificates
+          apt-get install --yes --no-install-recommends python3 time zstd ca-certificates libsqlite3-dev pkg-config
           echo "$PACK_BIN_DIR" >> "$GITHUB_PATH"
           mkdir -p "$PACK_USER_DIR" build/ci-logs
           cat > "$PACK_USER_DIR/pack.toml" <<'TOML'
@@ -121,6 +121,12 @@ jobs:
         run: |
           python3 tools/test_test_runner.py 2>&1 | tee build/ci-logs/test-runner.log
           make -o build test TEST_JOBS=2 2>&1 | tee build/ci-logs/test.log
+
+      - name: Test checked enqueue worker integration
+        timeout-minutes: 5
+        run: |
+          make -o build worker-test 2>&1 | tee build/ci-logs/worker-test.log
+          make -o build worker-test CC='cc -fsanitize=address,undefined -fno-omit-frame-pointer' 2>&1 | tee build/ci-logs/worker-sanitizers.log
 
       - name: Preserve logs and compiler identity
         if: ${{ always() }}

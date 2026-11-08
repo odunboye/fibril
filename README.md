@@ -83,7 +83,9 @@ The first [application target is a transactional-email service](docs/application
 with a checked relay-submission model. Network/TLS/storage integration, C deployment and the
 web/mobile UI are not implemented; application blockers remain explicit. An optional
 [trusted SQLite enqueue adapter](docs/durable-queue.md) now provides durable,
-tenant-scoped idempotency, but is not yet wired into the Fibril application.
+tenant-scoped idempotency. A [checked enqueue demonstration](docs/enqueue-worker.md)
+now connects a bounded opaque-job validator to that store and acknowledges only
+after commit; it is not yet an authenticated email application.
 
 Create a runnable console project with `fibril new mailer` (or preview using
 `--dry-run`); see [project creation](docs/project-creation.md). This offline scaffold

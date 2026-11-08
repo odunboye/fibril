@@ -57,7 +57,8 @@ Existing `FByteAdapters` semantics apply:
 | --- | --- |
 | `F_BINARY_OK` | Evaluation and required flushing succeeded. |
 | `F_BINARY_INVALID_ARGUMENT` | Missing entry or host callback. No effects. |
-| `F_BINARY_PROGRAM_ERROR` | Rejected input, evaluator budget, bad final result, or unsupported IO. |
+| `F_BINARY_REJECTED` | Explicit `primRejectBytes` from the checked program. |
+| `F_BINARY_PROGRAM_ERROR` | Evaluator budget, bad final result, or unsupported IO. |
 | `F_BINARY_TRANSPORT_ERROR` | Admission, budget, allocation, read/write/flush failure, or invalid callback response. |
 
 `transport_status` carries the existing `FByteStatus` **only** for transport
@@ -99,9 +100,9 @@ program**, not a transactional-output promise of the binary embedding API.
 This is framing validation only. It does not validate JSON schemas, authenticate
 requests, authorize tenants, persist messages, submit SMTP, or provide a general
 HTTP/LSP server. The example consumes one frame; a host must explicitly decide
-whether trailing input is legal and how requests/sessions are separated. A next
-worker slice needs an application request schema and explicit durable-operation
-semantics, not merely framing plus an echo.
+whether trailing input is legal and how requests/sessions are separated. A separate [checked enqueue worker](enqueue-worker.md) now connects a versioned
+opaque-job schema to durable acceptance. It does not turn this frame echo into an
+email service or add a source-level database primitive.
 
 ## Validation
 

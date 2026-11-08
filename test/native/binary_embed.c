@@ -98,7 +98,7 @@ int main(int argc, char **argv) {
     assert(h.writes == (mode == 3 || mode == 7 ? 0 : h.length));
     assert(h.flushes == (mode == 7 ? 2 : 1));
   } else if (mode == 9 || mode == 11 || mode == 13 || mode == 21 || mode == 22) {
-    assert(result.status == F_BINARY_PROGRAM_ERROR && result.transport_status == FB_OK);
+    assert(result.status == (mode == 13 ? F_BINARY_REJECTED : F_BINARY_PROGRAM_ERROR) && result.transport_status == FB_OK);
     assert(result.message && strlen(result.message) > 0 && !h.flushes);
     assert(h.writes == (mode == 11 ? 4 : 0));
   } else {

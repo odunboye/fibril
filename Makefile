@@ -1,9 +1,12 @@
 PACK ?= pack
 IDRIS2 ?= '$(CURDIR)/tools/fibril_idris.py'
 TEST_JOBS ?= 4
+# Optional worker profile only; ordinary builds do not link SQLite.
+SQLITE_CFLAGS ?= $(shell pkg-config --cflags sqlite3 2>/dev/null)
+SQLITE_LIBS ?= $(shell pkg-config --libs sqlite3 2>/dev/null || echo -lsqlite3)
 
 .PHONY: prelude prelude-check build unit-test test io-test io-hosted-test io-runtime-test io-resource-runtime-test io-resource-emitter-test io-emitter-test io-interactive-test io-binary-test io-binary-bench io-cli-test native-test region-test native-pair-test bytes-native-test binary-source-test binary-iteration-test binary-count-test binary-runtime-test binary-scale-test binary-number-test binary-number-bench json-oracle-test json-sharing-probe json-iteration-test lsp-lifecycle-test framing-test header-iteration-test editor-test lsp-test examples bench bench-smoke composed-bench python-embed-test docs handbook serve-docs clean cubical-source-test
-.PHONY: host-compiler-test native-embedding-test native-embedding-generated-test binary-embedding-test binary-embedding-generated-test queue-test
+.PHONY: host-compiler-test native-embedding-test native-embedding-generated-test binary-embedding-test binary-embedding-generated-test queue-test worker-test worker-demo
 prelude:
 	python3 tools/embed_prelude.py
 
@@ -27,6 +30,15 @@ native-embedding-generated-test: build
 # Optional POSIX/SQLite host adapter; not linked into the compiler/runtime by default.
 queue-test:
 	CC="$(CC)" python3 tools/test_queue.py
+
+worker-test: build
+	CC="$(CC)" SQLITE_CFLAGS="$(SQLITE_CFLAGS)" SQLITE_LIBS="$(SQLITE_LIBS)" python3 tools/test_worker.py
+
+# Local EOF-framed demonstration, not an authenticated network server.
+worker-demo: build
+	mkdir -p build/worker
+	./build/exec/fibril emit-c-binary --source-dir examples/modules/queue-worker examples/modules/queue-worker/Main.fib > build/worker/validator.c
+	$(CC) $(CFLAGS) -std=c11 -Wall -Wextra -Werror -DFIBRIL_EMBED_ONLY $(SQLITE_CFLAGS) -I runtime/native build/worker/validator.c examples/native/queue_worker.c runtime/native/fibril_worker.c runtime/native/fibril_queue.c runtime/native/fibril_binary_runtime.c $(SQLITE_LIBS) -o build/worker/queue-worker
 
 binary-embedding-test:
 	CC="$(CC)" python3 tools/test_binary_embedding.py

@@ -8,7 +8,9 @@ typedef enum {
   F_BINARY_OK = 0,
   F_BINARY_INVALID_ARGUMENT,
   F_BINARY_PROGRAM_ERROR,
-  F_BINARY_TRANSPORT_ERROR
+  F_BINARY_TRANSPORT_ERROR,
+  /* Explicit checked primRejectBytes, distinct from evaluator/internal failure. */
+  F_BINARY_REJECTED
 } FBinaryStatus;
 typedef struct {
   FBinaryStatus status;

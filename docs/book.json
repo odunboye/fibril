@@ -266,6 +266,10 @@
         "path": "docs/durable-queue.md"
       },
       {
+        "title": "Checked enqueue worker",
+        "path": "docs/enqueue-worker.md"
+      },
+      {
         "title": "Native variable-argument forwarding",
         "path": "docs/native-variable-forwarding.md"
       },

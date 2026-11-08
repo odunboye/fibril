@@ -3,13 +3,15 @@
 Status: experimental trusted POSIX/SQLite adapter, implemented and tested outside
 the Fibril checker. This is **enqueue-only storage**, not a mail service, a checked
 source primitive, a dispatcher, or a proof of durable/linear resource semantics.
-It is not yet wired to the binary frame protocol or exposed to Fibril source.
+A [checked enqueue integration](enqueue-worker.md) now connects a bounded job
+validator to this store through a trusted host. It is not exposed as a Fibril
+source primitive or a Content-Length frame server.
 
 The first production-runtime slices now supply console and binary embedding.
 This slice supplies a separately linked persistence boundary, so a future worker
-can persist an accepted application request before acknowledging it. Authentication,
-authorization, the application wire schema and that integration remain follow-up
-work. The existing checked request-label/email examples are still pure models.
+can persist an accepted application request before acknowledging it. The integration defines a versioned opaque-job envelope; authentication,
+authorization and email-specific payload validation remain follow-up work. The
+existing checked request-label/email examples are still pure models.
 
 ## Scope and dependency
 
@@ -153,9 +155,9 @@ the ordinary compiler/test build.
 
 ## Next integration gate
 
-Define a versioned application request schema, validated by checked Fibril code,
-and a host response format that cannot mistake partial output for an accepted
-request. Authenticate/authorize the tenant outside the untrusted request payload.
-Only invoke enqueue after complete validation; send a queued acknowledgement
-only after COMMIT. Specify payload canonicalization, admission quotas and the
-uncertain-outcome retry contract before presenting it as a worker service.
+The [enqueue worker](enqueue-worker.md) now validates a versioned request in
+checked Fibril, buffers the validation result privately, stores the full canonical
+envelope and acknowledges only after COMMIT. Before deployment, add authenticated
+tenant selection, application-specific job validation, quotas, a dispatch state
+and lease/fencing model, and the uncertain remote-submission contract. The local
+host demonstration is not an authenticated worker service.

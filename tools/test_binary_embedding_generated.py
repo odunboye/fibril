@@ -54,7 +54,7 @@ int main(int argc, char **argv) {
       assert(h.consumed == h.length && h.produced == h.length && h.flushes >= 1);
       assert(!memcmp(h.output, h.input, h.length));
     } else if (mode >= 2 && mode <= 4) {
-      assert(result.status == F_BINARY_PROGRAM_ERROR && result.transport_status == FB_OK);
+      assert(result.status == F_BINARY_REJECTED && result.transport_status == FB_OK);
       assert(!strcmp(result.message, "Binary program rejected input"));
       assert(h.produced == 0 && h.flushes == 0);
     } else {

@@ -46,8 +46,10 @@ prototype, not a deployed worker.
 
 An optional [trusted SQLite enqueue store](../durable-queue.md) now provides
 bounded binary requests, tenant-scoped idempotency and process-exit recovery tests.
-It is not connected to this model or the binary protocol, and adds no source-level
-database, authentication, SMTP or deployed-worker capability yet.
+A separate [checked enqueue demonstration](../enqueue-worker.md) now validates
+bounded opaque-job requests and acknowledges only after commit. It is not
+connected to this email model, and adds no source-level database, authentication,
+SMTP or deployed-worker capability yet.
 
 ## Confirmed product decisions
 
