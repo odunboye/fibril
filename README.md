@@ -77,6 +77,8 @@ direct imports. [General recursive data](docs/data.md#general-recursive-data) an
 [indexed inductive families](docs/indexed-data.md) support whole-field positive
 recursion, including length-indexed vectors with dependent case motives.
 Nested/mutual recursive data and automatic index refinement remain future work.
+[Compact alternatives](docs/data.md#compact-alternatives) write simple declarations as
+`data T params = A fields | B fields`; indices and linear fields still use the `where` form.
 Recursive function equations are accepted when structural, or when the
 [size-change check](docs/function-equations.md#general-recursion) proves them terminating.
 
