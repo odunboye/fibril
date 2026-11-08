@@ -10,7 +10,8 @@ Workspace-member discovery, locks and fetching remain unimplemented.
 
 - pack.toml and Idris .ipkg files continue to manage the compiler implementation.
 - Local Fibril projects use a small pubspec-style **fibril.yaml** manifest;
-  a **fibril.lock** snapshot/hash lockfile remains future work.
+  a **fibril.lock** snapshot/hash lockfile remains future work
+  ([design](lockfile.md)).
 - Borrow Dart pub's readable project description and integrated workflow, not its
   complete registry/version-solving machinery.
 - This does not replace the existing pack setup. The bootstrap now uses the
