@@ -1,7 +1,7 @@
 # General recursive data: plan
 
-**Status: phases 1 and 2 are implemented (core terms, reduction, declaration admission);
-phases 3 onward are not.** It records what restricts recursive
+**Status: phases 1 to 3 are implemented (core terms, reduction, declaration admission,
+erased and runtime typing); phases 4 onward are not.** It records what restricts recursive
 data today, what the smallest sound extension is, and the phases to land it. It is not a
 positivity theorem or a soundness claim.
 
@@ -97,6 +97,31 @@ working for resource-carrying data.
   constructor and field position.
 - Parameters must be erased; constructor names must be non-empty and distinct.
 
+### As implemented in phase 3
+
+- The declaration table is a second field of `GlobalContext` (`dataDeclaration`), so a
+  family lives beside the checked globals and shares their immutability. Moving it into
+  the shared-globals environment later only changes where the lookup reads.
+- `formerType decl` is `(0 p1 : P1) -> ... -> Type 0`; `constructorType decl i` is the
+  parameters (erased), then the fields with their declared quantities, ending in the family
+  applied to the same parameters. `DataType`/`DataCon` simply have those types, so ordinary
+  application checks constructor arguments and charges their quantities.
+- `DataCase` needs a scrutinee whose type is the family applied to parameters, an erased
+  motive over that type returning a universe, and exactly one branch per constructor. The
+  expected branch type is the constructor type with the actual parameters instantiated and
+  its result replaced by the motive applied to the constructor rebuilt from the fields.
+- `extendDataGlobals` runs `admitDeclaration`, requires a fresh key, checks every
+  constructor type with the family already in scope (safe, because positivity allows the
+  family only as a whole field type), and requires field types in Type 0. A field in a
+  larger universe is refused: the family is declared in Type 0, so allowing it would make
+  the family impredicative.
+- Runtime usage: the family former is a type expression, a constructor constant costs
+  nothing (its arguments are charged by the application through the Pi quantities), and a
+  case adds the scrutinee's usage to the joined usage of its branches, like `VariantCase`.
+  A linear field must therefore be consumed in its branch.
+- Not done: termination (phase 4), source syntax (phase 5), native emission (phase 6).
+  The termination extractor and the C emitter still reject the new terms.
+
 ### What does not change
 
 Conversion treats `DataCon` as a constructor and `DataCase` on a constructor as reducible,
@@ -111,7 +136,7 @@ last.
 | 0 | This contract, plus a list of the touch points per core module | any implementation |
 | 1 | **Done.** `DataType/DataCon/DataCase` in `Term` with renaming, substitution (and their proofs), size, pretty, syntax equality, global traversal, reduction and weak-head contraction | typing |
 | 2 | **Done.** `Fibril.Core.DataDecl`: telescopes, `DataDecl`, and `admitDeclaration` (positivity plus caps of 4 parameters, 16 constructors, 8 fields) | soundness proof |
-| 3 | Typing in `Erased` and `Runtime` (dependent motive, exhaustive, quantity joins), reduction and weak head | termination |
+| 3 | **Done.** Typing in `Erased` and `Runtime`: closed constructor types derived from the declaration, dependent erased motive, exhaustive branches with field quantities, usage joins; `extendDataGlobals` / `extendDataRuntimeGlobals` register a family | termination |
 | 4 | Evaluation (`Evaluation.idr`) and `Extract.idr`: fields of a branch are smaller than the scrutinee | native support |
 | 5 | Source: `data` declarations beyond the fixed shapes, constructor application, `case`, pattern equations | pattern-clause groups |
 | 6 | Native emission and runtime values (`Emit.idr`, `fibril_runtime.c`) | scale |

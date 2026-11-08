@@ -16,6 +16,7 @@ import Fibril.Core.Compatibility
 import Fibril.Core.WeakHead
 import Fibril.Core.Reduction
 import Fibril.Core.FixAdmission
+import Fibril.Core.DataDecl
 
 %default total
 
@@ -71,16 +72,16 @@ Show CheckError where
 ||| arbitrary signatures cannot be supplied as typing certificates.
 export
 data GlobalContext : Type where
-  CheckedGlobalContext : List (Nat, Quantity, Term 0, Term 0) -> GlobalContext
+  CheckedGlobalContext : List (Nat, Quantity, Term 0, Term 0) -> List DataDecl -> GlobalContext
 
 public export
 emptyGlobals : GlobalContext
-emptyGlobals = CheckedGlobalContext []
+emptyGlobals = CheckedGlobalContext [] []
 
 ||| Read-only declaration inventory, newest first. These terms alone are not certificates.
 public export
 globalDeclarations : GlobalContext -> List (Nat, Quantity, Term 0, Term 0)
-globalDeclarations (CheckedGlobalContext entries) = entries
+globalDeclarations (CheckedGlobalContext entries _) = entries
 
 ||| Whole stored syntax, charging every signature and body once, including erased fields.
 public export
@@ -94,13 +95,23 @@ lookupEntry key ((identity, q, ty, body) :: rest) =
 
 public export
 globalEntry : GlobalContext -> Nat -> Maybe (Quantity, Term 0, Term 0)
-globalEntry (CheckedGlobalContext entries) key = lookupEntry key entries
+globalEntry (CheckedGlobalContext entries _) key = lookupEntry key entries
 
 public export
 globalValue : GlobalContext -> Nat -> Maybe (Term 0)
 globalValue globals key = do
   (_, _, body) <- globalEntry globals key
   Just body
+
+||| Admitted general recursive families, newest first.
+public export
+dataDeclarations : GlobalContext -> List DataDecl
+dataDeclarations (CheckedGlobalContext _ families) = families
+
+||| The admitted family with this qualified key.
+public export
+dataDeclaration : GlobalContext -> String -> Maybe DataDecl
+dataDeclaration globals key = find (\decl => decl.key == key) (dataDeclarations globals)
 
 -- References cannot hide syntax outside the existing termination fragment.
 -- Every reachable closed signature/body is inspected once; no inlining is needed.
@@ -141,6 +152,44 @@ requireCompatible globals budget actual expected =
     Compatible => Right ()
     Incompatible => Left (TypeMismatch actual expected)
     CompatibilityLimit => Left ReductionLimit
+
+-- Typing support for general recursive data (docs/general-recursive-data-plan.md, phase 3).
+
+-- A type headed by the family former, with its parameter arguments in order.
+dataTypeSpine : Term n -> Maybe (String, List (Term n))
+dataTypeSpine term = go term []
+  where
+    go : Term m -> List (Term m) -> Maybe (String, List (Term m))
+    go (DataType key) args = Just (key, args)
+    go (Apply function argument) args = go function (argument :: args)
+    go _ _ = Nothing
+
+-- Apply a constructor's closed type to the actual parameters, one Pi at a time.
+instantiateParameters : List (Term n) -> Term n -> Either CheckError (Term n)
+instantiateParameters [] ty = Right ty
+instantiateParameters (argument :: rest) (Pi _ _ body) = instantiateParameters rest (instantiateTerm argument body)
+instantiateParameters _ ty = Left (RecursiveDataError "constructor type has fewer parameters than the family")
+
+-- Replace the result of the field Pi chain with `motive` applied to the rebuilt constructor.
+-- `built` is the constructor applied to the parameters and the fields bound so far.
+retarget : Nat -> Term n -> Term n -> Term n -> Either CheckError (Term n)
+retarget Z _ motive built = Right (Apply motive built)
+retarget (S k) (Pi q domain body) motive built =
+  map (Pi q domain) (retarget k body (weaken motive) (Apply (weaken built) (Variable FZ)))
+retarget (S _) _ _ _ = Left (RecursiveDataError "constructor type has fewer fields than declared")
+
+applyAll : Term n -> List (Term n) -> Term n
+applyAll function [] = function
+applyAll function (argument :: rest) = applyAll (Apply function argument) rest
+
+-- The type a branch for constructor `index` must have: a function over the fields (with their
+-- quantities) returning the motive applied to the constructor rebuilt from those fields.
+dataBranchType : DataDecl -> Nat -> List (Term n) -> Term n -> Either CheckError (Term n)
+dataBranchType decl index actuals motive = do
+  closed <- maybe (Left (RecursiveDataError "unknown constructor")) Right (constructorType decl index)
+  fields <- maybe (Left (RecursiveDataError "unknown constructor")) Right (fieldCount decl index)
+  instantiated <- instantiateParameters actuals (rename absurd closed)
+  retarget fields instantiated motive (applyAll (DataCon decl.key index (parameterCount decl)) actuals)
 
 -- Internal inference assumes context formation has already been checked.
 -- Every recursive typing call decreases depth. Reduction has a separate budget.
@@ -547,11 +596,46 @@ mutual
           Right annotation
         _ => Left (VariantError "constructor tag or payload arity is invalid")
       _ => Left (VariantError "constructor annotation must expose a variant type")
-  -- Phase 1 of docs/general-recursive-data-plan.md: the terms exist, typing does not. Refusing
-  -- keeps them from being admitted by accident until their rules are written and tested.
-  infer globals (S depth) reduction context (DataType _) = Left (RecursiveDataError "general recursive data typing is not implemented")
-  infer globals (S depth) reduction context (DataCon _ _ _) = Left (RecursiveDataError "general recursive data typing is not implemented")
-  infer globals (S depth) reduction context (DataCase _ _ _ _) = Left (RecursiveDataError "general recursive data typing is not implemented")
+  -- General recursive data (docs/general-recursive-data-plan.md, phase 3). The family and its
+  -- constructors have closed types derived from the admitted declaration.
+  infer globals (S depth) reduction context (DataType key) =
+    case dataDeclaration globals key of
+      Just decl => Right (rename absurd (formerType decl))
+      Nothing => Left (RecursiveDataError ("unknown family " ++ key))
+  infer globals (S depth) reduction context (DataCon key index leading) =
+    case dataDeclaration globals key of
+      Nothing => Left (RecursiveDataError ("unknown family " ++ key))
+      Just decl =>
+        if leading /= parameterCount decl
+          then Left (RecursiveDataError ("constructor of " ++ key ++ " records " ++ show leading ++
+                                         " parameters; the family has " ++ show (parameterCount decl)))
+          else case constructorType decl index of
+            Just ty => Right (rename absurd ty)
+            Nothing => Left (RecursiveDataError ("family " ++ key ++ " has no constructor " ++ show index))
+  infer globals (S depth) reduction context (DataCase key motive scrutinee branches) =
+    case dataDeclaration globals key of
+      Nothing => Left (RecursiveDataError ("unknown family " ++ key))
+      Just decl => do
+        ty <- infer globals depth reduction context scrutinee
+        exposed <- exposeType globals reduction ty
+        case dataTypeSpine exposed of
+          Just (other, actuals) => do
+            if other /= key || length actuals /= parameterCount decl
+              then Left (RecursiveDataError ("case on " ++ key ++ " needs a scrutinee of that family"))
+              else Right ()
+            motiveType <- infer globals depth reduction context motive
+            exposedMotive <- exposeType globals reduction motiveType
+            case exposedMotive of
+              Pi Erased domain result => do
+                requireCompatible globals reduction domain exposed
+                resultSort <- exposeType globals reduction result
+                case resultSort of
+                  Universe _ => Right ()
+                  _ => Left (RecursiveDataError "motive must return a universe")
+              _ => Left (RecursiveDataError "motive must have an erased matching domain")
+            dataBranches globals depth reduction context decl motive actuals 0 branches
+            Right (Apply motive scrutinee)
+          Nothing => Left (RecursiveDataError "case scrutinee must have a general data type")
   infer globals (S depth) reduction context (VariantCase motive scrutinee branches) = do
     ty <- infer globals depth reduction context scrutinee
     exposed <- exposeType globals reduction ty
@@ -706,6 +790,20 @@ mutual
     variantBranches globals depth reduction context motive ty (S tag) arms branches
   variantBranches globals _ _ _ _ _ _ _ _ = Left (VariantError "case requires exactly one branch per alternative")
 
+  dataBranches : GlobalContext -> Nat -> Nat -> Context n -> DataDecl -> Term n -> List (Term n) -> Nat ->
+                 List (Term n) -> Either CheckError ()
+  dataBranches globals depth reduction context decl motive actuals index [] =
+    if index == constructorCount decl then Right ()
+    else Left (RecursiveDataError "case requires exactly one branch per constructor")
+  dataBranches globals Z reduction context decl motive actuals index (_ :: _) = Left CheckingLimit
+  dataBranches globals (S depth) reduction context decl motive actuals index (branch :: rest) =
+    if index >= constructorCount decl then Left (RecursiveDataError "case requires exactly one branch per constructor")
+    else do
+      expected <- dataBranchType decl index actuals motive
+      actual <- infer globals depth reduction context branch
+      requireCompatible globals reduction actual expected
+      dataBranches globals depth reduction context decl motive actuals (S index) rest
+
   sortOf : GlobalContext -> Nat -> Nat -> Context n -> Term n -> Either CheckError Nat
   sortOf globals depth reduction context term = do
     ty <- infer globals depth reduction context term
@@ -754,7 +852,7 @@ checkErasedGlobals globals depth reduction context term expected = do
 public export
 extendErasedGlobals : Nat -> Nat -> GlobalContext -> Nat -> Quantity -> Term 0 -> Term 0 ->
                      Either CheckError GlobalContext
-extendErasedGlobals depth reduction globals@(CheckedGlobalContext entries) key q ty body = do
+extendErasedGlobals depth reduction globals@(CheckedGlobalContext entries families) key q ty body = do
   case globalEntry globals key of
     Just _ => Left (GlobalError ("duplicate identity " ++ show key))
     Nothing => Right ()
@@ -762,7 +860,47 @@ extendErasedGlobals depth reduction globals@(CheckedGlobalContext entries) key q
     Linear => Left (GlobalError "linear global ownership is unsupported")
     _ => Right ()
   checkErasedGlobals globals depth reduction Empty body ty
-  Right (CheckedGlobalContext ((key, q, ty, body) :: entries))
+  Right (CheckedGlobalContext ((key, q, ty, body) :: entries) families)
+
+-- Walk a constructor's closed Pi chain: the first `skip` binders are the family's parameters
+-- (any sort); every later binder is a field and must live in Type 0, because the family
+-- itself is declared in Type 0. Allowing a larger field would make the family impredicative.
+checkConstructorFields : GlobalContext -> Nat -> Nat -> Nat -> Context n -> Term n -> Either CheckError ()
+checkConstructorFields globals Z _ _ _ _ = Left CheckingLimit
+checkConstructorFields globals (S depth) reduction skip context (Pi q domain body) = do
+  level <- sortOf globals depth reduction context domain
+  case skip of
+    S _ => Right ()
+    Z => if level == 0 then Right () else Left (RecursiveDataError "field types must live in Type 0")
+  checkConstructorFields globals depth reduction (pred skip) (Extend context q domain) body
+checkConstructorFields globals (S depth) reduction _ context result = do
+  level <- sortOf globals depth reduction context result
+  if level == 0 then Right () else Left (RecursiveDataError "a constructor must build a Type 0 family")
+
+checkConstructorTypes : GlobalContext -> Nat -> Nat -> DataDecl -> Nat -> Nat -> Either CheckError ()
+checkConstructorTypes globals depth reduction decl Z index = Right ()
+checkConstructorTypes globals depth reduction decl (S remaining) index = do
+  case constructorType decl index of
+    Nothing => Left (RecursiveDataError "constructor type could not be built")
+    Just ty => checkConstructorFields globals depth reduction (parameterCount decl) Empty ty
+  checkConstructorTypes globals depth reduction decl remaining (S index)
+
+||| Admit one general recursive family: positivity (`admitDeclaration`), a fresh key, well-typed
+||| parameters, and field types in Type 0. Constructor types are checked with the family
+||| already in scope, which positivity makes safe: it only occurs as a whole field type.
+public export
+extendDataGlobals : Nat -> Nat -> GlobalContext -> DataDecl -> Either CheckError GlobalContext
+extendDataGlobals depth reduction globals@(CheckedGlobalContext entries families) decl = do
+  case dataDeclaration globals decl.key of
+    Just _ => Left (RecursiveDataError ("duplicate family " ++ decl.key))
+    Nothing => Right ()
+  case admitDeclaration decl of
+    Left why => Left (RecursiveDataError why)
+    Right () => Right ()
+  let extended = CheckedGlobalContext entries (decl :: families)
+  _ <- sortOf extended depth reduction Empty (formerType decl)
+  checkConstructorTypes extended depth reduction decl (constructorCount decl) 0
+  Right extended
 
 public export
 checkRegionResult : Nat -> Term n -> Either CheckError ()

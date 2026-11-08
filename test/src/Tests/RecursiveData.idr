@@ -9,6 +9,7 @@ import Fibril.Core.Erased
 import Fibril.Core.Pretty
 import Fibril.Core.Quantity
 import Fibril.Core.Reduction
+import Fibril.Core.Runtime
 import Fibril.Core.Size
 import Fibril.Core.Term
 
@@ -143,9 +144,6 @@ checks =
   , ("terms render with their own constructor names",
       isPrefixOf "(DataType " (renderTerm closedTree) && isPrefixOf "(DataCon " (renderTerm closedLeaf)
       && isPrefixOf "(DataCase " (renderTerm closedCase))
-  , ("typing refuses the new terms until its rules exist",
-      isLeft (inferErased 64 64 Empty closedTree) && isLeft (inferErased 64 64 Empty closedLeaf)
-      && isLeft (inferErased 64 64 Empty closedCase))
   -- Phase 2: admission.
   , ("a binary tree is admitted", isRight (admitDeclaration treeDecl))
   , ("a parameterized list with an unrestricted head is admitted", isRight (admitDeclaration listDecl))
@@ -189,4 +187,121 @@ checks =
       case admitDeclaration (justOne (Field Unrestricted NatType (Field Unrestricted (Pi Unrestricted NatType (DataType "T")) Done))) of
         Left message => isInfixOf "constructor C, field 2" message
         Right () => False)
+  ]
+
+-- Phase 3: typing against admitted declarations. ------------------------------------------
+
+treeEnv : Either CheckError GlobalContext
+treeEnv = extendDataGlobals 128 128 emptyGlobals treeDecl
+
+bothEnv : Either CheckError GlobalContext
+bothEnv = treeEnv >>= \g => extendDataGlobals 128 128 g listDecl
+
+holds : Either CheckError GlobalContext -> (GlobalContext -> Bool) -> Bool
+holds (Right g) f = f g
+holds (Left _) _ = False
+
+accepts : GlobalContext -> Term 0 -> Term 0 -> Bool
+accepts g term ty = isRight (checkErasedGlobals g 128 128 Empty term ty)
+
+rejects : GlobalContext -> Term 0 -> Term 0 -> Bool
+rejects g term ty = isLeft (checkErasedGlobals g 128 128 Empty term ty)
+
+natList : Term n
+natList = Apply (DataType "List") NatType
+
+-- Runtime usage: the same terms under quantity checking.
+treeRuntime : Either RuntimeError RuntimeGlobals
+treeRuntime = extendDataRuntimeGlobals 128 128 emptyRuntimeGlobals treeDecl
+
+usageOk : Either RuntimeError RuntimeGlobals -> Term 0 -> Bool
+usageOk (Right g) term = isRight (inferRuntimeGlobals g 128 128 Empty term)
+usageOk (Left _) _ = False
+
+usageRefused : Either RuntimeError RuntimeGlobals -> Term 0 -> Bool
+usageRefused (Right g) term = isLeft (inferRuntimeGlobals g 128 128 Empty term)
+usageRefused (Left _) _ = False
+
+-- Rebuilds a node from its fields: each linear field used exactly once.
+rebuildBranch : Term n
+rebuildBranch = Lambda Linear tree (Lambda Linear tree (node (Variable (FS FZ)) (Variable FZ)))
+
+treeMotive : Term n
+treeMotive = Lambda Erased tree tree
+
+rebuildCase : Term n -> Term n
+rebuildCase scrutinee = DataCase "Tree" treeMotive scrutinee [leaf, rebuildBranch]
+
+public export
+typingChecks : List (String, Bool)
+typingChecks =
+  [ ("a binary tree family is admitted", isRight treeEnv)
+  , ("a second family can be added after the first", isRight bothEnv)
+  , ("adding a family twice is refused",
+      holds treeEnv (\g => isLeft (extendDataGlobals 128 128 g treeDecl)))
+  , ("a declaration failing positivity is refused at the typing layer",
+      isLeft (extendDataGlobals 128 128 emptyGlobals
+                (justOne (Field Unrestricted (Pi Unrestricted NatType (DataType "T")) Done))))
+  , ("a field that is not a type is refused",
+      isLeft (extendDataGlobals 128 128 emptyGlobals (justOne (Field Unrestricted NatZero Done))))
+  , ("a field in Type 1 is refused: the family is declared in Type 0",
+      isLeft (extendDataGlobals 128 128 emptyGlobals (justOne (Field Unrestricted (Universe 0) Done))))
+  , ("a parameter may be a type of types",
+      isRight (extendDataGlobals 128 128 emptyGlobals listDecl))
+  , ("the family former has type Type 0",
+      holds treeEnv (\g => accepts g tree (Universe 1) && accepts g tree (Universe 0)))
+  , ("an unknown family has no type",
+      holds treeEnv (\g => rejects g (DataType "Nope") (Universe 0)))
+  , ("a parameterized family applied to its parameter is a type",
+      holds bothEnv (\g => accepts g natList (Universe 0)))
+  , ("a parameterized family needs its parameter",
+      holds bothEnv (\g => rejects g (Apply (DataType "List") NatZero) (Universe 0)))
+  , ("a leaf has the family type", holds treeEnv (\g => accepts g leaf tree))
+  , ("a node of two trees has the family type", holds treeEnv (\g => accepts g (node leaf (node leaf leaf)) tree))
+  , ("a node with a non-tree field is refused", holds treeEnv (\g => rejects g (node leaf NatZero) tree))
+  , ("a constructor with the wrong parameter count is refused",
+      holds treeEnv (\g => rejects g (DataCon "Tree" 0 1) tree))
+  , ("a constructor index beyond the declaration is refused",
+      holds treeEnv (\g => rejects g (DataCon "Tree" 2 0) tree))
+  , ("a list cell takes its parameter, head and tail",
+      holds bothEnv (\g => accepts g (listCons NatType NatZero (listNil NatType)) natList))
+  , ("a list cell with a head of the wrong type is refused",
+      holds bothEnv (\g => rejects g (listCons NatType BoolTrue (listNil NatType)) natList))
+  , ("a list of one element type is not a list of another",
+      holds bothEnv (\g => rejects g (listNil NatType) (Apply (DataType "List") BoolType)))
+  , ("a case on a tree with matching branches has the motive's type",
+      holds treeEnv (\g => accepts g (caseOf (node leaf leaf)) NatType))
+  , ("a case reduces during checking: its type is the motive applied to the scrutinee",
+      holds treeEnv (\g => accepts g (rebuildCase leaf) tree))
+  , ("a case with a missing branch is refused",
+      holds treeEnv (\g => rejects g (DataCase "Tree" (Lambda Erased tree NatType) leaf [leafBranch]) NatType))
+  , ("a case with an extra branch is refused",
+      holds treeEnv (\g => rejects g (DataCase "Tree" (Lambda Erased tree NatType) leaf [leafBranch, nodeBranch, leafBranch]) NatType))
+  , ("a branch with the wrong field quantities is refused",
+      holds treeEnv (\g => rejects g (DataCase "Tree" (Lambda Erased tree NatType) leaf
+                              [leafBranch, Lambda Unrestricted tree (Lambda Linear tree (NatSucc NatZero))]) NatType))
+  , ("a branch whose result does not match the motive is refused",
+      holds treeEnv (\g => rejects g (DataCase "Tree" (Lambda Erased tree NatType) leaf [leafBranch, Lambda Linear tree (Lambda Linear tree BoolTrue)]) NatType))
+  , ("a branch may use the fields, here rebuilding the node",
+      holds treeEnv (\g => accepts g (rebuildCase (node leaf leaf)) tree))
+  , ("a case needs an erased motive",
+      holds treeEnv (\g => rejects g (DataCase "Tree" (Lambda Linear tree NatType) leaf [leafBranch, nodeBranch]) NatType))
+  , ("a case on the wrong family is refused",
+      holds bothEnv (\g => rejects g (DataCase "Tree" (Lambda Erased tree NatType) (listNil NatType) [leafBranch, nodeBranch]) NatType))
+  , ("a case on a non-data scrutinee is refused",
+      holds treeEnv (\g => rejects g (DataCase "Tree" (Lambda Erased tree NatType) NatZero [leafBranch, nodeBranch]) NatType))
+  , ("a case on an unknown family is refused",
+      holds treeEnv (\g => rejects g (DataCase "Nope" (Lambda Erased tree NatType) leaf [leafBranch, nodeBranch]) NatType))
+  , ("a list case skips the parameter and passes head and tail",
+      holds bothEnv (\g => accepts g
+        (DataCase "List" (Lambda Erased natList NatType) (listCons NatType NatZero (listNil NatType))
+           [NatZero, Lambda Unrestricted NatType (Lambda Unrestricted natList (Variable (FS FZ)))])
+        NatType))
+  -- Runtime usage.
+  , ("a linear branch that rebuilds from both fields passes the usage check",
+      usageOk treeRuntime (rebuildCase (node leaf leaf)))
+  , ("a linear branch that drops a linear field fails the usage check but not the erased one",
+      usageRefused treeRuntime (caseOf (node leaf leaf)) && holds treeEnv (\g => accepts g (caseOf (node leaf leaf)) NatType))
+  , ("a constructor application alone passes the usage check", usageOk treeRuntime (node leaf leaf))
+  , ("the family former is a type, not a runtime value", usageRefused treeRuntime tree)
   ]

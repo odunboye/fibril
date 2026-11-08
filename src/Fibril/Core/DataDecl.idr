@@ -6,6 +6,8 @@ module Fibril.Core.DataDecl
 
 import Data.Fin
 import Data.List
+import Data.Maybe
+import Data.Nat
 import Fibril.Core.Quantity
 import Fibril.Core.Size
 import Fibril.Core.Term
@@ -55,6 +57,7 @@ maxFields = 8
 
 -- The recursive occurrence as a field must spell: the family applied to its own parameters,
 -- unchanged and in order. `n` is the scope the field is written in.
+public export
 selfType : String -> Nat -> (n : Nat) -> Maybe (Term n)
 selfType key count n = go 0 count (DataType key)
   where
@@ -112,3 +115,52 @@ admitDeclaration decl =
       else do
         checkParameters decl.key 1 decl.params
         checkConstructors decl.key [] decl.constructors
+
+-- Types of the family and its constructors, as closed terms. ------------------------------
+
+-- Pi over a parameter telescope, then `inner`, which lives under all of its binders.
+paramsPi : {n : Nat} -> (ps : Telescope n) -> Term (telescopeLength ps + n) -> Term n
+paramsPi Done inner = inner
+paramsPi {n} (Field q ty rest) inner =
+  Pi q ty (paramsPi rest (replace {p = Term} (plusSuccRightSucc (telescopeLength rest) n) inner))
+
+-- Pi over fields, ending in whatever `result` builds for the innermost scope.
+fieldsPi : {w : Nat} -> Telescope w -> ((m : Nat) -> Term m) -> Term w
+fieldsPi {w} Done result = result w
+fieldsPi (Field q ty rest) result = Pi q ty (fieldsPi rest result)
+
+||| `(0 p1 : P1) -> ... -> Type 0`: the family applied to its parameters is a type.
+public export
+formerType : DataDecl -> Term 0
+formerType decl = paramsPi decl.params (Universe 0)
+
+nthConstructor : Nat -> List a -> Maybe a
+nthConstructor _ [] = Nothing
+nthConstructor Z (x :: _) = Just x
+nthConstructor (S k) (_ :: xs) = nthConstructor k xs
+
+resultAt : String -> Nat -> (m : Nat) -> Term m
+resultAt key count m = fromMaybe (DataType key) (selfType key count m)
+
+||| The type of constructor `index`: the parameters (erased), then its fields with their
+||| quantities, ending in the family applied to the same parameters.
+public export
+constructorType : DataDecl -> Nat -> Maybe (Term 0)
+constructorType decl index = do
+  ctor <- nthConstructor index decl.constructors
+  let fieldsTerm = fieldsPi ctor.fields (resultAt decl.key (telescopeLength decl.params))
+  Just (paramsPi decl.params (replace {p = Term} (sym (plusZeroRightNeutral (telescopeLength decl.params))) fieldsTerm))
+
+||| How many parameters and constructors, for callers that only need the shape.
+public export
+parameterCount : DataDecl -> Nat
+parameterCount decl = telescopeLength decl.params
+
+public export
+constructorCount : DataDecl -> Nat
+constructorCount decl = length decl.constructors
+
+||| Number of fields of constructor `index`.
+public export
+fieldCount : DataDecl -> Nat -> Maybe Nat
+fieldCount decl index = map (\ctor => telescopeLength ctor.fields) (nthConstructor index decl.constructors)
