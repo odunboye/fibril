@@ -29,6 +29,7 @@ import Fibril.Driver.Elaborate
 import Fibril.Driver.Manifest
 import Fibril.Driver.Format
 import Fibril.Project.Local
+import Fibril.Driver.Profile
 import Fibril.Source.File
 import Fibril.Source.Lexer
 import Fibril.Source.Diagnostic
@@ -84,6 +85,7 @@ Usage:
   fibril check --json --source-dir ROOT ENTRY  Version-2 project report with source snapshots
   fibril check --json PATH      JSON runtime-check report (no effect execution)
   fibril check --erased PATH    Check only the erased ordinary fragment
+  fibril check --profile PATH   Check PATH; per-phase timings (load/prelude/frontend/runtime-check) on stderr
   fibril run PATH              Check main : IO Unit, then execute prepared stdout requests
   fibril run-binary PATH       Execute checked borrowed binary stdio (standalone)
   fibril run-binary --source-dir ROOT ENTRY  Execute checked binary project
@@ -128,6 +130,12 @@ printC (Left err) = do
 
 runCheck : Bool -> String -> IO ()
 runCheck erasedOnly path = checkFile erasedOnly path >>= printReport
+
+runProfile : String -> IO ()
+runProfile path = do
+  profiled <- profileCheck path
+  _ <- fPutStr stderr (renderProfile profiled.phases)
+  printReport profiled.result
 
 runEval : Nat -> String -> IO ()
 runEval fuel path = evaluateFile fuel path >>= printReport
@@ -290,6 +298,7 @@ main = do
           exitFailure
     ["check", path] => runCheck False path
     ["check", "--erased", path] => runCheck True path
+    ["check", "--profile", path] => runProfile path
     ["check", "--json", path] => do
       report <- checkFileReport path
       putStrLn (renderCheckReport report)

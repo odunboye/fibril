@@ -8985,6 +8985,28 @@ class LockfileTests(unittest.TestCase):
         self.assertFalse((app / 'fibril.lock').exists())
 
 
+class CheckProfileTests(unittest.TestCase):
+    """check --profile adds stderr timings and must not change check's stdout or exit status."""
+
+    PHASES = ('load', 'prelude', 'frontend', 'runtime-check', 'total')
+
+    def test_profile_matches_plain_check_and_reports_phases(self):
+        with tempfile.TemporaryDirectory() as directory:
+            bad = Path(directory) / 'bad.fib'
+            bad.write_text('(True : Unit)\n')
+            missing = Path(directory) / 'missing.fib'
+            for path in (ROOT / 'examples/core/string-equal.fib', bad, missing):
+                with self.subTest(path=path.name):
+                    plain, profiled = run('check', str(path)), run('check', '--profile', str(path))
+                    self.assertEqual(profiled.stdout, plain.stdout)
+                    self.assertEqual(profiled.returncode, plain.returncode)
+                    self.assertIn('profile (monotonic wall clock', profiled.stderr)
+                    expected = ('load', 'total') if path == missing else self.PHASES
+                    for phase in expected:
+                        self.assertRegex(profiled.stderr, rf'(?m)^  {phase} +\d+\.\d{{3}} ms$')
+                    self.assertEqual(plain.stderr, '')
+
+
 class CheckJSONContractTests(unittest.TestCase):
     """Frozen key sets from docs/diagnostics.md#stability-contract-for-check---json."""
 
