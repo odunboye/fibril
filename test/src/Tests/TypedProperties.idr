@@ -41,6 +41,11 @@ seed = element
   , Sample BoolFalse BoolType
   , Sample UnitType (Universe 0)
   , Sample UnitValue UnitType
+  , Sample (NatRec (Lambda Erased NatType NatType) NatZero
+              (Lambda Erased NatType (Lambda Linear NatType (NatSucc (Variable FZ))))
+              (NatSucc NatZero)) NatType
+  , Sample (NatCase (Lambda Erased NatType NatType) (NatSucc NatZero) NatZero
+              (Lambda Linear NatType (Variable FZ))) NatType
   , Sample (Universe 0) (Universe 1)
   , Sample (Universe 1) (Universe 2)
   , Sample

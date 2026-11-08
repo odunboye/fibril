@@ -148,6 +148,12 @@ nodeCount _ = Nothing
 capturing : Term 1
 capturing = Fix (Pi Erased NatType NatType) (Lambda Erased NatType (Variable (FS (FS FZ))))
 
+-- The step function runs once per predecessor, so it may not capture a linear outer variable.
+natRecCapturing : Term 1
+natRecCapturing = NatRec (Lambda Erased NatType NatType) NatZero
+  (Lambda Erased NatType (Lambda Linear NatType (UnitCase (Variable (FS (FS FZ))) (Variable FZ))))
+  (NatSucc NatZero)
+
 one : Term n
 one = NatSucc NatZero
 
@@ -293,6 +299,10 @@ checks =
   , ("a fix capturing a linear outer variable fails runtime usage checking",
       isRejected (inferRuntime 512 128 (Extend Empty Linear NatType)
         capturing))
+  , ("a NatRec step capturing a linear outer variable fails runtime usage checking",
+      isRejected (inferRuntime 512 128 (Extend Empty Linear UnitType) natRecCapturing))
+  , ("a NatRec step capturing an unrestricted outer variable passes runtime usage checking",
+      isRight (inferRuntime 512 128 (Extend Empty Unrestricted UnitType) natRecCapturing))
   , ("a fix capturing an unrestricted outer variable passes runtime usage checking",
       isRight (inferRuntime 512 128 (Extend Empty Unrestricted NatType)
         capturing))
