@@ -6707,6 +6707,99 @@ main = first Zero
             self.assertIn('Unbound', error.stdout + error.stderr)
             self.assertNotIn('Parsing:', error.stdout + error.stderr)
 
+    def test_multi_field_data_case(self):
+        fixture = ROOT / 'examples/modules/multi-field-case/Main.fib'
+        source = fixture.read_text()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Main.fib'
+            def project(command):
+                return run(command, '--source-dir', directory, str(path))
+            path.write_text(source)
+            result = project('run')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'customer ada@example.com\nstaff bob\ncarol\nabcd\nempty\ncustomer dave\nguest\n')
+            formatted = run('format', str(path))
+            self.assertEqual(formatted.returncode, 0, formatted.stderr)
+            path.write_text(formatted.stdout)
+            self.assertEqual(project('run').stdout, result.stdout)
+            # Wrong arity, a constructor of another type, a missing or duplicate
+            # constructor, and an unconsumed linear field are all rejected.
+            for changed in [
+                source.replace('  Customer email password => appendString "customer " email', '  Customer email => email', 1),
+                source.replace('  Customer email password => appendString "customer " email', '  Customer email password extra => email', 1),
+                source.replace('  Customer email password => appendString "customer " email\n', '', 1),
+                source.replace('  Staff email => appendString "staff " email', '  Customer email password => email\n  Staff email => email', 1),
+                source.replace('appendString item (appendString note (appendString count sku))', 'appendString item (appendString note count)', 1),
+            ]:
+                path.write_text(changed)
+                rejected = project('run')
+                self.assertNotEqual(rejected.returncode, 0, rejected.stdout + rejected.stderr)
+                self.assertEqual(rejected.stdout, '')
+            other = ('module Main\ndata User : Type where\n  Guest : User\n  Customer : (email : String) -> (password : String) -> User\n'
+                     'data Other : Type where\n  Nope : Other\n  Pair : (a : String) -> (b : String) -> Other\n'
+                     'f : User -> Bool\nf u = case u of\n  Guest => True\n  Pair a b => False\n'
+                     'main : IO Unit\nmain = putStrLn "never"\n')
+            path.write_text(other)
+            rejected = project('run')
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertIn('does not match the scrutinee type and shape', rejected.stdout + rejected.stderr)
+            # An expected dependent result type selects the motive, with two and
+            # three fields.
+            dependent = ('module Main\ndata Triple : Type where\n  Mk : (a : String) -> (b : String) -> (c : String) -> Triple\n  None : Triple\n'
+                         '0 Q : (0 t : Triple) -> Type 1\nQ t = case t of\n  Mk a b c => (String : Type 1)\n  None => (Bool : Type 1)\n'
+                         'k : (1 t : Triple) -> Q t\nk t = case t of\n  Mk a b c => appendString a (appendString b c)\n  None => True\n'
+                         'main : IO Unit\nmain = putStrLn (k (Mk "1" "2" "3"))\n')
+            path.write_text(dependent)
+            result = project('run')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, '123\n')
+
+    def test_multi_field_clause_patterns_and_wildcard(self):
+        header = ('module Main\ndata User : Type where\n  Guest : User\n'
+                  '  Customer : (email : String) -> (password : String) -> User\n  Staff : (email : String) -> User\n'
+                  'data Order : Type where\n  Empty : Order\n'
+                  '  Line : (1 item : String) -> (1 note : String) -> Order\n')
+        main = 'main : IO Unit\nmain = putStrLn (describe (Customer "ada" "pw"))\n'
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Main.fib'
+            def project(command):
+                return run(command, '--source-dir', directory, str(path))
+            clauses = ('describe : (1 user : User) -> String\n'
+                       'describe (Customer e p) = appendString "customer " e\n'
+                       'describe Guest = "guest"\ndescribe Staff e = e\n')
+            path.write_text(header + clauses + main)
+            result = project('run')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'customer ada\n')
+            formatted = run('format', str(path))
+            self.assertEqual(formatted.stdout, header + clauses + main)
+            # A lone parenthesized equation is still not a clause group.
+            path.write_text(header + 'describe : User -> String\ndescribe (Customer e p) = e\n' + main)
+            rejected = project('check')
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertIn('must be names', rejected.stdout + rejected.stderr)
+            for bad in ['describe (Customer e) = e', 'describe (Customer e e) = e', 'describe () = e']:
+                path.write_text(header + 'describe : User -> String\n' + bad + '\ndescribe Guest = "g"\ndescribe Staff e = e\n' + main)
+                self.assertNotEqual(project('check').returncode, 0, bad)
+            # `_` covers an unrestricted multi-field constructor but cannot drop linear fields.
+            path.write_text(header + 'isGuest : User -> Bool\nisGuest Guest = True\nisGuest _ = False\n' + 'main : IO Unit\nmain = putStrLn "x"\n')
+            self.assertEqual(project('check').returncode, 0)
+            for linear in ['isEmpty Empty = True\nisEmpty _ = False\n', 'isEmpty Empty = True\nisEmpty other = False\n']:
+                path.write_text(header + 'isEmpty : (1 order : Order) -> Bool\n' + linear + 'main : IO Unit\nmain = putStrLn "x"\n')
+                rejected = project('check')
+                self.assertNotEqual(rejected.returncode, 0)
+                self.assertIn('Binder usage', rejected.stdout + rejected.stderr)
+            # A named catch-all rebuilds the multi-field value from unrestricted fields.
+            path.write_text(header + 'describe : User -> String\ndescribe Staff e = e\ndescribe other = "other"\n'
+                            + 'main : IO Unit\nmain = putStrLn (describe (Customer "a" "b"))\n')
+            named = project('run')
+            self.assertEqual(named.returncode, 0, named.stdout + named.stderr)
+            self.assertEqual(named.stdout, 'other\n')
+            # Arity is reported precisely.
+            path.write_text(header + 'f : User -> Bool\nf u = case u of\n  Guest => True\n  Customer e => False\n  Staff e => True\n' + 'main : IO Unit\nmain = putStrLn "x"\n')
+            rejected = project('check')
+            self.assertIn('has 2 field(s) but the pattern binds 1', rejected.stdout + rejected.stderr)
+
     def test_inferred_data_case_motives(self):
         fixture = ROOT / 'examples/modules/direct-data-case/Main.fib'
         source = fixture.read_text().replace(' return (\\(0 self : Sum String Bool) => String)', '').replace(' return (\\(0 self : Sum A B) => C)', '')

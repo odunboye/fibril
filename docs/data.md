@@ -307,5 +307,7 @@ admit nine parameters, sixteen alternatives and sixteen constructor fields under
 existing budgets. The kernel tests/proofs remain distinct from typed preservation,
 canonicity, positivity, termination and verified erasure.
 
-Next: extend direct cases to dependent multi-field patterns,
+Direct cases now bind every field of a multi-field constructor (see
+[direct data cases](direct-data-cases.md#multi-field-constructors)). Next:
+nested patterns and constructor patterns in function equations,
 then the separate recursive-inductive and termination milestones in the [landing plan](inductive-data.md).

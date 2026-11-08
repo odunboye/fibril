@@ -32,6 +32,9 @@ three pure email-service request alternatives, with a [separate test
 package](packages/request-api/test/src/RequestTests/Main.fib). It does not send
 mail or validate addresses. Run `fibril test --package examples/packages/request-api/fibril.yaml`.
 
+The [multi-field-case example](modules/multi-field-case/Main.fib) matches two- and
+four-field constructors directly with `case`, binding every field.
+
 The [motive-do example](modules/motive-do/Main.fib) uses a dependent match in
 a typed do-let without an explicit return motive.
 

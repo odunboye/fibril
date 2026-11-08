@@ -224,6 +224,26 @@ predecessorQuantity ctx env (Variable i) =
     then Unrestricted else Linear
 predecessorQuantity _ _ _ = Linear
 
+||| Number of field lambdas of a normalized curried constructor value.
+constructorFieldCount : Term m -> Nat
+constructorFieldCount (Lambda _ _ body) = S (constructorFieldCount body)
+constructorFieldCount _ = Z
+
+||| Fields a wildcard must destructure to drop a linear pair payload: each
+||| linear tail that is itself a pair continues the record. Counting is only a
+||| guide; the core checker still rejects dropping any linear field.
+payloadFieldCount : Term m -> Nat
+payloadFieldCount (Sigma _ r _ rest) = case (r, rest) of
+  (Linear, Sigma _ _ _ _) => S (payloadFieldCount rest)
+  _ => 2
+payloadFieldCount _ = 1
+
+||| Tag of a curried constructor value (any number of field lambdas).
+constructorBodyTag : Term m -> Maybe Nat
+constructorBodyTag (Lambda _ _ body) = constructorBodyTag body
+constructorBodyTag (NominalValue _ (VariantValue _ tag (Just _))) = Just tag
+constructorBodyTag _ = Nothing
+
 mutual
   ||| Visibility is accepted only on a checked module declaration's leading
   ||| erased prefix, followed by a source-authored ordinary Pi.
@@ -256,7 +276,96 @@ mutual
     OutOfFuel _ => Left (CannotElaborate position "Data-case constructor reduction budget exhausted")
     Normal (NominalValue _ (VariantValue _ tag Nothing)) => Right tag
     Normal (Lambda _ _ (NominalValue _ (VariantValue _ tag (Just (Variable FZ))))) => Right tag
-    Normal _ => Left (CannotElaborate position "Data-case pattern must name a transparent nullary or unary constructor value")
+    Normal other => case constructorBodyTag other of
+      Just tag => Right tag
+      Nothing => Left (CannotElaborate position "Data-case pattern must name a transparent constructor value")
+
+  ||| A constructor applied to the scrutinee's parameters, normalized, must be a
+  ||| curried lambda of exactly `arity` fields that builds this nominal type and
+  ||| shape; its tag is returned. Unary and nullary arms keep their exact-form comparison.
+  multiFieldConstructorTag : GlobalContext -> Position -> Nat -> Term m -> Term m -> Term m -> Either ResolveError Nat
+  multiFieldConstructorTag shared position arity nominal shape candidate =
+    case normalizeGlobals (globalValue shared) typeReductionFuel candidate of
+      OutOfFuel _ => Left (CannotElaborate position "Data-case constructor reduction budget exhausted")
+      Normal normal => go arity nominal shape normal
+    where
+      go : Nat -> Term k -> Term k -> Term k -> Either ResolveError Nat
+      go (S fields) nominal shape (Lambda _ _ body) = go fields (weaken nominal) (weaken shape) body
+      go Z nominal shape (NominalValue actualNominal (VariantValue actualShape tag (Just _))) =
+        case (betaCompareGlobals (globalValue shared) typeReductionFuel actualNominal nominal,
+              betaCompareGlobals (globalValue shared) typeReductionFuel actualShape shape) of
+          (EqualNormalForms, EqualNormalForms) => Right tag
+          (Inconclusive, _) => Left (CannotElaborate position "Data-case constructor comparison budget exhausted")
+          (_, Inconclusive) => Left (CannotElaborate position "Data-case constructor comparison budget exhausted")
+          _ => Left (CannotElaborate position "Data-case constructor does not match the scrutinee type and shape")
+      go _ _ _ _ = Left (CannotElaborate position "Data-case constructor payload arity does not match its branch")
+
+  ||| Motive for one pair level: the dependent body when known, else a constant
+  ||| result lifted out of the two binders this level introduced.
+  pairLevelMotive : Position -> Term m -> Maybe (Term (S m)) -> Maybe (Term (S (S m))) -> Either ResolveError (Term m, Maybe (Term m))
+  pairLevelMotive position tailTy (Just body) _ = Right (Lambda Erased tailTy body, Nothing)
+  pairLevelMotive position tailTy Nothing (Just inner) = case dropNewest inner >>= dropNewest of
+    Just outer => Right (Lambda Erased tailTy (weaken outer), Just outer)
+    Nothing => Left (CannotElaborate position "Data-case result depends on a constructor field; use an explicit return motive")
+  pairLevelMotive position tailTy Nothing Nothing = Left (CannotElaborate position "Cannot infer data-case result; use an explicit return motive")
+
+  ||| Bind the fields of a multi-field constructor payload. The payload is a
+  ||| right-nested pair, so each level is one `PairCase` on the newest variable
+  ||| (the payload, then each linear tail). `motiveBody` is the dependent result
+  ||| type in terms of that variable (absent when no motive is known, in which case
+  ||| a constant result is inferred from the body). Also returns the inferred
+  ||| constant result at this level. `named` is a named catch-all: its token and the
+  ||| rebuilt constructor value, in terms of the same variable as `motiveBody`; the body
+  ||| sees that value through an unrestricted binding, so it needs unrestricted fields.
+  ||| The core checker validates the whole term.
+  multiFieldLevel : GlobalContext -> List GlobalDefinition -> Position -> Context m -> Vect m String -> Term m -> Term m -> List Token ->
+                    Maybe (Term (S m)) -> Maybe (Token, Term (S m)) -> Expr -> Either ResolveError (Term m, Maybe (Term m))
+  multiFieldLevel shared globals position ctx env scrutinee tailTy [first, second] motiveBody named body = case tailTy of
+    Sigma q r domain rest => do
+      let inner = Extend (Extend ctx q domain) r rest
+      let scope = second.spelling :: first.spelling :: env
+      let packed = PairValue (rename (FS . FS) tailTy) (Variable (FS FZ)) (Variable FZ)
+      let replace : Fin (S m) -> Term (S (S m))
+          replace FZ = packed
+          replace (FS i) = Variable (FS (FS i))
+      let expectedBody = map (\result => let applied = substituteTerm replace result in
+                                          fromMaybe applied (guardedNormalGlobals shared typeReductionFuel applied)) motiveBody
+      checked <- case named of
+        Nothing => case expectedBody of
+          Just expected => elaborateExpectedGlobals shared globals inner scope expected body
+          Nothing => elaborateInWithGlobals shared globals (Just inner) scope body
+        Just (name, value) => case substituteTerm replace value of
+          rebuilt@(NominalValue valueType _) => do
+            let withValue = Extend inner Unrestricted valueType
+            result <- case expectedBody of
+              Just expected => elaborateExpectedGlobals shared globals withValue (name.spelling :: scope) (weaken expected) body
+              Nothing => elaborateInWithGlobals shared globals (Just withValue) (name.spelling :: scope) body
+            Right (Apply (Lambda Unrestricted valueType result) rebuilt)
+          _ => Left (CannotElaborate position "Invalid data-case catch-all value")
+      inferred <- case motiveBody of
+        Just _ => Right Nothing
+        Nothing => case inferErasedGlobals shared checkingDepth typeReductionFuel inner checked of
+          Left err => Left (CannotElaborate position ("Cannot infer data-case branch type: " ++ show err ++ "; use an explicit return motive"))
+          Right ty => Right (Just ty)
+      (motive, result) <- pairLevelMotive position tailTy motiveBody inferred
+      Right (PairCase motive scrutinee (Lambda q domain (Lambda r rest checked)), result)
+    _ => Left (CannotElaborate position "Data-case constructor payload arity does not match its branch")
+  multiFieldLevel shared globals position ctx env scrutinee tailTy (first :: rest@(_ :: _ :: _)) motiveBody named body = case tailTy of
+    Sigma q r domain remaining => do
+      let inner = Extend (Extend ctx q domain) r remaining
+      let scope = "$field.tail" :: first.spelling :: env
+      let packed = PairValue (rename (FS . FS . FS) tailTy) (Variable (FS (FS FZ))) (Variable FZ)
+      let replace : Fin (S m) -> Term (S (S (S m)))
+          replace FZ = packed
+          replace (FS i) = Variable (FS (FS (FS i)))
+      (nested, nestedResult) <- multiFieldLevel shared globals position inner scope (Variable FZ) (weaken remaining) rest
+                                  (map (substituteTerm replace) motiveBody)
+                                  (map (\(name, value) => (name, substituteTerm replace value)) named) body
+      (motive, result) <- pairLevelMotive position tailTy motiveBody nestedResult
+      Right (PairCase motive scrutinee (Lambda q domain (Lambda r remaining nested)), result)
+    _ => Left (CannotElaborate position "Data-case constructor payload arity does not match its branch")
+  multiFieldLevel shared globals position ctx env scrutinee tailTy _ motiveBody named body =
+    Left (CannotElaborate position "Data-case constructor payload arity does not match its branch")
 
   orderDataArms : Position -> Nat -> List (Maybe (Quantity, Term n)) -> List (Nat, Term n) -> Either ResolveError (List (Term n))
   orderDataArms position tag [] [] = Right []
@@ -293,15 +402,27 @@ mutual
         descriptor <- case variantAt tag descriptors of
           Nothing => Left (CannotElaborate name.span.start "Data-case constructor tag is outside the scrutinee shape")
           Just descriptor => Right descriptor
-        expected <- case (descriptor, binder) of
-          (Nothing, []) => Right (NominalValue nominal (VariantValue shape tag Nothing))
-          (Just (q, ty), [_]) =>
-            Right (Lambda q ty (NominalValue (weaken nominal) (VariantValue (weaken shape) tag (Just (Variable FZ)))))
-          _ => Left (CannotElaborate name.span.start "Data-case constructor payload arity does not match its branch")
-        case betaCompareGlobals (globalValue shared) typeReductionFuel candidate expected of
-          EqualNormalForms => Right ()
-          DifferentNormalForms => Left (CannotElaborate name.span.start "Data-case constructor does not match the scrutinee type and shape")
-          Inconclusive => Left (CannotElaborate name.span.start "Data-case constructor comparison budget exhausted")
+        arity <- case normalizeGlobals (globalValue shared) typeReductionFuel candidate of
+          OutOfFuel _ => Left (CannotElaborate name.span.start "Data-case constructor reduction budget exhausted")
+          Normal normal => Right (constructorFieldCount normal)
+        if arity /= length binder
+          then Left (CannotElaborate name.span.start ("Data-case constructor " ++ name.spelling ++ " has " ++ show arity ++
+                     " field(s) but the pattern binds " ++ show (length binder)))
+          else Right ()
+        case binder of
+          _ :: _ :: _ => do
+            _ <- multiFieldConstructorTag shared name.span.start (length binder) nominal shape candidate
+            Right ()
+          _ => do
+            expected <- case (descriptor, binder) of
+              (Nothing, []) => Right (NominalValue nominal (VariantValue shape tag Nothing))
+              (Just (q, ty), [_]) =>
+                Right (Lambda q ty (NominalValue (weaken nominal) (VariantValue (weaken shape) tag (Just (Variable FZ)))))
+              _ => Left (CannotElaborate name.span.start "Data-case constructor payload arity does not match its branch")
+            case betaCompareGlobals (globalValue shared) typeReductionFuel candidate expected of
+              EqualNormalForms => Right ()
+              DifferentNormalForms => Left (CannotElaborate name.span.start "Data-case constructor does not match the scrutinee type and shape")
+              Inconclusive => Left (CannotElaborate name.span.start "Data-case constructor comparison budget exhausted")
         branch <- case (descriptor, binder) of
           (Nothing, []) => case hint of
             Nothing => elaborateInWithGlobals shared globals (Just ctx) env body
@@ -318,6 +439,13 @@ mutual
                     expectedResult = fromMaybe applied (guardedNormalGlobals shared typeReductionFuel applied) in
                   elaborateExpectedGlobals shared globals (Extend ctx q ty) (bound.spelling :: env) expectedResult body
             Right (Lambda q ty result)
+          (Just (q, ty), first :: second :: more) => do
+            -- Same shape as `assemblePairPayloadBranch`, nested once per extra field.
+            let motiveBody = map (\motive => Apply (rename (FS . FS) motive)
+                  (NominalValue (rename (FS . FS) nominal) (VariantValue (rename (FS . FS) shape) tag (Just (Variable FZ))))) hint
+            (level, _) <- multiFieldLevel shared globals name.span.start (Extend ctx q ty) ("$payload" :: env) (Variable FZ) (weaken ty)
+                            (first :: second :: more) motiveBody Nothing body
+            Right (Lambda q ty level)
           _ => Left (CannotElaborate name.span.start "Invalid data-case payload branch")
         following <- elaborateDataArmsGlobals shared globals ctx env nominal shape indices descriptors hint clauseNames rest
         if any (\entry => fst entry == tag) following
@@ -359,7 +487,24 @@ mutual
           Nothing => elaborateInWithGlobals shared globals (Just inner) (head.spelling :: env) body
           Just expected => elaborateExpectedGlobals shared globals inner (head.spelling :: env) (weaken expected) body
         Right (tag, Apply (Lambda Unrestricted nominal result) value)
-  catchAllArmGlobals shared globals ctx env nominal shape hint head body tag (Just (q, ty)) = do
+  catchAllArmGlobals shared globals ctx env nominal shape hint head body tag (Just (q, ty)) =
+    -- A catch-all over a multi-field payload destructures it with ignored binders:
+    -- `_` drops the fields, a name rebuilds the value from them. Either way every
+    -- field must be unrestricted or erased; the core checker enforces that.
+    if q == Linear && payloadFieldCount ty >= 2
+      then do
+        let wide = rename (FS . FS)
+        let value = NominalValue (wide nominal) (VariantValue (wide shape) tag (Just (Variable FZ)))
+        let motiveBody = map (\motive => Apply (wide motive) value) hint
+        let dropped = { spelling := "_" } head
+        (level, _) <- multiFieldLevel shared globals head.span.start (Extend ctx q ty) ("$payload" :: env) (Variable FZ) (weaken ty)
+                        (replicate (payloadFieldCount ty) dropped) motiveBody
+                        (if head.spelling == "_" then Nothing else Just (head, value)) body
+        Right (tag, Lambda q ty level)
+      else catchAllUnaryPayloadArm shared globals ctx env nominal shape hint head body tag q ty
+  catchAllUnaryPayloadArm : GlobalContext -> List GlobalDefinition -> Context n -> Vect n String -> Term n -> Term n -> Maybe (Term n) ->
+                            Token -> Expr -> Nat -> Quantity -> Term n -> Either ResolveError (Nat, Term n)
+  catchAllUnaryPayloadArm shared globals ctx env nominal shape hint head body tag q ty = do
     let value = NominalValue (weaken nominal) (VariantValue (weaken shape) tag (Just (Variable FZ)))
     let expectedResult = map (\motive => let applied = Apply (weaken motive) value in fromMaybe applied (guardedNormalGlobals shared typeReductionFuel applied)) hint
     let payloadContext = Extend ctx q ty

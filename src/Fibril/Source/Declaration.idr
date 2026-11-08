@@ -40,6 +40,40 @@ equationArguments (S budget) end line seen tokens@(item :: rest) =
     (later, remaining) <- equationArguments budget end line (item.spelling :: seen) rest
     Right (item :: later, remaining)
 
+-- Names of one parenthesized clause pattern, up to the closing parenthesis.
+parenNames : Nat -> List Token -> Either ParseError (List Token, List Token)
+parenNames line [] = Left (ParseFailure (At 0 line 1) "Expected ) after clause pattern")
+parenNames line (item :: rest) =
+  if item.kind == CloseParen then Right ([], rest)
+  else if item.kind /= Name || item.span.start.line /= line
+    then Left (ParseFailure item.span.start "Clause pattern must be names on the definition line")
+    else do
+      (later, remaining) <- parenNames line rest
+      Right (item :: later, remaining)
+
+-- A clause's matched argument is either the flat names accepted before, or one
+-- parenthesized flat constructor pattern `(Constructor binder ...)` with any
+-- number of binders. The flag reports the parenthesized form.
+clauseHead : Nat -> Position -> Nat -> List Token -> Either ParseError (List Token, Bool, List Token)
+clauseHead budget end line tokens = case tokens of
+  paren :: rest =>
+    if paren.kind == OpenParen then do
+      if paren.span.start.line /= line then Left (ParseFailure paren.span.start "Clause pattern must be on the definition line") else Right ()
+      (inside, remaining) <- parenNames line rest
+      case inside of
+        [] => Left (ParseFailure paren.span.start "Empty clause pattern")
+        constructor :: binders => do
+          let named = filter (\t => t.spelling /= "_") binders
+          if length (nub (map (\t => t.spelling) named)) /= length named
+            then Left (ParseFailure constructor.span.start "Duplicate clause pattern binder") else Right ()
+          Right (inside, True, remaining)
+    else do
+      (names, remaining) <- equationArguments budget end line [] tokens
+      Right (names, False, remaining)
+  [] => do
+    (names, remaining) <- equationArguments budget end line [] tokens
+    Right (names, False, remaining)
+
 -- Only a parsed qualified reference exempts its final name from the
 -- conservative self-reference check. Other name occurrences remain rejected.
 clauseSelfReference : Nat -> Position -> String -> List Token -> Bool
@@ -61,14 +95,15 @@ clauseSelfReference budget end name = scan []
 
 -- This first clause form has exactly one matched argument and flat,
 -- unqualified constructors with at most one payload binder.
-clauseArm : Nat -> String -> Position -> List Token -> Expr -> List Token ->
+clauseArm : Nat -> String -> Position -> Bool -> List Token -> Expr -> List Token ->
             Either ParseError (Token, List Token, Expr)
-clauseArm budget function end arguments body bodyTokens = do
+clauseArm budget function end parenthesized arguments body bodyTokens = do
   if any (\t => t.kind == Name && t.spelling == function) arguments || clauseSelfReference budget end function bodyTokens
     then Left (ParseFailure (extent body).start "Recursive function clauses are not supported") else Right ()
-  case arguments of
-    [constructor] => Right (constructor, [], body)
-    [constructor, binder] =>
+  case (parenthesized, arguments) of
+    (True, constructor :: binders) => Right (constructor, binders, body)
+    (False, [constructor]) => Right (constructor, [], body)
+    (False, [constructor, binder]) =>
       if binder.spelling == "_" then Left (ParseFailure binder.span.start "Clause payload must be a named binder")
       else Right (constructor, [binder], body)
     _ => Left (ParseFailure end "Function clauses require one flat constructor pattern")
@@ -80,12 +115,12 @@ clauseArms (S fuel) column budget end name tokens = case tokens of
   next :: following :: rest =>
     if next.kind == Name && next.spelling == name && next.span.start.column == column && following.kind /= Colon
     then do
-      (args, beforeEquals) <- equationArguments budget end next.span.start.line [] (following :: rest)
+      (args, parenthesized, beforeEquals) <- clauseHead budget end next.span.start.line (following :: rest)
       (equals, afterEquals) <- expect Equals end beforeEquals
       if equals.span.start.line /= next.span.start.line then Left (ParseFailure equals.span.start "Clause = must share the definition line") else Right ()
       let (bodyTokens, remaining) = expressionChunkAt column next.span.start.line afterEquals
       body <- parseExpression budget (nextPosition end remaining) bodyTokens
-      arm <- clauseArm budget name next.span.start args body bodyTokens
+      arm <- clauseArm budget name next.span.start parenthesized args body bodyTokens
       (arms, remaining) <- clauseArms fuel column budget end name remaining
       Right (arm :: arms, remaining)
     else Right ([], tokens)
@@ -116,7 +151,7 @@ parsePairFramed column definitionColumn expressionBudget end tokens@(first :: _)
                 ("Expected definition of " ++ show name.spelling ++
                  ", found " ++ show definedName.spelling))
      else Right ()
-  (arguments, beforeEquals) <- equationArguments expressionBudget end definedName.span.start.line [] afterDefinedName
+  (arguments, parenthesized, beforeEquals) <- clauseHead expressionBudget end definedName.span.start.line afterDefinedName
   (equals, afterEquals) <- expect Equals end beforeEquals
   if equals.span.start.line /= definedName.span.start.line
      then Left (ParseFailure equals.span.start "Definition name and = must share the header line")
@@ -130,7 +165,7 @@ parsePairFramed column definitionColumn expressionBudget end tokens@(first :: _)
       then if column /= 1 || definitionColumn /= 1
         then Left (ParseFailure next.span.start "Multiple function clauses are not supported; use a case expression")
         else do
-          firstArm <- clauseArm expressionBudget name.spelling definedName.span.start arguments body valueTokens
+          firstArm <- clauseArm expressionBudget name.spelling definedName.span.start parenthesized arguments body valueTokens
           (later, remaining) <- clauseArms expressionBudget definitionColumn expressionBudget end name.spelling remaining
           let finish = case reverse later of
                 (_, _, last) :: _ => (extent last).finish
@@ -144,11 +179,14 @@ parsePairFramed column definitionColumn expressionBudget end tokens@(first :: _)
                 _ => Nothing
           let decl = Defined (Between first.span.start finish) name.span definedName.span False q name.spelling expected value
           Right ({ finalPattern := finalPattern } decl, remaining)
-      else ordinary name definedName first q expected arguments body remaining
-    _ => ordinary name definedName first q expected arguments body remaining
+      else ordinary name definedName first q expected parenthesized arguments body remaining
+    _ => ordinary name definedName first q expected parenthesized arguments body remaining
   where
-    ordinary : Token -> Token -> Token -> Quantity -> Expr -> List Token -> Expr -> List Token -> Either ParseError (Declaration, List Token)
-    ordinary name definedName first q expected arguments body remaining =
+    ordinary : Token -> Token -> Token -> Quantity -> Expr -> Bool -> List Token -> Expr -> List Token -> Either ParseError (Declaration, List Token)
+    ordinary name definedName first q expected True arguments body remaining =
+      Left (ParseFailure (case arguments of item :: _ => item.span.start; [] => definedName.span.start)
+             "Function equation parameters must be names on the definition line")
+    ordinary name definedName first q expected False arguments body remaining =
       let value = case arguments of
             [] => body
             first :: _ => NEquationLambda (Between first.span.start (extent body).finish) arguments expected body in

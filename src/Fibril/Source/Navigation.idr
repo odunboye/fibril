@@ -229,7 +229,7 @@ clauseHeaders context decl = case decl.value of
   where
     header : (Token, List Token, Expr) -> List (ReferenceTo destination)
     header (constructor, _, _) =
-      case find (\token => token.span.finish.offset <= constructor.span.start.offset) (reverse context.tokens) of
+      case find (\token => token.span.finish.offset <= constructor.span.start.offset && token.kind /= OpenParen) (reverse context.tokens) of
         Just token => if token.kind == Name && token.spelling == decl.name &&
                          token.span.start.line == constructor.span.start.line &&
                          token.span.start.offset /= decl.definitionNameSpan.start.offset
