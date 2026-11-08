@@ -214,6 +214,14 @@
         "path": "docs/composed-workloads.md"
       },
       {
+        "title": "Common admission",
+        "path": "docs/common-admission.md"
+      },
+      {
+        "title": "Native variable-argument forwarding",
+        "path": "docs/native-variable-forwarding.md"
+      },
+      {
         "title": "General recursive data plan",
         "path": "docs/general-recursive-data-plan.md"
       },
