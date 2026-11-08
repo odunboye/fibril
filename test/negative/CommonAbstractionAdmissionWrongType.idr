@@ -1,0 +1,4 @@
+module CommonAbstractionAdmissionWrongType
+import CommonAbstractionAdmissionFixture
+bad : Result STop -> AdmittedCanonicalAbstractionInput [] CommonAbstractionAdmissionFixture.rawDeclarations STop CommonAbstractionAdmissionFixture.leftRaw CommonAbstractionAdmissionFixture.rightRaw CommonAbstractionAdmissionFixture.bodyRaw LUnit
+bad input = input

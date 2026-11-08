@@ -1,5 +1,9 @@
 # Declarative nondependent path slice
 
+> Scope authority: [Common Path v0 freeze](cubical-experiment-contract.md).
+> This document records proposals, reference experiments or milestone details;
+> it does not add rules to the frozen calculus.
+
 `Fibril.Cubical.Logical.TypedPath` is isolated from the production checker. It
 interprets `ScopedSyntax.Universe` as an abstract base A, not a universe. Its
 implicit context consists of `m` variables all of type A, and `n` scoped

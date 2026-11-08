@@ -1,5 +1,9 @@
 # Cubical alignment: first checked path milestone
 
+> Scope authority: [Common Path v0 freeze](cubical-experiment-contract.md).
+> This document records proposals, reference experiments or milestone details;
+> it does not add rules to the frozen calculus.
+
 **Status: roadmap, not an implemented path calculus or a soundness claim.**
 Fibril's target remains a practical, resource-aware language with a De Morgan
 cubical foundation suitable for HoTT. Its ordinary checker, runtime, recursive

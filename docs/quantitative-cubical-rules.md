@@ -1,5 +1,9 @@
 # Quantitative cubical rules: proposed general-path contract
 
+> Scope authority: [Common Path v0 freeze](cubical-experiment-contract.md).
+> This document records proposals, reference experiments or milestone details;
+> it does not add rules to the frozen calculus.
+
 Status: **proposed rules and execution gates**, not an implemented calculus,
 completed metatheory, or authorization to broaden ordinary conversion.
 The [closed Boolean experiment](cubical-alignment.md) remains a regression

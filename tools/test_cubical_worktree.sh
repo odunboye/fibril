@@ -41,6 +41,86 @@ cd "$tmp/tests"
 "$idris" --build tests.ipkg
 ./build/exec/fibril-tests
 cd negative
+# Admission's Fin scopes reject malformed indices before checking. Exact
+# evidence indices also prevent changing context/type or reflecting quantities.
+for fixture in CommonAdmissionWrongIndex CommonAdmissionWrongPathIndex CommonAdmissionWrongDimension CommonAdmissionWrongContext CommonAdmissionWrongType CommonAdmissionUsesReflection CommonAdmissionErasedBinder; do
+  "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1 || true
+  case "$fixture" in
+    CommonAdmissionWrongIndex|CommonAdmissionWrongPathIndex|CommonAdmissionWrongDimension) expected='Mismatch between: S ?k and 0.' ;;
+    CommonAdmissionWrongContext|CommonAdmissionWrongType) expected='Mismatch between: LBool and LUnit.' ;;
+    CommonAdmissionUsesReflection) expected='Mismatch between: CommonHasType' ;;
+    CommonAdmissionErasedBinder) expected='Mismatch between: True and False.' ;;
+  esac
+  if [[ $(grep -c '^Error:' "$tmp/$fixture.log") -ne 1 ]] ||
+     ! grep -Fq 'Error: While processing right hand side of bad.' "$tmp/$fixture.log" ||
+     ! grep -Fq "$expected" "$tmp/$fixture.log" ||
+     grep -Eq 'Undefined name|While processing type of' "$tmp/$fixture.log"; then
+    echo "Common admission negative test failed: $fixture" >&2
+    cat "$tmp/$fixture.log" >&2; exit 1
+  fi
+done
+echo 'Common admission scope, exact evidence and quantity negatives passed.'
+
+for fixture in CommonEqualityAdmissionWrongFace CommonEqualityAdmissionWrongIntermediate CommonEqualityAdmissionWrongType CommonEqualityAdmissionWrongContext CommonEqualityAdmissionUsesReflection; do
+  "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1 || true
+  case "$fixture" in
+    CommonEqualityAdmissionWrongFace) expected='Mismatch between: STop and SBottom.' ;;
+    CommonEqualityAdmissionWrongIntermediate) expected='Mismatch between: True and False.' ;;
+    CommonEqualityAdmissionWrongType|CommonEqualityAdmissionWrongContext) expected='Mismatch between: LBool and LUnit.' ;;
+    CommonEqualityAdmissionUsesReflection) expected='Mismatch between: CommonFaceEqual' ;;
+  esac
+  if [[ $(grep -c '^Error:' "$tmp/$fixture.log") -ne 1 ]] ||
+     ! grep -Fq 'Error: While processing right hand side of bad.' "$tmp/$fixture.log" ||
+     ! grep -Fq "$expected" "$tmp/$fixture.log" ||
+     grep -Eq 'Undefined name|While processing type of' "$tmp/$fixture.log"; then
+    echo "Common equality admission negative test failed: $fixture" >&2
+    cat "$tmp/$fixture.log" >&2; exit 1
+  fi
+done
+echo 'Common equality admission exact face, intermediate, type, context and quantity negatives passed.'
+
+for fixture in CommonEndpointAdmissionWrongContext CommonEndpointAdmissionWrongFace CommonEndpointAdmissionWrongAdmissibility; do
+  "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1 || true
+  case "$fixture" in
+    CommonEndpointAdmissionWrongContext) expected='Mismatch between: LBool and LUnit.' ;;
+    CommonEndpointAdmissionWrongFace) expected='Mismatch between: STop and SBottom.' ;;
+    CommonEndpointAdmissionWrongAdmissibility) expected="Can't solve constraint between: DependentPathAdmissible (checkedDeclarations ds) ps and CanonicalPathAdmissible ds ps." ;;
+  esac
+  if [[ $(grep -c '^Error:' "$tmp/$fixture.log") -ne 1 ]] ||
+     ! grep -Fq 'Error: While processing right hand side of bad.' "$tmp/$fixture.log" ||
+     ! grep -Fq "$expected" "$tmp/$fixture.log" ||
+     grep -Eq 'Undefined name|While processing type of' "$tmp/$fixture.log"; then
+    echo "Common endpoint admission negative test failed: $fixture" >&2
+    cat "$tmp/$fixture.log" >&2; exit 1
+  fi
+done
+echo 'Common endpoint admission exact context, face and canonical admissibility negatives passed.'
+
+"$idris" -p fibril --check CommonAbstractionAdmissionFixture.idr > "$tmp/CommonAbstractionAdmissionFixture.log" 2>&1 || {
+  cat "$tmp/CommonAbstractionAdmissionFixture.log" >&2; exit 1;
+}
+for fixture in CommonAbstractionAdmissionWrongFace CommonAbstractionAdmissionWrongBoundary CommonAbstractionAdmissionWrongBody CommonAbstractionAdmissionWrongType CommonAbstractionAdmissionWrongContext CommonAbstractionAdmissionWrongDimension CommonAbstractionAdmissionWrongAdmissibility; do
+  if "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1; then
+    echo "Abstraction admission negative unexpectedly succeeded: $fixture" >&2; exit 1
+  fi
+  case "$fixture" in
+    CommonAbstractionAdmissionWrongFace) expected='Mismatch between: STop and SBottom.' ;;
+    CommonAbstractionAdmissionWrongBoundary) expected='Mismatch between: True and False.' ;;
+    CommonAbstractionAdmissionWrongBody) expected='Mismatch between: FZ and FS FZ.' ;;
+    CommonAbstractionAdmissionWrongType|CommonAbstractionAdmissionWrongContext) expected='Mismatch between: LBool and LUnit.' ;;
+    CommonAbstractionAdmissionWrongDimension) expected='Mismatch between: S ?k and 0.' ;;
+    CommonAbstractionAdmissionWrongAdmissibility) expected="Can't solve constraint between: DependentPathAdmissible (checkedDeclarations (abstractionDeclarations input)) ps and CanonicalPathAdmissible (abstractionDeclarations input) ps." ;;
+  esac
+  if [[ $(grep -c '^Error:' "$tmp/$fixture.log") -ne 1 ]] ||
+     ! grep -Fq 'Error: While processing right hand side of bad.' "$tmp/$fixture.log" ||
+     ! grep -Fq "$expected" "$tmp/$fixture.log" ||
+     grep -Eq 'Undefined name|While processing type of' "$tmp/$fixture.log"; then
+    echo "Abstraction admission negative failed for an unrelated reason: $fixture" >&2
+    cat "$tmp/$fixture.log" >&2; exit 1
+  fi
+done
+echo 'Common abstraction admission exact face, endpoints, body, type, context, dimension and canonical admissibility negatives passed.'
+
 for fixture in CommonAbstractWrongFace CommonAbstractWrongIndex CommonAbstractWrongBoundary; do
   "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1 || true
   case "$fixture" in
