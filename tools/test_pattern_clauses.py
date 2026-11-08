@@ -350,6 +350,23 @@ data Shape : Type where
                 result = self.run_source(self.COLOR + DATA.split('\n', 1)[1] + definition + '\nmain : Bool\nmain = True\n')
                 self.assertNotEqual(result.returncode, 0, result.stdout)
 
+    def test_unary_recursive_catch_all(self):
+        data = 'module Main\ndata Chain : Type where\n  End : Chain\n  Link : (next : Chain) -> Chain\n'
+        for value, expected in (('End', 'True'), ('Link End', 'False')):
+            with self.subTest(value=value):
+                result = self.run_source(data + 'isEnd : Chain -> Bool\nisEnd End = True\nisEnd _ = False\n'
+                                         'main : Bool\nmain = isEnd (' + value + ')\n')
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn('Normal: ' + expected, result.stdout)
+        # the catch-all may stand for the successor on either side
+        flipped = self.run_source(data + 'isLink : Chain -> Bool\nisLink Link _ = True\nisLink _ = False\n'
+                                  'main : Bool\nmain = isLink End\n')
+        self.assertEqual(flipped.returncode, 0, flipped.stderr)
+        self.assertIn('Normal: False', flipped.stdout)
+        unreachable = self.run_source(data + 'f : Chain -> Bool\nf End = True\nf Link _ = False\nf _ = True\n'
+                                      'main : Bool\nmain = f End\n')
+        self.assertNotEqual(unreachable.returncode, 0, unreachable.stdout)
+
     def test_nat_wildcard_catch_all(self):
         for value, expected in (('Zero', 'True'), ('Succ Zero', 'False')):
             with self.subTest(value=value):

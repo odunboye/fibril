@@ -111,8 +111,14 @@ isRed other = False
 the ordinary usage check. A name rebinds the reconstructed value through an
 unrestricted binding, so omitted constructors must have unrestricted payloads;
 use explicit clauses otherwise. A catch-all that omits no constructor is
-rejected as unreachable. It must be the last clause. Only nominal data is
-implemented and tested; recursive-list and sequence-shaped data are untested.
+rejected as unreachable. It must be the last clause. Nominal data, general
+`data` declarations (including recursive ones with several constructors and fields)
+and the unary-recursive and list-shaped families accept it; in the last two it stands
+for the one constructor the earlier clauses did not name. For general data only `_`
+is accepted (not a lowercase name), every field of an omitted constructor is bound to
+`_`, so a linear field is rejected by the usage check. The list-shaped form is
+implemented but untested, and clause groups on parameterized data with an erased
+type parameter are not supported with or without a catch-all.
 
 Same-file definition and references include every clause header and supported
 constructor and payload occurrences. Rename is capture-checked and same-file

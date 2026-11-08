@@ -542,6 +542,18 @@ mutual
      isNothing (find (\entry => entry.name == token.spelling) globals) &&
      null (qualifiedCandidates token.spelling globals))
 
+  ||| Unary recursive and sequence data have exactly two constructors (tags 0 and
+  ||| 1). A final catch-all clause stands for the one the earlier clauses did not
+  ||| name; the arm then binds `_` payloads, so a linear payload is rejected.
+  catchAllTag : List GlobalDefinition -> Token -> List Token -> (GlobalDefinition -> Either ResolveError Nat) -> Either ResolveError Nat
+  catchAllTag globals head earlier classify = do
+    covered <- traverse (\named => case find (\entry => entry.name == named.spelling) globals of
+                                    Nothing => Left (Unbound named.span.start named.spelling)
+                                    Just entry => classify entry) earlier
+    case Prelude.List.filter (\tag => not (elem tag covered)) [0, 1] of
+      [] => Left (CannotElaborate head.span.start "Catch-all clause is unreachable: every constructor is already matched")
+      missing :: _ => Right missing
+
   -- A result type is available here only for a direct equation body. The
   -- variable abstraction is a renaming, so it cannot duplicate subtrees.
   public export
@@ -600,27 +612,37 @@ mutual
 
   -- Identify constructors from their checked closed values, never from the
   -- authored layout hint. Guard conversion before allocating normalized terms.
-  recursiveCaseArmsGlobals : GlobalContext -> Position -> List GlobalDefinition -> Context n -> Vect n String -> Term n -> Maybe (Term n) -> List (Token, List Token, Expr) -> Either ResolveError (List (Nat, Term n))
-  recursiveCaseArmsGlobals shared position globals ctx env ty hint [] = Right []
-  recursiveCaseArmsGlobals shared position globals ctx env ty@(RecType key) hint ((name, binder, body) :: rest) = do
-    if elem '.' (unpack name.spelling) then Right () else case lookupName name.spelling env of
-      Just _ => Left (CannotElaborate name.span.start "Data-case constructor is shadowed by a local binder")
-      Nothing => Right ()
-    definition <- case find (\entry => entry.name == name.spelling) globals of
-      Nothing => case qualifiedCandidates name.spelling globals of
-        _ :: _ :: _ => Left (CannotElaborate name.span.start ("Ambiguous imported name " ++ name.spelling ++ "; use a qualified name"))
-        _ => Left (Unbound name.span.start name.spelling)
-      Just entry => Right entry
-    if definition.quantity /= Unrestricted then Left (CannotElaborate name.span.start "Data-case constructor must be an unrestricted checked global") else Right ()
-    normal <- case guardedNormalGlobals shared typeReductionFuel definition.value of
-      Nothing => Left (CannotElaborate name.span.start "Recursive-case constructor comparison exhausted admission or reduction")
-      Just result => Right result
+  recursiveCaseArmsGlobals : GlobalContext -> Position -> List GlobalDefinition -> Context n -> Vect n String -> Term n -> Maybe (Term n) -> List Token -> List (Token, List Token, Expr) -> Either ResolveError (List (Nat, Term n))
+  recursiveCaseArmsGlobals shared position globals ctx env ty hint clauseNames [] = Right []
+  recursiveCaseArmsGlobals shared position globals ctx env ty@(RecType key) hint clauseNames ((name, binder, body) :: rest) = do
+    let catchAll = null rest && not (null clauseNames) && null binder && isCatchAllHead globals env name
     let terminal : Term 0 = RecEnd (RecType key)
     let successor : Term 0 = Lambda Linear (RecType key) (RecMore (RecType key) (Variable FZ))
-    tag <- if sameSyntax normal terminal then Right 0 else
-             if sameSyntax normal successor then Right 1 else
-               Left (CannotElaborate name.span.start "Recursive-case constructor does not match the scrutinee family")
-    branch <- case (tag, binder) of
+    tag <- the (Either ResolveError Nat) $ if catchAll
+      then catchAllTag globals name (reverse (drop 1 (reverse clauseNames))) (\definition =>
+        case guardedNormalGlobals shared typeReductionFuel definition.value of
+          Nothing => Left (CannotElaborate name.span.start "Recursive-case constructor comparison exhausted admission or reduction")
+          Just normal => if sameSyntax normal terminal then Right 0 else if sameSyntax normal successor then Right 1
+            else Left (CannotElaborate name.span.start "Recursive-case constructor does not match the scrutinee family"))
+      else do
+      if elem '.' (unpack name.spelling) then Right () else case lookupName name.spelling env of
+        Just _ => Left (CannotElaborate name.span.start "Data-case constructor is shadowed by a local binder")
+        Nothing => Right ()
+      definition <- case find (\entry => entry.name == name.spelling) globals of
+        Nothing => case qualifiedCandidates name.spelling globals of
+          _ :: _ :: _ => Left (CannotElaborate name.span.start ("Ambiguous imported name " ++ name.spelling ++ "; use a qualified name"))
+          _ => Left (Unbound name.span.start name.spelling)
+        Just entry => Right entry
+      if definition.quantity /= Unrestricted then Left (CannotElaborate name.span.start "Data-case constructor must be an unrestricted checked global") else Right ()
+      normal <- case guardedNormalGlobals shared typeReductionFuel definition.value of
+        Nothing => Left (CannotElaborate name.span.start "Recursive-case constructor comparison exhausted admission or reduction")
+        Just result => Right result
+      if sameSyntax normal terminal then Right 0 else
+        if sameSyntax normal successor then Right 1 else
+          Left (CannotElaborate name.span.start "Recursive-case constructor does not match the scrutinee family")
+    let blank : Token = { spelling := "_" } name
+    let payload : List Token = if catchAll && tag == 1 then [blank] else binder
+    branch <- case (tag, payload) of
       (0, []) => case hint of
         Nothing => elaborateInWithGlobals shared globals (Just ctx) env body
         Just motive =>
@@ -637,11 +659,11 @@ mutual
               elaborateExpectedGlobals shared globals (Extend ctx Linear ty) (bound.spelling :: env) expectedResult body
         Right (Lambda Linear ty result)
       _ => Left (CannotElaborate name.span.start "Recursive-case constructor payload arity does not match its branch")
-    following <- recursiveCaseArmsGlobals shared position globals ctx env ty hint rest
+    following <- recursiveCaseArmsGlobals shared position globals ctx env ty hint clauseNames rest
     if any (\entry => fst entry == tag) following
       then Left (CannotElaborate name.span.start "Duplicate recursive-case constructor") else Right ()
     Right ((tag, branch) :: following)
-  recursiveCaseArmsGlobals shared position _ _ _ _ _ _ = Left (CannotElaborate position "Invalid recursive-case type")
+  recursiveCaseArmsGlobals shared position _ _ _ _ _ _ _ = Left (CannotElaborate position "Invalid recursive-case type")
 
   chooseExpectedRecursiveMotiveGlobals : GlobalContext -> Position -> Context n -> Term n -> Term n -> Term n -> Term n -> Term n -> Either ResolveError (Term n)
   chooseExpectedRecursiveMotiveGlobals shared position ctx ty scrutinee result base more = do
@@ -677,7 +699,11 @@ mutual
     let boundedHint = case hint of
           Just candidate => if typeNodes candidate <= inferredResultNodes && payloadSize candidate <= payloadLimit then Just candidate else Nothing
           Nothing => Nothing
-    checked <- recursiveCaseArmsGlobals shared span.start globals ctx env ty boundedHint arms
+    let catchAll = case scrutinee of
+          Variable i => index i env == "$clauseScrutinee"
+          _ => False
+    let clauseNames = if catchAll then map (\arm => fst arm) arms else []
+    checked <- recursiveCaseArmsGlobals shared span.start globals ctx env ty boundedHint clauseNames arms
     ordered <- orderDataArms span.start 0 [Nothing, Just (Linear, ty)] checked
     case ordered of
       [base, more] => do
@@ -794,20 +820,26 @@ mutual
         Right (NatCase selected scrutinee base more)
       _ => Left (CannotElaborate span.start "Nat case requires exactly two branches")
 
-  sequenceCaseArmsGlobals : GlobalContext -> Position -> List GlobalDefinition -> Context n -> Vect n String -> Term n -> Term n -> Maybe (Term n) -> List (Token, List Token, Expr) -> Either ResolveError (List (Nat, Term n))
-  sequenceCaseArmsGlobals shared position globals ctx env ty element hint [] = Right []
-  sequenceCaseArmsGlobals shared position globals ctx env ty element hint ((name, binders, body) :: rest) = do
-    if elem '.' (unpack name.spelling) then Right () else case lookupName name.spelling env of
-      Just _ => Left (CannotElaborate name.span.start "Data-case constructor is shadowed by a local binder")
-      Nothing => Right ()
-    definition <- case find (\entry => entry.name == name.spelling) globals of
-      Nothing => case qualifiedCandidates name.spelling globals of
-        _ :: _ :: _ => Left (CannotElaborate name.span.start ("Ambiguous imported name " ++ name.spelling ++ "; use a qualified name"))
-        _ => Left (Unbound name.span.start name.spelling)
-      Just entry => Right entry
-    tag <- checkedSequenceConstructorGlobals shared name.span.start ctx ty element definition
+  sequenceCaseArmsGlobals : GlobalContext -> Position -> List GlobalDefinition -> Context n -> Vect n String -> Term n -> Term n -> Maybe (Term n) -> List Token -> List (Token, List Token, Expr) -> Either ResolveError (List (Nat, Term n))
+  sequenceCaseArmsGlobals shared position globals ctx env ty element hint clauseNames [] = Right []
+  sequenceCaseArmsGlobals shared position globals ctx env ty element hint clauseNames ((name, binders, body) :: rest) = do
+    let catchAll = null rest && not (null clauseNames) && null binders && isCatchAllHead globals env name
+    tag <- the (Either ResolveError Nat) $ if catchAll
+      then catchAllTag globals name (reverse (drop 1 (reverse clauseNames))) (checkedSequenceConstructorGlobals shared name.span.start ctx ty element)
+      else do
+      if elem '.' (unpack name.spelling) then Right () else case lookupName name.spelling env of
+        Just _ => Left (CannotElaborate name.span.start "Data-case constructor is shadowed by a local binder")
+        Nothing => Right ()
+      definition <- case find (\entry => entry.name == name.spelling) globals of
+        Nothing => case qualifiedCandidates name.spelling globals of
+          _ :: _ :: _ => Left (CannotElaborate name.span.start ("Ambiguous imported name " ++ name.spelling ++ "; use a qualified name"))
+          _ => Left (Unbound name.span.start name.spelling)
+        Just entry => Right entry
+      checkedSequenceConstructorGlobals shared name.span.start ctx ty element definition
+    let blank : Token = { spelling := "_" } name
+    let payload : List Token = if catchAll && tag == 1 then [blank, blank] else binders
     let nil = SeqNil ty
-    branch <- case (tag, binders) of
+    branch <- case (tag, payload) of
       (0, []) => case hint of
         Nothing => elaborateInWithGlobals shared globals (Just ctx) env body
         Just motive =>
@@ -825,7 +857,7 @@ mutual
               elaborateExpectedGlobals shared globals inner (tail.spelling :: head.spelling :: env) expectedResult body
         Right (Lambda Linear element (Lambda Linear (weaken ty) result))
       _ => Left (CannotElaborate name.span.start "Sequence-case constructor payload arity does not match its branch")
-    following <- sequenceCaseArmsGlobals shared position globals ctx env ty element hint rest
+    following <- sequenceCaseArmsGlobals shared position globals ctx env ty element hint clauseNames rest
     if any (\entry => fst entry == tag) following
       then Left (CannotElaborate name.span.start "Duplicate sequence-case constructor") else Right ()
     Right ((tag, branch) :: following)
@@ -865,7 +897,11 @@ mutual
           Just candidate => if 5 + typeNodes candidate + typeNodes ty <= inferredResultNodes &&
                                payloadSize candidate + payloadSize ty <= payloadLimit then Just candidate else Nothing
           Nothing => Nothing
-    checked <- sequenceCaseArmsGlobals shared span.start globals ctx env ty element boundedHint arms
+    let catchAll = case scrutinee of
+          Variable i => index i env == "$clauseScrutinee"
+          _ => False
+    let clauseNames = if catchAll then map (\arm => fst arm) arms else []
+    checked <- sequenceCaseArmsGlobals shared span.start globals ctx env ty element boundedHint clauseNames arms
     ordered <- orderDataArms span.start 0 [Nothing, Just (Linear, ty)] checked
     case ordered of
       [base, cons] => do
@@ -902,6 +938,10 @@ mutual
         else Left (CannotElaborate name.span.start (name.spelling ++ " is a constructor of another family"))
       _ => Left (CannotElaborate name.span.start (name.spelling ++ " is not a constructor of this family"))
 
+  fieldCount : Term m -> Nat
+  fieldCount (Pi _ _ rest) = S (fieldCount rest)
+  fieldCount _ = Z
+
   -- One arm: bind the constructor's fields (with the quantities of its type) and elaborate the
   -- body against the motive applied to the constructor rebuilt from them.
   familyArmBody : GlobalContext -> List GlobalDefinition -> Context m -> Vect m String -> Term m -> List Token -> Term m ->
@@ -922,22 +962,49 @@ mutual
         elaborateExpectedGlobals shared globals ctx env result body
 
   familyArms : GlobalContext -> List GlobalDefinition -> Context n -> Vect n String -> DataDecl -> List (Term n) ->
-               Maybe (Term n) -> List (Token, List Token, Expr) -> Either ResolveError (List (Nat, Term n))
-  familyArms shared globals ctx env decl actuals motive [] = Right []
-  familyArms shared globals ctx env decl actuals motive ((name, binders, body) :: rest) = do
-    index <- familyArmIndex shared name.span.start globals env decl.key name
-    closed <- case constructorType decl index of
-      Nothing => Left (CannotElaborate name.span.start "Data-case constructor index is out of range")
-      Just ty => Right (rename absurd ty)
-    chain <- case instantiateParameters actuals closed of
-      Left err => Left (CannotElaborate name.span.start (show err))
-      Right ty => Right ty
-    branch <- familyArmBody shared globals ctx env chain binders (applyAll (DataCon decl.key index (parameterCount decl)) actuals)
-                motive name.span body
-    following <- familyArms shared globals ctx env decl actuals motive rest
-    if any (\entry => fst entry == index) following
-      then Left (CannotElaborate name.span.start "Duplicate data-case constructor") else Right ()
-    Right ((index, branch) :: following)
+               Maybe (Term n) -> List Token -> List (Token, List Token, Expr) -> Either ResolveError (List (Nat, Term n))
+  familyArms shared globals ctx env decl actuals motive clauseNames [] = Right []
+  familyArms shared globals ctx env decl actuals motive clauseNames ((name, binders, body) :: rest) =
+    if null rest && not (null clauseNames) && null binders && name.spelling == "_"
+      then do
+        covered <- traverse (familyArmIndex shared name.span.start globals env decl.key) (reverse (drop 1 (reverse clauseNames)))
+        if length (nub covered) >= constructorCount decl
+          then Left (CannotElaborate name.span.start "Catch-all clause is unreachable: every constructor is already matched")
+          else familyCatchAllArms shared globals ctx env decl actuals motive name body covered (constructorCount decl) 0
+      else do
+        index <- familyArmIndex shared name.span.start globals env decl.key name
+        closed <- case constructorType decl index of
+          Nothing => Left (CannotElaborate name.span.start "Data-case constructor index is out of range")
+          Just ty => Right (rename absurd ty)
+        chain <- case instantiateParameters actuals closed of
+          Left err => Left (CannotElaborate name.span.start (show err))
+          Right ty => Right ty
+        branch <- familyArmBody shared globals ctx env chain binders (applyAll (DataCon decl.key index (parameterCount decl)) actuals)
+                    motive name.span body
+        following <- familyArms shared globals ctx env decl actuals motive clauseNames rest
+        if any (\entry => fst entry == index) following
+          then Left (CannotElaborate name.span.start "Duplicate data-case constructor") else Right ()
+        Right ((index, branch) :: following)
+
+  ||| A final `_` clause: one arm per constructor not yet covered, every field bound
+  ||| to `_` so a linear field is rejected by the ordinary usage check.
+  familyCatchAllArms : GlobalContext -> List GlobalDefinition -> Context n -> Vect n String -> DataDecl -> List (Term n) ->
+                       Maybe (Term n) -> Token -> Expr -> List Nat -> Nat -> Nat -> Either ResolveError (List (Nat, Term n))
+  familyCatchAllArms shared globals ctx env decl actuals motive name body covered Z index = Right []
+  familyCatchAllArms shared globals ctx env decl actuals motive name body covered (S remaining) index = do
+    later <- familyCatchAllArms shared globals ctx env decl actuals motive name body covered remaining (S index)
+    if elem index covered then Right later else do
+      closed <- case constructorType decl index of
+        Nothing => Left (CannotElaborate name.span.start "Data-case constructor index is out of range")
+        Just ty => Right (rename absurd ty)
+      chain <- case instantiateParameters actuals closed of
+        Left err => Left (CannotElaborate name.span.start (show err))
+        Right ty => Right ty
+      let blank : Token = name
+      branch <- familyArmBody shared globals ctx env chain (replicate (fieldCount chain) blank)
+                  (applyAll (DataCon decl.key index (parameterCount decl)) actuals) motive name.span body
+      Right ((index, branch) :: later)
+
 
   -- `remaining` counts the constructors still to place, so the recursion shrinks.
   orderFamilyArms : Position -> Nat -> Nat -> List (Nat, Term n) -> Either ResolveError (List (Term n))
@@ -957,7 +1024,10 @@ mutual
       (Just authored, _) => Right authored
       (Nothing, Just result) => Right (Lambda Erased ty (weaken result))
       (Nothing, Nothing) => Left (CannotElaborate span.start "A case on this data needs an expected result type or an explicit motive")
-    checked <- familyArms shared globals ctx env decl actuals (Just selected) arms
+    let catchAll = case scrutinee of
+          Variable i => index i env == "$clauseScrutinee"
+          _ => False
+    checked <- familyArms shared globals ctx env decl actuals (Just selected) (if catchAll then map (\arm => fst arm) arms else []) arms
     ordered <- orderFamilyArms span.start (constructorCount decl) 0 checked
     Right (DataCase decl.key selected scrutinee ordered)
 
