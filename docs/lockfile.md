@@ -68,6 +68,13 @@ trailing newline. `Fibril.Project.Lock.encodeLock` implements exactly this.
 | any package command (bare or `--package`) | proceeds silently, unchanged | verifies; any mismatch is an error naming the package and which digest differs |
 | same, with `--locked` | error | as above (**not implemented**; a missing lock is silently accepted) |
 
+**Cost:** every package command re-hashes every package's `*.fib` files whenever a
+lock exists. Measured throughput is about 5 MB/s (list-based SHA-256): about 10 ms
+extra on the mailer example, 1.1 s for 6 MB. The admission caps allow up to 128 MB
+per package, which would take tens of seconds per command. Nothing is cached
+between runs. If that bites, hash through a Buffer instead of a list, or cache
+digests keyed by file size and modification time.
+
 `fibril lock --update` with an unreadable or non-canonical lock replaces it and
 says so. The lock is written to `fibril.lock.tmp` and renamed into place. A
 symlink or alias anywhere in a package's source tree, or more than 2048 files, 16
