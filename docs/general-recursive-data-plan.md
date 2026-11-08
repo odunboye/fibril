@@ -2,7 +2,8 @@
 
 **Status: phases 1 to 4 and the first slice of phase 5 are implemented (core terms, reduction,
 declaration admission, typing, termination, run-mode evaluation, and source `data` and `case`
-for general families); function equations with constructor patterns and phase 6 are not.** It records what restricts recursive
+for general families, and native emission); function equations with constructor patterns
+are not.** It records what restricts recursive
 data today, what the smallest sound extension is, and the phases to land it. It is not a
 positivity theorem or a soundness claim.
 
@@ -162,6 +163,18 @@ working for resource-carrying data.
   `case` and recurses on a family-typed field goes through the existing general-recursion
   fallback and the phase 4 extractor.
 
+### As implemented in phase 6
+
+- `Emit.idr` lowers `DataCon` to a lambda chain over its parameters and fields ending in a
+  `VariantValue` (tag = constructor index; payload = nothing, the field, or the fields as
+  right-nested `PairValue`s), and `DataCase` to a `VariantCase` whose multi-field branches are
+  wrapped to unpack the pair nest. The pair annotation carries each field's quantity so erased
+  fields stay erased. `DataType` is an erased constant.
+- Lowering calls `generate` on the term it builds, wrapped in `assert_total`: the built term
+  contains only lambdas, pairs and variants, so it never reaches the lowered forms again.
+- Verified against the hosted evaluator for the shipped example and for a family with
+  zero-, one-, two- and four-field constructors. Native budgets are unchanged.
+
 ### What does not change
 
 Conversion treats `DataCon` as a constructor and `DataCase` on a constructor as reducible,
@@ -179,7 +192,7 @@ last.
 | 3 | **Done.** Typing in `Erased` and `Runtime`: closed constructor types derived from the declaration, dependent erased motive, exhaustive branches with field quantities, usage joins; `extendDataGlobals` / `extendDataRuntimeGlobals` register a family | termination |
 | 4 | **Done.** `Extract.idr` credits family-typed fields of a `DataCase` branch as smaller than the scrutinee; `Fix` over a family is admitted by the size-change gate; run-mode evaluation unfolds through the case | native support |
 | 5 | **First slice done.** Source `data` declarations beyond the fixed shapes, constructors as ordinary functions, `case` with an expected type; **not yet** pattern equations | pattern-clause groups |
-| 6 | Native emission and runtime values (`Emit.idr`, `fibril_runtime.c`) | scale |
+| 6 | **Done.** Native emission by lowering in `Emit.idr` to existing variants and pairs; no new C runtime code | scale |
 | 7 | Optional: migrate `Chain`/`Items` onto the family; docs, examples (tree, expression language) | |
 
 ## Risks and open decisions

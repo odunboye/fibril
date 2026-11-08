@@ -212,8 +212,14 @@ itself is refused.
 
 Not yet supported: function equations with constructor patterns (use `case`), `_` catch-all
 arms, mutually recursive families, indexed families, a dependent motive inferred from the
-arms, eliminator helpers, and the C backend. The plan and its soundness argument are in
+arms, and eliminator helpers. The experimental C backend lowers a family to native variants (see below). The plan and its soundness argument are in
 [general recursive data](general-recursive-data-plan.md).
+
+The C backend needs no new runtime support. A constructor is emitted as a lambda chain over its
+erased parameters and its fields that builds a tagged variant, whose payload is the fields as
+right-nested pairs; a `case` is a variant case whose branches unpack that nest. Native output
+is checked against the hosted evaluator for constructors with zero to four fields, and the
+runtime's fixed step and depth budgets apply to recursion over these values as to any `Fix`.
 
 ## Use the optional eliminator
 
