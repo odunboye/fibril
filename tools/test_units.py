@@ -38,7 +38,7 @@ def run(command, *, cwd=ROOT, env=None, capture=False, timeout=300):
 def main():
     env = os.environ.copy()
     pack = shlex.split(env.get("PACK", "pack"))
-    compiler = shlex.split(env.get("IDRIS2", "idris2"))
+    compiler = shlex.split(env["IDRIS2"]) if env.get("IDRIS2") else [str(ROOT / "tools/fibril_idris.py")]
     paths = run(pack + ["--log-level=silence", "package-path"], env=env, capture=True).split(os.pathsep)
     # Pack's local-package key does not distinguish these active worktrees.
     # Keep all external packages but never select its cached Fibril dependency.

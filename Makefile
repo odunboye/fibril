@@ -1,7 +1,8 @@
 PACK ?= pack
-IDRIS2 ?= idris2
+IDRIS2 ?= '$(CURDIR)/tools/fibril_idris.py'
 
 .PHONY: prelude prelude-check build unit-test test io-test io-hosted-test io-runtime-test io-resource-runtime-test io-resource-emitter-test io-emitter-test io-interactive-test io-binary-test io-binary-bench io-cli-test native-test region-test native-pair-test bytes-native-test binary-source-test binary-iteration-test binary-count-test binary-runtime-test binary-scale-test binary-number-test binary-number-bench json-oracle-test json-sharing-probe json-iteration-test lsp-lifecycle-test framing-test header-iteration-test editor-test lsp-test examples bench bench-smoke composed-bench python-embed-test docs handbook serve-docs clean cubical-source-test
+.PHONY: host-compiler-test
 prelude:
 	python3 tools/embed_prelude.py
 
@@ -9,7 +10,11 @@ prelude-check:
 	python3 tools/embed_prelude.py --check
 
 build: prelude-check
-	$(PACK) build fibril
+	$(PACK) install-deps fibril
+	PACK="$(PACK)" $(IDRIS2) --build fibril.ipkg
+
+host-compiler-test:
+	PACK="$(PACK)" python3 tools/test_host_compiler.py
 
 cubical-source-test: build
 	python3 tools/test_cubical_frontend.py

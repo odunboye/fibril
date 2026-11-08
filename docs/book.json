@@ -403,6 +403,10 @@
         "path": "docs/cubical-source.md"
       },
       {
+        "title": "Verified Boolean refactoring design",
+        "path": "docs/verified-bool-refactoring.md"
+      },
+      {
         "title": "Quantitative cubical rules",
         "path": "docs/quantitative-cubical-rules.md"
       },
@@ -433,6 +437,14 @@
       {
         "title": "Reference benchmarks",
         "path": "docs/benchmarks.md"
+      },
+      {
+        "title": "Build performance",
+        "path": "docs/build-performance.md"
+      },
+      {
+        "title": "Initial independent build-performance review",
+        "path": "docs/build-performance-review.md"
       },
       {
         "title": "Lessons from Zig",

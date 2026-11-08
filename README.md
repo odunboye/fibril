@@ -133,11 +133,11 @@ available when inference cannot recover them.
 
 ## Build
 
-Use the Idris 2 `pack` tool from this project directory:
+Use the pinned Idris 2 collection through the project build from this directory:
 
 ```sh
-pack build fibril
-pack test fibril
+make build
+make unit-test
 ./build/exec/fibril --help
 ./build/exec/fibril demo
 ./build/exec/fibril run examples/core/hello-world.fib
@@ -158,6 +158,17 @@ Pack itself is not installed or pinned by the project configuration.
 A C toolchain and the collection's Scheme implementation are bootstrap
 requirements; these are not Fibril backend choices.
 
+`make build` installs dependencies with Pack, then uses a worktree-local host
+compiler adapter cached under `build/host-compiler/`. It defers construction of
+termination-error call paths while retaining the original termination checks and
+diagnostics. The installed compiler and collection pin are unchanged. The adapter
+uses the collection's installed `idris2` API library and sources, and checks the
+pinned revision and source hash before bootstrapping; see
+[build performance](docs/build-performance.md) for measurements and details.
+Use `make IDRIS2=idris2 build` or `pack build fibril` to use the stock compiler.
+Run `make host-compiler-test` to compare checker outcomes, diagnostics and checked
+interfaces against stock Idris.
+
 Tests combine deterministic regressions with shrinking Hedgehog properties;
 see the [testing guide](docs/testing.md).
 
@@ -165,8 +176,9 @@ Tests live in `test/src/Tests/`, with their own `test/tests.ipkg` depending
 on `fibril`. Pack's test entry points to that package; tests are not included
 in the compiler's source tree.
 
-`make build` and `make test` wrap the pack commands. Direct `idris2 --build`
-remains possible, but bypasses collection selection. Review and test collection
+`make test` runs the private unit tests and CLI/native integration suites. Direct
+`idris2 --build` remains possible, but may bypass collection selection unless it
+is a Pack-managed shim. Review and test collection
 upgrades explicitly; do not use a floating collection for project builds.
 
 See [examples](examples/README.md) for runnable bootstrap programs and clearly

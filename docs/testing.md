@@ -9,7 +9,11 @@
 4. Host-checked finite permission and structural binding proofs; broader
    term-metatheory proofs and differential/typed-generation coverage remain future.
 
-Run `make test` or `pack test fibril`. Both deterministic checks and properties
+Run `make unit-test` for the private Idris test package or `make test` for the
+unit and CLI/native suites. `make host-compiler-test` compares the local host
+adapter with stock Idris, including totality failures and private-prefix behavior;
+see [build performance](build-performance.md). `pack test fibril` remains available
+with the stock compiler. Both deterministic checks and properties
 must pass; a failure exits nonzero. Run `make examples` and `make handbook`
 when completing a documented task.
 

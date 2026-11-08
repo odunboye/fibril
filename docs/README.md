@@ -90,6 +90,7 @@ The generated homepage separates teaching chapters, references, and project reco
 - [Unicode source text](unicode-source.md): validation, positions, and proposed identifier/notation rules.
 
 - [Reference benchmarks](benchmarks.md): reproducible exploratory measurements and limits.
+- [Build performance](build-performance.md): measured compiler-build bottlenecks, profiling commands, and prioritized improvements.
 - [Composed workloads](composed-workloads.md): shared-graph checking, native work/allocation counters and failure thresholds.
 - [Construction accounting](construction-accounting.md): reserve before elaboration, commit emitted syntax, and audit cross-module budget conservation.
 - [Native variable forwarding](native-variable-forwarding.md): measured lazy-cell reuse, ownership contract and JSON work/allocation reduction.
