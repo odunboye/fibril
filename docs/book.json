@@ -210,6 +210,10 @@
         "path": "docs/shared-checked-globals.md"
       },
       {
+        "title": "Composed workload measurements",
+        "path": "docs/composed-workloads.md"
+      },
+      {
         "title": "Bare Type as Type 0",
         "path": "docs/bare-type.md"
       },
@@ -373,6 +377,10 @@
       {
         "title": "Cubical alignment milestone",
         "path": "docs/cubical-alignment.md"
+      },
+      {
+        "title": "Frozen cubical experiment contract",
+        "path": "docs/cubical-experiment-contract.md"
       },
       {
         "title": "Quantitative cubical rules",

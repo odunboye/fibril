@@ -3035,11 +3035,15 @@ main = first Zero
             self.assertNotEqual(different.returncode, 0)
             self.assertIn('must share one signature', different.stderr)
             self.assertNotIn('Unbound', different.stderr)
-            # At most four members.
-            five = ''.join(member(f'm{i}', f'm{(i + 1) % 5} r') for i in range(5))
-            over = check(header + 'mutual where\n' + five + tail)
+            # Up to eight members are accepted; a ring that long runs.
+            eight = ''.join(member(f'm{i}', f'm{(i + 1) % 8} r') for i in range(8))
+            ring8 = check(header + 'mutual where\n' + eight + tail)
+            self.assertEqual(ring8.returncode, 0, ring8.stdout + ring8.stderr)
+            # At most eight members.
+            nine = ''.join(member(f'm{i}', f'm{(i + 1) % 9} r') for i in range(9))
+            over = check(header + 'mutual where\n' + nine + tail)
             self.assertNotEqual(over.returncode, 0)
-            self.assertIn('at most four', over.stderr)
+            self.assertIn('at most eight', over.stderr)
             # Members must be equations that name their parameters as the signature does.
             lam = check(header + 'mutual where\n  isEven : (1 c : Chain) -> Bool\n  isEven = \\(1 c : Chain) => True\n\n' + member('isOdd', 'isEven r', 'Empty => False') + tail)
             self.assertNotEqual(lam.returncode, 0)

@@ -395,20 +395,20 @@ parseMutual budget end (keyword :: marker :: tokens@(first :: _)) = do
   let indent = first.span.start.column
   (one, rest) <- parsePairFramed indent indent budget end tokens
   (two, afterTwo) <- parsePairFramed indent indent budget end rest
-  (others, remaining) <- moreMembers indent 2 afterTwo
+  (others, remaining) <- moreMembers indent 6 afterTwo
   let finish = case reverse others of
         last :: _ => last.span.finish
         [] => two.span.finish
   Right (MutualItem (MutualSyntax (Between keyword.span.start finish) one two others False), remaining)
   where
-    -- A group has two to four members. The fuel counts the extra members still allowed, so
+    -- A group has two to eight members. The fuel counts the extra members still allowed, so
     -- the recursion shrinks; an indented declaration beyond the limit is an error.
     moreMembers : Nat -> Nat -> List Token -> Either ParseError (List Declaration, List Token)
     moreMembers indent fuel [] = Right ([], [])
     moreMembers indent fuel tokens@(next :: _) =
       if next.span.start.column <= 1 then Right ([], tokens) else
       case fuel of
-        Z => Left (ParseFailure next.span.start "Mutual groups take at most four declarations")
+        Z => Left (ParseFailure next.span.start "Mutual groups take at most eight declarations")
         S remainingFuel => do
           (member, rest) <- parsePairFramed indent indent budget end tokens
           (more, remaining) <- moreMembers indent remainingFuel rest

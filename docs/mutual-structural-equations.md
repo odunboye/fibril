@@ -7,7 +7,7 @@ explicit `mutual where` block, lowered to existing checked recursors. It is fini
 equation-to-recursor sugar and does not use the size-change check. See
 `examples/modules/mutual-parity/Main.fib`.
 
-Any other `mutual where` block (two to four members of any shared signature, over any
+Any other `mutual where` block (two to eight members of any shared signature, over any
 type) is a [general mutual group](function-equations.md#mutual-groups), which is checked
 by the ordinary size-change gate instead.
 

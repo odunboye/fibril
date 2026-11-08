@@ -38,8 +38,8 @@ Explicit nonrecursive declaration files now lower to typed lets with a main
 entry; their earlier values are opaque during later checking. Named modules now
 provide transparent closed erased/unrestricted globals and checked direct imports.
 Recursive function equations are accepted when structural or when the size-change
-check proves termination, including mutual groups of up to four members that share one signature;
-mutual recursion over mutually recursive data and forwarding-only calls between members remain future work.
+check proves termination, including mutual groups of up to eight members that share one signature;
+forwarding calls between members are accepted when every cycle shrinks, while mutual recursion over mutually recursive data remains future work.
 
 A separate declaration elaborator now lowers explicit records, constructors,
 eliminators and safe projections into independently checked code. Typed consuming
