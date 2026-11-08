@@ -91,6 +91,7 @@ The generated homepage separates teaching chapters, references, and project reco
 
 - [Reference benchmarks](benchmarks.md): reproducible exploratory measurements and limits.
 - [Composed workloads](composed-workloads.md): shared-graph checking, native work/allocation counters and failure thresholds.
+- [Construction accounting](construction-accounting.md): reserve before elaboration, commit emitted syntax, and audit cross-module budget conservation.
 - [Native variable forwarding](native-variable-forwarding.md): measured lazy-cell reuse, ownership contract and JSON work/allocation reduction.
 
 - [Safety and performance](safety-performance.md): present safeguards, risks, and planned benchmarks.

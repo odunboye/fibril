@@ -135,11 +135,14 @@ The entry must define its own unrestricted main; an imported main is not substit
 need no main. Anonymous entries retain existing expression/typed-local-let behavior,
 including the opaque local alias limitation.
 
-The cumulative elaboration allowance is 200,000 core nodes. A conservative
-syntax-size preflight uses cached global expansion weights before resolving/
-cloning each declaration or anonymous entry. It includes annotations, global
+The project construction allowance is 200,000 core nodes, accounted as committed
+emitted signatures/bodies plus the active declaration's conservative reservation.
+A syntax-size preflight uses cached global expansion weights before resolving/
+cloning each declaration or anonymous entry. It includes annotations, bootstrap
 identity ascriptions, repeated types, and named-entry materialization. Actual
-resolved size is checked against the estimate as an internal consistency guard.
+resolved size is checked against the estimate; only that emitted size remains
+charged after admission. Unused reservation is released, without resetting prior
+charges across modules. See [construction accounting](construction-accounting.md).
 This is not a formal cost proof or a bound on normalization, type-operation
 substitution, strings, process memory, or time. Conservative rejection is possible.
 
@@ -405,7 +408,7 @@ Initial proposed admission limits:
 | Distinct reachable modules, including entry | 32 |
 | Aggregate source bytes | 524,288 |
 | Declarations per module | 64, existing framing limit |
-| Core construction | 200,000 units; shared declarations plus local elaboration/cloning, including annotations |
+| Core construction | 200,000 nodes; committed shared syntax plus active preflight reservation, including annotations |
 | Parser/check/type-reduction budgets | Existing independent limits |
 
 The bundled bootstrap prelude is a compiler input, not a local graph node;
