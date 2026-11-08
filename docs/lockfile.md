@@ -96,7 +96,7 @@ scripts, or rewrites the lock implicitly.
 4. `fibril lock` plus verification inside the existing `--package` closure loader
    (reads files, rejects symlinks, builds the current `Lock`, calls `lockDrift`).
    **Not started**; it touches the CLI and loader.
-4. CLI tests in `tools/test_cli.py`: edit a dependency file and expect a named
+5. CLI tests in `tools/test_cli.py`: edit a dependency file and expect a named
    mismatch; add/remove a package; `--locked` without a lock.
 
 Each slice is testable offline. Slice 1 needs no digest implementation if tests
