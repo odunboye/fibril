@@ -68,9 +68,7 @@ clauseArm budget function end arguments body bodyTokens = do
     then Left (ParseFailure (extent body).start "Recursive function clauses are not supported") else Right ()
   case arguments of
     [constructor] => Right (constructor, [], body)
-    [constructor, binder] =>
-      if binder.spelling == "_" then Left (ParseFailure binder.span.start "Clause payload must be a named binder")
-      else Right (constructor, [binder], body)
+    [constructor, binder] => Right (constructor, [binder], body)
     _ => Left (ParseFailure end "Function clauses require one flat constructor pattern")
 
 clauseArms : Nat -> Nat -> Nat -> Position -> String -> List Token ->
