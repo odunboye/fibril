@@ -1,6 +1,7 @@
 # General recursive data: plan
 
-**Status: proposal. Nothing here is implemented.** It records what restricts recursive
+**Status: phases 1 and 2 are implemented (core terms, reduction, declaration admission);
+phases 3 onward are not.** It records what restricts recursive
 data today, what the smallest sound extension is, and the phases to land it. It is not a
 positivity theorem or a soundness claim.
 
@@ -80,6 +81,22 @@ whole value copyable. `len : (t : Tree) -> Nat` then works with an unrestricted 
 which is exactly what the earlier probe showed was impossible. Linear recursive fields keep
 working for resource-carrying data.
 
+### As implemented in phases 1 and 2
+
+- `DataCon key index leading` records how many leading arguments are parameters, so
+  `DataCase` reduction picks branch `index` and applies it to the remaining arguments
+  without consulting the declaration. Branch lookup that fails leaves the case stuck.
+- Until phase 3, `infer`/`analyze` refuse all three terms, the termination extractor
+  rejects them as an unsupported form, and the C emitter rejects them. Nothing can
+  construct or consume general data by accident.
+- `admitDeclaration` takes a `DataDecl` (a `Telescope` of erased parameters and a
+  telescope of quantified fields per constructor, each field in the scope of the
+  parameters and earlier fields). A field type that mentions the family must be exactly
+  the family applied to the parameter variables in order. A mention anywhere else, under
+  a function type, in a parameter type, or inside another former, is refused with the
+  constructor and field position.
+- Parameters must be erased; constructor names must be non-empty and distinct.
+
 ### What does not change
 
 Conversion treats `DataCon` as a constructor and `DataCase` on a constructor as reducible,
@@ -92,8 +109,8 @@ last.
 | Phase | Deliverable | Must not claim |
 |---|---|---|
 | 0 | This contract, plus a list of the touch points per core module | any implementation |
-| 1 | `DataDecl`, `DataType/DataCon/DataCase` in `Term`, renaming, substitution, size, pretty, sameSyntax | typing or evaluation |
-| 2 | Positivity checker and declaration admission, with refusal tests for each rule | soundness proof |
+| 1 | **Done.** `DataType/DataCon/DataCase` in `Term` with renaming, substitution (and their proofs), size, pretty, syntax equality, global traversal, reduction and weak-head contraction | typing |
+| 2 | **Done.** `Fibril.Core.DataDecl`: telescopes, `DataDecl`, and `admitDeclaration` (positivity plus caps of 4 parameters, 16 constructors, 8 fields) | soundness proof |
 | 3 | Typing in `Erased` and `Runtime` (dependent motive, exhaustive, quantity joins), reduction and weak head | termination |
 | 4 | Evaluation (`Evaluation.idr`) and `Extract.idr`: fields of a branch are smaller than the scrutinee | native support |
 | 5 | Source: `data` declarations beyond the fixed shapes, constructor application, `case`, pattern equations | pattern-clause groups |

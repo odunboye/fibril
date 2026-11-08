@@ -75,6 +75,9 @@ mutual
   thin env (VariantType arms) = VariantType <$> thinArms env arms
   thin env (VariantValue ty tag Nothing) = (\next => VariantValue next tag Nothing) <$> thin env ty
   thin env (VariantValue ty tag (Just value)) = [| VariantValue (thin env ty) (pure tag) (Just <$> thin env value) |]
+  thin env (DataType key) = Just (DataType key)
+  thin env (DataCon key index leading) = Just (DataCon key index leading)
+  thin env (DataCase key motive value branches) = [| DataCase (pure key) (thin env motive) (thin env value) (thinTerms env branches) |]
   thin env (VariantCase motive value branches) = [| VariantCase (thin env motive) (thin env value) (thinTerms env branches) |]
   thin env (BoxType q a) = BoxType q <$> thin env a
   thin env (BoxValue a b) = [| BoxValue (thin env a) (thin env b) |]
@@ -165,6 +168,9 @@ mutual
   substitutionNodes env (VariantType arms) = min (S inferredResultNodes) (1 + armNodes env arms)
   substitutionNodes env (VariantValue ty _ Nothing) = min (S inferredResultNodes) (1 + substitutionNodes env ty)
   substitutionNodes env (VariantValue ty _ (Just value)) = min (S inferredResultNodes) (1 + substitutionNodes env ty + substitutionNodes env value)
+  substitutionNodes env (DataType _) = 1
+  substitutionNodes env (DataCon _ _ _) = 1
+  substitutionNodes env (DataCase _ motive value branches) = min (S inferredResultNodes) (1 + substitutionNodes env motive + substitutionNodes env value + termNodes env branches)
   substitutionNodes env (VariantCase motive value branches) = min (S inferredResultNodes) (1 + substitutionNodes env motive + substitutionNodes env value + termNodes env branches)
   substitutionNodes env (BoxType _ a) = min (S inferredResultNodes) (1 + substitutionNodes env a)
   substitutionNodes env (BoxValue a b) = min (S inferredResultNodes) (1 + substitutionNodes env a + substitutionNodes env b)

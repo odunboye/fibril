@@ -57,6 +57,7 @@ unfoldOne (NatRecRuntime m base next v) = map (NatRecRuntime m base next) (unfol
 unfoldOne (SeqFold m base next v) = map (SeqFold m base next) (unfoldOne v)
 unfoldOne (RecFold m base next v) = map (RecFold m base next) (unfoldOne v)
 unfoldOne (PairCase m s branch) = map (\x => PairCase m x branch) (unfoldOne s)
+unfoldOne (DataCase k m v branches) = map (\x => DataCase k m x branches) (unfoldOne v)
 unfoldOne (VariantCase m v branches) = map (\x => VariantCase m x branches) (unfoldOne v)
 unfoldOne (NominalCase m v branch) = map (\x => NominalCase m x branch) (unfoldOne v)
 unfoldOne (BoxCase m v branch) = map (\x => BoxCase m x branch) (unfoldOne v)

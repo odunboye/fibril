@@ -547,6 +547,11 @@ mutual
           Right annotation
         _ => Left (VariantError "constructor tag or payload arity is invalid")
       _ => Left (VariantError "constructor annotation must expose a variant type")
+  -- Phase 1 of docs/general-recursive-data-plan.md: the terms exist, typing does not. Refusing
+  -- keeps them from being admitted by accident until their rules are written and tested.
+  infer globals (S depth) reduction context (DataType _) = Left (RecursiveDataError "general recursive data typing is not implemented")
+  infer globals (S depth) reduction context (DataCon _ _ _) = Left (RecursiveDataError "general recursive data typing is not implemented")
+  infer globals (S depth) reduction context (DataCase _ _ _ _) = Left (RecursiveDataError "general recursive data typing is not implemented")
   infer globals (S depth) reduction context (VariantCase motive scrutinee branches) = do
     ty <- infer globals depth reduction context scrutinee
     exposed <- exposeType globals reduction ty

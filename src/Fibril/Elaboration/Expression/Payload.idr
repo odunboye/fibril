@@ -78,6 +78,9 @@ mutual
   payloadWeight env (VariantType arms) = payloadArms env arms
   payloadWeight env (VariantValue ty _ Nothing) = payloadWeight env ty
   payloadWeight env (VariantValue ty _ (Just value)) = cap (payloadWeight env ty + payloadWeight env value)
+  payloadWeight env (DataType key) = cap (length key)
+  payloadWeight env (DataCon key _ _) = cap (length key)
+  payloadWeight env (DataCase key a b branches) = cap (length key + payloadWeight env a + payloadWeight env b + payloadTerms env branches)
   payloadWeight env (VariantCase a b branches) = cap (payloadWeight env a + payloadWeight env b + payloadTerms env branches)
   payloadWeight env (BoxType _ a) = payloadWeight env a
   payloadWeight env (BoxValue a b) = cap (payloadWeight env a + payloadWeight env b)

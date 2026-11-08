@@ -207,6 +207,10 @@ mutual
         (Just (Just (q, _)), Just value) => scaleUsage q <$> analyze globals depth reduction context value
         _ => Left (TypingError (VariantError "invalid runtime tag or payload arity"))
       _ => Left (TypingError (VariantError "runtime constructor requires variant type"))
+  -- Typing is not implemented (docs/general-recursive-data-plan.md, phase 3): refuse.
+  analyze globals (S depth) reduction context (DataType _) = Left (TypingError (RecursiveDataError "general recursive data typing is not implemented"))
+  analyze globals (S depth) reduction context (DataCon _ _ _) = Left (TypingError (RecursiveDataError "general recursive data typing is not implemented"))
+  analyze globals (S depth) reduction context (DataCase _ _ _ _) = Left (TypingError (RecursiveDataError "general recursive data typing is not implemented"))
   analyze globals (S depth) reduction context (VariantCase motive value branches) = do
     valueUsage <- analyze globals depth reduction context value
     branchUsage <- variantUsages globals depth reduction context branches

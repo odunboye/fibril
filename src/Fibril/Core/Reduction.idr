@@ -31,6 +31,41 @@ variantContract Z Nothing (branch :: _) = Just branch
 variantContract Z (Just value) (branch :: _) = Just (Apply branch value)
 variantContract (S tag) payload (_ :: rest) = variantContract tag payload rest
 
+||| A constructor application of a general data family: key, index, leading parameter count and
+||| every argument in order. Anything else is not a constructor spine.
+public export
+dataSpine : Term n -> Maybe (String, Nat, Nat, List (Term n))
+dataSpine term = go term []
+  where
+    go : Term m -> List (Term m) -> Maybe (String, Nat, Nat, List (Term m))
+    go (DataCon key index leading) args = Just (key, index, leading, args)
+    go (Apply function argument) args = go function (argument :: args)
+    go _ _ = Nothing
+
+dropLeading : Nat -> List a -> List a
+dropLeading Z xs = xs
+dropLeading (S k) [] = []
+dropLeading (S k) (_ :: xs) = dropLeading k xs
+
+applyAll : Term n -> List (Term n) -> Term n
+applyAll function [] = function
+applyAll function (argument :: rest) = applyAll (Apply function argument) rest
+
+branchAt : Nat -> List (Term n) -> Maybe (Term n)
+branchAt _ [] = Nothing
+branchAt Z (branch :: _) = Just branch
+branchAt (S k) (_ :: rest) = branchAt k rest
+
+||| Contract a case on a constructor of the same family: the chosen branch applied to the fields.
+public export
+dataContract : String -> Term n -> List (Term n) -> Maybe (Term n)
+dataContract key value branches = case dataSpine value of
+  Just (other, index, leading, args) =>
+    if other == key
+      then map (\branch => applyAll branch (dropLeading leading args)) (branchAt index branches)
+      else Nothing
+  Nothing => Nothing
+
 -- Lift the existing Maybe step result through the chosen work policy.
 mapStep : Functor m => (a -> b) -> m (Maybe a) -> m (Maybe b)
 mapStep f = map (map f)
@@ -310,6 +345,12 @@ mutual
         Just result => pure (Just result)
         Nothing => stepVariantCaseWithGlobals globals motive value branches
       _ => stepVariantCaseWithGlobals globals motive value branches
+  stepWithGlobals globals (DataType key) = pure Nothing
+  stepWithGlobals globals (DataCon key index leading) = pure Nothing
+  stepWithGlobals globals (DataCase key motive value branches) =
+    case dataContract key value branches of
+      Just result => pure (Just result)
+      Nothing => stepDataCaseWithGlobals globals key motive value branches
   stepWithGlobals globals (BoxType q ty) = mapStep (BoxType q) (stepWithGlobals globals ty)
   stepWithGlobals globals (BoxValue ty value) = do
     reduced <- stepWithGlobals globals ty
@@ -430,6 +471,17 @@ mutual
         case reduced of
           Just next => pure (Just (VariantCase motive next branches))
           Nothing => mapStep (VariantCase motive value) (stepTermsWithGlobals globals branches)
+
+  stepDataCaseWithGlobals : NaturalWork m => (Nat -> Maybe (Term 0)) -> String -> Term n -> Term n -> List (Term n) -> m (Maybe (Term n))
+  stepDataCaseWithGlobals globals key motive value branches = do
+    reduced <- stepWithGlobals globals motive
+    case reduced of
+      Just next => pure (Just (DataCase key next value branches))
+      Nothing => do
+        reduced <- stepWithGlobals globals value
+        case reduced of
+          Just next => pure (Just (DataCase key motive next branches))
+          Nothing => mapStep (DataCase key motive value) (stepTermsWithGlobals globals branches)
 
   stepTermsWithGlobals : NaturalWork m => (Nat -> Maybe (Term 0)) -> List (Term n) -> m (Maybe (List (Term n)))
   stepTermsWithGlobals globals [] = pure Nothing

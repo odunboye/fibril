@@ -75,6 +75,9 @@ mutual
   renameCongruent left right agree (VariantType arms) = rewrite renameCongruentArms left right agree arms in Refl
   renameCongruent left right agree (VariantValue ty tag Nothing) = rewrite renameCongruent left right agree ty in Refl
   renameCongruent left right agree (VariantValue ty tag (Just value)) = rewrite renameCongruent left right agree ty in rewrite renameCongruent left right agree value in Refl
+  renameCongruent left right agree (DataType key) = Refl
+  renameCongruent left right agree (DataCon key index leading) = Refl
+  renameCongruent left right agree (DataCase key motive value branches) = rewrite renameCongruent left right agree motive in rewrite renameCongruent left right agree value in rewrite renameCongruentTerms left right agree branches in Refl
   renameCongruent left right agree (VariantCase motive value branches) = rewrite renameCongruent left right agree motive in rewrite renameCongruent left right agree value in rewrite renameCongruentTerms left right agree branches in Refl
   renameCongruent left right agree (BoxType q value) = cong (BoxType q) (renameCongruent left right agree value)
   renameCongruent left right agree (IOPure value) = cong IOPure (renameCongruent left right agree value)
@@ -194,6 +197,9 @@ mutual
   renameIdentity (VariantType arms) = rewrite renameIdentityArms arms in Refl
   renameIdentity (VariantValue ty tag Nothing) = rewrite renameIdentity ty in Refl
   renameIdentity (VariantValue ty tag (Just value)) = rewrite renameIdentity ty in rewrite renameIdentity value in Refl
+  renameIdentity (DataType key) = Refl
+  renameIdentity (DataCon key index leading) = Refl
+  renameIdentity (DataCase key motive value branches) = rewrite renameIdentity motive in rewrite renameIdentity value in rewrite renameIdentityTerms branches in Refl
   renameIdentity (VariantCase motive value branches) = rewrite renameIdentity motive in rewrite renameIdentity value in rewrite renameIdentityTerms branches in Refl
   renameIdentity (BoxType q value) = cong (BoxType q) (renameIdentity value)
   renameIdentity (IOPure value) = cong IOPure (renameIdentity value)
@@ -319,6 +325,9 @@ mutual
   renameComposition first second (VariantType arms) = rewrite renameCompositionArms first second arms in Refl
   renameComposition first second (VariantValue ty tag Nothing) = rewrite renameComposition first second ty in Refl
   renameComposition first second (VariantValue ty tag (Just value)) = rewrite renameComposition first second ty in rewrite renameComposition first second value in Refl
+  renameComposition first second (DataType key) = Refl
+  renameComposition first second (DataCon key index leading) = Refl
+  renameComposition first second (DataCase key motive value branches) = rewrite renameComposition first second motive in rewrite renameComposition first second value in rewrite renameCompositionTerms first second branches in Refl
   renameComposition first second (VariantCase motive value branches) = rewrite renameComposition first second motive in rewrite renameComposition first second value in rewrite renameCompositionTerms first second branches in Refl
   renameComposition first second (BoxType q value) = cong (BoxType q) (renameComposition first second value)
   renameComposition first second (IOPure value) = cong IOPure (renameComposition first second value)

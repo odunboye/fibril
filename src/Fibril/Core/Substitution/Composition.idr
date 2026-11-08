@@ -79,6 +79,9 @@ mutual
   renameAfterSubstitution env sigma (VariantType arms) = rewrite renameAfterSubstitutionArms env sigma arms in Refl
   renameAfterSubstitution env sigma (VariantValue ty tag Nothing) = rewrite renameAfterSubstitution env sigma ty in Refl
   renameAfterSubstitution env sigma (VariantValue ty tag (Just value)) = rewrite renameAfterSubstitution env sigma ty in rewrite renameAfterSubstitution env sigma value in Refl
+  renameAfterSubstitution env sigma (DataType key) = Refl
+  renameAfterSubstitution env sigma (DataCon key index leading) = Refl
+  renameAfterSubstitution env sigma (DataCase key motive value branches) = rewrite renameAfterSubstitution env sigma motive in rewrite renameAfterSubstitution env sigma value in rewrite renameAfterSubstitutionTerms env sigma branches in Refl
   renameAfterSubstitution env sigma (VariantCase motive value branches) = rewrite renameAfterSubstitution env sigma motive in rewrite renameAfterSubstitution env sigma value in rewrite renameAfterSubstitutionTerms env sigma branches in Refl
   renameAfterSubstitution env sigma (BoxType q value) = cong (BoxType q) (renameAfterSubstitution env sigma value)
   renameAfterSubstitution env sigma (IOPure value) = cong IOPure (renameAfterSubstitution env sigma value)
@@ -212,6 +215,9 @@ mutual
   substituteAfterRenaming env sigma (VariantType arms) = rewrite substituteAfterRenamingArms env sigma arms in Refl
   substituteAfterRenaming env sigma (VariantValue ty tag Nothing) = rewrite substituteAfterRenaming env sigma ty in Refl
   substituteAfterRenaming env sigma (VariantValue ty tag (Just value)) = rewrite substituteAfterRenaming env sigma ty in rewrite substituteAfterRenaming env sigma value in Refl
+  substituteAfterRenaming env sigma (DataType key) = Refl
+  substituteAfterRenaming env sigma (DataCon key index leading) = Refl
+  substituteAfterRenaming env sigma (DataCase key motive value branches) = rewrite substituteAfterRenaming env sigma motive in rewrite substituteAfterRenaming env sigma value in rewrite substituteAfterRenamingTerms env sigma branches in Refl
   substituteAfterRenaming env sigma (VariantCase motive value branches) = rewrite substituteAfterRenaming env sigma motive in rewrite substituteAfterRenaming env sigma value in rewrite substituteAfterRenamingTerms env sigma branches in Refl
   substituteAfterRenaming env sigma (BoxType q value) = cong (BoxType q) (substituteAfterRenaming env sigma value)
   substituteAfterRenaming env sigma (IOPure value) = cong IOPure (substituteAfterRenaming env sigma value)
@@ -355,6 +361,9 @@ mutual
   substituteComposition first second (VariantType arms) = rewrite substituteCompositionArms first second arms in Refl
   substituteComposition first second (VariantValue ty tag Nothing) = rewrite substituteComposition first second ty in Refl
   substituteComposition first second (VariantValue ty tag (Just value)) = rewrite substituteComposition first second ty in rewrite substituteComposition first second value in Refl
+  substituteComposition first second (DataType key) = Refl
+  substituteComposition first second (DataCon key index leading) = Refl
+  substituteComposition first second (DataCase key motive value branches) = rewrite substituteComposition first second motive in rewrite substituteComposition first second value in rewrite substituteCompositionTerms first second branches in Refl
   substituteComposition first second (VariantCase motive value branches) = rewrite substituteComposition first second motive in rewrite substituteComposition first second value in rewrite substituteCompositionTerms first second branches in Refl
   substituteComposition first second (BoxType q value) = cong (BoxType q) (substituteComposition first second value)
   substituteComposition first second (IOPure value) = cong IOPure (substituteComposition first second value)

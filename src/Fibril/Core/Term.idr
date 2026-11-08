@@ -83,6 +83,15 @@ data Term : Nat -> Type where
   VariantValue : Term n -> Nat -> Maybe (Term n) -> Term n
   ||| Explicit erased dependent motive, scrutinee and exhaustive positional branches.
   VariantCase : Term n -> Term n -> List (Term n) -> Term n
+  ||| General recursive data (docs/general-recursive-data-plan.md). The qualified key names a
+  ||| checked declaration; parameters and fields are supplied by ordinary application.
+  DataType : String -> Term n
+  ||| Constructor `index` of the family `key` with `parameters` leading parameter arguments,
+  ||| so reduction never needs the declaration to find the fields.
+  DataCon : String -> Nat -> Nat -> Term n
+  ||| Dependent one-layer elimination: key, motive, scrutinee, one branch per constructor.
+  ||| Each branch is a lambda over that constructor's fields.
+  DataCase : String -> Term n -> Term n -> List (Term n) -> Term n
   BoxType : Quantity -> Term n -> Term n
   BoxValue : Term n -> Term n -> Term n
   BoxCase : Term n -> Term n -> Term n -> Term n
@@ -288,6 +297,9 @@ mutual
   rename env (VariantType arms) = VariantType (renameArms env arms)
   rename env (VariantValue ty tag Nothing) = VariantValue (rename env ty) tag Nothing
   rename env (VariantValue ty tag (Just value)) = VariantValue (rename env ty) tag (Just (rename env value))
+  rename env (DataType key) = DataType key
+  rename env (DataCon key index leading) = DataCon key index leading
+  rename env (DataCase key motive value branches) = DataCase key (rename env motive) (rename env value) (renameTerms env branches)
   rename env (VariantCase motive value branches) = VariantCase (rename env motive) (rename env value) (renameTerms env branches)
   rename env (BoxType q ty) = BoxType q (rename env ty)
   rename env (IOPure value) = IOPure (rename env value)
@@ -387,6 +399,9 @@ mutual
   substituteTerm env (VariantType arms) = VariantType (substituteArms env arms)
   substituteTerm env (VariantValue ty tag Nothing) = VariantValue (substituteTerm env ty) tag Nothing
   substituteTerm env (VariantValue ty tag (Just value)) = VariantValue (substituteTerm env ty) tag (Just (substituteTerm env value))
+  substituteTerm env (DataType key) = DataType key
+  substituteTerm env (DataCon key index leading) = DataCon key index leading
+  substituteTerm env (DataCase key motive value branches) = DataCase key (substituteTerm env motive) (substituteTerm env value) (substituteTerms env branches)
   substituteTerm env (VariantCase motive value branches) = VariantCase (substituteTerm env motive) (substituteTerm env value) (substituteTerms env branches)
   substituteTerm env (BoxType q ty) = BoxType q (substituteTerm env ty)
   substituteTerm env (IOPure value) = IOPure (substituteTerm env value)
@@ -484,6 +499,9 @@ mutual
   sameSyntax (VariantType xs) (VariantType ys) = sameArms xs ys
   sameSyntax (VariantValue a i Nothing) (VariantValue b j Nothing) = i == j && sameSyntax a b
   sameSyntax (VariantValue a i (Just x)) (VariantValue b j (Just y)) = i == j && sameSyntax a b && sameSyntax x y
+  sameSyntax (DataType k) (DataType l) = k == l
+  sameSyntax (DataCon k i m) (DataCon l j o) = k == l && i == j && m == o
+  sameSyntax (DataCase k p x fs) (DataCase l q y gs) = k == l && sameSyntax p q && sameSyntax x y && sameTerms fs gs
   sameSyntax (VariantCase p x fs) (VariantCase q y gs) = sameSyntax p q && sameSyntax x y && sameTerms fs gs
   sameSyntax (BoxType q a) (BoxType r b) = q == r && sameSyntax a b
   sameSyntax (IOType a) (IOType b) = sameSyntax a b
