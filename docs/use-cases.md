@@ -124,6 +124,11 @@ separate shared-graph admission, checking cost and native allocation/work limits
 before choosing an optimization. Use the smaller reference benchmarks when only
 an individual core operation is under investigation.
 
+[Native variable forwarding](native-variable-forwarding.md) reuses lazy cells
+when helper functions receive existing local values. It reduces measured native
+work/allocation without source changes; ordinary application remains the path
+for general argument expressions.
+
 The [internal finite-variant kernel](finite-variants.md) now provides checked
 nullary/payload alternatives and dependent cases for compiler development and
 host tests. Source data now reaches it through checked declarations and helpers.

@@ -15,6 +15,18 @@ EVIDENCE = ROOT / 'docs/assets/evidence/lsp-cost-audit.json'
 
 
 class LSPCostAudit(unittest.TestCase):
+    def test_shared_global_wrappers_have_operation_attribution(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            observe(directory)
+            (directory / 'program.c').write_text(
+                'static FValue *fibril_expr_0(FRuntime *r, FEnv *e) { (void)e; return f_unit(r); }\n'
+                'FValue *fibril_global_1(FRuntime *r, FEnv *e) { (void)e; return fibril_expr_0(r, NULL); }\n')
+            (directory / 'observer.c').write_bytes((ROOT / 'tools/fixtures/lsp-workload-observer.c').read_bytes())
+            labels = instrument(directory)
+            self.assertEqual(labels['emitted_operations']['f_unit'], 2)
+            self.assertIn('if (code == fibril_global_1)', (directory / 'program.c').read_text())
+
     def test_inventory_coverage_and_existing_quantity_rules(self):
         source = (FIXTURE / 'Audit.idr').read_text()
         patterns = re.findall(r'^  dump context role (.+?) =', source, re.M)

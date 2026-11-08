@@ -330,7 +330,7 @@ def main():
         email = ROOT / 'examples/modules/email-service-full'
         expected = b'sending\ndeferred\nqueued\nfailed\ndelivered\nbounced\nsubmission unknown\ntransition rejected\n'
         collect('email-full', email, email / 'Main.fib', cases=[('demo', b'', expected)])
-        for family, sizes in [('inventory', [16, 64, 128, 256, 512]), ('chain', [8, 32, 64, 128, 253, 254, 256]),
+        for family, sizes in [('inventory', [16, 64, 128, 256, 512]), ('chain', [8, 32, 64, 128, 253, 254, 255, 256]),
                               ('recompute', [4, 8, 10, 12, 14, 15, 16]), ('single-module', [63, 64])]:
             for size in sizes[:1] if args.smoke else sizes:
                 root = work / f'source-{family}-{size}'
