@@ -13,7 +13,7 @@ import threading
 import time
 import unittest
 
-from fibril_lsp import LSPError, Positions, changed_text, read_frame, uri_path
+from fibril_lsp import KEYWORDS, LSPError, Positions, changed_text, read_frame, uri_path
 
 ROOT = Path(__file__).resolve().parents[1]
 SERVER = ROOT / "tools/fibril_lsp.py"
@@ -170,7 +170,7 @@ class Integration(unittest.TestCase):
         client = self.client()
         self.assertEqual(client.capabilities["positionEncoding"], "utf-16")
         self.assertEqual(client.capabilities["textDocumentSync"]["change"], 2)
-        self.assertNotIn("completionProvider", client.capabilities)
+        self.assertIn("completionProvider", client.capabilities)
         self.assertEqual(client.request("workspace/symbol", {})["error"]["code"], -32601)
         self.assertEqual(client.request("initialize", {})["error"]["code"], -32600)
 
@@ -215,6 +215,43 @@ class Integration(unittest.TestCase):
         self.assertEqual(change["textDocument"]["version"], 3)
         self.assertEqual(len(change["edits"]), 3)
         self.assertEqual(self.path.read_text(), self.disk)
+
+    def test_rename_keywords_match_the_lexer(self):
+        import re
+        lexer = (ROOT / "src/Fibril/Source/Lexer.idr").read_text()
+        self.assertEqual(set(re.findall(r'"(\w+)" => \w+Keyword', lexer)), KEYWORDS)
+
+    def test_completion_offers_local_and_prelude_names(self):
+        client = self.client()
+        text = SOURCE.replace('(greet "world")', "gre")
+        client.open(self.path, text)
+        client.diagnostics(self.path)
+        items = client.request("textDocument/completion", {"textDocument": {"uri": self.path.as_uri()}, "position": Positions(text).point(text.index("gre)") + 3)})["result"]["items"]
+        self.assertEqual([item["label"] for item in items], ["greet"])
+        text = "put"
+        client.change(self.path, text, 2)
+        items = client.request("textDocument/completion", {"textDocument": {"uri": self.path.as_uri()}, "position": Positions(text).point(3)})["result"]["items"]
+        self.assertIn("putStrLn", [item["label"] for item in items])
+
+    def test_project_rename_spans_files_and_refuses_collisions(self):
+        a, left, right, main, texts = self.navigation_project()
+        client = self.client()
+        for path, text in texts.items():
+            client.open(path, text)
+        client.diagnostics(main)
+        query = self.at(a, texts[a], texts[a].index("greeting"))
+        edit = client.request("textDocument/rename", {**query, "newName": "salute"})["result"]
+        files = {change["textDocument"]["uri"]: change["edits"] for change in edit["documentChanges"]}
+        self.assertEqual(set(files), {path.as_uri() for path in (a, left, right, main)})
+        self.assertEqual(files[a.as_uri()][0]["range"]["start"]["line"], 4)
+        refused = client.request("textDocument/rename", {**query, "newName": "secret"})
+        self.assertEqual(refused["error"]["code"], -32803)
+        # Reserved words and names used only in an unaffected workspace file are refused too.
+        for name in ("where", "Unit"):
+            self.assertIn("reserved", client.request("textDocument/rename", {**query, "newName": name})["error"]["message"])
+        unaffected = client.request("textDocument/rename", {**query, "newName": "Unreachable"})
+        self.assertEqual(unaffected["error"]["code"], -32803)
+        self.assertEqual(a.read_text(), texts[a])
 
     def test_hover_formatting_and_invalid_positions(self):
         client = self.client()

@@ -8958,5 +8958,154 @@ main = putStrLn (drain (Succ Zero) (Cons String Zero "linear" (Nil String)))
             self.assertEqual(result.stdout, 'imported\n')
 
 
+class LockfileTests(unittest.TestCase):
+    """docs/lockfile.md: fibril lock writes, package commands verify."""
+
+    def project(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        root = Path(directory.name).resolve()
+        for name in ('mailer', 'email-core'):
+            shutil.copytree(ROOT / 'examples/packages' / name, root / name)
+        return root / 'mailer', root / 'email-core'
+
+    def test_lock_verify_drift_and_update(self):
+        app, core = self.project()
+        self.assertEqual(run('check', cwd=app).returncode, 0)  # no lock: unchanged behavior
+        written = run('lock', cwd=app)
+        self.assertEqual(written.returncode, 0, written.stderr)
+        lock = json.loads((app / 'fibril.lock').read_text())
+        self.assertEqual([p['name'] for p in lock['packages']], ['email-core', 'mailer-app'])
+        self.assertEqual([p['path'] for p in lock['packages']], ['../email-core', '.'])
+        self.assertEqual(run('check', cwd=app).returncode, 0)
+        self.assertEqual(run('test', cwd=app).returncode, run('test', '--package', 'fibril.yaml', cwd=app).returncode)
+        again = run('lock', cwd=app)
+        self.assertNotEqual(again.returncode, 0)
+        self.assertIn('--update', again.stdout + again.stderr)
+        self.assertIn('already up to date', run('lock', '--update', cwd=app).stdout)
+
+        status = core / 'src/Email/Core/Status.fib'
+        status.write_text(status.read_text() + '\n')
+        for command in (('check',), ('run',), ('module-graph',)):
+            with self.subTest(command=command):
+                result = run(*command, cwd=app)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn('package email-core: sources changed', result.stdout + result.stderr)
+        updated = run('lock', '--update', cwd=app)
+        self.assertEqual(updated.returncode, 0)
+        self.assertIn('email-core: sources changed', updated.stdout)
+        self.assertEqual(run('check', cwd=app).returncode, 0)
+
+    def test_manifest_drift_and_tampered_locks_are_rejected(self):
+        app, core = self.project()
+        run('lock', cwd=app)
+        good = (app / 'fibril.lock').read_text()
+        (core / 'fibril.yaml').write_text((core / 'fibril.yaml').read_text() + '\n')
+        result = run('check', cwd=app)
+        self.assertIn('package email-core: manifest changed', result.stdout + result.stderr)
+        (core / 'fibril.yaml').write_text((core / 'fibril.yaml').read_text().rstrip('\n') + '\n')
+        for name, text in {'whitespace': good.replace('"packages"', ' "packages"'),
+                           'schema': good.replace('"schema": 1', '"schema": 2'),
+                           'garbage': good + 'x', 'empty': ''}.items():
+            with self.subTest(tamper=name):
+                (app / 'fibril.lock').write_text(text)
+                result = run('check', cwd=app)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn('fibril.lock', result.stdout + result.stderr)
+        replaced = run('lock', '--update', cwd=app)
+        self.assertEqual(replaced.returncode, 0)
+
+    def test_stale_temporary_and_tool_directories_do_not_break_locking(self):
+        app, core = self.project()
+        (app / 'fibril.lock.tmp').write_text('left behind by a crash')
+        self.assertEqual(run('lock', cwd=app).returncode, 0)
+        self.assertFalse((app / 'fibril.lock.tmp').exists())
+        # Tool directories are not package sources, even with a symlink inside.
+        (core / 'src/build').mkdir()
+        os.symlink(core / 'fibril.yaml', core / 'src/build/alias')
+        (core / 'src/.cache').mkdir()
+        (core / 'src/.cache/junk.fib').write_text('not part of the package')
+        checked = run('check', cwd=app)
+        self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
+
+    def test_test_package_is_outside_the_parent_lock_but_has_its_own(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            self.assertEqual(run('new', 'email-core', '--lib', '--module-prefix', 'Email.Core', cwd=root).returncode, 0)
+            project = root / 'email-core'
+            self.assertEqual(run('lock', cwd=project).returncode, 0)
+            self.assertNotIn('"test"', (project / 'fibril.lock').read_text())  # not part of the parent's closure
+            suite = project / 'test/src/TestSuite/Suite.fib'
+            suite.write_text(suite.read_text() + '\n')  # editing the suite does not drift the parent lock
+            self.assertIn('Tests: passed', run('test', cwd=project).stdout)
+            # A lock beside the test package is verified when it is the entry being tested.
+            (project / 'test/fibril.lock').write_text('hand-edited')
+            failed = run('test', cwd=project)
+            self.assertNotEqual(failed.returncode, 0)
+            self.assertIn('fibril.lock', failed.stdout + failed.stderr)
+
+    def test_symlinks_in_source_trees_are_rejected(self):
+        app, core = self.project()
+        os.symlink(core / 'src/Email/Core/Status.fib', core / 'src/Email/Core/Alias.fib')
+        result = run('lock', cwd=app)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('Symlink or alias', result.stdout + result.stderr)
+        self.assertFalse((app / 'fibril.lock').exists())
+
+
+class CheckProfileTests(unittest.TestCase):
+    """check --profile adds stderr timings and must not change check's stdout or exit status."""
+
+    PHASES = ('load', 'prelude', 'frontend', 'runtime-check', 'total')
+
+    def test_profile_matches_plain_check_and_reports_phases(self):
+        with tempfile.TemporaryDirectory() as directory:
+            bad = Path(directory) / 'bad.fib'
+            bad.write_text('(True : Unit)\n')
+            missing = Path(directory) / 'missing.fib'
+            for path in (ROOT / 'examples/core/string-equal.fib', bad, missing):
+                with self.subTest(path=path.name):
+                    plain, profiled = run('check', str(path)), run('check', '--profile', str(path))
+                    self.assertEqual(profiled.stdout, plain.stdout)
+                    self.assertEqual(profiled.returncode, plain.returncode)
+                    self.assertIn('profile (monotonic wall clock', profiled.stderr)
+                    expected = ('load', 'total') if path == missing else self.PHASES
+                    for phase in expected:
+                        self.assertRegex(profiled.stderr, rf'(?m)^  {phase} +\d+\.\d{{3}} ms$')
+                    self.assertEqual(plain.stderr, '')
+
+
+class CheckJSONContractTests(unittest.TestCase):
+    """Frozen key sets from docs/diagnostics.md#stability-contract-for-check---json."""
+
+    TOP = {"version", "coordinates", "accepted", "report", "diagnostics"}
+    DIAGNOSTIC = {"severity", "stage", "message", "position", "byteOffset"}
+
+    def test_version_1_accept_and_reject(self):
+        accepted = run('check', '--json', 'examples/core/string-equal.fib')
+        self.assertEqual(accepted.returncode, 0)
+        report = json.loads(accepted.stdout)
+        self.assertEqual(set(report), self.TOP)
+        self.assertEqual((report['version'], report['accepted'], report['diagnostics']), (1, True, []))
+        with tempfile.TemporaryDirectory() as directory:
+            bad = Path(directory) / 'bad.fib'
+            bad.write_text('(True : Unit)\n')
+            rejected = run('check', '--json', str(bad))
+        self.assertNotEqual(rejected.returncode, 0)
+        self.assertEqual(rejected.stderr, '')
+        report = json.loads(rejected.stdout)
+        self.assertEqual(set(report), self.TOP)
+        self.assertFalse(report['accepted'])
+        self.assertEqual(set(report['diagnostics'][0]), self.DIAGNOSTIC)
+        self.assertEqual(report['diagnostics'][0]['severity'], 'error')
+        self.assertIsNone(report['diagnostics'][0]['position'])
+
+    def test_version_2_project_keys(self):
+        result = run('check', '--json', '--source-dir', 'examples/modules/checked', 'examples/modules/checked/Main.fib')
+        report = json.loads(result.stdout)
+        self.assertEqual(set(report), self.TOP | {"entry", "root", "sources"})
+        self.assertEqual(report['version'], 2)
+
+
 if __name__ == "__main__":
     unittest.main()

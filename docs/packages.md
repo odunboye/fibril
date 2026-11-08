@@ -4,13 +4,15 @@ Status: [offline console scaffolding](project-creation.md) is implemented.
 [Pure workspace planning and direct-dependency routing](workspaces.md) are implemented
 as internal APIs. [Strict local manifest inspection](manifests.md) is implemented;
 [explicit local dependency-closure check/run](local-packages.md) now works too.
-Workspace-member discovery, locks and fetching remain unimplemented.
+[Local snapshot locks](lockfile.md) are implemented. Workspace-member discovery,
+fetching, registries and version solving remain unimplemented.
 
 ## Bootstrap versus user projects
 
 - pack.toml and Idris .ipkg files continue to manage the compiler implementation.
 - Local Fibril projects use a small pubspec-style **fibril.yaml** manifest;
-  a **fibril.lock** snapshot/hash lockfile remains future work.
+  a **fibril.lock** snapshot/hash lockfile is [implemented](lockfile.md) for local
+  paths only.
 - Borrow Dart pub's readable project description and integrated workflow, not its
   complete registry/version-solving machinery.
 - This does not replace the existing pack setup. The bootstrap now uses the

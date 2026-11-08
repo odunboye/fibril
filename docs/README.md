@@ -88,6 +88,8 @@ The generated homepage separates teaching chapters, references, and project reco
 - [Expression lexer](lexer.md): token subset, aliases, positions, and next parser boundary.
 
 - [Project/dependency format](packages.md): local manifest contract; pack remains the bootstrap.
+- [fibril.lock](lockfile.md): SHA-256 change detection for local packages (`fibril lock`).
+- [Debugging design](debugger.md): proposed core-term reduction trace; design only, not implemented.
 - [Libraries and tests](libraries-and-tests.md): standalone inventories and checked pure Bool suites, with --lib scaffolding.
 - [Local packages](local-packages.md): canonical explicit dependency closure and real multi-root check/run.
 - [Strict manifest inspection](manifests.md): maintained YAML parsing and strict local schema, without dependency/source loading.

@@ -24,6 +24,7 @@ Build with `pack build fibril`, then invoke `./build/exec/fibril`.
 | eval PATH | Check then reference-normalize an expression or declaration program (default fuel 128) |
 | eval --fuel N PATH | Same with evaluation fuel 0..4096; not compiled execution |
 | check PATH | Parse/resolve an expression or declaration file with main, then check typing/runtime usage |
+| check --profile PATH | Same checking and the same stdout/exit status as `check PATH`, plus per-phase wall-clock timings (load, prelude, frontend, runtime-check) on **stderr**. Single file only: no `--erased`, `--json` or project modes. One un-averaged run; compare relative size, not absolute milliseconds. Not a sampling profiler: no memory, no per-declaration or per-function breakdown |
 | module-graph ROOT ENTRY | Read-only POSIX dependency discovery as JSON; no core checking or execution |
 | run --source-dir ROOT ENTRY | Check the full project, prepare IO Unit output plan, then execute host stdout |
 | run --fuel N PATH | Same as `run PATH` with planning reduction fuel 0..4096 (default 128); also `run --source-dir ROOT --fuel N ENTRY` and `run --package PATH --fuel N`. Fuel bounds each reduction while planning output, not time or memory; recursion that exhausts it fails with `IO planning reduction budget exhausted; raise it with run --fuel N (0..4096)` |

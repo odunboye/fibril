@@ -26,6 +26,10 @@ MAX_FILE = 65536
 MAX_FILES = 1024
 MAX_SNAPSHOT = 8 * 1024 * 1024
 COORDINATES = "unicode-scalars;offset=0;line=1;column=1"
+# Reserved words of src/Fibril/Source/Lexer.idr; test_lsp.py fails if the lexer's table drifts from this.
+KEYWORDS = {"String", "Type", "Unit", "Bool", "True", "False", "if", "then", "else", "do", "case", "of", "let", "in",
+            "projection", "return", "data", "record", "interface", "mutual", "implementation", "constructor",
+            "eliminator", "where", "module", "import", "export"}
 IGNORED = {".git", "build", "node_modules", "__pycache__", ".venv", ".cache", "dist", "target"}
 
 
@@ -616,7 +620,7 @@ class Server:
             invalid("Open the document before requesting language services")
         mapper = Positions(doc.text)
         with tempfile.TemporaryDirectory(prefix="fibril-lsp-") as directory:
-            local_only = method in {"textDocument/documentSymbol", "textDocument/formatting", "textDocument/rename"}
+            local_only = method in {"textDocument/documentSymbol", "textDocument/formatting", "textDocument/completion"}
             snapshot = Snapshot(view, doc, directory, self.backend, cancel, local_only)
             # Keep the immutable snapshot for the final disk-freshness check.
             self.work_context.snapshot = snapshot
@@ -634,6 +638,17 @@ class Server:
                 return [] if formatted == doc.text else [{"range": {"start": {"line": 0, "character": 0}, "end": mapper.point(len(doc.text))}, "newText": formatted}]
             position = params.get("position")
             line, column = mapper.location(position)
+            if method == "textDocument/completion":
+                # shortcut: current file + Prelude top-level names only, no scope/type awareness; upgrade with a compiler "scope" query.
+                offset = mapper.offset(position)
+                prefix = re.search(r"[A-Za-z0-9_']*$", doc.text[:offset]).group(0)
+                names = {symbol["name"] for symbol in snapshot.call(["symbols", path])["symbols"]}
+                # This script lives in <checkout>/tools; also try the layout <checkout>/build/exec/fibril.
+                candidates = [Path(__file__).resolve().parents[1], *Path(self.binary).resolve().parents[2:3]]
+                prelude = next((root / "stdlib" / "Prelude.fib" for root in candidates if (root / "stdlib" / "Prelude.fib").is_file()), None)
+                if prelude and prelude != doc.path:
+                    names |= {symbol["name"] for symbol in snapshot.call(["symbols", prelude])["symbols"]}
+                return {"isIncomplete": False, "items": [{"label": name, "kind": 3} for name in sorted(names) if name.startswith(prefix)]}
             if method == "textDocument/definition":
                 return snapshot.definition(line, column, self.definition_links)
             if method == "textDocument/hover":
@@ -678,10 +693,35 @@ class Server:
                 name = params.get("newName")
                 if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{0,255}", name):
                     invalid("Rename requires an ASCII identifier of 1..256 characters")
+                if snapshot.manifest or snapshot.source_root:
+                    return self.project_rename(snapshot, view, line, column, name)
                 packet = snapshot.call(["rename-preview", line, column, name, path])
                 edits = [{"range": mapper.compiler_range(edit["range"]), "newText": edit["newText"]} for edit in packet["edits"]]
                 return {"documentChanges": [{"textDocument": {"uri": doc.uri, "version": doc.version}, "edits": edits}]}
             raise LSPError(-32601, "Method not found")
+
+    def project_rename(self, snapshot, view, line, column, name):
+        locations = snapshot.references(line, column, True)
+        if not locations:
+            raise LSPError(-32803, "No checked symbol at this position")
+        by_file, old = {}, set()
+        for location in locations:
+            path = uri_path(location["uri"])
+            text = snapshot.text(path)
+            mapper, span = Positions(text), location["range"]
+            old.add(text[mapper.offset(span["start"]):mapper.offset(span["end"])])
+            by_file.setdefault(location["uri"], []).append({"range": span, "newText": name})
+        if len(old) != 1 or not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", next(iter(old))):
+            raise LSPError(-32803, "Project rename supports plain identifiers only; occurrences disagree or are qualified")
+        if name in KEYWORDS:
+            raise LSPError(-32803, f"Rename refused: {name} is a reserved word")
+        # Conservative capture guard: the compiler cannot capture-check across files, so refuse
+        # if newName appears in ANY workspace source (an importer may use it without using the old name).
+        pattern = re.compile(rf"(?<![A-Za-z0-9_']){name}(?![A-Za-z0-9_'])")
+        if any(pattern.search(snapshot.text(path)) for path in snapshot.data if path.suffix == ".fib"):
+            raise LSPError(-32803, f"Rename refused: {name} already appears in a workspace source file")
+        docs = {document.uri: document.version for document in view.documents.values()}
+        return {"documentChanges": [{"textDocument": {"uri": uri, "version": docs.get(uri)}, "edits": edits} for uri, edits in by_file.items()]}
 
     def work(self, ident, method, params, view, cancel):
         try:
@@ -740,7 +780,7 @@ class Server:
             self.initialized = True
             self.send({"id": ident, "result": {"serverInfo": {"name": "fibril-lsp", "version": "0.1.0"}, "capabilities": {
                 "positionEncoding": "utf-16", "textDocumentSync": {"openClose": True, "change": 2, "save": {"includeText": False}},
-                "definitionProvider": True, "referencesProvider": True, "hoverProvider": True,
+                "definitionProvider": True, "referencesProvider": True, "completionProvider": {}, "hoverProvider": True,
                 "documentSymbolProvider": True, "documentFormattingProvider": True, "renameProvider": self.versioned_edits,
                 "workspace": {"workspaceFolders": {"supported": True, "changeNotifications": True}}}}})
             return None
@@ -770,7 +810,7 @@ class Server:
         if not request:
             self.notification(method, params)
             return None
-        supported = {"textDocument/definition", "textDocument/references", "textDocument/hover", "textDocument/documentSymbol", "textDocument/formatting", "textDocument/rename"}
+        supported = {"textDocument/definition", "textDocument/references", "textDocument/hover", "textDocument/documentSymbol", "textDocument/formatting", "textDocument/rename", "textDocument/completion"}
         if method not in supported:
             raise LSPError(-32601, f"Method not found: {method}")
         if ident in self.requests:
