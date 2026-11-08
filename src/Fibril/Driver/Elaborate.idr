@@ -35,6 +35,10 @@ elaborationReport source = do
     Left (SymbolLexical err) => Left (FrontendFailure (Lexical err))
     Left (SymbolParsing err) => Left (FrontendFailure (Parsing err))
     Right document => Right document
+  case rejectCubicalMetadataInspection document of
+    Left (SymbolParsing err) => Left (FrontendFailure (Parsing err))
+    Left (SymbolLexical err) => Left (FrontendFailure (Lexical err))
+    Right () => Right ()
   declarations <- case document.body of
     DeclarationDocument authored => case elaborateDeclarationsIn
       (map (\header => concat (intersperse "." header.components)) document.moduleHeader) [] 64 authored of

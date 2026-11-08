@@ -42,7 +42,10 @@ parse : String -> Either DriverError ParsedDocument
 parse source = case parseDocument 64 256 source of
   Left (SymbolLexical err) => Left (FrontendFailure (Lexical err))
   Left (SymbolParsing err) => Left (FrontendFailure (Parsing err))
-  Right document => Right document
+  Right document => case rejectCubicalMetadataInspection document of
+    Left (SymbolParsing err) => Left (FrontendFailure (Parsing err))
+    Left (SymbolLexical err) => Left (FrontendFailure (Lexical err))
+    Right () => Right document
 
 ||| Syntax/lexical reference lookup, not checking an entire program. Local names
 ||| shadow unqualified globals; qualified names, literals and comments are not guessed.

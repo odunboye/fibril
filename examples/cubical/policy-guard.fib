@@ -1,0 +1,14 @@
+-- Executable source with a checked constant-path regression guard.
+-- This preserves a reviewed policy structurally; it does not prove equivalence
+-- of different algorithms, or add transport or runtime path computation.
+allow : (1 enabled : Bool) -> Bool
+allow enabled = if enabled then True else False
+
+reviewed : (1 enabled : Bool) -> Bool
+reviewed enabled = if enabled then True else False
+
+cubical policyStable : allow = reviewed by refl
+
+requires policyStable
+main : IO Unit
+main = putStrLn (if allow True then "feature enabled" else "feature disabled")

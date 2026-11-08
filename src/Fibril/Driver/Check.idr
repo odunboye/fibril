@@ -23,6 +23,7 @@ import Fibril.Driver.Prelude
 import Fibril.Driver.Console
 
 import Fibril.Driver.Limits
+import Fibril.Cubical.Source.Application
 
 %default total
 
@@ -118,15 +119,16 @@ prepareSource source = do
   case document.imports of
     first :: _ => Left (Parsing (ParseFailure first.span.start "Import checking requires --source-dir"))
     [] => Right ()
-  syntax <- case document.body of
-    ExpressionDocument expression => Right expression
+  (syntax, declarations) <- case document.body of
+    ExpressionDocument expression => Right (expression, [])
     EmptyDocument => Left (Parsing (ParseFailure document.end "Expected expression"))
     DeclarationDocument authored => do
       declarations <- case elaborateDeclarations 64 authored of
         Left err => Left (Elaborating err)
         Right declarations => Right declarations
-      if any (\decl => decl.name == "main") declarations
-         then Right (lowerDeclarations document.end declarations)
+      let executable = executableDeclarations declarations
+      if any (\decl => decl.name == "main") executable
+         then Right (lowerDeclarations document.end executable, declarations)
          else Left (Parsing (ParseFailure document.end "Declaration file requires a main definition"))
   globals <- case preludeGlobals of
     Left err => Left (PreludeUnavailable err)
@@ -135,7 +137,10 @@ prepareSource source = do
     Left err => if err.elaborating
                    then Left (Elaborating (ElaborationFailure err.position err.name))
                    else Left (Resolving err)
-    Right term => Right (CoreSource term)
+    Right term => do
+      case checkConstantPaths document declarations term of
+        Left err => Left (Elaborating err)
+        Right () => Right (CoreSource term)
 
 public export
 resolveSource : String -> Either FrontendError (Term 0)
