@@ -6,6 +6,10 @@ import Data.String
 import Fibril.Core.Context
 import Fibril.Core.DataDecl
 import Fibril.Core.Erased
+import Fibril.Core.Evaluation
+import Fibril.Core.FixAdmission
+import Fibril.Termination.Extract
+import Fibril.Termination.SizeChange
 import Fibril.Core.Pretty
 import Fibril.Core.Quantity
 import Fibril.Core.Reduction
@@ -304,4 +308,126 @@ typingChecks =
       usageRefused treeRuntime (caseOf (node leaf leaf)) && holds treeEnv (\g => accepts g (caseOf (node leaf leaf)) NatType))
   , ("a constructor application alone passes the usage check", usageOk treeRuntime (node leaf leaf))
   , ("the family former is a type, not a runtime value", usageRefused treeRuntime tree)
+  ]
+
+-- Phase 4: recursion. ------------------------------------------------------------------------
+
+-- A copyable tree, so ordinary unrestricted recursion applies.
+utree : Term n
+utree = DataType "UTree"
+
+uleaf : Term n
+uleaf = DataCon "UTree" 0 0
+
+unode : Term n -> Term n -> Term n
+unode left right = Apply (Apply (DataCon "UTree" 1 0) left) right
+
+utreeDecl : DataDecl
+utreeDecl = MkDataDecl "UTree" Done
+  [ MkConstructor "Leaf" Done
+  , MkConstructor "Node" (Field Unrestricted (DataType "UTree") (Field Unrestricted (DataType "UTree") Done))
+  ]
+
+recursionEnv : Either CheckError GlobalContext
+recursionEnv = extendDataGlobals 128 128 emptyGlobals utreeDecl >>= \g => extendDataGlobals 128 128 g listDecl
+
+marksSig : Term 0
+marksSig = Pi Unrestricted utree StringType
+
+utreeMotive : Term n
+utreeMotive = Lambda Erased utree StringType
+
+-- Inside `\t =>`: t, self. Inside the node branch: right, left, t, self.
+selfAt : Term n -> Term n
+selfAt argument = argument
+
+marksBody : Term 1
+marksBody = Lambda Unrestricted utree
+  (DataCase "UTree" utreeMotive (Variable FZ)
+    [ StringValue "."
+    , Lambda Unrestricted utree (Lambda Unrestricted utree
+        (StringAppend (Apply (Variable (FS (FS (FS FZ)))) (Variable (FS FZ)))
+                      (Apply (Variable (FS (FS (FS FZ)))) (Variable FZ))))
+    ])
+
+marksFix : Term 0
+marksFix = Fix marksSig marksBody
+
+-- Recursion on a rebuilt node is not smaller.
+rebuiltBody : Term 1
+rebuiltBody = Lambda Unrestricted utree
+  (DataCase "UTree" utreeMotive (Variable FZ)
+    [ StringValue "."
+    , Lambda Unrestricted utree (Lambda Unrestricted utree
+        (Apply (Variable (FS (FS (FS FZ)))) (unode (Variable (FS FZ)) (Variable FZ))))
+    ])
+
+-- Recursion on the scrutinee itself is not smaller either.
+sameBody : Term 1
+sameBody = Lambda Unrestricted utree
+  (DataCase "UTree" utreeMotive (Variable FZ)
+    [ StringValue "."
+    , Lambda Unrestricted utree (Lambda Unrestricted utree
+        (Apply (Variable (FS (FS (FS FZ)))) (Variable (FS (FS FZ)))))
+    ])
+
+-- A branch that returns a function: its extra lambda is not a field, so what it binds is
+-- not a component of the scrutinee. Recursing on it must be refused.
+functionMotive : Term n
+functionMotive = Lambda Erased utree (Pi Unrestricted utree StringType)
+
+extraLambdaBody : Term 1
+extraLambdaBody = Lambda Unrestricted utree
+  (Apply (DataCase "UTree" functionMotive (Variable FZ)
+    [ Lambda Unrestricted utree (StringValue ".")
+    , Lambda Unrestricted utree (Lambda Unrestricted utree (Lambda Unrestricted utree
+        (Apply (Variable (FS (FS (FS (FS FZ))))) (Variable FZ))))
+    ]) (Variable FZ))
+
+-- Length of a list of naturals: the tail is a component, the head is not credited.
+lengthSig : Term 0
+lengthSig = Pi Unrestricted natList NatType
+
+lengthBody : Term 1
+lengthBody = Lambda Unrestricted natList
+  (DataCase "List" (Lambda Erased natList NatType) (Variable FZ)
+    [ NatZero
+    , Lambda Unrestricted NatType (Lambda Unrestricted natList
+        (NatSucc (Apply (Variable (FS (FS (FS FZ)))) (Variable FZ))))
+    ])
+
+lengthFix : Term 0
+lengthFix = Fix lengthSig lengthBody
+
+twoLeaves : Term 0
+twoLeaves = unode (unode uleaf uleaf) uleaf
+
+public export
+recursionChecks : List (String, Bool)
+recursionChecks =
+  [ ("structural recursion on both subtrees is admitted",
+      holds recursionEnv (\g => isRight (inferErasedGlobals g 128 128 Empty marksFix)))
+  , ("the extractor sees two recursive calls, each on a smaller component",
+      case extractFixWith (fieldCountsOf (case recursionEnv of Right g => g; Left _ => emptyGlobals)) marksSig marksBody of
+        Right found => length found.calls == 2 && all (\c => any (any (== Decreases)) c.matrix) found.calls
+        Left _ => False)
+  , ("without the declaration the extractor refuses a case on a family",
+      isLeft (extractFix marksSig marksBody))
+  , ("recursion on a rebuilt node is refused",
+      holds recursionEnv (\g => isLeft (inferErasedGlobals g 128 128 Empty (Fix marksSig rebuiltBody))))
+  , ("recursion on the scrutinee itself is refused",
+      holds recursionEnv (\g => isLeft (inferErasedGlobals g 128 128 Empty (Fix marksSig sameBody))))
+  , ("an extra lambda in a branch is not taken for a field",
+      holds recursionEnv (\g => isLeft (inferErasedGlobals g 128 128 Empty (Fix marksSig extraLambdaBody))))
+  , ("list length recursing on the tail is admitted",
+      holds recursionEnv (\g => isRight (inferErasedGlobals g 128 128 Empty lengthFix)))
+  , ("a recursive function over a family also passes runtime usage checking",
+      usageOk (extendDataRuntimeGlobals 128 128 emptyRuntimeGlobals utreeDecl) marksFix)
+  , ("run-mode evaluation unfolds the recursion through the case: three leaves make three dots",
+      normalIs (normalizeRun 500 (Apply marksFix twoLeaves)) (StringValue "..."))
+  , ("run-mode evaluation computes list length",
+      normalIs (normalizeRun 500 (Apply lengthFix (listCons NatType NatZero (listCons NatType NatZero (listNil NatType)))))
+               (NatSucc (NatSucc NatZero)))
+  , ("a case on a leaf needs no unfolding",
+      normalIs (normalizeRun 50 (Apply marksFix uleaf)) (StringValue "."))
   ]

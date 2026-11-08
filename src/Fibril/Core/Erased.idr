@@ -113,6 +113,11 @@ public export
 dataDeclaration : GlobalContext -> String -> Maybe DataDecl
 dataDeclaration globals key = find (\decl => decl.key == key) (dataDeclarations globals)
 
+||| What the termination extractor needs to know about declared families.
+public export
+fieldCountsOf : GlobalContext -> FieldCounts
+fieldCountsOf globals key index = dataDeclaration globals key >>= \decl => fieldCount decl index
+
 -- References cannot hide syntax outside the existing termination fragment.
 -- Every reachable closed signature/body is inspected once; no inlining is needed.
 fixGlobalSyntax : GlobalContext -> Nat -> List Nat -> List Nat -> Either String ()
@@ -123,8 +128,8 @@ fixGlobalSyntax globals (S fuel) (key :: rest) seen =
     case globalEntry globals key of
       Nothing => Left ("unknown termination global " ++ show key)
       Just (_, ty, body) => do
-        checkClosedGlobalSyntax ty
-        checkClosedGlobalSyntax body
+        checkClosedGlobalSyntaxWith (fieldCountsOf globals) ty
+        checkClosedGlobalSyntaxWith (fieldCountsOf globals) body
         fixGlobalSyntax globals fuel (globalReferences ty ++ globalReferences body ++ rest) (key :: seen)
 
 -- Inspect only the outer type shape; comparison still uses full normalization.
@@ -746,7 +751,7 @@ mutual
     case fixGlobalSyntax globals (S (coreNodes ty + coreNodes body + globalSyntaxNodes globals)) dependencies [] of
       Left message => Left (RecursionError message)
       Right () => Right ()
-    case admitFix ty body of
+    case admitFixWith (fieldCountsOf globals) ty body of
       Left message => Left (RecursionError message)
       Right () => Right ty
   infer globals (S depth) reduction context (Apply function argument) = do

@@ -1,7 +1,7 @@
 # General recursive data: plan
 
-**Status: phases 1 to 3 are implemented (core terms, reduction, declaration admission,
-erased and runtime typing); phases 4 onward are not.** It records what restricts recursive
+**Status: phases 1 to 4 are implemented (core terms, reduction, declaration admission,
+typing, termination and run-mode evaluation); phases 5 onward are not.** It records what restricts recursive
 data today, what the smallest sound extension is, and the phases to land it. It is not a
 positivity theorem or a soundness claim.
 
@@ -122,6 +122,25 @@ working for resource-carrying data.
 - Not done: termination (phase 4), source syntax (phase 5), native emission (phase 6).
   The termination extractor and the C emitter still reject the new terms.
 
+### As implemented in phase 4
+
+- `Extract.extractFixWith` takes a `FieldCounts` function (`family key -> constructor index ->
+  number of fields`). The extractor cannot see declarations, so `Erased` supplies one from the
+  global context (`fieldCountsOf`). Without it a case on a family is unsupported, so the
+  older entry points (`extractFix`, `admitFix`) still fail closed on general data.
+- The count matters for soundness: a branch is a lambda over the fields, and a branch that
+  returns a function has further lambdas. Peeling exactly `count` lambdas keeps the extra
+  ones from being mistaken for fields (and a call under them is refused anyway).
+- A field is credited as smaller only if its binder annotation is the family itself (any
+  parameters). That is the same restriction as the fixed shapes, which credit only the
+  tail. Every proper component of a finite value is smaller, so crediting more fields
+  would also be sound; it is left for a later slice.
+- The extractor takes the count function as an ordinary argument. A first attempt used an
+  auto-implicit argument; Idris proof search then silently supplied `\_ _ => Nothing` instead
+  of the parameter in scope, which made every case look unsupported. Do not reintroduce it.
+- Evaluation needed no change beyond phase 1: `unfoldOne` already reaches case scrutinees
+  and constructor arguments.
+
 ### What does not change
 
 Conversion treats `DataCon` as a constructor and `DataCase` on a constructor as reducible,
@@ -137,7 +156,7 @@ last.
 | 1 | **Done.** `DataType/DataCon/DataCase` in `Term` with renaming, substitution (and their proofs), size, pretty, syntax equality, global traversal, reduction and weak-head contraction | typing |
 | 2 | **Done.** `Fibril.Core.DataDecl`: telescopes, `DataDecl`, and `admitDeclaration` (positivity plus caps of 4 parameters, 16 constructors, 8 fields) | soundness proof |
 | 3 | **Done.** Typing in `Erased` and `Runtime`: closed constructor types derived from the declaration, dependent erased motive, exhaustive branches with field quantities, usage joins; `extendDataGlobals` / `extendDataRuntimeGlobals` register a family | termination |
-| 4 | Evaluation (`Evaluation.idr`) and `Extract.idr`: fields of a branch are smaller than the scrutinee | native support |
+| 4 | **Done.** `Extract.idr` credits family-typed fields of a `DataCase` branch as smaller than the scrutinee; `Fix` over a family is admitted by the size-change gate; run-mode evaluation unfolds through the case | native support |
 | 5 | Source: `data` declarations beyond the fixed shapes, constructor application, `case`, pattern equations | pattern-clause groups |
 | 6 | Native emission and runtime values (`Emit.idr`, `fibril_runtime.c`) | scale |
 | 7 | Optional: migrate `Chain`/`Items` onto the family; docs, examples (tree, expression language) | |
