@@ -1,0 +1,13 @@
+-- Experimental cubical source dialect, ONLY for fibril cubical-check.
+-- p is an OPEN declaration, not a definition or a proof of path existence.
+(cubical
+  (budget 4096 1024 16)
+  (context (x Bool) (u Unit) (f (arrow Bool Bool)))
+  (paths (p Bool x (if x False True)))
+  (dimensions j)
+  (abstract eta Bool top
+    (ordinary x)
+    (ordinary (if x False True))
+    (lambda i (at p i))
+    (endpoint p i 0)
+    (endpoint p i 1)))

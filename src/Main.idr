@@ -1,6 +1,7 @@
 module Main
 
 import System
+import Fibril.Cubical.Source.Frontend
 import Fibril.Project.New
 import System.File
 import Data.List
@@ -44,6 +45,7 @@ Usage:
   fibril manifest PATH          Inspect a strict local YAML manifest (no dependency/source loading)
   fibril module-graph ROOT ENTRY  Inspect local dependency graph (syntax only, POSIX)
   fibril module-graph --package PATH  Inspect package-scoped source graph (syntax only)
+  fibril cubical-check PATH     Check separate experimental cubical .fib dialect (conditional semantics)
   fibril demo       Run built-in ordinary checking and cubical algebra examples
   fibril validate-source PATH   Validate UTF-8 and source controls (not typing)
   fibril rename-preview LINE COLUMN NEWNAME PATH  Capture-checked same-file edits (no writes)
@@ -94,7 +96,7 @@ Usage:
 
 Annotated expressions and source-ordered nonrecursive declarations are supported.
 Qualified imports use --source-dir or explicit --package. Manifest inspection
-alone does not load dependencies. Workspace-member discovery and locks are absent. Recursive declarations, cubical checking, and C/JS
+alone does not load dependencies. Workspace-member discovery and locks are absent. Production cubical checking and C/JS
 compilation beyond the experimental C subset are not implemented yet.
 """
 
@@ -185,6 +187,7 @@ main = do
   case drop 1 args of
     [] => putStrLn help
     ["--help"] => putStrLn help
+    ["cubical-check", path] => checkCubicalFile path >>= printServiceReport
     ["--version"] => putStrLn "Fibril 0.1.0-dev (Idris 2 bootstrap)"
     "new" :: options => newProject options >>= printServiceReport
     ["manifest", path] => manifestFile path >>= printServiceReport
