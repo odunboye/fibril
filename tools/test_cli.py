@@ -8919,5 +8919,37 @@ main = putStrLn (drain (Succ Zero) (Cons String Zero "linear" (Nil String)))
             self.assertEqual(result.stdout, 'imported\n')
 
 
+class CheckJSONContractTests(unittest.TestCase):
+    """Frozen key sets from docs/diagnostics.md#stability-contract-for-check---json."""
+
+    TOP = {"version", "coordinates", "accepted", "report", "diagnostics"}
+    DIAGNOSTIC = {"severity", "stage", "message", "position", "byteOffset"}
+
+    def test_version_1_accept_and_reject(self):
+        accepted = run('check', '--json', 'examples/core/string-equal.fib')
+        self.assertEqual(accepted.returncode, 0)
+        report = json.loads(accepted.stdout)
+        self.assertEqual(set(report), self.TOP)
+        self.assertEqual((report['version'], report['accepted'], report['diagnostics']), (1, True, []))
+        with tempfile.TemporaryDirectory() as directory:
+            bad = Path(directory) / 'bad.fib'
+            bad.write_text('(True : Unit)\n')
+            rejected = run('check', '--json', str(bad))
+        self.assertNotEqual(rejected.returncode, 0)
+        self.assertEqual(rejected.stderr, '')
+        report = json.loads(rejected.stdout)
+        self.assertEqual(set(report), self.TOP)
+        self.assertFalse(report['accepted'])
+        self.assertEqual(set(report['diagnostics'][0]), self.DIAGNOSTIC)
+        self.assertEqual(report['diagnostics'][0]['severity'], 'error')
+        self.assertIsNone(report['diagnostics'][0]['position'])
+
+    def test_version_2_project_keys(self):
+        result = run('check', '--json', '--source-dir', 'examples/modules/checked', 'examples/modules/checked/Main.fib')
+        report = json.loads(result.stdout)
+        self.assertEqual(set(report), self.TOP | {"entry", "root", "sources"})
+        self.assertEqual(report['version'], 2)
+
+
 if __name__ == "__main__":
     unittest.main()

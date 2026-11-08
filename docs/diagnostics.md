@@ -193,6 +193,43 @@ A dependency point must never be converted against the entry buffer. The version
 validates source identities/snapshots and only maps points into already-loaded
 UTF-8 buffers. Existing single-file JSON remains version 1.
 
+## Stability contract for check --json
+
+Applies to `check --json` version 1 (single file) and version 2 (project). The
+human-readable text output is **not** covered: it may change in any release.
+
+**Frozen within a version** (changing any of these requires a new `version`):
+
+- Top-level keys and their types: `version`, `coordinates`, `accepted`, `report`,
+  `diagnostics`; version 2 also `entry`, `root`, `sources`.
+- Per-diagnostic keys and types: `severity`, `stage`, `message`, `position`,
+  `byteOffset`; version 2 also `path` and `sourceAvailable`.
+- The `coordinates` string (Unicode scalars, zero-based offset, one-based
+  line/column) and the meaning of a `null` position (unlocated, never guessed).
+- The exit contract: 0 for acceptance, nonzero for rejection, stdout carries the
+  JSON, stderr is empty for represented failures.
+- The `stage` and `severity` values listed above. Existing values keep their meaning.
+
+**May change without a version bump** (clients must tolerate these):
+
+- Additional top-level or per-diagnostic keys. Clients must ignore unknown keys.
+- Additional `stage` values. Clients must treat an unknown stage as a generic error.
+- `message` and `report` text. Match on `stage` and position, never on wording.
+- Whether a failure is located. A previously `null` position may gain a real
+  point as provenance improves; a real point is never downgraded to `null`.
+- The number of diagnostics. Today there is at most one (the first failure);
+  clients must accept a list of any length.
+
+**Deprecation:** a version is supported for at least one release after its
+replacement ships, and is removed only with a documented note in this file.
+`accepted: true` remains the experimental runtime checker's decision, not a
+soundness certificate, regardless of version.
+
+**Enforcement:** `CheckJSONContractTests` in `tools/test_cli.py` asserts the
+top-level key sets of both versions, and the per-diagnostic keys and exit contract
+of version 1. Version-2 per-diagnostic keys (`path`, `sourceAvailable`) and the
+`stage` value list are policy only, not yet asserted.
+
 ## Declaration context for module core failures
 
 Module erased/runtime checking now attaches the real declaration-name point to
