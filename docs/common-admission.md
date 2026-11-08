@@ -16,8 +16,11 @@ The original typing entry points are:
 nondependent arrows). `dimensions` is an explicit finite dimension scope.
 `AdmissionTerm n` and `AdmissionPathTerm n k d` are **scoped, untyped** annotated
 raw syntax. Variables and named paths are `Fin` indices; intervals are actual
-`ScopedInterval d` trees, not normalization results. A parser/scoper is not
-provided: out-of-scope indices are unrepresentable at this interface.
+`ScopedInterval d` trees, not normalization results. Out-of-scope indices are
+unrepresentable at this interface. The separate
+[experimental source frontend](cubical-source.md) parses and resolves a bounded
+`.fib` dialect through `fibril cubical-check`; the APIs themselves accept scoped
+raw data, not source text.
 
 Every application carries an untrusted domain type annotation. Lambda domains
 and result types come from the expected arrow type. Applications check their
@@ -268,8 +271,9 @@ face, intermediate/right term, type, context, or reflecting equality into `Uses`
 is a **separate experimental entry point**. It preserves `admitCommonEquality`,
 its result types, fuel boundaries, and arbitrary-admissibility reflexive provider.
 It uses the same scoped raw syntax, declarations and `AdmissionEquality` grammar;
-there are no new v0 equations, lambda congruence, beta/eta, parser, runtime or
-production-core changes. Endpoint and restriction requests remain unsupported
+there are no new v0 equations, lambda congruence, beta/eta, runtime or
+production-core changes. The separate experimental source frontend is not part
+of this API. Endpoint and restriction requests remain unsupported
 by the original entry point, not by this one.
 
 ### Exact semantic context premise
