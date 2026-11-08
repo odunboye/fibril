@@ -43,7 +43,7 @@ It prints `L: hello`, `R: yes`, then `no`. A separate
 [recursive-data example](../examples/modules/recursive-data/Main.fib) removes
 one layer of an imported unary recursive family, then uses its fold. The
 [recursive-list example](../examples/modules/recursive-list/Main.fib) matches a
-linear head and tail before folding the tail. The [request API](../examples/packages/request-api/src/Mail/Request.fib) exercises
+linear head and tail before folding the tail. The [request API](../test/fixtures/packages/request-api/src/Mail/Request.fib) exercises
 three email-service alternatives locally and from a qualified-import test package;
 it is a pure model, not an email server. The separate
 [sum-client package](../examples/packages/sum-client/src/Main.fib) directly

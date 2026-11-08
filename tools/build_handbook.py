@@ -80,6 +80,7 @@ def main():
     pages = sorted((ROOT / "docs").rglob("*.md")) + [
         ROOT / "README.md", ROOT / "CONTRIBUTING.md",
         *sorted((ROOT / "examples").rglob("*.md")),
+        *sorted((ROOT / "test/fixtures").rglob("*.md")),
     ]
     sources = sorted((ROOT / "src").rglob("*.idr")) + sorted(
         (ROOT / "test/src").rglob("*.idr")) + sorted(
@@ -87,6 +88,8 @@ def main():
         (ROOT / "bench/src").rglob("*.idr")) + sorted(
         (ROOT / "examples").rglob("*.fib")) + sorted(
         (ROOT / "examples").rglob("*.yaml")) + sorted(
+        (ROOT / "test/fixtures").rglob("*.fib")) + sorted(
+        (ROOT / "test/fixtures").rglob("*.yaml")) + sorted(
         (ROOT / "stdlib").rglob("*.fib")) + sorted(
         (ROOT / "experiments").rglob("*.c")) + sorted(
         (ROOT / "experiments").rglob("*.h")) + sorted(

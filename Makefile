@@ -1,9 +1,12 @@
 PACK ?= pack
 IDRIS2 ?= '$(CURDIR)/tools/fibril_idris.py'
 TEST_JOBS ?= 4
+# Optional worker profile only; ordinary builds do not link SQLite.
+SQLITE_CFLAGS ?= $(shell pkg-config --cflags sqlite3 2>/dev/null)
+SQLITE_LIBS ?= $(shell pkg-config --libs sqlite3 2>/dev/null || echo -lsqlite3)
 
 .PHONY: prelude prelude-check build unit-test test io-test io-hosted-test io-runtime-test io-resource-runtime-test io-resource-emitter-test io-emitter-test io-interactive-test io-binary-test io-binary-bench io-cli-test native-test region-test native-pair-test bytes-native-test binary-source-test binary-iteration-test binary-count-test binary-runtime-test binary-scale-test binary-number-test binary-number-bench json-oracle-test json-sharing-probe json-iteration-test lsp-lifecycle-test framing-test header-iteration-test editor-test lsp-test examples bench bench-smoke composed-bench python-embed-test docs handbook serve-docs clean cubical-source-test
-.PHONY: host-compiler-test
+.PHONY: host-compiler-test native-embedding-test native-embedding-generated-test binary-embedding-test binary-embedding-generated-test queue-test worker-test worker-demo
 prelude:
 	python3 tools/embed_prelude.py
 
@@ -16,6 +19,32 @@ build: prelude-check
 
 host-compiler-test:
 	PACK="$(PACK)" python3 tools/test_host_compiler.py
+
+# Trusted host boundary: standalone C fixtures, no compiler bootstrap required.
+native-embedding-test:
+	CC="$(CC)" python3 tools/test_native_embedding.py
+
+native-embedding-generated-test: build
+	CC="$(CC)" python3 tools/test_native_embedding_generated.py
+
+# Optional POSIX/SQLite host adapter; not linked into the compiler/runtime by default.
+queue-test:
+	CC="$(CC)" python3 tools/test_queue.py
+
+worker-test: build
+	CC="$(CC)" SQLITE_CFLAGS="$(SQLITE_CFLAGS)" SQLITE_LIBS="$(SQLITE_LIBS)" python3 tools/test_worker.py
+
+# Local EOF-framed demonstration, not an authenticated network server.
+worker-demo: build
+	mkdir -p build/worker
+	./build/exec/fibril emit-c-binary --source-dir examples/modules/queue-worker examples/modules/queue-worker/Main.fib > build/worker/validator.c
+	$(CC) $(CFLAGS) -std=c11 -Wall -Wextra -Werror -DFIBRIL_EMBED_ONLY $(SQLITE_CFLAGS) -I runtime/native build/worker/validator.c examples/native/queue_worker.c runtime/native/fibril_worker.c runtime/native/fibril_queue.c runtime/native/fibril_binary_runtime.c $(SQLITE_LIBS) -o build/worker/queue-worker
+
+binary-embedding-test:
+	CC="$(CC)" python3 tools/test_binary_embedding.py
+
+binary-embedding-generated-test: build
+	CC="$(CC)" python3 tools/test_binary_embedding_generated.py
 
 cubical-source-test: build
 	python3 tools/test_cubical_frontend.py
@@ -143,8 +172,8 @@ examples: build
 	./build/exec/fibril check --package examples/packages/sum-library/fibril.yaml
 	./build/exec/fibril test --package examples/packages/sum-library/fibril.yaml
 	./build/exec/fibril run --package examples/packages/sum-client/fibril.yaml
-	./build/exec/fibril check --package examples/packages/request-api/fibril.yaml
-	./build/exec/fibril test --package examples/packages/request-api/fibril.yaml
+	./build/exec/fibril check --package test/fixtures/packages/request-api/fibril.yaml
+	./build/exec/fibril test --package test/fixtures/packages/request-api/fibril.yaml
 	./build/exec/fibril check --source-dir examples/modules/binary-frame examples/modules/binary-frame/Main.fib
 	./build/exec/fibril check --source-dir examples/modules/binary-frame examples/modules/binary-frame/Two.fib
 	./build/exec/fibril check examples/core/binary-echo.fib
@@ -233,8 +262,8 @@ examples: build
 	./build/exec/fibril run --source-dir examples/modules/motive-do examples/modules/motive-do/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/direct-data-case examples/modules/direct-data-case/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/direct-data-case-dependent examples/modules/direct-data-case-dependent/Main.fib
-	./build/exec/fibril run --source-dir examples/modules/email-service examples/modules/email-service/Main.fib
-	./build/exec/fibril run --source-dir examples/modules/email-service-full examples/modules/email-service-full/Main.fib
+	./build/exec/fibril run --source-dir test/fixtures/modules/email-service test/fixtures/modules/email-service/Main.fib
+	./build/exec/fibril run --source-dir test/fixtures/modules/email-service-full test/fixtures/modules/email-service-full/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/pattern-inference examples/modules/pattern-inference/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/pattern-inference examples/modules/pattern-inference/Dependent.fib
 	./build/exec/fibril run --source-dir examples/modules/pattern-inference examples/modules/pattern-inference/Minimal.fib

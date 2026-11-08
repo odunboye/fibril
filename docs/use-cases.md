@@ -108,7 +108,7 @@ Runnable progression: [explicit dictionaries](../examples/modules/interfaces/Mai
 
 The [transactional-email plan](applications/transactional-email.md) drives an
 application-readiness milestone: durable authenticated submission, a remote TLS
-relay and a responsive web/mobile console. Its [first runnable Fibril model](../examples/modules/email-service/Main.fib)
+relay and a responsive web/mobile console. Its [first runnable Fibril model](../test/fixtures/modules/email-service/Main.fib)
 checks submission transitions and rejects blind dispatch after acknowledgement
 loss. It is not a network service, C deployment, delivered-email guarantee or
 completed UI; the plan identifies the backend/runtime blockers explicitly.

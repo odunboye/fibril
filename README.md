@@ -12,6 +12,7 @@ JavaScript backend, embedded profiles and real-time guarantees are not implement
 once and use independently admitted references through checking, hosted execution
 and native emission.
 [Experimental C emission](docs/native-c.md) produces a real native executable for a checked console subset; it is not yet an application backend.
+[Native host embedding](docs/native-embedding.md) now lets a trusted C host run that subset with explicit output callbacks and structured failure results, without process-global console IO.
 
 Fibril's HoTT direction remains a goal, not a present capability. The
 [cubical alignment milestone](docs/cubical-alignment.md) sets out the first
@@ -27,6 +28,7 @@ text and have native lowering for the initial pure subset. [Checked binary
 IO](docs/io-binary-source.md) is available through hosted `run-binary` and native
 `emit-c-binary`, with separate admission from text/resource IO. [Explicit UTF-8 conversion](docs/utf8-values.md) is fallible
 and preserves valid NUL without relaxing console output policy.
+[Binary host embedding](docs/binary-embedding.md) now exposes checked binary programs through explicit host callbacks, with bounded IO and structured transport failures; checked frame validation is tested without process stdio.
 An internal [binary transport pilot](docs/io-binary.md) preserves arbitrary bytes
 through hosted/native stdio, with explicit budgets and checked flush. It is not
 a self-hosted LSP runtime. A first [Fibril-written frame echo](docs/binary-framing.md)
@@ -78,12 +80,19 @@ direct imports. [General recursive data](docs/data.md#general-recursive-data) an
 [indexed inductive families](docs/indexed-data.md) support whole-field positive
 recursion, including length-indexed vectors with dependent case motives.
 Nested/mutual recursive data and automatic index refinement remain future work.
+[Compact alternatives](docs/data.md#compact-alternatives) write simple declarations as
+`data T params = A fields | B fields`; indices and linear fields still use the `where` form.
 Recursive function equations are accepted when structural, or when the
 [size-change check](docs/function-equations.md#general-recursion) proves them terminating.
 
-The first [application target is a transactional-email service](docs/applications/transactional-email.md),
-with a checked relay-submission model. Network/TLS/storage, C deployment and the
-web/mobile UI are not implemented; application blockers remain explicit.
+The first [application target is a transactional-email service](docs/applications/transactional-email.md).
+Its source now lives in the standalone sibling `../email` project, not compiler examples;
+only self-contained compiler regression snapshots remain under `test/fixtures/`. Network/TLS/storage integration, C deployment and the
+web/mobile UI are not implemented; application blockers remain explicit. An optional
+[trusted SQLite enqueue adapter](docs/durable-queue.md) now provides durable,
+tenant-scoped idempotency. A [checked enqueue demonstration](docs/enqueue-worker.md)
+now connects a bounded opaque-job validator to that store and acknowledges only
+after commit; it is not yet an authenticated email application.
 
 Create a runnable console project with `fibril new mailer` (or preview using
 `--dry-run`); see [project creation](docs/project-creation.md). This offline scaffold

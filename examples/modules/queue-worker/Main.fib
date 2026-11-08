@@ -1,0 +1,6 @@
+module Main
+import Worker.Request
+
+-- Validation only: the host must commit before reporting queued.
+main : IO Unit
+main = Worker.Request.validateEnqueue
