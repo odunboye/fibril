@@ -14,6 +14,7 @@ import Fibril.Core.Quantitative.Syntax as Q
 import Fibril.Core.Quantitative.CoreTranslation
 import Fibril.Core.Quantitative.Usage
 import Fibril.Cubical.Source.PureDefinition
+import Fibril.Cubical.Source.BoolCases
 import Fibril.Cubical.Logical.Shadow
 import Fibril.Cubical.Logical.CommonAdmission
 import Fibril.Foundation.DeMorgan.Scope
@@ -31,11 +32,11 @@ import Fibril.Driver.Limits
 %default total
 
 failAt : Declaration -> String -> Either ElaborationError a
-failAt decl message = Left (ElaborationFailure decl.nameSpan.start ("Cubical constant-path guard: " ++ message))
+failAt decl message = Left (ElaborationFailure decl.nameSpan.start ("Cubical guard: " ++ message))
 
 public export
 executableDeclarations : List Declaration -> List Declaration
-executableDeclarations = filter (isNothing . constantPath)
+executableDeclarations = filter (isNothing . cubicalProof)
 
 record CheckedPureDefinition where
   constructor CheckedDefinition
@@ -118,17 +119,29 @@ checkEndpoint decls program decl = do
 endpointAdmission : {0 endpointName : String} -> CheckedEndpoint decls program endpointName -> AdmissionTerm 0
 endpointAdmission endpoint = pureAdmission endpoint.definition.image.pureTerm endpoint.definition.image.annotations
 
-record CheckedConstantPath (decls : List Declaration) (program : C.Term 0) where
-  constructor ConstantPath
+data CheckedProofEvidence : {0 decls : List Declaration} -> {0 program : C.Term 0} ->
+  {0 leftName, rightName : String} ->
+  (left : CheckedEndpoint decls program leftName) -> (right : CheckedEndpoint decls program rightName) -> Type where
+  ConstantPathEvidence : {left : CheckedEndpoint decls program leftName} -> {right : CheckedEndpoint decls program rightName} ->
+    left.definition.rawValue = right.definition.rawValue ->
+    AdmittedCanonicalAbstractionInput [] ADNil {d = 0} STop
+      (APOrdinary (endpointAdmission left)) (APOrdinary (endpointAdmission right))
+      (APOrdinary (endpointAdmission left)) (shadowType left.definition.image.ty) ->
+    CheckedProofEvidence left right
+  BoolCasesEvidence : {left : CheckedEndpoint decls program leftName} -> {right : CheckedEndpoint decls program rightName} ->
+    (lf : BoolFunction left.definition.image.pureTerm) ->
+    (rf : BoolFunction right.definition.image.pureTerm) ->
+    BoolAgreement (functionBody lf) (functionBody rf) -> CheckedProofEvidence left right
+
+record CheckedCubicalProof (decls : List Declaration) (program : C.Term 0) where
+  constructor CheckedProof
   name : String
   leftName : String
   rightName : String
   left : CheckedEndpoint decls program leftName
   right : CheckedEndpoint decls program rightName
-  exactEndpoints : left.definition.rawValue = right.definition.rawValue
-  abstraction : AdmittedCanonicalAbstractionInput [] ADNil {d = 0} STop
-    (APOrdinary (endpointAdmission left)) (APOrdinary (endpointAdmission right))
-    (APOrdinary (endpointAdmission left)) (shadowType left.definition.image.ty)
+  sameTypes : left.definition.image.ty = right.definition.image.ty
+  evidence : CheckedProofEvidence left right
 
 admissionError : AdmissionError -> String
 admissionError InputLimit = "InputLimit"
@@ -140,8 +153,8 @@ admissionError SolverLimit = "SolverLimit"
 admissionError FaceMismatch = "FaceMismatch"
 
 checkGuard : (decls : List Declaration) -> (program : C.Term 0) -> List Declaration ->
-  Declaration -> String -> String -> Either ElaborationError (CheckedConstantPath decls program)
-checkGuard decls program previous guard leftName rightName = do
+  Declaration -> CubicalRule -> String -> String -> Either ElaborationError (CheckedCubicalProof decls program)
+checkGuard decls program previous guard rule leftName rightName = do
   leftDecl <- case find (\decl => decl.name == leftName) previous of
     Nothing => failAt guard ("unknown or forward endpoint " ++ show leftName)
     Just decl => Right decl
@@ -150,17 +163,33 @@ checkGuard decls program previous guard leftName rightName = do
     Just decl => Right decl
   left <- checkEndpoint decls program leftDecl
   right <- checkEndpoint decls program rightDecl
-  case samePureType left.definition.image.ty right.definition.image.ty of
+  types <- case samePureType left.definition.image.ty right.definition.image.ty of
     Nothing => failAt guard "endpoint types/quantities differ"
-    Just _ => Right ()
-  case samePureCore left.definition.rawValue right.definition.rawValue of
-    Nothing => failAt guard "endpoints are not structurally identical (no beta/eta or algorithm-equivalence rule)"
-    Just exact =>
-      case admitCanonicalCommonAbstraction (MkCanonicalEqualityBudget (MkAdmissionBudget 4096 1024) 0)
-             [] ADNil {d = 0} STop (APOrdinary (endpointAdmission left)) (APOrdinary (endpointAdmission right))
-             (APOrdinary (endpointAdmission left)) (shadowType left.definition.image.ty) AERefl AERefl of
-        Left err => failAt guard ("constant abstraction admission failed: " ++ admissionError err)
-        Right evidence => Right (ConstantPath guard.name leftDecl.name rightDecl.name left right exact evidence)
+    Just exact => Right exact
+  evidence <- case rule of
+    ConstantRefl => case samePureCore left.definition.rawValue right.definition.rawValue of
+      Nothing => failAt guard "endpoints are not structurally identical (no beta/eta or algorithm-equivalence rule)"
+      Just exact =>
+        case admitCanonicalCommonAbstraction (MkCanonicalEqualityBudget (MkAdmissionBudget 4096 1024) 0)
+               [] ADNil {d = 0} STop (APOrdinary (endpointAdmission left)) (APOrdinary (endpointAdmission right))
+               (APOrdinary (endpointAdmission left)) (shadowType left.definition.image.ty) AERefl AERefl of
+          Left err => failAt guard ("constant abstraction admission failed: " ++ admissionError err)
+          Right evidence => Right (ConstantPathEvidence exact evidence)
+    SemanticBoolCases => do
+      (remaining, lf) <- case readBoolFunction 1024 left.definition.image.pureTerm of
+        Nothing => failAt guard "boolCases left endpoint unsupported or body-node allowance exhausted (unary Bool lambda; variable/literal/if only)"
+        Just checked => Right checked
+      (_, rf) <- case readBoolFunction remaining right.definition.image.pureTerm of
+        Nothing => failAt guard "boolCases right endpoint unsupported or shared body-node allowance exhausted (unary Bool lambda; variable/literal/if only)"
+        Just checked => Right checked
+      falseEqual <- case decEq (evaluateBody (functionBody lf) False) (evaluateBody (functionBody rf) False) of
+        No _ => failAt guard "boolCases disagreement at False"
+        Yes exact => Right exact
+      trueEqual <- case decEq (evaluateBody (functionBody lf) True) (evaluateBody (functionBody rf) True) of
+        No _ => failAt guard "boolCases disagreement at True"
+        Yes exact => Right exact
+      Right (BoolCasesEvidence lf rf (ByBoolCases falseEqual trueEqual))
+  Right (CheckedProof guard.name leftDecl.name rightDecl.name left right types evidence)
 
 consumes : ParsedDocument -> Declaration -> Declaration -> Bool
 consumes document consumer endpoint = any referencesEndpoint (documentReferencesUsing id (const Nothing) document)
@@ -180,17 +209,17 @@ proofUsedAsTerm document guard = any (\reference =>
   (documentReferencesUsing id (const Nothing) document)
 
 checkAll : (decls : List Declaration) -> (program : C.Term 0) -> ParsedDocument ->
-  List Declaration -> List (CheckedConstantPath decls program) -> List String -> List Declaration ->
-  Either ElaborationError Builtin.Unit
+  List Declaration -> List (CheckedCubicalProof decls program) -> List String -> List Declaration ->
+  Either ElaborationError (List (CheckedCubicalProof decls program))
 checkAll decls program document previous guards used [] =
   case find (\guard => not (elem guard.name used)) guards of
-    Nothing => Right ()
-    Just guard => Left (ElaborationFailure document.end ("Cubical constant-path guard: unused proof " ++ show guard.name))
-checkAll decls program document previous guards used (decl :: rest) = case decl.constantPath of
-  Just (left, right) => do
+    Nothing => Right (reverse guards)
+    Just guard => Left (ElaborationFailure document.end ("Cubical guard: unused proof " ++ show guard.name))
+checkAll decls program document previous guards used (decl :: rest) = case decl.cubicalProof of
+  Just (rule, left, right) => do
     if proofUsedAsTerm document decl
       then failAt decl "proof labels are not ordinary terms (including same-spelled Prelude names)" else Right ()
-    guard <- checkGuard decls program previous decl left right
+    guard <- checkGuard decls program previous decl rule left right
     checkAll decls program document previous (guard :: guards) used rest
   Nothing => do
     used <- case decl.requiredPath of
@@ -203,9 +232,14 @@ checkAll decls program document previous guards used (decl :: rest) = case decl.
             else failAt decl "requires consumer must reference the actual left endpoint in its body (not a shadowing binder)"
     checkAll decls program document (decl :: previous) guards used rest
 
+proofReport : CheckedCubicalProof decls program -> String
+proofReport guard = case guard.evidence of
+  ConstantPathEvidence _ _ => "Cubical " ++ guard.name ++ ": checked constant-path guard (by refl)."
+  BoolCasesEvidence _ _ _ => "Cubical " ++ guard.name ++ ": verified pointwise Bool agreement (by boolCases); not a cubical path."
+
 ||| Invoked after normal elaboration, before every standalone checking/execution
 ||| entry point. Evidence is erased metadata, never a core conversion or a cast.
 public export
-checkConstantPaths : ParsedDocument -> List Declaration -> C.Term 0 -> Either ElaborationError Builtin.Unit
-checkConstantPaths document declarations program =
-  checkAll (executableDeclarations declarations) program document [] [] [] declarations
+checkCubicalProofs : ParsedDocument -> List Declaration -> C.Term 0 -> Either ElaborationError (List String)
+checkCubicalProofs document declarations program =
+  map (map proofReport) (checkAll (executableDeclarations declarations) program document [] [] [] declarations)

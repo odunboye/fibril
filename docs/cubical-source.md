@@ -6,8 +6,9 @@
 source dialect**, intentionally parenthesized to make its small grammar explicit.
 It is not ordinary Fibril syntax, production conversion, or executable code.
 No ordinary command falls back to this dialect. Ordinary executable source now
-has the separate, deliberately modest **constant-path regression guard** described
-below; it does not change production conversion or introduce runtime paths.
+has the separate **constant-path regression guard** and **semantic Boolean
+agreement certificate** described below. Neither changes production conversion
+or introduces runtime paths; `by boolCases` does not construct a cubical path.
 
 ## Actual open path example
 
@@ -207,8 +208,9 @@ standalone file**. `PROOF` is an erased metadata label in the declaration-name
 namespace, not a term or an assumption. Duplicate declaration names are rejected.
 Ordinary uses of a proof label are rejected even when removing its metadata would
 otherwise expose a same-spelled Prelude value; metadata cannot masquerade as a term.
-Only `by refl` is supported; no user faces, dimensions, hypotheses, budgets,
-certificates other than reflexivity, or proof-block fallback are accepted.
+This constant-path rule uses `by refl`. The separate `by boolCases` semantic
+rule is specified below; it does not produce a path. No user faces, dimensions,
+hypotheses, budgets, or proof-block fallback are accepted.
 `requires PROOF` attaches to exactly the immediately following ordinary
 signature/definition pair, not a block. Dangling/duplicate directives, unknown or
 forward proof references, and attaching to other declaration forms are rejected.
@@ -221,7 +223,7 @@ connection, not a whole-program reachability or termination theorem for consumer
 
 `Driver.Check.prepareSource` uses the normal declaration parser, lowering and
 elaborator. Before returning the ordinary core program it invokes
-`Cubical.Source.Application.checkConstantPaths`. For each endpoint separately:
+`Cubical.Source.Application.checkCubicalProofs`. For each endpoint separately:
 
 1. Independently elaborate its declared type and body with **no global environment**,
    and check its declared type with the existing `inferRuntime`. The declaration
@@ -296,3 +298,84 @@ bash tools/test_cubical_worktree.sh
 python3 tools/test_cubical_frontend.py
 python3 tools/test_cubical_application.py
 ```
+
+## Verified Bool refactoring: `by boolCases` is not a path
+
+[bool-refactoring.fib](../examples/cubical/bool-refactoring.fib) changes the actual
+implementation to a direct return while keeping an independently authored
+conditional baseline:
+
+```fib
+allow : (1 enabled : Bool) -> Bool
+allow enabled = enabled
+reviewed : (1 enabled : Bool) -> Bool
+reviewed enabled = if enabled then True else False
+cubical policyStable : allow = reviewed by boolCases
+requires policyStable
+main : IO Unit
+main = putStrLn (if allow True then "feature enabled" else "feature disabled")
+```
+
+`check` (including `--erased` and JSON reports) explicitly reports:
+
+```text
+Cubical policyStable: verified pointwise Bool agreement (by boolCases); not a cubical path.
+```
+
+Unlike `by refl`, this accepts genuinely different intrinsic/core syntax. It
+constructs a **semantic pointwise agreement certificate**, not `CommonFaceEqual`,
+`CommonShadowPath`, a source equality, an assumed named path, or a claim that an
+arbitrary model environment exists. Common Path v0 remains unchanged. Its missing
+Bool computation and lambda/extensional equality rules mean that a constant fiber
+or structural Bool eliminator alone cannot supply the two required syntactic path
+boundary derivations. This rule is a verified-refactoring prerequisite, **not an
+actual cubical path construction**; see the [approved design](verified-bool-refactoring.md).
+
+Both endpoints independently retain the exact `PureImage` source re-embedding,
+annotations, actual contextual `DefinitionAt` identity and `Uses` evidence described
+above. Their types and quantities must match exactly. The additional fragment is
+strictly a closed unary lambda of type `(q x : Bool) -> Bool`, with q linear or
+unrestricted, whose literal body contains only its input variable, `True`, `False`,
+and nested `if`. No applications (even beta-equivalent wrappers), let/ascription
+wrappers lowering to applications, Unit elimination, higher-order/dependent types,
+erased binders, globals, recursion, effects, or resources enter this rule.
+Unsupported syntax rejects even when unreachable. Linear duplication/discard are
+rejected by the actual independent quantitative checks, not excused by agreement;
+unrestricted uses remain permitted. A different quantity at just one endpoint
+rejects even when their logical shadows agree.
+
+`Cubical.Source.BoolCases` is total and proves:
+
+- Fragment recognition returns an actual intrinsic embedding equality. Its core
+  re-embedding theorem uses the actual `Annotations` from each original image.
+- Substituting any Boolean input and applying the exact lambda reduces to the
+  structural evaluator's output. Every contraction in the constructed transitive
+  trace equals the **actual `Core.Reduction.step`**, and the result is a Boolean
+  core normal form. No trusted normalization result or termination assertion is
+  substituted for this proof.
+- Constructive output equalities for False and True yield agreement for **all**
+  `b : Bool` by constructor elimination. `boolAgreementOperational` gives reductions
+  of both actual annotated terms to one Boolean normal form for every input.
+- Canonical `HigherOrderTerm` witnesses for the exact ordinary shadow syntax have
+  that evaluator's semantics. `boolAgreementSetoid` proves the selected arrow
+  setoid relation `(x,y : Bool) -> x = y -> apply f x = apply g y`. It assumes no
+  cross-syntax alignment and reflects no equality into the frozen calculus.
+
+Recognition shares a 1024-body-node allowance across both endpoints, counting
+each variable/literal/conditional once and threading remaining nodes through
+siblings. Existing pure extraction depth 64 and source/frontend limits remain.
+Failure/exhaustion produces no certificate. Two constructor evaluations per
+endpoint visit at most its body nodes per evaluation; proof trace composition may
+traverse traces repeatedly (conservatively quadratic in body size). There is no
+whole-process time/allocation bound or production/native compiler correctness
+theorem. No solver, production conversion, or uncapped evaluation fallback is used.
+
+Metadata is erased before execution/emission. The runtime calls `allow` itself,
+not a synthesized truth-table replacement. Hosted/native runs of the example
+print `feature enabled`; changing the consumer input to False prints
+`feature disabled`. Invalid False or True output changes reject at the shared
+gate for checking, evaluation, execution, and every standalone native emitter.
+Emitted C and evaluation reports are identical with and without valid metadata.
+All earlier ordering/consumer/term-name, formatting and standalone-only/tooling
+restrictions also apply to `boolCases`. `by refl` still rejects this example's
+different syntax; neither rule adds type/layout/resource casts or runtime proofs.

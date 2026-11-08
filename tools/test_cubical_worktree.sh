@@ -62,6 +62,25 @@ for fixture in PureDefinitionWrongReembedding CommonAdmissionWrongIndex CommonAd
 done
 echo 'Common admission scope, exact evidence and quantity negatives passed.'
 
+for fixture in BoolCasesWrongOutput BoolCasesNotFaceEqual; do
+  if "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1; then
+    echo "BoolCases negative unexpectedly succeeded: $fixture" >&2; exit 1
+  fi
+  case "$fixture" in
+    BoolCasesWrongOutput) expected='Mismatch between: True and False.' ;;
+    BoolCasesNotFaceEqual) expected='Mismatch between: BoolAgreement' ;;
+  esac
+  if [[ $(grep -c '^Error:' "$tmp/$fixture.log") -ne 1 ]] ||
+     ! grep -Fq 'Error: While processing right hand side of bad.' "$tmp/$fixture.log" ||
+     ! grep -Fq "$expected" "$tmp/$fixture.log" ||
+     grep -Eq 'Undefined name|While processing type of' "$tmp/$fixture.log"; then
+    echo "BoolCases exact output/non-reflection negative failed: $fixture" >&2
+    cat "$tmp/$fixture.log" >&2; exit 1
+  fi
+done
+echo 'BoolCases exact output and no cubical equality reflection negatives passed.'
+
+
 for fixture in CommonEqualityAdmissionWrongFace CommonEqualityAdmissionWrongIntermediate CommonEqualityAdmissionWrongType CommonEqualityAdmissionWrongContext CommonEqualityAdmissionUsesReflection; do
   "$idris" -p fibril --check "$fixture.idr" > "$tmp/$fixture.log" 2>&1 || true
   case "$fixture" in

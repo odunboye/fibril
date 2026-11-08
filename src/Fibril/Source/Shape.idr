@@ -83,7 +83,7 @@ sameProjection a b = a.name.spelling == b.name.spelling && a.field.spelling == b
 
 sameDeclaration : Declaration -> Declaration -> Bool
 sameDeclaration a b = a.name == b.name && a.quantity == b.quantity &&
-  a.constantPath == b.constantPath && a.requiredPath == b.requiredPath &&
+  a.cubicalProof == b.cubicalProof && a.requiredPath == b.requiredPath &&
   a.exported == b.exported && a.generated == b.generated && a.dictionary == b.dictionary && sameExpr a.expected b.expected && sameExpr a.value b.value
 
 sameAuthored : AuthoredDeclaration -> AuthoredDeclaration -> Bool

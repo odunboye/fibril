@@ -103,7 +103,7 @@ renderDriverError path source err = renderFileError path (show err)
 
 ||| Source syntax and resolved raw terms are not checking certificates.
 public export
-data SourceProgram = CoreSource (Term 0)
+data SourceProgram = CoreSource (Term 0) (List String)
 
 ||| Every program uses the same parser and lexical/global resolver, including IO.
 public export
@@ -138,14 +138,14 @@ prepareSource source = do
                    then Left (Elaborating (ElaborationFailure err.position err.name))
                    else Left (Resolving err)
     Right term => do
-      case checkConstantPaths document declarations term of
+      case checkCubicalProofs document declarations term of
         Left err => Left (Elaborating err)
-        Right () => Right (CoreSource term)
+        Right reports => Right (CoreSource term reports)
 
 public export
 resolveSource : String -> Either FrontendError (Term 0)
 resolveSource source = do
-  CoreSource term <- prepareSource source
+  CoreSource term _ <- prepareSource source
   Right term
 
 public export
@@ -180,16 +180,16 @@ renderType ty = case normalize 128 ty of
 public export
 checkSourceDetailed : Bool -> String -> Either DriverError (List String)
 checkSourceDetailed erasedOnly source = do
-  term <- case resolveSource source of
+  CoreSource term reports <- case prepareSource source of
     Left err => Left (FrontendFailure err)
-    Right term => Right term
+    Right prepared => Right prepared
   if erasedOnly
      then case inferErased checkingDepth typeReductionFuel Empty term of
        Left err => Left (ErasedFailure err)
-       Right ty => Right ["Erased checking: accepted (no runtime-use guarantee)", "Type: " ++ renderType ty]
+       Right ty => Right (reports ++ ["Erased checking: accepted (no runtime-use guarantee)", "Type: " ++ renderType ty])
      else case inferRuntime checkingDepth typeReductionFuel Empty term of
        Left err => Left (RuntimeFailure err)
-       Right checked => Right ["Runtime checking: accepted", "Type: " ++ renderType checked.inferredType]
+       Right checked => Right (reports ++ ["Runtime checking: accepted", "Type: " ++ renderType checked.inferredType])
 
 public export
 checkSource : Bool -> String -> Either String (List String)

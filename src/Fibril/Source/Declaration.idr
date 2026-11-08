@@ -427,12 +427,12 @@ parseOne budget end tokens@(token :: rest) =
     (by, following) <- expect Name end following
     (certificate, following) <- expect Name end following
     if token.span.start.column /= 1 || certificate.span.start.line /= token.span.start.line ||
-       by.spelling /= "by" || certificate.spelling /= "refl" ||
+       by.spelling /= "by" || (certificate.spelling /= "refl" && certificate.spelling /= "boolCases") ||
        (case following of next :: _ => next.span.start.line == token.span.start.line; [] => False)
-      then Left (ParseFailure token.span.start "Expected cubical NAME : LEFT = RIGHT by refl on its own line") else Right ()
+      then Left (ParseFailure token.span.start "Expected cubical NAME : LEFT = RIGHT by refl or boolCases on its own line") else Right ()
     let region = Between token.span.start certificate.span.finish
     let decl = Defined region name.span name.span False Erased name.spelling (NUnitType region) (NUnitValue region)
-    Right (Ordinary ({ constantPath := Just (left.spelling, right.spelling) } decl), following)
+    Right (Ordinary ({ cubicalProof := Just (if certificate.spelling == "refl" then ConstantRefl else SemanticBoolCases, left.spelling, right.spelling) } decl), following)
   else if token.kind == Name && token.spelling == "requires" &&
           (case rest of next :: _ => next.kind == Name; [] => False) then do
     (requirement, following) <- expect Name end rest

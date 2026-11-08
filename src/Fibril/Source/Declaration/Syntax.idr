@@ -13,6 +13,15 @@ public export
 data AuthoredFinalPattern = FinalBarePattern Token
 
 public export
+data CubicalRule = ConstantRefl | SemanticBoolCases
+
+public export
+Eq CubicalRule where
+  ConstantRefl == ConstantRefl = True
+  SemanticBoolCases == SemanticBoolCases = True
+  _ == _ = False
+
+public export
 record Declaration where
   constructor DeclarationWithRole
   dictionary : Bool
@@ -26,9 +35,9 @@ record Declaration where
   expected : Expr
   value : Expr
   finalPattern : Maybe AuthoredFinalPattern
-  ||| Standalone constant-path metadata is checked after ordinary elaboration,
+  ||| Standalone proof metadata is checked after ordinary elaboration,
   ||| before runtime checking/execution; it never supplies a core value.
-  constantPath : Maybe (String, String)
+  cubicalProof : Maybe (CubicalRule, String, String)
   requiredPath : Maybe String
 
 public export
@@ -144,7 +153,7 @@ data AuthoredDeclaration = Ordinary Declaration | DataItem DataDeclaration | Rec
 
 public export
 hasPathMetadata : AuthoredDeclaration -> Bool
-hasPathMetadata (Ordinary decl) = case (decl.constantPath, decl.requiredPath) of
+hasPathMetadata (Ordinary decl) = case (decl.cubicalProof, decl.requiredPath) of
   (Nothing, Nothing) => False
   _ => True
 hasPathMetadata _ = False

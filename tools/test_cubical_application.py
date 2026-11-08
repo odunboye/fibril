@@ -14,6 +14,9 @@ EXAMPLE = ROOT / 'examples/cubical/policy-guard.fib'
 SOURCE = EXAMPLE.read_text()
 GUARD = 'cubical policyStable : allow = reviewed by refl\n'
 REQUIRES = 'requires policyStable\n'
+BOOL_EXAMPLE = ROOT / 'examples/cubical/bool-refactoring.fib'
+BOOL_SOURCE = BOOL_EXAMPLE.read_text()
+BOOL_GUARD = GUARD.replace('by refl', 'by boolCases')
 RUNTIME = ROOT / 'runtime/native'
 CC = shlex.split(os.environ.get('CC', 'cc'))
 
@@ -270,6 +273,145 @@ main = action
             path.write_text(result.stdout)
             checked = run_cli('check', str(path))
             self.assertEqual(checked.returncode, 0, checked.stderr)
+
+
+class CubicalBoolCasesTests(unittest.TestCase):
+    assert_rejected = CubicalApplicationTests.assert_rejected
+    native = CubicalApplicationTests.native
+
+    def test_different_syntax_all_commands_erasure_and_actual_runtime(self):
+        commands = (('check',), ('check', '--erased'), ('check', '--json'))
+        for command in commands:
+            result = run_cli(*command, str(BOOL_EXAMPLE))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn('verified pointwise Bool agreement', result.stdout)
+            self.assertIn('not a cubical path', result.stdout)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'program.fib'
+            # The two actual inputs distinguish identity from any constant replacement.
+            for flag, expected in (('True', 'feature enabled\n'), ('False', 'feature disabled\n')):
+                variants = []
+                for guarded in (True, False):
+                    source = BOOL_SOURCE.replace('allow True', 'allow ' + flag)
+                    if not guarded:
+                        source = source.replace(BOOL_GUARD, '').replace(REQUIRES, '')
+                    path.write_text(source)
+                    hosted = run_cli('run', str(path))
+                    self.assertEqual(hosted.returncode, 0, hosted.stderr)
+                    self.assertEqual(hosted.stdout, expected)
+                    emitted, native = self.native(path, directory)
+                    self.assertEqual(native, expected)
+                    evaluated = run_cli('eval', str(path))
+                    self.assertEqual(evaluated.returncode, 0, evaluated.stderr)
+                    variants.append((emitted, evaluated.stdout))
+                self.assertEqual(variants[0], variants[1])
+                self.assertNotIn('policyStable', variants[0][0])
+        # Refl does not silently gain semantic conversion.
+        self.assert_rejected(BOOL_SOURCE.replace('by boolCases', 'by refl'), 'not structurally identical')
+
+    def test_each_wrong_constructor_fails_before_any_execution_or_emission(self):
+        commands = (('check',), ('check', '--erased'), ('check', '--json'),
+                    ('eval',), ('run',), ('emit-c',), ('emit-c-binary',), ('emit-c-interactive',))
+        for body, constructor in (('if enabled then True else True', 'False'),
+                                  ('if enabled then False else False', 'True')):
+            wrong = BOOL_SOURCE.replace('reviewed enabled = if enabled then True else False',
+                                        'reviewed enabled = ' + body)
+            self.assert_rejected(wrong, 'boolCases disagreement at ' + constructor, commands)
+
+    def test_nested_conditions_and_unrestricted_permissions(self):
+        variants = [BOOL_SOURCE.replace('if enabled then True else False',
+                                       'if (if enabled then False else True) then False else True'),
+                    BOOL_SOURCE.replace('(1 enabled : Bool)', '(enabled : Bool)')
+                               .replace('allow enabled = enabled',
+                                        'allow enabled = if enabled then enabled else enabled')]
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'program.fib'
+            for source in variants:
+                path.write_text(source)
+                checked = run_cli('check', str(path))
+                self.assertEqual(checked.returncode, 0, checked.stderr)
+                result = run_cli('run', str(path))
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.stdout, 'feature enabled\n')
+            # Unrestricted discard is legal; linear discard is not.
+            source = BOOL_SOURCE.replace('(1 enabled : Bool)', '(enabled : Bool)')
+            source = source.replace('allow enabled = enabled', 'allow enabled = True')
+            source = source.replace('if enabled then True else False', 'True')
+            path.write_text(source)
+            self.assertEqual(run_cli('check', str(path)).returncode, 0)
+
+    def test_quantities_and_internal_uses_cannot_be_reflected(self):
+        self.assert_rejected(BOOL_SOURCE.replace('reviewed : (1 enabled', 'reviewed : (enabled'),
+                             'types/quantities differ')
+        self.assert_rejected(BOOL_SOURCE.replace('allow enabled = enabled', 'allow enabled = True'),
+                             'endpoint runtime checking failed')
+        self.assert_rejected(BOOL_SOURCE.replace('allow enabled = enabled',
+                                                'allow enabled = if enabled then enabled else enabled'),
+                             'endpoint runtime checking failed')
+        self.assert_rejected(BOOL_SOURCE.replace('(1 enabled : Bool)', '(0 enabled : Bool)'))
+        self.assert_rejected(BOOL_SOURCE.replace('allow :', '0 allow :', 1),
+                             'endpoints must be unrestricted')
+        self.assert_rejected(BOOL_SOURCE.replace('main : IO Unit\nmain =',
+                                                'main : (0 ignored : Bool) -> IO Unit\nmain ignored =')
+                                       .replace('allow True', 'allow ignored'), 'Runtime checking')
+
+    def test_fragment_is_exact_no_apps_globals_recursion_effects_or_higher_order(self):
+        self.assert_rejected(BOOL_SOURCE.replace('allow enabled = enabled',
+                                                'allow enabled = (\\(1 x : Bool) => x) enabled'),
+                             'boolCases left endpoint unsupported')
+        self.assert_rejected(BOOL_SOURCE.replace('allow enabled = enabled', 'allow enabled = allow enabled'),
+                             'Unbound name')
+        self.assert_rejected('helper : Bool\nhelper = True\n' + BOOL_SOURCE.replace(
+            'allow enabled = enabled', 'allow enabled = if enabled then helper else False'),
+                             'globals and recursion are unsupported')
+        for signature, body, main in (('IO Unit', 'putStrLn "not run"', 'action'),
+                                       ('(1 x : Unit) -> Bool', 'True', 'action ()'),
+                                       ('Bool -> Bool -> Bool', '\\x => \\y => x', 'action True False')):
+            # Unit/function cases may fail independent quantitative checking first;
+            # use unrestricted arguments where a body discards its input.
+            signature = signature.replace('(1 x : Unit)', '(x : Unit)')
+            args = ' x' if signature.startswith('(x : Unit)') else ''
+            source = (f'action : {signature}\naction{args} = {body}\n'
+                      f'baseline : {signature}\nbaseline{args} = {body}\n'
+                      'cubical stable : action = baseline by boolCases\n'
+                      f'requires stable\nmain : {"IO Unit" if signature == "IO Unit" else "Bool"}\nmain = {main}\n')
+            self.assert_rejected(source)
+        self.assert_rejected(BOOL_SOURCE.replace('allow : (1 enabled : Bool) -> Bool\nallow enabled = enabled',
+                             'allow : (1 handle : FileHandle Unit) -> IO Unit\nallow handle = pure ()'))
+
+    def test_metadata_binding_format_and_no_alternate_route(self):
+        cases = [(BOOL_SOURCE.replace('allow = reviewed', 'missing = reviewed'), 'unknown or forward endpoint'),
+                 (BOOL_SOURCE.replace(REQUIRES, ''), 'unused proof'),
+                 (BOOL_SOURCE.replace('allow True', 'True'), 'consumer must reference'),
+                 (BOOL_SOURCE.replace('policyStable', 'putStrLn'), 'proof labels are not ordinary terms'),
+                 (BOOL_SOURCE.replace('main = putStrLn', 'main = let (allow : Bool) = True in putStrLn')
+                             .replace('allow True', 'allow'), 'consumer must reference'),
+                 (BOOL_SOURCE.replace('by boolCases', 'by boolCases on bottom'), None)]
+        for source, diagnostic in cases:
+            self.assert_rejected(source, diagnostic)
+        formatted = run_cli('format', str(BOOL_EXAMPLE))
+        self.assertEqual(formatted.returncode, 0, formatted.stderr)
+        self.assertIn(BOOL_GUARD.strip(), formatted.stdout)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Main.fib'
+            path.write_text(formatted.stdout)
+            self.assertEqual(run_cli('check', str(path)).returncode, 0)
+            for command in ('check', 'eval', 'run', 'emit-c'):
+                rejected = run_cli(command, '--source-dir', directory, str(path))
+                self.assertNotEqual(rejected.returncode, 0)
+                self.assertIn('currently require standalone files', rejected.stderr)
+            inspected = run_cli('symbols', str(path))
+            self.assertNotEqual(inspected.returncode, 0)
+            self.assertIn('Cubical metadata inspection is unsupported', inspected.stderr)
+
+    def test_shared_body_node_allowance_fails_closed(self):
+        body = 'enabled'
+        for _ in range(8):
+            body = f'if True then ({body}) else ({body})'
+        source = BOOL_SOURCE.replace('(1 enabled : Bool)', '(enabled : Bool)')
+        source = source.replace('allow enabled = enabled', 'allow enabled = ' + body)
+        source = source.replace('if enabled then True else False', body)
+        self.assert_rejected(source, 'shared body-node allowance exhausted')
 
 
 if __name__ == '__main__':
