@@ -254,6 +254,22 @@
         "path": "docs/native-c.md"
       },
       {
+        "title": "Native host embedding",
+        "path": "docs/native-embedding.md"
+      },
+      {
+        "title": "Bounded binary host embedding",
+        "path": "docs/binary-embedding.md"
+      },
+      {
+        "title": "Single-node durable enqueue store",
+        "path": "docs/durable-queue.md"
+      },
+      {
+        "title": "Checked enqueue worker",
+        "path": "docs/enqueue-worker.md"
+      },
+      {
         "title": "Native variable-argument forwarding",
         "path": "docs/native-variable-forwarding.md"
       },
@@ -520,6 +536,10 @@
       {
         "title": "Manifest inspection fixtures",
         "path": "examples/manifests/README.md"
+      },
+      {
+        "title": "Compiler regression fixtures",
+        "path": "test/fixtures/README.md"
       },
       {
         "title": "Recursion tour",

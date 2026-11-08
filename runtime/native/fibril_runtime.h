@@ -75,6 +75,40 @@ FValue *f_reject_bytes(FRuntime *r);
 FValue *f_iterate_binary(FRuntime *, FEnv *, FEval count, FEval step, FEval initial);
 /* Link fibril_binary_runtime.c instead of fibril_runtime.c for this runner. */
 int fibril_native_binary_run(FEval entry, size_t requests, size_t capacity);
+/* Experimental embedding boundary for staged console IO only. Callbacks return
+   zero on success, nonzero on failure. Bytes are borrowed for the callback only;
+   writes may be split (including a separate newline). No callback is called
+   until evaluation and text validation succeed. Host effects are not rolled
+   back on callback failure. Callbacks must return normally; no longjmp across
+   the runtime. No runtime/value pointer escapes this synchronous invocation. */
+typedef int (*FNativeWrite)(void *context, const unsigned char *bytes, size_t length);
+typedef int (*FNativeFlush)(void *context);
+typedef struct {
+  void *context;
+  FNativeWrite write;
+  FNativeFlush flush;
+} FNativeHost;
+typedef enum {
+  F_NATIVE_OK = 0,
+  F_NATIVE_INVALID_ARGUMENT,
+  F_NATIVE_PROGRAM_ERROR,
+  F_NATIVE_WRITE_ERROR,
+  F_NATIVE_FLUSH_ERROR
+} FNativeStatus;
+typedef struct {
+  FNativeStatus status;
+  /* NULL on success; otherwise immutable static storage, valid after return.
+     Message wording is diagnostic, not a machine-readable error code. */
+  const char *message;
+} FNativeResult;
+/* No stdio or process termination; each call owns and releases its arena.
+   Both callbacks and entry are required. Existing fixed budgets still apply.
+   Host callbacks are trusted native code, not a checked Fibril FFI. */
+FNativeResult fibril_native_embed(FEval entry, const FNativeHost *host);
+/* Supplied by newly emitted `emit-c` console programs, NOT the runtime itself.
+   Compile generated C with -DFIBRIL_EMBED_ONLY to omit its standalone main.
+   One generated program per linked image; other emission modes do not expose it. */
+FNativeResult fibril_program_embed(const FNativeHost *host);
 int fibril_native_run(FEval entry);
 /* Incremental execution may leave output before a later error. */
 int fibril_native_interactive_run(FEval entry, size_t requests, size_t line_characters);

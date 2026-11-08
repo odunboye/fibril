@@ -3,6 +3,7 @@
    standalone translation units for the legacy modes/tests. Trusted, not verified. */
 #include "fibril_runtime.c"
 #include "fibril_bytes.c"
+#include "fibril_binary_embed.h"
 
 typedef struct {
   FRuntime *runtime;
@@ -106,7 +107,10 @@ static FThunk *interact_binary(FBinaryContext *context, FByteSession *session, F
         if (status == FB_OK) result = ready(r, f_unit(r));
         else context->fault = status;
       }
-    } else if (io->tag == V_REJECT_BYTES) fail(r, "Binary program rejected input");
+    } else if (io->tag == V_REJECT_BYTES) {
+      r->binary_rejected = 1;
+      fail(r, "Binary program rejected input");
+    }
     else if (io->tag == V_FLUSH_BYTES) {
       FByteStatus status = fibril_bytes_flush(session);
       if (status == FB_OK) result = ready(r, f_unit(r));
@@ -193,6 +197,36 @@ static int binary_finish(FRuntime *r, FBinaryContext *context, FByteStatus statu
      views here; only arena metadata is traversed to release the pure runtime. */
   while (r->allocations) { FAllocation *next = r->allocations->next; free(r->allocations); r->allocations = next; }
   return failed ? 1 : 0;
+}
+
+FBinaryResult fibril_native_binary_embed(FEval entry, size_t requests,
+                                        size_t capacity, const FByteAdapters *host) {
+  FBinaryResult result = {F_BINARY_OK, FB_OK, NULL, 0, 0};
+  if (!entry || !host || !host->read || !host->write || !host->flush) {
+    result.status = F_BINARY_INVALID_ARGUMENT;
+    result.message = "native binary embedding requires entry, read, write and flush callbacks";
+    return result;
+  }
+  FRuntime runtime = {0};
+  FBinaryContext context = {&runtime, entry, FB_OK, 0, 0};
+  FByteStatus status = fibril_bytes_run_with(requests, capacity, *host, binary_body, &context);
+  if (runtime.error) {
+    result.status = runtime.binary_rejected ? F_BINARY_REJECTED : F_BINARY_PROGRAM_ERROR;
+    result.message = runtime.error;
+  } else if (status != FB_OK) {
+    result.status = F_BINARY_TRANSPORT_ERROR;
+    result.transport_status = status;
+    result.message = binary_error(status);
+    if (status == FB_READ_FAILED) result.read_prefix = context.read_prefix;
+    if (status == FB_WRITE_FAILED) result.write_prefix = context.write_prefix;
+  }
+  /* The transport session has released all borrowed input slices. Only walk
+     allocation metadata; never inspect values that may reference those slices. */
+  while (runtime.allocations) {
+    FAllocation *next = runtime.allocations->next;
+    free(runtime.allocations); runtime.allocations = next;
+  }
+  return result;
 }
 
 int fibril_native_binary_run(FEval entry, size_t requests, size_t capacity) {

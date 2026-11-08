@@ -340,10 +340,19 @@ emitEntryGlobals globals mode requests lineLimit term = do
         Interactive => "fibril_native_interactive_run(" ++ name code.root ++ ", " ++ show requests ++ ", " ++ show lineLimit ++ ")"
         Resources => "fibril_native_resource_run(" ++ name code.root ++ ", " ++ show requests ++ ", " ++ show lineLimit ++ ")"
         Binary => "fibril_native_binary_run(" ++ name code.root ++ ", " ++ show requests ++ ", " ++ show lineLimit ++ ")"
+  let mainCode = "int main(void) { return " ++ entry ++ "; }\n"
+  let entryCode = if mode == Preflight
+        then "FNativeResult fibril_program_embed(const FNativeHost *host) { return fibril_native_embed(" ++ name code.root ++ ", host); }\n" ++
+             "#ifndef FIBRIL_EMBED_ONLY\n" ++ mainCode ++ "#endif\n"
+        else if mode == Binary
+          then "FBinaryResult fibril_program_binary_embed(const FByteAdapters *host) { return fibril_native_binary_embed(" ++ name code.root ++ ", " ++ show requests ++ ", " ++ show lineLimit ++ ", host); }\n" ++
+               "#ifndef FIBRIL_EMBED_ONLY\n" ++ mainCode ++ "#endif\n"
+          else mainCode
+  let header = if mode == Binary then "fibril_binary_embed.h" else "fibril_runtime.h"
   Right ("/* Generated from checked Fibril core; experimental native subset. */\n" ++
-         "#include \"fibril_runtime.h\"\n" ++ concat (map (\(key, _, _, _) => "FValue *fibril_global_" ++ show key ++ "(FRuntime *, FEnv *);\n") declarations) ++
+         "#include \"" ++ header ++ "\"\n" ++ concat (map (\(key, _, _, _) => "FValue *fibril_global_" ++ show key ++ "(FRuntime *, FEnv *);\n") declarations) ++
          concat (prototypes 0 code.next) ++ concat globalCode ++ concat definitions ++
-         concat code.definitions ++ "int main(void) { return " ++ entry ++ "; }\n")
+         concat code.definitions ++ entryCode)
 
 emitEntry : NativeMode -> Nat -> Nat -> Term 0 -> Either String String
 emitEntry = emitEntryGlobals emptyRuntimeGlobals

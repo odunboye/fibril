@@ -27,10 +27,11 @@ missing/found indexing in both hosted and compiled execution.
 Strict YAML inspection fixtures live in [manifests/](manifests/README.md). They are
 not executable workspace projects or source-checking examples.
 
-The [request-api package](packages/request-api/src/Mail/Request.fib) models
-three pure email-service request alternatives, with a [separate test
-package](packages/request-api/test/src/RequestTests/Main.fib). It does not send
-mail or validate addresses. Run `fibril test --package examples/packages/request-api/fibril.yaml`.
+The former email request package is now a [compiler regression fixture](../test/fixtures/packages/request-api/src/Mail/Request.fib),
+with a [separate test package](../test/fixtures/packages/request-api/test/src/RequestTests/Main.fib).
+It does not send mail or validate addresses. Run
+`fibril test --package test/fixtures/packages/request-api/fibril.yaml`.
+The standalone email application's source is maintained separately in `../email`.
 
 The [multi-field-case example](modules/multi-field-case/Main.fib) matches two- and
 four-field constructors directly with `case`, binding every field.

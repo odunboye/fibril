@@ -110,7 +110,8 @@ private bodies, hidden binary effects, reachable literal admission and the
 larger email model. It is part of `make test`. Run it with sanitizer flags in
 `CC` to exercise the generated C/runtime boundary.
 
-`examples/modules/email-service-full` models eight statuses and eight events.
+`test/fixtures/modules/email-service-full` retains an eight-status/eight-event
+compiler regression model; the application now lives separately in `../email`.
 It includes deferral/retry, failure, delivery, bounce and uncertain submission.
 Its hosted/native demonstration is still a pure state model: it performs no
 network, storage, authentication or real mail delivery.

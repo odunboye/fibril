@@ -1,0 +1,46 @@
+module Worker.Request
+
+-- FQ01 + 16 opaque key bytes + one length octet (1..255) + exact payload + EOF.
+-- FV01 means validated, NOT queued. Only the host can commit/acknowledge.
+record SharedBytes : Type where
+  constructor Shared
+  bytes : Bytes
+
+sameText : (expected : String) -> (1 bytes : Bytes) -> Bool
+sameText expected bytes = primUTF8Case String Bool (primUTF8Decode bytes) False (\(1 text : String) => equalString text expected)
+
+matchesLength : (encoded : Bytes) -> (payload : Bytes) -> Bool
+matchesLength encoded payload = primBytesIndexCase Bool (primBytesIndex 0 encoded) False
+  (\(1 count : Nat) => primBytesLengthIs count payload)
+
+validated : (key : Bytes) -> (encoded : Bytes) -> (payload : Bytes) -> IO Unit
+validated key encoded payload =
+  primUTF8Case Bytes (IO Unit) (primUTF8Encode "FV01") primRejectBytes
+    (\(1 prefix : Bytes) => bind Unit Unit (primWriteBytes (primBytesAppend prefix (primBytesAppend key (primBytesAppend encoded payload))))
+      (\(1 done : Unit) => case done of () => primFlushBytes))
+
+readPayload : (key : Bytes) -> (encoded : Bytes) -> IO Unit
+readPayload key encoded = bind ByteReadResult Unit (primReadBytes 256)
+  (\(1 result : ByteReadResult) => primByteReadCase (IO Unit) result primRejectBytes
+    (\(1 bytes : Bytes) => case primBytesShare bytes of
+      Shared payload => if orBool (primBytesLengthIs 0 payload) (primBytesLengthIs 256 payload)
+        then primRejectBytes else if matchesLength encoded payload
+          then validated key encoded payload else primRejectBytes))
+
+readLength : (key : Bytes) -> IO Unit
+readLength key = bind ByteReadResult Unit (primReadBytes 1)
+  (\(1 result : ByteReadResult) => primByteReadCase (IO Unit) result primRejectBytes
+    (\(1 bytes : Bytes) => case primBytesShare bytes of
+      Shared encoded => readPayload key encoded))
+
+readKey : IO Unit
+readKey = bind ByteReadResult Unit (primReadBytes 16)
+  (\(1 result : ByteReadResult) => primByteReadCase (IO Unit) result primRejectBytes
+    (\(1 bytes : Bytes) => case primBytesShare bytes of
+      Shared key => if primBytesLengthIs 16 key then readLength key else primRejectBytes))
+
+export
+validateEnqueue : IO Unit
+validateEnqueue = bind ByteReadResult Unit (primReadBytes 4)
+  (\(1 result : ByteReadResult) => primByteReadCase (IO Unit) result primRejectBytes
+    (\(1 bytes : Bytes) => if sameText "FQ01" bytes then readKey else primRejectBytes))

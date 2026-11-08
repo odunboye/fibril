@@ -72,6 +72,15 @@ functions and build continuations at runtime. `tools/test_native.py` compiles
 and executes emitted C and compares successful supported samples with `run`;
 this is sampled evidence, not a semantics-preservation proof.
 
+## Host embedding
+
+Ordinary `emit-c` output also supports a [synchronous host embedding entry](native-embedding.md).
+Compile it with `-DFIBRIL_EMBED_ONLY` and call `fibril_program_embed` with explicit
+write/flush callbacks to avoid process-global console IO. Structured results,
+per-invocation arena cleanup and preflight text validation are implemented; this
+is not a general source FFI or a network/storage service runtime. Standalone
+execution and other emission modes retain their existing behavior.
+
 ## Runtime boundary and limits
 
 `runtime/native/fibril_runtime.{h,c}` and the chosen C compiler are trusted host
