@@ -329,8 +329,17 @@ mutual
     (_, afterArrow) <- expect BodyArrow end afterNames
     (body, remaining) <- expression depth end afterArrow
     let branch = NPatternLambda (Between first.span.start (extent body).finish) names body
-    Right (NConstructorCase (Between token.span.start (extent body).finish)
-      (length names) constructor scrutinee branch motive, remaining)
+    let region = Between token.span.start (extent body).finish
+    let asRecord = NConstructorCase region (length names) constructor scrutinee branch motive
+    -- Without types the parser cannot tell a record pattern from a
+    -- one-constructor data case; the elaborator tries both.
+    let head : Maybe Token = case constructor of
+          NRef span name => Just (Located Name name span)
+          NQualifiedRef span name => Just (Located Name name span)
+          _ => Nothing
+    Right (case (head, motive) of
+      (Just named, Nothing) => NCaseEither region asRecord (NDataCase region scrutinee Nothing [(named, names, body)])
+      _ => asRecord, remaining)
 
   typedFieldsCase : Nat -> Position -> Token -> Expr -> Maybe Expr -> Maybe Expr -> List Token -> Either ParseError (Expr, List Token)
   typedFieldsCase depth end token scrutinee constructor motive tokens = do

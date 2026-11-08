@@ -47,6 +47,8 @@ data Expr
   | NPatternLambda SourceSpan (List Token) Expr
   | NEquationLambda SourceSpan (List Token) Expr Expr
   | NConstructorCase SourceSpan Nat Expr Expr Expr (Maybe Expr)
+  -- An ambiguous one-line single-arm case: a record pattern, else a data case.
+  | NCaseEither SourceSpan Expr Expr
   | NDataCase SourceSpan Expr (Maybe Expr) (List (Token, List Token, Expr))
   | NConstraintPi SourceSpan Quantity String Expr Expr
   | NImplicitPi SourceSpan Quantity String Expr Expr
@@ -124,6 +126,7 @@ extent (NInferCase span _ _ _) = span
 extent (NPatternLambda span _ _) = span
 extent (NEquationLambda span _ _ _) = span
 extent (NConstructorCase span _ _ _ _ _) = span
+extent (NCaseEither span _ _) = span
 extent (NDataCase span _ _ _) = span
 extent (NConstraintPi span _ _ _ _) = span
 extent (NImplicitPi span _ _ _ _) = span
@@ -181,6 +184,7 @@ withExtent span (NInferCase _ arity value branch) = NInferCase span arity value 
 withExtent span (NPatternLambda _ names body) = NPatternLambda span names body
 withExtent span (NEquationLambda _ names signature body) = NEquationLambda span names signature body
 withExtent span (NConstructorCase _ arity constructor value branch motive) = NConstructorCase span arity constructor value branch motive
+withExtent span (NCaseEither _ asRecord asData) = NCaseEither span asRecord asData
 withExtent span (NDataCase _ value motive arms) = NDataCase span value motive arms
 withExtent span (NConstraintPi _ q name domain body) = NConstraintPi span q name domain body
 withExtent span (NImplicitPi _ q name domain body) = NImplicitPi span q name domain body

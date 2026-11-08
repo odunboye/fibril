@@ -358,5 +358,25 @@ data Shape : Type where
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertIn('Normal: ' + expected, result.stdout)
 
+    def test_single_constructor_data_case(self):
+        data = 'module Main\ndata Handle : Type where\n  Open : (1 log : String) -> Handle\n'
+        ok = self.run_source(data + 'close : (1 h : Handle) -> String\nclose h = case h of Open log => log\n'
+                             'main : String\nmain = close (Open "done")\n')
+        self.assertEqual(ok.returncode, 0, ok.stderr)
+        self.assertIn('done', ok.stdout)
+        # the linear payload must still be used exactly once
+        leak = self.run_source(data + 'leak : (1 h : Handle) -> String\nleak h = case h of Open log => "dropped"\n'
+                               'main : String\nmain = leak (Open "x")\n')
+        self.assertNotEqual(leak.returncode, 0, leak.stdout)
+
+    def test_wildcard_payload_binder(self):
+        data = 'module Main\ndata Sum (0 A : Type) (0 B : Type) : Type where\n  Left : ({q}value : A) -> Sum A B\n  Right : ({q}value : B) -> Sum A B\n'
+        clauses = 'isLeft : Sum Bool Bool -> Bool\nisLeft Left _ = True\nisLeft Right _ = False\nmain : Bool\nmain = isLeft (Left Bool Bool True)\n'
+        ok = self.run_source(data.format(q='') + clauses)
+        self.assertEqual(ok.returncode, 0, ok.stderr)
+        self.assertIn('Normal: True', ok.stdout)
+        # a wildcard must not discard a linear payload
+        self.assertNotEqual(self.run_source(data.format(q='1 ') + clauses).returncode, 0)
+
 if __name__ == '__main__':
     unittest.main()
