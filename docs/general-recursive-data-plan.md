@@ -1,7 +1,8 @@
 # General recursive data: plan
 
-**Status: phases 1 to 4 are implemented (core terms, reduction, declaration admission,
-typing, termination and run-mode evaluation); phases 5 onward are not.** It records what restricts recursive
+**Status: phases 1 to 4 and the first slice of phase 5 are implemented (core terms, reduction,
+declaration admission, typing, termination, run-mode evaluation, and source `data` and `case`
+for general families); function equations with constructor patterns and phase 6 are not.** It records what restricts recursive
 data today, what the smallest sound extension is, and the phases to land it. It is not a
 positivity theorem or a soundness claim.
 
@@ -141,6 +142,26 @@ working for resource-carrying data.
 - Evaluation needed no change beyond phase 1: `unfoldOne` already reaches case scrutinees
   and constructor arguments.
 
+### As implemented in phase 5 (first slice)
+
+- No new surface syntax. `lowerData` routes a recursive declaration that is neither fixed shape
+  (`generalRecursive`) to `lowerGeneralData`, and `lowerModule` puts a `DataFamily` item before
+  the ordinary declarations. Those declarations give the family name the value
+  `\params => DataType key params` and each constructor the value `DataCon key index leading`,
+  with the authored signature as its type.
+- `registerFamily` (in `ModuleCheck`) elaborates the parameters, then each constructor's
+  fields in the parameters' scope, with the family's own name visible as a provisional
+  declaration (`withProvisionalFamily`), normalizes the field types so the recursive occurrence
+  is syntactically the family, and calls `extendDataRuntimeGlobals`. The scope after the
+  parameters has a runtime width, matched to the telescope length with `decEq`.
+- `case` on a family (`elaborateFamilyDataCaseGlobals`) resolves each arm's constructor from
+  its global's value, peels the instantiated constructor type to bind the fields with their
+  quantities, and uses a constant motive built from the expected type. `NDataType` and
+  `NDataCon` are the two new named-IR nodes.
+- The termination check needed no further change: a function over a family that matches with
+  `case` and recurses on a family-typed field goes through the existing general-recursion
+  fallback and the phase 4 extractor.
+
 ### What does not change
 
 Conversion treats `DataCon` as a constructor and `DataCase` on a constructor as reducible,
@@ -157,7 +178,7 @@ last.
 | 2 | **Done.** `Fibril.Core.DataDecl`: telescopes, `DataDecl`, and `admitDeclaration` (positivity plus caps of 4 parameters, 16 constructors, 8 fields) | soundness proof |
 | 3 | **Done.** Typing in `Erased` and `Runtime`: closed constructor types derived from the declaration, dependent erased motive, exhaustive branches with field quantities, usage joins; `extendDataGlobals` / `extendDataRuntimeGlobals` register a family | termination |
 | 4 | **Done.** `Extract.idr` credits family-typed fields of a `DataCase` branch as smaller than the scrutinee; `Fix` over a family is admitted by the size-change gate; run-mode evaluation unfolds through the case | native support |
-| 5 | Source: `data` declarations beyond the fixed shapes, constructor application, `case`, pattern equations | pattern-clause groups |
+| 5 | **First slice done.** Source `data` declarations beyond the fixed shapes, constructors as ordinary functions, `case` with an expected type; **not yet** pattern equations | pattern-clause groups |
 | 6 | Native emission and runtime values (`Emit.idr`, `fibril_runtime.c`) | scale |
 | 7 | Optional: migrate `Chain`/`Items` onto the family; docs, examples (tree, expression language) | |
 

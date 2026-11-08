@@ -151,6 +151,18 @@ constructorType decl index = do
   let fieldsTerm = fieldsPi ctor.fields (resultAt decl.key (telescopeLength decl.params))
   Just (paramsPi decl.params (replace {p = Term} (sym (plusZeroRightNeutral (telescopeLength decl.params))) fieldsTerm))
 
+-- Lambda over a parameter telescope, then `inner` under all of its binders.
+paramsLam : {n : Nat} -> (ps : Telescope n) -> Term (telescopeLength ps + n) -> Term n
+paramsLam Done inner = inner
+paramsLam {n} (Field q ty rest) inner =
+  Lambda q ty (paramsLam rest (replace {p = Term} (plusSuccRightSucc (telescopeLength rest) n) inner))
+
+||| `\(0 p1 : P1) ... => Family p1 ...`: the family as a function of its parameters. This is
+||| the value a source declaration gives the family's name.
+public export
+formerValue : DataDecl -> Term 0
+formerValue decl = paramsLam decl.params (resultAt decl.key (telescopeLength decl.params) (telescopeLength decl.params + 0))
+
 ||| How many parameters and constructors, for callers that only need the shape.
 public export
 parameterCount : DataDecl -> Nat

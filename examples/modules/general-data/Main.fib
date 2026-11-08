@@ -1,0 +1,29 @@
+module Main
+
+-- A binary tree: two recursive fields, which the fixed unary and list shapes cannot express.
+-- Every recursive occurrence is a whole field type, so the declaration is strictly positive.
+data Tree : Type where
+  Leaf : Tree
+  Node : (left : Tree) -> (right : Tree) -> Tree
+
+-- A parameterized tree. A parenthesized parameter header keeps the type argument explicit.
+data Rose (0 A : Type) : Type where
+  Bud : (value : A) -> Rose A
+  Branch : (value : A) -> (first : Rose A) -> (second : Rose A) -> Rose A
+
+-- Recursion on both subtrees: each call is on a field of the value being matched, so the
+-- size-change check admits it.
+marks : (t : Tree) -> String
+marks t = case t of
+  Leaf => "."
+  Node l r => appendString (marks l) (marks r)
+
+shape : (t : Rose Nat) -> String
+shape t = case t of
+  Bud v => "b"
+  Branch v first second => appendString "(" (appendString (shape first) (appendString (shape second) ")"))
+
+main : IO Unit
+main = do
+  putStrLn (marks (Node (Node Leaf Leaf) Leaf))
+  putStrLn (shape (Branch Nat Zero (Bud Nat Zero) (Branch Nat Zero (Bud Nat Zero) (Bud Nat Zero))))

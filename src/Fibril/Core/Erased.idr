@@ -113,6 +113,13 @@ public export
 dataDeclaration : GlobalContext -> String -> Maybe DataDecl
 dataDeclaration globals key = find (\decl => decl.key == key) (dataDeclarations globals)
 
+||| The context with a family visible but not admitted. Elaborating a recursive family's own
+||| constructor fields needs its former to have a type; nothing else may use this context,
+||| because the family has not been checked.
+public export
+withProvisionalFamily : GlobalContext -> DataDecl -> GlobalContext
+withProvisionalFamily (CheckedGlobalContext entries families) decl = CheckedGlobalContext entries (decl :: families)
+
 ||| What the termination extractor needs to know about declared families.
 public export
 fieldCountsOf : GlobalContext -> FieldCounts
@@ -161,6 +168,7 @@ requireCompatible globals budget actual expected =
 -- Typing support for general recursive data (docs/general-recursive-data-plan.md, phase 3).
 
 -- A type headed by the family former, with its parameter arguments in order.
+public export
 dataTypeSpine : Term n -> Maybe (String, List (Term n))
 dataTypeSpine term = go term []
   where
@@ -170,6 +178,7 @@ dataTypeSpine term = go term []
     go _ _ = Nothing
 
 -- Apply a constructor's closed type to the actual parameters, one Pi at a time.
+public export
 instantiateParameters : List (Term n) -> Term n -> Either CheckError (Term n)
 instantiateParameters [] ty = Right ty
 instantiateParameters (argument :: rest) (Pi _ _ body) = instantiateParameters rest (instantiateTerm argument body)
@@ -177,18 +186,21 @@ instantiateParameters _ ty = Left (RecursiveDataError "constructor type has fewe
 
 -- Replace the result of the field Pi chain with `motive` applied to the rebuilt constructor.
 -- `built` is the constructor applied to the parameters and the fields bound so far.
+public export
 retarget : Nat -> Term n -> Term n -> Term n -> Either CheckError (Term n)
 retarget Z _ motive built = Right (Apply motive built)
 retarget (S k) (Pi q domain body) motive built =
   map (Pi q domain) (retarget k body (weaken motive) (Apply (weaken built) (Variable FZ)))
 retarget (S _) _ _ _ = Left (RecursiveDataError "constructor type has fewer fields than declared")
 
+public export
 applyAll : Term n -> List (Term n) -> Term n
 applyAll function [] = function
 applyAll function (argument :: rest) = applyAll (Apply function argument) rest
 
 -- The type a branch for constructor `index` must have: a function over the fields (with their
 -- quantities) returning the motive applied to the constructor rebuilt from those fields.
+public export
 dataBranchType : DataDecl -> Nat -> List (Term n) -> Term n -> Either CheckError (Term n)
 dataBranchType decl index actuals motive = do
   closed <- maybe (Left (RecursiveDataError "unknown constructor")) Right (constructorType decl index)

@@ -2988,6 +2988,52 @@ main = first Zero
             self.assertIn('n = Succ (Succ 12)', formatted.stdout)
             self.assertIn('m = 256', formatted.stdout)
 
+    def test_general_recursive_data(self):
+        tree = ('module Main\n\ndata Tree : Type where\n  Leaf : Tree\n'
+                '  Node : (left : Tree) -> (right : Tree) -> Tree\n\n')
+        main = '\nmain : IO Unit\nmain = putStrLn (marks (Node (Node Leaf Leaf) Leaf))\n'
+        marks = ('marks : (t : Tree) -> String\nmarks t = case t of\n  Leaf => "."\n'
+                 '  Node l r => appendString (marks l) (marks r)\n')
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Main.fib'
+            def check(source, command='check'):
+                path.write_text(source)
+                args = ['--fuel', '4096'] if command == 'run' else []
+                return run(command, '--source-dir', directory, *args, str(path))
+            # A tree, not one of the two fixed shapes, declares, recurses on both subtrees and runs.
+            ran = check(tree + marks + main, 'run')
+            self.assertEqual((ran.returncode, ran.stdout), (0, '...\n'), ran.stderr)
+            example = ROOT / 'examples/modules/general-data'
+            shipped = run('run', '--source-dir', str(example), '--fuel', '4096', str(example / 'Main.fib'))
+            self.assertEqual((shipped.returncode, shipped.stdout), (0, '...\n(b(bb))\n'), shipped.stderr)
+            # A parameterized family, with the parameter passed explicitly to its constructors.
+            rose = ('module Main\n\ndata Rose (0 A : Type) : Type where\n  Bud : (value : A) -> Rose A\n'
+                    '  Branch : (value : A) -> (first : Rose A) -> (second : Rose A) -> Rose A\n\n'
+                    'size : (t : Rose Nat) -> String\nsize t = case t of\n  Bud v => "b"\n'
+                    '  Branch v a b => appendString "n" (appendString (size a) (size b))\n\n'
+                    'main : IO Unit\nmain = putStrLn (size (Branch Nat Zero (Bud Nat Zero) (Bud Nat Zero)))\n')
+            rose_run = check(rose, 'run')
+            self.assertEqual((rose_run.returncode, rose_run.stdout), (0, 'nbb\n'), rose_run.stderr)
+            # Recursion that does not shrink is refused by the same gate as other recursion.
+            for body in ('Node l r => marks (Node l r)', 'Node l r => marks t'):
+                refused = check(tree + 'marks : (t : Tree) -> String\nmarks t = case t of\n  Leaf => "."\n  '
+                                + body + '\n' + main)
+                self.assertNotEqual(refused.returncode, 0, body)
+                self.assertIn('no argument decreases', refused.stderr)
+            # A recursive field under a function type is not strictly positive.
+            negative = check('module Main\n\ndata Bad : Type where\n  Leaf : Bad\n'
+                             '  Wrap : (child : (n : Nat) -> Bad) -> Bad\n\nmain : IO Unit\nmain = putStrLn "x"\n')
+            self.assertNotEqual(negative.returncode, 0)
+            self.assertIn('under a function type', negative.stderr)
+            # A case must cover every constructor and bind exactly its fields.
+            missing = check(tree + 'marks : (t : Tree) -> String\nmarks t = case t of\n  Leaf => "."\n' + main)
+            self.assertNotEqual(missing.returncode, 0)
+            self.assertIn('every constructor', missing.stderr)
+            arity = check(tree + 'marks : (t : Tree) -> String\nmarks t = case t of\n  Leaf => "."\n'
+                          '  Node l => "x"\n' + main)
+            self.assertNotEqual(arity.returncode, 0)
+            self.assertIn('fields', arity.stderr)
+
     def test_general_mutual_groups(self):
         root = ROOT / 'examples/modules/general-recursion'
         # Two members over user data, and a three-member ring with two parameters: both are outside
@@ -3725,7 +3771,6 @@ main = first Zero
                 base.replace('main : IO Unit', 'bad : Flag Bool\nbad = MkFlag String\nmain : IO Unit'),
                 base.replace('main : IO Unit', 'data Other (0 A : Type 0) : Type 0 where\n  MkOther : Other A\nbad : Flag String\nbad = MkOther String\nmain : IO Unit'),
                 base.replace('MkFlag : Flag A', 'MkFlag : Flag String'),
-                base.replace('MkFlag : Flag A', 'MkFlag : (1 child : Flag A) -> Flag A'),
                 base.replace('MkFlag : Flag A', 'MkFlag : (1 child : Main.Flag A) -> Flag A'),
                 base.replace('MkFlag : Flag A', 'MkFlag : (1 child : Later) -> Flag A'),
                 base.replace('(0 A : Type 0)', '(A : Type 0)'),
@@ -3737,6 +3782,11 @@ main = first Zero
                 result = run("run", "--source-dir", str(root), str(path))
                 self.assertNotEqual(result.returncode, 0, bad + result.stdout + result.stderr)
                 self.assertEqual(result.stdout, "")
+            # A recursive constructor with no base case is a legal general family (it has no
+            # values), no longer a refusal: recursion is checked by positivity, not forbidden.
+            path.write_text(base.replace('MkFlag : Flag A', 'MkFlag : (1 child : Flag A) -> Flag A'))
+            result = run("run", "--source-dir", str(root), str(path))
+            self.assertEqual((result.returncode, result.stdout), (0, "flags\n"), result.stderr)
             # Ordinary helper arguments cannot pretend to share a linear capture.
             path.write_text('module Main\ndata Choice : Type 0 where\n  eliminator useChoice\n  Left : Choice\n  Right : Choice\nbad : (1 text : String) -> (1 choice : Choice) -> String\nbad = \\(1 text : String) => \\(1 choice : Choice) => useChoice (\\(0 self : Choice) => String) choice text text\nmain : IO Unit\nmain = putStrLn (bad "x" Left)\n')
             result = run("run", "--source-dir", str(root), str(path))
