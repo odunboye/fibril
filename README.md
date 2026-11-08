@@ -27,6 +27,7 @@ text and have native lowering for the initial pure subset. [Checked binary
 IO](docs/io-binary-source.md) is available through hosted `run-binary` and native
 `emit-c-binary`, with separate admission from text/resource IO. [Explicit UTF-8 conversion](docs/utf8-values.md) is fallible
 and preserves valid NUL without relaxing console output policy.
+[Binary host embedding](docs/binary-embedding.md) now exposes checked binary programs through explicit host callbacks, with bounded IO and structured transport failures; checked frame validation is tested without process stdio.
 An internal [binary transport pilot](docs/io-binary.md) preserves arbitrary bytes
 through hosted/native stdio, with explicit budgets and checked flush. It is not
 a self-hosted LSP runtime. A first [Fibril-written frame echo](docs/binary-framing.md)

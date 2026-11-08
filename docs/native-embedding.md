@@ -39,7 +39,9 @@ int main(void) {
 
 This example intentionally chooses stdout; the embedding runtime itself does
 not access process stdio. Only ordinary `emit-c` supplies this generated entry.
-Interactive, resource and binary runners keep their existing APIs and gates.
+Interactive and resource runners keep their existing APIs and gates. Binary
+programs now have a separate [binary embedding entry](binary-embedding.md), with
+incremental IO and explicitly different failure semantics.
 Link one generated program per image: emitted global/entry names are not yet
 namespaced for linking independently generated applications together.
 

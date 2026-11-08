@@ -3,7 +3,7 @@ IDRIS2 ?= '$(CURDIR)/tools/fibril_idris.py'
 TEST_JOBS ?= 4
 
 .PHONY: prelude prelude-check build unit-test test io-test io-hosted-test io-runtime-test io-resource-runtime-test io-resource-emitter-test io-emitter-test io-interactive-test io-binary-test io-binary-bench io-cli-test native-test region-test native-pair-test bytes-native-test binary-source-test binary-iteration-test binary-count-test binary-runtime-test binary-scale-test binary-number-test binary-number-bench json-oracle-test json-sharing-probe json-iteration-test lsp-lifecycle-test framing-test header-iteration-test editor-test lsp-test examples bench bench-smoke composed-bench python-embed-test docs handbook serve-docs clean cubical-source-test
-.PHONY: host-compiler-test native-embedding-test native-embedding-generated-test
+.PHONY: host-compiler-test native-embedding-test native-embedding-generated-test binary-embedding-test binary-embedding-generated-test
 prelude:
 	python3 tools/embed_prelude.py
 
@@ -23,6 +23,12 @@ native-embedding-test:
 
 native-embedding-generated-test: build
 	CC="$(CC)" python3 tools/test_native_embedding_generated.py
+
+binary-embedding-test:
+	CC="$(CC)" python3 tools/test_binary_embedding.py
+
+binary-embedding-generated-test: build
+	CC="$(CC)" python3 tools/test_binary_embedding_generated.py
 
 cubical-source-test: build
 	python3 tools/test_cubical_frontend.py

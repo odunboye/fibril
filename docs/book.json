@@ -258,6 +258,10 @@
         "path": "docs/native-embedding.md"
       },
       {
+        "title": "Bounded binary host embedding",
+        "path": "docs/binary-embedding.md"
+      },
+      {
         "title": "Native variable-argument forwarding",
         "path": "docs/native-variable-forwarding.md"
       },
