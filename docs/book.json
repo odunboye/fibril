@@ -395,6 +395,10 @@
         "path": "docs/common-admission.md"
       },
       {
+        "title": "Experimental cubical source",
+        "path": "docs/cubical-source.md"
+      },
+      {
         "title": "Quantitative cubical rules",
         "path": "docs/quantitative-cubical-rules.md"
       },
