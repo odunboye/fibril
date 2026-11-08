@@ -80,8 +80,10 @@ Recursive function equations are accepted when structural, or when the
 [size-change check](docs/function-equations.md#general-recursion) proves them terminating.
 
 The first [application target is a transactional-email service](docs/applications/transactional-email.md),
-with a checked relay-submission model. Network/TLS/storage, C deployment and the
-web/mobile UI are not implemented; application blockers remain explicit.
+with a checked relay-submission model. Network/TLS/storage integration, C deployment and the
+web/mobile UI are not implemented; application blockers remain explicit. An optional
+[trusted SQLite enqueue adapter](docs/durable-queue.md) now provides durable,
+tenant-scoped idempotency, but is not yet wired into the Fibril application.
 
 Create a runnable console project with `fibril new mailer` (or preview using
 `--dry-run`); see [project creation](docs/project-creation.md). This offline scaffold

@@ -44,6 +44,11 @@ responsibilities that a type system cannot discharge alone.
 Dashed components are not implemented; the solid model is a checked pure
 prototype, not a deployed worker.
 
+An optional [trusted SQLite enqueue store](../durable-queue.md) now provides
+bounded binary requests, tenant-scoped idempotency and process-exit recovery tests.
+It is not connected to this model or the binary protocol, and adds no source-level
+database, authentication, SMTP or deployed-worker capability yet.
+
 ## Confirmed product decisions
 
 - The remote relay is Postfix; use SMTP submission, not an added HTTPS relay API.

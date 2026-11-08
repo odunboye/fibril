@@ -262,6 +262,10 @@
         "path": "docs/binary-embedding.md"
       },
       {
+        "title": "Single-node durable enqueue store",
+        "path": "docs/durable-queue.md"
+      },
+      {
         "title": "Native variable-argument forwarding",
         "path": "docs/native-variable-forwarding.md"
       },

@@ -27,6 +27,7 @@ The generated homepage separates teaching chapters, references, and project reco
 - [Experimental checked C emission](native-c.md): compile a supported console subset without precomputing output.
 - [Native host embedding](native-embedding.md): explicit output callbacks, structured results and per-run cleanup for checked console programs.
 - [Binary host embedding](binary-embedding.md): bounded request/response callbacks, structured transport failures and checked framing validation.
+- [Single-node durable enqueue](durable-queue.md): optional trusted SQLite storage, tenant-scoped idempotency and process-exit recovery; not yet a Fibril source primitive.
 - [Abstract size-change certificates](size-change-certificates.md): a bounded graph-level checker that also admits core `Fix` terms; not a mechanized termination proof.
 - [Recursive group core and design](recursive-groups-design.md): raw syntax, restricted Nat/Bool checking and isolated fuelled reference execution; source and ordinary evaluation remain unintegrated.
 

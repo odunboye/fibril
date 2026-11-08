@@ -25,6 +25,24 @@ defaults:
     shell: bash
 
 jobs:
+  queue-runtime:
+    name: Optional SQLite queue boundary
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install SQLite development tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends build-essential libsqlite3-dev pkg-config python3
+      - name: Test queue persistence and fault boundaries
+        run: make queue-test
+      - name: Test queue with sanitizers
+        run: make queue-test CC='cc -fsanitize=address,undefined -fno-omit-frame-pointer'
+
   clean-build:
     name: Clean build and regression checks
     runs-on: ubuntu-24.04
