@@ -224,7 +224,7 @@ mutual
   walk info k env (Apply f x) = do
     ex <- walk info k env x
     walkApp info k env f [argRow k env x] (literalOf x) ex
-  walk info _ _ other = Left ("unsupported term form in a recursive body: " ++ pack (take 48 (unpack (renderTerm other))))
+  walk info _ _ other = Left ("unsupported term form in a recursive body (matching is limited to Nat, the fixed recursive shapes and general recursive data): " ++ pack (take 48 (unpack (renderTerm other))))
 
   -- The rows of a partial application of the recursive function (or of an alias to one),
   -- with the calls nested in its arguments; Nothing when the head is something else.

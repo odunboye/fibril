@@ -98,8 +98,8 @@ clauseSelfReference budget end name = scan []
 clauseArm : Nat -> String -> Position -> Bool -> List Token -> Expr -> List Token ->
             Either ParseError (Token, List Token, Expr)
 clauseArm budget function end parenthesized arguments body bodyTokens = do
-  if any (\t => t.kind == Name && t.spelling == function) arguments || clauseSelfReference budget end function bodyTokens
-    then Left (ParseFailure (extent body).start "Recursive function clauses are not supported") else Right ()
+  if any (\t => t.kind == Name && t.spelling == function) arguments
+    then Left (ParseFailure (extent body).start "A clause pattern may not bind the function's own name") else Right ()
   case (parenthesized, arguments) of
     (True, constructor :: binders) => Right (constructor, binders, body)
     (False, [constructor]) => Right (constructor, [], body)

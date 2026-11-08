@@ -3042,6 +3042,36 @@ main = first Zero
                                 + body + '\n' + main)
                 self.assertNotEqual(refused.returncode, 0, body)
                 self.assertIn('no argument decreases', refused.stderr)
+            # Clause equations recurse over a family exactly like the case form.
+            clauses = ('marks : (t : Tree) -> String\nmarks Leaf = "."\n'
+                       'marks (Node l r) = appendString (marks l) (marks r)\n')
+            by_clauses = check(tree + clauses + main, 'run')
+            self.assertEqual((by_clauses.returncode, by_clauses.stdout), (0, '...\n'), by_clauses.stderr)
+            clause_rose = ('module Main\n\ndata Rose (0 A : Type) : Type where\n  Bud : (value : A) -> Rose A\n'
+                           '  Branch : (value : A) -> (first : Rose A) -> (second : Rose A) -> Rose A\n\n'
+                           'size : (t : Rose Nat) -> String\nsize (Bud v) = "b"\n'
+                           'size (Branch v a b) = appendString "n" (appendString (size a) (size b))\n\n'
+                           'main : IO Unit\nmain = putStrLn (size (Branch Nat Zero (Bud Nat Zero) (Bud Nat Zero)))\n')
+            rose_clauses = check(clause_rose, 'run')
+            self.assertEqual((rose_clauses.returncode, rose_clauses.stdout), (0, 'nbb\n'), rose_clauses.stderr)
+            # A recursive clause that does not shrink is refused by the termination gate.
+            for call in ('marks (Node l r)', 'marks (Node r l)'):
+                spinning = check(tree + 'marks : (t : Tree) -> String\nmarks Leaf = "."\n'
+                                 'marks (Node l r) = ' + call + '\n' + main)
+                self.assertNotEqual(spinning.returncode, 0, call)
+                self.assertIn('no argument decreases', spinning.stderr)
+            # A clause pattern may not bind the function's own name.
+            named = check(tree + 'marks : (t : Tree) -> String\nmarks Leaf = "."\n'
+                          'marks (Node marks r) = "x"\n' + main)
+            self.assertNotEqual(named.returncode, 0)
+            self.assertIn("own name", named.stderr)
+            # Recursion through a type the extractor cannot see is refused with a hint.
+            flag = ('module Main\n\ndata Flag : Type where\n  On : Flag\n  Off : Flag\n\n'
+                    'spin : (f : Flag) -> String\nspin On = "on"\nspin Off = spin Off\n\n'
+                    'main : IO Unit\nmain = putStrLn "x"\n')
+            refused_flag = check(flag)
+            self.assertNotEqual(refused_flag.returncode, 0)
+            self.assertIn('general recursive data', refused_flag.stderr)
             # A recursive field under a function type is not strictly positive.
             negative = check('module Main\n\ndata Bad : Type where\n  Leaf : Bad\n'
                              '  Wrap : (child : (n : Nat) -> Bad) -> Bad\n\nmain : IO Unit\nmain = putStrLn "x"\n')
