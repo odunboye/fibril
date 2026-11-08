@@ -70,10 +70,11 @@ scripts, or rewrites the lock implicitly.
 
 ## Open questions
 
-1. **SHA-256 in Idris.** [workspaces.md](workspaces.md) requires "maintained
-   SHA-256 support". None is pinned in `pack.toml` yet. Candidates are a pack
-   collection library, or a small FFI to the native runtime already linked in
-   `runtime/native`. This is the main blocker and needs a decision before code.
+1. **SHA-256 in Idris. Resolved.** `Fibril.Project.Digest.sha256Hex` wraps the
+   collection-pinned `sha` package (C implementation, installed by `pack`; its
+   build hook only compiles two C files, but `pack` asks for confirmation).
+   Checked against the FIPS 180-4 vectors in `Tests.Digest`. It takes a
+   `List Bits8`, so large inputs are slow; fine for source files.
 2. **Line endings.** Hash raw bytes (a CRLF checkout changes the digest, which
    is strict but surprising) or normalize. Recommendation: raw bytes, documented.
 3. **Symlinks.** Recommendation: reject a symlink inside `source-dir`, matching
