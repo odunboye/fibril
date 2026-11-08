@@ -16,7 +16,8 @@ The generated homepage separates teaching chapters, references, and project reco
 
 ## Reference index
 
-- [Cubical alignment](cubical-alignment.md): first checked-path milestone and quantitative safeguards.
+- [Frozen cubical experiment contract](cubical-experiment-contract.md): authoritative Common Path v0 scope, module roles, proof gaps and next admission gate.
+- [Cubical alignment](cubical-alignment.md): historical roadmap, first checked-path milestone and quantitative safeguards.
 - [Quantitative cubical rules](quantitative-cubical-rules.md): proposed general-path judgments, runtime firewall and execution gates.
 - [Declarative logical paths](typed-logical-paths.md): isolated path typing rules and their limitations.
 - [Verified DNF reduction](verified-dnf-reduction.md): an isolated semantically preserving reduction candidate.
@@ -90,6 +91,7 @@ The generated homepage separates teaching chapters, references, and project reco
 
 - [Reference benchmarks](benchmarks.md): reproducible exploratory measurements and limits.
 - [Composed workloads](composed-workloads.md): shared-graph checking, native work/allocation counters and failure thresholds.
+- [Native variable forwarding](native-variable-forwarding.md): measured lazy-cell reuse, ownership contract and JSON work/allocation reduction.
 
 - [Safety and performance](safety-performance.md): present safeguards, risks, and planned benchmarks.
 - [Lessons from Zig](zig-lessons.md): allocation, errors, cleanup, specialization, and target design.

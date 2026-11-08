@@ -24,6 +24,13 @@ def instrument(directory):
         operation = re.search(r'return (f_\w+)\(', body)
         assert operation, body
         operations[name] = operation[1]
+    # Shared globals enter public wrappers that directly call an expression.
+    # Attribute that evaluator entry to the wrapped expression's operation;
+    # the direct C call does not itself spend another evaluator entry.
+    wrappers = re.findall(r'FValue \*(fibril_global_\d+)\(FRuntime \*r, FEnv \*e\) \{ \(void\)e; return (fibril_expr_\d+)\(r, NULL\); \}', text)
+    for wrapper, expression in wrappers:
+        assert expression in operations, expression
+        operations[wrapper] = operations[expression]
     labels = sorted(set(operations.values()))
     text += '\n/* OFFLINE counter-only evaluator attribution. */\n'
     text += 'int audit_operation(FEval code) {\n'
@@ -50,7 +57,8 @@ def instrument(directory):
     declarations = ('extern int audit_operation(FEval);\n'
                     f'static size_t audit_steps[{len(step_labels)}];\n'
                     f'static size_t audit_allocations[{len(sites)}], audit_bytes[{len(sites)}];\n'
-                    'static size_t audit_values[64];\n')
+                    'static size_t audit_values[64];\n'
+                    f'static size_t audit_arguments[{len(labels) + 1}];\n')
     text = replace_once(text, 'static void *allocate(FRuntime *r, size_t size) {',
                         declarations + 'static void *audit_allocate(FRuntime *r, size_t size, const char *site) {')
     record = ''
@@ -60,6 +68,8 @@ def instrument(directory):
                         record + '  return (void *)(p + 1);\n}\n#define allocate(r, size) audit_allocate(r, size, __func__)')
     text = replace_once(text, '  FValue *result = code(r, env);',
                         '  audit_steps[audit_operation(code)]++;\n  FValue *result = code(r, env);')
+    text = replace_once(text, 'FValue *f_apply(FRuntime *r, FEnv *env, FEval function, FEval argument) {',
+                        'FValue *f_apply(FRuntime *r, FEnv *env, FEval function, FEval argument) {\n  audit_arguments[audit_operation(argument)]++;')
     for function in ('byte_work', 'evaluate_fold', 'plan', 'interact'):
         # Signature may span lines: only change the unique successful enter in its body.
         pattern = re.compile(r'(\b' + function + r'\([^;{}]*\) \{\n  if \(!enter\(r\)\) return (?:0|NULL);)')
@@ -89,6 +99,9 @@ def instrument(directory):
     printing += '  fprintf(stderr, "},\\\"values\\\":{");\n'
     for i, label in enumerate(tags):
         printing += f'  fprintf(stderr, "{"," if i else ""}\\\"{label}\\\":%zu", audit_values[{i}]);\n'
+    printing += '  fprintf(stderr, "},\\\"application_arguments\\\":{");\n'
+    for i, label in enumerate(labels + ['unmapped_argument']):
+        printing += f'  fprintf(stderr, "{"," if i else ""}\\\"{label}\\\":%zu", audit_arguments[{i}]);\n'
     printing += '  fprintf(stderr, "}}\\n");\n'
     text = replace_once(text, '  return binary_finish(&runtime, &context, status);',
                         printing + '  return binary_finish(&runtime, &context, status);')

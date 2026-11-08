@@ -47,8 +47,9 @@ and runtime quantity analysis. Every module/package declaration must pass
 admission; complete reachable signatures/bodies are also scanned for backend
 capabilities and counted before emission.
 
-The generated C contains a function for each supported core subterm, not a list
-of precomputed output strings. Arguments are lazy memoized thunks; closures keep
+The generated C computes supported core terms at native runtime. Arguments are
+lazy memoized thunks; [variable-argument forwarding](native-variable-forwarding.md)
+reuses an existing cell for direct variable arguments. Closures keep
 a slot for every binder. An erased binder receives an unforceable sentinel, and
 forcing it is a runtime error. The runtime uses the checked closure's quantity;
 this is an implementation choice backed by tests, **not a proved erasure or

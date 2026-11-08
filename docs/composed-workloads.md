@@ -80,6 +80,11 @@ No timing threshold is enforced by tests. These counters are not ownership proof
 
 ## Local findings
 
+These rows describe the original shared-global baseline. The later
+[variable-forwarding profile and optimization](native-variable-forwarding.md)
+reduce JSON evaluator work/allocation with unchanged limits; those measurements
+are recorded separately.
+
 Measured 2026-11-07 on macOS 27.2 arm64, Idris 2 `0.8.0-74b33730b`, Apple clang
 21.0.0, at compiler revision `e7a7d35`. The measurement tools/docs were dirty;
 compiler/runtime source matched that revision. Three fresh samples per timed

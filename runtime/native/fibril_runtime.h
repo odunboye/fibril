@@ -41,6 +41,9 @@ FValue *f_lambda(FRuntime *r, FEnv *env, int erased, FEval body);
    checker's size-change admission; the runtime only ties the knot. */
 FValue *f_fix(FRuntime *r, FEnv *env, FEval body);
 FValue *f_apply(FRuntime *r, FEnv *env, FEval function, FEval argument);
+/* Checked variable arguments already name a lazy thunk. Forward that thunk
+   without forcing it or changing its allocation owner. Erased calls skip lookup. */
+FValue *f_apply_variable(FRuntime *r, FEnv *env, FEval function, size_t index);
 FValue *f_append(FRuntime *r, FEnv *env, FEval left, FEval right);
 /* Trusted literal storage must remain immutable/alive through the run. */
 FValue *f_bytes_literal(FRuntime *r, const unsigned char *bytes, size_t length);

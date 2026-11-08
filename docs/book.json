@@ -383,6 +383,10 @@
         "path": "docs/cubical-alignment.md"
       },
       {
+        "title": "Frozen cubical experiment contract",
+        "path": "docs/cubical-experiment-contract.md"
+      },
+      {
         "title": "Quantitative cubical rules",
         "path": "docs/quantitative-cubical-rules.md"
       },

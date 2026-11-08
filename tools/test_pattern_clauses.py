@@ -295,5 +295,57 @@ main = True
         result = self.run_source(source)
         self.assertNotEqual(result.returncode, 0, result.stdout)
 
+    COLOR = '''module Main
+data Color : Type where
+  Red : Color
+  Green : Color
+  Blue : Color
+data Shape : Type where
+  Circle : (radius : Nat) -> Shape
+  Empty : Shape
+'''
+
+    def test_data_catch_all_wildcard_and_name(self):
+        cases = [
+            ('isRed : Color -> Bool\nisRed Red = True\nisRed other = False', 'isRed Green', 'False'),
+            ('isRed : Color -> Bool\nisRed Red = True\nisRed other = False', 'isRed Red', 'True'),
+            ('f : Color -> Bool\nf Blue = False\nf _ = True', 'f Green', 'True'),
+            ('f : Color -> Bool\nf Blue = False\nf _ = True', 'f Blue', 'False'),
+            ('f : Shape -> Bool\nf Empty = True\nf _ = False', 'f (Circle Zero)', 'False'),
+            ('f : Shape -> Bool\nf Empty = True\nf _ = False', 'f Empty', 'True'),
+            ('f : Shape -> Shape\nf Empty = Empty\nf s = s', 'f (Circle Zero)', 'Inject (Variant  (payload unrestricted Nat) nullary) 0 Zero'),
+        ]
+        for definition, expression, expected in cases:
+            with self.subTest(definition=definition, expression=expression):
+                result = self.run_source(self.COLOR + definition + '\nmain : ' +
+                                         ('Shape' if 'Shape -> Shape' in definition else 'Bool') +
+                                         '\nmain = ' + expression + '\n')
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn(expected, result.stdout)
+
+    def test_data_catch_all_rejections(self):
+        cases = [
+            # every constructor already matched
+            'f : Color -> Bool\nf Red = True\nf Green = True\nf Blue = True\nf _ = False',
+            # a linear payload cannot be dropped by a wildcard
+            'f : (1 value : Sum Bool Bool) -> Bool\nf Left x = x\nf _ = True',
+            # a catch-all must come last, and must not be followed by a constructor
+            'f : Color -> Bool\nf other = True\nf Red = False',
+            # the catch-all result must still match the declared type
+            'f : Color -> Bool\nf Red = True\nf other = other',
+        ]
+        for definition in cases:
+            with self.subTest(definition=definition):
+                result = self.run_source(self.COLOR + DATA.split('\n', 1)[1] + definition + '\nmain : Bool\nmain = True\n')
+                self.assertNotEqual(result.returncode, 0, result.stdout)
+
+    def test_nat_wildcard_catch_all(self):
+        for value, expected in (('Zero', 'True'), ('Succ Zero', 'False')):
+            with self.subTest(value=value):
+                result = self.run_source('module Main\nisZero : Nat -> Bool\nisZero Zero = True\nisZero _ = False\n'
+                                         'main : Bool\nmain = isZero (' + value + ')\n')
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn('Normal: ' + expected, result.stdout)
+
 if __name__ == '__main__':
     unittest.main()

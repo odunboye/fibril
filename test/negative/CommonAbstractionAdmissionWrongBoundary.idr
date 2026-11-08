@@ -1,0 +1,4 @@
+module CommonAbstractionAdmissionWrongBoundary
+import CommonAbstractionAdmissionFixture
+bad : Result STop -> AdmittedCanonicalAbstractionInput [] CommonAbstractionAdmissionFixture.rawDeclarations STop CommonAbstractionAdmissionFixture.rightRaw CommonAbstractionAdmissionFixture.rightRaw CommonAbstractionAdmissionFixture.bodyRaw LBool
+bad input = input
