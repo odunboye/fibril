@@ -1321,7 +1321,8 @@ compileMutualGlobals shared snapshot moduleName globals group remaining = do
   ty1 <- signature group.second
   let value0 = planned.firstValue
   let value1 = planned.secondValue
-  if nodes ty0 + nodes ty1 + nodes value0 + nodes value1 > reservation
+  let constructed = nodes ty0 + nodes ty1 + nodes value0 + nodes value1
+  if constructed > reservation
     then Left (problem snapshot Nothing "Internal mutual construction reservation was insufficient") else Right ()
   checked group.first value0 ty0
   checked group.second value1 ty1
@@ -1336,7 +1337,7 @@ compileMutualGlobals shared snapshot moduleName globals group remaining = do
   let two = { global := sharedGlobal (S firstKey) (definition group.second ty1 value1).global } (definition group.second ty1 value1)
   let sites = [StructuralSite snapshot.path (callToken planned.firstCall) (if planned.firstTarget then group.first.definitionNameSpan else group.second.definitionNameSpan),
                StructuralSite snapshot.path (callToken planned.secondCall) (if planned.secondTarget then group.first.definitionNameSpan else group.second.definitionNameSpan)]
-  Right (Definitions [one, two] (if group.exported then [qualify one, qualify two] else []) sites (minus remaining reservation) next1)
+  Right (Definitions [one, two] (if group.exported then [qualify one, qualify two] else []) sites (minus remaining constructed) next1)
   where
     signature : Declaration -> Either GraphError (Term 0)
     signature decl = case elaborateSignatureWithGlobals (erasedGlobals shared) False (map global globals) (Just Empty) [] decl.expected of
@@ -1447,7 +1448,8 @@ compileDeclarationsGlobals shared snapshot name globals (Single decl :: rest) re
               -- definition does. This is the error that is actually about the program.
               Left bound => Left ({ stage := if bound.elaborating then "elaboration" else "resolution" }
                                    (problem snapshot (Just bound.position) (show bound ++ mutualHint decl)))
-  if nodes ty + nodes value > estimate
+  let constructed = nodes ty + nodes value
+  if constructed > estimate
      then Left (problem snapshot Nothing "Internal module expansion estimate was insufficient")
      else Right ()
   let key = length (globalDeclarations (erasedGlobals shared))
@@ -1464,7 +1466,11 @@ compileDeclarationsGlobals shared snapshot name globals (Single decl :: rest) re
   let definition = sharedGlobal key (GlobalEntry (if provider then Just identity else Nothing) (Just identity) implicitPrefix decl.quantity decl.name ty value)
   let local = weighted definition
   let qualified = Weight ({ name := identity } definition) local.size
-  following <- compileDeclarationsGlobals next snapshot name (local :: qualified :: globals) rest (minus remaining estimate)
+  -- The estimate reserves room before construction; it is not emitted syntax.
+  -- Commit the independently size-checked signature/body once, releasing unused
+  -- reservation. Thus prior emitted nodes + the next reservation must still fit
+  -- the same project allowance, including across imports and unused globals.
+  following <- compileDeclarationsGlobals next snapshot name (local :: qualified :: globals) rest (minus remaining constructed)
   let ownSites = case recursive of
         Just _ => structuralSites snapshot decl
         Nothing => map (\call => StructuralSite snapshot.path call.span decl.definitionNameSpan)
