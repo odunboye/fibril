@@ -153,7 +153,10 @@ mutual
     let full = joinPath dir name
     let relName = if rel == "" then name else rel ++ "/" ++ name
     isDir <- isDirectoryPath full
-    Right here <- if not (isDir || isSuffixOf ".fib" name) then pure (Right (the (List (String, List Bits8)) [])) else do
+    -- Tool and VCS directories (as in the LSP's ignore set) are not package sources;
+    -- module directories are capitalized, so these lowercase names never hold modules.
+    let skipped = isDir && (isPrefixOf "." name || elem name ["build", "node_modules", "__pycache__", "dist", "target"])
+    Right here <- if skipped || not (isDir || isSuffixOf ".fib" name) then pure (Right (the (List (String, List Bits8)) [])) else do
           Right canonical <- exactCanonical full | Left err => failure err
           if canonical /= full then failure ("Symlink or alias in package source tree: " ++ full)
              else if isDir then walkSources depth full relName
@@ -221,7 +224,8 @@ loadLocalInventory path = do
 
 ||| fibril lock [--update]: write the lock beside the entry manifest. An existing
 ||| lock is replaced only with update, through a temporary file and rename.
-||| shortcut: a stale fibril.lock.tmp from a crash blocks the next write until removed.
+||| shortcut: no fsync before the rename, so after power loss the lock may be empty
+||| (then rejected as malformed and regenerated with --update).
 public export
 writeLock : (update : Bool) -> String -> IO (Either String (List String))
 writeLock update path = do
@@ -229,10 +233,14 @@ writeLock update path = do
   Right current <- currentLock inventory | Left err => failure err
   let target = lockPathFor inventory
   recorded <- readLock target
+  let temporary = target ++ ".tmp"
   let write : IO (Either String ())
       write = do
-        Right () <- freshFile (target ++ ".tmp") (encodeLock current) | Left err => failure err
-        Right () <- renamePath (target ++ ".tmp") target | Left err => failure err
+        _ <- removeFile temporary -- a stale temporary from a crash is ours; never let it block locking
+        Right () <- freshFile temporary (encodeLock current) | Left err => failure err
+        Right () <- renamePath temporary target | Left err => do
+          _ <- removeFile temporary
+          failure err
         pure (Right ())
   case recorded of
     Right Nothing => do

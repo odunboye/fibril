@@ -8976,6 +8976,35 @@ class LockfileTests(unittest.TestCase):
         replaced = run('lock', '--update', cwd=app)
         self.assertEqual(replaced.returncode, 0)
 
+    def test_stale_temporary_and_tool_directories_do_not_break_locking(self):
+        app, core = self.project()
+        (app / 'fibril.lock.tmp').write_text('left behind by a crash')
+        self.assertEqual(run('lock', cwd=app).returncode, 0)
+        self.assertFalse((app / 'fibril.lock.tmp').exists())
+        # Tool directories are not package sources, even with a symlink inside.
+        (core / 'src/build').mkdir()
+        os.symlink(core / 'fibril.yaml', core / 'src/build/alias')
+        (core / 'src/.cache').mkdir()
+        (core / 'src/.cache/junk.fib').write_text('not part of the package')
+        checked = run('check', cwd=app)
+        self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
+
+    def test_test_package_is_outside_the_parent_lock_but_has_its_own(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            self.assertEqual(run('new', 'email-core', '--lib', '--module-prefix', 'Email.Core', cwd=root).returncode, 0)
+            project = root / 'email-core'
+            self.assertEqual(run('lock', cwd=project).returncode, 0)
+            self.assertNotIn('"test"', (project / 'fibril.lock').read_text())  # not part of the parent's closure
+            suite = project / 'test/src/TestSuite/Suite.fib'
+            suite.write_text(suite.read_text() + '\n')  # editing the suite does not drift the parent lock
+            self.assertIn('Tests: passed', run('test', cwd=project).stdout)
+            # A lock beside the test package is verified when it is the entry being tested.
+            (project / 'test/fibril.lock').write_text('hand-edited')
+            failed = run('test', cwd=project)
+            self.assertNotEqual(failed.returncode, 0)
+            self.assertIn('fibril.lock', failed.stdout + failed.stderr)
+
     def test_symlinks_in_source_trees_are_rejected(self):
         app, core = self.project()
         os.symlink(core / 'src/Email/Core/Status.fib', core / 'src/Email/Core/Alias.fib')

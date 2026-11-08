@@ -26,6 +26,10 @@ MAX_FILE = 65536
 MAX_FILES = 1024
 MAX_SNAPSHOT = 8 * 1024 * 1024
 COORDINATES = "unicode-scalars;offset=0;line=1;column=1"
+# Reserved words of src/Fibril/Source/Lexer.idr; test_lsp.py fails if the lexer's table drifts from this.
+KEYWORDS = {"String", "Type", "Unit", "Bool", "True", "False", "if", "then", "else", "do", "case", "of", "let", "in",
+            "projection", "return", "data", "record", "interface", "mutual", "implementation", "constructor",
+            "eliminator", "where", "module", "import", "export"}
 IGNORED = {".git", "build", "node_modules", "__pycache__", ".venv", ".cache", "dist", "target"}
 
 
@@ -639,8 +643,10 @@ class Server:
                 offset = mapper.offset(position)
                 prefix = re.search(r"[A-Za-z0-9_']*$", doc.text[:offset]).group(0)
                 names = {symbol["name"] for symbol in snapshot.call(["symbols", path])["symbols"]}
-                prelude = Path(self.binary).resolve().parents[2] / "stdlib" / "Prelude.fib"
-                if prelude.is_file() and prelude != doc.path:
+                # This script lives in <checkout>/tools; also try the layout <checkout>/build/exec/fibril.
+                candidates = [Path(__file__).resolve().parents[1], *Path(self.binary).resolve().parents[2:3]]
+                prelude = next((root / "stdlib" / "Prelude.fib" for root in candidates if (root / "stdlib" / "Prelude.fib").is_file()), None)
+                if prelude and prelude != doc.path:
                     names |= {symbol["name"] for symbol in snapshot.call(["symbols", prelude])["symbols"]}
                 return {"isIncomplete": False, "items": [{"label": name, "kind": 3} for name in sorted(names) if name.startswith(prefix)]}
             if method == "textDocument/definition":
@@ -707,9 +713,13 @@ class Server:
             by_file.setdefault(location["uri"], []).append({"range": span, "newText": name})
         if len(old) != 1 or not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", next(iter(old))):
             raise LSPError(-32803, "Project rename supports plain identifiers only; occurrences disagree or are qualified")
-        # Conservative capture guard: the compiler cannot capture-check across files, so refuse any file already using newName.
-        if any(re.search(rf"(?<![A-Za-z0-9_']){name}(?![A-Za-z0-9_'])", snapshot.text(uri_path(uri))) for uri in by_file):
-            raise LSPError(-32803, f"Rename refused: {name} already appears in an affected file")
+        if name in KEYWORDS:
+            raise LSPError(-32803, f"Rename refused: {name} is a reserved word")
+        # Conservative capture guard: the compiler cannot capture-check across files, so refuse
+        # if newName appears in ANY workspace source (an importer may use it without using the old name).
+        pattern = re.compile(rf"(?<![A-Za-z0-9_']){name}(?![A-Za-z0-9_'])")
+        if any(pattern.search(snapshot.text(path)) for path in snapshot.data if path.suffix == ".fib"):
+            raise LSPError(-32803, f"Rename refused: {name} already appears in a workspace source file")
         docs = {document.uri: document.version for document in view.documents.values()}
         return {"documentChanges": [{"textDocument": {"uri": uri, "version": docs.get(uri)}, "edits": edits} for uri, edits in by_file.items()]}
 

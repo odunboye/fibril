@@ -68,6 +68,19 @@ trailing newline. `Fibril.Project.Lock.encodeLock` implements exactly this.
 | any package command (bare or `--package`) | proceeds silently, unchanged | verifies; any mismatch is an error naming the package and which digest differs |
 | same, with `--locked` | error | as above (**not implemented**; a missing lock is silently accepted) |
 
+**Not hashed:** directories named `build`, `node_modules`, `__pycache__`, `dist`,
+`target` or starting with `.` (module directories are capitalized, so none holds
+modules); symlinks inside them are ignored. **Test packages** are outside the parent
+lock's closure: editing a test package does not drift the parent lock, and a lock
+beside a test package is verified only when that package is the entry (for example
+during `fibril test`).
+
+**Known limitations (accepted, from review):** a `fibril.lock` that is a dangling
+symlink reads as "no lock" (verification skipped) and `fibril lock` writes through
+it; the lock is renamed into place without an fsync; and commands that load the
+closure more than once (such as `fibril test` with a test package) verify more than
+once, repeating the hashing cost below.
+
 **Cost:** every package command re-hashes every package's `*.fib` files whenever a
 lock exists. Measured throughput is about 5 MB/s (list-based SHA-256): about 10 ms
 extra on the mailer example, 1.1 s for 6 MB. The admission caps allow up to 128 MB
