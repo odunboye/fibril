@@ -1,0 +1,8 @@
+-- Word is an unsigned 64-bit machine integer; arithmetic wraps modulo 2^64.
+-- Literals use a `w` suffix. Plain numerals remain unary Nat.
+mix : (seed : Word) -> Word
+mix seed = primWordAdd (primWordMul seed 1000000007w) 998244353w
+
+-- Wraps: 0 - 1 is the largest Word, so this comparison is True.
+main : Bool
+main = primWordLt (mix 3w) (primWordSub 0w 1w)

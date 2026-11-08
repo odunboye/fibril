@@ -43,6 +43,9 @@ unfoldOne (BoxValue ty x) = map (BoxValue ty) (unfoldOne x)
 unfoldOne (VariantValue ty tag (Just x)) = map (VariantValue ty tag . Just) (unfoldOne x)
 unfoldOne (IOPure x) = map IOPure (unfoldOne x)
 unfoldOne (IOBind a b action next) = map (\x => IOBind a b x next) (unfoldOne action)
+unfoldOne (Prim op [a]) = map (\x => Prim op [x]) (unfoldOne a)
+unfoldOne (Prim op [a, b]) =
+  orElse (map (\x => Prim op [x, b]) (unfoldOne a)) (map (\y => Prim op [a, y]) (unfoldOne b))
 unfoldOne (StringAppend a b) =
   orElse (map (\x => StringAppend x b) (unfoldOne a)) (map (StringAppend a) (unfoldOne b))
 unfoldOne (StringEqual a b) =

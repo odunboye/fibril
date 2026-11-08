@@ -219,6 +219,7 @@ mutual
     Right (Output n generated.next (code :: generated.definitions))
   generate globals mode n (Apply function argument) = binary globals mode n "f_apply" function argument
   generate globals mode n (StringAppend left right) = binary globals mode n "f_append" left right
+  generate globals mode n (Prim _ _) = Left "C backend does not yet support Word primitives"
   generate globals mode n (StringEqual left right) = binary globals mode n "f_string_equal" left right
   generate globals mode n (BoolCase condition yes no) = ternary globals mode n "f_bool_case" condition yes no
   generate globals mode n (NominalValue _ value) = unary globals mode n "f_nominal" value

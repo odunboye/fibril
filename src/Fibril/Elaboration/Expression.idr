@@ -1209,6 +1209,8 @@ mutual
   -- A numeric literal denotes the built-in Nat value directly, never the names Zero/Succ,
   -- so a user binding of those names cannot change what a literal means.
   elaborateInWithGlobals shared globals context env (NNatValue span value) = Right (naturalTerm value)
+  elaborateInWithGlobals shared globals context env (NWordValue span value) =
+    if value >= wordModulus then Left (CannotElaborate span.start "Word literal exceeds 2^64-1") else Right (wordTerm value)
   elaborateInWithGlobals shared globals context env (NBoolType span) = Right BoolType
   elaborateInWithGlobals shared globals context env (NBoolValue span True) = Right BoolTrue
   elaborateInWithGlobals shared globals context env (NBoolValue span False) = Right BoolFalse

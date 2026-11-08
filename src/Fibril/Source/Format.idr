@@ -26,7 +26,10 @@ separator previous next =
   if previous.kind == Dot || next.kind == Dot || next.kind == Comma ||
      previous.kind == OpenParen || next.kind == CloseParen ||
      previous.kind == DictionaryOpen || previous.kind == OpenBrace || next.kind == CloseBrace ||
-     (previous.kind == Lambda && next.kind == OpenParen)
+     (previous.kind == Lambda && next.kind == OpenParen) ||
+     -- `5w` is one Word literal: the suffix must stay attached to its digits.
+     (previous.kind == Number && next.kind == Name && next.spelling == "w" &&
+      previous.span.finish.offset == next.span.start.offset)
      then [] else [' ']
 
 quoteState : TokenKind -> (Bool, List Bool) -> (Bool, List Bool)

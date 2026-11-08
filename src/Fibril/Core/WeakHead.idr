@@ -59,6 +59,10 @@ stepHeadWithGlobals globals (BoolCase BoolTrue yes no) = pure (Just yes)
 stepHeadWithGlobals globals (BoolCase BoolFalse yes no) = pure (Just no)
 stepHeadWithGlobals globals (BoolCase condition yes no) =
   mapStep (\next => BoolCase next yes no) (stepHeadWithGlobals globals condition)
+stepHeadWithGlobals globals (Prim op args) =
+  case evalPrim op args of
+    Just value => pure (Just value)
+    Nothing => mapStep (Prim op) (stepTermsWithGlobals globals args)
 stepHeadWithGlobals globals (NominalCase motive (NominalValue ty value) branch) = pure (Just (Apply branch value))
 stepHeadWithGlobals globals (NominalCase motive value branch) = mapStep (\next => NominalCase motive next branch) (stepHeadWithGlobals globals value)
 stepHeadWithGlobals globals (DataCase key motive value branches) =

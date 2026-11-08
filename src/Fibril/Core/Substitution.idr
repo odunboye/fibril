@@ -72,6 +72,7 @@ mutual
   substituteCongruent left right agree (WithInputFile result path body) = rewrite substituteCongruent left right agree result in rewrite substituteCongruent left right agree path in rewrite substituteCongruent left right agree body in Refl
   substituteCongruent left right agree (IOType value) = cong IOType (substituteCongruent left right agree value)
   substituteCongruent left right agree (FileHandleType region) = cong FileHandleType (substituteCongruent left right agree region)
+  substituteCongruent left right agree (Prim op args) = rewrite substituteCongruentTerms left right agree args in Refl
   substituteCongruent left right agree (NominalType key indices shape) = rewrite substituteCongruentTerms left right agree indices in rewrite substituteCongruent left right agree shape in Refl
   substituteCongruent left right agree (NominalValue ty value) = rewrite substituteCongruent left right agree ty in rewrite substituteCongruent left right agree value in Refl
   substituteCongruent left right agree (NominalCase motive value branch) = rewrite substituteCongruent left right agree motive in rewrite substituteCongruent left right agree value in rewrite substituteCongruent left right agree branch in Refl
@@ -197,6 +198,7 @@ mutual
   renameAsSubstitution env (WithInputFile result path body) = rewrite renameAsSubstitution env result in rewrite renameAsSubstitution env path in rewrite renameAsSubstitution env body in Refl
   renameAsSubstitution env (IOType value) = cong IOType (renameAsSubstitution env value)
   renameAsSubstitution env (FileHandleType region) = cong FileHandleType (renameAsSubstitution env region)
+  renameAsSubstitution env (Prim op args) = rewrite renameAsSubstitutionTerms env args in Refl
   renameAsSubstitution env (NominalType key indices shape) = rewrite renameAsSubstitutionTerms env indices in rewrite renameAsSubstitution env shape in Refl
   renameAsSubstitution env (NominalValue ty value) = rewrite renameAsSubstitution env ty in rewrite renameAsSubstitution env value in Refl
   renameAsSubstitution env (NominalCase motive value branch) = rewrite renameAsSubstitution env motive in rewrite renameAsSubstitution env value in rewrite renameAsSubstitution env branch in Refl

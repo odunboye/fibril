@@ -161,6 +161,7 @@ examples: build
 	./build/exec/fibril check examples/core/identity-annotated.fib
 	./build/exec/fibril eval examples/core/local-identity.fib
 	./build/exec/fibril eval examples/core/unit.fib
+	./build/exec/fibril eval examples/core/word-arithmetic.fib
 	./build/exec/fibril eval examples/core/consume-unit.fib
 	./build/exec/fibril eval examples/core/boolean.fib
 	./build/exec/fibril eval examples/core/branch-permissions.fib

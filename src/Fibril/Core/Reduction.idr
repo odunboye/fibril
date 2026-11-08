@@ -311,6 +311,10 @@ mutual
     case reduced of
       Just next => pure (Just (StringEqual next right))
       Nothing => mapStep (StringEqual left) (stepWithGlobals globals right)
+  stepWithGlobals globals (Prim op args) =
+    case evalPrim op args of
+      Just value => pure (Just value)
+      Nothing => mapStep (Prim op) (stepTermsWithGlobals globals args)
   stepWithGlobals globals (NominalType key indices shape) = do
     reduced <- stepTermsWithGlobals globals indices
     case reduced of
@@ -483,6 +487,7 @@ mutual
           Just next => pure (Just (DataCase key motive next branches))
           Nothing => mapStep (DataCase key motive value) (stepTermsWithGlobals globals branches)
 
+  public export
   stepTermsWithGlobals : NaturalWork m => (Nat -> Maybe (Term 0)) -> List (Term n) -> m (Maybe (List (Term n)))
   stepTermsWithGlobals globals [] = pure Nothing
   stepTermsWithGlobals globals (x :: xs) = do

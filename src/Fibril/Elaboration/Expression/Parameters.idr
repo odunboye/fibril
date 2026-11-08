@@ -133,6 +133,8 @@ mutual
     if x == y then Right solutions else failure position
   matchGlobals shared position mapping prune (BoxType q x) (BoxType r y) solutions =
     if q == r then matchGlobals shared position mapping prune x y solutions else failure position
+  matchGlobals shared position mapping prune (Prim a xs) (Prim b ys) solutions =
+    if a == b then matchTermsGlobals shared position mapping prune xs ys solutions else failure position
   matchGlobals shared position mapping prune (NominalType key xs shape) (NominalType other ys actualShape) solutions =
     if key == other then do
       solutions <- matchTermsGlobals shared position mapping prune xs ys solutions
@@ -414,6 +416,9 @@ implicitArgumentTypeGlobals shared position (S fuel) context StringType = Right 
 implicitArgumentTypeGlobals shared position (S fuel) context BoolType = Right (Just (Universe 0))
 implicitArgumentTypeGlobals shared position (S fuel) context UnitType = Right (Just (Universe 0))
 implicitArgumentTypeGlobals shared position (S fuel) context (Universe level) = Right (Just (Universe (S level)))
+implicitArgumentTypeGlobals shared position (S fuel) context (Prim WordTypeOp _) = Right (Just (Universe 0))
+implicitArgumentTypeGlobals shared position (S fuel) context (Prim (WordLitOp _) _) = Right (Just (Prim WordTypeOp []))
+implicitArgumentTypeGlobals shared position (S fuel) context (Prim op _) = Right (wordBinaryResult op)
 implicitArgumentTypeGlobals shared position (S fuel) context (StringAppend _ _) = Right (Just StringType)
 implicitArgumentTypeGlobals shared position (S fuel) context (StringEqual _ _) = Right (Just BoolType)
 implicitArgumentTypeGlobals shared position (S fuel) context (NominalValue ty _) = Right (Just ty)

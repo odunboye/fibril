@@ -73,6 +73,7 @@ mutual
   renameAfterSubstitution env sigma (WithInputFile result path body) = rewrite renameAfterSubstitution env sigma result in rewrite renameAfterSubstitution env sigma path in rewrite renameAfterSubstitution env sigma body in Refl
   renameAfterSubstitution env sigma (IOType value) = cong IOType (renameAfterSubstitution env sigma value)
   renameAfterSubstitution env sigma (FileHandleType region) = cong FileHandleType (renameAfterSubstitution env sigma region)
+  renameAfterSubstitution env sigma (Prim op args) = rewrite renameAfterSubstitutionTerms env sigma args in Refl
   renameAfterSubstitution env sigma (NominalType key indices shape) = rewrite renameAfterSubstitutionTerms env sigma indices in rewrite renameAfterSubstitution env sigma shape in Refl
   renameAfterSubstitution env sigma (NominalValue ty value) = rewrite renameAfterSubstitution env sigma ty in rewrite renameAfterSubstitution env sigma value in Refl
   renameAfterSubstitution env sigma (NominalCase motive value branch) = rewrite renameAfterSubstitution env sigma motive in rewrite renameAfterSubstitution env sigma value in rewrite renameAfterSubstitution env sigma branch in Refl
@@ -209,6 +210,7 @@ mutual
   substituteAfterRenaming env sigma (WithInputFile result path body) = rewrite substituteAfterRenaming env sigma result in rewrite substituteAfterRenaming env sigma path in rewrite substituteAfterRenaming env sigma body in Refl
   substituteAfterRenaming env sigma (IOType value) = cong IOType (substituteAfterRenaming env sigma value)
   substituteAfterRenaming env sigma (FileHandleType region) = cong FileHandleType (substituteAfterRenaming env sigma region)
+  substituteAfterRenaming env sigma (Prim op args) = rewrite substituteAfterRenamingTerms env sigma args in Refl
   substituteAfterRenaming env sigma (NominalType key indices shape) = rewrite substituteAfterRenamingTerms env sigma indices in rewrite substituteAfterRenaming env sigma shape in Refl
   substituteAfterRenaming env sigma (NominalValue ty value) = rewrite substituteAfterRenaming env sigma ty in rewrite substituteAfterRenaming env sigma value in Refl
   substituteAfterRenaming env sigma (NominalCase motive value branch) = rewrite substituteAfterRenaming env sigma motive in rewrite substituteAfterRenaming env sigma value in rewrite substituteAfterRenaming env sigma branch in Refl
@@ -355,6 +357,7 @@ mutual
   substituteComposition first second (WithInputFile result path body) = rewrite substituteComposition first second result in rewrite substituteComposition first second path in rewrite substituteComposition first second body in Refl
   substituteComposition first second (IOType value) = cong IOType (substituteComposition first second value)
   substituteComposition first second (FileHandleType region) = cong FileHandleType (substituteComposition first second region)
+  substituteComposition first second (Prim op args) = rewrite substituteCompositionTerms first second args in Refl
   substituteComposition first second (NominalType key indices shape) = rewrite substituteCompositionTerms first second indices in rewrite substituteComposition first second shape in Refl
   substituteComposition first second (NominalValue ty value) = rewrite substituteComposition first second ty in rewrite substituteComposition first second value in Refl
   substituteComposition first second (NominalCase motive value branch) = rewrite substituteComposition first second motive in rewrite substituteComposition first second value in rewrite substituteComposition first second branch in Refl

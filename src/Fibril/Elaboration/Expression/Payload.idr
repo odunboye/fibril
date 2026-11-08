@@ -72,6 +72,7 @@ mutual
   payloadWeight env (StringValue value) = cap (length value)
   payloadWeight env (StringAppend a b) = cap (payloadWeight env a + payloadWeight env b)
   payloadWeight env (StringEqual a b) = cap (payloadWeight env a + payloadWeight env b)
+  payloadWeight env (Prim _ args) = cap (1 + payloadTerms env args)
   payloadWeight env (NominalType key indices shape) = cap (length key + payloadTerms env indices + payloadWeight env shape)
   payloadWeight env (NominalValue a b) = cap (payloadWeight env a + payloadWeight env b)
   payloadWeight env (NominalCase a b c) = cap (payloadWeight env a + payloadWeight env b + payloadWeight env c)

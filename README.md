@@ -21,7 +21,8 @@ before it enters the trusted core.
 [Checked Fibril prelude functions](docs/console-runner.md) provide putStrLn,
 pure, and bind over experimental IO descriptions. A hosted runner executes stdout
 plans; a complete effect calculus and compiler backends remain future work.
-[Pure byte operations](docs/bytes.md) now check and normalize separately from
+[Unsigned 64-bit `Word` arithmetic](docs/words.md) (wrapping `+ - *`, comparison, `5w` literals) is checked and
+evaluated by the reference runner; it has no native lowering yet. [Pure byte operations](docs/bytes.md) now check and normalize separately from
 text and have native lowering for the initial pure subset. [Checked binary
 IO](docs/io-binary-source.md) is available through hosted `run-binary` and native
 `emit-c-binary`, with separate admission from text/resource IO. [Explicit UTF-8 conversion](docs/utf8-values.md) is fallible

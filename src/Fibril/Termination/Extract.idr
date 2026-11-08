@@ -134,6 +134,10 @@ mutual
   walk info k env (StringValue _) = Right []
   walk info k env (RecType _) = Right []
   walk info k env (NatSucc x) = walk info k env x
+  walk info k env (Prim _ []) = Right []
+  walk info k env (Prim _ [a]) = walk info k env a
+  walk info k env (Prim _ [a, b]) = do x <- walk info k env a; y <- walk info k env b; Right (x ++ y)
+  walk info k env (Prim _ _) = Left "malformed primitive application in recursion analysis"
   walk info k env (StringAppend a b) = do x <- walk info k env a; y <- walk info k env b; Right (x ++ y)
   walk info k env (StringEqual a b) = do x <- walk info k env a; y <- walk info k env b; Right (x ++ y)
   walk info k env (UnitCase a b) = do x <- walk info k env a; y <- walk info k env b; Right (x ++ y)

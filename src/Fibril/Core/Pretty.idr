@@ -63,6 +63,8 @@ mutual
   renderTerm (StringValue value) = show value
   renderTerm (StringAppend left right) = "(StringAppend " ++ renderTerm left ++ " " ++ renderTerm right ++ ")"
   renderTerm (StringEqual left right) = "(StringEqual " ++ renderTerm left ++ " " ++ renderTerm right ++ ")"
+  renderTerm (Prim op []) = show op
+  renderTerm (Prim op args) = "(Prim " ++ show op ++ " [" ++ renderTerms args ++ "])"
   renderTerm (NominalType key indices shape) = "(Nominal " ++ show key ++ " [" ++ renderTerms indices ++ "] " ++ renderTerm shape ++ ")"
   renderTerm (NominalValue ty value) = "(NominalValue " ++ renderTerm ty ++ " " ++ renderTerm value ++ ")"
   renderTerm (NominalCase motive value branch) = "(NominalCase " ++ renderTerm motive ++ " " ++ renderTerm value ++ " " ++ renderTerm branch ++ ")"
