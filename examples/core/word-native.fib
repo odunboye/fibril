@@ -4,6 +4,7 @@ report label holds = if holds then putStrLn (appendString label ": ok") else put
 
 main : IO Unit
 main = do
+  putStrLn (appendString "max word: " (primWordToString (primWordSub 0w 1w)))
   report "add wraps" (primWordEq (primWordAdd 18446744073709551615w 2w) 1w)
   report "sub wraps" (primWordEq (primWordSub 0w 1w) 18446744073709551615w)
   report "mul wraps" (primWordEq (primWordMul 4294967296w 4294967296w) 0w)

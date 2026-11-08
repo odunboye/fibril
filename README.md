@@ -22,7 +22,7 @@ before it enters the trusted core.
 pure, and bind over experimental IO descriptions. A hosted runner executes stdout
 plans; a complete effect calculus and compiler backends remain future work.
 [Unsigned 64-bit `Word` arithmetic](docs/words.md) (wrapping `+ - *`, comparison, `5w` literals) is checked,
-evaluated by the reference runner and lowered by `emit-c`; Words are observable only through Bool results for now. [Pure byte operations](docs/bytes.md) now check and normalize separately from
+evaluated by the reference runner and lowered by `emit-c`; `primWordToString` formats them as decimal text. [Pure byte operations](docs/bytes.md) now check and normalize separately from
 text and have native lowering for the initial pure subset. [Checked binary
 IO](docs/io-binary-source.md) is available through hosted `run-binary` and native
 `emit-c-binary`, with separate admission from text/resource IO. [Explicit UTF-8 conversion](docs/utf8-values.md) is fallible

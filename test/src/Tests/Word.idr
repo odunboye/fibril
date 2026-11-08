@@ -44,7 +44,7 @@ op : PrimOp -> Integer -> Integer -> Term 0
 op o a b = Prim o [wordTerm a, wordTerm b]
 
 openTerms : List (Term 1)
-openTerms = [Prim WordAddOp [Variable FZ, wordTerm 1], wordType, wordTerm 7,
+openTerms = [Prim WordToStringOp [Variable FZ], Prim WordAddOp [Variable FZ, wordTerm 1], wordType, wordTerm 7,
              Prim WordLtOp [wordTerm 1, Variable FZ]]
 
 dup : Term 0
@@ -76,6 +76,15 @@ checks =
    ("Word node counts agree with substitution estimator", all (\t => coreNodes t == substitutionNodes (const 1) t) openTerms),
    ("native emission lowers Word arithmetic and comparison", either (const False) (\code => isInfixOf "f_word_lt(" code && isInfixOf "UINT64_C(2)" code) (emitCheckedC (BoolCase (op WordLtOp 1 2) (WriteLine (StringValue "a")) (WriteLine (StringValue "b"))))),
    ("native emission rejects an out-of-range Word literal", either (const True) (const False) (emitCheckedC (BoolCase (op WordLtOp 1 18446744073709551616) (WriteLine (StringValue "a")) (WriteLine (StringValue "b"))))),
+   ("toString renders zero", normal (Prim WordToStringOp [wordTerm 0]) (StringValue "0")),
+   ("toString renders the maximum Word in full", normal (Prim WordToStringOp [wordTerm 18446744073709551615]) (StringValue "18446744073709551615")),
+   ("toString renders computed values", normal (Prim WordToStringOp [op WordAddOp 8000 80]) (StringValue "8080")),
+   ("toString is typed String", accepted (Prim WordToStringOp [wordTerm 3]) StringType && not (accepted (Prim WordToStringOp [wordTerm 3]) wordType)),
+   ("toString requires a Word", not (accepted (Prim WordToStringOp [naturalTerm 3]) StringType) && not (accepted (Prim WordToStringOp [StringValue "3"]) StringType)),
+   ("toString is unary", not (accepted (Prim WordToStringOp [wordTerm 1, wordTerm 2]) StringType) && not (accepted (Prim WordToStringOp []) StringType)),
+   ("native emission lowers toString", either (const False) (isInfixOf "f_word_to_string(") (emitCheckedC (WriteLine (Prim WordToStringOp [wordTerm 9])))),
+   ("source can format a Word", sourceAccepted "main : String\nmain = primWordToString 42w"),
+   ("source rejects formatting a Nat", not (sourceAccepted "main : String\nmain = primWordToString 42")),
    ("source literal arithmetic checks", sourceAccepted "main : Word\nmain = primWordAdd 1w 2w"),
    ("source rejects Word where Nat is expected", not (sourceAccepted "main : Nat\nmain = 5w")),
    ("source rejects literal beyond 2^64-1", not (sourceAccepted "main : Word\nmain = 18446744073709551616w")),

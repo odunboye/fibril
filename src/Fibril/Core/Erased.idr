@@ -544,6 +544,13 @@ mutual
     if value < 0 || value >= wordModulus
       then Left (PrimError "Word literal outside 0 .. 2^64-1")
       else Right (Prim WordTypeOp [])
+  infer globals (S depth) reduction context (Prim op [argument]) =
+    case wordUnaryResult op of
+      Nothing => Left (PrimError ("operation " ++ show op ++ " does not take one argument"))
+      Just result => do
+        argumentType <- infer globals depth reduction context argument
+        requireCompatible globals reduction argumentType (Prim WordTypeOp [])
+        Right result
   infer globals (S depth) reduction context (Prim op [left, right]) =
     case wordBinaryResult op of
       Nothing => Left (PrimError ("operation " ++ show op ++ " does not take two arguments"))

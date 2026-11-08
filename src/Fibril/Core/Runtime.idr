@@ -164,6 +164,7 @@ mutual
     Right (combineUsage leftUsage rightUsage)
   analyze globals (S depth) reduction context (Prim WordTypeOp _) = Left RuntimeTypeExpression
   analyze globals (S depth) reduction context (Prim _ []) = Right zeroUsage
+  analyze globals (S depth) reduction context (Prim _ [argument]) = analyze globals depth reduction context argument
   analyze globals (S depth) reduction context (Prim _ [left, right]) = do
     leftUsage <- analyze globals depth reduction context left
     rightUsage <- analyze globals depth reduction context right

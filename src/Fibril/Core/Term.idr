@@ -22,6 +22,7 @@ data PrimOp
   | WordMulOp
   | WordEqOp
   | WordLtOp
+  | WordToStringOp
 
 public export
 Eq PrimOp where
@@ -32,6 +33,7 @@ Eq PrimOp where
   WordMulOp == WordMulOp = True
   WordEqOp == WordEqOp = True
   WordLtOp == WordLtOp = True
+  WordToStringOp == WordToStringOp = True
   _ == _ = False
 
 public export
@@ -43,6 +45,7 @@ Show PrimOp where
   show WordMulOp = "wordMul"
   show WordEqOp = "wordEq"
   show WordLtOp = "wordLt"
+  show WordToStringOp = "wordToString"
 
 ||| Terms in a context of n computational variables; 0 is newest.
 ||| Binder annotations are syntax, not evidence that usage has been checked.
@@ -187,7 +190,14 @@ evalPrim WordSubOp [Prim (WordLitOp a) [], Prim (WordLitOp b) []] = Just (wordTe
 evalPrim WordMulOp [Prim (WordLitOp a) [], Prim (WordLitOp b) []] = Just (wordTerm ((a * b) `mod` wordModulus))
 evalPrim WordEqOp [Prim (WordLitOp a) [], Prim (WordLitOp b) []] = Just (if a == b then BoolTrue else BoolFalse)
 evalPrim WordLtOp [Prim (WordLitOp a) [], Prim (WordLitOp b) []] = Just (if a < b then BoolTrue else BoolFalse)
+evalPrim WordToStringOp [Prim (WordLitOp a) []] = Just (StringValue (show a))
 evalPrim _ _ = Nothing
+
+||| Result type of a unary Word operation; Nothing if the operation is not unary.
+public export
+wordUnaryResult : PrimOp -> Maybe (Term n)
+wordUnaryResult WordToStringOp = Just StringType
+wordUnaryResult _ = Nothing
 
 ||| Result type of a binary Word operation; Nothing if the operation is not binary.
 public export

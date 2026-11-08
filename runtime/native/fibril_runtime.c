@@ -442,6 +442,18 @@ static int word_operands(FRuntime *r, FEnv *env, FEval left, FEval right, uint64
     if (!word_operands(r, env, left, right, &a, &b)) return NULL; \
     return RESULT; \
   }
+FValue *f_word_to_string(FRuntime *r, FEnv *env, FEval value) {
+  FValue *v = evaluate(r, value, env);
+  if (!v || v->tag != V_WORD) { fail(r, "native Word formatting expects a Word"); return NULL; }
+  unsigned char digits[20]; /* UINT64_MAX has 20 decimal digits */
+  size_t count = 0;
+  uint64_t rest = v->as.word;
+  do { digits[count++] = (unsigned char)('0' + rest % 10); rest /= 10; } while (rest);
+  unsigned char *bytes = allocate(r, count);
+  if (!bytes) return NULL;
+  for (size_t i = 0; i < count; i++) bytes[i] = digits[count - 1 - i];
+  return f_literal(r, bytes, count);
+}
 FIBRIL_WORD_OP(f_word_add, f_word(r, a + b))
 FIBRIL_WORD_OP(f_word_sub, f_word(r, a - b))
 FIBRIL_WORD_OP(f_word_mul, f_word(r, a * b))

@@ -90,6 +90,8 @@ primitiveGlobals =
   binaryPrimitiveGlobals ++ utf8PrimitiveGlobals ++ bytePrimitiveGlobals ++ resourcePrimitiveGlobals ++ inputPrimitiveGlobals ++
   [ GlobalWithQuantity Erased "Bytes" (Universe 0) BytesType
   , GlobalWithQuantity Erased "Word" (Universe 0) (Prim WordTypeOp [])
+  , Global "primWordToString" (Pi Unrestricted (Prim WordTypeOp []) StringType)
+      (Lambda Unrestricted (Prim WordTypeOp []) (Prim WordToStringOp [Variable FZ]))
   , wordBinary "primWordAdd" WordAddOp (Prim WordTypeOp [])
   , wordBinary "primWordSub" WordSubOp (Prim WordTypeOp [])
   , wordBinary "primWordMul" WordMulOp (Prim WordTypeOp [])

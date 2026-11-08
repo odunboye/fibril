@@ -19,6 +19,13 @@ SANITIZE = (['-fsanitize=address,undefined', '-fno-omit-frame-pointer', '-g']
             if os.environ.get('FIBRIL_WORD_SANITIZE') == '1' else [])
 
 PROGRAMS = {
+    'formatting': '''main : IO Unit
+main = do
+  putStrLn (primWordToString 0w)
+  putStrLn (primWordToString 1000000007w)
+  putStrLn (primWordToString (primWordSub 0w 1w))
+  putStrLn (appendString "port=" (primWordToString (primWordAdd 8000w 80w)))
+''',
     'false-branches': '''main : IO Unit
 main = do
   putStrLn (if primWordEq 1w 2w then "eq" else "ne")
@@ -67,7 +74,7 @@ class WordNativeTests(unittest.TestCase):
             self.assertNotIn(b'FAILED', out)
 
     def test_programs_match_reference(self):
-        expected = {'false-branches': b'ne\nge\nge\n', 'duplicated-argument': b'wrapped\n',
+        expected = {'formatting': b'0\n1000000007\n18446744073709551615\nport=8080\n', 'false-branches': b'ne\nge\nge\n', 'duplicated-argument': b'wrapped\n',
                     'function-argument-and-nesting': b'hash\n'}
         for name, source in PROGRAMS.items():
             with self.subTest(program=name), tempfile.TemporaryDirectory() as directory:

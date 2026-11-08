@@ -1,9 +1,8 @@
 # Word: unsigned 64-bit machine integers
 
 Status: checked, evaluated by the reference runner, and lowered to C by `emit-c` in
-every native mode. A Word cannot yet be **printed**: there is no Word-to-String
-conversion, so a program observes Words only through `Bool` results such as
-`primWordEq`/`primWordLt` branches (see `examples/core/word-native.fib`).
+every native mode. `primWordToString` formats a Word as decimal text, so Words can be
+printed (see `examples/core/word-native.fib`).
 
 ## Use cases
 
@@ -34,6 +33,7 @@ pattern matching: Word has no eliminator and cannot drive `natRec`.
 | `123w` | Literal; the suffix must touch the digits, no leading zeros, at most 18446744073709551615 |
 | `primWordAdd`, `primWordSub`, `primWordMul` | `Word -> Word -> Word`, wrapping modulo 2^64 |
 | `primWordEq`, `primWordLt` | `Word -> Word -> Bool`, unsigned |
+| `primWordToString` | `Word -> String`: decimal digits only (`0`, `8080`, `18446744073709551615`); no sign, padding or separators |
 
 Operands are **unrestricted**: Word is copyable data, so `primWordAdd x x` is accepted.
 Plain numerals stay `Nat`; there is no implicit conversion either way.
@@ -50,8 +50,7 @@ checker, so a hand-built term cannot smuggle one in.
 
 ## Not provided
 
-No division, remainder, shifts, bitwise operations, `Nat`/`Word` conversion, Word-to-
-String formatting or signed variant; no overflow detection (wraparound is the only
+No division, remainder, shifts, bitwise operations, `Nat`/`Word` conversion, String-to-Word parsing, hex or padded formatting, or signed variant; no overflow detection (wraparound is the only
 semantics). Each is a follow-up, not a guarantee.
 
 ## Native lowering
