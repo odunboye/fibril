@@ -337,8 +337,8 @@ mutual
           NRef span name => Just (Located Name name span)
           NQualifiedRef span name => Just (Located Name name span)
           _ => Nothing
-    Right (case (head, motive) of
-      (Just named, Nothing) => NCaseEither region asRecord (NDataCase region scrutinee Nothing [(named, names, body)])
+    Right (case head of
+      Just named => NCaseEither region asRecord (NDataCase region scrutinee motive [(named, names, body)])
       _ => asRecord, remaining)
 
   typedFieldsCase : Nat -> Position -> Token -> Expr -> Maybe Expr -> Maybe Expr -> List Token -> Either ParseError (Expr, List Token)

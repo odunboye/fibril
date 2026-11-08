@@ -24,8 +24,8 @@ recordCase : String -> Bool
 recordCase source = case parseDocument 64 256 source of
   Right document => case document.body of
     ExpressionDocument (NConstructorCase _ _ _ _ _ _) => True
-    -- A single inferred-field arm also carries a one-constructor data-case fallback.
-    ExpressionDocument (NCaseEither _ (NConstructorCase _ _ _ _ _ _) (NDataCase _ _ Nothing [_])) => True
+    -- A single arm also carries a one-constructor data-case fallback, with or without a motive.
+    ExpressionDocument (NCaseEither _ (NConstructorCase _ _ _ _ _ _) (NDataCase _ _ _ [_])) => True
     _ => False
   _ => False
 
@@ -49,5 +49,6 @@ checks =
         _ => False)
   , ("single unary pattern remains record syntax", recordCase "case x of\n  A value => value")
   , ("single binary pattern remains record syntax", recordCase "case x of\n  A left right => left")
+  , ("single-constructor motive retains a data-case fallback", recordCase "case x return p of\n  A value => value")
   , ("unit case remains unit syntax", unitCase "case x of () => True")
   ]

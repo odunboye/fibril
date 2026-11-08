@@ -29,23 +29,38 @@ telescopeLength (Field _ _ rest) = S (telescopeLength rest)
 ||| One constructor. `width` is the number of parameters in scope.
 public export
 record Constructor (width : Nat) where
-  constructor MkConstructor
+  constructor IndexedConstructor
   name : String
   fields : Telescope width
+  resultIndices : List (Term (telescopeLength fields + width))
 
-||| A family: its qualified key, erased parameters and constructors in declaration order.
+public export
+MkConstructor : String -> Telescope width -> Constructor width
+MkConstructor name fields = IndexedConstructor name fields []
+
+||| A family with uniform erased parameters, a dependent erased index telescope,
+||| and constructors whose result indices live under their own field telescopes.
 public export
 record DataDecl where
-  constructor MkDataDecl
+  constructor IndexedDataDecl
   key : String
   params : Telescope 0
+  indices : Telescope (telescopeLength params)
   constructors : List (Constructor (telescopeLength params))
+
+public export
+MkDataDecl : String -> (params : Telescope 0) -> List (Constructor (telescopeLength params)) -> DataDecl
+MkDataDecl key params constructors = IndexedDataDecl key params Done constructors
 
 -- Admission caps. They bound the work of later phases (case branches, generated IR); they
 -- are not hard resource limits.
 public export
 maxParameters : Nat
 maxParameters = 4
+
+public export
+maxIndices : Nat
+maxIndices = 4
 
 public export
 maxConstructors : Nat
@@ -70,19 +85,33 @@ selfType key count n = go 0 count (DataType key)
 -- Why a field type that mentions the family is not the plain recursive occurrence.
 describe : Term n -> String
 describe (Pi _ _ _) = "a recursive occurrence under a function type is not accepted"
-describe (Apply _ _) = "a recursive occurrence must be the family applied to exactly its own parameters, in order"
+describe (Apply _ _) = "a recursive occurrence must use its own parameters unchanged, followed by the declared indices"
 describe _ = "a recursive occurrence must be the whole type of a field"
 
-checkFields : {n : Nat} -> String -> Nat -> String -> Nat -> Telescope n -> Either String ()
-checkFields key count ctor position Done = Right ()
-checkFields {n} key count ctor position (Field _ ty rest) =
+public export
+indexCount : DataDecl -> Nat
+indexCount decl = telescopeLength decl.indices
+
+applicationSpine : Term n -> (Term n, List (Term n))
+applicationSpine term = go term []
+  where
+    go : Term m -> List (Term m) -> (Term m, List (Term m))
+    go (Apply function argument) args = go function (argument :: args)
+    go head args = (head, args)
+
+checkFields : {n : Nat} -> String -> Nat -> Nat -> String -> Nat -> Telescope n -> Either String ()
+checkFields key count indices ctor position Done = Right ()
+checkFields {n} key count indices ctor position (Field _ ty rest) =
   let mentions = mentionsNominal key ty
-      isSelf = case selfType key count n of
-        Just expected => sameSyntax ty expected
-        Nothing => False
+      isSelf = case applicationSpine ty of
+        (DataType other, args) => other == key && length args == count + indices &&
+          (case selfType key count n of
+            Just expected => sameSyntax (foldl Apply (DataType key) (take count args)) expected
+            Nothing => False) && not (any (mentionsNominal key) (drop count args))
+        _ => False
    in if mentions && not isSelf
         then Left ("constructor " ++ ctor ++ ", field " ++ show position ++ ": " ++ describe ty)
-        else checkFields key count ctor (S position) rest
+        else checkFields key count indices ctor (S position) rest
 
 checkParameters : String -> Nat -> Telescope n -> Either String ()
 checkParameters key position Done = Right ()
@@ -91,20 +120,22 @@ checkParameters key position (Field q ty rest) =
   else if mentionsNominal key ty then Left ("parameter " ++ show position ++ " may not mention the family")
   else checkParameters key (S position) rest
 
-checkConstructors : {width : Nat} -> String -> List String -> List (Constructor width) -> Either String ()
-checkConstructors key seen [] = Right ()
-checkConstructors {width} key seen (ctor :: rest) =
+checkConstructors : {width : Nat} -> String -> Nat -> List String -> List (Constructor width) -> Either String ()
+checkConstructors key indices seen [] = Right ()
+checkConstructors {width} key indices seen (ctor :: rest) =
   if ctor.name == "" then Left "constructor names must not be empty"
   else if elem ctor.name seen then Left ("duplicate constructor " ++ ctor.name)
   else if telescopeLength ctor.fields > maxFields
     then Left ("constructor " ++ ctor.name ++ " has more than " ++ show maxFields ++ " fields")
   else do
-    checkFields key width ctor.name 1 ctor.fields
-    checkConstructors key (ctor.name :: seen) rest
+    if length ctor.resultIndices /= indices then Left ("constructor " ++ ctor.name ++ " has the wrong number of result indices") else Right ()
+    if any (mentionsNominal key) ctor.resultIndices then Left "constructor result indices may not mention their own family" else Right ()
+    checkFields key width indices ctor.name 1 ctor.fields
+    checkConstructors key indices (ctor.name :: seen) rest
 
-||| Admit a declaration only if every recursive occurrence is a whole field type spelling the
-||| family applied to its own parameters. This is strict positivity in its narrowest form:
-||| nothing nested, indexed, mutual or under a function type is accepted.
+||| Every recursive occurrence must be a whole field type with unchanged uniform
+||| parameters. Indices may vary, but may not themselves mention this family.
+||| Nested, mutual and function-space recursion remain outside this positive slice.
 public export
 admitDeclaration : DataDecl -> Either String ()
 admitDeclaration decl =
@@ -114,7 +145,9 @@ admitDeclaration decl =
       else if length decl.constructors > maxConstructors then Left ("more than " ++ show maxConstructors ++ " constructors")
       else do
         checkParameters decl.key 1 decl.params
-        checkConstructors decl.key [] decl.constructors
+        if indexCount decl > maxIndices then Left "more than 4 indices" else Right ()
+        checkParameters decl.key 1 decl.indices
+        checkConstructors decl.key (indexCount decl) [] decl.constructors
 
 -- Types of the family and its constructors, as closed terms. ------------------------------
 
@@ -124,15 +157,12 @@ paramsPi Done inner = inner
 paramsPi {n} (Field q ty rest) inner =
   Pi q ty (paramsPi rest (replace {p = Term} (plusSuccRightSucc (telescopeLength rest) n) inner))
 
--- Pi over fields, ending in whatever `result` builds for the innermost scope.
-fieldsPi : {w : Nat} -> Telescope w -> ((m : Nat) -> Term m) -> Term w
-fieldsPi {w} Done result = result w
-fieldsPi (Field q ty rest) result = Pi q ty (fieldsPi rest result)
-
-||| `(0 p1 : P1) -> ... -> Type 0`: the family applied to its parameters is a type.
+||| The erased parameter and index telescope, ending in Type 0.
 public export
 formerType : DataDecl -> Term 0
-formerType decl = paramsPi decl.params (Universe 0)
+formerType decl = paramsPi decl.params
+  (replace {p = Term} (sym (plusZeroRightNeutral (telescopeLength decl.params)))
+    (paramsPi decl.indices (Universe 0)))
 
 nthConstructor : Nat -> List a -> Maybe a
 nthConstructor _ [] = Nothing
@@ -143,12 +173,14 @@ resultAt : String -> Nat -> (m : Nat) -> Term m
 resultAt key count m = fromMaybe (DataType key) (selfType key count m)
 
 ||| The type of constructor `index`: the parameters (erased), then its fields with their
-||| quantities, ending in the family applied to the same parameters.
+||| quantities, ending in the same parameters and this constructor's result indices.
 public export
 constructorType : DataDecl -> Nat -> Maybe (Term 0)
 constructorType decl index = do
   ctor <- nthConstructor index decl.constructors
-  let fieldsTerm = fieldsPi ctor.fields (resultAt decl.key (telescopeLength decl.params))
+  let result = foldl Apply
+        (resultAt decl.key (telescopeLength decl.params) (telescopeLength ctor.fields + telescopeLength decl.params)) ctor.resultIndices
+  let fieldsTerm = paramsPi ctor.fields result
   Just (paramsPi decl.params (replace {p = Term} (sym (plusZeroRightNeutral (telescopeLength decl.params))) fieldsTerm))
 
 -- Lambda over a parameter telescope, then `inner` under all of its binders.
@@ -161,7 +193,10 @@ paramsLam {n} (Field q ty rest) inner =
 ||| the value a source declaration gives the family's name.
 public export
 formerValue : DataDecl -> Term 0
-formerValue decl = paramsLam decl.params (resultAt decl.key (telescopeLength decl.params) (telescopeLength decl.params + 0))
+formerValue decl = paramsLam decl.params
+  (replace {p = Term} (sym (plusZeroRightNeutral (telescopeLength decl.params)))
+    (paramsLam decl.indices (resultAt decl.key (telescopeLength decl.params + indexCount decl)
+      (indexCount decl + telescopeLength decl.params))))
 
 ||| How many parameters and constructors, for callers that only need the shape.
 public export

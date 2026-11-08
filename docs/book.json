@@ -302,6 +302,10 @@
         "path": "docs/data.md"
       },
       {
+        "title": "Indexed inductive families",
+        "path": "docs/indexed-data.md"
+      },
+      {
         "title": "Pure byte values",
         "path": "docs/bytes.md"
       },

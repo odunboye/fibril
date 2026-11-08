@@ -73,7 +73,10 @@ and generates independently checked closed families/constructors with exact admi
 optional consuming eliminators, including dependent multi-field payloads and imports.
 [Direct data cases](docs/direct-data-cases.md) now match nullary/unary
 alternatives with explicit or inferred motives and linear branch joins, including qualified
-direct imports. Wider patterns and general recursive inductives remain future work.
+direct imports. [General recursive data](docs/data.md#general-recursive-data) and
+[indexed inductive families](docs/indexed-data.md) support whole-field positive
+recursion, including length-indexed vectors with dependent case motives.
+Nested/mutual recursive data and automatic index refinement remain future work.
 Recursive function equations are accepted when structural, or when the
 [size-change check](docs/function-equations.md#general-recursion) proves them terminating.
 

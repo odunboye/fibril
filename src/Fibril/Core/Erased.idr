@@ -187,11 +187,13 @@ instantiateParameters _ ty = Left (RecursiveDataError "constructor type has fewe
 -- Replace the result of the field Pi chain with `motive` applied to the rebuilt constructor.
 -- `built` is the constructor applied to the parameters and the fields bound so far.
 public export
-retarget : Nat -> Term n -> Term n -> Term n -> Either CheckError (Term n)
-retarget Z _ motive built = Right (Apply motive built)
-retarget (S k) (Pi q domain body) motive built =
-  map (Pi q domain) (retarget k body (weaken motive) (Apply (weaken built) (Variable FZ)))
-retarget (S _) _ _ _ = Left (RecursiveDataError "constructor type has fewer fields than declared")
+retarget : Nat -> Nat -> Term n -> Term n -> Term n -> Either CheckError (Term n)
+retarget count Z result motive built = case dataTypeSpine result of
+  Just (_, args) => Right (Apply (foldl Apply motive (drop count args)) built)
+  Nothing => Left (RecursiveDataError "constructor result must be a data family")
+retarget count (S k) (Pi q domain body) motive built =
+  map (Pi q domain) (retarget count k body (weaken motive) (Apply (weaken built) (Variable FZ)))
+retarget _ (S _) _ _ _ = Left (RecursiveDataError "constructor type has fewer fields than declared")
 
 public export
 applyAll : Term n -> List (Term n) -> Term n
@@ -205,8 +207,33 @@ dataBranchType : DataDecl -> Nat -> List (Term n) -> Term n -> Either CheckError
 dataBranchType decl index actuals motive = do
   closed <- maybe (Left (RecursiveDataError "unknown constructor")) Right (constructorType decl index)
   fields <- maybe (Left (RecursiveDataError "unknown constructor")) Right (fieldCount decl index)
-  instantiated <- instantiateParameters actuals (rename absurd closed)
-  retarget fields instantiated motive (applyAll (DataCon decl.key index (parameterCount decl)) actuals)
+  let parameterArgs = take (parameterCount decl) actuals
+  instantiated <- instantiateParameters parameterArgs (rename absurd closed)
+  retarget (parameterCount decl) fields instantiated motive (applyAll (DataCon decl.key index (parameterCount decl)) parameterArgs)
+
+-- A motive quantifies the indices before the value. Parameters stay uniform;
+-- branch result indices come from each checked constructor, never the scrutinee.
+checkDataMotive : GlobalContext -> Nat -> Nat -> Nat -> Term n -> Term n -> Term n -> Either CheckError ()
+checkDataMotive globals Z reduction count expected family actual = Left CheckingLimit
+checkDataMotive globals (S depth) reduction Z expected family actual = do
+  exposed <- exposeType globals reduction actual
+  case exposed of
+    Pi Erased domain result => do
+      requireCompatible globals reduction domain family
+      resultSort <- exposeType globals reduction result
+      case resultSort of
+        Universe _ => Right ()
+        _ => Left (RecursiveDataError "motive must return a universe")
+    _ => Left (RecursiveDataError "motive must have an erased matching domain")
+checkDataMotive globals (S depth) reduction (S count) expected family actual = do
+  expectedHead <- exposeType globals reduction expected
+  actualHead <- exposeType globals reduction actual
+  case (expectedHead, actualHead) of
+    (Pi Erased domain body, Pi Erased actualDomain actualBody) => do
+      requireCompatible globals reduction actualDomain domain
+      checkDataMotive globals depth reduction count body
+        (Apply (weaken family) (Variable FZ)) actualBody
+    _ => Left (RecursiveDataError "indexed motive must bind every index erased and in order")
 
 -- Internal inference assumes context formation has already been checked.
 -- Every recursive typing call decreases depth. Reduction has a separate budget.
@@ -637,21 +664,16 @@ mutual
         exposed <- exposeType globals reduction ty
         case dataTypeSpine exposed of
           Just (other, actuals) => do
-            if other /= key || length actuals /= parameterCount decl
+            if other /= key || length actuals /= parameterCount decl + indexCount decl
               then Left (RecursiveDataError ("case on " ++ key ++ " needs a scrutinee of that family"))
               else Right ()
             motiveType <- infer globals depth reduction context motive
-            exposedMotive <- exposeType globals reduction motiveType
-            case exposedMotive of
-              Pi Erased domain result => do
-                requireCompatible globals reduction domain exposed
-                resultSort <- exposeType globals reduction result
-                case resultSort of
-                  Universe _ => Right ()
-                  _ => Left (RecursiveDataError "motive must return a universe")
-              _ => Left (RecursiveDataError "motive must have an erased matching domain")
+            let parameterArgs = take (parameterCount decl) actuals
+            indicesType <- instantiateParameters parameterArgs (rename absurd (formerType decl))
+            checkDataMotive globals depth reduction (indexCount decl) indicesType
+              (applyAll (DataType key) parameterArgs) motiveType
             dataBranches globals depth reduction context decl motive actuals 0 branches
-            Right (Apply motive scrutinee)
+            Right (Apply (applyAll motive (drop (parameterCount decl) actuals)) scrutinee)
           Nothing => Left (RecursiveDataError "case scrutinee must have a general data type")
   infer globals (S depth) reduction context (VariantCase motive scrutinee branches) = do
     ty <- infer globals depth reduction context scrutinee

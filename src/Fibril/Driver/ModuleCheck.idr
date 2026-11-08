@@ -1392,7 +1392,7 @@ familyType : ModuleSnapshot -> GlobalContext -> List GlobalDefinition -> Context
 familyType snapshot globals defs ctx env expr =
   case elaborateSignatureGlobals globals defs (Just ctx) env expr of
     Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
-    Right term => Right (case normalize 64 term of
+    Right term => Right (case normalizeGlobals (globalValue globals) 64 term of
       Normal reduced => reduced
       OutOfFuel _ => term)
 
@@ -1410,10 +1410,17 @@ familyConstructors snapshot globals defs params scope [] = Right []
 familyConstructors snapshot globals defs params (MkFamilyScope width ctx names) (ctor :: rest) = do
   let binders = map (\field => (field.quantity, field.token.spelling, field.ty)) ctor.fields
   part <- familyBinders snapshot globals defs ctx names binders
+  let MkFamilyPart fields (MkFamilyScope resultWidth resultContext resultNames) = part
+  result <- familyType snapshot globals defs resultContext resultNames ctor.result
+  indices <- case dataTypeSpine result of
+    Just (_, args) => Right (drop (telescopeLength params) args)
+    Nothing => Left (problem snapshot (Just ctor.name.span.start) "Constructor result must be its data family")
   following <- familyConstructors snapshot globals defs params (MkFamilyScope width ctx names) rest
   case part of
     MkFamilyPart fields _ => case decEq width (telescopeLength params) of
-      Yes Refl => Right (MkConstructor ctor.name.spelling fields :: following)
+      Yes Refl => case decEq resultWidth (telescopeLength fields + width) of
+        Yes Refl => Right (IndexedConstructor ctor.name.spelling fields indices :: following)
+        No _ => Left (problem snapshot (Just ctor.name.span.start) "Internal constructor result scope mismatch")
       No _ => Left (problem snapshot (Just ctor.name.span.start) "Internal family scope does not match its parameters")
 
 -- Admit the family: elaborate its parameters, then its constructor fields with the family's own
@@ -1423,11 +1430,16 @@ registerFamily shared snapshot globals sourceData key = do
   let defs = map global globals
   MkFamilyPart params scope <- familyBinders snapshot (erasedGlobals shared) defs Empty []
     (map (\param => (param.quantity, param.name, param.domain)) sourceData.params)
-  let provisional = MkDataDecl key params []
+  let MkFamilyScope width context names = scope
+  MkFamilyPart indices _ <- familyBinders snapshot (erasedGlobals shared) defs context names
+    (map (\param => (param.quantity, param.name, param.domain)) sourceData.indices)
+  let Yes Refl = decEq width (telescopeLength params)
+    | No _ => Left (problem snapshot (Just sourceData.name.span.start) "Internal family parameter scope mismatch")
+  let provisional = IndexedDataDecl key params indices []
   let own = GlobalEntry Nothing Nothing 0 Erased sourceData.name.spelling (formerType provisional) (formerValue provisional)
   let visible = withProvisionalFamily (erasedGlobals shared) provisional
   constructors <- familyConstructors snapshot visible (own :: defs) params scope sourceData.constructors
-  case extendDataRuntimeGlobals checkingDepth typeReductionFuel shared (MkDataDecl key params constructors) of
+  case extendDataRuntimeGlobals checkingDepth typeReductionFuel shared (IndexedDataDecl key params indices constructors) of
     Left err => Left (problem snapshot (Just sourceData.name.span.start) ("Data declaration: " ++ show err))
     Right next => Right next
 

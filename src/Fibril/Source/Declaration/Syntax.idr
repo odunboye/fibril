@@ -113,6 +113,7 @@ record DataDeclaration where
   level : Nat
   params : List RecordParameter
   implicitConstructors : Bool
+  indices : List RecordParameter
   eliminator : Maybe (Token, Token)
   constructors : List DataConstructor
   exported : Bool

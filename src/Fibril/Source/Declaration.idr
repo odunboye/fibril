@@ -314,12 +314,23 @@ dataConstructors fuel expressions indent end tokens@(first :: _) =
       (following, rest) <- dataConstructors fuel expressions indent end remaining
       Right (DataConstructorSyntax (Between name.span.start (extent result).finish) name fields result :: following, rest)
 
+dataIndices : Nat -> Nat -> Position -> List Token -> Either ParseError (List RecordParameter, List Token)
+dataIndices Z budget end tokens = Left (ParseFailure (nextPosition end tokens) "Data index parsing budget exhausted")
+dataIndices (S fuel) budget end tokens@(token :: _) =
+  if token.kind /= OpenParen then Right ([], tokens) else do
+    index <- binder budget end tokens
+    (_, rest) <- expect Arrow end index.remaining
+    (following, remaining) <- dataIndices fuel budget end rest
+    Right (Parameter index.span index.quantity index.name index.domain :: following, remaining)
+dataIndices (S fuel) budget end [] = Right ([], [])
+
 parseData : Nat -> Position -> List Token -> Either ParseError (AuthoredDeclaration, List Token)
 parseData budget end tokens = do
   (keyword, rest) <- expect DataKeyword end tokens
   (name, rest) <- expect Name end rest
   (implicitConstructors, params, rest) <- dataParameters (S (length rest)) budget end Nothing rest
   (_, rest) <- expect Colon end rest
+  (indices, rest) <- dataIndices (S (length rest)) budget end rest
   (universe, rest) <- expect TypeKeyword end rest
   (level, _, rest) <- universeAfterType universe rest
   (whereToken, rest) <- expect WhereKeyword end rest
@@ -330,7 +341,7 @@ parseData budget end tokens = do
   (constructors, rest) <- dataConstructors (length rest) budget indent end rest
   if null constructors then Left (ParseFailure name.span.start "Data requires at least one constructor") else Right ()
   let finish = case reverse constructors of ctor :: _ => ctor.span.finish; [] => name.span.finish
-  Right (DataItem (DataSyntax (Between keyword.span.start finish) name level params implicitConstructors eliminator constructors False), rest)
+  Right (DataItem (DataSyntax (Between keyword.span.start finish) name level params implicitConstructors indices eliminator constructors False), rest)
 
 parseRecordLike : TokenKind -> Nat -> Position -> List Token -> Either ParseError (AuthoredDeclaration, List Token)
 parseRecordLike kind budget end tokens = do

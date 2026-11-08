@@ -8789,5 +8789,135 @@ class PublicImportTests(unittest.TestCase):
             self.assertNotEqual(run_cli('check', '--package', str(app / 'fibril.yaml'), timeout=120).returncode, 0)
 
 
+class IndexedDataTests(unittest.TestCase):
+    @staticmethod
+    def fixture():
+        return (ROOT / 'examples/modules/indexed-vect/Main.fib').read_text()
+
+    def check_source(self, source, accepted, diagnostic=None):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Main.fib'
+            path.write_text(source)
+            result = run_cli('check', '--source-dir', directory, str(path), timeout=120)
+        if accepted:
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        else:
+            self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+            if diagnostic:
+                self.assertIn(diagnostic, result.stdout + result.stderr)
+
+    def test_indexed_vectors_run_and_format(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Main.fib'
+            path.write_text(self.fixture())
+            formatted = run_cli('format', str(path))
+            self.assertEqual(formatted.returncode, 0, formatted.stderr)
+            path.write_text(formatted.stdout)
+            self.assertEqual(run_cli('format', '--check', str(path)).returncode, 0)
+            result = run_cli('run', '--source-dir', directory, '--fuel', '4096', str(path), timeout=120)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'first\n!!!!\n')
+
+    def test_indexed_vectors_refuse_wrong_constructor_indices(self):
+        source = self.fixture()
+        for before, after in [('Nil : Vect A Zero', 'Nil : Vect A True'),
+                              ('Nil : Vect A Zero', 'Nil : Vect A'),
+                              ('Vect String (Succ (Succ Zero))', 'Vect String Zero'),
+                              ('(rest : Vect A n)', '(rest : Vect String n)')]:
+            with self.subTest(after=after):
+                self.check_source(source.replace(before, after), False)
+
+    def test_indexed_vectors_allow_implicit_constructor_parameters(self):
+        source = self.fixture().replace('data Vect (0 A : Type)', 'data Vect {0 A : Type}')
+        for constructor in ['Nil', 'Cons']:
+            for argument in ['A', 'String']:
+                source = source.replace(constructor + ' ' + argument, constructor + ' {' + argument + '}')
+        self.check_source(source, True)
+
+    def test_indexed_vectors_refuse_negative_recursion(self):
+        self.check_source(self.fixture().replace('(rest : Vect A n)',
+                          '(rest : (ignored : Nat) -> Vect A n)'), False, 'function type')
+
+    def test_indexed_vectors_require_erased_indices(self):
+        self.check_source(self.fixture().replace('(0 length : Nat)', '(length : Nat)'), False, 'explicit 0')
+
+    def test_indexed_vectors_refuse_bad_motives_and_incomplete_coverage(self):
+        source = self.fixture()
+        for before, after in [
+            ('return (\\(0 k : Nat) => \\(0 self : Vect A k) => Vect A k)', ''),
+            ('\\(0 k : Nat) => \\(0 self : Vect A k) => Vect A k', '\\(0 self : Vect A n) => Vect A n'),
+            ('  Nil => Zero\n', '')]:
+            with self.subTest(after=after):
+                self.assertIn(before, source)
+                self.check_source(source.replace(before, after), False)
+
+    def test_indexed_vectors_refuse_nondecreasing_recursion(self):
+        self.check_source(self.fixture().replace('Succ (length A k rest)', 'Succ (length A n xs)'), False)
+
+    def test_indexed_vectors_cannot_observe_erased_constructor_index(self):
+        self.check_source(self.fixture().replace('Succ (length A k rest)', 'k'), False, 'usage')
+
+    def test_indexed_nonrecursive_family_and_dependent_indices(self):
+        source = '''module Main
+data Pick (0 A : Type) : (0 value : A) -> (0 enabled : Bool) -> Type where
+  Selected : (value : A) -> Pick A value True
+sample : Pick String "chosen" True
+sample = Selected String "chosen"
+main : IO Unit
+main = case sample of
+  Selected value => putStrLn value
+'''
+        self.check_source(source, True)
+        self.check_source(source.replace('Pick String "chosen" True', 'Pick String "other" True'), False)
+        self.check_source(source.replace('Pick String "chosen" True', 'Pick String "chosen" False'), False)
+        self.check_source(source.replace('case sample of',
+            'case sample return (\\(0 value : String) => \\(0 enabled : Bool) => '
+            '\\(0 self : Pick String value enabled) => IO Unit) of'), True)
+
+    def test_indexed_family_later_index_depends_on_earlier_index(self):
+        source = self.fixture().split('main : IO Unit')[0] + '''data Packed : (0 n : Nat) -> (0 xs : Vect String n) -> Type where
+  Pack : (0 n : Nat) -> (0 xs : Vect String n) -> Packed n xs
+packed : Packed (Succ (Succ Zero)) sample
+packed = Pack (Succ (Succ Zero)) sample
+main : IO Unit
+main = case packed of
+  Pack n xs => putStrLn "packed"
+'''
+        self.check_source(source, True)
+        self.check_source(source.replace('packed : Packed (Succ (Succ Zero)) sample',
+                                         'packed : Packed Zero sample'), False)
+
+    def test_indexed_vectors_preserve_linear_ownership(self):
+        source = '''module Main
+data Vect (0 A : Type) : (0 n : Nat) -> Type where
+  Nil : Vect A Zero
+  Cons : (0 n : Nat) -> (1 value : A) -> (1 rest : Vect A n) -> Vect A (Succ n)
+drain : (0 n : Nat) -> (1 xs : Vect String n) -> String
+drain n xs = case xs of
+  Nil => ""
+  Cons k value rest => appendString value (drain k rest)
+main : IO Unit
+main = putStrLn (drain (Succ Zero) (Cons String Zero "linear" (Nil String)))
+'''
+        self.check_source(source, True)
+        self.check_source(source.replace('appendString value (drain k rest)',
+                          'appendString value (appendString value (drain k rest))'), False, 'usage')
+        self.check_source(source.replace('appendString value (drain k rest)', 'value'), False, 'usage')
+
+    def test_indexed_vectors_import_with_qualified_constructors(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'Vectors.fib').write_text(self.fixture().replace('module Main', 'module Vectors', 1)
+                                               .replace('data Vect', 'export\ndata Vect', 1))
+            path = root / 'Main.fib'
+            path.write_text('module Main\nimport Vectors as V\n'
+                'sample : V.Vect String Zero\nsample = V.Nil String\n'
+                'main : IO Unit\nmain = case sample of\n'
+                '  V.Nil => putStrLn "imported"\n  V.Cons k value rest => putStrLn "nonempty"\n')
+            result = run_cli('run', '--source-dir', directory, str(path), timeout=120)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, 'imported\n')
+
+
 if __name__ == "__main__":
     unittest.main()

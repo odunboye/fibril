@@ -1040,9 +1040,9 @@ mutual
     key <- case dataKey (forget (Data.String.split (== '.') qualifier)) sourceData.name.spelling of
       Left error => Left (ElaborationFailure sourceData.name.span.start error.message)
       Right key => Right key
-    case unaryRecursiveShape key sourceData of
+    case (if null sourceData.indices then unaryRecursiveShape key sourceData else Nothing) of
       Just (terminal, successor, field) => lowerUnaryRecursiveData key budget sourceData terminal successor field
-      Nothing => case sequenceRecursiveShape key sourceData of
+      Nothing => case (if null sourceData.indices then sequenceRecursiveShape key sourceData else Nothing) of
         Just (parameter, terminal, successor, head, tail) => lowerSequenceRecursiveData key budget sourceData parameter terminal successor head tail
         Nothing =>
           if generalRecursive key sourceData then lowerGeneralData key budget sourceData
@@ -1057,14 +1057,19 @@ mutual
   public export
   generalRecursive : String -> DataDeclaration -> Bool
   generalRecursive key sourceData =
-    isNothing (unaryRecursiveShape key sourceData) && isNothing (sequenceRecursiveShape key sourceData) &&
-    any (\ctor => any (\field => mentions sourceData.name.spelling field.ty || mentions key field.ty) ctor.fields) sourceData.constructors
+    not (null sourceData.indices) ||
+    (isNothing (unaryRecursiveShape key sourceData) && isNothing (sequenceRecursiveShape key sourceData) &&
+    any (\ctor => any (\field => mentions sourceData.name.spelling field.ty || mentions key field.ty) ctor.fields) sourceData.constructors)
 
   -- The family and each constructor become ordinary global declarations whose values are the
   -- core constants. The family itself is registered separately (see `DataFamily`), because its
   -- constructor types must be checked with the family already in scope.
   lowerGeneralData : String -> Nat -> DataDeclaration -> Either ElaborationError (Nat, List Declaration)
   lowerGeneralData key budget sourceData = do
+    validateParameters [] (sourceData.params ++ sourceData.indices)
+    if sourceData.level /= 0 then Left (ElaborationFailure sourceData.name.span.start "General data families must live in Type 0") else Right ()
+    if not (null sourceData.indices) && isJust sourceData.eliminator
+      then Left (ElaborationFailure sourceData.name.span.start "Indexed families use explicit case motives; generated eliminator helpers are not supported") else Right ()
     let refs = map (\param => NRef param.span param.name) sourceData.params
     let ownName = sourceData.name.spelling
     if any (\param => param.name == ownName || mentions ownName param.domain || mentions key param.domain) sourceData.params
@@ -1075,19 +1080,21 @@ mutual
          then Left (ElaborationFailure ctor.name.span.start "A field may not be named like its data type") else Right ()
       case dictionaryTarget ctor.result [] of
         Just (target, args) => if (target == ownName || target == key) &&
-          mapMaybe (\arg => case arg of NRef _ name => Just name; _ => Nothing) args == map (\p => p.name) sourceData.params &&
-          length args == length sourceData.params
+          mapMaybe (\arg => case arg of NRef _ name => Just name; _ => Nothing) (take (length sourceData.params) args) == map (\p => p.name) sourceData.params &&
+          length args == length sourceData.params + length sourceData.indices
           then Right () else Left (ElaborationFailure (extent ctor.result).start "Constructor result must be its data type applied to all parameters in order")
         _ => Left (ElaborationFailure (extent ctor.result).start "Constructor result must name its data type")) sourceData.constructors
     let leading = length sourceData.params
-    let applied = foldl (\function, argument => NApply sourceData.span function argument) (NDataType sourceData.span key) refs
+    let allBinders = sourceData.params ++ sourceData.indices
+    let allRefs = map (\param => NRef param.span param.name) allBinders
+    let applied = foldl (\function, argument => NApply sourceData.span function argument) (NDataType sourceData.span key) allRefs
     let family = Declared True sourceData.span sourceData.name.span sourceData.name.span sourceData.exported Erased ownName
-          (parameterPis sourceData.span sourceData.params (NSort sourceData.name.span sourceData.level))
-          (parameterLambdas sourceData.span sourceData.params applied)
+          (parameterPis sourceData.span allBinders (NSort sourceData.name.span sourceData.level))
+          (parameterLambdas sourceData.span allBinders applied)
     let constructor = \entry =>
           let ctor = snd entry
               region = ctor.span
-              typeRef = applyParameters region (NQualifiedRef sourceData.name.span sourceData.name.spelling) sourceData.params
+              typeRef = ctor.result
            in Declared True region ctor.name.span ctor.name.span sourceData.exported Unrestricted ctor.name.spelling
                 (constructorParameterPis sourceData.implicitConstructors region sourceData.params (fieldPis region ctor.fields typeRef))
                 (NDataCon region key (fst entry) leading)

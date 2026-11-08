@@ -1,0 +1,48 @@
+module Main
+
+data Vect (0 A : Type) : (0 length : Nat) -> Type where
+  Nil : Vect A Zero
+  Cons : (0 n : Nat) -> (value : A) -> (rest : Vect A n) -> Vect A (Succ n)
+
+length : (0 A : Type) -> (0 n : Nat) -> (xs : Vect A n) -> Nat
+length A n xs = case xs of
+  Nil => Zero
+  Cons k value rest => Succ (length A k rest)
+
+copy : (0 A : Type) -> (0 n : Nat) -> (xs : Vect A n) -> Vect A n
+copy A n xs = case xs return (\(0 k : Nat) => \(0 self : Vect A k) => Vect A k) of
+  Nil => Nil A
+  Cons k value rest => Cons A k value (copy A k rest)
+
+0 HeadType : (0 A : Type) -> (0 n : Nat) -> Type
+HeadType A n = case n return (\(0 self : Nat) => Type) of
+  Zero => Unit
+  Succ previous => A
+
+firstOrUnit : (0 A : Type) -> (0 n : Nat) -> (xs : Vect A n) -> HeadType A n
+firstOrUnit A n xs = case xs return (\(0 k : Nat) => \(0 self : Vect A k) => HeadType A k) of
+  Nil => ()
+  Cons k value rest => value
+
+head : (0 A : Type) -> (0 n : Nat) -> (xs : Vect A (Succ n)) -> A
+head A n xs = firstOrUnit A (Succ n) xs
+
+0 plus : (0 n : Nat) -> (0 m : Nat) -> Nat
+plus n m = natRec (\(0 k : Nat) => Nat) m (\(0 k : Nat) => \(1 total : Nat) => Succ total) n
+
+append : (0 A : Type) -> (0 n : Nat) -> (0 m : Nat) -> (xs : Vect A n) -> (ys : Vect A m) -> Vect A (plus n m)
+append A n m xs ys = case xs return (\(0 k : Nat) => \(0 self : Vect A k) => Vect A (plus k m)) of
+  Nil => ys
+  Cons k value rest => Cons A (plus k m) value (append A k m rest ys)
+
+sample : Vect String (Succ (Succ Zero))
+sample = Cons String (Succ Zero) "first" (Cons String Zero "second" (Nil String))
+
+main : IO Unit
+main = do
+  putStrLn (head String (Succ Zero) sample)
+  putStrLn (natRec (\(0 k : Nat) => String) ""
+    (\(0 k : Nat) => \(1 text : String) => appendString text "!")
+    (length String (plus (Succ (Succ Zero)) (Succ (Succ Zero)))
+      (append String (Succ (Succ Zero)) (Succ (Succ Zero))
+        (copy String (Succ (Succ Zero)) sample) sample)))

@@ -148,6 +148,7 @@ expectedDataMotive position nominal result scrutinee = do
 public export
 wantsExpected : Expr -> Bool
 wantsExpected (NDataCase _ _ Nothing _) = True
+wantsExpected (NCaseEither _ _ asData) = wantsExpected asData
 wantsExpected (NLambda _ _ _ _ _) = True
 wantsExpected (NLet _ _ _ _ _ _) = True
 wantsExpected (NIf _ _ _ _) = True
@@ -568,6 +569,12 @@ mutual
     elaborateImplicitCallGlobals shared globals context env (Just expected) expression
   elaborateExpectedGlobals shared globals context env expected (NDataCase span value Nothing arms) =
     elaborateDataCaseGlobals shared globals context env span value Nothing arms (Just expected)
+  elaborateExpectedGlobals shared globals context env expected (NCaseEither span asRecord asData) =
+    case elaborateExpectedGlobals shared globals context env expected asRecord of
+      Right term => Right term
+      Left failure => case elaborateExpectedGlobals shared globals context env expected asData of
+        Right term => Right term
+        Left _ => Left failure
   elaborateExpectedGlobals shared globals context env (Pi _ _ expected) (NLambda span q name domain body) = do
     domain <- elaborateInWithGlobals shared globals (Just context) env domain
     body <- elaborateExpectedGlobals shared globals (Extend context q domain) (name :: env) expected body
@@ -944,20 +951,23 @@ mutual
 
   -- One arm: bind the constructor's fields (with the quantities of its type) and elaborate the
   -- body against the motive applied to the constructor rebuilt from them.
-  familyArmBody : GlobalContext -> List GlobalDefinition -> Context m -> Vect m String -> Term m -> List Token -> Term m ->
+  familyArmBody : Nat -> GlobalContext -> List GlobalDefinition -> Context m -> Vect m String -> Term m -> List Token -> Term m ->
                   Maybe (Term m) -> SourceSpan -> Expr -> Either ResolveError (Term m)
-  familyArmBody shared globals ctx env (Pi q domain rest) (binder :: binders) built motive span body = do
-    inner <- familyArmBody shared globals (Extend ctx q domain) (binder.spelling :: env) rest binders
+  familyArmBody paramCount shared globals ctx env (Pi q domain rest) (binder :: binders) built motive span body = do
+    inner <- familyArmBody paramCount shared globals (Extend ctx q domain) (binder.spelling :: env) rest binders
                (Apply (weaken built) (Variable FZ)) (map weaken motive) span body
     Right (Lambda q domain inner)
-  familyArmBody shared globals ctx env (Pi _ _ _) [] built motive span body =
+  familyArmBody paramCount shared globals ctx env (Pi _ _ _) [] built motive span body =
     Left (CannotElaborate span.start "Data-case constructor has more fields than its branch binds")
-  familyArmBody shared globals ctx env _ (binder :: _) built motive span body =
+  familyArmBody paramCount shared globals ctx env _ (binder :: _) built motive span body =
     Left (CannotElaborate binder.span.start "Data-case constructor has fewer fields than its branch binds")
-  familyArmBody shared globals ctx env _ [] built motive span body = case motive of
+  familyArmBody paramCount shared globals ctx env resultType [] built motive span body = case motive of
     Nothing => elaborateInWithGlobals shared globals (Just ctx) env body
     Just chosen =>
-      let applied = Apply chosen built
+      let indices = case dataTypeSpine resultType of
+            Just (_, args) => drop paramCount args
+            Nothing => []
+          applied = Apply (applyAll chosen indices) built
           result = fromMaybe applied (guardedNormalGlobals shared typeReductionFuel applied) in
         elaborateExpectedGlobals shared globals ctx env result body
 
@@ -976,10 +986,10 @@ mutual
         closed <- case constructorType decl index of
           Nothing => Left (CannotElaborate name.span.start "Data-case constructor index is out of range")
           Just ty => Right (rename absurd ty)
-        chain <- case instantiateParameters actuals closed of
+        chain <- case instantiateParameters (take (parameterCount decl) actuals) closed of
           Left err => Left (CannotElaborate name.span.start (show err))
           Right ty => Right ty
-        branch <- familyArmBody shared globals ctx env chain binders (applyAll (DataCon decl.key index (parameterCount decl)) actuals)
+        branch <- familyArmBody (parameterCount decl) shared globals ctx env chain binders (applyAll (DataCon decl.key index (parameterCount decl)) (take (parameterCount decl) actuals))
                     motive name.span body
         following <- familyArms shared globals ctx env decl actuals motive clauseNames rest
         if any (\entry => fst entry == index) following
@@ -997,12 +1007,12 @@ mutual
       closed <- case constructorType decl index of
         Nothing => Left (CannotElaborate name.span.start "Data-case constructor index is out of range")
         Just ty => Right (rename absurd ty)
-      chain <- case instantiateParameters actuals closed of
+      chain <- case instantiateParameters (take (parameterCount decl) actuals) closed of
         Left err => Left (CannotElaborate name.span.start (show err))
         Right ty => Right ty
       let blank : Token = name
-      branch <- familyArmBody shared globals ctx env chain (replicate (fieldCount chain) blank)
-                  (applyAll (DataCon decl.key index (parameterCount decl)) actuals) motive name.span body
+      branch <- familyArmBody (parameterCount decl) shared globals ctx env chain (replicate (fieldCount chain) blank)
+                  (applyAll (DataCon decl.key index (parameterCount decl)) (take (parameterCount decl) actuals)) motive name.span body
       Right ((index, branch) :: later)
 
 
@@ -1013,6 +1023,12 @@ mutual
     Nothing => Left (CannotElaborate position "Data case does not cover every constructor")
     Just branch => map (branch ::) (orderFamilyArms position remaining (S index) arms)
 
+  constantFamilyMotive : Nat -> Term n -> Term n -> Term n -> Either ResolveError (Term n)
+  constantFamilyMotive Z indices family result = Right (Lambda Erased family (weaken result))
+  constantFamilyMotive (S count) (Pi Erased domain body) family result =
+    map (Lambda Erased domain) (constantFamilyMotive count body (Apply (weaken family) (Variable FZ)) (weaken result))
+  constantFamilyMotive (S _) _ _ _ = Left (CannotElaborate (At 0 1 1) "Invalid index telescope")
+
   elaborateFamilyDataCaseGlobals : GlobalContext -> List GlobalDefinition -> Context n -> Vect n String -> SourceSpan -> Term n -> Term n ->
                                    DataDecl -> List (Term n) -> Maybe Expr -> List (Token, List Token, Expr) -> Maybe (Term n) -> Either ResolveError (Term n)
   elaborateFamilyDataCaseGlobals shared globals ctx env span scrutinee ty decl actuals motive arms expected = do
@@ -1022,7 +1038,12 @@ mutual
       Nothing => Right Nothing
     selected <- case (explicit, expected) of
       (Just authored, _) => Right authored
-      (Nothing, Just result) => Right (Lambda Erased ty (weaken result))
+      (Nothing, Just result) => do
+        let parameterArgs = take (parameterCount decl) actuals
+        indexTypes <- case instantiateParameters parameterArgs (rename absurd (formerType decl)) of
+          Left err => Left (CannotElaborate span.start (show err))
+          Right chain => Right chain
+        constantFamilyMotive (indexCount decl) indexTypes (applyAll (DataType decl.key) parameterArgs) result
       (Nothing, Nothing) => Left (CannotElaborate span.start "A case on this data needs an expected result type or an explicit motive")
     let catchAll = case scrutinee of
           Variable i => index i env == "$clauseScrutinee"
