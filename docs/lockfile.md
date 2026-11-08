@@ -86,12 +86,16 @@ scripts, or rewrites the lock implicitly.
 1. **Done (encode and drift only):** pure `Fibril.Project.Lock` with `treeDigest`
    (rejects empty, absolute, `.`/`..`, NUL and duplicate paths), `encodeLock` and
    `lockDrift`. Tested against digests computed independently with Python
-   hashlib. **No decoder yet:** verification needs a strict reader that rejects
-   unknown keys, duplicate keys and wrong types before the loader trusts a lock.
+   hashlib.
 2. **Done:** SHA-256 per open question 1, checked against published vectors.
-3. Strict lock decoder, then `fibril lock` plus verification inside the existing
-   `--package` closure loader (reads files, builds the current `Lock`, calls
-   `lockDrift`).
+3. **Done:** `Fibril.Project.LockDecode.decodeLock`, a strict reader. It parses
+   only the exact layout `encodeLock` writes (digests must be 64 lowercase hex,
+   names unique) and then requires re-encoding to equal the input, so unknown or
+   duplicate keys, reordering, whitespace, other schemas and trailing data are
+   all rejected. A hand-edited lock must be regenerated with `fibril lock --update`.
+4. `fibril lock` plus verification inside the existing `--package` closure loader
+   (reads files, rejects symlinks, builds the current `Lock`, calls `lockDrift`).
+   **Not started**; it touches the CLI and loader.
 4. CLI tests in `tools/test_cli.py`: edit a dependency file and expect a named
    mismatch; add/remove a package; `--locked` without a lock.
 

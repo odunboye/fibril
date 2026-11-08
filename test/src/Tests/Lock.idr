@@ -1,8 +1,42 @@
 module Tests.Lock
 
+import Data.List
+import Data.String
 import Fibril.Project.Lock
+import Fibril.Project.LockDecode
 
 %default total
+
+sha : Char -> String
+sha c = pack (replicate 64 c)
+
+hexLock : Lock
+hexLock = MkLock "app\"x" "de-morgan"
+  [ MkLocked "core" "Email" "../core" (sha 'a') (sha 'b')
+  , MkLocked "ma\\il\n" "Mail" "../mail" (sha '0') (sha 'f') ]
+
+good : String
+good = encodeLock hexLock
+
+mapLines : (String -> String) -> String -> String
+mapLines f text = unlines (map f (lines text))
+
+isPackageLine : String -> Bool
+isPackageLine = isPrefixOf "    {"
+
+dropS : Nat -> String -> String
+dropS n s = pack (drop n (unpack s))
+
+dropLast : String -> String
+dropLast s = pack (reverse (drop 1 (reverse (unpack s))))
+
+swapPackages : String -> String
+swapPackages text = case lines text of
+  (a :: b :: c :: d :: e :: p1 :: p2 :: rest) => unlines (a :: b :: c :: d :: e :: (p2 ++ ",") :: dropLast p1 :: rest)
+  other => unlines other
+
+rejected : String -> Bool
+rejected text = case decodeLock text of Left _ => True; Right _ => False
 
 bytes : String -> List Bits8
 bytes s = map (cast . ord) (unpack s)
@@ -52,4 +86,25 @@ checks =
            , "package new: not in fibril.lock" ])
   , ("foundation and root changes are drift",
       length (lockDrift base (MkLock "other" "x" base.packages)) == 2)
+  , ("decode round-trips a lock with quotes, backslashes and control characters",
+      case decodeLock good of
+        Right lock => encodeLock lock == good && lock.root == "app\"x"
+                      && map (.name) lock.packages == ["core", "ma\\il\n"]
+        Left _ => False)
+  , ("decode rejects schema 2",
+      rejected ("{\n  \"schema\": 2," ++ dropS (length "{\n  \"schema\": 1,") good))
+  , ("decode rejects unknown keys, extra whitespace and trailing data",
+      rejected (mapLines (\l => if isPackageLine l then "    {\"nme\":" ++ dropS (length "    {\"name\":") l else l) good)
+        && rejected (mapLines (\l => if isPackageLine l then "    { " ++ dropS 5 l else l) good)
+        && rejected (good ++ "x") && rejected (good ++ "\n") && rejected ("\r" ++ good))
+  , ("decode rejects missing or extra commas and reordered packages",
+      rejected (mapLines (\l => if isPackageLine l && isSuffixOf "," l then dropLast l else l) good)
+        && rejected (mapLines (\l => if isPackageLine l && not (isSuffixOf "," l) then l ++ "," else l) good)
+        && rejected (swapPackages good))
+  , ("decode rejects non-hex or short digests and duplicate names",
+      rejected (encodeLock (MkLock "a" "f" [MkLocked "c" "P" "p" "m1" (sha 'b')]))
+        && rejected (encodeLock (MkLock "a" "f" [MkLocked "c" "P" "p" (sha 'A') (sha 'b')]))
+        && rejected (encodeLock (MkLock "a" "f" [MkLocked "c" "P" "p" (sha 'a') (sha 'b'), MkLocked "c" "Q" "q" (sha 'a') (sha 'b')])))
+  , ("decode rejects empty, truncated and non-lock input",
+      rejected "" && rejected "{}" && rejected (substr 0 40 good) && rejected "not json")
   ]
