@@ -54,6 +54,7 @@ mutual
   renderExpr (NPatternLambda _ names body) = node "infer-field-binders" [node "names" (map spelling names), renderExpr body]
   renderExpr (NDataCase _ value Nothing arms) = node "data-case" [renderExpr value, "infer-constant", node "branches" (renderDataArms arms)]
   renderExpr (NDataCase _ value (Just motive) arms) = node "data-case" [renderExpr value, renderExpr motive, node "branches" (renderDataArms arms)]
+  renderExpr (NCaseEither _ asRecord asData) = node "case-either" [renderExpr asRecord, renderExpr asData]
   renderExpr (NConstructorCase _ arity constructor value branch motive) = node "constructor-record-case" [show arity, renderExpr constructor, renderExpr value, renderExpr branch, (case motive of Nothing => "infer"; Just result => renderExpr result)]
   renderExpr (NInferCase _ arity value branch) = node "infer-record-case" [show arity, renderExpr value, renderExpr branch]
   renderExpr (NPairCase _ motive value branch) = node "pair-case" [renderExpr motive, renderExpr value, renderExpr branch]

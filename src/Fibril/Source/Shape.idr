@@ -46,6 +46,7 @@ mutual
     sameExpr value other && sameDataArms arms branches
   sameExpr (NDataCase _ value (Just motive) arms) (NDataCase _ other (Just result) branches) =
     sameExpr value other && sameExpr motive result && sameDataArms arms branches
+  sameExpr (NCaseEither _ a _) (NCaseEither _ b _) = sameExpr a b
   sameExpr (NConstructorCase _ n c a b Nothing) (NConstructorCase _ m d x y Nothing) =
     n == m && sameExpr c d && sameExpr a x && sameExpr b y
   sameExpr (NConstructorCase _ n c a b (Just p)) (NConstructorCase _ m d x y (Just q)) =

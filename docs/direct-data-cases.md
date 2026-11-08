@@ -26,6 +26,11 @@ render prefix message =
     Left value => appendString prefix value
 ~~~
 
+A nominal data type with exactly one constructor can be matched on one line
+with the inferred-field form, `case h of Open log => log`. The parser cannot
+tell this from a record pattern, so the elaborator tries the record reading
+first and falls back to the data case; the payload usage rules are unchanged.
+
 The [runnable example](../examples/modules/direct-data-case/Main.fib) uses both
 constructors, reverses branch order and also defines a generic `fold` over erased
 type parameters. Run from the compiler project:

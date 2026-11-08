@@ -151,6 +151,7 @@ layout tokens indentation forced value@(NPatternLambda _ _ body) =
   let split = forced || wide tokens indentation value
    in (if split then atStart (indentation + 2) body else []) ++
       layout tokens (if split then indentation + 2 else indentation) False body
+layout tokens indentation forced (NCaseEither _ asRecord _) = layout tokens indentation forced asRecord
 layout tokens indentation forced value@(NConstructorCase _ _ constructor scrutinee branch motive) =
   let split = forced || wide tokens indentation value
       markers = if split then

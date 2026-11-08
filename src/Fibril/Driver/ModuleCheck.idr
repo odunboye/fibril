@@ -147,6 +147,7 @@ mutual
             Nothing => 2048 + 2 * (1 + 512 + inferredResultNodes)
             Just explicit => 2 * cost limit globals env explicit) +
           dataArmsCost limit globals env copies branches)
+    NCaseEither _ asRecord _ => 1 + cost limit globals env asRecord
     NConstructorCase _ _ constructor value branch motive =>
       8 + 3 * inferredParameterNodes + 3 * cost limit globals env constructor + cost limit globals env value + 2 * cost limit globals env branch +
         (case motive of Nothing => inferredResultNodes; Just explicit => cost limit globals env explicit)

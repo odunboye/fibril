@@ -940,6 +940,12 @@ mutual
     equationBodyGlobals shared globals ctx env expected names body
   elaborateInWithGlobals shared globals context env (NPatternLambda span _ _) =
     Left (CannotElaborate span.start "Inferred field binders require a constructor-named pattern")
+  elaborateInWithGlobals shared globals context env (NCaseEither span asRecord asData) =
+    case elaborateInWithGlobals shared globals context env asRecord of
+      Right term => Right term
+      Left failure => case elaborateInWithGlobals shared globals context env asData of
+        Right term => Right term
+        Left _ => Left failure
   elaborateInWithGlobals shared globals context env (NConstructorCase span arity constructor scrutinee branch motive) = do
     if not (namedConstructor constructor)
        then Left (CannotElaborate (extent constructor).start "Pattern constructor must be a named function, optionally explicitly instantiated") else Right ()

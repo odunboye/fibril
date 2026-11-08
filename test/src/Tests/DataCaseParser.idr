@@ -22,7 +22,11 @@ inferred source = case parseDocument 64 256 source of
 
 recordCase : String -> Bool
 recordCase source = case parseDocument 64 256 source of
-  Right document => case document.body of ExpressionDocument (NConstructorCase _ _ _ _ _ _) => True; _ => False
+  Right document => case document.body of
+    ExpressionDocument (NConstructorCase _ _ _ _ _ _) => True
+    -- A single inferred-field arm also carries a one-constructor data-case fallback.
+    ExpressionDocument (NCaseEither _ (NConstructorCase _ _ _ _ _ _) (NDataCase _ _ Nothing [_])) => True
+    _ => False
   _ => False
 
 unitCase : String -> Bool

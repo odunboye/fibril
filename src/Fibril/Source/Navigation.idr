@@ -140,6 +140,7 @@ mutual
      in refs ++ walk context following body
   walk context env (NDataCase _ value Nothing arms) = walk context env value ++ walkDataArms False context env arms
   walk context env (NDataCase _ value (Just motive) arms) = walk context env value ++ walk context env motive ++ walkDataArms False context env arms
+  walk context env (NCaseEither _ asRecord _) = walk context env asRecord
   walk context env (NConstructorCase _ _ constructor value branch motive) =
     walk context env constructor ++ walk context env value ++ (case motive of Nothing => []; Just result => walk context env result) ++ walk context env branch
   walk context env (NInferCase _ _ value branch) = walk context env value ++ walk context env branch

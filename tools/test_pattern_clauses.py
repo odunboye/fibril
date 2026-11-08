@@ -347,5 +347,16 @@ data Shape : Type where
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertIn('Normal: ' + expected, result.stdout)
 
+    def test_single_constructor_data_case(self):
+        data = 'module Main\ndata Handle : Type where\n  Open : (1 log : String) -> Handle\n'
+        ok = self.run_source(data + 'close : (1 h : Handle) -> String\nclose h = case h of Open log => log\n'
+                             'main : String\nmain = close (Open "done")\n')
+        self.assertEqual(ok.returncode, 0, ok.stderr)
+        self.assertIn('done', ok.stdout)
+        # the linear payload must still be used exactly once
+        leak = self.run_source(data + 'leak : (1 h : Handle) -> String\nleak h = case h of Open log => "dropped"\n'
+                               'main : String\nmain = leak (Open "x")\n')
+        self.assertNotEqual(leak.returncode, 0, leak.stdout)
+
 if __name__ == '__main__':
     unittest.main()
