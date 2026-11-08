@@ -324,24 +324,104 @@ dataIndices (S fuel) budget end tokens@(token :: _) =
     Right (Parameter index.span index.quantity index.name index.domain :: following, remaining)
 dataIndices (S fuel) budget end [] = Right ([], [])
 
+-- Split a Haskell-style alternative's arguments into atoms: one token, or one balanced parenthesized group.
+parenGroup : Nat -> Nat -> Position -> List Token -> List Token -> Either ParseError (List Token, List Token)
+parenGroup Z depth end acc tokens = Left (ParseFailure (nextPosition end tokens) "Data alternative budget exhausted")
+parenGroup (S fuel) depth end acc [] = Left (ParseFailure end "Unclosed parenthesis in data alternative")
+parenGroup (S fuel) depth end acc (token :: rest) =
+  if token.kind == OpenParen then parenGroup fuel (S depth) end (token :: acc) rest
+  else if token.kind == CloseParen then
+    (case depth of
+       S (S shallower) => parenGroup fuel (S shallower) end (token :: acc) rest
+       _ => Right (reverse (token :: acc), rest))
+  else parenGroup fuel depth end (token :: acc) rest
+
+dataAtoms : Nat -> Position -> List Token -> Either ParseError (List (List Token))
+dataAtoms Z end tokens = Left (ParseFailure (nextPosition end tokens) "Data alternative budget exhausted")
+dataAtoms (S fuel) end [] = Right []
+dataAtoms (S fuel) end (token :: rest) =
+  if token.kind == OpenParen then do
+    (group, remaining) <- parenGroup (S (length rest)) 1 end [token] rest
+    following <- dataAtoms fuel end remaining
+    Right (group :: following)
+  else do
+    following <- dataAtoms fuel end rest
+    Right ([token] :: following)
+
+splitAlternatives : List Token -> List (List Token)
+splitAlternatives tokens = go [] tokens
+  where
+    go : List Token -> List Token -> List (List Token)
+    go acc [] = [reverse acc]
+    go acc (token :: rest) = if token.kind == Bar then reverse acc :: go [] rest else go (token :: acc) rest
+
+-- Positional fields get names no source identifier can spell, so they never capture a field type.
+positionalFields : Nat -> Nat -> Position -> List (List Token) -> Either ParseError (List RecordField)
+positionalFields index expressions end [] = Right []
+positionalFields index expressions end (atom :: rest) = case atom of
+  [] => Left (ParseFailure end "Empty data field")
+  first :: _ => do
+    ty <- parseExpression expressions end atom
+    following <- positionalFields (S index) expressions end rest
+    Right (Field (Located Name ("$" ++ show index) first.span) Unrestricted ty :: following)
+
+-- data T params = A fields | B fields: sugar for the where form, with the result type T params.
+dataAlternative : Nat -> Position -> Token -> List RecordParameter -> List Token -> Either ParseError DataConstructor
+dataAlternative expressions end name params [] = Left (ParseFailure name.span.start "Expected a constructor name after = or |")
+dataAlternative expressions end name params (ctor :: arguments) = do
+  if ctor.kind == Name then Right () else Left (ParseFailure ctor.span.start "Expected a constructor name")
+  atoms <- dataAtoms (S (length arguments)) end arguments
+  fields <- positionalFields 0 expressions end atoms
+  let finish = case reverse arguments of last :: _ => last.span.finish; [] => ctor.span.finish
+  let region = Between ctor.span.start finish
+  let result = foldl (\function, parameter => NApply region function (NRef region parameter.name))
+                     (NRef name.span name.spelling) params
+  Right (DataConstructorSyntax region ctor fields result)
+
+dataAlternatives : Nat -> Position -> Token -> List RecordParameter -> List (List Token) -> Either ParseError (List DataConstructor)
+dataAlternatives expressions end name params [] = Right []
+dataAlternatives expressions end name params (alternative :: rest) = do
+  constructor <- dataAlternative expressions end name params alternative
+  following <- dataAlternatives expressions end name params rest
+  Right (constructor :: following)
+
+parseDataAlternatives : Nat -> Position -> Token -> Token -> Bool -> List RecordParameter -> List Token ->
+                        Either ParseError (AuthoredDeclaration, List Token)
+parseDataAlternatives budget end keyword name implicitConstructors params tokens = do
+  if keyword.span.start.column /= 1 || name.spelling == "_"
+     then Left (ParseFailure keyword.span.start "Expected a column-one data declaration") else Right ()
+  let (body, rest) = span (\token => token.span.start.column > 1) tokens
+  constructors <- dataAlternatives budget end name params (splitAlternatives body)
+  let finish = case reverse body of last :: _ => last.span.finish; [] => name.span.finish
+  Right (DataItem (DataSyntax (Between keyword.span.start finish) name 0 params implicitConstructors [] Nothing constructors False), rest)
+
 parseData : Nat -> Position -> List Token -> Either ParseError (AuthoredDeclaration, List Token)
 parseData budget end tokens = do
   (keyword, rest) <- expect DataKeyword end tokens
   (name, rest) <- expect Name end rest
   (implicitConstructors, params, rest) <- dataParameters (S (length rest)) budget end Nothing rest
-  (_, rest) <- expect Colon end rest
-  (indices, rest) <- dataIndices (S (length rest)) budget end rest
-  (universe, rest) <- expect TypeKeyword end rest
-  (level, _, rest) <- universeAfterType universe rest
-  (whereToken, rest) <- expect WhereKeyword end rest
-  if keyword.span.start.column /= 1 || name.spelling == "_" || whereToken.span.start.line /= keyword.span.start.line
-     then Left (ParseFailure keyword.span.start "Expected column-one data header ending : Type n where on one line") else Right ()
-  let indent = case rest of first :: _ => first.span.start.column; [] => 0
-  (eliminator, rest) <- optionalEliminator indent end rest
-  (constructors, rest) <- dataConstructors (length rest) budget indent end rest
-  if null constructors then Left (ParseFailure name.span.start "Data requires at least one constructor") else Right ()
-  let finish = case reverse constructors of ctor :: _ => ctor.span.finish; [] => name.span.finish
-  Right (DataItem (DataSyntax (Between keyword.span.start finish) name level params implicitConstructors indices eliminator constructors False), rest)
+  case rest of
+    equals :: afterEquals =>
+      if equals.kind == Equals then parseDataAlternatives budget end keyword name implicitConstructors params afterEquals
+      else parseDataWhere budget end keyword name implicitConstructors params rest
+    [] => parseDataWhere budget end keyword name implicitConstructors params rest
+  where
+    parseDataWhere : Nat -> Position -> Token -> Token -> Bool -> List RecordParameter -> List Token ->
+                     Either ParseError (AuthoredDeclaration, List Token)
+    parseDataWhere budget end keyword name implicitConstructors params rest = do
+      (_, rest) <- expect Colon end rest
+      (indices, rest) <- dataIndices (S (length rest)) budget end rest
+      (universe, rest) <- expect TypeKeyword end rest
+      (level, _, rest) <- universeAfterType universe rest
+      (whereToken, rest) <- expect WhereKeyword end rest
+      if keyword.span.start.column /= 1 || name.spelling == "_" || whereToken.span.start.line /= keyword.span.start.line
+         then Left (ParseFailure keyword.span.start "Expected column-one data header ending : Type n where on one line") else Right ()
+      let indent = case rest of first :: _ => first.span.start.column; [] => 0
+      (eliminator, rest) <- optionalEliminator indent end rest
+      (constructors, rest) <- dataConstructors (length rest) budget indent end rest
+      if null constructors then Left (ParseFailure name.span.start "Data requires at least one constructor") else Right ()
+      let finish = case reverse constructors of ctor :: _ => ctor.span.finish; [] => name.span.finish
+      Right (DataItem (DataSyntax (Between keyword.span.start finish) name level params implicitConstructors indices eliminator constructors False), rest)
 
 parseRecordLike : TokenKind -> Nat -> Position -> List Token -> Either ParseError (AuthoredDeclaration, List Token)
 parseRecordLike kind budget end tokens = do

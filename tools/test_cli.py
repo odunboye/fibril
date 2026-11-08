@@ -2988,6 +2988,45 @@ main = first Zero
             self.assertIn('n = Succ (Succ 12)', formatted.stdout)
             self.assertIn('m = 256', formatted.stdout)
 
+    def test_compact_data_alternatives(self):
+        source = (
+            'module Main\n\n'
+            'data Day = Monday\n         | Tuesday\n\n'
+            'data User = Guest | Staff String | Customer String String\n\n'
+            'data Tree = Leaf | Node Tree Tree\n\n'
+            'data Items (0 A : Type) = Empty | Prepend A (Items A)\n\n'
+            'name : (d : Day) -> String\nname d = case d of\n  Monday => "mon"\n  Tuesday => "tue"\n\n'
+            'marks : (t : Tree) -> String\nmarks t = case t of\n  Leaf => "."\n'
+            '  Node l r => appendString (marks l) (marks r)\n\n'
+            'count : (0 A : Type) -> (xs : Items A) -> String\ncount A xs = case xs of\n  Empty => ""\n'
+            '  Prepend x rest => appendString "!" (count A rest)\n\n'
+            'who : (u : User) -> String\nwho u = case u of\n  Guest => "guest"\n  Staff e => e\n'
+            '  Customer e p => p\n\n'
+            'main : IO Unit\nmain = do\n  putStrLn (name Tuesday)\n  putStrLn (marks (Node (Node Leaf Leaf) Leaf))\n'
+            '  putStrLn (count String (Prepend String "a" (Prepend String "b" (Empty String))))\n'
+            '  putStrLn (who (Customer "c" "pw"))\n')
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Main.fib'
+            def go(text, command='check'):
+                path.write_text(text)
+                args = ['--fuel', '4096'] if command == 'run' else []
+                return run(command, '--source-dir', directory, *args, str(path))
+            ran = go(source, 'run')
+            self.assertEqual((ran.returncode, ran.stdout), (0, 'tue\n...\n!!\npw\n'), ran.stderr)
+            formatted = run('format', '--check', str(path))
+            self.assertEqual(formatted.returncode, 0, formatted.stdout + formatted.stderr)
+            # The compact form reaches the same positivity gate as the where form.
+            bad = go('module Main\n\ndata Bad = Wrap (Nat -> Bad)\n\nmain : IO Unit\nmain = putStrLn "x"\n')
+            self.assertNotEqual(bad.returncode, 0)
+            self.assertIn('under a function type', bad.stdout + bad.stderr)
+            for text, message in (('data Bad = \n', 'Expected a constructor name'),
+                                  ('data Bad = A | | B\n', 'Expected a constructor name'),
+                                  ('data Bad = A (Nat\n', 'Unclosed parenthesis'),
+                                  ('data Dup = A | A\n', 'Duplicate declaration')):
+                failed = go('module Main\n\n' + text + '\nmain : IO Unit\nmain = putStrLn "x"\n')
+                self.assertNotEqual(failed.returncode, 0, text)
+                self.assertIn(message, failed.stdout + failed.stderr, text)
+
     def test_general_recursive_data(self):
         tree = ('module Main\n\ndata Tree : Type where\n  Leaf : Tree\n'
                 '  Node : (left : Tree) -> (right : Tree) -> Tree\n\n')
