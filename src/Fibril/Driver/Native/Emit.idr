@@ -127,6 +127,13 @@ mutual
     generated <- generate globals mode (S n) body
     let code = function n ("return f_fix(r, e, " ++ name generated.root ++ ");")
     Right (Output n generated.next (code :: generated.definitions))
+  -- A variable already denotes a lazy cell. Preserve that cell and its owner
+  -- instead of allocating a thunk whose only work would be another lookup.
+  generate globals mode n (Apply callee (Variable index)) = do
+    generated <- generate globals mode (S n) callee
+    let code = function n ("return f_apply_variable(r, e, " ++ name generated.root ++
+                          ", " ++ show (finToNat index) ++ ");")
+    Right (Output n generated.next (code :: generated.definitions))
   generate globals mode n (Apply function argument) = binary globals mode n "f_apply" function argument
   generate globals mode n (StringAppend left right) = binary globals mode n "f_append" left right
   generate globals mode n (StringEqual left right) = binary globals mode n "f_string_equal" left right

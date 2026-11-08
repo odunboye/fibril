@@ -17,6 +17,8 @@ unit-test: build
 	PACK="$(PACK)" IDRIS2="$(IDRIS2)" python3 tools/test_units.py
 
 test: unit-test
+	CC="$(CC)" python3 tools/test_native_forwarding.py
+	python3 tools/test_lsp_cost_audit.py
 	CC="$(CC)" python3 tools/test_composed_probe.py
 	CC="$(CC)" python3 tools/test_shared_globals.py
 	python3 tools/test_cli.py
@@ -50,6 +52,10 @@ io-binary-bench:
 # Offline shared-graph admission and execution measurements, no timing gates.
 composed-bench: build
 	PACK="$(PACK)" IDRIS2="$(IDRIS2)" CC="$(CC)" python3 tools/probe_composed.py
+
+.PHONY: json-evaluation-profile
+json-evaluation-profile: build
+	CC="$(CC)" python3 tools/probe_json_evaluation.py --output build/benchmarks/json-evaluation.json
 
 io-hosted-test:
 	IDRIS2="$(IDRIS2)" python3 tools/test_io_hosted.py

@@ -286,6 +286,20 @@ FValue *f_apply(FRuntime *r, FEnv *env, FEval function, FEval argument) {
   if (!fun->as.closure.erased && !arg) return NULL;
   return apply_thunk(r, fun, arg);
 }
+/* The variable's existing cell is the memoization/ownership boundary. A fresh
+   forwarding thunk would only evaluate f_variable and force this same cell.
+   Keep NULL erased slots lazy too: an ignored argument must not be forced. */
+FValue *f_apply_variable(FRuntime *r, FEnv *env, FEval function, size_t index) {
+  FValue *fun = evaluate(r, function, env);
+  if (!fun || fun->tag != V_CLOSURE) { fail(r, "native application expects a function"); return NULL; }
+  FThunk *arg = NULL;
+  if (!fun->as.closure.erased) {
+    while (env && index) { env = env->tail; index--; }
+    if (!env) { fail(r, "invalid native variable"); return NULL; }
+    arg = env->value;
+  }
+  return apply_thunk(r, fun, arg);
+}
 /* Deep-copy first-order data out of a dying region. Tails of list-like chains are
    iterated, so long Nat/sequence values do not consume C stack. */
 static FThunk *copy_thunk(FRuntime *r, FThunk *source, size_t depth);
