@@ -454,6 +454,37 @@ FValue *f_word_to_string(FRuntime *r, FEnv *env, FEval value) {
   for (size_t i = 0; i < count; i++) bytes[i] = digits[count - 1 - i];
   return f_literal(r, bytes, count);
 }
+static FValue *word_division(FRuntime *r, int by_zero, uint64_t result) {
+  FValue *v = new_value(r, V_VARIANT);
+  if (!v) return NULL;
+  if (!by_zero) {
+    v->as.variant.tag = 1;
+    v->as.variant.payload = ready(r, f_word(r, result));
+    if (!v->as.variant.payload) return NULL;
+  }
+  return v;
+}
+FValue *f_word_div(FRuntime *r, FEnv *env, FEval left, FEval right) {
+  uint64_t a, b;
+  if (!word_operands(r, env, left, right, &a, &b)) return NULL;
+  return word_division(r, b == 0, b == 0 ? 0 : a / b);
+}
+FValue *f_word_rem(FRuntime *r, FEnv *env, FEval left, FEval right) {
+  uint64_t a, b;
+  if (!word_operands(r, env, left, right, &a, &b)) return NULL;
+  return word_division(r, b == 0, b == 0 ? 0 : a % b);
+}
+FValue *f_word_from_nat(FRuntime *r, FEnv *env, FEval expression) {
+  FValue *value = evaluate(r, expression, env);
+  uint64_t n = 0; /* unsigned overflow wraps, matching the reference rule */
+  while (value && value->tag == V_NAT_SUCC) {
+    if (!byte_work(r)) return NULL;
+    n++;
+    value = force(r, value->as.recursive.tail);
+  }
+  if (!value || value->tag != V_NAT_ZERO) { fail(r, "native Word conversion expects Nat"); return NULL; }
+  return f_word(r, n);
+}
 FIBRIL_WORD_OP(f_word_add, f_word(r, a + b))
 FIBRIL_WORD_OP(f_word_sub, f_word(r, a - b))
 FIBRIL_WORD_OP(f_word_mul, f_word(r, a * b))

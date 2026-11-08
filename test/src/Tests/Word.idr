@@ -44,7 +44,7 @@ op : PrimOp -> Integer -> Integer -> Term 0
 op o a b = Prim o [wordTerm a, wordTerm b]
 
 openTerms : List (Term 1)
-openTerms = [Prim WordToStringOp [Variable FZ], Prim WordAddOp [Variable FZ, wordTerm 1], wordType, wordTerm 7,
+openTerms = [Prim WordToStringOp [Variable FZ], Prim WordDivOp [Variable FZ, wordTerm 3], Prim WordFromNatOp [Variable FZ], Prim WordAddOp [Variable FZ, wordTerm 1], wordType, wordTerm 7,
              Prim WordLtOp [wordTerm 1, Variable FZ]]
 
 dup : Term 0
@@ -83,6 +83,23 @@ checks =
    ("toString requires a Word", not (accepted (Prim WordToStringOp [naturalTerm 3]) StringType) && not (accepted (Prim WordToStringOp [StringValue "3"]) StringType)),
    ("toString is unary", not (accepted (Prim WordToStringOp [wordTerm 1, wordTerm 2]) StringType) && not (accepted (Prim WordToStringOp []) StringType)),
    ("native emission lowers toString", either (const False) (isInfixOf "f_word_to_string(") (emitCheckedC (WriteLine (Prim WordToStringOp [wordTerm 9])))),
+   ("division yields quotient in the Word arm", normal (op WordDivOp 17 5) (wordDivision (Just 3))),
+   ("remainder yields the remainder in the Word arm", normal (op WordRemOp 17 5) (wordDivision (Just 2))),
+   ("division by zero is a value, not a failure", normal (op WordDivOp 17 0) (wordDivision Nothing) && normal (op WordRemOp 17 0) (wordDivision Nothing)),
+   ("division is unsigned over the full range", normal (op WordDivOp 18446744073709551615 2) (wordDivision (Just 9223372036854775807)) && normal (op WordRemOp 18446744073709551615 10) (wordDivision (Just 5))),
+   ("division of zero and by one", normal (op WordDivOp 0 7) (wordDivision (Just 0)) && normal (op WordDivOp 9 1) (wordDivision (Just 9))),
+   ("division result has the division variant type", accepted (op WordDivOp 4 2) wordDivResultType && not (accepted (op WordDivOp 4 2) wordType)),
+   ("division requires Word operands", not (accepted (Prim WordDivOp [wordTerm 4, naturalTerm 2]) wordDivResultType)),
+   ("division head reduction agrees", head (op WordDivOp 9 3) (wordDivision (Just 3))),
+   ("fromNat converts a canonical Nat", normal (Prim WordFromNatOp [naturalTerm 200]) (wordTerm 200) && normal (Prim WordFromNatOp [NatZero]) (wordTerm 0)),
+   ("fromNat is typed Word and consumes a Nat", accepted (Prim WordFromNatOp [naturalTerm 3]) wordType && not (accepted (Prim WordFromNatOp [wordTerm 3]) wordType)),
+   ("fromNat reduces its argument first", normal (Prim WordFromNatOp [Apply (Lambda Linear NatType (Variable FZ)) (naturalTerm 5)]) (wordTerm 5)),
+   ("fromNat feeds arithmetic", normal (Prim WordAddOp [Prim WordFromNatOp [naturalTerm 3], Prim WordFromNatOp [naturalTerm 4]]) (wordTerm 7)),
+   ("native emission lowers division and conversion", either (const False) (\code => isInfixOf "f_word_div(" code && isInfixOf "f_word_from_nat(" code) (emitCheckedC (WriteLine (VariantCase (Lambda Erased wordDivResultType StringType) (Prim WordDivOp [Prim WordFromNatOp [naturalTerm 4], wordTerm 2]) [StringValue "zero", Lambda Unrestricted wordType (Prim WordToStringOp [Variable FZ])])))),
+   ("source can divide and eliminate the result", sourceAccepted "main : String\nmain = primWordDivCase String (primWordDiv 9w 2w) \"zero\" (\\(q : Word) => primWordToString q)"),
+   ("source can convert Nat to Word", sourceAccepted "main : Word\nmain = primWordFromNat 5"),
+   ("source rejects dividing a Nat", not (sourceAccepted "main : WordDivResult\nmain = primWordDiv 9 2w")),
+   ("source rejects using a division result as a Word", not (sourceAccepted "main : Word\nmain = primWordDiv 9w 2w")),
    ("source can format a Word", sourceAccepted "main : String\nmain = primWordToString 42w"),
    ("source rejects formatting a Nat", not (sourceAccepted "main : String\nmain = primWordToString 42")),
    ("source literal arithmetic checks", sourceAccepted "main : Word\nmain = primWordAdd 1w 2w"),

@@ -23,6 +23,9 @@ data PrimOp
   | WordEqOp
   | WordLtOp
   | WordToStringOp
+  | WordDivOp
+  | WordRemOp
+  | WordFromNatOp
 
 public export
 Eq PrimOp where
@@ -34,6 +37,9 @@ Eq PrimOp where
   WordEqOp == WordEqOp = True
   WordLtOp == WordLtOp = True
   WordToStringOp == WordToStringOp = True
+  WordDivOp == WordDivOp = True
+  WordRemOp == WordRemOp = True
+  WordFromNatOp == WordFromNatOp = True
   _ == _ = False
 
 public export
@@ -46,6 +52,9 @@ Show PrimOp where
   show WordEqOp = "wordEq"
   show WordLtOp = "wordLt"
   show WordToStringOp = "wordToString"
+  show WordDivOp = "wordDiv"
+  show WordRemOp = "wordRem"
+  show WordFromNatOp = "wordFromNat"
 
 ||| Terms in a context of n computational variables; 0 is newest.
 ||| Binder annotations are syntax, not evidence that usage has been checked.
@@ -181,6 +190,23 @@ public export
 wordTerm : Integer -> Term n
 wordTerm value = Prim (WordLitOp value) []
 
+||| Division is partial in the divisor, so it returns a variant instead of failing:
+||| tag 0 is divide-by-zero, tag 1 carries the (unrestricted) Word result.
+public export
+wordDivResultType : Term n
+wordDivResultType = VariantType [Nothing, Just (Unrestricted, Prim WordTypeOp [])]
+
+public export
+wordDivision : Maybe Integer -> Term n
+wordDivision Nothing = VariantValue wordDivResultType 0 Nothing
+wordDivision (Just result) = VariantValue wordDivResultType 1 (Just (wordTerm result))
+
+-- Value of a canonical successor chain, or Nothing for any other term.
+natChainValue : Term n -> Maybe Integer
+natChainValue NatZero = Just 0
+natChainValue (NatSucc rest) = map (+ 1) (natChainValue rest)
+natChainValue _ = Nothing
+
 ||| Arithmetic wraps modulo 2^64 (the double mod keeps subtraction non-negative).
 ||| Comparisons are unsigned. Returns Nothing until every argument is a literal.
 public export
@@ -191,13 +217,18 @@ evalPrim WordMulOp [Prim (WordLitOp a) [], Prim (WordLitOp b) []] = Just (wordTe
 evalPrim WordEqOp [Prim (WordLitOp a) [], Prim (WordLitOp b) []] = Just (if a == b then BoolTrue else BoolFalse)
 evalPrim WordLtOp [Prim (WordLitOp a) [], Prim (WordLitOp b) []] = Just (if a < b then BoolTrue else BoolFalse)
 evalPrim WordToStringOp [Prim (WordLitOp a) []] = Just (StringValue (show a))
+evalPrim WordDivOp [Prim (WordLitOp a) [], Prim (WordLitOp b) []] = Just (wordDivision (if b == 0 then Nothing else Just (a `div` b)))
+evalPrim WordRemOp [Prim (WordLitOp a) [], Prim (WordLitOp b) []] = Just (wordDivision (if b == 0 then Nothing else Just (a `mod` b)))
+-- Wraps modulo 2^64 like the other Word operations, so every Nat converts.
+evalPrim WordFromNatOp [chain] = map (\n => wordTerm (n `mod` wordModulus)) (natChainValue chain)
 evalPrim _ _ = Nothing
 
-||| Result type of a unary Word operation; Nothing if the operation is not unary.
+||| Argument and result types of a unary primitive; Nothing if the operation is not unary.
 public export
-wordUnaryResult : PrimOp -> Maybe (Term n)
-wordUnaryResult WordToStringOp = Just StringType
-wordUnaryResult _ = Nothing
+primUnarySignature : PrimOp -> Maybe (Term n, Term n)
+primUnarySignature WordToStringOp = Just (Prim WordTypeOp [], StringType)
+primUnarySignature WordFromNatOp = Just (NatType, Prim WordTypeOp [])
+primUnarySignature _ = Nothing
 
 ||| Result type of a binary Word operation; Nothing if the operation is not binary.
 public export
@@ -207,6 +238,8 @@ wordBinaryResult WordSubOp = Just (Prim WordTypeOp [])
 wordBinaryResult WordMulOp = Just (Prim WordTypeOp [])
 wordBinaryResult WordEqOp = Just BoolType
 wordBinaryResult WordLtOp = Just BoolType
+wordBinaryResult WordDivOp = Just wordDivResultType
+wordBinaryResult WordRemOp = Just wordDivResultType
 wordBinaryResult _ = Nothing
 
 ||| Canonical unary natural; construction itself performs no external effect.

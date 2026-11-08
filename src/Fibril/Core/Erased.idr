@@ -545,11 +545,11 @@ mutual
       then Left (PrimError "Word literal outside 0 .. 2^64-1")
       else Right (Prim WordTypeOp [])
   infer globals (S depth) reduction context (Prim op [argument]) =
-    case wordUnaryResult op of
+    case primUnarySignature op of
       Nothing => Left (PrimError ("operation " ++ show op ++ " does not take one argument"))
-      Just result => do
+      Just (domain, result) => do
         argumentType <- infer globals depth reduction context argument
-        requireCompatible globals reduction argumentType (Prim WordTypeOp [])
+        requireCompatible globals reduction argumentType domain
         Right result
   infer globals (S depth) reduction context (Prim op [left, right]) =
     case wordBinaryResult op of

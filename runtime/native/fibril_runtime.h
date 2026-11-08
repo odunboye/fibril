@@ -37,6 +37,11 @@ FValue *f_erased(FRuntime *r);
 FValue *f_word(FRuntime *r, uint64_t value);
 /* Decimal digits, no sign or padding; the result is an ordinary String. */
 FValue *f_word_to_string(FRuntime *r, FEnv *env, FEval value);
+/* Division returns a variant: tag 0 divide-by-zero (no payload), tag 1 the Word result. */
+FValue *f_word_div(FRuntime *r, FEnv *env, FEval left, FEval right);
+FValue *f_word_rem(FRuntime *r, FEnv *env, FEval left, FEval right);
+/* Counts a canonical Nat chain modulo 2^64; each successor is charged to the step budget. */
+FValue *f_word_from_nat(FRuntime *r, FEnv *env, FEval value);
 FValue *f_word_add(FRuntime *r, FEnv *env, FEval left, FEval right);
 FValue *f_word_sub(FRuntime *r, FEnv *env, FEval left, FEval right);
 FValue *f_word_mul(FRuntime *r, FEnv *env, FEval left, FEval right);

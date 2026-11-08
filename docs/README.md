@@ -42,7 +42,7 @@ The generated homepage separates teaching chapters, references, and project reco
 - [Bare Type](bare-type.md): notation for Type 0, with explicit higher universes unchanged.
 
 - [Explicit UTF-8 conversion](utf8-values.md): checked fallible text/byte conversion with native parity; console NUL policy is unchanged.
-- [Word integers](words.md): unsigned 64-bit wrapping arithmetic with checked C lowering; `primWordToString` prints them.
+- [Word integers](words.md): unsigned 64-bit wrapping arithmetic with checked C lowering; `primWordToString` prints them; division returns a result variant and `primWordFromNat` converts counts.
 - [Pure byte values](bytes.md): checked immutable octets, append, length and explicit modulo construction; not source binary IO.
 - [Pure String values](strings.md): ordinary typing/data and the separate console effect boundary.
 
