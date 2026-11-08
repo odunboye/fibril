@@ -17,6 +17,7 @@ unit-test: build
 	PACK="$(PACK)" IDRIS2="$(IDRIS2)" python3 tools/test_units.py
 
 test: unit-test
+	CC="$(CC)" python3 tools/test_construction.py
 	CC="$(CC)" python3 tools/test_native_forwarding.py
 	python3 tools/test_lsp_cost_audit.py
 	CC="$(CC)" python3 tools/test_composed_probe.py
@@ -56,6 +57,10 @@ composed-bench: build
 .PHONY: json-evaluation-profile
 json-evaluation-profile: build
 	CC="$(CC)" python3 tools/probe_json_evaluation.py --output build/benchmarks/json-evaluation.json
+
+.PHONY: construction-audit
+construction-audit: build
+	PACK="$(PACK)" IDRIS2="$(IDRIS2)" python3 tools/probe_construction.py --output build/benchmarks/construction.json
 
 io-hosted-test:
 	IDRIS2="$(IDRIS2)" python3 tools/test_io_hosted.py

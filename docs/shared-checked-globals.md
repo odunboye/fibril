@@ -74,6 +74,10 @@ signature/body construction at declaration admission rather than at each use.
 The existing 200000-unit construction budget remains an admission policy, not a
 CPU/heap bound.
 
+[Construction accounting](construction-accounting.md) now releases a named
+declaration's unused preflight reservation after checking its emitted size.
+Committed signature/body nodes remain cumulatively charged across modules.
+
 Native and hosted-binary admission use an explicit **reachable graph policy**:
 count the complete entry plus every reachable signature and body once. Aliases
 and repeated references do not duplicate that charge. The numeric native/binary
