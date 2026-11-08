@@ -72,7 +72,7 @@ the entire successor value (and may be unused). Visible or ambiguous names are
 resolved as constructors instead, and a catch-all before `Zero` is rejected.
 The input must be unrestricted: reconstruction uses an unrestricted successor
 predecessor. Explicit `Succ` patterns still require linear use of their named
-predecessor. Nat has no wildcard pattern.
+predecessor. The Nat catch-all may be `_`, which discards the successor.
 
 A named module's constructor-clause group over a nominal data type also accepts
 a final catch-all clause: `_` or an unresolved lowercase name, with no payload

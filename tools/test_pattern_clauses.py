@@ -339,5 +339,13 @@ data Shape : Type where
                 result = self.run_source(self.COLOR + DATA.split('\n', 1)[1] + definition + '\nmain : Bool\nmain = True\n')
                 self.assertNotEqual(result.returncode, 0, result.stdout)
 
+    def test_nat_wildcard_catch_all(self):
+        for value, expected in (('Zero', 'True'), ('Succ Zero', 'False')):
+            with self.subTest(value=value):
+                result = self.run_source('module Main\nisZero : Nat -> Bool\nisZero Zero = True\nisZero _ = False\n'
+                                         'main : Bool\nmain = isZero (' + value + ')\n')
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn('Normal: ' + expected, result.stdout)
+
 if __name__ == '__main__':
     unittest.main()

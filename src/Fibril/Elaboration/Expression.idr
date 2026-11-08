@@ -811,7 +811,7 @@ mutual
   equationBodyGlobals : GlobalContext -> List GlobalDefinition -> Context n -> Vect n String -> Term n -> List Token -> Expr -> Either ResolveError (Term n)
   equationBodyGlobals shared globals context env expected [argument] body@(NDataCase span (NRef _ scrutinee) Nothing [(zero, [], base), (binder, [], more)]) =
     if argument.spelling /= "$clauseScrutinee" || scrutinee /= argument.spelling ||
-       not (case unpack binder.spelling of c :: _ => isLower c; [] => False) ||
+       not (binder.spelling == "_" || (case unpack binder.spelling of c :: _ => isLower c; [] => False)) ||
        isJust (lookupName binder.spelling env) ||
        isJust (find (\entry => entry.name == binder.spelling) globals) ||
        not (null (qualifiedCandidates binder.spelling globals))
