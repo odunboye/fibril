@@ -327,7 +327,7 @@ def main():
             evidence['entries'].append(row)
             args.output.parent.mkdir(parents=True, exist_ok=True)
             args.output.write_text(json.dumps(evidence, indent=2, sort_keys=True) + '\n')
-        email = ROOT / 'examples/modules/email-service-full'
+        email = ROOT / 'test/fixtures/modules/email-service-full'
         expected = b'sending\ndeferred\nqueued\nfailed\ndelivered\nbounced\nsubmission unknown\ntransition rejected\n'
         collect('email-full', email, email / 'Main.fib', cases=[('demo', b'', expected)])
         for family, sizes in [('inventory', [16, 64, 128, 256, 512]), ('chain', [8, 32, 64, 128, 253, 254, 255, 256]),

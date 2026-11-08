@@ -79,8 +79,9 @@ direct imports. Wider patterns and general recursive inductives remain future wo
 Recursive function equations are accepted when structural, or when the
 [size-change check](docs/function-equations.md#general-recursion) proves them terminating.
 
-The first [application target is a transactional-email service](docs/applications/transactional-email.md),
-with a checked relay-submission model. Network/TLS/storage integration, C deployment and the
+The first [application target is a transactional-email service](docs/applications/transactional-email.md).
+Its source now lives in the standalone sibling `../email` project, not compiler examples;
+only self-contained compiler regression snapshots remain under `test/fixtures/`. Network/TLS/storage integration, C deployment and the
 web/mobile UI are not implemented; application blockers remain explicit. An optional
 [trusted SQLite enqueue adapter](docs/durable-queue.md) now provides durable,
 tenant-scoped idempotency. A [checked enqueue demonstration](docs/enqueue-worker.md)

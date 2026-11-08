@@ -171,8 +171,8 @@ examples: build
 	./build/exec/fibril check --package examples/packages/sum-library/fibril.yaml
 	./build/exec/fibril test --package examples/packages/sum-library/fibril.yaml
 	./build/exec/fibril run --package examples/packages/sum-client/fibril.yaml
-	./build/exec/fibril check --package examples/packages/request-api/fibril.yaml
-	./build/exec/fibril test --package examples/packages/request-api/fibril.yaml
+	./build/exec/fibril check --package test/fixtures/packages/request-api/fibril.yaml
+	./build/exec/fibril test --package test/fixtures/packages/request-api/fibril.yaml
 	./build/exec/fibril check --source-dir examples/modules/binary-frame examples/modules/binary-frame/Main.fib
 	./build/exec/fibril check --source-dir examples/modules/binary-frame examples/modules/binary-frame/Two.fib
 	./build/exec/fibril check examples/core/binary-echo.fib
@@ -258,8 +258,8 @@ examples: build
 	./build/exec/fibril run --source-dir examples/modules/motive-do examples/modules/motive-do/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/direct-data-case examples/modules/direct-data-case/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/direct-data-case-dependent examples/modules/direct-data-case-dependent/Main.fib
-	./build/exec/fibril run --source-dir examples/modules/email-service examples/modules/email-service/Main.fib
-	./build/exec/fibril run --source-dir examples/modules/email-service-full examples/modules/email-service-full/Main.fib
+	./build/exec/fibril run --source-dir test/fixtures/modules/email-service test/fixtures/modules/email-service/Main.fib
+	./build/exec/fibril run --source-dir test/fixtures/modules/email-service-full test/fixtures/modules/email-service-full/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/pattern-inference examples/modules/pattern-inference/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/pattern-inference examples/modules/pattern-inference/Dependent.fib
 	./build/exec/fibril run --source-dir examples/modules/pattern-inference examples/modules/pattern-inference/Minimal.fib

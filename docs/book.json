@@ -534,6 +534,10 @@
         "path": "examples/manifests/README.md"
       },
       {
+        "title": "Compiler regression fixtures",
+        "path": "test/fixtures/README.md"
+      },
+      {
         "title": "Recursion tour",
         "path": "examples/modules/recursion-tour/README.md"
       },

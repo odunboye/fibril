@@ -1648,7 +1648,7 @@ main = first Zero
 
     def test_email_request_api_direct_cases_and_separate_tests(self):
         import shutil
-        fixture = ROOT / 'examples/packages/request-api'
+        fixture = ROOT / 'test/fixtures/packages/request-api'
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory) / 'request-api'
             shutil.copytree(fixture, project)
@@ -1684,7 +1684,7 @@ main = first Zero
             self.assertNotEqual(run('test', '--package', str(manifest)).returncode, 0)
 
     def test_email_submission_state_model(self):
-        example = ROOT / "examples/modules/email-service"
+        example = ROOT / "test/fixtures/modules/email-service"
         result = run("run", "--source-dir", str(example), str(example / "Main.fib"))
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(result.stdout, "sending\naccepted by relay\nsubmission unknown\ntransition rejected\n")
