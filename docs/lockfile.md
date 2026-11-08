@@ -1,7 +1,11 @@
-# Design: fibril.lock (local snapshot locks)
+# fibril.lock (local snapshot locks)
 
-Status: **design only, nothing here is implemented.** It narrows the open
-"lock format/versioning" items in [packages.md](packages.md) and
+Status: **implemented** for local path packages (POSIX bootstrap): `fibril lock
+[--update] [--package PATH]` writes it and every package command that loads the
+dependency closure (`check`, `run`, `test`, `module-graph`, `emit-c` and editor
+navigation through `--package`) verifies it first. Not implemented: the
+`--locked` flag, a "no lock" notice, workspace members, and anything remote. It
+narrows the open "lock format/versioning" items in [packages.md](packages.md) and
 [workspaces.md](workspaces.md) to the smallest slice that is honest today.
 
 ## Use case
@@ -61,8 +65,13 @@ trailing newline. `Fibril.Project.Lock.encodeLock` implements exactly this.
 | --- | --- | --- |
 | `fibril lock` | writes it | refuses; use `--update` |
 | `fibril lock --update` | writes it | rewrites it, printing each changed package |
-| `fibril check` / `run` / `test` with `--package` | proceeds, prints `no fibril.lock` | verifies; any mismatch is an error naming the package and which digest differs |
-| same, with `--locked` | error | as above |
+| any package command (bare or `--package`) | proceeds silently, unchanged | verifies; any mismatch is an error naming the package and which digest differs |
+| same, with `--locked` | error | as above (**not implemented**; a missing lock is silently accepted) |
+
+`fibril lock --update` with an unreadable or non-canonical lock replaces it and
+says so. The lock is written to `fibril.lock.tmp` and renamed into place. A
+symlink or alias anywhere in a package's source tree, or more than 2048 files, 16
+levels or 4096 entries per directory, makes locking and verification fail.
 
 Verification runs before any dependency source is checked, so a drifted package
 is never half-trusted. A package present in the closure but absent from the lock
@@ -93,10 +102,11 @@ scripts, or rewrites the lock implicitly.
    names unique) and then requires re-encoding to equal the input, so unknown or
    duplicate keys, reordering, whitespace, other schemas and trailing data are
    all rejected. A hand-edited lock must be regenerated with `fibril lock --update`.
-4. `fibril lock` plus verification inside the existing `--package` closure loader
+4. **Done:** `fibril lock` and verification inside `Project.Local.loadLocalInventory`
    (reads files, rejects symlinks, builds the current `Lock`, calls `lockDrift`).
-   **Not started**; it touches the CLI and loader.
-5. CLI tests in `tools/test_cli.py`: edit a dependency file and expect a named
+5. **Done:** CLI tests (`LockfileTests` in `tools/test_cli.py`); the digests were
+   also cross-checked against an independent Python implementation. Original plan:
+   `tools/test_cli.py`: edit a dependency file and expect a named
    mismatch; add/remove a package; `--locked` without a lock.
 
 Each slice is testable offline. Slice 1 needs no digest implementation if tests

@@ -5,10 +5,16 @@ import Data.List
 import Data.List1
 import Data.String
 import System.Directory
+import System.File
+import Fibril.Project.Digest
+import Fibril.Project.Lock
+import Fibril.Project.LockDecode
 import Fibril.Project.Manifest
 import Fibril.Project.Workspace
 import Fibril.Runtime.Path
+import Fibril.Runtime.Project
 import Fibril.Source.File
+import Fibril.Source.UTF8
 
 %default total
 
@@ -102,11 +108,143 @@ mutual
 ||| Directory/source roots are canonical, exact-case and non-overlapping. This
 ||| is admission metadata, not an immutable snapshot, sandbox or typing authority.
 public export
-loadLocalInventory : String -> IO (Either String LocalInventory)
-loadLocalInventory path = do
+loadUnlockedInventory : String -> IO (Either String LocalInventory)
+loadUnlockedInventory path = do
   Right (entry, complete) <- discover 64 Nothing path (Discovering [] 0) | Left err => failure err
   pure $ do
     plan <- case planWorkspace (map asSpec complete.packages) of
       Left err => Left (show err)
       Right plan => Right plan
     Right (LocalClosure entry complete.packages plan)
+
+-- fibril.lock (docs/lockfile.md): change detection for local packages, not a pin
+-- and not authenticity. Raw source bytes are the UTF-8 re-encoding of the strictly
+-- decoded text, which is lossless, so a CRLF checkout changes the digest.
+
+bytesOf : String -> Either String (List Bits8)
+bytesOf text = case encodeUTF8 text of
+  Left err => Left (show err)
+  Right bytes => Right bytes
+
+readBytes : String -> IO (Either String (List Bits8))
+readBytes path = do
+  Right text <- loadSource path | Left err => failure (path ++ ": " ++ show err)
+  pure (bytesOf text)
+
+isDirectoryPath : String -> IO Bool
+isDirectoryPath path = do
+  Right directory <- openDir path | Left _ => pure False
+  closeDir directory
+  pure True
+
+mutual
+  -- Only directories and *.fib files are followed, and each must be its own exact
+  -- canonical path, so any symlink or alias in the tree is rejected, not followed.
+  walkSources : Nat -> String -> String -> IO (Either String (List (String, List Bits8)))
+  walkSources Z dir rel = failure "Package source tree is nested too deeply (16)"
+  walkSources (S depth) dir rel = do
+    Right names <- listDir dir | Left err => failure (dir ++ ": " ++ show err)
+    if length names > 4096 then failure ("Too many entries in " ++ dir ++ " (4096)")
+       else walkEntries depth dir rel (sort (filter (\n => n /= "." && n /= "..") names))
+
+  walkEntries : Nat -> String -> String -> List String -> IO (Either String (List (String, List Bits8)))
+  walkEntries depth dir rel [] = pure (Right [])
+  walkEntries depth dir rel (name :: rest) = do
+    let full = joinPath dir name
+    let relName = if rel == "" then name else rel ++ "/" ++ name
+    isDir <- isDirectoryPath full
+    Right here <- if not (isDir || isSuffixOf ".fib" name) then pure (Right (the (List (String, List Bits8)) [])) else do
+          Right canonical <- exactCanonical full | Left err => failure err
+          if canonical /= full then failure ("Symlink or alias in package source tree: " ++ full)
+             else if isDir then walkSources depth full relName
+             else do
+               Right bytes <- readBytes full | Left err => failure err
+               pure (Right [(relName, bytes)])
+      | Left err => failure err
+    Right others <- walkEntries depth dir rel rest | Left err => failure err
+    if length here + length others > 2048 then failure "Package has too many source files (2048)"
+       else pure (Right (here ++ others))
+
+lockedPackage : String -> LocalRoot -> IO (Either String LockedPackage)
+lockedPackage base root = do
+  Right manifestBytes <- pure (bytesOf root.manifestText) | Left err => failure err
+  Right files <- walkSources 16 root.sourceRoot "" | Left err => failure err
+  Just tree <- pure (treeDigest files) | Nothing => failure ("Invalid source path in package " ++ root.manifest.name)
+  pure (Right (MkLocked root.manifest.name (joinBy "." root.manifest.modulePrefix)
+                (relativePath base root.packageRoot) (sha256Hex manifestBytes) tree))
+
+lockedPackages : String -> List LocalRoot -> IO (Either String (List LockedPackage))
+lockedPackages base [] = pure (Right [])
+lockedPackages base (root :: rest) = do
+  Right here <- lockedPackage base root | Left err => failure err
+  Right others <- lockedPackages base rest | Left err => failure err
+  pure (Right (here :: others))
+
+||| The lock these packages would have right now.
+currentLock : LocalInventory -> IO (Either String Lock)
+currentLock inventory = do
+  let entry = inventory.entryPackage
+  Right packages <- lockedPackages entry.packageRoot inventory.packages | Left err => failure err
+  pure (Right (MkLock entry.manifest.name entry.manifest.foundation packages))
+
+lockPathFor : LocalInventory -> String
+lockPathFor inventory = joinPath inventory.entryPackage.packageRoot "fibril.lock"
+
+||| Right Nothing: no lock. Left: unreadable, not strictly decodable or non-canonical.
+readLock : String -> IO (Either String (Maybe Lock))
+readLock path = do
+  Right file <- openFile path Read
+    | Left FileNotFound => pure (Right Nothing)
+    | Left err => failure (path ++ ": " ++ show err)
+  closeFile file
+  Right text <- loadSource path | Left err => failure (path ++ ": " ++ show err)
+  pure (case decodeLock text of
+    Left err => Left (path ++ ": " ++ err)
+    Right lock => Right (Just lock))
+
+||| Loads the dependency closure and, when a fibril.lock sits beside the entry
+||| manifest, verifies it first so a drifted package is never half-trusted. No
+||| lock means no verification. Never fetches, runs scripts or writes the lock.
+public export
+loadLocalInventory : String -> IO (Either String LocalInventory)
+loadLocalInventory path = do
+  Right inventory <- loadUnlockedInventory path | Left err => failure err
+  Right recorded <- readLock (lockPathFor inventory) | Left err => failure err
+  case recorded of
+    Nothing => pure (Right inventory)
+    Just lock => do
+      Right current <- currentLock inventory | Left err => failure err
+      case lockDrift lock current of
+        [] => pure (Right inventory)
+        drift => failure (unlines ("fibril.lock does not match the current packages (run fibril lock --update to accept):"
+                                   :: map ("  " ++) drift))
+
+||| fibril lock [--update]: write the lock beside the entry manifest. An existing
+||| lock is replaced only with update, through a temporary file and rename.
+||| shortcut: a stale fibril.lock.tmp from a crash blocks the next write until removed.
+public export
+writeLock : (update : Bool) -> String -> IO (Either String (List String))
+writeLock update path = do
+  Right inventory <- loadUnlockedInventory path | Left err => failure err
+  Right current <- currentLock inventory | Left err => failure err
+  let target = lockPathFor inventory
+  recorded <- readLock target
+  let write : IO (Either String ())
+      write = do
+        Right () <- freshFile (target ++ ".tmp") (encodeLock current) | Left err => failure err
+        Right () <- renamePath (target ++ ".tmp") target | Left err => failure err
+        pure (Right ())
+  case recorded of
+    Right Nothing => do
+      Right () <- write | Left err => failure err
+      pure (Right ["Wrote fibril.lock (" ++ show (length current.packages) ++ " packages)"])
+    _ => if not update then failure "fibril.lock already exists; use fibril lock --update to replace it" else
+      case recorded of
+        Right (Just old) => case lockDrift old current of
+          [] => pure (Right ["fibril.lock is already up to date"])
+          drift => do
+            Right () <- write | Left err => failure err
+            pure (Right ("Updated fibril.lock:" :: map ("  " ++) drift))
+        _ => do
+          Right () <- write | Left err => failure err
+          pure (Right ["Replaced unreadable fibril.lock"])

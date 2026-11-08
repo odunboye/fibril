@@ -101,7 +101,9 @@ check/run through one ownership-aware multi-root graph using `--package fibril.y
 work through `fibril new NAME --lib`, `fibril check` and `fibril test`, without a
 dummy application entry. App scaffolds include a separate test package with a starter Bool suite
 too; replace its True result with real application assertions. `--source-only`
-remains minimal. Workspace-member discovery and locks remain future work.
+remains minimal. [Local packages can be locked](docs/lockfile.md) with `fibril lock` (change detection,
+not pinning or authenticity). Workspace-member discovery, registries and version
+solving remain future work.
 
 Learn the language with the [Programming in Fibril tutorial](docs/tutorial/README.md).
 

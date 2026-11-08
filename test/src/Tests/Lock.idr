@@ -105,6 +105,9 @@ checks =
       rejected (encodeLock (MkLock "a" "f" [MkLocked "c" "P" "p" "m1" (sha 'b')]))
         && rejected (encodeLock (MkLock "a" "f" [MkLocked "c" "P" "p" (sha 'A') (sha 'b')]))
         && rejected (encodeLock (MkLock "a" "f" [MkLocked "c" "P" "p" (sha 'a') (sha 'b'), MkLocked "c" "Q" "q" (sha 'a') (sha 'b')])))
+  , ("relative paths between canonical package roots",
+      relativePath "/w/app" "/w/app" == "." && relativePath "/w/app" "/w/email-core" == "../email-core"
+        && relativePath "/w/app" "/w/app/vendor/x" == "vendor/x" && relativePath "/a/b/c" "/d" == "../../../d")
   , ("decode rejects empty, truncated and non-lock input",
       rejected "" && rejected "{}" && rejected (substr 0 40 good) && rejected "not json")
   ]

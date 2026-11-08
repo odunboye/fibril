@@ -28,6 +28,7 @@ import Fibril.Driver.Reference
 import Fibril.Driver.Elaborate
 import Fibril.Driver.Manifest
 import Fibril.Driver.Format
+import Fibril.Project.Local
 import Fibril.Source.File
 import Fibril.Source.Lexer
 import Fibril.Source.Diagnostic
@@ -43,6 +44,7 @@ Usage:
   fibril --version
   fibril new NAME [--lib] [--template console] [--module-prefix PREFIX | --source-only] [--dry-run]  Create a fresh offline console project (POSIX)
   fibril manifest PATH          Inspect a strict local YAML manifest (no dependency/source loading)
+  fibril lock [--update] [--package PATH]  Write fibril.lock (SHA-256 of each local package); package commands verify it
   fibril module-graph ROOT ENTRY  Inspect local dependency graph (syntax only, POSIX)
   fibril module-graph --package PATH  Inspect package-scoped source graph (syntax only)
   fibril cubical-check PATH     Check separate experimental cubical .fib dialect (conditional semantics)
@@ -191,6 +193,11 @@ main = do
     ["--version"] => putStrLn "Fibril 0.1.0-dev (Idris 2 bootstrap)"
     "new" :: options => newProject options >>= printServiceReport
     ["manifest", path] => manifestFile path >>= printServiceReport
+    ["lock"] => writeLock False "fibril.yaml" >>= printServiceReport
+    ["lock", "--update"] => writeLock True "fibril.yaml" >>= printServiceReport
+    ["lock", "--package", manifest] => writeLock False manifest >>= printServiceReport
+    ["lock", "--package", manifest, "--update"] => writeLock True manifest >>= printServiceReport
+    ["lock", "--update", "--package", manifest] => writeLock True manifest >>= printServiceReport
     ["check"] => packageCheck "fibril.yaml"
     ["test"] => testPackage 128 "fibril.yaml" >>= printServiceReport
     ["test", "--fuel", text] => testWithFuel text (\fuel => testPackage fuel "fibril.yaml")

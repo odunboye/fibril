@@ -57,6 +57,21 @@ treeDigest files =
       Right encoded => Just encoded
       Left _ => Nothing
 
+||| Path from directory `from` to directory `to`, both canonical absolute paths.
+export
+relativePath : (from, to : String) -> String
+relativePath from to =
+  let (ups, downs) = strip (components from) (components to)
+      parts = map (const "..") ups ++ downs
+   in if null parts then "." else joinBy "/" parts
+  where
+    components : String -> List String
+    components p = filter (/= "") (forget (split (== '/') p))
+
+    strip : List String -> List String -> (List String, List String)
+    strip (a :: as) (b :: bs) = if a == b then strip as bs else (a :: as, b :: bs)
+    strip as bs = (as, bs)
+
 packageJSON : LockedPackage -> String
 packageJSON p = jsonObject
   [ ("name", jsonString p.name), ("module-prefix", jsonString p.modulePrefix)

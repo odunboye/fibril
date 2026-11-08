@@ -18,6 +18,16 @@ primPut : String -> AnyPtr -> PrimIO Int
 %foreign "C:fclose,libc 6,stdio.h"
 primClose : AnyPtr -> PrimIO Int
 
+%foreign "C:rename,libc 6,stdio.h"
+primRename : String -> String -> PrimIO Int
+
+||| POSIX rename: atomically replaces an existing destination on one filesystem.
+public export
+renamePath : String -> String -> IO (Either String ())
+renamePath from to = do
+  result <- primIO (primRename from to)
+  pure (if result == 0 then Right () else Left ("Could not rename " ++ from ++ " to " ++ to))
+
 ||| Atomic fresh-directory admission; EEXIST (including symlinks) is failure.
 ||| 0700 is deliberate; do not expose a partly generated project to other users.
 public export

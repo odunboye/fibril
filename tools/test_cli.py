@@ -8919,6 +8919,72 @@ main = putStrLn (drain (Succ Zero) (Cons String Zero "linear" (Nil String)))
             self.assertEqual(result.stdout, 'imported\n')
 
 
+class LockfileTests(unittest.TestCase):
+    """docs/lockfile.md: fibril lock writes, package commands verify."""
+
+    def project(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        root = Path(directory.name).resolve()
+        for name in ('mailer', 'email-core'):
+            shutil.copytree(ROOT / 'examples/packages' / name, root / name)
+        return root / 'mailer', root / 'email-core'
+
+    def test_lock_verify_drift_and_update(self):
+        app, core = self.project()
+        self.assertEqual(run('check', cwd=app).returncode, 0)  # no lock: unchanged behavior
+        written = run('lock', cwd=app)
+        self.assertEqual(written.returncode, 0, written.stderr)
+        lock = json.loads((app / 'fibril.lock').read_text())
+        self.assertEqual([p['name'] for p in lock['packages']], ['email-core', 'mailer-app'])
+        self.assertEqual([p['path'] for p in lock['packages']], ['../email-core', '.'])
+        self.assertEqual(run('check', cwd=app).returncode, 0)
+        self.assertEqual(run('test', cwd=app).returncode, run('test', '--package', 'fibril.yaml', cwd=app).returncode)
+        again = run('lock', cwd=app)
+        self.assertNotEqual(again.returncode, 0)
+        self.assertIn('--update', again.stdout + again.stderr)
+        self.assertIn('already up to date', run('lock', '--update', cwd=app).stdout)
+
+        status = core / 'src/Email/Core/Status.fib'
+        status.write_text(status.read_text() + '\n')
+        for command in (('check',), ('run',), ('module-graph',)):
+            with self.subTest(command=command):
+                result = run(*command, cwd=app)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn('package email-core: sources changed', result.stdout + result.stderr)
+        updated = run('lock', '--update', cwd=app)
+        self.assertEqual(updated.returncode, 0)
+        self.assertIn('email-core: sources changed', updated.stdout)
+        self.assertEqual(run('check', cwd=app).returncode, 0)
+
+    def test_manifest_drift_and_tampered_locks_are_rejected(self):
+        app, core = self.project()
+        run('lock', cwd=app)
+        good = (app / 'fibril.lock').read_text()
+        (core / 'fibril.yaml').write_text((core / 'fibril.yaml').read_text() + '\n')
+        result = run('check', cwd=app)
+        self.assertIn('package email-core: manifest changed', result.stdout + result.stderr)
+        (core / 'fibril.yaml').write_text((core / 'fibril.yaml').read_text().rstrip('\n') + '\n')
+        for name, text in {'whitespace': good.replace('"packages"', ' "packages"'),
+                           'schema': good.replace('"schema": 1', '"schema": 2'),
+                           'garbage': good + 'x', 'empty': ''}.items():
+            with self.subTest(tamper=name):
+                (app / 'fibril.lock').write_text(text)
+                result = run('check', cwd=app)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn('fibril.lock', result.stdout + result.stderr)
+        replaced = run('lock', '--update', cwd=app)
+        self.assertEqual(replaced.returncode, 0)
+
+    def test_symlinks_in_source_trees_are_rejected(self):
+        app, core = self.project()
+        os.symlink(core / 'src/Email/Core/Status.fib', core / 'src/Email/Core/Alias.fib')
+        result = run('lock', cwd=app)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('Symlink or alias', result.stdout + result.stderr)
+        self.assertFalse((app / 'fibril.lock').exists())
+
+
 class CheckJSONContractTests(unittest.TestCase):
     """Frozen key sets from docs/diagnostics.md#stability-contract-for-check---json."""
 
