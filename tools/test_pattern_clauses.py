@@ -369,5 +369,14 @@ data Shape : Type where
                                'main : String\nmain = leak (Open "x")\n')
         self.assertNotEqual(leak.returncode, 0, leak.stdout)
 
+    def test_wildcard_payload_binder(self):
+        data = 'module Main\ndata Sum (0 A : Type) (0 B : Type) : Type where\n  Left : ({q}value : A) -> Sum A B\n  Right : ({q}value : B) -> Sum A B\n'
+        clauses = 'isLeft : Sum Bool Bool -> Bool\nisLeft Left _ = True\nisLeft Right _ = False\nmain : Bool\nmain = isLeft (Left Bool Bool True)\n'
+        ok = self.run_source(data.format(q='') + clauses)
+        self.assertEqual(ok.returncode, 0, ok.stderr)
+        self.assertIn('Normal: True', ok.stdout)
+        # a wildcard must not discard a linear payload
+        self.assertNotEqual(self.run_source(data.format(q='1 ') + clauses).returncode, 0)
+
 if __name__ == '__main__':
     unittest.main()

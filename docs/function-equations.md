@@ -57,8 +57,9 @@ same signature as a nonrecursive constructor-clause group. Each clause matches
 exactly one argument with a flat, unqualified constructor and zero or one named
 payload binder; the signature must expose a corresponding explicit Pi. The group lowers to the existing data case, so its constructor shape,
 exhaustiveness, motive inference and linear usage remain subject to those case
-rules. A lone constructor-looking equation remains an ordinary binder equation.
-Nested patterns, wildcard payloads, multiple matched arguments, guards, local or
+rules. A lone constructor-looking equation remains an ordinary binder equation. A payload may be `_` (for example `isLeft Left _ = True`); like any
+wildcard it cannot discard a linear or erased-use payload.
+Nested patterns, multiple matched arguments, guards, local or
 mutual clause groups, inferred signatures and general recursive clauses are not
 supported. The conservative clause recursion check rejects the function's bare
 name even in binder positions; qualified references such as `Other.f` are

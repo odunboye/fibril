@@ -103,9 +103,7 @@ clauseArm budget function end parenthesized arguments body bodyTokens = do
   case (parenthesized, arguments) of
     (True, constructor :: binders) => Right (constructor, binders, body)
     (False, [constructor]) => Right (constructor, [], body)
-    (False, [constructor, binder]) =>
-      if binder.spelling == "_" then Left (ParseFailure binder.span.start "Clause payload must be a named binder")
-      else Right (constructor, [binder], body)
+    (False, [constructor, binder]) => Right (constructor, [binder], body)
     _ => Left (ParseFailure end "Function clauses require one flat constructor pattern")
 
 clauseArms : Nat -> Nat -> Nat -> Position -> String -> List Token ->
