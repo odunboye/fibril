@@ -36,9 +36,12 @@ this checkout's `build/exec/fibril`, never a workspace-supplied executable.
 | Rename | Compiler's capture-checked **standalone same-file** preview, returned as versioned documentChanges; named modules/imports remain unsupported |
 | Workspace folders and disk changes | Multiple workspace roots; polling of observed sources/directories; explicit watched-file notifications also accepted |
 
+| Completion | Top-level names from the current file and the Prelude, prefix-filtered; **no scope, type or import awareness** |
+| Project rename | In a manifest/source-root project: checked-graph references become versioned multi-file edits; plain identifiers only, refused if the new name already appears in any affected file (conservative, not a capture check) |
+
 Rename is advertised only when the client supports versioned documentChanges.
-Completion, signature help, project-wide rename, semantic tokens,
-code actions and workspace symbols are not advertised or implemented yet.
+Signature help, semantic tokens, code actions and workspace symbols are not
+advertised or implemented yet.
 
 ## Neovim: standard LSP instead of custom commands
 
@@ -112,8 +115,8 @@ References are limited to the loaded application closure or explicit library
 inventory. Inventory-only modules are included; unrelated workspace files and
 reverse package dependants are not guessed or automatically discovered. Same
 spelled local binders/private names remain separate. Ambiguous or invalid graphs
-produce checking failures rather than guessed results. Project-wide rename is
-still separate work: collision checks and versioned multi-file edits are needed.
+produce checking failures rather than guessed results. Project rename reuses
+these references; it needs a project that checks, and rejects module/qualified names.
 
 CLI access is also available through `references --source-dir ROOT --entry ENTRY
 LINE COLUMN PATH` and `references --package MANIFEST LINE COLUMN PATH`.
