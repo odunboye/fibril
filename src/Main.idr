@@ -58,6 +58,8 @@ Usage:
   fibril elaborate PATH         Inspect expanded named IR (unchecked; no effects)
   fibril reference LINE COLUMN PATH  Built-in documentation or bundled Prelude source
   fibril references LINE COLUMN PATH  Same-file lexical occurrences, including declarations
+  fibril binding-graph --source-dir ROOT --entry ENTRY LINE COLUMN PATH  Checked authored binding graph
+  fibril binding-graph --package MANIFEST LINE COLUMN PATH  Checked package binding graph
   fibril references --source-dir ROOT --entry ENTRY LINE COLUMN PATH  Checked project occurrences
   fibril references --package MANIFEST LINE COLUMN PATH  Checked package/inventory occurrences
   fibril definition --source-dir ROOT --entry ENTRY LINE COLUMN PATH  Checked project target
@@ -251,6 +253,10 @@ main = do
           putStrLn "Fuel must be decimal 0..4096."
           exitFailure
     ["rename-preview", line, column, name, path] => runLocationQuery (\row, col, file => renameFile row col name file) line column path
+    ["binding-graph", "--source-dir", root, "--entry", entry, line, column, path] =>
+      runLocationQuery (projectBindingGraphFile root entry) line column path
+    ["binding-graph", "--package", manifest, line, column, path] =>
+      runLocationQuery (packageBindingGraphFile manifest) line column path
     ["references", "--source-dir", root, "--entry", entry, line, column, path] =>
       runLocationQuery (projectReferencesFile root entry) line column path
     ["references", "--package", manifest, line, column, path] =>

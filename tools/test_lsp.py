@@ -304,12 +304,81 @@ class Integration(unittest.TestCase):
         self.assertEqual(files[a.as_uri()][0]["range"]["start"]["line"], 4)
         refused = client.request("textDocument/rename", {**query, "newName": "secret"})
         self.assertEqual(refused["error"]["code"], -32803)
-        # Reserved words and names used only in an unaffected workspace file are refused too.
+        # Reserved words are refused; an unrelated module name is safe after graph comparison.
         for name in ("where", "Unit"):
             self.assertIn("reserved", client.request("textDocument/rename", {**query, "newName": name})["error"]["message"])
         unaffected = client.request("textDocument/rename", {**query, "newName": "Unreachable"})
-        self.assertEqual(unaffected["error"]["code"], -32803)
+        self.assertIn("result", unaffected, unaffected)
         self.assertEqual(a.read_text(), texts[a])
+
+    def test_project_rename_refuses_type_correct_local_capture(self):
+        library = self.root / 'A.fib'
+        library.write_text('module A\nexport\ngreeting : String\ngreeting = "global"\n')
+        main = self.root / 'Main.fib'
+        text = 'module Main\nimport A\nmain : IO Unit\nmain = putStrLn ((\\(salute : String) => greeting) "local")\n'
+        main.write_text(text)
+        client = self.client()
+        client.open(main, text)
+        result = client.request('textDocument/rename', {**self.at(main, text, text.index('greeting')), 'newName': 'salute'})
+        self.assertEqual(result['error']['code'], -32803, result)
+        self.assertIn('binding graph', result['error']['message'])
+        self.assertEqual(main.read_text(), text)
+
+    def test_project_rename_allows_disjoint_local_name_and_preserves_qualifiers(self):
+        a, left, right, main, texts = self.navigation_project()
+        text = texts[main].replace('echo : (1 greeting : String)', 'echo : (1 salute : String)').replace('echo = \\(1 greeting : String) => greeting', 'echo = \\(1 salute : String) => salute')
+        main.write_text(text)
+        client = self.client()
+        client.open(main, text, 7)
+        result = client.request('textDocument/rename', {**self.at(main, text, text.index('L.greeting') + 2), 'newName': 'salute'})
+        self.assertIn('result', result, result)
+        changes = result['result']['documentChanges']
+        change = next(change for change in changes if change['textDocument']['uri'] == main.as_uri())
+        self.assertEqual(change['textDocument']['version'], 7)
+        closed = next(change for change in changes if change['textDocument']['uri'] == a.as_uri())
+        self.assertIsNone(closed['textDocument']['version'])
+        rewritten = text
+        mapper = Positions(text)
+        for edit in sorted(change['edits'], key=lambda edit: mapper.offset(edit['range']['start']), reverse=True):
+            start, end = mapper.offset(edit['range']['start']), mapper.offset(edit['range']['end'])
+            rewritten = rewritten[:start] + edit['newText'] + rewritten[end:]
+        self.assertIn('L.salute R.salute', rewritten)
+        self.assertIn('echo = \\(1 salute : String) => salute', rewritten)
+        self.assertIn('"greeting 🌍 "', rewritten)
+        self.assertEqual(main.read_text(), text)
+
+    def test_project_rename_retains_implicit_collision_guard(self):
+        library = self.root / 'A.fib'
+        library.write_text('module A\nexport\ngreeting : String\ngreeting = "global"\n')
+        main = self.root / 'Main.fib'
+        text = 'module Main\nimport A\necho : (1 salute : String) -> String\necho salute = salute\nmain : IO Unit\nmain = do\n  putStrLn greeting\n'
+        main.write_text(text)
+        client = self.client()
+        client.open(main, text)
+        for name in ('salute', 'freshSalute'):
+            result = client.request('textDocument/rename', {**self.at(main, text, text.index('greeting')), 'newName': name})
+            self.assertEqual(result['error']['code'], -32803, result)
+            self.assertIn('implicit or generated-name', result['error']['message'])
+        self.assertEqual(main.read_text(), text)
+
+    def test_project_rename_checks_entry_free_library_inventory(self):
+        source = self.root / 'src' / 'Lib'
+        source.mkdir(parents=True)
+        (self.root / 'fibril.yaml').write_text('schema: 1\nname: lib\nmodule-prefix: Lib\nsource-dir: src\nfoundation: de-morgan\nmodules:\n  - Lib.One\n  - Lib.Two\n')
+        one, two = source / 'One.fib', source / 'Two.fib'
+        text = 'module Lib.One\nexport\nmessage : String\nmessage = "library"\n'
+        one.write_text(text)
+        two.write_text('module Lib.Two\nimport Lib.One as O\nexport\necho : String\necho = O.message\n')
+        client = self.client()
+        client.open(one, text, 2)
+        result = client.request('textDocument/rename', {**self.at(one, text, text.index('message')), 'newName': 'salute'})
+        self.assertIn('result', result, result)
+        changes = {change['textDocument']['uri']: change for change in result['result']['documentChanges']}
+        self.assertEqual(set(changes), {one.as_uri(), two.as_uri()})
+        self.assertEqual(changes[one.as_uri()]['textDocument']['version'], 2)
+        self.assertIsNone(changes[two.as_uri()]['textDocument']['version'])
+        self.assertEqual(one.read_text(), text)
+        self.assertIn('O.message', two.read_text())
 
     def test_hover_formatting_and_invalid_positions(self):
         client = self.client()

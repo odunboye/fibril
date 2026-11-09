@@ -37,7 +37,7 @@ this checkout's `build/exec/fibril`, never a workspace-supplied executable.
 | Workspace folders and disk changes | Multiple workspace roots; polling of observed sources/directories; explicit watched-file notifications also accepted |
 
 | Completion | Compiler scope at the cursor: local binders, checked visible globals and selected imports/aliases, with type and quantity details; matching expected types rank first. Syntax-only fallback is marked incomplete. |
-| Project rename | In a manifest/source-root project: checked-graph references become versioned multi-file edits; plain identifiers only, refused if the new name already appears in any affected file (conservative, not a capture check) |
+| Project rename | Checked symbol identities produce versioned multi-file edits, preserving qualifiers. The edited private snapshot must type-check and preserve every authored binding target after offset transport. Projects with implicit/generated-name syntax are conservatively refused. |
 
 Completion queries run against a private copy of the dirty-buffer snapshot. A fresh
 unbound identifier stands in for the identifier under the caret; the compiler
@@ -60,6 +60,25 @@ Such fallback suggestions carry no scope or type claim. The compiler attaches an
 optional `completionScope` to the query's JSON diagnostic; ordinary diagnostics
 keep their existing fields. This metadata is editor information, not a typing
 certificate or an accepted partially checked program.
+
+Project rename checks the entire speculative project or package inventory before
+returning any edits. It compares all authored declaration/reference targets, including
+references that the rename does not edit, using source positions transported through
+the proposed replacements. This rejects type-correct local capture and accidental
+rebinding. Ordinary projects may reuse a name in an unrelated lexical scope or
+unreachable module. Aliases and qualified prefixes stay unchanged; only the symbol
+suffix is renamed. Strings, comments and unrelated same-spelled local binders are
+not edited. Module/file/alias renaming is outside this command.
+
+Authored references do not describe every implicit provider choice. Project rename
+therefore refuses checked graphs containing implicit braces, interfaces, implementations,
+data/record/case syntax, projections, eliminators, mutual groups or `do` syntax.
+This conservative textual admission can also trigger on comments or strings.
+Rechecking alone cannot prove that a hidden provider choice remains unchanged,
+even when the replacement name is fresh. Such projects need stable identities for
+compiler-generated choices before this restriction can be relaxed. The
+`binding-graph` project/package CLI query exposes the checked authored graph;
+it is editor metadata, not a semantic-equivalence proof.
 
 Rename is advertised only when the client supports versioned documentChanges.
 Signature help, semantic tokens, code actions and workspace symbols are not
@@ -138,7 +157,8 @@ inventory. Inventory-only modules are included; unrelated workspace files and
 reverse package dependants are not guessed or automatically discovered. Same
 spelled local binders/private names remain separate. Ambiguous or invalid graphs
 produce checking failures rather than guessed results. Project rename reuses
-these references; it needs a project that checks, and rejects module/qualified names.
+these references; it needs a project that checks, supports qualified symbol suffixes,
+and rejects module/file/alias renaming.
 
 CLI access is also available through `references --source-dir ROOT --entry ENTRY
 LINE COLUMN PATH` and `references --package MANIFEST LINE COLUMN PATH`.

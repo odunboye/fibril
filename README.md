@@ -48,7 +48,8 @@ diagnostics, checked project/package definitions, symbols, hover, formatting and
 guarded same-file rename. Neovim uses a thin standard LSP client in `editors/nvim`;
 other editors can launch the same stdio server. Module/file definitions and
 references across checked application/package inventories are supported.
-Project rename returns conservative checked-graph edits. Completion includes local
+Project rename rechecks proposed edits and preserves authored binding identities;
+implicit/generated-name projects are conservatively refused. Completion includes local
 binders and visible imports with checked type details; incomplete syntax falls back
 to marked symbol suggestions. The [legacy Vim runtime](docs/editor-highlighting.md)
 remains available during migration.
