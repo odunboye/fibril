@@ -25,7 +25,7 @@ SUITES = (
     "binary_scalability", "binary_numbers", "binary_native", "json_oracle",
     "native_embedding", "native_embedding_generated",
     "binary_embedding", "binary_embedding_generated",
-    "native_words", "std",
+    "native_words", "std", "trust_inventory",
 )
 
 
