@@ -13,7 +13,7 @@ Cubical term checking and real-time guarantees are not implemented.
 [Shared checked globals](docs/shared-checked-globals.md) retain named module bodies
 once and use independently admitted references through checking, hosted execution
 and native emission.
-[Experimental C emission](docs/native-c.md) produces a real native executable for a checked subset (console and binary IO, pure data, bytes and `Word`); it is not yet an application backend: there is no native networking, storage, UI or FFI. See [guarantees](docs/guarantees.md) for what is and is not enforced.
+[Experimental C emission](docs/native-c.md) produces a real native executable for a checked subset (console and binary IO, pure data, bytes and `Word`); the separate [TCP profile](docs/network.md) adds sockets and Fibril stream helpers. HTTP, database drivers, UI and a general source FFI remain unimplemented. See [guarantees](docs/guarantees.md) for what is and is not enforced.
 [Native host embedding](docs/native-embedding.md) now lets a trusted C host run that subset with explicit output callbacks and structured failure results, without process-global console IO.
 
 Fibril's HoTT direction remains a goal, not a present capability. The

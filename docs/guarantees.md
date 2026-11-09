@@ -36,3 +36,8 @@ definitions during ordinary `check`; it does not change production conversion
 Rows marked partial, prototype, none or not implemented are **not** guarantees.
 Even "implemented" describes enforcement in this compiler, not a proof that the
 checker is sound.
+
+The experimental [TCP profile](network.md) adds opaque stream/listener types and
+ownership-returning socket operations, with a trusted POSIX boundary and bounded
+Fibril exact reads. It does not provide TLS, DNS, an asynchronous scheduler, HTTP
+or a database driver. Effects are incremental and can leave a visible prefix.

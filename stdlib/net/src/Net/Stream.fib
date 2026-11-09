@@ -1,0 +1,58 @@
+module Net.Stream
+import Net.TCP
+
+record Shared : Type where
+  constructor MkShared
+  bytes : Bytes
+
+export
+data ExactStatus : Type where
+  Complete : (1 bytes : Bytes) -> ExactStatus
+  Ended : (1 prefix : Bytes) -> ExactStatus
+  Failed : (1 prefix : Bytes) -> (1 error : NetError) -> ExactStatus
+  Exhausted : (1 prefix : Bytes) -> ExactStatus
+
+export
+record ExactRead : Type where
+  constructor MkExactRead
+  1 socket : Socket
+  1 status : ExactStatus
+
+readOutcome : (count : Word) -> (saved : Bytes) -> (1 outcome : NetReadResult) -> (1 socket : Socket) -> IO ExactRead
+readOutcome count saved outcome socket =
+  (readCase ((1 socket : Socket) -> IO ExactRead) outcome
+    (\(1 s : Socket) => pure ExactRead (MkExactRead s (Ended saved)))
+    (\(1 bytes : Bytes) => case primBytesShare (primBytesAppend saved bytes) of MkShared collected =>
+      \(1 s : Socket) => pure ExactRead (MkExactRead s
+        (if primWordEq (primWordFromNat (primBytesLength collected)) count
+           then Complete collected else Exhausted collected)))
+    (\(1 error : NetError) => \(1 s : Socket) => pure ExactRead (MkExactRead s (Failed saved error)))) socket
+
+readPending : (count : Word) -> (timeout : Word) -> (1 socket : Socket) -> (1 prefix : Bytes) -> IO ExactRead
+readPending count timeout socket prefix = case primBytesShare prefix of MkShared saved =>
+  let (remaining : Word) = primWordSub count (primWordFromNat (primBytesLength saved)) in
+  bind SocketRead ExactRead
+    (read socket (if primWordLt remaining 65536w then remaining else 65536w) timeout)
+    (\(1 result : SocketRead) => case result of
+      (1 next : Socket) (1 outcome : NetReadResult) => readOutcome count saved outcome next)
+
+-- One bounded transition; completed/error states pass through without another read.
+readOnce : (count : Word) -> (timeout : Word) -> (1 state : ExactRead) -> IO ExactRead
+readOnce count timeout state = case state return \(0 self : ExactRead) => IO ExactRead of
+  MkExactRead socket status => case status return \(0 self : ExactStatus) => IO ExactRead of
+    Complete bytes => pure ExactRead (MkExactRead socket (Complete bytes))
+    Ended prefix => pure ExactRead (MkExactRead socket (Ended prefix))
+    Failed prefix error => pure ExactRead (MkExactRead socket (Failed prefix error))
+    Exhausted prefix => readPending count timeout socket prefix
+
+-- fuel bounds read attempts; timeout applies separately to each read.
+-- Requests are capped at 64 KiB per read, and allocation budgets still apply.
+export
+readExactly : (fuel : Nat) -> (1 socket : Socket) -> (count : Word) -> (timeout : Word) -> IO ExactRead
+readExactly fuel socket count timeout =
+  (natRec (\(0 n : Nat) => (1 state : ExactRead) -> IO ExactRead)
+    (\(1 state : ExactRead) => pure ExactRead state)
+    (\(0 n : Nat) => \(1 next : (1 state : ExactRead) -> IO ExactRead) =>
+      \(1 state : ExactRead) => bind ExactRead ExactRead (readOnce count timeout state) next)
+    fuel)
+  (MkExactRead socket (if primWordEq count 0w then Complete primBytesEmpty else Exhausted primBytesEmpty))

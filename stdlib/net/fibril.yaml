@@ -1,0 +1,7 @@
+schema: 1
+name: net
+module-prefix: Net
+source-dir: src
+foundation: de-morgan
+modules: [Net.TCP, Net.Stream]
+dependencies: {}

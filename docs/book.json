@@ -15,6 +15,7 @@
     "title": "IO and resource ownership",
     "pages": [
       { "title": "IO roadmap", "path": "docs/io-roadmap.md" },
+      { "title": "TCP networking", "path": "docs/network.md" },
       { "title": "Console execution contract", "path": "docs/io-execution-contract.md" },
       { "title": "Interactive input", "path": "docs/io-input.md" },
       { "title": "Core input requests", "path": "docs/io-core-input.md" },
@@ -188,6 +189,7 @@
         "title": "Named infix calls",
         "path": "docs/infix.md"
       },
+      { "title": "Symbolic operators and fixity", "path": "docs/operators.md" },
       {
         "title": "Explicit implementation factories",
         "path": "docs/implementation-factories.md"

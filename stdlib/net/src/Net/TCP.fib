@@ -1,0 +1,50 @@
+module Net.TCP
+
+-- Timeouts are milliseconds, capped at one hour per operation. Numeric addresses only.
+export
+connect : (1 address : String) -> (1 port : Word) -> (1 timeout : Word) -> IO (NetResult Socket)
+connect address port timeout = primNetConnect address port timeout
+
+-- Port zero asks the OS for an ephemeral port; use localPort to inspect it.
+export
+listen : (1 address : String) -> (1 port : Word) -> (1 backlog : Word) -> IO (NetResult Listener)
+listen address port backlog = primNetListen address port backlog
+
+export
+accept : (1 listener : Listener) -> (1 timeout : Word) -> IO SocketAccept
+accept listener timeout = primNetAccept listener timeout
+
+-- A read returns one available chunk, not an entire application message.
+export
+read : (1 socket : Socket) -> (1 capacity : Word) -> (1 timeout : Word) -> IO SocketRead
+read socket capacity timeout = primNetRead socket capacity timeout
+
+-- Success reports bytes sent. Failure reports the accepted prefix in NetError.
+export
+writeAll : (1 socket : Socket) -> (1 bytes : Bytes) -> (1 timeout : Word) -> IO SocketWrite
+writeAll socket bytes timeout = primNetWriteAll socket bytes timeout
+
+export
+close : (1 socket : Socket) -> IO (NetResult Unit)
+close socket = primNetClose socket
+
+export
+closeListener : (1 listener : Listener) -> IO (NetResult Unit)
+closeListener listener = primNetCloseListener listener
+
+export
+localPort : (1 listener : Listener) -> IO ListenerPort
+localPort listener = primNetLocalPort listener
+
+-- Finish sending while retaining the ability to receive.
+export
+shutdownWrite : (1 socket : Socket) -> IO SocketShutdown
+shutdownWrite socket = primNetShutdownWrite socket
+
+export
+resultCase : (0 A : Type) -> (0 B : Type) -> (1 result : NetResult A) -> (error : (1 error : NetError) -> B) -> (success : (1 value : A) -> B) -> B
+resultCase A B result error success = primNetResultCase A B result error success
+
+export
+readCase : (0 A : Type) -> (1 result : NetReadResult) -> (eof : A) -> (chunk : (1 bytes : Bytes) -> A) -> (error : (1 error : NetError) -> A) -> A
+readCase A result eof chunk error = primNetReadCase A result eof chunk error

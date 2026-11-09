@@ -80,3 +80,29 @@ emitEmbeddedCPackage manifest = do
   pure $ case checked of
     Left err => Left (renderGraphError err)
     Right project => emitCheckedEmbeddedCGlobals project.globals project.term
+
+public export
+emitNetworkCFile : String -> IO (Either String String)
+emitNetworkCFile path = do
+  loaded <- loadSource path
+  pure $ case loaded of
+    Left err => Left (renderFileError path (show err))
+    Right source => case resolveSource source of
+      Left err => Left (renderDriverError path source (FrontendFailure err))
+      Right term => emitCheckedNetworkC term
+
+public export
+emitNetworkCProject : String -> String -> IO (Either String String)
+emitNetworkCProject root entry = do
+  checked <- checkProject root entry
+  pure $ case checked of
+    Left err => Left (renderGraphError err)
+    Right project => emitCheckedNetworkCGlobals project.globals project.term
+
+public export
+emitNetworkCPackage : String -> IO (Either String String)
+emitNetworkCPackage manifest = do
+  checked <- checkPackage manifest
+  pure $ case checked of
+    Left err => Left (renderGraphError err)
+    Right project => emitCheckedNetworkCGlobals project.globals project.term

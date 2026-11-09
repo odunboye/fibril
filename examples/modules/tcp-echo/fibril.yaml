@@ -1,0 +1,9 @@
+schema: 1
+name: tcp-echo
+module-prefix: TcpEcho
+source-dir: src
+entry: Main
+foundation: de-morgan
+dependencies:
+  net:
+    path: ../../../stdlib/net

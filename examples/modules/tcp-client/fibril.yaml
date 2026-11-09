@@ -1,0 +1,9 @@
+schema: 1
+name: tcp-client
+module-prefix: TcpClient
+source-dir: src
+entry: Main
+foundation: de-morgan
+dependencies:
+  net:
+    path: ../../../stdlib/net

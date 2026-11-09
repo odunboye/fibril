@@ -77,6 +77,9 @@ Usage:
   fibril emit-js PATH          Check and emit a self-contained output-only ES module
   fibril emit-js --source-dir ROOT ENTRY  Emit checked project JavaScript
   fibril emit-js --package PATH  Emit checked package JavaScript
+  fibril emit-c-network PATH  Check and emit POSIX TCP network C
+  fibril emit-c-network --source-dir ROOT ENTRY  Emit checked TCP project C
+  fibril emit-c-network --package PATH  Emit checked TCP package C
   fibril emit-c-embedded PATH  Check and emit no-heap C for caller-owned arenas
   fibril emit-c-embedded --source-dir ROOT ENTRY  Emit checked no-heap project C
   fibril emit-c-embedded --package PATH  Emit checked no-heap package C
@@ -225,6 +228,10 @@ main = do
     ["emit-js", "--package", manifest] => emitJSPackage manifest >>= printC
     ["emit-js", "--source-dir", root, entry] => emitJSProject root entry >>= printC
     ["emit-js", path] => emitJSFile path >>= printC
+    ["emit-c-network"] => emitNetworkCPackage "fibril.yaml" >>= printC
+    ["emit-c-network", "--package", manifest] => emitNetworkCPackage manifest >>= printC
+    ["emit-c-network", "--source-dir", root, entry] => emitNetworkCProject root entry >>= printC
+    ["emit-c-network", path] => emitNetworkCFile path >>= printC
     ["emit-c-embedded"] => emitEmbeddedCPackage "fibril.yaml" >>= printC
     ["emit-c-embedded", "--package", manifest] => emitEmbeddedCPackage manifest >>= printC
     ["emit-c-embedded", "--source-dir", root, entry] => emitEmbeddedCProject root entry >>= printC

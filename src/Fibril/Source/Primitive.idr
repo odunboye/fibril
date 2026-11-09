@@ -10,6 +10,7 @@ import Fibril.Source.Primitive.Input
 import Fibril.Source.Primitive.Bytes
 import Fibril.Source.Primitive.UTF8
 import Fibril.Source.Primitive.Binary
+import Fibril.Source.Primitive.Network
 import Fibril.Source.Primitive.Resource
 
 %default total
@@ -104,7 +105,7 @@ divisionCaseValue = Lambda Erased (Universe 0)
 public export
 primitiveGlobals : List GlobalDefinition
 primitiveGlobals =
-  binaryPrimitiveGlobals ++ utf8PrimitiveGlobals ++ bytePrimitiveGlobals ++ resourcePrimitiveGlobals ++ inputPrimitiveGlobals ++
+  networkPrimitiveGlobals ++ binaryPrimitiveGlobals ++ utf8PrimitiveGlobals ++ bytePrimitiveGlobals ++ resourcePrimitiveGlobals ++ inputPrimitiveGlobals ++
   [ GlobalWithQuantity Erased "Bytes" (Universe 0) BytesType
   , GlobalWithQuantity Erased "Word" (Universe 0) (Prim WordTypeOp [])
   , Global "primWordToString" (Pi Unrestricted (Prim WordTypeOp []) StringType)

@@ -539,6 +539,8 @@ mutual
     Right (IOType UnitType)
   infer globals (S depth) reduction context RejectBytes = Right (IOType UnitType)
   infer globals (S depth) reduction context FlushBytes = Right (IOType UnitType)
+  infer globals (S depth) reduction context (Prim NetStreamTypeOp []) = Right (Universe 0)
+  infer globals (S depth) reduction context (Prim NetListenerTypeOp []) = Right (Universe 0)
   infer globals (S depth) reduction context (Prim WordTypeOp []) = Right (Universe 0)
   infer globals (S depth) reduction context (Prim (WordLitOp value) []) =
     if value < 0 || value >= wordModulus

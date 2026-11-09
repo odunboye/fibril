@@ -15,7 +15,7 @@ typedef enum { V_UNIT, V_ERASED, V_BOOL, V_STRING, V_BYTES, V_CLOSURE, V_NOMINAL
                V_NAT_ZERO, V_NAT_SUCC, V_REC_END, V_REC_MORE, V_SEQ_NIL, V_SEQ_CONS,
                V_PURE, V_BIND, V_WRITE, V_READ, V_PAIR, V_INPUT_HANDLE,
                V_WITH_INPUT, V_READ_INPUT, V_READ_BYTES, V_WRITE_BYTES, V_FLUSH_BYTES, V_REJECT_BYTES, V_ITERATE_BINARY,
-               V_WORD } FTag;
+               V_WORD, V_NETWORK_EFFECT, V_NETWORK_STREAM, V_NETWORK_LISTENER } FTag;
 typedef enum { F_NAT, F_NAT_RUNTIME, F_REC, F_SEQ } FFoldKind;
 struct FValue {
   FTag tag;
@@ -24,6 +24,8 @@ struct FValue {
     struct { const unsigned char *data; size_t length; } bytes;
     int boolean;
     uint64_t word;
+    struct { uint64_t identity, generation; } socket;
+    struct { size_t operation; FThunk *arguments; } network;
     FThunk *nominal;
     struct { size_t tag; FThunk *payload; } variant;
     struct { FThunk *head, *tail; } recursive;

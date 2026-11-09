@@ -27,6 +27,17 @@ data PrimOp
   | WordRemOp
   | WordFromNatOp
   | BytesEqualOp
+  | NetStreamTypeOp
+  | NetListenerTypeOp
+  | NetConnectOp
+  | NetListenOp
+  | NetAcceptOp
+  | NetReadOp
+  | NetWriteOp
+  | NetCloseOp
+  | NetCloseListenerOp
+  | NetLocalPortOp
+  | NetShutdownWriteOp
 
 public export
 Eq PrimOp where
@@ -42,6 +53,17 @@ Eq PrimOp where
   WordRemOp == WordRemOp = True
   WordFromNatOp == WordFromNatOp = True
   BytesEqualOp == BytesEqualOp = True
+  NetStreamTypeOp == NetStreamTypeOp = True
+  NetListenerTypeOp == NetListenerTypeOp = True
+  NetConnectOp == NetConnectOp = True
+  NetListenOp == NetListenOp = True
+  NetAcceptOp == NetAcceptOp = True
+  NetReadOp == NetReadOp = True
+  NetWriteOp == NetWriteOp = True
+  NetCloseOp == NetCloseOp = True
+  NetCloseListenerOp == NetCloseListenerOp = True
+  NetLocalPortOp == NetLocalPortOp = True
+  NetShutdownWriteOp == NetShutdownWriteOp = True
   _ == _ = False
 
 public export
@@ -58,6 +80,17 @@ Show PrimOp where
   show WordRemOp = "wordRem"
   show WordFromNatOp = "wordFromNat"
   show BytesEqualOp = "bytesEqual"
+  show NetStreamTypeOp = "NetStreamType"
+  show NetListenerTypeOp = "NetListenerType"
+  show NetConnectOp = "NetConnect"
+  show NetListenOp = "NetListen"
+  show NetAcceptOp = "NetAccept"
+  show NetReadOp = "NetRead"
+  show NetWriteOp = "NetWrite"
+  show NetCloseOp = "NetClose"
+  show NetCloseListenerOp = "NetCloseListener"
+  show NetLocalPortOp = "NetLocalPort"
+  show NetShutdownWriteOp = "NetShutdownWrite"
 
 ||| Terms in a context of n computational variables; 0 is newest.
 ||| Binder annotations are syntax, not evidence that usage has been checked.
@@ -226,13 +259,6 @@ evalPrim WordRemOp [Prim (WordLitOp a) [], Prim (WordLitOp b) []] = Just (wordDi
 -- Wraps modulo 2^64 like the other Word operations, so every Nat converts.
 evalPrim WordFromNatOp [chain] = map (\n => wordTerm (n `mod` wordModulus)) (natChainValue chain)
 evalPrim _ _ = Nothing
-
-||| Argument and result types of a unary primitive; Nothing if the operation is not unary.
-public export
-primUnarySignature : PrimOp -> Maybe (Term n, Term n)
-primUnarySignature WordToStringOp = Just (Prim WordTypeOp [], StringType)
-primUnarySignature WordFromNatOp = Just (NatType, Prim WordTypeOp [])
-primUnarySignature _ = Nothing
 
 ||| Operand type (both operands) and result type of a binary primitive; Nothing if not binary.
 public export
@@ -695,3 +721,72 @@ public export
 binaryStepType : Term n -> Term n -> Term n
 binaryStepType stateType resultType = Pi Linear stateType
   (IOType (loopVariantType (weaken stateType) (weaken resultType)))
+
+||| Network effects are inert core syntax; only the explicit native network runner executes them.
+public export
+networkPrimitive : PrimOp -> Bool
+networkPrimitive NetStreamTypeOp = True
+networkPrimitive NetListenerTypeOp = True
+networkPrimitive NetConnectOp = True
+networkPrimitive NetListenOp = True
+networkPrimitive NetAcceptOp = True
+networkPrimitive NetReadOp = True
+networkPrimitive NetWriteOp = True
+networkPrimitive NetCloseOp = True
+networkPrimitive NetCloseListenerOp = True
+networkPrimitive NetLocalPortOp = True
+networkPrimitive NetShutdownWriteOp = True
+networkPrimitive _ = False
+
+public export
+networkPair : Term n -> Term n -> Term n
+networkPair a b = Sigma Linear Linear a (weaken b)
+
+public export
+networkError : Term n
+networkError = networkPair (Prim WordTypeOp []) (Prim WordTypeOp [])
+
+public export
+networkResult : Term n -> Term n
+networkResult a = VariantType [Just (Linear, networkError), Just (Linear, a)]
+
+public export
+networkReadResult : Term n
+networkReadResult = VariantType [Nothing, Just (Linear, BytesType), Just (Linear, networkError)]
+
+public export
+networkArguments : List (Term n) -> Term n
+networkArguments [] = UnitType
+networkArguments (ty :: rest) = networkPair ty (networkArguments rest)
+
+public export
+networkInputs : PrimOp -> List (Term n)
+networkInputs NetConnectOp = [StringType, Prim WordTypeOp [], Prim WordTypeOp []]
+networkInputs NetListenOp = [StringType, Prim WordTypeOp [], Prim WordTypeOp []]
+networkInputs NetAcceptOp = [Prim NetListenerTypeOp [], Prim WordTypeOp []]
+networkInputs NetReadOp = [Prim NetStreamTypeOp [], Prim WordTypeOp [], Prim WordTypeOp []]
+networkInputs NetWriteOp = [Prim NetStreamTypeOp [], BytesType, Prim WordTypeOp []]
+networkInputs NetCloseOp = [Prim NetStreamTypeOp []]
+networkInputs NetCloseListenerOp = [Prim NetListenerTypeOp []]
+networkInputs NetLocalPortOp = [Prim NetListenerTypeOp []]
+networkInputs NetShutdownWriteOp = [Prim NetStreamTypeOp []]
+networkInputs _ = []
+
+public export
+networkOutput : PrimOp -> Term n
+networkOutput NetConnectOp = networkResult (Prim NetStreamTypeOp [])
+networkOutput NetListenOp = networkResult (Prim NetListenerTypeOp [])
+networkOutput NetAcceptOp = networkPair (Prim NetListenerTypeOp []) (networkResult (Prim NetStreamTypeOp []))
+networkOutput NetReadOp = networkPair (Prim NetStreamTypeOp []) networkReadResult
+networkOutput NetWriteOp = networkPair (Prim NetStreamTypeOp []) (networkResult (Prim WordTypeOp []))
+networkOutput NetLocalPortOp = networkPair (Prim NetListenerTypeOp []) (networkResult (Prim WordTypeOp []))
+networkOutput NetShutdownWriteOp = networkPair (Prim NetStreamTypeOp []) (networkResult UnitType)
+networkOutput _ = networkResult UnitType
+
+||| Argument and result types of a unary primitive; Nothing if the operation is not unary.
+public export
+primUnarySignature : PrimOp -> Maybe (Term n, Term n)
+primUnarySignature WordToStringOp = Just (Prim WordTypeOp [], StringType)
+primUnarySignature WordFromNatOp = Just (NatType, Prim WordTypeOp [])
+primUnarySignature op = if networkPrimitive op && not (null (networkInputs {n} op))
+  then Just (networkArguments (networkInputs op), IOType (networkOutput op)) else Nothing

@@ -22,7 +22,7 @@ import Fibril.Elaboration.Expression.Payload
 
 %default total
 
-data NativeMode = Preflight | Interactive | Resources | Binary | Embedded
+data NativeMode = Preflight | Interactive | Resources | Binary | Embedded | Network
 
 Eq NativeMode where
   Preflight == Preflight = True
@@ -30,6 +30,7 @@ Eq NativeMode where
   Resources == Resources = True
   Binary == Binary = True
   Embedded == Embedded = True
+  Network == Network = True
   _ == _ = False
 
 record Generated where
@@ -86,6 +87,44 @@ wordRuntimeFunction _ = Nothing
 
 mutual
   generate : RuntimeGlobals -> NativeMode -> Nat -> Term n -> Either String Generated
+  generate globals mode n (Prim NetStreamTypeOp []) = Right (constant n "f_erased(r)")
+  generate globals mode n (Prim NetListenerTypeOp []) = Right (constant n "f_erased(r)")
+  generate globals Network n (Prim NetConnectOp [args]) = do
+    part <- generate globals Network (S n) args
+    let code = function n ("return f_network(r, e, 0, " ++ name part.root ++ ");")
+    Right (Output n part.next (code :: part.definitions))
+  generate globals Network n (Prim NetListenOp [args]) = do
+    part <- generate globals Network (S n) args
+    let code = function n ("return f_network(r, e, 1, " ++ name part.root ++ ");")
+    Right (Output n part.next (code :: part.definitions))
+  generate globals Network n (Prim NetAcceptOp [args]) = do
+    part <- generate globals Network (S n) args
+    let code = function n ("return f_network(r, e, 2, " ++ name part.root ++ ");")
+    Right (Output n part.next (code :: part.definitions))
+  generate globals Network n (Prim NetReadOp [args]) = do
+    part <- generate globals Network (S n) args
+    let code = function n ("return f_network(r, e, 3, " ++ name part.root ++ ");")
+    Right (Output n part.next (code :: part.definitions))
+  generate globals Network n (Prim NetWriteOp [args]) = do
+    part <- generate globals Network (S n) args
+    let code = function n ("return f_network(r, e, 4, " ++ name part.root ++ ");")
+    Right (Output n part.next (code :: part.definitions))
+  generate globals Network n (Prim NetCloseOp [args]) = do
+    part <- generate globals Network (S n) args
+    let code = function n ("return f_network(r, e, 5, " ++ name part.root ++ ");")
+    Right (Output n part.next (code :: part.definitions))
+  generate globals Network n (Prim NetCloseListenerOp [args]) = do
+    part <- generate globals Network (S n) args
+    let code = function n ("return f_network(r, e, 6, " ++ name part.root ++ ");")
+    Right (Output n part.next (code :: part.definitions))
+  generate globals Network n (Prim NetLocalPortOp [args]) = do
+    part <- generate globals Network (S n) args
+    let code = function n ("return f_network(r, e, 7, " ++ name part.root ++ ");")
+    Right (Output n part.next (code :: part.definitions))
+  generate globals Network n (Prim NetShutdownWriteOp [args]) = do
+    part <- generate globals Network (S n) args
+    let code = function n ("return f_network(r, e, 8, " ++ name part.root ++ ");")
+    Right (Output n part.next (code :: part.definitions))
   generate globals mode n (GlobalRef key) = case globalEntry (erasedGlobals globals) key of
     Just (Erased, _, _) => Right (constant n "f_erased(r)")
     Just (Unrestricted, _, _) => Right (constant n ("f_global(r, fibril_global_" ++ show key ++ ")"))
@@ -279,9 +318,12 @@ emitEntryGlobals globals mode requests lineLimit term = do
   declarations <- reachableGlobals globals term
   let syntax : List (Term 0) = term :: concatMap (\(_, _, ty, body) => [ty, body]) declarations
   let scan = map maskGlobalRefs syntax
+  if mode /= Network && any containsNetworkRequest scan then Left "Network effects require emit-c-network" else Right ()
+  if mode == Network && not (all networkOnly scan)
+    then Left "Network profile rejects console input, files and binary stdio, including erased/dead syntax" else Right ()
   if mode == Embedded && not (all (outputOnly True) scan)
     then Left "Embedded profile rejects input, binary transport and file references, including erased/dead syntax" else Right ()
-  if mode /= Binary && any containsBinaryRequest scan then Left "Binary IO requires the explicit binary runner" else Right ()
+  if mode /= Binary && any containsBinaryTransport scan then Left "Binary IO requires the explicit binary runner" else Right ()
   if mode == Binary && any containsNonBinaryIO scan then Left "Native binary entry rejects non-binary IO/references" else Right ()
   if any containsFileReference scan
     then Left "Native resource entry rejects runtime file references" else Right ()
@@ -298,6 +340,7 @@ emitEntryGlobals globals mode requests lineLimit term = do
   (next, definitions, globalCode) <- generateGlobals globals mode 0 declarations
   code <- generate globals mode next term
   let entry = case mode of
+        Network => "fibril_native_network_run(" ++ name code.root ++ ")"
         Embedded => ""
         Preflight => "fibril_native_run(" ++ name code.root ++ ")"
         Interactive => "fibril_native_interactive_run(" ++ name code.root ++ ", " ++ show requests ++ ", " ++ show lineLimit ++ ")"
@@ -313,7 +356,7 @@ emitEntryGlobals globals mode requests lineLimit term = do
           then "FBinaryResult fibril_program_binary_embed(const FByteAdapters *host) { return fibril_native_binary_embed(" ++ name code.root ++ ", " ++ show requests ++ ", " ++ show lineLimit ++ ", host); }\n" ++
                "#ifndef FIBRIL_EMBED_ONLY\n" ++ mainCode ++ "#endif\n"
           else mainCode
-  let header = if mode == Binary then "fibril_binary_embed.h" else
+  let header = if mode == Network then "fibril_network_runtime.h" else if mode == Binary then "fibril_binary_embed.h" else
         if mode == Embedded then "fibril_embedded.h" else "fibril_runtime.h"
   Right ("/* Generated from checked Fibril core; experimental native subset. */\n" ++
          "#include \"" ++ header ++ "\"\n" ++ concat (map (\(key, _, _, _) => "FValue *fibril_global_" ++ show key ++ "(FRuntime *, FEnv *);\n") declarations) ++
@@ -363,3 +406,11 @@ emitCheckedEmbeddedCGlobals globals = emitEntryGlobals globals Embedded 0 0
 public export
 emitCheckedEmbeddedC : Term 0 -> Either String String
 emitCheckedEmbeddedC = emitEntry Embedded 0 0
+
+public export
+emitCheckedNetworkCGlobals : RuntimeGlobals -> Term 0 -> Either String String
+emitCheckedNetworkCGlobals globals = emitEntryGlobals globals Network 0 0
+
+public export
+emitCheckedNetworkC : Term 0 -> Either String String
+emitCheckedNetworkC = emitEntry Network 0 0

@@ -1,0 +1,49 @@
+module Main
+import Net.TCP
+
+reportError : (1 error : NetError) -> IO Unit
+reportError error = case error of
+  (1 code : Word) (1 transferred : Word) =>
+    putStrLn (appendString (primNetWordToString code) (appendString ":" (primNetWordToString transferred)))
+
+closed : (1 result : NetResult Unit) -> IO Unit
+closed result = resultCase Unit (IO Unit) result reportError (\(1 value : Unit) => case value of () => pure Unit ())
+
+sent : (1 result : SocketWrite) -> IO Unit
+sent result = case result of
+  (1 socket : Socket) (1 outcome : NetResult Word) =>
+    bind (NetResult Unit) Unit (close socket) (\(1 cleanup : NetResult Unit) =>
+      bind Unit Unit (closed cleanup) (\(1 done : Unit) => case done of () =>
+        resultCase Word (IO Unit) outcome reportError (\(1 count : Word) => putStrLn (primNetWordToString count))))
+
+received : (1 result : SocketRead) -> IO Unit
+received result = case result of
+  (1 socket : Socket) (1 outcome : NetReadResult) =>
+    (readCase ((1 socket : Socket) -> IO Unit) outcome
+      (\(1 s : Socket) => bind (NetResult Unit) Unit (close s) closed)
+      (\(1 bytes : Bytes) => \(1 s : Socket) => bind SocketWrite Unit (writeAll s bytes 1000w) sent)
+      (\(1 error : NetError) => \(1 s : Socket) => bind (NetResult Unit) Unit (close s)
+        (\(1 cleanup : NetResult Unit) => bind Unit Unit (closed cleanup) (\(1 done : Unit) => case done of () => reportError error)))) socket
+
+serve : (1 socket : Socket) -> IO Unit
+serve socket = bind SocketRead Unit (read socket 4096w 1000w) received
+
+accepted : (1 result : SocketAccept) -> IO Unit
+accepted result = case result of
+  (1 listener : Listener) (1 outcome : NetResult Socket) =>
+    bind (NetResult Unit) Unit (closeListener listener) (\(1 cleanup : NetResult Unit) =>
+      bind Unit Unit (closed cleanup) (\(1 done : Unit) => case done of () =>
+        resultCase Socket (IO Unit) outcome reportError serve))
+
+announced : (1 result : ListenerPort) -> IO Unit
+announced result = case result of
+  (1 listener : Listener) (1 outcome : NetResult Word) =>
+    bind Unit Unit (resultCase Word (IO Unit) outcome reportError (\(1 port : Word) => putStrLn (primNetWordToString port)))
+      (\(1 done : Unit) => case done of () => bind SocketAccept Unit (accept listener 5000w) accepted)
+
+started : (1 listener : Listener) -> IO Unit
+started listener = bind ListenerPort Unit (localPort listener) announced
+
+main : IO Unit
+main = bind (NetResult Listener) Unit (listen "127.0.0.1" 0w 8w)
+  (\(1 result : NetResult Listener) => resultCase Listener (IO Unit) result reportError started)

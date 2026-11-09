@@ -122,3 +122,7 @@ case behavior, structural folds, laziness and captured environments, erased payl
 forms, UTF-8/escaping, imported modules and packages, action limits, and failure
 before stdout. It does not validate arbitrary compilers, architectures,
 operating systems, native memory safety or production readiness.
+
+The separate [TCP network profile](network.md) provides checked socket operations
+and Fibril transport helpers. It uses a different explicit runner; these console
+and binary profile guarantees do not automatically extend to network effects.

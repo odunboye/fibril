@@ -1,0 +1,34 @@
+module Main
+import Net.TCP
+import Net.Stream
+
+reportError : (1 error : NetError) -> IO Unit
+reportError error = case error of
+  (1 code : Word) (1 transferred : Word) =>
+    putStrLn (appendString (primNetWordToString code) (appendString ":" (primNetWordToString transferred)))
+
+closed : (1 result : NetResult Unit) -> IO Unit
+closed result = resultCase Unit (IO Unit) result reportError (\(1 value : Unit) => case value of () => pure Unit ())
+
+renderStatus : (1 status : ExactStatus) -> IO Unit
+renderStatus status = case status return \(0 self : ExactStatus) => IO Unit of
+  Complete bytes => putStrLn (appendString "complete:" (primNetWordToString (primWordFromNat (primBytesLength bytes))))
+  Ended prefix => putStrLn (appendString "eof:" (primNetWordToString (primWordFromNat (primBytesLength prefix))))
+  Failed prefix error => bind Unit Unit
+    (putStrLn (appendString "failed:" (primNetWordToString (primWordFromNat (primBytesLength prefix)))))
+    (\(1 done : Unit) => case done of () => reportError error)
+  Exhausted prefix => putStrLn (appendString "exhausted:" (primNetWordToString (primWordFromNat (primBytesLength prefix))))
+
+received : (1 state : ExactRead) -> IO Unit
+received state = case state of
+  MkExactRead socket status => bind (NetResult Unit) Unit (close socket)
+    (\(1 cleanup : NetResult Unit) => bind Unit Unit (closed cleanup)
+      (\(1 done : Unit) => case done of () => renderStatus status))
+
+connected : (1 socket : Socket) -> IO Unit
+connected socket = bind ExactRead Unit
+  (readExactly (Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ Zero)))))))) socket 6w 1000w) received
+
+main : IO Unit
+main = bind (NetResult Socket) Unit (connect "127.0.0.1" 5432w 1000w)
+  (\(1 result : NetResult Socket) => resultCase Socket (IO Unit) result reportError connected)

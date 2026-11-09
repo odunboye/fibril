@@ -162,6 +162,8 @@ mutual
     leftUsage <- analyze globals depth reduction context a
     rightUsage <- analyze globals depth reduction context b
     Right (combineUsage leftUsage rightUsage)
+  analyze globals (S depth) reduction context (Prim NetStreamTypeOp _) = Left RuntimeTypeExpression
+  analyze globals (S depth) reduction context (Prim NetListenerTypeOp _) = Left RuntimeTypeExpression
   analyze globals (S depth) reduction context (Prim WordTypeOp _) = Left RuntimeTypeExpression
   analyze globals (S depth) reduction context (Prim _ []) = Right zeroUsage
   analyze globals (S depth) reduction context (Prim _ [argument]) = analyze globals depth reduction context argument
