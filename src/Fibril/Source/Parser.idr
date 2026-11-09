@@ -549,7 +549,7 @@ mutual
 
   infixExpression : Nat -> Position -> List Token -> Either ParseError (Expr, List Token)
   infixExpression depth end tokens = do
-    (left, remaining) <- application depth end tokens
+    (left, remaining) <- operatorChain depth end tokens
     infixArguments depth end left remaining
 
   infixArguments : Nat -> Position -> Expr -> List Token -> Either ParseError (Expr, List Token)
@@ -559,8 +559,27 @@ mutual
     if opening.kind /= Backtick then Right (left, tokens) else do
       (operator, following) <- application depth end rest
       (closing, afterClosing) <- expect Backtick end following
-      (right, remaining) <- application depth end afterClosing
+      (right, remaining) <- operatorChain depth end afterClosing
       infixArguments depth end (NInfix (Between (extent left).start (extent right).finish) operator left right) remaining
+
+  -- Symbolic operators are parsed as a flat chain; their fixity is known only after imports
+  -- resolve, so grouping is decided during elaboration.
+  operatorChain : Nat -> Position -> List Token -> Either ParseError (Expr, List Token)
+  operatorChain depth end tokens = do
+    (first, remaining) <- application depth end tokens
+    (operands, rest) <- operatorTail depth end remaining
+    case operands of
+      [] => Right (first, rest)
+      _ => Right (NOperators (Between (extent first).start (extent (foldl (\_, pair => snd pair) first operands)).finish) first operands, rest)
+
+  operatorTail : Nat -> Position -> List Token -> Either ParseError (List (Token, Expr), List Token)
+  operatorTail depth end [] = Right ([], [])
+  operatorTail Z end tokens = limit end tokens
+  operatorTail (S depth) end tokens@(token :: rest) =
+    if token.kind /= Operator then Right ([], tokens) else do
+      (operand, remaining) <- application depth end rest
+      (more, final) <- operatorTail depth end remaining
+      Right ((token, operand) :: more, final)
 
   application : Nat -> Position -> List Token -> Either ParseError (Expr, List Token)
   application Z end tokens = limit end tokens

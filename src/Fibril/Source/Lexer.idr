@@ -9,7 +9,7 @@ import Fibril.Source.StringLiteral
 
 ||| Token categories for the initial explicitly annotated expression grammar.
 public export
-data TokenKind = Name | Number | StringToken | StringKeyword | TypeKeyword | UnitKeyword | BoolKeyword | TrueKeyword | FalseKeyword | IfKeyword | ThenKeyword | ElseKeyword | DoKeyword | CaseKeyword | OfKeyword | LetKeyword | InKeyword | ProjectionKeyword | ReturnKeyword | DataKeyword | RecordKeyword | InterfaceKeyword | ImplementationKeyword | MutualKeyword | ConstructorKeyword | EliminatorKeyword | WhereKeyword | ModuleKeyword | ImportKeyword | ExportKeyword | Dot | Comma | Equals | Bar | OpenParen | CloseParen | OpenBrace | DictionaryOpen | CloseBrace | Backtick | Colon | Arrow | BindArrow | BodyArrow | Lambda
+data TokenKind = Name | Number | StringToken | StringKeyword | TypeKeyword | UnitKeyword | BoolKeyword | TrueKeyword | FalseKeyword | IfKeyword | ThenKeyword | ElseKeyword | DoKeyword | CaseKeyword | OfKeyword | LetKeyword | InKeyword | ProjectionKeyword | ReturnKeyword | DataKeyword | RecordKeyword | InterfaceKeyword | ImplementationKeyword | MutualKeyword | ConstructorKeyword | EliminatorKeyword | WhereKeyword | ModuleKeyword | ImportKeyword | ExportKeyword | Dot | Comma | Equals | Bar | Operator | OpenParen | CloseParen | OpenBrace | DictionaryOpen | CloseBrace | Backtick | Colon | Arrow | BindArrow | BodyArrow | Lambda
 
 public export
 Show TokenKind where
@@ -47,6 +47,7 @@ Show TokenKind where
   show Comma = ","
   show Equals = "="
   show Bar = "|"
+  show Operator = "operator"
   show Backtick = "`"
   show OpenBrace = "{"
   show DictionaryOpen = "@{"
@@ -95,6 +96,7 @@ Eq TokenKind where
   Comma == Comma = True
   Equals == Equals = True
   Bar == Bar = True
+  Operator == Operator = True
   Backtick == Backtick = True
   OpenBrace == OpenBrace = True
   DictionaryOpen == DictionaryOpen = True
@@ -160,6 +162,11 @@ validModuleComponent text = case unpack text of
 nameRest : Char -> Bool
 nameRest c = nameStart c || digit c || c == '\''
 
+||| Characters that form symbolic operator names. `.` is the module separator and `\`, `,`,
+||| brackets and backtick have fixed meanings, so none of those can appear in an operator.
+symbolChar : Char -> Bool
+symbolChar c = elem c (unpack "+-*/<>&^!~%$?#@=|:")
+
 whitespace : Char -> Bool
 whitespace c = c == ' ' || c == '\t' || c == '\n' || c == '\r'
 
@@ -200,7 +207,21 @@ scan (S fuel) at ('@' :: '{' :: rest) = do
   tokens <- scan fuel token.span.finish rest
   Right (token :: tokens)
 scan (S fuel) at (c :: rest) =
-  if whitespace c
+  if symbolChar c
+     then do
+       -- A maximal symbol run is one token; reserved runs keep their fixed meaning. The
+       -- clauses above already claimed `--`, `->`, `<-`, `=>` and `@{` at a run's start.
+       let (suffix, remaining) = span symbolChar rest
+       let chars = c :: suffix
+       let kind = case pack chars of
+             "=" => Equals
+             "|" => Bar
+             ":" => Colon
+             _ => Operator
+       let token = emit at kind chars
+       tokens <- scan fuel token.span.finish remaining
+       Right (token :: tokens)
+  else if whitespace c
      then let (spaces, remaining) = span whitespace rest
            in scan fuel (advancePosition at (c :: spaces)) remaining
   else if nameStart c
@@ -254,9 +275,6 @@ scan (S fuel) at (c :: rest) =
       ')' => Right CloseParen
       '{' => Right OpenBrace
       '}' => Right CloseBrace
-      ':' => Right Colon
-      '=' => Right Equals
-      '|' => Right Bar
       '\\' => Right Lambda
       'λ' => Right Lambda
       '→' => Right Arrow
@@ -265,6 +283,17 @@ scan (S fuel) at (c :: rest) =
     let token = emit at kind [c]
     tokens <- scan fuel token.span.finish rest
     Right (token :: tokens)
+
+||| `(+)` written without spaces is one name token spelled `+`, so symbolic functions are
+||| defined, referenced and imported like any other name. Its span still covers the parentheses.
+collapseOperatorNames : List Token -> List Token
+collapseOperatorNames [] = []
+collapseOperatorNames (left :: middle :: right :: rest) =
+  if left.kind == OpenParen && middle.kind == Operator && right.kind == CloseParen &&
+     left.span.finish.offset == middle.span.start.offset && middle.span.finish.offset == right.span.start.offset
+     then Located Name middle.spelling (Between left.span.start right.span.finish) :: collapseOperatorNames rest
+     else left :: collapseOperatorNames (middle :: right :: rest)
+collapseOperatorNames (token :: rest) = token :: collapseOperatorNames rest
 
 ||| Validate decoded text then lex the initial expression subset.
 ||| Only ASCII identifiers are accepted until a versioned Unicode policy exists.
@@ -277,4 +306,4 @@ lexSource source = do
     Left err => Left (InvalidSource err)
     Right _ => Right ()
   let chars = unpack source
-  scan (length chars) (At 0 1 1) chars
+  map collapseOperatorNames (scan (length chars) (At 0 1 1) chars)

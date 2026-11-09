@@ -137,6 +137,7 @@ Recursive/implicit global instance search and algebraic-law checking remain unim
 support explicit @{dictionary} and unique-local @{} applications.
 [Opt-in @{implementation} lookup](docs/visible-implementations.md) selects a unique
 checked visible named implementation without recursive search.
+[Symbolic operators with declared fixity](docs/operators.md) (`infixl 6` before `(+)`) group chains during module checking, and overloaded operators select a dictionary by operand type through [inferred constraints](docs/constraints.md#inferred-dictionaries-after-implicit-arguments).
 [Named infix calls](docs/infix.md) now support backtick function/method applications
 with fixed left associativity, ordinary quantities and no parser-special library operations.
 [Explicit implementation factories](docs/implementation-factories.md) now reuse

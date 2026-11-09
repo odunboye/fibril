@@ -1,0 +1,11 @@
+module Main
+import Ops
+
+main : IO Unit
+main = do
+  putStrLn (primWordToString (2w + 3w * 4w))
+  putStrLn (primWordToString (10w - 3w - 2w))
+  putStrLn (primWordToString ((2w + 3w) * 4w))
+  putStrLn ("Hello, " + "operators" + "!")
+  putStrLn ("a" ++ "b" ++ "c")
+  putStrLn (primWordToString ((+) 40w 2w))

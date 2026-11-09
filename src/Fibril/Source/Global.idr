@@ -6,6 +6,7 @@ import Data.List1
 import Data.String
 import Fibril.Core.Quantity
 import Fibril.Core.Term
+import Fibril.Source.Fixity
 
 %default total
 
@@ -25,12 +26,14 @@ record GlobalDefinition where
   sharedKey : Maybe Nat
   ||| Constraint binders (`=>`) right after the implicit prefix; a call fills them by lookup.
   autoConstraints : Nat
+  ||| Declared operator fixity; absent means the default.
+  fixity : Maybe Fixity
 
 ||| Compatibility constructor for raw, expanded source globals.
 public export
 GlobalEntry : Maybe String -> Maybe String -> Nat -> Quantity -> String -> Term 0 -> Term 0 -> GlobalDefinition
 GlobalEntry provider canonical count quantity name ty value =
-  StoredGlobalEntry provider canonical count quantity name ty value Nothing 0
+  StoredGlobalEntry provider canonical count quantity name ty value Nothing 0 Nothing
 
 ||| Resolver metadata only. The core still requires an independently checked environment.
 public export

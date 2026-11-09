@@ -4,6 +4,7 @@ module Fibril.Source.Declaration.Syntax
 import Fibril.Core.Quantity
 import Fibril.Source.Text
 import Fibril.Source.Lexer
+import Fibril.Source.Fixity
 import Fibril.Source.Syntax
 
 %default total
@@ -39,11 +40,14 @@ record Declaration where
   ||| before runtime checking/execution; it never supplies a core value.
   cubicalProof : Maybe (CubicalRule, String, String)
   requiredPath : Maybe String
+  ||| `infixl|infixr|infix LEVEL` on the line before the declaration; used when this name is
+  ||| applied as an operator, here and wherever it is imported.
+  fixity : Maybe Fixity
 
 public export
 Declared : Bool -> SourceSpan -> SourceSpan -> SourceSpan -> Bool -> Quantity -> String -> Expr -> Expr -> Declaration
 Declared generated span nameSpan definitionNameSpan exported quantity name expected value =
-  DeclarationWithRole False generated span nameSpan definitionNameSpan exported quantity name expected value Nothing Nothing Nothing
+  DeclarationWithRole False generated span nameSpan definitionNameSpan exported quantity name expected value Nothing Nothing Nothing Nothing
 
 public export
 Defined : SourceSpan -> SourceSpan -> SourceSpan -> Bool -> Quantity -> String -> Expr -> Expr -> Declaration

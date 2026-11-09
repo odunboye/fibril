@@ -62,6 +62,7 @@ mutual
   renderExpr (NInferCase _ arity value branch) = node "infer-record-case" [show arity, renderExpr value, renderExpr branch]
   renderExpr (NPairCase _ motive value branch) = node "pair-case" [renderExpr motive, renderExpr value, renderExpr branch]
   renderExpr (NInfix _ function left right) = node "infix-apply" [renderExpr function, renderExpr left, renderExpr right]
+  renderExpr (NOperators _ first rest) = node "operators" (renderExpr first :: renderOperands rest)
   renderExpr (NApply _ function argument) = node "apply" [renderExpr function, renderExpr argument]
   renderExpr (NImplicitApply _ function argument) = node "implicit-apply" [renderExpr function, renderExpr argument]
   renderExpr (NSequence _ first rest) = node "sequence" [renderExpr first, renderExpr rest]
@@ -69,6 +70,10 @@ mutual
   renderExpr (NDoResult _ result body) = node "do-result" [renderExpr result, renderExpr body]
   renderExpr (NAscribe _ value ty) = node "ascribe" [renderExpr value, renderExpr ty]
   renderExpr (NLet _ q name ty value body) = node "let" [show q, name, renderExpr ty, renderExpr value, renderExpr body]
+
+  renderOperands : List (Token, Expr) -> List String
+  renderOperands [] = []
+  renderOperands ((op, operand) :: rest) = node "operator" [op.spelling, renderExpr operand] :: renderOperands rest
 
   renderDataArms : List (Token, List Token, Expr) -> List String
   renderDataArms [] = []

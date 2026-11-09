@@ -1,0 +1,38 @@
+module Ops
+
+-- `+` is overloaded through a dictionary chosen by the operand type.
+export
+interface Add (0 A : Type 0) : Type 0 where
+  constructor MkAdd
+  eliminator useAdd
+  add : (left : A) -> (right : A) -> A
+
+export
+implementation wordAdd : Ops.Add Word where
+  add = primWordAdd
+
+export
+implementation textAdd : Ops.Add String where
+  add = \(left : String) => \(right : String) => appendString left right
+
+-- A fixity line sits alone before the declaration it describes.
+infixl 6
+export
+(+) : {0 A : Type 0} -> (ops : Add A) => (left : A) -> (right : A) -> A
+(+) = \(0 A : Type 0) => \(ops : Add A) => \(left : A) => \(right : A) => add A @{} left right
+
+-- Ordinary functions can be operators too; no interface is needed.
+infixl 6
+export
+(-) : (left : Word) -> (right : Word) -> Word
+(-) = primWordSub
+
+infixl 7
+export
+(*) : (left : Word) -> (right : Word) -> Word
+(*) = primWordMul
+
+infixr 5
+export
+(++) : (left : String) -> (right : String) -> String
+(++) = \(left : String) => \(right : String) => appendString left right

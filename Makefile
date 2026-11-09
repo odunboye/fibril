@@ -232,6 +232,7 @@ examples: build
 	./build/exec/fibril run --source-dir examples/modules/interface-blocks examples/modules/interface-blocks/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/constraints examples/modules/constraints/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/inferred-constraints examples/modules/inferred-constraints/Main.fib
+	./build/exec/fibril run --source-dir examples/modules/operators examples/modules/operators/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/visible-implementations examples/modules/visible-implementations/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/infix examples/modules/infix/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/implementation-factories examples/modules/implementation-factories/Main.fib

@@ -4128,6 +4128,67 @@ main = first Zero
             self.assertNotEqual(result.returncode, 0)
             self.assertEqual(result.stdout, "")
 
+    def test_symbolic_operators_and_fixity(self):
+        example = ROOT / "examples/modules/operators"
+        result = run("run", "--source-dir", str(example), str(example / "Main.fib"))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout, "14\n5\n20\nHello, operators!\nabc\n42\n")
+        formatted = run("format", "--check", str(example / "Main.fib"))
+        self.assertEqual(formatted.returncode, 0, formatted.stdout + formatted.stderr)
+        formatted = run("format", "--check", str(example / "Ops.fib"))
+        self.assertEqual(formatted.returncode, 0, formatted.stdout + formatted.stderr)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copy(example / "Ops.fib", root / "Ops.fib")
+            library = root / "Ops.fib"
+            base = library.read_text()
+            path = root / "Main.fib"
+            def go(body, kind="Word", extra=""):
+                library.write_text(base + extra)
+                path.write_text(f"module Main\nimport Ops\n\nmain : {kind}\nmain = {body}\n")
+                return run("eval", "--source-dir", str(root), str(path))
+            def text(result):
+                return result.stdout + result.stderr
+            # An undeclared operator groups like a backtick call: left, tightest.
+            tight = "\nexport\n(**) : (left : Word) -> (right : Word) -> Word\n(**) = primWordMul\n"
+            self.assertIn("Normal: 11", go("2w + 3w ** 3w", extra=tight).stdout)
+            # Non-associative operators never chain.
+            nonassoc = "\ninfix 4\nexport\n(==) : (left : Word) -> (right : Word) -> Bool\n(==) = primWordEq\n"
+            self.assertIn("Normal: True", go("1w == 1w", "Bool", nonassoc).stdout)
+            chained = go("1w == 1w == 1w", "Bool", nonassoc)
+            self.assertNotEqual(chained.returncode, 0)
+            self.assertIn("cannot be mixed or chained", text(chained))
+            # Equal precedence with different grouping needs parentheses.
+            mixed = "\ninfixr 6\nexport\n(<+>) : (left : Word) -> (right : Word) -> Word\n(<+>) = primWordAdd\n"
+            self.assertIn("Normal: 6", go("(1w + 2w) <+> 3w", extra=mixed).stdout)
+            clash = go("1w + 2w <+> 3w", extra=mixed)
+            self.assertNotEqual(clash.returncode, 0)
+            self.assertIn("cannot be mixed or chained", text(clash))
+            # Interfaces are structural, so two with one shape cannot be told apart by type.
+            twin = ("\nexport\ninterface Twin (0 A : Type 0) : Type 0 where\n  constructor MkTwin\n  eliminator useTwin\n"
+                    "  twin : (left : A) -> (right : A) -> A\n\nexport\nimplementation wordTwin : Ops.Twin Word where\n"
+                    "  twin = primWordMul\n\nexport\nboth : {0 A : Type 0} -> (ops : Add A) => (left : A) -> (right : A) -> A\n"
+                    "both = \\(0 A : Type 0) => \\(ops : Add A) => \\(left : A) => \\(right : A) => add A @{} left right\n")
+            self.assertIn("Normal: 3", go("Ops.both {Word} @{Ops.wordAdd} 1w 2w", extra=twin).stdout)
+            ambiguous = go("Ops.both 1w 2w", extra=twin)
+            self.assertNotEqual(ambiguous.returncode, 0)
+            self.assertIn("Ambiguous visible implementations", text(ambiguous))
+            # Fixity lines are constrained.
+            for bad in ("infixl 10\n(**) : Word\n(**) = 1w\n",
+                        "infixl 6\ndata Box : Type where\n  Wrap : Box\n",
+                        "infixl 6 (**)\n"):
+                library.write_text(base + "\n" + bad)
+                path.write_text("module Main\nimport Ops\n\nmain : Word\nmain = 1w\n")
+                rejected = run("check", "--source-dir", str(root), str(path))
+                self.assertNotEqual(rejected.returncode, 0, bad)
+        # Outside a named module there is no way to know a fixity.
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "Main.fib"
+            path.write_text("main : Word\nmain = 1w + 2w\n")
+            legacy = run("eval", str(path))
+            self.assertNotEqual(legacy.returncode, 0)
+            self.assertIn("named module", legacy.stdout + legacy.stderr)
+
     def test_inferred_constraint_dictionaries(self):
         example = ROOT / "examples/modules/inferred-constraints"
         result = run("run", "--source-dir", str(example), str(example / "Main.fib"))

@@ -163,6 +163,7 @@ mutual
   walk context env (NImplementationApply _ _ function) = walk context env function
   walk context env (NDictionaryApply _ _ function argument) = walk context env function ++ (case argument of Nothing => []; Just value => walk context env value)
   walk context env (NInfix _ function left right) = walk context env left ++ walk context env function ++ walk context env right
+  walk context env (NOperators _ first rest) = walk context env first ++ walkOperands context env rest
   walk context env (NApply _ function argument) = walk context env function ++ walk context env argument
   walk context env (NImplicitApply _ function argument) = walk context env function ++ walk context env argument
   walk context env (NSequence _ first rest) = walk context env first ++ walk context env rest
@@ -176,6 +177,17 @@ mutual
     let target = binderToken name span domain context.tokens
      in walk context env domain ++ walk context env value ++ self context target ++
         walk context ((name, map context.localTarget target) :: env) body
+
+  walkOperands : Walker destination -> Environment destination -> List (Token, Expr) -> List (ReferenceTo destination)
+  walkOperands context env [] = []
+  walkOperands context env ((op, operand) :: rest) =
+    let target = case lexicalTarget op.spelling env of
+          Just target => Just target
+          Nothing => if any (\entry => fst entry == op.spelling) env then Nothing else context.globalTarget op.spelling
+        reference = case target of
+          Just target => [RefersTo op.span target]
+          Nothing => []
+     in reference ++ walk context env operand ++ walkOperands context env rest
 
   walkDataArms : Bool -> Walker destination -> Environment destination -> List (Token, List Token, Expr) -> List (ReferenceTo destination)
   walkDataArms clause context env [] = []

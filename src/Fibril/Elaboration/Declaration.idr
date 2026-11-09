@@ -276,6 +276,7 @@ mutual
   mentions name (NImplementationApply _ _ function) = mentions name function
   mentions name (NDictionaryApply _ _ function argument) = mentions name function || (case argument of Nothing => False; Just value => mentions name value)
   mentions name (NInfix _ f a b) = mentions name f || mentions name a || mentions name b
+  mentions name (NOperators _ a rest) = mentions name a || mentionsOperands name rest
   mentions name (NApply _ a b) = mentions name a || mentions name b
   mentions name (NImplicitApply _ a b) = mentions name a || mentions name b
   mentions name (NAscribe _ a b) = mentions name a || mentions name b
@@ -460,6 +461,7 @@ mutual
   syntaxNodes (NLambda _ _ _ a b) = capped (1 + syntaxNodes a + syntaxNodes b)
   syntaxNodes (NSigma _ _ _ _ a b) = capped (1 + syntaxNodes a + syntaxNodes b)
   syntaxNodes (NInfix _ f a b) = capped (1 + syntaxNodes f + syntaxNodes a + syntaxNodes b)
+  syntaxNodes (NOperators _ a rest) = capped (1 + syntaxNodes a + syntaxOperands rest)
   syntaxNodes (NApply _ a b) = capped (1 + syntaxNodes a + syntaxNodes b)
   syntaxNodes (NImplicitApply _ a b) = capped (1 + syntaxNodes a + syntaxNodes b)
   syntaxNodes (NAscribe _ a b) = capped (1 + syntaxNodes a + syntaxNodes b)
@@ -765,6 +767,14 @@ mutual
   elaborateDeclarationsWithBudget : Nat -> Nat -> List AuthoredDeclaration -> Either ElaborationError (List Declaration)
   elaborateDeclarationsWithBudget nodes slots = lower Nothing [] [] (min nodes defaultConstructionBudget) slots []
 
+
+  mentionsOperands : String -> List (Token, Expr) -> Bool
+  mentionsOperands name [] = False
+  mentionsOperands name ((op, operand) :: rest) = name == op.spelling || mentions name operand || mentionsOperands name rest
+
+  syntaxOperands : List (Token, Expr) -> Nat
+  syntaxOperands [] = 0
+  syntaxOperands ((_, operand) :: rest) = capped (1 + syntaxNodes operand + syntaxOperands rest)
 
   mentionsDataArms : String -> List (Token, List Token, Expr) -> Bool
   mentionsDataArms name [] = False

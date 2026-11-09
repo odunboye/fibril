@@ -36,6 +36,8 @@ import Fibril.Elaboration.Expression.Scope
 import Fibril.Elaboration.Expression.Conversion
 import Fibril.Elaboration.Expression.Constructor
 import Fibril.Elaboration.Expression.Parameters
+import Fibril.Elaboration.Expression.Operators
+import Fibril.Source.Fixity
 import Fibril.Driver.Limits
 import Fibril.Driver.Check
 import Fibril.Driver.Prelude
@@ -170,6 +172,7 @@ mutual
     NDictionaryApply _ _ function argument => 2 + cost limit globals env function + (case argument of Nothing => 1; Just value => cost limit globals env value)
     NPi _ _ name a b => 1 + cost limit globals env a + cost limit globals (name :: env) b
     NLambda _ _ name a b => 1 + cost limit globals env a + cost limit globals (name :: env) b
+    NOperators _ first rest => 2 + length rest + cost limit globals env first + operandsCost limit globals env rest
     NInfix _ function left right => 2 + cost limit globals env function + cost limit globals env left + cost limit globals env right
     NApply _ a b =>
       let capacity = implicitSpineCount globals env a
@@ -194,6 +197,12 @@ mutual
   -- Count each source arm once, then reserve its potential weakened copies.
   -- Two payload binders may each require an admitted type annotation.
   -- Re-traversing nested case bodies per copy would make admission exponential.
+  operandsCost : Nat -> List Weighted -> List String -> List (Token, Expr) -> Nat
+  operandsCost limit globals env [] = 0
+  operandsCost limit globals env ((op, operand) :: rest) =
+    let reference = if elem op.spelling env then 1 else referenceCost globals op.spelling + constraintReserve globals op.spelling
+     in min (S limit) (reference + cost limit globals env operand + operandsCost limit globals env rest)
+
   dataArmsCost : Nat -> List Weighted -> List String -> Nat -> List (Token, List Token, Expr) -> Nat
   dataArmsCost limit globals env copies [] = 0
   dataArmsCost limit globals env copies ((_, binder, body) :: rest) =
@@ -1498,7 +1507,13 @@ compileDeclarationsGlobals shared snapshot name globals (DataFamilies entries ::
 compileDeclarationsGlobals shared snapshot name globals (DataFamily sourceData key :: rest) remaining = do
   next <- registerFamily shared snapshot globals sourceData key
   compileDeclarationsGlobals next snapshot name globals rest remaining
-compileDeclarationsGlobals shared snapshot name globals (Single decl :: rest) remaining = do
+compileDeclarationsGlobals shared snapshot name globals (Single authored :: rest) remaining = do
+  -- Group symbolic-operator chains now: this is where imported and earlier fixities are visible.
+  let fixityOf = globalFixity (map global globals)
+  decl <- case (resolveExpr fixityOf authored.expected, resolveExpr fixityOf authored.value) of
+    (Right expected, Right value) => Right ({ expected := expected, value := value } authored)
+    (Left err, _) => Left (problem snapshot (Just err.position) (show err))
+    (_, Left err) => Left (problem snapshot (Just err.position) (show err))
   if decl.quantity == Linear || decl.name == "_"
      then Left (problem snapshot (Just decl.nameSpan.start)
                 "Module globals require erased/unrestricted quantities and referenceable names")
@@ -1584,7 +1599,7 @@ compileDeclarationsGlobals shared snapshot name globals (Single decl :: rest) re
     Left message => Left ({ stage := "runtime-checking" } (problem snapshot (Just decl.nameSpan.start) message))
     else Right False
   let identity = moduleText name ++ "." ++ decl.name
-  let definition = sharedGlobal key ({ autoConstraints := autoConstraintCount decl.expected } (GlobalEntry (if provider then Just identity else Nothing) (Just identity) implicitPrefix decl.quantity decl.name ty value))
+  let definition = sharedGlobal key ({ autoConstraints := autoConstraintCount decl.expected, fixity := decl.fixity } (GlobalEntry (if provider then Just identity else Nothing) (Just identity) implicitPrefix decl.quantity decl.name ty value))
   let local = weighted definition
   let qualified = Weight ({ name := identity } definition) local.size
   -- The estimate reserves room before construction; it is not emitted syntax.

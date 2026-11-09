@@ -1368,6 +1368,10 @@ mutual
     let domain = fromMaybe authored (familyAnnotation shared authored)
     body <- elaborateInWithGlobals shared globals (map (\ctx => Extend ctx q domain) context) (name :: env) body
     Right (Lambda q domain body)
+  -- Chains are grouped by module checking, where imported fixities are known. A chain that
+  -- reaches here was parsed outside a named module, so its grouping would be a guess.
+  elaborateInWithGlobals shared globals context env (NOperators span _ _) =
+    Left (CannotElaborate span.start "Symbolic operators require a named module so their fixity is known; use prefix application")
   elaborateInWithGlobals shared globals context env (NInfix span function left right) = do
     operator <- elaborateInWithGlobals shared globals context env function
     first <- elaborateApplicationGlobals shared globals context env operator left

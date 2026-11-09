@@ -6,6 +6,7 @@ import Data.Maybe
 import Fibril.Core.Quantity
 import Fibril.Source.Text
 import Fibril.Source.Lexer
+import Fibril.Source.Fixity
 import Fibril.Source.Syntax
 import Fibril.Source.Parser
 import public Fibril.Source.Declaration.Syntax
@@ -592,6 +593,20 @@ parseOne budget end tokens@(token :: rest) =
       then Left (ParseFailure token.span.start "requires NAME must precede one ordinary declaration on its own line") else Right ()
     (decl, remaining) <- parsePair budget end following
     Right (Ordinary ({ requiredPath := Just requirement.spelling } decl), remaining)
+  else if token.kind == Name && (token.spelling == "infixl" || token.spelling == "infixr" || token.spelling == "infix") &&
+          (case rest of next :: _ => next.kind == Number; [] => False) then
+    case rest of
+      level :: following => do
+        let value : Nat = cast level.spelling
+        let assoc = if token.spelling == "infixl" then LeftAssoc else if token.spelling == "infixr" then RightAssoc else NoAssoc
+        if token.span.start.column /= 1 || level.span.start.line /= token.span.start.line || value > maxLevel ||
+           (case following of next :: _ => next.span.start.line == token.span.start.line; [] => False)
+          then Left (ParseFailure token.span.start "Expected infixl, infixr or infix with a level 0 to 9 alone on its own line before one declaration") else Right ()
+        (item, remaining) <- parseOne budget end following
+        case item of
+          Ordinary decl => Right (Ordinary ({ fixity := Just (MkFixity assoc value) } decl), remaining)
+          _ => Left (ParseFailure token.span.start "A fixity line must precede an ordinary function declaration")
+      [] => Left (ParseFailure token.span.start "Expected a fixity level")
   else if token.kind == ExportKeyword then do
     if token.span.start.column /= 1
        then Left (ParseFailure token.span.start "export must start in column 1") else Right ()
@@ -676,6 +691,9 @@ public export
 declarationAhead : List Token -> Bool
 declarationAhead (Located Name "cubical" _ :: Located Name _ _ :: _) = True
 declarationAhead (Located Name "requires" _ :: Located Name _ _ :: _) = True
+declarationAhead (Located Name "infixl" _ :: Located Number _ _ :: _) = True
+declarationAhead (Located Name "infixr" _ :: Located Number _ _ :: _) = True
+declarationAhead (Located Name "infix" _ :: Located Number _ _ :: _) = True
 declarationAhead (Located Name _ _ :: Located Colon _ _ :: _) = True
 declarationAhead (Located Name _ _ :: Located Equals _ _ :: _) = True
 declarationAhead (Located Number _ _ :: _) = True

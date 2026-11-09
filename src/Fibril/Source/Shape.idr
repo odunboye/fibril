@@ -5,6 +5,7 @@ import Data.List
 import Fibril.Core.Quantity
 import Fibril.Source.Lexer
 import Fibril.Source.Syntax
+import Fibril.Source.Fixity
 import Fibril.Source.Document
 import Fibril.Source.Declaration.Syntax
 
@@ -58,6 +59,7 @@ mutual
   sameExpr (NDictionaryApply _ _ f Nothing) (NDictionaryApply _ _ g Nothing) = sameExpr f g
   sameExpr (NDictionaryApply _ _ f (Just a)) (NDictionaryApply _ _ g (Just b)) = sameExpr f g && sameExpr a b
   sameExpr (NInfix _ f a b) (NInfix _ g x y) = sameExpr f g && sameExpr a x && sameExpr b y
+  sameExpr (NOperators _ a as) (NOperators _ x xs) = sameExpr a x && sameOperands as xs
   sameExpr (NApply _ a b) (NApply _ x y) = sameExpr a x && sameExpr b y
   sameExpr (NImplicitApply _ a b) (NImplicitApply _ x y) = sameExpr a x && sameExpr b y
   sameExpr (NSequence _ a b) (NSequence _ x y) = sameExpr a x && sameExpr b y
@@ -66,6 +68,11 @@ mutual
   sameExpr (NAscribe _ a b) (NAscribe _ x y) = sameExpr a x && sameExpr b y
   sameExpr (NLet _ q name a b c) (NLet _ r other x y z) = q == r && name == other && sameExpr a x && sameExpr b y && sameExpr c z
   sameExpr _ _ = False
+
+  sameOperands : List (Token, Expr) -> List (Token, Expr) -> Bool
+  sameOperands [] [] = True
+  sameOperands ((op, a) :: as) ((other, x) :: xs) = op.spelling == other.spelling && sameExpr a x && sameOperands as xs
+  sameOperands _ _ = False
 
   sameDataArms : List (Token, List Token, Expr) -> List (Token, List Token, Expr) -> Bool
   sameDataArms [] [] = True
@@ -85,7 +92,7 @@ sameProjection a b = a.name.spelling == b.name.spelling && a.field.spelling == b
 
 sameDeclaration : Declaration -> Declaration -> Bool
 sameDeclaration a b = a.name == b.name && a.quantity == b.quantity &&
-  a.cubicalProof == b.cubicalProof && a.requiredPath == b.requiredPath &&
+  a.cubicalProof == b.cubicalProof && a.requiredPath == b.requiredPath && a.fixity == b.fixity &&
   a.exported == b.exported && a.generated == b.generated && a.dictionary == b.dictionary && sameExpr a.expected b.expected && sameExpr a.value b.value
 
 sameData : DataDeclaration -> DataDeclaration -> Bool

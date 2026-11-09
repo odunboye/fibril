@@ -58,6 +58,9 @@ data Expr
   | NPi SourceSpan Quantity String Expr Expr
   | NLambda SourceSpan Quantity String Expr Expr
   | NInfix SourceSpan Expr Expr Expr
+  -- An unresolved symbolic-operator chain: first operand, then (operator token, operand) pairs.
+  -- Grouping needs the operators' fixity, so module checking resolves it into applications.
+  | NOperators SourceSpan Expr (List (Token, Expr))
   | NApply SourceSpan Expr Expr
   | NImplicitApply SourceSpan Expr Expr
   | NSequence SourceSpan Expr Expr
@@ -152,6 +155,7 @@ extent (NImplementationApply span _ _) = span
 extent (NPi span _ _ _ _) = span
 extent (NLambda span _ _ _ _) = span
 extent (NInfix span _ _ _) = span
+extent (NOperators span _ _) = span
 extent (NApply span _ _) = span
 extent (NImplicitApply span _ _) = span
 extent (NSequence span _ _) = span
@@ -211,6 +215,7 @@ withExtent span (NImplementationApply _ origin function) = NImplementationApply 
 withExtent span (NPi _ q name domain body) = NPi span q name domain body
 withExtent span (NLambda _ q name domain body) = NLambda span q name domain body
 withExtent span (NInfix _ function left right) = NInfix span function left right
+withExtent span (NOperators _ first rest) = NOperators span first rest
 withExtent span (NApply _ function argument) = NApply span function argument
 withExtent span (NImplicitApply _ function argument) = NImplicitApply span function argument
 withExtent span (NSequence _ first rest) = NSequence span first rest
