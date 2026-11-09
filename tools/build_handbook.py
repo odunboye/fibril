@@ -91,6 +91,7 @@ def main():
         (ROOT / "test/fixtures").rglob("*.fib")) + sorted(
         (ROOT / "test/fixtures").rglob("*.yaml")) + sorted(
         (ROOT / "stdlib").rglob("*.fib")) + sorted(
+        (ROOT / "stdlib").rglob("*.yaml")) + sorted(
         (ROOT / "experiments").rglob("*.c")) + sorted(
         (ROOT / "experiments").rglob("*.h")) + sorted(
         (ROOT / "editors/vim").rglob("*.vim"))

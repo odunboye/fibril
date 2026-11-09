@@ -507,7 +507,8 @@ check sees one recursive function whose body is a chain of member tests. Consequ
   how a group dispatches. The finer per-member check has fixed size limits (the closure of
   call matrices holds at most 32); a large, densely connected group may exceed them and is
   then judged as one function, so only groups of about five or more members that rely on
-  forwarding calls can be refused for size alone. Members of mutually recursive *data* are not supported.
+  forwarding calls can be refused for size alone. Data declarations have separate [mutual groups](mutual-data.md). These function
+  groups still require one shared signature, including when their arguments use mutual data.
 - Navigation and the formatter see the group exactly as written, including every member.
 
 Tests cover dependent renamed binders, ordinary/erased/linear quantities,

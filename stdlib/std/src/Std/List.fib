@@ -1,0 +1,86 @@
+module Std.List
+
+import Std.Option
+
+-- A reusable (non-linear) singly linked list. Elements and tails are unrestricted,
+-- so a list can be traversed more than once. Every function below is structurally
+-- recursive; large inputs are bounded by the evaluator's step and depth budgets.
+export
+data List {0 A : Type} : Type where
+  Nil : List A
+  Cons : (head : A) -> (tail : List A) -> List A
+
+export
+size : (0 A : Type) -> (items : List A) -> Nat
+size A items = case items of
+  Nil => Zero
+  Cons head tail => Succ (size A tail)
+
+export
+append : (0 A : Type) -> (left : List A) -> (right : List A) -> List A
+append A left right = case left of
+  Nil => right
+  Cons head tail => Cons {A} head (append A tail right)
+
+export
+mapList : (0 A : Type) -> (0 B : Type) -> (f : (x : A) -> B) -> (items : List A) -> List B
+mapList A B f items = case items of
+  Nil => Nil {B}
+  Cons head tail => Cons {B} (f head) (mapList A B f tail)
+
+export
+filterList : (0 A : Type) -> (keep : (x : A) -> Bool) -> (items : List A) -> List A
+filterList A keep items = case items of
+  Nil => Nil {A}
+  Cons head tail => if keep head then Cons {A} head (filterList A keep tail) else filterList A keep tail
+
+-- Left fold: step is applied from the first element to the last.
+export
+foldLeft : (0 A : Type) ->
+  (0 B : Type) ->
+  (step : (acc : B) -> (x : A) -> B) ->
+  (acc : B) ->
+  (items : List A) ->
+  B
+foldLeft A B step acc items = case items of
+  Nil => acc
+  Cons head tail => foldLeft A B step (step acc head) tail
+
+-- Right fold: not tail recursive; depth grows with the list length.
+export
+foldRight : (0 A : Type) ->
+  (0 B : Type) ->
+  (step : (x : A) -> (acc : B) -> B) ->
+  (acc : B) ->
+  (items : List A) ->
+  B
+foldRight A B step acc items = case items of
+  Nil => acc
+  Cons head tail => step head (foldRight A B step acc tail)
+
+export
+reverse : (0 A : Type) -> (items : List A) -> List A
+reverse A items = foldLeft A
+  (List A)
+  (\(acc : List A) =>
+    \(x : A) => Cons {A} x acc)
+  (Nil {A}) items
+
+export
+any : (0 A : Type) -> (test : (x : A) -> Bool) -> (items : List A) -> Bool
+any A test items = case items of
+  Nil => False
+  Cons head tail => if test head then True else any A test tail
+
+export
+all : (0 A : Type) -> (test : (x : A) -> Bool) -> (items : List A) -> Bool
+all A test items = case items of
+  Nil => True
+  Cons head tail => if test head then all A test tail else False
+
+-- The first element, if any.
+export
+first : (0 A : Type) -> (items : List A) -> Optional A
+first A items = case items of
+  Nil => Nothing {A}
+  Cons head tail => Just {A} head

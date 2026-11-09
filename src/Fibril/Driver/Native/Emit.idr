@@ -142,6 +142,8 @@ wordRuntimeFunction WordSubOp = Just "f_word_sub"
 wordRuntimeFunction WordMulOp = Just "f_word_mul"
 wordRuntimeFunction WordEqOp = Just "f_word_eq"
 wordRuntimeFunction WordLtOp = Just "f_word_lt"
+wordRuntimeFunction WordDivOp = Just "f_word_div"
+wordRuntimeFunction WordRemOp = Just "f_word_rem"
 wordRuntimeFunction _ = Nothing
 
 mutual
@@ -232,6 +234,7 @@ mutual
     if value < 0 || value >= wordModulus
       then Left "C backend rejects a Word literal outside 0 .. 2^64-1"
       else Right (constant n ("f_word(r, UINT64_C(" ++ show value ++ "))"))
+  generate globals mode n (Prim WordFromNatOp [argument]) = unary globals mode n "f_word_from_nat" argument
   generate globals mode n (Prim WordToStringOp [argument]) = unary globals mode n "f_word_to_string" argument
   generate globals mode n (Prim operation [left, right]) =
     case wordRuntimeFunction operation of

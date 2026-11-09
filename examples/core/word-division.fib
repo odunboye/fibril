@@ -1,0 +1,21 @@
+-- Division is partial in the divisor, so it returns a WordDivResult instead of failing.
+-- primWordDivCase supplies the divide-by-zero answer and a callback for the Word result.
+safeDiv : (a : Word) -> (b : Word) -> String
+safeDiv a b = primWordDivCase String
+  (primWordDiv a b) "divide by zero"
+  (\(q : Word) =>
+    primWordToString q)
+
+safeRem : (a : Word) -> (b : Word) -> String
+safeRem a b = primWordDivCase String
+  (primWordRem a b) "divide by zero"
+  (\(r : Word) =>
+    primWordToString r)
+
+main : IO Unit
+main = do
+  putStrLn (appendString "17 / 5 = " (safeDiv 17w 5w))
+  putStrLn (appendString "17 % 5 = " (safeRem 17w 5w))
+  putStrLn (appendString "17 / 0 = " (safeDiv 17w 0w))
+  -- Nat counts convert to Word (modulo 2^64) for machine-integer arithmetic.
+  putStrLn (appendString "256 * 1000000007 = " (primWordToString (primWordMul (primWordFromNat 256) 1000000007w)))

@@ -161,8 +161,8 @@ checks =
       isLeft (admitDeclaration (pairDecl (Apply (DataType "Both") (Variable (FS (FS FZ)))))))
   , ("a recursive field under a function type is refused",
       isLeft (admitDeclaration (justOne (Field Unrestricted (Pi Unrestricted NatType (DataType "T")) Done))))
-  , ("a recursive occurrence inside another type former is refused",
-      isLeft (admitDeclaration (justOne (Field Unrestricted (SeqType "other" (DataType "T")) Done))))
+  , ("a recursive occurrence inside an intrinsic sequence is admitted",
+      isRight (admitDeclaration (justOne (Field Unrestricted (SeqType "other" (DataType "T")) Done))))
   , ("a negative occurrence in a function domain is refused",
       isLeft (admitDeclaration (justOne (Field Unrestricted (Pi Unrestricted (DataType "T") NatType) Done))))
   , ("a plain non-recursive field is admitted",

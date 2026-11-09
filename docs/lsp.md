@@ -36,8 +36,30 @@ this checkout's `build/exec/fibril`, never a workspace-supplied executable.
 | Rename | Compiler's capture-checked **standalone same-file** preview, returned as versioned documentChanges; named modules/imports remain unsupported |
 | Workspace folders and disk changes | Multiple workspace roots; polling of observed sources/directories; explicit watched-file notifications also accepted |
 
-| Completion | Top-level names from the current file and the Prelude, prefix-filtered; **no scope, type or import awareness** |
+| Completion | Compiler scope at the cursor: local binders, checked visible globals and selected imports/aliases, with type and quantity details; matching expected types rank first. Syntax-only fallback is marked incomplete. |
 | Project rename | In a manifest/source-root project: checked-graph references become versioned multi-file edits; plain identifiers only, refused if the new name already appears in any affected file (conservative, not a capture check) |
+
+Completion queries run against a private copy of the dirty-buffer snapshot. A fresh
+unbound identifier stands in for the identifier under the caret; the compiler
+reports its local context only after checking that context's type formation.
+The query never executes source programs or writes editor/workspace files.
+Existing request cancellation, deadlines and document/disk freshness checks apply.
+
+Nearest local binders shadow globals. Imports follow the compiler's normal
+selection, alias and export visibility rules. Completion replaces the whole
+identifier, including any suffix after the caret, using UTF-16 edit positions.
+Type-compatible values rank first; functions and other visible names remain
+available. Quantity details describe declarations, not a guarantee that inserting
+a candidate satisfies the surrounding program's usage constraints. Complex types
+can retain core syntax in the display.
+
+If a parse error, an earlier error, or an unreachable module prevents checking the
+query site, the server falls back to current-file/Prelude symbols with
+`isIncomplete: true` and the detail `Syntax only; checked scope unavailable`.
+Such fallback suggestions carry no scope or type claim. The compiler attaches an
+optional `completionScope` to the query's JSON diagnostic; ordinary diagnostics
+keep their existing fields. This metadata is editor information, not a typing
+certificate or an accepted partially checked program.
 
 Rename is advertised only when the client supports versioned documentChanges.
 Signature help, semantic tokens, code actions and workspace symbols are not

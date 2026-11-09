@@ -33,6 +33,9 @@ pattern matching: Word has no eliminator and cannot drive `natRec`.
 | `123w` | Literal; the suffix must touch the digits, no leading zeros, at most 18446744073709551615 |
 | `primWordAdd`, `primWordSub`, `primWordMul` | `Word -> Word -> Word`, wrapping modulo 2^64 |
 | `primWordEq`, `primWordLt` | `Word -> Word -> Bool`, unsigned |
+| `primWordDiv`, `primWordRem` | `Word -> Word -> WordDivResult`: unsigned quotient/remainder, or a divide-by-zero value |
+| `primWordDivCase` | `(0 A : Type 0) -> (1 r : WordDivResult) -> (byZero : A) -> (ok : Word -> A) -> A` |
+| `primWordFromNat` | `(1 n : Nat) -> Word`: the Nat's value modulo 2^64 |
 | `primWordToString` | `Word -> String`: decimal digits only (`0`, `8080`, `18446744073709551615`); no sign, padding or separators |
 
 Operands are **unrestricted**: Word is copyable data, so `primWordAdd x x` is accepted.
@@ -50,8 +53,26 @@ checker, so a hand-built term cannot smuggle one in.
 
 ## Not provided
 
-No division, remainder, shifts, bitwise operations, `Nat`/`Word` conversion, String-to-Word parsing, hex or padded formatting, or signed variant; no overflow detection (wraparound is the only
+No shifts, bitwise operations, `Word`-to-`Nat` conversion, String-to-Word parsing, hex or padded formatting, or signed variant; no overflow detection (wraparound is the only
 semantics). Each is a follow-up, not a guarantee.
+
+## Division and conversion
+
+Division by zero is **not** a runtime failure and not a stuck term: `primWordDiv` and
+`primWordRem` return a `WordDivResult`, a two-arm variant (tag 0 divide-by-zero, tag 1
+the Word result), and `primWordDivCase` eliminates it. This keeps every Word operation
+total, the same way `primBytesIndex` returns a missing/found result instead of failing.
+
+```fibril
+safeDiv : (a : Word) -> (b : Word) -> String
+safeDiv a b = primWordDivCase String (primWordDiv a b) "divide by zero"
+                (\(q : Word) => primWordToString q)
+```
+
+`primWordFromNat` is total because it wraps: a Nat above 2^64-1 becomes its value modulo
+2^64. It costs one step per successor, so converting a large unary Nat is only as cheap
+as having built that Nat; use `5w` literals for constants. There is deliberately no
+`Word`-to-`Nat` conversion, since it would expand a 64-bit value into unary.
 
 ## Native lowering
 

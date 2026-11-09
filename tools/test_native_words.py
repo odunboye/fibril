@@ -18,7 +18,32 @@ CC = shlex.split(os.environ.get('CC', 'cc'))
 SANITIZE = (['-fsanitize=address,undefined', '-fno-omit-frame-pointer', '-g']
             if os.environ.get('FIBRIL_WORD_SANITIZE') == '1' else [])
 
+DIVIDE = '''divText : (a : Word) -> (b : Word) -> String
+divText a b = primWordDivCase String (primWordDiv a b) "divide by zero" (\\(q : Word) => primWordToString q)
+
+remText : (a : Word) -> (b : Word) -> String
+remText a b = primWordDivCase String (primWordRem a b) "divide by zero" (\\(q : Word) => primWordToString q)
+
+'''
+
 PROGRAMS = {
+    'division': DIVIDE + '''main : IO Unit
+main = do
+  putStrLn (divText 17w 5w)
+  putStrLn (remText 17w 5w)
+  putStrLn (divText 17w 0w)
+  putStrLn (remText 17w 0w)
+  putStrLn (divText 0w 7w)
+  putStrLn (divText (primWordSub 0w 1w) 2w)
+  putStrLn (remText (primWordSub 0w 1w) 10w)
+''',
+    'conversion': '''main : IO Unit
+main = do
+  putStrLn (primWordToString (primWordFromNat 0))
+  putStrLn (primWordToString (primWordFromNat 200))
+  putStrLn (primWordToString (primWordAdd (primWordFromNat 3) (primWordFromNat 4)))
+  putStrLn (primWordToString (primWordMul (primWordFromNat 256) 1000000007w))
+''',
     'formatting': '''main : IO Unit
 main = do
   putStrLn (primWordToString 0w)
@@ -74,7 +99,7 @@ class WordNativeTests(unittest.TestCase):
             self.assertNotIn(b'FAILED', out)
 
     def test_programs_match_reference(self):
-        expected = {'formatting': b'0\n1000000007\n18446744073709551615\nport=8080\n', 'false-branches': b'ne\nge\nge\n', 'duplicated-argument': b'wrapped\n',
+        expected = {'division': b'3\n2\ndivide by zero\ndivide by zero\n0\n9223372036854775807\n5\n', 'conversion': b'0\n200\n7\n256000001792\n' , 'formatting': b'0\n1000000007\n18446744073709551615\nport=8080\n', 'false-branches': b'ne\nge\nge\n', 'duplicated-argument': b'wrapped\n',
                     'function-argument-and-nesting': b'hash\n'}
         for name, source in PROGRAMS.items():
             with self.subTest(program=name), tempfile.TemporaryDirectory() as directory:

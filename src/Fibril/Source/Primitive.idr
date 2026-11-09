@@ -83,6 +83,23 @@ wordBinary name op result =
     (Lambda Unrestricted (Prim WordTypeOp []) (Lambda Unrestricted (Prim WordTypeOp [])
       (Prim op [Variable (FS FZ), Variable FZ])))
 
+-- Eliminator for a division result: divide-by-zero value, then a callback on the quotient.
+-- Branch order matches the variant tags; the Word arm is unrestricted, as Word is copyable.
+divisionCaseType : Term 0
+divisionCaseType = Pi Erased (Universe 0)
+  (Pi Linear wordDivResultType
+    (Pi Unrestricted (Variable (FS FZ))
+      (Pi Unrestricted (Pi Unrestricted (Prim WordTypeOp []) (Variable (FS (FS (FS FZ)))))
+        (Variable (FS (FS (FS FZ)))))))
+
+divisionCaseValue : Term 0
+divisionCaseValue = Lambda Erased (Universe 0)
+  (Lambda Linear wordDivResultType
+    (Lambda Unrestricted (Variable (FS FZ))
+      (Lambda Unrestricted (Pi Unrestricted (Prim WordTypeOp []) (Variable (FS (FS (FS FZ)))))
+        (VariantCase (Lambda Erased wordDivResultType (Variable (FS (FS (FS (FS FZ))))))
+          (Variable (FS (FS FZ))) [Variable (FS FZ), Variable FZ]))))
+
 ||| Small-type interface: A/B : Type0. IOType itself preserves arbitrary levels.
 public export
 primitiveGlobals : List GlobalDefinition
@@ -92,6 +109,12 @@ primitiveGlobals =
   , GlobalWithQuantity Erased "Word" (Universe 0) (Prim WordTypeOp [])
   , Global "primWordToString" (Pi Unrestricted (Prim WordTypeOp []) StringType)
       (Lambda Unrestricted (Prim WordTypeOp []) (Prim WordToStringOp [Variable FZ]))
+  , GlobalWithQuantity Erased "WordDivResult" (Universe 0) wordDivResultType
+  , wordBinary "primWordDiv" WordDivOp wordDivResultType
+  , wordBinary "primWordRem" WordRemOp wordDivResultType
+  , Global "primWordDivCase" divisionCaseType divisionCaseValue
+  , Global "primWordFromNat" (Pi Linear NatType (Prim WordTypeOp []))
+      (Lambda Linear NatType (Prim WordFromNatOp [Variable FZ]))
   , wordBinary "primWordAdd" WordAddOp (Prim WordTypeOp [])
   , wordBinary "primWordSub" WordSubOp (Prim WordTypeOp [])
   , wordBinary "primWordMul" WordMulOp (Prim WordTypeOp [])

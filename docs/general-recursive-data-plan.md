@@ -3,7 +3,8 @@
 The non-indexed admission rule below is the foundation. The implemented extension
 for separate erased indices and index-aware dependent cases is documented in
 [indexed inductive families](indexed-data.md); indexed families are no longer
-globally unsupported. Nested and mutually recursive data remain outside both slices.
+globally unsupported. Later extensions support [mutual data](mutual-data.md)
+and [nested fixed-list fields](nested-data.md); exclusions below describe this original plan.
 
 **Status: phases 1 to 4 and the first slice of phase 5 are implemented (core terms, reduction,
 declaration admission, typing, termination, run-mode evaluation, and source `data` and `case`

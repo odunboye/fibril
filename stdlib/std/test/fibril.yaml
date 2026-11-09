@@ -1,0 +1,10 @@
+schema: 1
+name: std-tests
+module-prefix: StdTests
+source-dir: src
+foundation: de-morgan
+modules: [StdTests.Main]
+tests: StdTests.Main
+dependencies:
+  std:
+    path: ..

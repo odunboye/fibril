@@ -1,0 +1,31 @@
+module Std.Result
+
+-- Success or a typed failure. Use it where the reason for failure matters;
+-- use Optional when absence alone is enough.
+export
+data Result {0 E : Type} {0 A : Type} : Type where
+  Err : (error : E) -> Result E A
+  Ok : (value : A) -> Result E A
+
+export
+fromResult : (0 E : Type) -> (0 A : Type) -> (fallback : A) -> (item : Result E A) -> A
+fromResult E A fallback item = case item of
+  Err error => fallback
+  Ok value => value
+
+export
+mapResult : (0 E : Type) ->
+  (0 A : Type) ->
+  (0 B : Type) ->
+  (f : (x : A) -> B) ->
+  (item : Result E A) ->
+  Result E B
+mapResult E A B f item = case item of
+  Err error => Err {E} {B} error
+  Ok value => Ok {E} {B} (f value)
+
+export
+isOk : (0 E : Type) -> (0 A : Type) -> (item : Result E A) -> Bool
+isOk E A item = case item of
+  Err error => False
+  Ok value => True

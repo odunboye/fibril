@@ -5,7 +5,7 @@ TEST_JOBS ?= 4
 SQLITE_CFLAGS ?= $(shell pkg-config --cflags sqlite3 2>/dev/null)
 SQLITE_LIBS ?= $(shell pkg-config --libs sqlite3 2>/dev/null || echo -lsqlite3)
 
-.PHONY: prelude prelude-check build unit-test test io-test io-hosted-test io-runtime-test io-resource-runtime-test io-resource-emitter-test io-emitter-test io-interactive-test io-binary-test io-binary-bench io-cli-test native-test region-test native-pair-test bytes-native-test binary-source-test binary-iteration-test binary-count-test binary-runtime-test binary-scale-test binary-number-test binary-number-bench json-oracle-test json-sharing-probe json-iteration-test lsp-lifecycle-test framing-test header-iteration-test editor-test lsp-test examples bench bench-smoke composed-bench python-embed-test docs handbook serve-docs clean cubical-source-test
+.PHONY: std-test prelude prelude-check build unit-test test io-test io-hosted-test io-runtime-test io-resource-runtime-test io-resource-emitter-test io-emitter-test io-interactive-test io-binary-test io-binary-bench io-cli-test native-test region-test native-pair-test bytes-native-test binary-source-test binary-iteration-test binary-count-test binary-runtime-test binary-scale-test binary-number-test binary-number-bench json-oracle-test json-sharing-probe json-iteration-test lsp-lifecycle-test framing-test header-iteration-test editor-test lsp-test examples bench bench-smoke composed-bench python-embed-test docs handbook serve-docs clean cubical-source-test
 .PHONY: host-compiler-test native-embedding-test native-embedding-generated-test binary-embedding-test binary-embedding-generated-test queue-test worker-test worker-demo
 prelude:
 	python3 tools/embed_prelude.py
@@ -111,6 +111,9 @@ native-test: unit-test
 	CC="$(CC)" python3 tools/test_bytes_native.py
 	CC="$(CC)" python3 tools/test_native_words.py
 
+std-test: unit-test
+	CC="$(CC)" python3 tools/test_std.py
+
 native-pair-test: unit-test
 	IDRIS2="$(IDRIS2)" CC="$(CC)" python3 tools/test_native_pairs.py
 
@@ -193,6 +196,7 @@ examples: build
 	./build/exec/fibril eval examples/core/unit.fib
 	./build/exec/fibril eval examples/core/word-arithmetic.fib
 	./build/exec/fibril run examples/core/word-native.fib
+	./build/exec/fibril run examples/core/word-division.fib
 	./build/exec/fibril eval examples/core/consume-unit.fib
 	./build/exec/fibril eval examples/core/boolean.fib
 	./build/exec/fibril eval examples/core/branch-permissions.fib
@@ -243,6 +247,9 @@ examples: build
 	./build/exec/fibril run --source-dir examples/modules/recursive-data examples/modules/recursive-data/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/recursive-list examples/modules/recursive-list/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/indexed-vect --fuel 4096 examples/modules/indexed-vect/Main.fib
+	./build/exec/fibril run --source-dir examples/modules/index-refinement examples/modules/index-refinement/Main.fib
+	./build/exec/fibril run --source-dir examples/modules/mutual-data examples/modules/mutual-data/Main.fib
+	./build/exec/fibril run --source-dir examples/modules/nested-data examples/modules/nested-data/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/linear-accumulator examples/modules/linear-accumulator/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/linear-accumulator examples/modules/linear-accumulator/Decorated.fib
 	./build/exec/fibril run --source-dir examples/modules/linear-accumulator examples/modules/linear-accumulator/StringAccumulator.fib

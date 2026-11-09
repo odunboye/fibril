@@ -1,0 +1,8 @@
+schema: 1
+name: std
+module-prefix: Std
+source-dir: src
+foundation: de-morgan
+modules: [Std.Option, Std.Result, Std.List]
+test-package: test
+dependencies: {}

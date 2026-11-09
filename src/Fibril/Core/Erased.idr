@@ -545,11 +545,11 @@ mutual
       then Left (PrimError "Word literal outside 0 .. 2^64-1")
       else Right (Prim WordTypeOp [])
   infer globals (S depth) reduction context (Prim op [argument]) =
-    case wordUnaryResult op of
+    case primUnarySignature op of
       Nothing => Left (PrimError ("operation " ++ show op ++ " does not take one argument"))
-      Just result => do
+      Just (domain, result) => do
         argumentType <- infer globals depth reduction context argument
-        requireCompatible globals reduction argumentType (Prim WordTypeOp [])
+        requireCompatible globals reduction argumentType domain
         Right result
   infer globals (S depth) reduction context (Prim op [left, right]) =
     case wordBinaryResult op of
@@ -963,6 +963,23 @@ extendDataGlobals depth reduction globals@(CheckedGlobalContext entries families
   let extended = CheckedGlobalContext entries (decl :: families)
   _ <- sortOf extended depth reduction Empty (formerType decl)
   checkConstructorTypes extended depth reduction decl (constructorCount decl) 0
+  Right extended
+
+||| Check all mutually recursive formers and constructor types before publishing
+||| any member. Provisional visibility is confined to this pure admission step.
+public export
+extendDataGroupGlobals : Nat -> Nat -> GlobalContext -> List DataDecl -> Either CheckError GlobalContext
+extendDataGroupGlobals depth reduction globals@(CheckedGlobalContext entries families) group = do
+  case admitGroup group of
+    Left why => Left (RecursiveDataError why)
+    Right () => Right ()
+  traverse_ (\decl => case dataDeclaration globals decl.key of
+    Just _ => Left (RecursiveDataError ("duplicate family " ++ decl.key))
+    Nothing => Right ()) group
+  let extended = CheckedGlobalContext entries (group ++ families)
+  traverse_ (\decl => do
+    _ <- sortOf extended depth reduction Empty (formerType decl)
+    checkConstructorTypes extended depth reduction decl (constructorCount decl) 0) group
   Right extended
 
 public export

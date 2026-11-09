@@ -418,7 +418,7 @@ implicitArgumentTypeGlobals shared position (S fuel) context UnitType = Right (J
 implicitArgumentTypeGlobals shared position (S fuel) context (Universe level) = Right (Just (Universe (S level)))
 implicitArgumentTypeGlobals shared position (S fuel) context (Prim WordTypeOp _) = Right (Just (Universe 0))
 implicitArgumentTypeGlobals shared position (S fuel) context (Prim (WordLitOp _) _) = Right (Just (Prim WordTypeOp []))
-implicitArgumentTypeGlobals shared position (S fuel) context (Prim op _) = Right (case wordBinaryResult op of Just ty => Just ty; Nothing => wordUnaryResult op)
+implicitArgumentTypeGlobals shared position (S fuel) context (Prim op _) = Right (case wordBinaryResult op of Just ty => Just ty; Nothing => map snd (primUnarySignature op))
 implicitArgumentTypeGlobals shared position (S fuel) context (StringAppend _ _) = Right (Just StringType)
 implicitArgumentTypeGlobals shared position (S fuel) context (StringEqual _ _) = Right (Just BoolType)
 implicitArgumentTypeGlobals shared position (S fuel) context (NominalValue ty _) = Right (Just ty)

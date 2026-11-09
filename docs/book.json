@@ -73,6 +73,11 @@
   {
     "title": "Part II · Reference",
     "pages": [
+      { "title": "Standard library", "path": "docs/stdlib.md" },
+      { "title": "Mutually recursive data", "path": "docs/mutual-data.md" },
+      { "title": "Word integers", "path": "docs/words.md" },
+      { "title": "Local snapshot locks", "path": "docs/lockfile.md" },
+      { "title": "Debugger design", "path": "docs/debugger.md" },
       {
         "title": "Transactional email application target",
         "path": "docs/applications/transactional-email.md"
@@ -320,6 +325,11 @@
       {
         "title": "Indexed inductive families",
         "path": "docs/indexed-data.md"
+      },
+      { "title": "Nested recursive data", "path": "docs/nested-data.md" },
+      {
+        "title": "Automatic indexed-case elaboration",
+        "path": "docs/index-refinement.md"
       },
       {
         "title": "Pure byte values",

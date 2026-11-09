@@ -8882,8 +8882,8 @@ class IndexedDataTests(unittest.TestCase):
 
     def test_indexed_vectors_refuse_bad_motives_and_incomplete_coverage(self):
         source = self.fixture()
+        self.check_source(source.replace('return (\\(0 k : Nat) => \\(0 self : Vect A k) => Vect A k)', ''), True)
         for before, after in [
-            ('return (\\(0 k : Nat) => \\(0 self : Vect A k) => Vect A k)', ''),
             ('\\(0 k : Nat) => \\(0 self : Vect A k) => Vect A k', '\\(0 self : Vect A n) => Vect A n'),
             ('  Nil => Zero\n', '')]:
             with self.subTest(after=after):
@@ -9105,6 +9105,261 @@ class CheckJSONContractTests(unittest.TestCase):
         report = json.loads(result.stdout)
         self.assertEqual(set(report), self.TOP | {"entry", "root", "sources"})
         self.assertEqual(report['version'], 2)
+
+
+class IndexRefinementTests(unittest.TestCase):
+    @staticmethod
+    def fixture():
+        return (ROOT / 'examples/modules/index-refinement/Main.fib').read_text()
+
+    def source(self, text, command='check'):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Main.fib'
+            path.write_text(text)
+            return run_cli(command, '--source-dir', directory, str(path), timeout=120)
+
+    def test_head_tail_copy_and_empty_run_without_explicit_motives(self):
+        result = self.source(self.fixture(), 'run')
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout, 'first\nsecond\n')
+
+    def test_unknown_index_still_requires_both_constructors(self):
+        source = self.fixture().replace('(xs : Vect A (Succ n)) -> A', '(xs : Vect A n) -> A')
+        result = self.source(source)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('constructor', result.stdout + result.stderr)
+
+    def test_unknown_index_three_way_coverage_is_not_pruned(self):
+        source = '''module Main
+data Choice : (0 n : Nat) -> Type where
+  First : Choice Zero
+  Second : Choice (Succ Zero)
+  Third : Choice (Succ (Succ Zero))
+label : (0 n : Nat) -> (value : Choice n) -> String
+label n value = case value of
+  First => "first"
+  Second => "second"
+main : IO Unit
+main = putStrLn (label Zero First)
+'''
+        result = self.source(source)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('cover', result.stdout + result.stderr)
+
+    def test_possible_cons_branch_cannot_be_omitted(self):
+        result = self.source(self.fixture().replace('  Cons k value rest => rest', '  Nil => Nil A'))
+        self.assertNotEqual(result.returncode, 0)
+
+    def test_wrong_head_and_tail_types_remain_rejected(self):
+        for before, after in [('  Cons k value rest => value', '  Cons k value rest => rest'),
+                              ('  Cons k value rest => rest', '  Cons k value rest => Nil A')]:
+            with self.subTest(after=after):
+                result = self.source(self.fixture().replace(before, after))
+                self.assertNotEqual(result.returncode, 0)
+
+    def test_synthetic_impossible_arm_preserves_linear_fields(self):
+        source = self.fixture().split('copy :')[0].replace('(value : A)', '(1 value : A)').replace('(rest : Vect A n)', '(1 rest : Vect A n)')
+        source += 'empty : (1 xs : Vect String Zero) -> Unit\nempty xs = case xs of\n  Nil => ()\n'
+        source += 'main : IO Unit\nmain = case empty (Nil String) of () => putStrLn "empty"\n'
+        result = self.source(source, 'run')
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout, 'empty\n')
+
+    def test_erased_index_is_not_observable(self):
+        source = self.fixture().replace('-> A\nhead', '-> Nat\nhead').replace('  Cons k value rest => value', '  Cons k value rest => k')
+        result = self.source(source)
+        self.assertNotEqual(result.returncode, 0)
+
+    def test_explicit_motive_remains_authoritative(self):
+        source = self.fixture().replace('head A n xs = case xs of',
+            'head A n xs = case xs return (\\(0 k : Nat) => \\(0 self : Vect A k) => A) of')
+        result = self.source(source)
+        self.assertNotEqual(result.returncode, 0)
+
+
+class MutualDataTests(unittest.TestCase):
+    @staticmethod
+    def fixture():
+        return (ROOT / 'examples/modules/mutual-data/Main.fib').read_text()
+
+    def source(self, text, command='check'):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Main.fib'
+            path.write_text(text)
+            return run_cli(command, '--source-dir', directory, str(path), timeout=120)
+
+    def test_even_odd_construct_eliminate_recurse_and_format(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Main.fib'
+            path.write_text(self.fixture())
+            formatted = run_cli('format', str(path))
+            self.assertEqual(formatted.returncode, 0, formatted.stderr)
+            path.write_text(formatted.stdout)
+            result = run_cli('run', '--source-dir', directory, str(path), timeout=120)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, '..0\n')
+
+    def test_negative_recursion_through_partner_is_rejected(self):
+        result = self.source(self.fixture().replace('(odd : Odd)', '(odd : (value : Odd) -> Nat)'))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('function type', result.stdout + result.stderr)
+
+    def test_nondecreasing_and_rebuilt_recursion_are_rejected(self):
+        for call in ['render value', 'render (NextEven (NextOdd even))']:
+            with self.subTest(call=call):
+                result = self.source(self.fixture().replace('render even', call))
+                self.assertNotEqual(result.returncode, 0)
+
+    def test_mutual_group_bounds_and_duplicate_names(self):
+        for count in [1,9]:
+            source = 'module Main\nmutual where\n' + ''.join(
+                f'  data T{i} : Type where\n    Mk{i} : T{i}\n' for i in range(count))
+            result = self.source(source + 'main : IO Unit\nmain = putStrLn "x"\n')
+            self.assertNotEqual(result.returncode, 0)
+        self.assertNotEqual(self.source(self.fixture().replace('data Odd : Type', 'data Even : Type')).returncode, 0)
+
+    def test_indexed_mutual_groups_remain_explicitly_unsupported(self):
+        result = self.source(self.fixture().replace('data Even : Type', 'data Even : (0 n : Nat) -> Type'))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('Indexed mutual data', result.stdout + result.stderr)
+
+    def test_mutual_group_exports_and_qualified_imports(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = self.fixture().replace('module Main', 'module Shared', 1)
+            source = source.replace('mutual where', 'export\nmutual where', 1).replace('render :', 'export\nrender :', 1)
+            (root / 'Shared.fib').write_text(source)
+            main = root / 'Main.fib'
+            main.write_text('module Main\nimport Shared as S\nmain : IO Unit\n'
+                'main = putStrLn (S.render (S.NextEven (S.NextOdd S.ZeroEven)))\n')
+            result = run_cli('run', '--source-dir', directory, str(main), timeout=120)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, '.0\n')
+
+    def test_parameterized_tree_forest_and_uniformity(self):
+        source = '''module Main
+mutual where
+  data Tree (0 A : Type) : Type where
+    Leaf : (value : A) -> Tree A
+    Node : (children : Forest A) -> Tree A
+  data Forest (0 B : Type) : Type where
+    Empty : Forest B
+    More : (first : Tree B) -> (rest : Forest B) -> Forest B
+render : (tree : Tree String) -> String
+render tree = case tree of
+  Leaf value => value
+  Node forest => case forest of
+    Empty => "empty"
+    More first rest => render first
+main : IO Unit
+main = putStrLn (render (Node String (More String (Leaf String "leaf") (Empty String))))
+'''
+        result = self.source(source, 'run')
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout, 'leaf\n')
+        wrong = source.replace('(children : Forest A)', '(children : Forest String)')
+        self.assertNotEqual(self.source(wrong).returncode, 0)
+
+
+class NestedDataTests(unittest.TestCase):
+    @staticmethod
+    def fixture():
+        return (ROOT / 'examples/modules/nested-data/Main.fib').read_text()
+
+    def check_source(self, source, accepted, diagnostic=None):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Main.fib'
+            path.write_text(source)
+            result = run_cli('check', '--source-dir', directory, str(path), timeout=120)
+        self.assertEqual(result.returncode == 0, accepted, result.stdout + result.stderr)
+        if diagnostic:
+            self.assertIn(diagnostic, result.stdout + result.stderr)
+
+    def test_rose_fold_runs_and_formats(self):
+        path = ROOT / 'examples/modules/nested-data/Main.fib'
+        result = run_cli('run', '--source-dir', str(path.parent), str(path), timeout=120)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout, '!!!\n')
+        formatted = run_cli('format', str(path))
+        self.assertEqual(formatted.returncode, 0, formatted.stderr)
+        self.check_source(formatted.stdout, True)
+
+    def test_negative_occurrence_under_sequence_is_rejected(self):
+        self.check_source(self.fixture().replace('(1 children : Items Rose)',
+            '(1 children : Items ((1 tree : Rose) -> Nat))'), False)
+
+    def test_reconstructed_root_is_not_a_decrease(self):
+        self.check_source(self.fixture().replace('size child',
+            'size (Node (Cons Rose child (Nil Rose)))'), False, 'no argument decreases')
+
+    def test_computed_fold_result_is_not_a_decrease(self):
+        source = self.fixture().split('size :')[0] + r"""
+copy : (1 tree : Rose) -> Rose
+copy tree = case tree of
+  Node children => foldItems Rose
+    (\(0 self : Items Rose) => Rose) (Node (Nil Rose))
+    (\(1 child : Rose) => \(0 tail : Items Rose) => \(1 result : Rose) =>
+      Node (Cons Rose child (Cons Rose (copy result) (Nil Rose)))) children
+"""
+        self.check_source(source, False, 'no argument decreases')
+
+    def test_parameterized_nested_recursion(self):
+        source = self.fixture().split('data Rose :')[0] + r"""
+data Tree (0 A : Type) : Type where
+  Branch : (1 children : Items (Tree A)) -> Tree A
+
+copy : (0 A : Type) -> (1 tree : Tree A) -> Tree A
+copy A tree = case tree of
+  Branch children => Branch A (foldItems (Tree A)
+    (\(0 self : Items (Tree A)) => Items (Tree A)) (Nil (Tree A))
+    (\(1 child : Tree A) => \(0 tail : Items (Tree A)) => \(1 rest : Items (Tree A)) =>
+      Cons (Tree A) (copy A child) rest) children)
+
+main : IO Unit
+main = putStrLn "nested"
+"""
+        self.check_source(source, True)
+        self.check_source(source.replace('(1 children : Items (Tree A))',
+                                         '(1 children : Items (Tree String))'), False)
+
+    def test_opaque_user_container_is_rejected(self):
+        source = self.fixture().replace('data Rose :',
+            'data Wrapper (0 A : Type) : Type where\n  Wrap : (1 left : A) -> (1 right : A) -> Wrapper A\n\ndata Rose :')
+        self.check_source(source.replace('(1 children : Items Rose)', '(1 children : Wrapper Rose)'), False)
+
+
+class CompletionScopeTests(unittest.TestCase):
+    def report(self, source):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Main.fib'
+            path.write_text(source)
+            result = run_cli('check', '--json', str(path))
+        return json.loads(result.stdout)
+
+    def test_query_reports_checked_binders_and_expected_type_ranking(self):
+        report = self.report('copy : (1 n : Nat) -> Nat\ncopy n = fibrilScopeQuery_test\nmain : IO Unit\nmain = putStrLn "ok"\n')
+        self.assertFalse(report['accepted'])
+        scope = report['diagnostics'][0]['completionScope']
+        self.assertEqual(scope['query'], 'fibrilScopeQuery_test')
+        candidates = {candidate['label']: candidate for candidate in scope['candidates']}
+        self.assertIn('Nat', candidates['n']['detail'])
+        self.assertTrue(candidates['n']['compatible'])
+        self.assertFalse(any('$' in label for label in candidates))
+
+    def test_ordinary_unbound_diagnostic_is_unchanged(self):
+        report = self.report('main : IO Unit\nmain = putStrLn missing\n')
+        diagnostic = report['diagnostics'][0]
+        self.assertNotIn('completionScope', diagnostic)
+        self.assertTrue(diagnostic['message'].startswith('Resolution: '))
+
+    def test_probe_prefix_does_not_reserve_source_identifiers(self):
+        report = self.report('fibrilScopeQuery_value : String\nfibrilScopeQuery_value = "ok"\nmain : IO Unit\nmain = putStrLn fibrilScopeQuery_value\n')
+        self.assertTrue(report['accepted'], report)
+
+    def test_invalid_context_does_not_produce_checked_scope(self):
+        report = self.report('bad : (1 value : ()) -> Unit\nbad value = fibrilScopeQuery_test\nmain : IO Unit\nmain = putStrLn "ok"\n')
+        self.assertFalse(report['accepted'])
+        self.assertTrue(all('completionScope' not in diagnostic for diagnostic in report['diagnostics']))
 
 
 if __name__ == "__main__":

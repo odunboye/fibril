@@ -23,7 +23,7 @@ before it enters the trusted core.
 pure, and bind over experimental IO descriptions. A hosted runner executes stdout
 plans; a complete effect calculus and compiler backends remain future work.
 [Unsigned 64-bit `Word` arithmetic](docs/words.md) (wrapping `+ - *`, comparison, `5w` literals) is checked,
-evaluated by the reference runner and lowered by `emit-c`; `primWordToString` formats them as decimal text. [Pure byte operations](docs/bytes.md) now check and normalize separately from
+evaluated by the reference runner and lowered by `emit-c`; `primWordToString` formats them as decimal text, division returns a divide-by-zero-aware result, and `primWordFromNat` converts Nat counts. [Pure byte operations](docs/bytes.md) now check and normalize separately from
 text and have native lowering for the initial pure subset. [Checked binary
 IO](docs/io-binary-source.md) is available through hosted `run-binary` and native
 `emit-c-binary`, with separate admission from text/resource IO. [Explicit UTF-8 conversion](docs/utf8-values.md) is fallible
@@ -47,8 +47,10 @@ The [Fibril LSP server](docs/lsp.md) supports unsaved buffers, UTF-16 positions,
 diagnostics, checked project/package definitions, symbols, hover, formatting and
 guarded same-file rename. Neovim uses a thin standard LSP client in `editors/nvim`;
 other editors can launch the same stdio server. Module/file definitions and
-references across checked application/package inventories are supported;
-project-wide rename and completion remain unsupported. The [legacy Vim runtime](docs/editor-highlighting.md)
+references across checked application/package inventories are supported.
+Project rename returns conservative checked-graph edits. Completion includes local
+binders and visible imports with checked type details; incomplete syntax falls back
+to marked symbol suggestions. The [legacy Vim runtime](docs/editor-highlighting.md)
 remains available during migration.
 
 [Implicit arguments](docs/implicit-arguments.md) infer a declared erased prefix from direct global calls and supported expected results.
@@ -79,7 +81,10 @@ alternatives with explicit or inferred motives and linear branch joins, includin
 direct imports. [General recursive data](docs/data.md#general-recursive-data) and
 [indexed inductive families](docs/indexed-data.md) support whole-field positive
 recursion, including length-indexed vectors with dependent case motives.
-Nested/mutual recursive data and automatic index refinement remain future work.
+Bounded [automatic indexed-case elaboration](docs/index-refinement.md) supports
+Nat-indexed head/tail patterns. [Mutually recursive data](docs/mutual-data.md)
+supports uniform-parameter groups, and [nested fixed-list fields](docs/nested-data.md)
+are supported. General index unification remains future work.
 [Compact alternatives](docs/data.md#compact-alternatives) write simple declarations as
 `data T params = A fields | B fields`; indices and linear fields still use the `where` form.
 Recursive function equations are accepted when structural, or when the

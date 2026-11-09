@@ -256,7 +256,7 @@ moduleText names = concat (intersperse "." names)
 
 resolveGlobals : RuntimeGlobals -> ModuleSnapshot -> List Weighted -> Expr -> Either GraphError (Term 0)
 resolveGlobals shared snapshot globals expression = case elaborateClosedWithGlobals (erasedGlobals shared) (map global globals) expression of
-  Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
+  Left err => Left ({ completion := err.completion, stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
   Right term => Right term
 
 -- This points to the real checked declaration, not the unknown failing subterm.
@@ -1396,7 +1396,7 @@ data FamilyPart : Nat -> Type where
 familyType : ModuleSnapshot -> GlobalContext -> List GlobalDefinition -> Context n -> Vect n String -> Expr -> Either GraphError (Term n)
 familyType snapshot globals defs ctx env expr =
   case elaborateSignatureGlobals globals defs (Just ctx) env expr of
-    Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
+    Left err => Left ({ completion := err.completion, stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
     Right term => Right (case normalizeGlobals (globalValue globals) 64 term of
       Normal reduced => reduced
       OutOfFuel _ => term)
@@ -1448,6 +1448,35 @@ registerFamily shared snapshot globals sourceData key = do
     Left err => Left (problem snapshot (Just sourceData.name.span.start) ("Data declaration: " ++ show err))
     Right next => Right next
 
+record PendingFamily where
+  constructor Pending
+  sourceData : DataDeclaration
+  key : String
+  params : Telescope 0
+  scope : FamilyScope
+
+pendingDefinition : PendingFamily -> GlobalDefinition
+pendingDefinition member =
+  let decl = MkDataDecl member.key member.params []
+   in GlobalEntry Nothing Nothing 0 Erased member.sourceData.name.spelling (formerType decl) (formerValue decl)
+
+registerFamilies : RuntimeGlobals -> ModuleSnapshot -> List Weighted -> List (DataDeclaration, String) -> Either GraphError RuntimeGlobals
+registerFamilies shared snapshot globals entries = do
+  let defs = map global globals
+  pending <- traverse (\(sourceData, key) => do
+    MkFamilyPart params scope <- familyBinders snapshot (erasedGlobals shared) defs Empty []
+      (map (\param => (param.quantity, param.name, param.domain)) sourceData.params)
+    Right (Pending sourceData key params scope)) entries
+  let provisional = map (\member => MkDataDecl member.key member.params []) pending
+  let visible = foldl withProvisionalFamily (erasedGlobals shared) provisional
+  let own = map pendingDefinition pending
+  checked <- traverse (\member => do
+    constructors <- familyConstructors snapshot visible (own ++ defs) member.params member.scope member.sourceData.constructors
+    Right (MkDataDecl member.key member.params constructors)) pending
+  case extendDataGroupRuntimeGlobals checkingDepth typeReductionFuel shared checked of
+    Left err => Left (problem snapshot Nothing ("Mutual data declaration: " ++ show err))
+    Right next => Right next
+
 compileDeclarationsGlobals : RuntimeGlobals -> ModuleSnapshot -> List String -> List Weighted -> List LoweredItem -> Nat ->
                       Either GraphError Compiled
 compileDeclarationsGlobals shared snapshot name globals [] remaining = Right (Definitions [] [] [] remaining shared)
@@ -1457,6 +1486,9 @@ compileDeclarationsGlobals shared snapshot name globals (MutualNatBool group :: 
   following <- compileDeclarationsGlobals own.checkedGlobals snapshot name (own.locals ++ qualified ++ globals) rest own.remaining
   Right (Definitions (own.locals ++ following.locals) (own.exports ++ following.exports)
     (own.sites ++ following.sites) following.remaining following.checkedGlobals)
+compileDeclarationsGlobals shared snapshot name globals (DataFamilies entries :: rest) remaining = do
+  next <- registerFamilies shared snapshot globals entries
+  compileDeclarationsGlobals next snapshot name globals rest remaining
 compileDeclarationsGlobals shared snapshot name globals (DataFamily sourceData key :: rest) remaining = do
   next <- registerFamily shared snapshot globals sourceData key
   compileDeclarationsGlobals next snapshot name globals rest remaining
@@ -1474,7 +1506,7 @@ compileDeclarationsGlobals shared snapshot name globals (Single decl :: rest) re
   let implicitPrefix = implicitPrefixCount decl.expected
   if implicitPrefix > 64 then Left (problem snapshot (Just decl.nameSpan.start) "Implicit telescope admission exhausted (64)") else Right ()
   ty <- case elaborateSignatureWithGlobals (erasedGlobals shared) decl.generated (map global globals) (Just Empty) [] decl.expected of
-    Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
+    Left err => Left ({ completion := err.completion, stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
     Right ty => Right ty
   if implicitPrefix > 0 && not (validImplicitPrefix decl.generated implicitPrefix ty)
     then Left (problem snapshot (Just decl.nameSpan.start) "Implicit metadata does not match an erased leading Pi prefix followed by an explicit Pi")
@@ -1486,32 +1518,32 @@ compileDeclarationsGlobals shared snapshot name globals (Single decl :: rest) re
           if argument.spelling == "$clauseScrutinee" then NRef span "$clauseScrutinee" else decl.value
         _ => decl.value
   recursive <- case natRecursiveEquationGlobals shared globals decl.name ty recursionValue of
-    Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
+    Left err => Left ({ completion := err.completion, stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
     Right candidate => Right candidate
   recursive <- the (Either GraphError (Maybe (Term 0))) $ case recursive of
     Just result => Right (Just result)
     Nothing => case unaryRecursiveEquationGlobals shared globals decl.name ty recursionValue of
-      Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
+      Left err => Left ({ completion := err.completion, stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
       Right candidate => Right candidate
   recursive <- the (Either GraphError (Maybe (Term 0))) $ case recursive of
     Just result => Right (Just result)
     Nothing => case sequenceRecursiveEquationGlobals shared globals decl.name ty recursionValue of
-      Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
+      Left err => Left ({ completion := err.completion, stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
       Right candidate => Right candidate
   recursive <- the (Either GraphError (Maybe (Term 0))) $ case recursive of
     Just result => Right (Just result)
     Nothing => case accumulatorSequenceEquationGlobals shared globals decl.name implicitPrefix ty recursionValue of
-      Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
+      Left err => Left ({ completion := err.completion, stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
       Right candidate => Right candidate
   recursive <- the (Either GraphError (Maybe (Term 0))) $ case recursive of
     Just result => Right (Just result)
     Nothing => case polymorphicSequenceEquationGlobals shared globals decl.name (implicitPrefix == 1) ty recursionValue of
-      Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
+      Left err => Left ({ completion := err.completion, stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
       Right candidate => Right candidate
   recursive <- the (Either GraphError (Maybe (Term 0))) $ case recursive of
     Just result => Right (Just result)
     Nothing => case uniformStructuralEquationGlobals shared globals decl.name implicitPrefix ty recursionValue of
-      Left err => Left ({ stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
+      Left err => Left ({ completion := err.completion, stage := if err.elaborating then "elaboration" else "resolution" } (problem snapshot (Just err.position) (show err)))
       Right candidate => Right candidate
   -- No structural recognizer matched. A self-referencing equation elaborates as a
   -- Fix over its own name; the checker's termination gate then admits or refuses it.
@@ -1521,7 +1553,7 @@ compileDeclarationsGlobals shared snapshot name globals (Single decl :: rest) re
     Nothing => case elaborateExpectedGlobals (erasedGlobals shared) (map global globals) Empty [] ty decl.value of
       Right value => Right value
       Left plain =>
-        let refuse = Left ({ stage := if plain.elaborating then "elaboration" else "resolution" } (problem snapshot (Just plain.position) (show plain)))
+        let refuse = Left ({ completion := plain.completion, stage := if plain.elaborating then "elaboration" else "resolution" } (problem snapshot (Just plain.position) (show plain)))
         -- A visible global with the same name (for example two ambiguous imports) is
         -- never silently replaced by a self reference.
          in if any (\entry => entry.global.name == decl.name || isSuffixOf ("." ++ decl.name) entry.global.name) globals then refuse
@@ -1529,7 +1561,7 @@ compileDeclarationsGlobals shared snapshot name globals (Single decl :: rest) re
               Right body => Right (Fix ty body)
               -- The first attempt failed only because the name was unbound, which every recursive
               -- definition does. This is the error that is actually about the program.
-              Left bound => Left ({ stage := if bound.elaborating then "elaboration" else "resolution" }
+              Left bound => Left ({ completion := bound.completion, stage := if bound.elaborating then "elaboration" else "resolution" }
                                    (problem snapshot (Just bound.position) (show bound ++ mutualHint decl)))
   let constructed = nodes ty + nodes value
   if constructed > estimate

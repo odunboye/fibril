@@ -326,15 +326,13 @@ mutual
   inferredFieldsCase : Nat -> Position -> Token -> Expr -> Expr -> Maybe Expr -> List Token -> Either ParseError (Expr, List Token)
   inferredFieldsCase depth end token scrutinee constructor motive tokens = do
     (first, rest) <- expect Name end tokens
-    let parsed : (List Token, List Token) = case rest of
-          next :: following => if next.kind == Name then ([first, next], following) else ([first], rest)
-          [] => ([first], [])
+    let parsed = span (\next => next.kind == Name) (first :: rest)
     let names = fst parsed
     let afterNames = snd parsed
-    case names of
-      [a, b] => if a.spelling == b.spelling && a.spelling /= "_"
-        then Left (ParseFailure b.span.start "Record pattern binders must be distinct") else Right ()
-      _ => Right ()
+    if length names > 64 then Left (ParseFailure first.span.start "Pattern binder admission exhausted (64)") else Right ()
+    let named = filter (/= "_") (map spelling names)
+    if length (nub named) /= length named
+      then Left (ParseFailure first.span.start "Record pattern binders must be distinct") else Right ()
     (_, afterArrow) <- expect BodyArrow end afterNames
     (body, remaining) <- expression depth end afterArrow
     let branch = NPatternLambda (Between first.span.start (extent body).finish) names body

@@ -233,6 +233,64 @@ class Integration(unittest.TestCase):
         items = client.request("textDocument/completion", {"textDocument": {"uri": self.path.as_uri()}, "position": Positions(text).point(3)})["result"]["items"]
         self.assertIn("putStrLn", [item["label"] for item in items])
 
+    def test_completion_checks_local_scope_shadowing_and_types(self):
+        client = self.client()
+        text = 'outer : String\nouter = "global"\necho : (1 outer : Nat) -> Nat\necho outer = out\nmain : IO Unit\nmain = putStrLn "ok"\n'
+        client.open(self.path, text)
+        point = Positions(text).point(text.index('= out\n') + len('= out'))
+        result = client.request("textDocument/completion", {"textDocument": {"uri": self.path.as_uri()}, "position": point})["result"]
+        self.assertFalse(result['isIncomplete'])
+        self.assertEqual([item['label'] for item in result['items']], ['outer'])
+        item = result['items'][0]
+        self.assertEqual(item['kind'], 6)
+        self.assertIn('Nat', item['detail'])
+        self.assertNotIn('String', item['detail'])
+        self.assertTrue(item['sortText'].startswith('0_'))
+        self.assertEqual(item['textEdit']['newText'], 'outer')
+        self.assertEqual(self.path.read_text(), self.disk)
+
+    def test_completion_respects_import_selection_aliases_and_private_names(self):
+        library = self.root / 'Library.fib'
+        library.write_text('module Library\nsecret : String\nsecret = "hidden"\nexport\ngreeting : String\ngreeting = secret\nexport\nother : Nat\nother = Zero\n')
+        text = 'module Buffer\nimport Library as L (greeting)\nmain : IO Unit\nmain = putStrLn L.gr\n'
+        client = self.client()
+        client.open(self.path, text)
+        point = Positions(text).point(text.index('L.gr') + 4)
+        result = client.request("textDocument/completion", {"textDocument": {"uri": self.path.as_uri()}, "position": point})["result"]
+        self.assertFalse(result['isIncomplete'])
+        self.assertEqual([item['label'] for item in result['items']], ['L.greeting'])
+        self.assertIn('String', result['items'][0]['detail'])
+        text = text.replace('L.gr', 'L.')
+        client.change(self.path, text, 2)
+        result = client.request("textDocument/completion", {"textDocument": {"uri": self.path.as_uri()}, "position": Positions(text).point(text.index('L.') + 2)})["result"]
+        self.assertFalse(result['isIncomplete'])
+        self.assertEqual([item['label'] for item in result['items']], ['L.greeting'])
+
+    def test_completion_replaces_identifier_suffix_and_preserves_unicode_positions(self):
+        client = self.client()
+        text = 'greet : (1 name : String) -> String\ngreet name = appendString "🌍 " naSuffix\nmain : IO Unit\nmain = putStrLn "ok"\n'
+        client.open(self.path, text)
+        start = text.index('naSuffix')
+        result = client.request("textDocument/completion", {"textDocument": {"uri": self.path.as_uri()}, "position": Positions(text).point(start + 2)})["result"]
+        self.assertFalse(result['isIncomplete'])
+        item = next(item for item in result['items'] if item['label'] == 'name')
+        self.assertEqual(item['textEdit']['range'], {'start': Positions(text).point(start), 'end': Positions(text).point(start + len('naSuffix'))})
+
+    def test_completion_case_binders_and_out_of_scope_names(self):
+        client = self.client()
+        text = 'marks : (1 count : Nat) -> String\nmarks count = case count of\n  Zero => "zero"\n  Succ previous => prev\nmain : IO Unit\nmain = putStrLn "ok"\n'
+        client.open(self.path, text)
+        point = Positions(text).point(text.index('=> prev\n') + len('=> prev'))
+        result = client.request("textDocument/completion", {"textDocument": {"uri": self.path.as_uri()}, "position": point})['result']
+        self.assertFalse(result['isIncomplete'])
+        self.assertEqual([item['label'] for item in result['items']], ['previous'])
+        self.assertIn('Nat', result['items'][0]['detail'])
+        text = text.replace('=> prev\n', '=> "succ"\n').replace('putStrLn "ok"', 'putStrLn prev')
+        client.change(self.path, text, 2)
+        result = client.request("textDocument/completion", {"textDocument": {"uri": self.path.as_uri()}, "position": Positions(text).point(text.rindex('prev') + 4)})['result']
+        self.assertFalse(result['isIncomplete'])
+        self.assertEqual(result['items'], [])
+
     def test_project_rename_spans_files_and_refuses_collisions(self):
         a, left, right, main, texts = self.navigation_project()
         client = self.client()
@@ -609,11 +667,11 @@ vim.cmd('qa!')
         self.assertEqual(result.returncode, 0, result.stdout.decode() + result.stderr.decode())
         self.assertEqual(main.read_text(), texts[main])
 
-    def fake(self):
+    def fake(self, slow_on="symbols"):
         script = self.root / "fake-compiler"
         marker = self.root / "started"
         script.write_text('#!' + sys.executable + '\nimport sys,json,time\nfrom pathlib import Path\n'
-            'if sys.argv[1] == "symbols":\n'
+            f'if sys.argv[1] == {slow_on!r}:\n'
             f' Path({str(marker)!r}).write_text("started")\n time.sleep(0.8)\n'
             'print(json.dumps({"version":1,"coordinates":"unicode-scalars;offset=0;line=1;column=1","accepted":True,"diagnostics":[],"symbols":[]}))\n')
         script.chmod(0o755)
@@ -645,6 +703,28 @@ vim.cmd('qa!')
         self.started(marker)
         client.change(self.path, self.disk + '\n', 2)
         self.assertEqual(client.response(ident)["error"]["code"], -32801)
+
+    def test_completion_cancellation(self):
+        binary, marker = self.fake(slow_on="check")
+        client = self.client(binary=binary)
+        client.open(self.path, self.disk)
+        client.diagnostics(self.path, 1, False)
+        marker.unlink(missing_ok=True)
+        ident = client.begin("textDocument/completion", {"textDocument": {"uri": self.path.as_uri()}, "position": {"line": 1, "character": 7}})
+        self.started(marker)
+        client.notify("$/cancelRequest", {"id": ident})
+        self.assertEqual(client.response(ident)['error']['code'], -32800)
+
+    def test_completion_stale_scope_is_not_returned(self):
+        binary, marker = self.fake(slow_on="check")
+        client = self.client(binary=binary)
+        client.open(self.path, self.disk)
+        client.diagnostics(self.path, 1, False)
+        marker.unlink(missing_ok=True)
+        ident = client.begin("textDocument/completion", {"textDocument": {"uri": self.path.as_uri()}, "position": {"line": 1, "character": 7}})
+        self.started(marker)
+        client.change(self.path, self.disk + '\n', 2)
+        self.assertEqual(client.response(ident)['error']['code'], -32801)
 
     def test_timeout_is_represented_and_server_survives(self):
         binary, _ = self.fake()

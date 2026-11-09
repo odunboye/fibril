@@ -20,7 +20,7 @@ projectSourcesJSON : ModuleGraph -> String
 projectSourcesJSON graph = jsonArray (sourcesJSON graph)
 
 diagnosticJSON : GraphError -> String
-diagnosticJSON err = jsonObject
+diagnosticJSON err = jsonObject $ completionFields err.completion ++
   [("path", jsonString err.path), ("severity", jsonString "error"),
    ("stage", jsonString err.stage), ("message", jsonString err.message),
    ("position", maybe "null" jsonPosition err.point),

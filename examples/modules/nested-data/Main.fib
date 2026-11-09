@@ -1,0 +1,28 @@
+module Main
+
+data Items (0 A : Type) : Type where
+  eliminator foldItems
+  Nil : Items A
+  Cons : (1 head : A) -> (1 tail : Items A) -> Items A
+
+data Rose : Type where
+  Node : (1 children : Items Rose) -> Rose
+
+plus : (1 n : Nat) -> (1 m : Nat) -> Nat
+plus n m = natRec (\(0 k : Nat) => Nat) m
+  (\(0 k : Nat) => \(1 total : Nat) => Succ total) n
+
+size : (1 tree : Rose) -> Nat
+size tree = case tree of
+  Node children => Succ (foldItems Rose
+    (\(0 self : Items Rose) => Nat) Zero
+    (\(1 child : Rose) => \(0 tail : Items Rose) => \(1 count : Nat) =>
+      plus (size child) count) children)
+
+leaf : Rose
+leaf = Node (Nil Rose)
+
+main : IO Unit
+main = putStrLn (natRec (\(0 k : Nat) => String) ""
+  (\(0 k : Nat) => \(1 text : String) => appendString text "!")
+  (size (Node (Cons Rose leaf (Cons Rose leaf (Nil Rose))))))
