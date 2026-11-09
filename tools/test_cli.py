@@ -4224,12 +4224,13 @@ main = first Zero
                 "module Dep\n\nexport\ninterface Dep : Type 0 where\n  constructor MkDep\n  flag : Bool\n"
                 "  value : if flag then Word else Bool\n\nexport\nwordDep : Dep.Dep\nwordDep = MkDep True 7w\n")
             self.assertIn("Normal: 7", go("module Main\nimport Dep\n\nmain : Word\nmain = Dep.value Dep.wordDep\n").stdout)
-            # A method mentioning its own interface is not supported; it is rejected, not silently accepted.
+            # A method mentioning its own interface is not supported; it is rejected with a clear error.
             (root / "Selfy.fib").write_text(
                 "module Selfy\n\nexport\ninterface Selfy (0 A : Type 0) : Type 0 where\n  constructor MkSelfy\n"
                 "  pick : (other : Selfy.Selfy A) -> A\n")
             selfy = go("module Main\nimport Selfy\n\nmain : Word\nmain = 1w\n", "check")
             self.assertNotEqual(selfy.returncode, 0)
+            self.assertIn("cannot mention its own interface", text(selfy))
             # Identity survives a public facade.
             (root / "Kit.fib").write_text(
                 "module Kit\n\nexport\ninterface Add (0 A : Type 0) : Type 0 where\n  constructor MkAdd\n"

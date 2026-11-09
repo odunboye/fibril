@@ -711,6 +711,9 @@ mutual
     traverse_ (\field => if field.quantity /= Unrestricted
       then Left (ElaborationFailure field.token.span.start "Interface methods require unrestricted fields; method argument quantities remain explicit")
       else Right ()) sourceRecord.fields
+    traverse_ (\field => if mentions sourceRecord.name.spelling field.ty || maybe False (\q => mentions (q ++ "." ++ sourceRecord.name.spelling) field.ty) moduleName
+      then Left (ElaborationFailure field.token.span.start "An interface method cannot mention its own interface")
+      else Right ()) sourceRecord.fields
     let methods = map (\field => Projected field.token field.token field.token) sourceRecord.fields
     case moduleName of
       Just qualifier => if nominalEligible sourceRecord

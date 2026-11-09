@@ -177,4 +177,4 @@ and executed through native C, the dependent-method fallback, and identity throu
 Limits found while testing:
 - Native C admission (8192 nodes) rejects a dictionary of about eleven or more methods; the hosted
   runner handles 20. The old structural lowering failed earlier in both.
-- A method that mentions its own interface is rejected (unknown family), on master and here alike.
+- A method that mentions its own interface is rejected with "An interface method cannot mention its own interface" (master gave "Unbound name").
