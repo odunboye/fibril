@@ -8,7 +8,8 @@ and runtime-usage checking), named modules with transparent globals and checked
 imports, nominal data and records, explicit interfaces, and recursive functions
 that are structural or admitted by a size-change check.
 [JavaScript output-only ES modules](docs/javascript.md) are experimental.
-Cubical term checking, embedded profiles and real-time guarantees are not implemented.
+A [portable no-heap C profile](docs/embedded.md) uses caller-owned storage.
+Cubical term checking and real-time guarantees are not implemented.
 [Shared checked globals](docs/shared-checked-globals.md) retain named module bodies
 once and use independently admitted references through checking, hosted execution
 and native emission.

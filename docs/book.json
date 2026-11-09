@@ -73,6 +73,7 @@
   {
     "title": "Part II · Reference",
     "pages": [
+      { "title": "Portable no-heap C", "path": "docs/embedded.md" },
       { "title": "JavaScript backend", "path": "docs/javascript.md" },
       { "title": "Standard library", "path": "docs/stdlib.md" },
       { "title": "Mutually recursive data", "path": "docs/mutual-data.md" },

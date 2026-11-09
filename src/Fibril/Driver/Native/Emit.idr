@@ -6,6 +6,7 @@ import Data.List
 import Data.Fin
 import Fibril.Core.SharedProgram
 import Fibril.Core.Term
+import Fibril.Core.OutputAdmission
 import Fibril.Core.EffectAdmission
 import Fibril.Data.Bytes
 import Fibril.Core.Quantity
@@ -21,13 +22,14 @@ import Fibril.Elaboration.Expression.Payload
 
 %default total
 
-data NativeMode = Preflight | Interactive | Resources | Binary
+data NativeMode = Preflight | Interactive | Resources | Binary | Embedded
 
 Eq NativeMode where
   Preflight == Preflight = True
   Interactive == Interactive = True
   Resources == Resources = True
   Binary == Binary = True
+  Embedded == Embedded = True
   _ == _ = False
 
 record Generated where
@@ -276,6 +278,8 @@ emitEntryGlobals globals mode requests lineLimit term = do
   declarations <- reachableGlobals globals term
   let syntax : List (Term 0) = term :: concatMap (\(_, _, ty, body) => [ty, body]) declarations
   let scan = map maskGlobalRefs syntax
+  if mode == Embedded && not (all (outputOnly True) scan)
+    then Left "Embedded profile rejects input, binary transport and file references, including erased/dead syntax" else Right ()
   if mode /= Binary && any containsBinaryRequest scan then Left "Binary IO requires the explicit binary runner" else Right ()
   if mode == Binary && any containsNonBinaryIO scan then Left "Native binary entry rejects non-binary IO/references" else Right ()
   if any containsFileReference scan
@@ -293,19 +297,23 @@ emitEntryGlobals globals mode requests lineLimit term = do
   (next, definitions, globalCode) <- generateGlobals globals mode 0 declarations
   code <- generate globals mode next term
   let entry = case mode of
+        Embedded => ""
         Preflight => "fibril_native_run(" ++ name code.root ++ ")"
         Interactive => "fibril_native_interactive_run(" ++ name code.root ++ ", " ++ show requests ++ ", " ++ show lineLimit ++ ")"
         Resources => "fibril_native_resource_run(" ++ name code.root ++ ", " ++ show requests ++ ", " ++ show lineLimit ++ ")"
         Binary => "fibril_native_binary_run(" ++ name code.root ++ ", " ++ show requests ++ ", " ++ show lineLimit ++ ")"
   let mainCode = "int main(void) { return " ++ entry ++ "; }\n"
-  let entryCode = if mode == Preflight
+  let entryCode = if mode == Embedded
+        then "FNativeResult fibril_program_embed_arena(const FNativeHost *host, FEmbeddedArena *arena) { return fibril_native_embed_arena(" ++ name code.root ++ ", host, arena); }\n"
+        else if mode == Preflight
         then "FNativeResult fibril_program_embed(const FNativeHost *host) { return fibril_native_embed(" ++ name code.root ++ ", host); }\n" ++
              "#ifndef FIBRIL_EMBED_ONLY\n" ++ mainCode ++ "#endif\n"
         else if mode == Binary
           then "FBinaryResult fibril_program_binary_embed(const FByteAdapters *host) { return fibril_native_binary_embed(" ++ name code.root ++ ", " ++ show requests ++ ", " ++ show lineLimit ++ ", host); }\n" ++
                "#ifndef FIBRIL_EMBED_ONLY\n" ++ mainCode ++ "#endif\n"
           else mainCode
-  let header = if mode == Binary then "fibril_binary_embed.h" else "fibril_runtime.h"
+  let header = if mode == Binary then "fibril_binary_embed.h" else
+        if mode == Embedded then "fibril_embedded.h" else "fibril_runtime.h"
   Right ("/* Generated from checked Fibril core; experimental native subset. */\n" ++
          "#include \"" ++ header ++ "\"\n" ++ concat (map (\(key, _, _, _) => "FValue *fibril_global_" ++ show key ++ "(FRuntime *, FEnv *);\n") declarations) ++
          concat (prototypes 0 code.next) ++ concat globalCode ++ concat definitions ++
@@ -345,3 +353,12 @@ emitCheckedBinaryC = emitEntry Binary
 public export
 emitCheckedBinaryCGlobals : RuntimeGlobals -> Nat -> Nat -> Term 0 -> Either String String
 emitCheckedBinaryCGlobals globals = emitEntryGlobals globals Binary
+
+||| Portable output-only C entry using caller-owned typed pools; no default main.
+public export
+emitCheckedEmbeddedCGlobals : RuntimeGlobals -> Term 0 -> Either String String
+emitCheckedEmbeddedCGlobals globals = emitEntryGlobals globals Embedded 0 0
+
+public export
+emitCheckedEmbeddedC : Term 0 -> Either String String
+emitCheckedEmbeddedC = emitEntry Embedded 0 0

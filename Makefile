@@ -205,6 +205,7 @@ examples: build
 	./build/exec/fibril check examples/core/hello-world.fib
 	./build/exec/fibril run examples/core/hello-world.fib
 	./build/exec/fibril run examples/core/javascript.fib
+	./build/exec/fibril run examples/core/embedded.fib
 	./build/exec/fibril run examples/core/console-sequence.fib
 	./build/exec/fibril eval examples/core/string-identity.fib
 	./build/exec/fibril run examples/core/console-expressions.fib
@@ -322,3 +323,7 @@ javascript-runtime-check:
 
 javascript-test: build
 	python3 tools/test_javascript.py
+
+.PHONY: embedded-test
+embedded-test: build
+	CC="$(CC)" python3 tools/test_embedded.py

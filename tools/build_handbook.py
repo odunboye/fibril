@@ -96,7 +96,10 @@ def main():
         (ROOT / "experiments").rglob("*.h")) + sorted(
         (ROOT / "editors/vim").rglob("*.vim")) + sorted(
         (ROOT / "tools").glob("*.py")) + sorted(
-        (ROOT / "runtime/javascript").glob("*.mjs")) + [ROOT / "tools/test_javascript_runtime.mjs"]
+        (ROOT / "runtime/javascript").glob("*.mjs")) + sorted(
+        (ROOT / "runtime/native").glob("*.h")) + sorted(
+        (ROOT / "runtime/native").glob("*.c")) + sorted(
+        (ROOT / "examples/native").glob("*.c")) + [ROOT / "tools/test_javascript_runtime.mjs"]
     destinations = {p: OUT / p.relative_to(ROOT).with_suffix(".html") for p in pages}
     destinations.update({p: OUT / "source" / (str(p.relative_to(ROOT)) + ".html")
                          for p in sources})

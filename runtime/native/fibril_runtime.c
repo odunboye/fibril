@@ -1,8 +1,10 @@
 /* Experimental runtime for generated Fibril C. No ownership or safety proof. */
 #include "fibril_runtime.h"
 #include <stdint.h>
+#ifndef FIBRIL_NO_HEAP
 #include <stdio.h>
 #include <stdlib.h>
+#endif
 #include <string.h>
 
 #define F_MAX_BYTES ((size_t)16777216)
@@ -10,54 +12,54 @@
 #define F_MAX_DEPTH ((size_t)512)
 #define F_MAX_ACTIONS ((size_t)64)
 
-/* Keep every payload suitably aligned for all C object types. */
-typedef union FAllocation { union FAllocation *next; max_align_t alignment; } FAllocation;
-typedef struct FThunk FThunk;
-/* A sub-arena owns allocations made while it is current; the run-wide arena
-   (FRuntime.allocations) is the root, and a NULL region means the root. */
-typedef struct FRegion { FAllocation *allocations; size_t bytes; } FRegion;
-typedef struct FAction { const unsigned char *bytes; size_t length; struct FAction *next; } FAction;
+#ifdef FIBRIL_NO_HEAP
+#include "fibril_embedded.h"
+typedef struct FInput FInput;
+#else
+#include "fibril_runtime_internal.h"
 typedef struct FInput { size_t identity, generation; FILE *file; const char *close_error; struct FInput *next; } FInput;
-struct FRuntime { FAllocation *allocations; FRegion *current; size_t bytes, steps, depth, actions; const char *error; FAction *head, *tail; FInput *inputs; size_t next_input; int binary_rejected; };
-struct FEnv { FThunk *value; FEnv *tail; };
-typedef enum { V_UNIT, V_ERASED, V_BOOL, V_STRING, V_BYTES, V_CLOSURE, V_NOMINAL, V_VARIANT,
-               V_NAT_ZERO, V_NAT_SUCC, V_REC_END, V_REC_MORE, V_SEQ_NIL, V_SEQ_CONS,
-               V_PURE, V_BIND, V_WRITE, V_READ, V_PAIR, V_INPUT_HANDLE,
-               V_WITH_INPUT, V_READ_INPUT, V_READ_BYTES, V_WRITE_BYTES, V_FLUSH_BYTES, V_REJECT_BYTES, V_ITERATE_BINARY,
-               V_WORD } FTag;
-typedef enum { F_NAT, F_NAT_RUNTIME, F_REC, F_SEQ } FFoldKind;
-struct FValue {
-  FTag tag;
-  union {
-    struct { const unsigned char *bytes; size_t length; } string;
-    struct { const unsigned char *data; size_t length; } bytes;
-    int boolean;
-    uint64_t word;
-    FThunk *nominal;
-    struct { size_t tag; FThunk *payload; } variant;
-    struct { FThunk *head, *tail; } recursive;
-    struct { FEval body; FEnv *env; int erased; } closure;
-    struct { FThunk *first, *second; } io;
-    struct { FThunk *count, *step, *initial; } iteration;
-    struct { FThunk *first, *second; } pair;
-    struct { size_t identity, generation; } handle;
-  } as;
-};
-struct FThunk {
-  FEval code;
-  FEnv *env;
-  FValue *value;
-  int state, is_fold;
-  FFoldKind fold_kind;
-  FRegion *owner;
-  FThunk *input;
-  FEval base, step;
-};
+#endif
+struct FRuntime { FAllocation *allocations; FRegion *current; size_t bytes, steps, depth, actions; const char *error; FAction *head, *tail; FInput *inputs; size_t next_input;
+#ifdef FIBRIL_NO_HEAP
+  FEmbeddedCell *arena_cells; size_t arena_cell_capacity, arena_cells_used;
+  unsigned char *arena_bytes; size_t arena_byte_capacity, arena_bytes_used;
+#endif
+ int binary_rejected; };
 
 static FValue *evaluate_fold(FRuntime *r, FFoldKind kind, FEnv *env,
                              FEval base, FEval step, FThunk *input);
 
 static void fail(FRuntime *r, const char *message) { if (!r->error) r->error = message; }
+#ifdef FIBRIL_NO_HEAP
+/* Pools retain all allocations until return. No untyped byte-buffer casts to
+   runtime structs: each object lives in its declared union member. */
+static void release_region(FRuntime *r, FRegion *region) { (void)r; (void)region; }
+static FEmbeddedCell *allocate_cell(FRuntime *r) {
+  if (r->error) return NULL;
+  if (r->arena_cells_used >= r->arena_cell_capacity) {
+    fail(r, "embedded cell arena exhausted"); return NULL;
+  }
+  if (sizeof(FEmbeddedCell) > F_MAX_BYTES || r->bytes > F_MAX_BYTES - sizeof(FEmbeddedCell)) {
+    fail(r, "embedded allocation budget exhausted"); return NULL;
+  }
+  r->bytes += sizeof(FEmbeddedCell);
+  return &r->arena_cells[r->arena_cells_used++];
+}
+/* Only byte payloads use this function in the no-heap configuration. */
+static void *allocate(FRuntime *r, size_t size) {
+  if (r->error) return NULL;
+  if (!size) size = 1;
+  if (r->arena_bytes_used > r->arena_byte_capacity || size > r->arena_byte_capacity - r->arena_bytes_used) {
+    fail(r, "embedded byte arena exhausted"); return NULL;
+  }
+  if (size > F_MAX_BYTES || r->bytes > F_MAX_BYTES - size) {
+    fail(r, "embedded allocation budget exhausted"); return NULL;
+  }
+  unsigned char *result = r->arena_bytes + r->arena_bytes_used;
+  r->arena_bytes_used += size; r->bytes += size;
+  return result;
+}
+#else
 static void release_region(FRuntime *r, FRegion *region) {
   while (region->allocations) { FAllocation *next = region->allocations->next; free(region->allocations); region->allocations = next; }
   r->bytes -= region->bytes; region->bytes = 0;
@@ -74,6 +76,7 @@ static void *allocate(FRuntime *r, size_t size) {
   r->bytes += size;
   return (void *)(p + 1);
 }
+#endif
 static int enter(FRuntime *r) {
   if (r->error) return 0;
   if (r->steps >= F_MAX_STEPS || r->depth >= F_MAX_DEPTH) { fail(r, "native evaluation budget exhausted"); return 0; }
@@ -90,13 +93,42 @@ FValue *f_global(FRuntime *r, FEval body) {
   return evaluate(r, body, NULL);
 }
 static FValue *new_value(FRuntime *r, FTag tag) {
+  #ifdef FIBRIL_NO_HEAP
+  FEmbeddedCell *storage = allocate_cell(r);
+  FValue *v = storage ? &storage->value : NULL;
+#else
   FValue *v = allocate(r, sizeof(*v));
-  if (v) { memset(v, 0, sizeof(*v)); v->tag = tag; }
+#endif
+  if (v) {
+    *v = (FValue){0}; v->tag = tag;
+    switch (tag) {
+    case V_VARIANT: v->as.variant.tag = 0; v->as.variant.payload = NULL; break;
+    case V_NOMINAL: v->as.nominal = NULL; break;
+    case V_NAT_SUCC: case V_REC_MORE: case V_SEQ_CONS:
+      v->as.recursive.head = NULL; v->as.recursive.tail = NULL; break;
+    case V_PAIR: v->as.pair.first = NULL; v->as.pair.second = NULL; break;
+    case V_PURE: case V_BIND: case V_WRITE: case V_WITH_INPUT: case V_READ_INPUT:
+    case V_READ_BYTES: case V_WRITE_BYTES:
+      v->as.io.first = NULL; v->as.io.second = NULL; break;
+    default: break;
+    }
+  }
   return v;
 }
 static FThunk *thunk(FRuntime *r, FEval code, FEnv *env) {
+  #ifdef FIBRIL_NO_HEAP
+  FEmbeddedCell *storage = allocate_cell(r);
+  FThunk *t = storage ? &storage->thunk : NULL;
+#else
   FThunk *t = allocate(r, sizeof(*t));
-  if (t) { memset(t, 0, sizeof(*t)); t->code = code; t->env = env; t->owner = r->current; }
+#endif
+  if (t) {
+    *t = (FThunk){0}; t->code = code; t->env = env;
+#ifndef FIBRIL_NO_HEAP
+    t->owner = r->current;
+#endif
+    /* No-heap cells belong to the whole invocation, never a stack region. */
+  }
   return t;
 }
 static FThunk *ready(FRuntime *r, FValue *value) {
@@ -120,7 +152,12 @@ static FValue *force(FRuntime *r, FThunk *t) {
   t->value = value; t->state = 2; return value;
 }
 static FEnv *extend(FRuntime *r, FEnv *env, FThunk *value) {
+  #ifdef FIBRIL_NO_HEAP
+  FEmbeddedCell *storage = allocate_cell(r);
+  FEnv *next = storage ? &storage->env : NULL;
+#else
   FEnv *next = allocate(r, sizeof(*next));
+#endif
   if (next) { next->value = value; next->tail = env; }
   return next;
 }
@@ -448,7 +485,7 @@ FValue *f_word_to_string(FRuntime *r, FEnv *env, FEval value) {
   unsigned char digits[20]; /* UINT64_MAX has 20 decimal digits */
   size_t count = 0;
   uint64_t rest = v->as.word;
-  do { digits[count++] = (unsigned char)('0' + rest % 10); rest /= 10; } while (rest);
+  do { digits[count++] = (unsigned char)(48u + rest % 10); rest /= 10; } while (rest);
   unsigned char *bytes = allocate(r, count);
   if (!bytes) return NULL;
   for (size_t i = 0; i < count; i++) bytes[i] = digits[count - 1 - i];
@@ -487,7 +524,7 @@ FValue *f_word_from_nat(FRuntime *r, FEnv *env, FEval expression) {
 }
 FIBRIL_WORD_OP(f_word_add, f_word(r, a + b))
 FIBRIL_WORD_OP(f_word_sub, f_word(r, a - b))
-FIBRIL_WORD_OP(f_word_mul, f_word(r, a * b))
+FIBRIL_WORD_OP(f_word_mul, f_word(r, (uint64_t)((uintmax_t)a * (uintmax_t)b)))
 FIBRIL_WORD_OP(f_word_eq, f_bool(r, a == b))
 FIBRIL_WORD_OP(f_word_lt, f_bool(r, a < b))
 #undef FIBRIL_WORD_OP
@@ -601,6 +638,7 @@ FValue *f_pair_case(FRuntime *r, FEnv *env, FEval scrutinee, FEval branch) {
   FValue *second = first ? apply_thunk(r, first, value->as.pair.first) : NULL;
   return second ? apply_thunk(r, second, value->as.pair.second) : NULL;
 }
+#ifndef FIBRIL_NO_HEAP
 static FValue *owned_pair(FRuntime *r, FValue *first, FValue *second) {
   if (!first || !second) return NULL;
   FValue *v = new_value(r, V_PAIR);
@@ -608,6 +646,7 @@ static FValue *owned_pair(FRuntime *r, FValue *first, FValue *second) {
   v->as.pair.first = ready(r, first); v->as.pair.second = ready(r, second);
   return v->as.pair.first && v->as.pair.second ? v : NULL;
 }
+#endif
 static FValue *io1(FRuntime *r, FEnv *env, FTag tag, FEval first, FEval second) {
   FValue *v = new_value(r, tag); if (!v) return NULL;
   v->as.io.first = thunk(r, first, env);
@@ -652,7 +691,12 @@ static FThunk *plan(FRuntime *r, FValue *io) {
     if (!text || text->tag != V_STRING) fail(r, "native write expects a string");
     else if (r->actions >= F_MAX_ACTIONS) fail(r, "native output action budget exhausted");
     else {
-      FAction *item = allocate(r, sizeof(*item));
+      #ifdef FIBRIL_NO_HEAP
+  FEmbeddedCell *storage = allocate_cell(r);
+  FAction *item = storage ? &storage->action : NULL;
+#else
+  FAction *item = allocate(r, sizeof(*item));
+#endif
       if (item) {
         item->bytes = text->as.string.bytes; item->length = text->as.string.length; item->next = NULL;
         if (r->tail) r->tail->next = item; else r->head = item;
@@ -722,6 +766,7 @@ static FValue *convert_utf8(FRuntime *r, FEnv *env, FEval expression, int encode
 }
 FValue *f_utf8_encode(FRuntime *r, FEnv *env, FEval expression) { return convert_utf8(r, env, expression, 1); }
 FValue *f_utf8_decode(FRuntime *r, FEnv *env, FEval expression) { return convert_utf8(r, env, expression, 0); }
+#ifndef FIBRIL_NO_HEAP
 static FValue *input_error(FRuntime *r, const char *message) {
   FValue *text = f_literal(r, (const unsigned char *)message, strlen(message));
   return text ? read_result(r, 2, text) : NULL;
@@ -901,7 +946,8 @@ int fibril_native_resource_run(FEval entry, size_t requests, size_t line_charact
   while (r.allocations) { FAllocation *next = r.allocations->next; free(r.allocations); r.allocations = next; }
   return status;
 }
-FNativeResult fibril_native_embed(FEval entry, const FNativeHost *host) {
+#endif
+static FNativeResult embed_runtime(FRuntime *r, FEval entry, const FNativeHost *host) {
   FNativeResult result = { F_NATIVE_OK, NULL };
   if (!entry || !host || !host->write || !host->flush) {
     result.status = F_NATIVE_INVALID_ARGUMENT;
@@ -910,23 +956,22 @@ FNativeResult fibril_native_embed(FEval entry, const FNativeHost *host) {
   }
   /* Copy the callback table: a callback must not alter this invocation's sink. */
   FNativeHost sink = *host;
-  FRuntime r = {0};
-  FValue *io = evaluate(&r, entry, NULL);
-  FThunk *final = io ? plan(&r, io) : NULL;
-  FValue *unit = final ? force(&r, final) : NULL;
-  if (!r.error && (!unit || unit->tag != V_UNIT)) fail(&r, "native main did not return unit");
+  FValue *io = evaluate(r, entry, NULL);
+  FThunk *final = io ? plan(r, io) : NULL;
+  FValue *unit = final ? force(r, final) : NULL;
+  if (!r->error && (!unit || unit->tag != V_UNIT)) fail(r, "native main did not return unit");
   /* Validate the entire staged output before crossing the host boundary. */
-  if (!r.error) for (FAction *a = r.head; a; a = a->next) {
+  if (!r->error) for (FAction *a = r->head; a; a = a->next) {
     if (a->length && memchr(a->bytes, 0, a->length)) {
-      fail(&r, "Console output contains NUL"); break;
+      fail(r, "Console output contains NUL"); break;
     }
   }
-  if (r.error) {
+  if (r->error) {
     result.status = F_NATIVE_PROGRAM_ERROR;
-    result.message = r.error;
+    result.message = r->error;
   } else {
-    static const unsigned char newline[] = { '\n' };
-    for (FAction *a = r.head; a; a = a->next) {
+    static const unsigned char newline[] = { 10 };
+    for (FAction *a = r->head; a; a = a->next) {
       if ((a->length && sink.write(sink.context, a->bytes, a->length) != 0) ||
           sink.write(sink.context, newline, sizeof(newline)) != 0) {
         result.status = F_NATIVE_WRITE_ERROR;
@@ -939,6 +984,32 @@ FNativeResult fibril_native_embed(FEval entry, const FNativeHost *host) {
       result.message = "native host flush failed";
     }
   }
+  return result;
+}
+
+#ifdef FIBRIL_NO_HEAP
+FNativeResult fibril_native_embed_arena(FEval entry, const FNativeHost *host, FEmbeddedArena *arena) {
+  FNativeResult invalid = { F_NATIVE_INVALID_ARGUMENT, "invalid embedded arena" };
+  if (!arena || arena->busy || (arena->cell_capacity && !arena->cells) ||
+      (arena->byte_capacity && !arena->bytes) ||
+      arena->cell_capacity > FIBRIL_EMBEDDED_MAX_BYTES / sizeof(FEmbeddedCell) ||
+      arena->byte_capacity > FIBRIL_EMBEDDED_MAX_BYTES ||
+      arena->cell_capacity * sizeof(FEmbeddedCell) > FIBRIL_EMBEDDED_MAX_BYTES - arena->byte_capacity)
+    return invalid;
+  /* Snapshot the configuration; callbacks must not change active pool storage. */
+  FRuntime r = {0};
+  r.arena_cells = arena->cells; r.arena_cell_capacity = arena->cell_capacity;
+  r.arena_bytes = arena->bytes; r.arena_byte_capacity = arena->byte_capacity;
+  arena->busy = 1;
+  FNativeResult result = embed_runtime(&r, entry, host);
+  arena->cells_used = r.arena_cells_used; arena->bytes_used = r.arena_bytes_used;
+  arena->busy = 0;
+  return result;
+}
+#else
+FNativeResult fibril_native_embed(FEval entry, const FNativeHost *host) {
+  FRuntime r = {0};
+  FNativeResult result = embed_runtime(&r, entry, host);
   while (r.allocations) { FAllocation *next = r.allocations->next; free(r.allocations); r.allocations = next; }
   return result;
 }
@@ -961,3 +1032,5 @@ int fibril_native_run(FEval entry) {
   while (r.allocations) { FAllocation *next = r.allocations->next; free(r.allocations); r.allocations = next; }
   return status;
 }
+
+#endif /* hosted allocation/stdio entry points */

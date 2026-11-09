@@ -17,7 +17,7 @@ from test_units import ROOT, prepare_environment
 # Keep all suites from the former sequential Makefile recipe. Long suites start
 # first to avoid leaving a single expensive suite at the end of the run.
 SUITES = (
-    "javascript",
+    "javascript", "embedded",
     "cli", "json_iteration", "framing", "binary_count", "binary_iteration",
     "native", "native_pairs", "lsp_cost_audit", "lsp", "shared_globals",
     "bytes_native", "pattern_clauses", "binary_source", "composed_probe",
