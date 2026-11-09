@@ -104,6 +104,6 @@ for checked programs, including Words, bytes, UTF-8, erased arguments, construct
 recursion and the standard-library conformance application. Trusted-IR runtime
 fixtures separately check memoization, cycles, invalid encodings, budget exhaustion,
 callback failures and reentrancy; those fixtures do not establish source admission.
-The suite is included in `make test`, and CI installs Node. The runtime is bundled
-by `tools/embed_javascript_runtime.py`; `make javascript-runtime-check` rejects a
+The suite is included in `make test`, and CI installs Node. The [runtime](../runtime/javascript/fibril_runtime.mjs) is bundled
+by [tools/embed_javascript_runtime.py](../tools/embed_javascript_runtime.py); `make javascript-runtime-check` rejects a
 stale bundle. Regenerate it with `make javascript-runtime` after runtime edits.
