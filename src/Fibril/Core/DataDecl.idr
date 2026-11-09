@@ -99,19 +99,19 @@ applicationSpine term = go term []
     go (Apply function argument) args = go function (argument :: args)
     go head args = (head, args)
 
-checkFields : {n : Nat} -> String -> Nat -> Nat -> String -> Nat -> Telescope n -> Either String ()
-checkFields key count indices ctor position Done = Right ()
-checkFields {n} key count indices ctor position (Field _ ty rest) =
-  let mentions = mentionsNominal key ty
+checkFields : {n : Nat} -> List String -> String -> Nat -> Nat -> String -> Nat -> Telescope n -> Either String ()
+checkFields group key count indices ctor position Done = Right ()
+checkFields {n} group key count indices ctor position (Field _ ty rest) =
+  let mentions = any (\member => mentionsNominal member ty) group
       isSelf = case applicationSpine ty of
-        (DataType other, args) => other == key && length args == count + indices &&
-          (case selfType key count n of
-            Just expected => sameSyntax (foldl Apply (DataType key) (take count args)) expected
-            Nothing => False) && not (any (mentionsNominal key) (drop count args))
+        (DataType other, args) => elem other group && length args == count + indices &&
+          (case selfType other count n of
+            Just expected => sameSyntax (foldl Apply (DataType other) (take count args)) expected
+            Nothing => False) && not (any (\arg => any (\member => mentionsNominal member arg) group) (drop count args))
         _ => False
    in if mentions && not isSelf
         then Left ("constructor " ++ ctor ++ ", field " ++ show position ++ ": " ++ describe ty)
-        else checkFields key count indices ctor (S position) rest
+        else checkFields group key count indices ctor (S position) rest
 
 checkParameters : String -> Nat -> Telescope n -> Either String ()
 checkParameters key position Done = Right ()
@@ -120,9 +120,9 @@ checkParameters key position (Field q ty rest) =
   else if mentionsNominal key ty then Left ("parameter " ++ show position ++ " may not mention the family")
   else checkParameters key (S position) rest
 
-checkConstructors : {width : Nat} -> String -> Nat -> List String -> List (Constructor width) -> Either String ()
-checkConstructors key indices seen [] = Right ()
-checkConstructors {width} key indices seen (ctor :: rest) =
+checkConstructors : {width : Nat} -> List String -> String -> Nat -> List String -> List (Constructor width) -> Either String ()
+checkConstructors group key indices seen [] = Right ()
+checkConstructors {width} group key indices seen (ctor :: rest) =
   if ctor.name == "" then Left "constructor names must not be empty"
   else if elem ctor.name seen then Left ("duplicate constructor " ++ ctor.name)
   else if telescopeLength ctor.fields > maxFields
@@ -130,24 +130,48 @@ checkConstructors {width} key indices seen (ctor :: rest) =
   else do
     if length ctor.resultIndices /= indices then Left ("constructor " ++ ctor.name ++ " has the wrong number of result indices") else Right ()
     if any (mentionsNominal key) ctor.resultIndices then Left "constructor result indices may not mention their own family" else Right ()
-    checkFields key width indices ctor.name 1 ctor.fields
-    checkConstructors key indices (ctor.name :: seen) rest
+    checkFields group key width indices ctor.name 1 ctor.fields
+    checkConstructors group key indices (ctor.name :: seen) rest
 
 ||| Every recursive occurrence must be a whole field type with unchanged uniform
 ||| parameters. Indices may vary, but may not themselves mention this family.
 ||| Nested, mutual and function-space recursion remain outside this positive slice.
-public export
-admitDeclaration : DataDecl -> Either String ()
-admitDeclaration decl =
+admitInGroup : List String -> DataDecl -> Either String ()
+admitInGroup group decl =
   let count = telescopeLength decl.params
    in if decl.key == "" then Left "a family needs a key"
       else if count > maxParameters then Left ("more than " ++ show maxParameters ++ " parameters")
       else if length decl.constructors > maxConstructors then Left ("more than " ++ show maxConstructors ++ " constructors")
       else do
-        checkParameters decl.key 1 decl.params
+        traverse_ (\key => checkParameters key 1 decl.params) group
         if indexCount decl > maxIndices then Left "more than 4 indices" else Right ()
-        checkParameters decl.key 1 decl.indices
-        checkConstructors decl.key (indexCount decl) [] decl.constructors
+        traverse_ (\key => checkParameters key 1 decl.indices) group
+        checkConstructors group decl.key (indexCount decl) [] decl.constructors
+
+public export
+admitDeclaration : DataDecl -> Either String ()
+admitDeclaration decl = admitInGroup [decl.key] decl
+
+sameTelescope : Telescope n -> Telescope n -> Bool
+sameTelescope Done Done = True
+sameTelescope (Field q a rest) (Field r b later) = q == r && sameSyntax a b && sameTelescope rest later
+sameTelescope _ _ = False
+
+||| Admit a simultaneous positive group. This first slice shares one uniform
+||| parameter telescope and excludes indices and nested recursive occurrences.
+public export
+admitGroup : List DataDecl -> Either String ()
+admitGroup [] = Left "a mutual data group needs at least two families"
+admitGroup [one] = Left "a mutual data group needs at least two families"
+admitGroup group@(first :: rest) = do
+  if length group > 8 then Left "mutual data groups take at most eight families" else Right ()
+  let keys = map key group
+  if length (nub keys) /= length keys then Left "duplicate family in mutual data group" else Right ()
+  traverse_ (\decl => if sameTelescope first.params decl.params then Right ()
+    else Left "mutual data families require the same uniform parameter telescope") group
+  traverse_ (\decl => if indexCount decl == 0 then Right ()
+    else Left "indexed mutual data is not supported") group
+  traverse_ (admitInGroup keys) group
 
 -- Types of the family and its constructors, as closed terms. ------------------------------
 

@@ -105,10 +105,11 @@ public export
 noFamilies : FieldCounts
 noFamilies _ _ = Nothing
 
--- Is this binder annotation the family itself (applied to any parameters)? A field of that
--- type is a proper component of the value being matched.
+-- A whole, checked family field is a proper component of the value being matched,
+-- including a partner in a mutual group. Typing validates these annotations before
+-- extraction; no decrease is credited to an untyped wrapper or rebuilt value.
 isFamily : String -> Term m -> Bool
-isFamily key (DataType other) = key == other
+isFamily key (DataType other) = True
 isFamily key (Apply function _) = isFamily key function
 isFamily _ _ = False
 

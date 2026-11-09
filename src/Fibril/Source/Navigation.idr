@@ -240,6 +240,13 @@ clauseHeaders context decl = case decl.value of
           then [RefersTo token.span (context.localTarget decl.definitionNameSpan)] else []
         Nothing => []
 
+dataReferences : Walker destination -> Environment destination -> DataDeclaration -> List (ReferenceTo destination)
+dataReferences context following sourceData =
+  let (paramRefs, paramScope) = dataParameters context following sourceData.params
+      ctorRefs = concatMap (\ctor => let (fieldRefs, scope) = dataFields context paramScope ctor.fields
+                                     in fieldRefs ++ walk context scope ctor.result) sourceData.constructors
+   in paramRefs ++ ctorRefs
+
 declarations : Walker destination -> Environment destination -> List AuthoredDeclaration -> List (ReferenceTo destination)
 declarations context env [] = []
 declarations context env (MutualItem group :: rest) =
@@ -280,10 +287,13 @@ declarations context env (item@(DataItem sourceData) :: rest) =
   let sites = bindingSites item
       refs = map (\site => RefersTo site.nameSpan (context.localTarget site.definitionNameSpan)) sites
       following = foldl (\scope, site => (site.name, Just (context.localTarget site.definitionNameSpan)) :: scope) env sites
-      (paramRefs, paramScope) = dataParameters context following sourceData.params
-      ctorRefs = concatMap (\ctor => let (fieldRefs, scope) = dataFields context paramScope ctor.fields
-                                     in fieldRefs ++ walk context scope ctor.result) sourceData.constructors
-   in refs ++ paramRefs ++ ctorRefs ++ declarations context following rest
+   in refs ++ dataReferences context following sourceData ++ declarations context following rest
+
+declarations context env (item@(MutualDataItem _ members) :: rest) =
+  let sites = bindingSites item
+      refs = map (\site => RefersTo site.nameSpan (context.localTarget site.definitionNameSpan)) sites
+      following = foldl (\scope, site => (site.name, Just (context.localTarget site.definitionNameSpan)) :: scope) env sites
+   in refs ++ concatMap (dataReferences context following) members ++ declarations context following rest
 
 declarations context env (item@(RecordItem authored) :: rest) =
   let sites = bindingSites item

@@ -73,6 +73,7 @@
   {
     "title": "Part II · Reference",
     "pages": [
+      { "title": "Mutually recursive data", "path": "docs/mutual-data.md" },
       { "title": "Word integers", "path": "docs/words.md" },
       { "title": "Local snapshot locks", "path": "docs/lockfile.md" },
       { "title": "Debugger design", "path": "docs/debugger.md" },

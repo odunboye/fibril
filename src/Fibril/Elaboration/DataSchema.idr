@@ -29,6 +29,8 @@ exportedDataSchemas moduleName [] = []
 exportedDataSchemas moduleName (DataItem authored :: rest) =
   (if authored.exported then [DataSchemaHint moduleName authored] else []) ++
     exportedDataSchemas moduleName rest
+exportedDataSchemas moduleName (MutualDataItem _ members :: rest) =
+  map (DataSchemaHint moduleName) (filter exported members) ++ exportedDataSchemas moduleName rest
 exportedDataSchemas moduleName (_ :: rest) = exportedDataSchemas moduleName rest
 
 ||| Syntactic branch header. The arity is the number of authored field binders;

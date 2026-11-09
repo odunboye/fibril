@@ -88,6 +88,12 @@ sameDeclaration a b = a.name == b.name && a.quantity == b.quantity &&
   a.cubicalProof == b.cubicalProof && a.requiredPath == b.requiredPath &&
   a.exported == b.exported && a.generated == b.generated && a.dictionary == b.dictionary && sameExpr a.expected b.expected && sameExpr a.value b.value
 
+sameData : DataDeclaration -> DataDeclaration -> Bool
+sameData a b = a.name.spelling == b.name.spelling && a.level == b.level &&
+  a.exported == b.exported && a.implicitConstructors == b.implicitConstructors && sameList sameParameter a.params b.params &&
+  map (\(_, name) => name.spelling) a.eliminator == map (\(_, name) => name.spelling) b.eliminator &&
+  sameList (\x, y => x.name.spelling == y.name.spelling && sameList sameField x.fields y.fields && sameExpr x.result y.result) a.constructors b.constructors
+
 sameAuthored : AuthoredDeclaration -> AuthoredDeclaration -> Bool
 sameAuthored (MutualItem a) (MutualItem b) =
   a.exported == b.exported && sameDeclaration a.first b.first && sameDeclaration a.second b.second &&
@@ -97,10 +103,8 @@ sameAuthored (ImplementationBlock a) (ImplementationBlock b) =
     sameList (\x, y => x.name.spelling == y.name.spelling && sameExpr x.value y.value) a.methods b.methods
 sameAuthored (Ordinary a) (Ordinary b) = sameDeclaration a b
 sameAuthored (ImplementationItem a) (ImplementationItem b) = sameDeclaration a b
-sameAuthored (DataItem a) (DataItem b) = a.name.spelling == b.name.spelling && a.level == b.level &&
-  a.exported == b.exported && a.implicitConstructors == b.implicitConstructors && sameList sameParameter a.params b.params &&
-  map (\(_, name) => name.spelling) a.eliminator == map (\(_, name) => name.spelling) b.eliminator &&
-  sameList (\x, y => x.name.spelling == y.name.spelling && sameList sameField x.fields y.fields && sameExpr x.result y.result) a.constructors b.constructors
+sameAuthored (DataItem a) (DataItem b) = sameData a b
+sameAuthored (MutualDataItem _ a) (MutualDataItem _ b) = sameList sameData a b
 sameAuthored (RecordItem a) (RecordItem b) = a.name.spelling == b.name.spelling && a.level == b.level &&
   a.exported == b.exported && sameList sameParameter a.params b.params &&
   a.constructorName.spelling == b.constructorName.spelling && map (\(_, name) => name.spelling) a.eliminator == map (\(_, name) => name.spelling) b.eliminator &&

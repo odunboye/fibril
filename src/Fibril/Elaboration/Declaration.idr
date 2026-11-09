@@ -644,6 +644,11 @@ mutual
   lowerItem : Maybe String -> List InterfaceSchema -> List String -> List String -> Nat -> AuthoredDeclaration -> Either ElaborationError (Nat, List Declaration)
   lowerItem moduleName schemas imported seen nodes (MutualItem group) =
     Left (ElaborationFailure group.span.start "Mutual groups require named-module checking")
+  lowerItem moduleName schemas imported seen nodes (MutualDataItem span members) = case moduleName of
+    Nothing => Left (ElaborationFailure span.start "Mutual data requires a named module")
+    Just qualifier => do
+      (used, formers, constructors) <- groupDeclarations qualifier nodes members
+      Right (used, formers ++ constructors)
   lowerItem moduleName schemas imported seen nodes (DataItem sourceData) = case moduleName of
     Nothing => Left (ElaborationFailure sourceData.name.span.start "Data declarations require a named module")
     Just qualifier => lowerData qualifier nodes sourceData
@@ -665,6 +670,7 @@ mutual
   lowerItem moduleName schemas imported seen nodes (ImplementationBlock block) = lowerImplementation schemas imported seen nodes block
 
   authoredPosition : AuthoredDeclaration -> Position
+  authoredPosition (MutualDataItem span _) = span.start
   authoredPosition (MutualItem group) = group.span.start
   authoredPosition (DataItem sourceData) = sourceData.name.span.start
   authoredPosition (Ordinary decl) = decl.nameSpan.start
@@ -679,6 +685,10 @@ mutual
     case dataKey (forget (Data.String.split (== '.') qualifier)) sourceData.name.spelling of
       Right key => if generalRecursive key sourceData then [DataFamily sourceData key] else []
       Left _ => []
+  familyItems (Just qualifier) (MutualDataItem _ members) =
+    [DataFamilies (mapMaybe (\member => case dataKey (forget (Data.String.split (== '.') qualifier)) member.name.spelling of
+      Right key => Just (member, key)
+      Left _ => Nothing) members)]
   familyItems _ _ = []
 
   lowerModule : Maybe String -> List InterfaceSchema -> List String -> Nat -> Nat -> List String -> List AuthoredDeclaration -> Either ElaborationError (List LoweredItem)
@@ -1102,6 +1112,21 @@ mutual
     let actual = foldl (\accum, decl => capped (accum + syntaxNodes decl.expected + syntaxNodes decl.value)) 0 generated
     if actual > budget then Left (ElaborationFailure sourceData.name.span.start "Generated data construction budget exhausted") else Right ()
     Right (actual, generated)
+
+  groupDeclarations : String -> Nat -> List DataDeclaration -> Either ElaborationError (Nat, List Declaration, List Declaration)
+  groupDeclarations qualifier budget [] = Right (0, [], [])
+  groupDeclarations qualifier budget (member :: rest) = do
+    if not (null member.indices) then Left (ElaborationFailure member.name.span.start "Indexed mutual data is not supported") else Right ()
+    if isJust member.eliminator then Left (ElaborationFailure member.name.span.start "Mutual data does not generate eliminator helpers") else Right ()
+    key <- case dataKey (forget (Data.String.split (== '.') qualifier)) member.name.spelling of
+      Left why => Left (ElaborationFailure member.name.span.start why.message)
+      Right key => Right key
+    (used, generated) <- lowerGeneralData key budget member
+    case generated of
+      [] => Left (ElaborationFailure member.name.span.start "Internal mutual family lowering failed")
+      former :: constructors => do
+        (later, formers, remaining) <- groupDeclarations qualifier (minus budget used) rest
+        Right (used + later, former :: formers, constructors ++ remaining)
 
   lowerOrdinaryData : String -> Nat -> DataDeclaration -> Either ElaborationError (Nat, List Declaration)
   lowerOrdinaryData key estimate sourceData = do

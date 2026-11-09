@@ -217,6 +217,7 @@ breakpoints document = case document.body of
     ImplementationItem decl => planExpression document.tokens (length (unpack decl.name) + 20) decl.expected ++
                                planExpression document.tokens (length (unpack decl.name) + 3) decl.value
     MutualItem _ => []
+    MutualDataItem _ _ => []
     DataItem _ => []
     RecordItem _ => []
     InterfaceItem _ => []) authored

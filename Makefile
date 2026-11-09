@@ -248,6 +248,7 @@ examples: build
 	./build/exec/fibril run --source-dir examples/modules/recursive-list examples/modules/recursive-list/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/indexed-vect --fuel 4096 examples/modules/indexed-vect/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/index-refinement examples/modules/index-refinement/Main.fib
+	./build/exec/fibril run --source-dir examples/modules/mutual-data examples/modules/mutual-data/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/linear-accumulator examples/modules/linear-accumulator/Main.fib
 	./build/exec/fibril run --source-dir examples/modules/linear-accumulator examples/modules/linear-accumulator/Decorated.fib
 	./build/exec/fibril run --source-dir examples/modules/linear-accumulator examples/modules/linear-accumulator/StringAccumulator.fib

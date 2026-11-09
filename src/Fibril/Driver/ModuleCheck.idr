@@ -1448,6 +1448,35 @@ registerFamily shared snapshot globals sourceData key = do
     Left err => Left (problem snapshot (Just sourceData.name.span.start) ("Data declaration: " ++ show err))
     Right next => Right next
 
+record PendingFamily where
+  constructor Pending
+  sourceData : DataDeclaration
+  key : String
+  params : Telescope 0
+  scope : FamilyScope
+
+pendingDefinition : PendingFamily -> GlobalDefinition
+pendingDefinition member =
+  let decl = MkDataDecl member.key member.params []
+   in GlobalEntry Nothing Nothing 0 Erased member.sourceData.name.spelling (formerType decl) (formerValue decl)
+
+registerFamilies : RuntimeGlobals -> ModuleSnapshot -> List Weighted -> List (DataDeclaration, String) -> Either GraphError RuntimeGlobals
+registerFamilies shared snapshot globals entries = do
+  let defs = map global globals
+  pending <- traverse (\(sourceData, key) => do
+    MkFamilyPart params scope <- familyBinders snapshot (erasedGlobals shared) defs Empty []
+      (map (\param => (param.quantity, param.name, param.domain)) sourceData.params)
+    Right (Pending sourceData key params scope)) entries
+  let provisional = map (\member => MkDataDecl member.key member.params []) pending
+  let visible = foldl withProvisionalFamily (erasedGlobals shared) provisional
+  let own = map pendingDefinition pending
+  checked <- traverse (\member => do
+    constructors <- familyConstructors snapshot visible (own ++ defs) member.params member.scope member.sourceData.constructors
+    Right (MkDataDecl member.key member.params constructors)) pending
+  case extendDataGroupRuntimeGlobals checkingDepth typeReductionFuel shared checked of
+    Left err => Left (problem snapshot Nothing ("Mutual data declaration: " ++ show err))
+    Right next => Right next
+
 compileDeclarationsGlobals : RuntimeGlobals -> ModuleSnapshot -> List String -> List Weighted -> List LoweredItem -> Nat ->
                       Either GraphError Compiled
 compileDeclarationsGlobals shared snapshot name globals [] remaining = Right (Definitions [] [] [] remaining shared)
@@ -1457,6 +1486,9 @@ compileDeclarationsGlobals shared snapshot name globals (MutualNatBool group :: 
   following <- compileDeclarationsGlobals own.checkedGlobals snapshot name (own.locals ++ qualified ++ globals) rest own.remaining
   Right (Definitions (own.locals ++ following.locals) (own.exports ++ following.exports)
     (own.sites ++ following.sites) following.remaining following.checkedGlobals)
+compileDeclarationsGlobals shared snapshot name globals (DataFamilies entries :: rest) remaining = do
+  next <- registerFamilies shared snapshot globals entries
+  compileDeclarationsGlobals next snapshot name globals rest remaining
 compileDeclarationsGlobals shared snapshot name globals (DataFamily sourceData key :: rest) remaining = do
   next <- registerFamily shared snapshot globals sourceData key
   compileDeclarationsGlobals next snapshot name globals rest remaining

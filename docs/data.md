@@ -14,7 +14,8 @@ one terminal and one direct linear self field; a [parameterized list shape](#par
 also carries a linear element. A built-in [Nat recursor](nat-recursion.md)
 supports structural computation. [General recursive data](#general-recursive-data)
 and [indexed families](indexed-data.md) support a restricted strictly positive
-fragment. Nested/mutual positivity and automatic index refinement remain future work; recursive
+fragment. [Mutual data groups](mutual-data.md) admit cross-family positive recursion.
+Nested positivity and automatic index refinement remain future work; recursive
 function equations are covered by the structural forms and by
 [general recursion](function-equations.md#general-recursion). [Direct multi-branch cases](direct-data-cases.md)
 support zero- and one-field alternatives and the fixed list head/tail shape,
@@ -212,7 +213,7 @@ a tree is admitted by the size-change check, while a call on a rebuilt node or o
 itself is refused.
 
 Clause equations work too (`marks Leaf = "."` and `marks (Node l r) = ...`), with the same recursion rule. Not yet supported: `_` catch-all
-arms, mutually recursive families, a dependent motive inferred from the
+arms, a dependent motive inferred from the
 arms, and eliminator helpers. Indexed families use the separate parameter/index
 header and index-aware motives described in [indexed data](indexed-data.md). The experimental C backend lowers a family to native variants (see below). The plan and its soundness argument are in
 [general recursive data](general-recursive-data-plan.md).

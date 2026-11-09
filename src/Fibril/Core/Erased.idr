@@ -965,6 +965,23 @@ extendDataGlobals depth reduction globals@(CheckedGlobalContext entries families
   checkConstructorTypes extended depth reduction decl (constructorCount decl) 0
   Right extended
 
+||| Check all mutually recursive formers and constructor types before publishing
+||| any member. Provisional visibility is confined to this pure admission step.
+public export
+extendDataGroupGlobals : Nat -> Nat -> GlobalContext -> List DataDecl -> Either CheckError GlobalContext
+extendDataGroupGlobals depth reduction globals@(CheckedGlobalContext entries families) group = do
+  case admitGroup group of
+    Left why => Left (RecursiveDataError why)
+    Right () => Right ()
+  traverse_ (\decl => case dataDeclaration globals decl.key of
+    Just _ => Left (RecursiveDataError ("duplicate family " ++ decl.key))
+    Nothing => Right ()) group
+  let extended = CheckedGlobalContext entries (group ++ families)
+  traverse_ (\decl => do
+    _ <- sortOf extended depth reduction Empty (formerType decl)
+    checkConstructorTypes extended depth reduction decl (constructorCount decl) 0) group
+  Right extended
+
 public export
 checkRegionResult : Nat -> Term n -> Either CheckError ()
 checkRegionResult = checkRegionResultGlobals emptyGlobals
