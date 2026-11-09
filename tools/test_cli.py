@@ -8882,8 +8882,8 @@ class IndexedDataTests(unittest.TestCase):
 
     def test_indexed_vectors_refuse_bad_motives_and_incomplete_coverage(self):
         source = self.fixture()
+        self.check_source(source.replace('return (\\(0 k : Nat) => \\(0 self : Vect A k) => Vect A k)', ''), True)
         for before, after in [
-            ('return (\\(0 k : Nat) => \\(0 self : Vect A k) => Vect A k)', ''),
             ('\\(0 k : Nat) => \\(0 self : Vect A k) => Vect A k', '\\(0 self : Vect A n) => Vect A n'),
             ('  Nil => Zero\n', '')]:
             with self.subTest(after=after):
@@ -9105,6 +9105,76 @@ class CheckJSONContractTests(unittest.TestCase):
         report = json.loads(result.stdout)
         self.assertEqual(set(report), self.TOP | {"entry", "root", "sources"})
         self.assertEqual(report['version'], 2)
+
+
+class IndexRefinementTests(unittest.TestCase):
+    @staticmethod
+    def fixture():
+        return (ROOT / 'examples/modules/index-refinement/Main.fib').read_text()
+
+    def source(self, text, command='check'):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Main.fib'
+            path.write_text(text)
+            return run_cli(command, '--source-dir', directory, str(path), timeout=120)
+
+    def test_head_tail_copy_and_empty_run_without_explicit_motives(self):
+        result = self.source(self.fixture(), 'run')
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout, 'first\nsecond\n')
+
+    def test_unknown_index_still_requires_both_constructors(self):
+        source = self.fixture().replace('(xs : Vect A (Succ n)) -> A', '(xs : Vect A n) -> A')
+        result = self.source(source)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('constructor', result.stdout + result.stderr)
+
+    def test_unknown_index_three_way_coverage_is_not_pruned(self):
+        source = '''module Main
+data Choice : (0 n : Nat) -> Type where
+  First : Choice Zero
+  Second : Choice (Succ Zero)
+  Third : Choice (Succ (Succ Zero))
+label : (0 n : Nat) -> (value : Choice n) -> String
+label n value = case value of
+  First => "first"
+  Second => "second"
+main : IO Unit
+main = putStrLn (label Zero First)
+'''
+        result = self.source(source)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('cover', result.stdout + result.stderr)
+
+    def test_possible_cons_branch_cannot_be_omitted(self):
+        result = self.source(self.fixture().replace('  Cons k value rest => rest', '  Nil => Nil A'))
+        self.assertNotEqual(result.returncode, 0)
+
+    def test_wrong_head_and_tail_types_remain_rejected(self):
+        for before, after in [('  Cons k value rest => value', '  Cons k value rest => rest'),
+                              ('  Cons k value rest => rest', '  Cons k value rest => Nil A')]:
+            with self.subTest(after=after):
+                result = self.source(self.fixture().replace(before, after))
+                self.assertNotEqual(result.returncode, 0)
+
+    def test_synthetic_impossible_arm_preserves_linear_fields(self):
+        source = self.fixture().split('copy :')[0].replace('(value : A)', '(1 value : A)').replace('(rest : Vect A n)', '(1 rest : Vect A n)')
+        source += 'empty : (1 xs : Vect String Zero) -> Unit\nempty xs = case xs of\n  Nil => ()\n'
+        source += 'main : IO Unit\nmain = case empty (Nil String) of () => putStrLn "empty"\n'
+        result = self.source(source, 'run')
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout, 'empty\n')
+
+    def test_erased_index_is_not_observable(self):
+        source = self.fixture().replace('-> A\nhead', '-> Nat\nhead').replace('  Cons k value rest => value', '  Cons k value rest => k')
+        result = self.source(source)
+        self.assertNotEqual(result.returncode, 0)
+
+    def test_explicit_motive_remains_authoritative(self):
+        source = self.fixture().replace('head A n xs = case xs of',
+            'head A n xs = case xs return (\\(0 k : Nat) => \\(0 self : Vect A k) => A) of')
+        result = self.source(source)
+        self.assertNotEqual(result.returncode, 0)
 
 
 if __name__ == "__main__":

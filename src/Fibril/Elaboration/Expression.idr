@@ -19,6 +19,7 @@ import Fibril.Core.Erased
 import Fibril.Core.Reduction
 import Fibril.Core.Limits
 import Fibril.Core.WeakHead
+import Fibril.Elaboration.IndexRefinement
 import Fibril.Elaboration.DataCase
 import Fibril.Elaboration.Expression.Scope
 import Fibril.Elaboration.Expression.Conversion
@@ -1016,12 +1017,17 @@ mutual
       Right ((index, branch) :: later)
 
 
-  -- `remaining` counts the constructors still to place, so the recursion shrinks.
-  orderFamilyArms : Position -> Nat -> Nat -> List (Nat, Term n) -> Either ResolveError (List (Term n))
-  orderFamilyArms position Z index arms = Right []
-  orderFamilyArms position (S remaining) index arms = case lookup index arms of
-    Nothing => Left (CannotElaborate position "Data case does not cover every constructor")
-    Just branch => map (branch ::) (orderFamilyArms position remaining (S index) arms)
+  -- Missing arms are filled only for the inferred Nat-pattern motive. The
+  -- resulting ordinary DataCase is checked with every constructor present.
+  orderFamilyArms : GlobalContext -> Position -> DataDecl -> List (Term n) -> Bool -> Nat -> Nat -> List (Nat, Term n) -> Either ResolveError (List (Term n))
+  orderFamilyArms shared position decl actuals fill Z index arms = Right []
+  orderFamilyArms shared position decl actuals fill (S remaining) index arms = do
+    branch <- case lookup index arms of
+      Just branch => Right branch
+      Nothing => case (if fill then missingIndexBranch shared decl index actuals else Nothing) of
+        Just branch => Right branch
+        Nothing => Left (CannotElaborate position "Data case does not cover every constructor that may be reachable")
+    map (branch ::) (orderFamilyArms shared position decl actuals fill remaining (S index) arms)
 
   constantFamilyMotive : Nat -> Term n -> Term n -> Term n -> Either ResolveError (Term n)
   constantFamilyMotive Z indices family result = Right (Lambda Erased family (weaken result))
@@ -1036,21 +1042,53 @@ mutual
     explicit <- the (Either ResolveError (Maybe (Term n))) $ case motive of
       Just authored => Just <$> elaborateInWithGlobals shared globals (Just ctx) env authored
       Nothing => Right Nothing
-    selected <- case (explicit, expected) of
-      (Just authored, _) => Right authored
-      (Nothing, Just result) => do
-        let parameterArgs = take (parameterCount decl) actuals
-        indexTypes <- case instantiateParameters parameterArgs (rename absurd (formerType decl)) of
-          Left err => Left (CannotElaborate span.start (show err))
-          Right chain => Right chain
-        constantFamilyMotive (indexCount decl) indexTypes (applyAll (DataType decl.key) parameterArgs) result
-      (Nothing, Nothing) => Left (CannotElaborate span.start "A case on this data needs an expected result type or an explicit motive")
+    let parameterArgs = take (parameterCount decl) actuals
+    indexTypes <- case instantiateParameters parameterArgs (rename absurd (formerType decl)) of
+      Left err => Left (CannotElaborate span.start (show err))
+      Right chain => Right chain
+    let family = applyAll (DataType decl.key) parameterArgs
     let catchAll = case scrutinee of
           Variable i => index i env == "$clauseScrutinee"
           _ => False
-    checked <- familyArms shared globals ctx env decl actuals (Just selected) (if catchAll then map (\arm => fst arm) arms else []) arms
-    ordered <- orderFamilyArms span.start (constructorCount decl) 0 checked
-    Right (DataCase decl.key selected scrutinee ordered)
+    let finish : Term n -> Bool -> Either ResolveError (Term n)
+        finish = \selected, fill => do
+          checked <- familyArms shared globals ctx env decl actuals (Just selected) (if catchAll then map (\arm => fst arm) arms else []) arms
+          ordered <- orderFamilyArms shared span.start decl actuals fill (constructorCount decl) 0 checked
+          let candidate = DataCase decl.key selected scrutinee ordered
+          case expected of
+            Nothing => Right candidate
+            Just result => case checkErasedGlobals shared checkingDepth typeReductionFuel ctx candidate result of
+              Left err => Left (CannotElaborate span.start ("Inferred indexed case: " ++ show err))
+              Right () => Right candidate
+    case (explicit, expected) of
+      (Just selected, _) => finish selected False
+      (Nothing, Just result) => do
+        constant <- constantFamilyMotive (indexCount decl) indexTypes family result
+        let small = case inferErasedGlobals shared checkingDepth typeReductionFuel ctx result of
+              Right kind => case guardedNormalGlobals shared typeReductionFuel kind of
+                Just (Universe 0) => True
+                _ => False
+              _ => False
+        let directed : Maybe (Term n)
+            directed = if small then case drop (parameterCount decl) actuals of
+              [actual] => do
+                normalized <- guardedNormalGlobals shared typeReductionFuel indexTypes
+                index <- guardedNormalGlobals shared typeReductionFuel actual
+                natFamilyMotive index normalized family result
+              _ => Nothing else Nothing
+        let inferred : Maybe (Term n, Bool)
+            inferred = case directed of
+              Just chosen => Just (chosen, True)
+              Nothing => map (\chosen => (chosen, False))
+                (abstractFamilyMotive (indexCount decl) (drop (parameterCount decl) actuals) indexTypes family result)
+        case inferred of
+          Nothing => finish constant False
+          Just (chosen, fill) => case finish chosen fill of
+            Right candidate => Right candidate
+            Left first => case finish constant fill of
+              Right candidate => Right candidate
+              Left _ => Left first
+      (Nothing, Nothing) => Left (CannotElaborate span.start "A case on this data needs an expected result type or an explicit motive")
 
   elaborateDataCaseGlobals : GlobalContext -> List GlobalDefinition -> Context n -> Vect n String -> SourceSpan -> Expr -> Maybe Expr -> List (Token, List Token, Expr) -> Maybe (Term n) -> Either ResolveError (Term n)
   elaborateDataCaseGlobals shared globals ctx env span value motive arms expected = do

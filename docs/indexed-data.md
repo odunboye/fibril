@@ -43,11 +43,12 @@ It never assumes all constructors have the scrutinee's index. Constructor fields
 retain their declared quantities, including erased index fields; attempting to
 observe an erased index at runtime is rejected.
 
-For a result independent of the indices, an expected result type supplies a
-constant motive automatically. A dependent result currently needs an explicit
-`return` motive. Every constructor must be covered, even when a specific index
-would make an arm unreachable. There is no index unification, automatic impossible
-arm elimination, equality reflection, or general GADT pattern refinement.
+An expected result type supplies a constant motive or a checked proposal inferred
+from variable indices. For one Nat index, known `Zero`/`Succ` inputs additionally
+support automatic motives and omission of arms with contradictory outer indices;
+see [automatic indexed-case elaboration](index-refinement.md). Explicit `return`
+motives remain available. General index unification, equality reflection and
+arbitrary impossible-arm elimination remain unsupported.
 Single-constructor cases support explicit motives too.
 
 The [runnable vector example](../examples/modules/indexed-vect/Main.fib) includes
