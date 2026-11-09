@@ -4175,6 +4175,73 @@ main = first Zero
             self.assertIn("useOne", names)
             self.assertFalse(any("$" in name for name in names))
 
+    def test_nominal_interface_edges(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / "Main.fib"
+            def go(source, command="eval", *flags):
+                path.write_text(source)
+                return run(command, "--source-dir", str(root), *flags, str(path))
+            def text(result):
+                return result.stdout + result.stderr
+            # Wide dictionary: construct it and call getters (first, last, and the eliminator).
+            methods = "".join(f"  m{i} : (left : A) -> (right : A) -> A\n" for i in range(20))
+            values = " ".join("primWordMul" if i == 19 else "primWordAdd" for i in range(20))
+            (root / "Wide.fib").write_text(
+                "module Wide\n\nexport\ninterface Many (0 A : Type 0) : Type 0 where\n  constructor MkMany\n" + methods +
+                "\nexport\nwideWord : Wide.Many Word\nwideWord = MkMany Word " + values + "\n\n"
+                "export\ninterface One (0 A : Type 0) : Type 0 where\n  constructor MkOne\n  eliminator useOne\n"
+                "  one : (value : A) -> A\n\nexport\noneWord : Wide.One Word\noneWord = MkOne Word (primWordAdd 1w)\n")
+            result = go("module Main\nimport Wide\n\nmain : IO Unit\nmain = do\n"
+                        "  putStrLn (primWordToString (Wide.m0 Word Wide.wideWord 1w 2w))\n"
+                        "  putStrLn (primWordToString (Wide.m19 Word Wide.wideWord 3w 4w))\n"
+                        # The eliminator branch is unrestricted: the method is used twice.
+                        "  putStrLn (primWordToString (Wide.useOne Word (\\(0 self : Wide.One Word) => Word) Wide.oneWord "
+                        "(\\(f : (value : Word) -> Word) => f (f 5w))))\n", "run", "--fuel", "4096")
+            self.assertEqual(result.returncode, 0, text(result))
+            self.assertEqual(result.stdout, "3\n12\n7\n")
+            # Native C: execute a ten-method dictionary (eleven or more exceed native admission).
+            compiler = shutil.which("cc")
+            if compiler:
+                (root / "Wide.fib").write_text(
+                    "module Wide\n\nexport\ninterface Many (0 A : Type 0) : Type 0 where\n  constructor MkMany\n" +
+                    "".join(f"  m{i} : (left : A) -> (right : A) -> A\n" for i in range(10)) +
+                    "\nexport\nwideWord : Wide.Many Word\nwideWord = MkMany Word " +
+                    " ".join("primWordMul" if i == 9 else "primWordAdd" for i in range(10)) + "\n")
+                emitted = go("module Main\nimport Wide\n\nmain : IO Unit\nmain = do\n"
+                             "  putStrLn (primWordToString (Wide.m0 Word Wide.wideWord 1w 2w))\n"
+                             "  putStrLn (primWordToString (Wide.m9 Word Wide.wideWord 3w 4w))\n", "emit-c")
+                self.assertEqual(emitted.returncode, 0, text(emitted))
+                source = root / "native.c"
+                source.write_text(emitted.stdout)
+                runtime = ROOT / "runtime/native"
+                built = subprocess.run([compiler, "-I", str(runtime), "-o", str(root / "native"), str(source),
+                                        str(runtime / "fibril_runtime.c")], capture_output=True, text=True)
+                self.assertEqual(built.returncode, 0, built.stderr)
+                self.assertEqual(subprocess.run([str(root / "native")], capture_output=True, text=True).stdout, "3\n12\n")
+            # Dependent methods keep the structural lowering and still project.
+            (root / "Dep.fib").write_text(
+                "module Dep\n\nexport\ninterface Dep : Type 0 where\n  constructor MkDep\n  flag : Bool\n"
+                "  value : if flag then Word else Bool\n\nexport\nwordDep : Dep.Dep\nwordDep = MkDep True 7w\n")
+            self.assertIn("Normal: 7", go("module Main\nimport Dep\n\nmain : Word\nmain = Dep.value Dep.wordDep\n").stdout)
+            # A method mentioning its own interface is not supported; it is rejected, not silently accepted.
+            (root / "Selfy.fib").write_text(
+                "module Selfy\n\nexport\ninterface Selfy (0 A : Type 0) : Type 0 where\n  constructor MkSelfy\n"
+                "  pick : (other : Selfy.Selfy A) -> A\n")
+            selfy = go("module Main\nimport Selfy\n\nmain : Word\nmain = 1w\n", "check")
+            self.assertNotEqual(selfy.returncode, 0)
+            # Identity survives a public facade.
+            (root / "Kit.fib").write_text(
+                "module Kit\n\nexport\ninterface Add (0 A : Type 0) : Type 0 where\n  constructor MkAdd\n"
+                "  add : (left : A) -> (right : A) -> A\n\nexport\ninterface Sub (0 A : Type 0) : Type 0 where\n"
+                "  constructor MkSub\n  sub : (left : A) -> (right : A) -> A\n\n"
+                "export\nsubWord : Kit.Sub Word\nsubWord = MkSub Word primWordSub\n")
+            (root / "Facade.fib").write_text("module Facade\nimport public Kit (Add, Sub, add, sub, subWord)\n")
+            self.assertIn("Normal: 1", go("module Main\nimport Facade\n\nmain : Word\nmain = sub Word subWord 3w 2w\n").stdout)
+            wrong = go("module Main\nimport Facade\n\nmain : Word\nmain = add Word subWord 1w 2w\n")
+            self.assertNotEqual(wrong.returncode, 0)
+            self.assertIn("not compatible", text(wrong))
+
     def test_symbolic_operators_and_fixity(self):
         example = ROOT / "examples/modules/operators"
         result = run("run", "--source-dir", str(example), str(example / "Main.fib"))

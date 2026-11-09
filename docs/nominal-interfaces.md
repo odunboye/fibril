@@ -170,5 +170,11 @@ are the only places that must change for selection to work.
 - Tests: `test_nominal_interfaces` (distinct same-shaped interfaces, wrong-interface and record
   rejection, reuse, a 20-method interface, eliminator naming) and the updated operator test.
 
-Not covered by a test: the dependent-method fallback, and a re-exported interface through a facade
-(the existing public-import tests pass unchanged).
+`test_nominal_interface_edges` also covers: constructing and calling a 20-method dictionary (hosted
+`run`), the unrestricted eliminator branch (a method used twice), a ten-method dictionary compiled
+and executed through native C, the dependent-method fallback, and identity through a public facade.
+
+Limits found while testing:
+- Native C admission (8192 nodes) rejects a dictionary of about eleven or more methods; the hosted
+  runner handles 20. The old structural lowering failed earlier in both.
+- A method that mentions its own interface is rejected (unknown family), on master and here alike.
