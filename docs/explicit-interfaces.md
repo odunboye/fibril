@@ -10,7 +10,7 @@ For a one-off string append, call `appendString` directly. Use a plain record wh
 functions, and explicitly typed named dictionary implementations. Dictionaries
 are passed explicitly or selected by a [unique-local request](constraints.md).
 Named constraints are supported; no automatic/recursive global instance search, inheritance, overloaded
-operators, nominal class identity or law checking is implemented.
+operators, superclasses or law checking is implemented. Interface identity is [nominal](nominal-interfaces.md).
 [Named method-body blocks](implementation-blocks.md) now provide schema-guided
 constructor elaboration without instance search.
 
@@ -79,10 +79,11 @@ rejects missing fields, wrong method types and quantity mismatches.
 The compiler independently requires implementation globals to be unrestricted
 and their checked signature to expose a unary wrapper or dependent pair, or
 an [explicit factory](implementation-factories.md) returning one after erased
-and dictionary parameters. A primitive alias or arbitrary function is not enough. Structural record dictionary aliases
-are allowed: this is not a nominal membership check tying an implementation
-exclusively to an interface declaration. That limitation is intentional while
-record identity remains structural.
+and dictionary parameters. A primitive alias or arbitrary function is not enough. Interfaces are
+[nominal](nominal-interfaces.md): an interface lowers to a one-constructor type whose key is its
+module-qualified name, so a dictionary of one interface is never accepted for another. Plain
+record dictionary aliases are still accepted by this gate; they are different types from any
+interface and are never selected for an interface constraint.
 
 Every private, unused, imported and generated body is checked before exports
 are published or any IO plan executes. Checking uses the original bodies,
@@ -115,7 +116,7 @@ or Monoid, by method shapes, or by a successful implementation check.
 Propositional equality, law representation and calculational reasoning remain
 separate foundational work.
 
-Multiple named implementations at the same structural dictionary type are
+Multiple named implementations of one interface at the same type are
 allowed. Callers choose a value explicitly or request unique visible lookup; no coherence, preferred-instance,
 ambiguity-resolution or algebraic-law guarantee follows.
 

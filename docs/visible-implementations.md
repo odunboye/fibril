@@ -55,9 +55,10 @@ No type parameters are invented and no implementation-producing function is
 instantiated. Missing, ambiguous or inconclusive lookup fails with a source
 selection point and asks for an explicit dictionary.
 
-Record/interface identity remains structural. A provider at an identically
-shaped record type can match; no nominal class-membership or algebraic-law
-certificate is implied. Uniqueness in this visibility snapshot is not whole-
+Interface identity is [nominal](nominal-interfaces.md): two interfaces with equal method
+types are different types, so a provider matches only its own interface. Plain
+records stay structural, and a record is not accepted where an interface is
+expected. No algebraic-law certificate is implied. Uniqueness in this visibility snapshot is not whole-
 program semantic coherence. Adding a direct import can introduce ambiguity,
 which is rejected rather than resolved by declaration/import order.
 

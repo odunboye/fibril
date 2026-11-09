@@ -2,6 +2,7 @@
 module Fibril.Driver.Elaborate
 
 import Data.List
+import Data.String
 import Fibril.Core.Quantity
 import Fibril.Source.File
 import Fibril.Source.Document
@@ -49,7 +50,8 @@ elaborationReport source = do
     [("checked", "false"), ("representation", jsonString "named-ir;not-source"),
      ("module", maybe "null" (\header => jsonString (concat (intersperse "." header.components))) document.moduleHeader),
      ("imports", jsonArray (map (\dependency => jsonString (concat (intersperse "." dependency.components))) document.imports)),
-     ("declarations", jsonArray (map declarationJSON declarations)),
+     -- Names starting with `$` are internal helpers (such as the eliminator an interface getter uses).
+     ("declarations", jsonArray (map declarationJSON (filter (\decl => not (isPrefixOf "$" decl.name)) declarations))),
      ("expression", case document.body of ExpressionDocument value => jsonString (renderExpr value); _ => "null")])
 
 public export

@@ -1,6 +1,7 @@
 module Ops
 
--- `+` is overloaded through a dictionary chosen by the operand type.
+-- Each operator has its own interface. They have the same method shape, so this relies on
+-- interfaces being nominal: `Add Word` and `Sub Word` are different types.
 export
 interface Add (0 A : Type 0) : Type 0 where
   constructor MkAdd
@@ -8,29 +9,45 @@ interface Add (0 A : Type 0) : Type 0 where
   add : (left : A) -> (right : A) -> A
 
 export
+interface Sub (0 A : Type 0) : Type 0 where
+  constructor MkSub
+  sub : (left : A) -> (right : A) -> A
+
+export
+interface Mul (0 A : Type 0) : Type 0 where
+  constructor MkMul
+  mul : (left : A) -> (right : A) -> A
+
+export
 implementation wordAdd : Ops.Add Word where
   add = primWordAdd
+
+export
+implementation wordSub : Ops.Sub Word where
+  sub = primWordSub
+
+export
+implementation wordMul : Ops.Mul Word where
+  mul = primWordMul
 
 export
 implementation textAdd : Ops.Add String where
   add = \(left : String) => \(right : String) => appendString left right
 
--- A fixity line sits alone before the declaration it describes.
 infixl 6
 export
 (+) : {0 A : Type 0} -> (ops : Add A) => (left : A) -> (right : A) -> A
 (+) = \(0 A : Type 0) => \(ops : Add A) => \(left : A) => \(right : A) => add A @{} left right
 
--- Ordinary functions can be operators too; no interface is needed.
 infixl 6
 export
-(-) : (left : Word) -> (right : Word) -> Word
-(-) = primWordSub
+(-) : {0 A : Type 0} -> (ops : Sub A) => (left : A) -> (right : A) -> A
+(-) = \(0 A : Type 0) => \(ops : Sub A) => \(left : A) => \(right : A) => sub A @{} left right
 
 infixl 7
 export
-(*) : (left : Word) -> (right : Word) -> Word
-(*) = primWordMul
+(*) : {0 A : Type 0} -> (ops : Mul A) => (left : A) -> (right : A) -> A
+(*) = \(0 A : Type 0) => \(ops : Mul A) => \(left : A) => \(right : A) => mul A @{} left right
 
 infixr 5
 export

@@ -59,9 +59,10 @@ examines the typed local context, not a global implementation registry:
 5. Report missing, ambiguous or inconclusive/exhausted selection as an error.
 
 Ordinary typed dictionary parameters, lets and inferred pattern fields can be
-candidates as well as named constraints. This is structural dictionary typing,
-not nominal interface membership. A same-shaped record can match, and two
-same-shaped but behaviorally different dictionaries are ambiguous.
+candidates as well as named constraints. Interfaces are [nominal](nominal-interfaces.md),
+so a candidate must have the required interface type exactly; a same-shaped record or another
+interface's dictionary does not match. Two dictionaries of one interface and type are still
+ambiguous.
 
 Search does not use a resource ledger to choose between candidates. Reusing a
 linear dictionary is still rejected by ordinary usage analysis; unrestricted

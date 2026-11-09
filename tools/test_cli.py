@@ -4128,6 +4128,116 @@ main = first Zero
             self.assertNotEqual(result.returncode, 0)
             self.assertEqual(result.stdout, "")
 
+    def test_nominal_interfaces(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            def methods(count):
+                return "".join(f"  m{i} : (left : A) -> (right : A) -> A\n" for i in range(count))
+            library = root / "Kit.fib"
+            base = ("module Kit\n\nexport\ninterface Add (0 A : Type 0) : Type 0 where\n  constructor MkAdd\n  add : (left : A) -> (right : A) -> A\n\n"
+                    "export\ninterface Sub (0 A : Type 0) : Type 0 where\n  constructor MkSub\n  sub : (left : A) -> (right : A) -> A\n\n"
+                    "export\nimplementation wordAdd : Kit.Add Word where\n  add = primWordAdd\n\n"
+                    "export\nimplementation wordSub : Kit.Sub Word where\n  sub = primWordSub\n\n"
+                    "export\nrecord Pair (0 A : Type 0) : Type 0 where\n  constructor MkPair\n  first : (left : A) -> (right : A) -> A\n\n"
+                    "export\npairWord : Kit.Pair Word\npairWord = MkPair Word primWordAdd\n\n"
+                    "export\nviaAdd : {0 A : Type 0} -> (ops : Add A) => (left : A) -> (right : A) -> A\n"
+                    "viaAdd = \\(0 A : Type 0) => \\(ops : Add A) => \\(left : A) => \\(right : A) => add A @{} left right\n\n"
+                    "export\nviaSub : {0 A : Type 0} -> (ops : Sub A) => (left : A) -> (right : A) -> A\n"
+                    "viaSub = \\(0 A : Type 0) => \\(ops : Sub A) => \\(left : A) => \\(right : A) => sub A @{} left right\n")
+            library.write_text(base)
+            path = root / "Main.fib"
+            def go(body, kind="Word", command="eval"):
+                path.write_text(f"module Main\nimport Kit\n\nmain : {kind}\nmain = {body}\n")
+                return run(command, "--source-dir", str(root), str(path))
+            def text(result):
+                return result.stdout + result.stderr
+            # Same method shape, different interfaces: each lookup finds exactly its own.
+            self.assertIn("Normal: 5", go("Kit.viaAdd 2w 3w").stdout)
+            self.assertIn("Normal: 1", go("Kit.viaSub 3w 2w").stdout)
+            # A dictionary of another interface, or a same-shaped record, is a type error.
+            wrong = go("Kit.add Word Kit.wordSub 1w 2w")
+            self.assertNotEqual(wrong.returncode, 0)
+            self.assertIn("not compatible", text(wrong))
+            record = go("Kit.add Word Kit.pairWord 1w 2w")
+            self.assertNotEqual(record.returncode, 0)
+            # An unrestricted dictionary serves several calls.
+            reuse = go("Kit.add Word Kit.wordAdd 1w (Kit.add Word Kit.wordAdd 2w 3w)")
+            self.assertIn("Normal: 6", reuse.stdout)
+            # Wide interfaces lower (today's structural form ran out of budget near 16 methods).
+            wide = root / "Wide.fib"
+            wide.write_text("module Wide\n\nexport\ninterface Many (0 A : Type 0) : Type 0 where\n  constructor MkMany\n" + methods(20))
+            path.write_text("module Main\nimport Wide\n\nmain : Word\nmain = 1w\n")
+            self.assertEqual(run("check", "--source-dir", str(root), str(path)).returncode, 0)
+            # The optional eliminator is still produced when requested, and never otherwise.
+            wide.write_text("module Wide\n\nexport\ninterface One (0 A : Type 0) : Type 0 where\n  constructor MkOne\n  eliminator useOne\n  one : (value : A) -> A\n")
+            elaborated = json.loads(run("elaborate", str(wide)).stdout)
+            names = [d["name"] for d in elaborated["declarations"]]
+            self.assertIn("useOne", names)
+            self.assertFalse(any("$" in name for name in names))
+
+    def test_nominal_interface_edges(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / "Main.fib"
+            def go(source, command="eval", *flags):
+                path.write_text(source)
+                return run(command, "--source-dir", str(root), *flags, str(path))
+            def text(result):
+                return result.stdout + result.stderr
+            # Wide dictionary: construct it and call getters (first, last, and the eliminator).
+            methods = "".join(f"  m{i} : (left : A) -> (right : A) -> A\n" for i in range(20))
+            values = " ".join("primWordMul" if i == 19 else "primWordAdd" for i in range(20))
+            (root / "Wide.fib").write_text(
+                "module Wide\n\nexport\ninterface Many (0 A : Type 0) : Type 0 where\n  constructor MkMany\n" + methods +
+                "\nexport\nwideWord : Wide.Many Word\nwideWord = MkMany Word " + values + "\n\n"
+                "export\ninterface One (0 A : Type 0) : Type 0 where\n  constructor MkOne\n  eliminator useOne\n"
+                "  one : (value : A) -> A\n\nexport\noneWord : Wide.One Word\noneWord = MkOne Word (primWordAdd 1w)\n")
+            result = go("module Main\nimport Wide\n\nmain : IO Unit\nmain = do\n"
+                        "  putStrLn (primWordToString (Wide.m0 Word Wide.wideWord 1w 2w))\n"
+                        "  putStrLn (primWordToString (Wide.m19 Word Wide.wideWord 3w 4w))\n"
+                        # The eliminator branch is unrestricted: the method is used twice.
+                        "  putStrLn (primWordToString (Wide.useOne Word (\\(0 self : Wide.One Word) => Word) Wide.oneWord "
+                        "(\\(f : (value : Word) -> Word) => f (f 5w))))\n", "run", "--fuel", "4096")
+            self.assertEqual(result.returncode, 0, text(result))
+            self.assertEqual(result.stdout, "3\n12\n7\n")
+            # Native C: execute the same 20-method dictionary (about 25 methods reach native admission).
+            compiler = shutil.which("cc")
+            if compiler:
+                emitted = go("module Main\nimport Wide\n\nmain : IO Unit\nmain = do\n"
+                             "  putStrLn (primWordToString (Wide.m0 Word Wide.wideWord 1w 2w))\n"
+                             "  putStrLn (primWordToString (Wide.m19 Word Wide.wideWord 3w 4w))\n", "emit-c")
+                self.assertEqual(emitted.returncode, 0, text(emitted))
+                source = root / "native.c"
+                source.write_text(emitted.stdout)
+                runtime = ROOT / "runtime/native"
+                built = subprocess.run([compiler, "-I", str(runtime), "-o", str(root / "native"), str(source),
+                                        str(runtime / "fibril_runtime.c")], capture_output=True, text=True)
+                self.assertEqual(built.returncode, 0, built.stderr)
+                self.assertEqual(subprocess.run([str(root / "native")], capture_output=True, text=True).stdout, "3\n12\n")
+            # Dependent methods keep the structural lowering and still project.
+            (root / "Dep.fib").write_text(
+                "module Dep\n\nexport\ninterface Dep : Type 0 where\n  constructor MkDep\n  flag : Bool\n"
+                "  value : if flag then Word else Bool\n\nexport\nwordDep : Dep.Dep\nwordDep = MkDep True 7w\n")
+            self.assertIn("Normal: 7", go("module Main\nimport Dep\n\nmain : Word\nmain = Dep.value Dep.wordDep\n").stdout)
+            # A method mentioning its own interface is not supported; it is rejected with a clear error.
+            (root / "Selfy.fib").write_text(
+                "module Selfy\n\nexport\ninterface Selfy (0 A : Type 0) : Type 0 where\n  constructor MkSelfy\n"
+                "  pick : (other : Selfy.Selfy A) -> A\n")
+            selfy = go("module Main\nimport Selfy\n\nmain : Word\nmain = 1w\n", "check")
+            self.assertNotEqual(selfy.returncode, 0)
+            self.assertIn("cannot mention its own interface", text(selfy))
+            # Identity survives a public facade.
+            (root / "Kit.fib").write_text(
+                "module Kit\n\nexport\ninterface Add (0 A : Type 0) : Type 0 where\n  constructor MkAdd\n"
+                "  add : (left : A) -> (right : A) -> A\n\nexport\ninterface Sub (0 A : Type 0) : Type 0 where\n"
+                "  constructor MkSub\n  sub : (left : A) -> (right : A) -> A\n\n"
+                "export\nsubWord : Kit.Sub Word\nsubWord = MkSub Word primWordSub\n")
+            (root / "Facade.fib").write_text("module Facade\nimport public Kit (Add, Sub, add, sub, subWord)\n")
+            self.assertIn("Normal: 1", go("module Main\nimport Facade\n\nmain : Word\nmain = sub Word subWord 3w 2w\n").stdout)
+            wrong = go("module Main\nimport Facade\n\nmain : Word\nmain = add Word subWord 1w 2w\n")
+            self.assertNotEqual(wrong.returncode, 0)
+            self.assertIn("not compatible", text(wrong))
+
     def test_symbolic_operators_and_fixity(self):
         example = ROOT / "examples/modules/operators"
         result = run("run", "--source-dir", str(example), str(example / "Main.fib"))
@@ -4164,15 +4274,13 @@ main = first Zero
             clash = go("1w + 2w <+> 3w", extra=mixed)
             self.assertNotEqual(clash.returncode, 0)
             self.assertIn("cannot be mixed or chained", text(clash))
-            # Interfaces are structural, so two with one shape cannot be told apart by type.
+            # Interfaces are nominal: a second interface with the same method shape is a different
+            # type, so it neither shadows nor makes the first ambiguous.
             twin = ("\nexport\ninterface Twin (0 A : Type 0) : Type 0 where\n  constructor MkTwin\n  eliminator useTwin\n"
                     "  twin : (left : A) -> (right : A) -> A\n\nexport\nimplementation wordTwin : Ops.Twin Word where\n"
-                    "  twin = primWordMul\n\nexport\nboth : {0 A : Type 0} -> (ops : Add A) => (left : A) -> (right : A) -> A\n"
-                    "both = \\(0 A : Type 0) => \\(ops : Add A) => \\(left : A) => \\(right : A) => add A @{} left right\n")
-            self.assertIn("Normal: 3", go("Ops.both {Word} @{Ops.wordAdd} 1w 2w", extra=twin).stdout)
-            ambiguous = go("Ops.both 1w 2w", extra=twin)
-            self.assertNotEqual(ambiguous.returncode, 0)
-            self.assertIn("Ambiguous visible implementations", text(ambiguous))
+                    "  twin = primWordMul\n")
+            self.assertIn("Normal: 3", go("1w + 2w", extra=twin).stdout)
+            self.assertIn("Normal: 3", go("Ops.add Word @{Ops.wordAdd} 1w 2w", extra=twin).stdout)
             # Fixity lines are constrained.
             for bad in ("infixl 10\n(**) : Word\n(**) = 1w\n",
                         "infixl 6\ndata Box : Type where\n  Wrap : Box\n",

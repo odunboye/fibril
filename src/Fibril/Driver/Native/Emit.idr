@@ -332,7 +332,8 @@ emitEntryGlobals globals requestedMode requests lineLimit term = do
   case checkRuntimeGlobals globals checkingDepth typeReductionFuel Empty term (IOType UnitType) of
     Left err => Left ("Native entry checking: " ++ show err)
     Right _ => Right ()
-  if sharedProgramNodes term declarations > 8192 then Left "Native core admission exceeds 8192 nodes" else Right ()
+  if sharedProgramNodes term declarations > 8192
+    then Left ("Native core admission exceeds 8192 nodes (" ++ show (sharedProgramNodes term declarations) ++ ")") else Right ()
   if sharedProgramPayload term declarations > payloadLimit then Left "Native literal admission exceeds 8192 characters" else Right ()
   if mode == Binary && (requests > 100000 || lineLimit > 8388608)
      then Left "Native binary admission limit exceeded" else Right ()
