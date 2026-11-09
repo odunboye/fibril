@@ -19,6 +19,7 @@ supportedPrimitive WordToStringOp = True
 supportedPrimitive WordDivOp = True
 supportedPrimitive WordRemOp = True
 supportedPrimitive WordFromNatOp = True
+supportedPrimitive BytesEqualOp = True
 
 mutual
   public export

@@ -142,6 +142,7 @@ export function runProgram(program, host, options = {}) {
         case 'append': {const a=expect(ev(0),'string'), b=expect(ev(1),'string'); alloc((a.text.length+b.text.length)*2); return value('string',{text:a.text+b.text});}
         case 'stringEq': {const a=expect(ev(0),'string'), b=expect(ev(1),'string'); tick(a.text.length+b.text.length); return value('bool',{boolean:a.text===b.text});}
         case 'bytesAppend': {const a=expect(ev(0),'bytes').data,b=expect(ev(1),'bytes').data; tick(a.length+b.length); alloc(a.length+b.length); const data=new Uint8Array(a.length+b.length);data.set(a);data.set(b,a.length);return octets(data,false);}
+        case 'bytesEqual': {const a=expect(ev(0),'bytes').data,b=expect(ev(1),'bytes').data; tick(a.length+b.length); return value('bool',{boolean:a.length===b.length&&a.every((x,i)=>x===b[i])});}
         case 'bytesShare': return value('nominal',{payload:lazy(0)});
         case 'bytesLength': return nat(expect(ev(0),'bytes').data.length);
         case 'bytesOctet': return octets(Uint8Array.of(count(ev(0))%256));
