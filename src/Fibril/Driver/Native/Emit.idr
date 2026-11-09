@@ -314,13 +314,15 @@ generateGlobals globals mode next ((key, q, ty, body) :: rest) = do
   Right (end, code.definitions ++ definitions, wrapper :: wrappers)
 
 emitEntryGlobals : RuntimeGlobals -> NativeMode -> Nat -> Nat -> Term 0 -> Either String String
-emitEntryGlobals globals mode requests lineLimit term = do
+emitEntryGlobals globals requestedMode requests lineLimit term = do
   declarations <- reachableGlobals globals term
   let syntax : List (Term 0) = term :: concatMap (\(_, _, ty, body) => [ty, body]) declarations
   let scan = map maskGlobalRefs syntax
-  if mode /= Network && any containsNetworkRequest scan then Left "Network effects require emit-c-network" else Right ()
+  -- Plain emit-c switches to the network entry when the program uses sockets.
+  let mode = if requestedMode == Preflight && any containsNetworkRequest scan then Network else requestedMode
+  if mode /= Network && any containsNetworkRequest scan then Left "Network effects are only supported by emit-c" else Right ()
   if mode == Network && not (all networkOnly scan)
-    then Left "Network profile rejects console input, files and binary stdio, including erased/dead syntax" else Right ()
+    then Left "A program that uses sockets cannot also use console input, files or binary stdio, including erased/dead syntax" else Right ()
   if mode == Embedded && not (all (outputOnly True) scan)
     then Left "Embedded profile rejects input, binary transport and file references, including erased/dead syntax" else Right ()
   if mode /= Binary && any containsBinaryTransport scan then Left "Binary IO requires the explicit binary runner" else Right ()
@@ -356,10 +358,16 @@ emitEntryGlobals globals mode requests lineLimit term = do
           then "FBinaryResult fibril_program_binary_embed(const FByteAdapters *host) { return fibril_native_binary_embed(" ++ name code.root ++ ", " ++ show requests ++ ", " ++ show lineLimit ++ ", host); }\n" ++
                "#ifndef FIBRIL_EMBED_ONLY\n" ++ mainCode ++ "#endif\n"
           else mainCode
-  let header = if mode == Network then "fibril_network_runtime.h" else if mode == Binary then "fibril_binary_embed.h" else
+  let header = if mode == Binary then "fibril_binary_embed.h" else
         if mode == Embedded then "fibril_embedded.h" else "fibril_runtime.h"
+  let prelude = if mode == Network
+        then "/* Build: cc -std=c11 -I runtime/native THIS_FILE -o program (no separate runtime file) */\n" ++
+             "#ifdef FIBRIL_NO_HEAP\n#error \"Network programs need the hosted runtime\"\n#endif\n" ++
+             "#ifndef _POSIX_C_SOURCE\n#define _POSIX_C_SOURCE 200809L\n#endif\n" ++
+             "#include \"fibril_runtime.c\"\n#include \"fibril_network.c\"\n#include \"fibril_network_runtime.c\"\n"
+        else "#include \"" ++ header ++ "\"\n"
   Right ("/* Generated from checked Fibril core; experimental native subset. */\n" ++
-         "#include \"" ++ header ++ "\"\n" ++ concat (map (\(key, _, _, _) => "FValue *fibril_global_" ++ show key ++ "(FRuntime *, FEnv *);\n") declarations) ++
+         prelude ++ concat (map (\(key, _, _, _) => "FValue *fibril_global_" ++ show key ++ "(FRuntime *, FEnv *);\n") declarations) ++
          concat (prototypes 0 code.next) ++ concat globalCode ++ concat definitions ++
          concat code.definitions ++ entryCode)
 

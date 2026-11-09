@@ -1,10 +1,5 @@
-#ifdef FIBRIL_NO_HEAP
-#error "Network execution is a hosted POSIX profile"
-#endif
-/* Compile instead of fibril_runtime.c, and link fibril_network.c. */
-#include "fibril_runtime.c"
-#include "fibril_network.h"
-#include "fibril_network_runtime.h"
+/* TCP profile. Generated network C includes fibril_runtime.c, fibril_network.c, then this
+   file, in one translation unit, because it uses the runtime's statics. */
 #define F_MAX_NETWORK_REQUESTS ((size_t)4096)
 #define F_MAX_NETWORK_PENDING ((size_t)4096)
 

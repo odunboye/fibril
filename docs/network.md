@@ -22,14 +22,18 @@ explicit framing and loop over bounded operations.
 The equivalent emission/link steps are:
 
 ```sh
-./build/exec/fibril emit-c-network --package examples/modules/tcp-echo/fibril.yaml > echo.c
-cc -std=c11 -O2 -Wall -Wextra -Werror -I runtime/native echo.c \
-  runtime/native/fibril_network_runtime.c runtime/native/fibril_network.c -o echo
+./build/exec/fibril emit-c --package examples/modules/tcp-echo/fibril.yaml > echo.c
+cc -std=c11 -O2 -Wall -Wextra -Werror -I runtime/native echo.c -o echo
 ```
 
-Compile `fibril_network_runtime.c` **instead of** `fibril_runtime.c` or
-`fibril_binary_runtime.c`. `emit-c-network PATH` and
-`emit-c-network --source-dir ROOT ENTRY` also work. With no arguments, emission
+`emit-c` selects the network entry when the program uses sockets. That generated
+file includes `fibril_runtime.c`, `fibril_network.c` and
+`fibril_network_runtime.c` itself (one translation unit, because the TCP code
+uses the runtime's statics), so there is no runtime file to link and no TCP code
+in any other build. It states its build command in a comment at the top. Hosted POSIX
+only (`FIBRIL_NO_HEAP` is rejected). A program that uses sockets cannot also use
+console input, files or binary stdio; `emit-c` rejects that combination.
+`emit-c-network` remains as an alias that always selects the network entry. With no arguments, emission
 uses `fibril.yaml`. The entry independently checks as `IO Unit`; checking and
 emission perform no network activity. Emission produces C, not an executable.
 
@@ -119,15 +123,17 @@ an entire failed message can duplicate its accepted prefix.
 socket and one of `Complete bytes`, `Ended prefix`, `Failed prefix error`, or
 `Exhausted prefix`. It performs at most `fuel` reads and requests at most 64 KiB
 per read, without consuming beyond the requested count. Count zero needs no read.
+Counts above 256 KiB are refused: the result is `Exhausted` with an empty prefix and
+nothing is read (a count of exactly 256 KiB reads normally).
 Its timeout applies **per read**, not to the whole helper. Prefix assembly copies
 bytes and is intended for bounded messages; it is not a zero-copy buffer builder.
 All copies count against the invocation's allocation/evaluation limits.
 
 ## Runner separation and current limits
 
-Networking requires the explicit network profile. Hosted console, binary,
-JavaScript and embedded emitters/runners reject reachable network syntax,
-including erased/dead syntax. The network profile permits console output for
+`emit-c` selects the network profile when the program reaches network syntax
+(including erased/dead syntax). The interactive, resource, binary, JavaScript and
+embedded emitters/runners reject reachable network syntax. The network profile permits console output for
 logging but rejects console input, file resources and borrowed binary stdio,
 including erased/dead syntax. Effects execute incrementally; earlier output and
 network writes are not rolled back after a later error.

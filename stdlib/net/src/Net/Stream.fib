@@ -47,6 +47,8 @@ readOnce count timeout state = case state return \(0 self : ExactRead) => IO Exa
 
 -- fuel bounds read attempts; timeout applies separately to each read.
 -- Requests are capped at 64 KiB per read, and allocation budgets still apply.
+-- Each append copies the prefix (quadratic), so count above 256 KiB is refused:
+-- it returns Exhausted with an empty prefix and reads nothing.
 export
 readExactly : (fuel : Nat) -> (1 socket : Socket) -> (count : Word) -> (timeout : Word) -> IO ExactRead
 readExactly fuel socket count timeout =
@@ -54,5 +56,5 @@ readExactly fuel socket count timeout =
     (\(1 state : ExactRead) => pure ExactRead state)
     (\(0 n : Nat) => \(1 next : (1 state : ExactRead) -> IO ExactRead) =>
       \(1 state : ExactRead) => bind ExactRead ExactRead (readOnce count timeout state) next)
-    fuel)
+    (if primWordLt 262144w count then 0 else fuel))
   (MkExactRead socket (if primWordEq count 0w then Complete primBytesEmpty else Exhausted primBytesEmpty))

@@ -1,5 +1,7 @@
 /* Narrow POSIX implementation; protocol and application libraries live in Fibril. */
+#ifndef _POSIX_C_SOURCE
 #define _POSIX_C_SOURCE 200809L
+#endif
 #include "fibril_network.h"
 #include <arpa/inet.h>
 #include <errno.h>

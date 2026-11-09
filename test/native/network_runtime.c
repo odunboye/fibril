@@ -1,4 +1,7 @@
 /* Trusted defensive runtime fixtures, deliberately bypass source checking. */
+#define _POSIX_C_SOURCE 200809L
+#include "fibril_runtime.c"
+#include "fibril_network.c"
 #include "fibril_network_runtime.c"
 #include <assert.h>
 #include <fcntl.h>

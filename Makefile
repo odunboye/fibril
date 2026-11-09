@@ -337,5 +337,5 @@ network-test: build
 
 network-demo: build
 	mkdir -p build/network
-	./build/exec/fibril emit-c-network --package examples/modules/tcp-echo/fibril.yaml > build/network/echo.c
-	$(CC) $(CFLAGS) -std=c11 -O2 -Wall -Wextra -Werror -I runtime/native build/network/echo.c runtime/native/fibril_network_runtime.c runtime/native/fibril_network.c -o build/network/echo
+	./build/exec/fibril emit-c --package examples/modules/tcp-echo/fibril.yaml > build/network/echo.c
+	$(CC) $(CFLAGS) -std=c11 -O2 -Wall -Wextra -Werror -I runtime/native build/network/echo.c -o build/network/echo

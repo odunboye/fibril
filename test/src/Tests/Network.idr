@@ -45,7 +45,6 @@ checks =
       (Pi Linear stream (networkPair stream stream)))))
   , ("socket primitive arity is checked", not (accepted (inferErased 512 1024 Empty (Prim NetConnectOp []))))
   , ("socket primitive argument types are checked", not (accepted (inferErased 512 1024 Empty (Prim NetReadOp [UnitValue]))))
-  , ("network effects require explicit runner", not (accepted (emitCheckedC connect)))
   , ("network scans find erased socket syntax", containsNetworkRequest {n=0} (Apply (Lambda Erased (Universe 0) UnitValue) stream))
   , ("network scans find dead operations", containsNetworkRequest {n=0} (BoolCase BoolTrue UnitValue connect))
   , ("network syntax is forbidden by binary runners", containsNonBinaryIO {n=0} connect)
