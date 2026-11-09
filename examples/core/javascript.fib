@@ -1,0 +1,5 @@
+-- The same output-only program runs on the hosted, C and JavaScript backends.
+main : IO Unit
+main = do
+  putStrLn (appendString "wrap=" (primWordToString (primWordAdd 18446744073709551615w 1w)))
+  putStrLn "λ 🌍"

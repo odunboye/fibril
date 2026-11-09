@@ -17,6 +17,7 @@ import Fibril.Driver.Interactive.Run
 import Fibril.Driver.Resource
 -- Internal byte transport is built/installed, not exposed as a source primitive.
 import Fibril.Runtime.Binary
+import Fibril.Driver.JavaScript
 import Fibril.Driver.Native
 import Fibril.Driver.Test
 import Fibril.Driver.ModuleGraph
@@ -73,6 +74,9 @@ Usage:
   fibril test                  Check all listed modules, evaluate tests main : Bool
   fibril test --package PATH   Same pure test workflow for an explicit package
   fibril test --fuel N         Same, with evaluation fuel 0..4096 (default 128); also --package PATH --fuel N
+  fibril emit-js PATH          Check and emit a self-contained output-only ES module
+  fibril emit-js --source-dir ROOT ENTRY  Emit checked project JavaScript
+  fibril emit-js --package PATH  Emit checked package JavaScript
   fibril emit-c PATH           Check and emit experimental C source to stdout
   fibril emit-c-binary PATH      Emit explicit binary-only C (standalone)
   fibril emit-c-binary --source-dir ROOT ENTRY  Emit checked binary project C
@@ -214,6 +218,10 @@ main = do
     ["test", "--package", manifest] => testPackage 128 manifest >>= printServiceReport
     ["test", "--package", manifest, "--fuel", text] => testWithFuel text (\fuel => testPackage fuel manifest)
     ["run"] => runPackage 128 "fibril.yaml" >>= printExecution
+    ["emit-js"] => emitJSPackage "fibril.yaml" >>= printC
+    ["emit-js", "--package", manifest] => emitJSPackage manifest >>= printC
+    ["emit-js", "--source-dir", root, entry] => emitJSProject root entry >>= printC
+    ["emit-js", path] => emitJSFile path >>= printC
     ["emit-c"] => emitCPackage "fibril.yaml" >>= printC
     ["emit-c", "--package", manifest] => emitCPackage manifest >>= printC
     ["emit-c", "--source-dir", root, entry] => emitCProject root entry >>= printC

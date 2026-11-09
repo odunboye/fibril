@@ -1,7 +1,8 @@
 # Word: unsigned 64-bit machine integers
 
 Status: checked, evaluated by the reference runner, and lowered to C by `emit-c` in
-every native mode. `primWordToString` formats a Word as decimal text, so Words can be
+every native mode. The [JavaScript backend](javascript.md) uses exact `BigInt`
+operations for its output-only fragment. `primWordToString` formats a Word as decimal text, so Words can be
 printed (see `examples/core/word-native.fib`).
 
 ## Use cases

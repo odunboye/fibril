@@ -68,7 +68,7 @@ jobs:
         run: |
           set -euo pipefail
           apt-get update
-          apt-get install --yes --no-install-recommends python3 time zstd ca-certificates libsqlite3-dev pkg-config
+          apt-get install --yes --no-install-recommends python3 nodejs time zstd ca-certificates libsqlite3-dev pkg-config
           # Checkout's temporary HOME does not persist into container run steps.
           # Trust only this mounted checkout for the provenance verifier's Git calls.
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
