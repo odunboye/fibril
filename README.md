@@ -81,8 +81,8 @@ direct imports. [General recursive data](docs/data.md#general-recursive-data) an
 recursion, including length-indexed vectors with dependent case motives.
 Bounded [automatic indexed-case elaboration](docs/index-refinement.md) supports
 Nat-indexed head/tail patterns. [Mutually recursive data](docs/mutual-data.md)
-supports uniform-parameter groups. Nested data and general index unification
-remain future work.
+supports uniform-parameter groups, and [nested fixed-list fields](docs/nested-data.md)
+are supported. General index unification remains future work.
 [Compact alternatives](docs/data.md#compact-alternatives) write simple declarations as
 `data T params = A fields | B fields`; indices and linear fields still use the `where` form.
 Recursive function equations are accepted when structural, or when the

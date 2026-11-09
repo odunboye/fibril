@@ -105,11 +105,11 @@ public export
 noFamilies : FieldCounts
 noFamilies _ _ = Nothing
 
--- A whole, checked family field is a proper component of the value being matched,
--- including a partner in a mutual group. Typing validates these annotations before
--- extraction; no decrease is credited to an untyped wrapper or rebuilt value.
+-- A checked whole-family or sequence field is a stored component of the
+-- value being matched. Its family may differ from the enclosing constructor.
 isFamily : String -> Term m -> Bool
 isFamily key (DataType other) = True
+isFamily key (SeqType _ _) = True
 isFamily key (Apply function _) = isFamily key function
 isFamily _ _ = False
 
@@ -200,13 +200,17 @@ mutual
     c <- walk info k env base
     d <- walkCons info k env (tailRow k env value) cons
     Right (a ++ b ++ c ++ d)
-  -- Recursors and folds may be used (a helper inlined from a global), but not
-  -- recursed through: the step is a lambda, so a self call inside it is refused
-  -- below. Motive, base and value are ordinary evaluation positions.
+  -- Nat and unary recursors retain the ordinary lambda barrier. Sequence folds
+  -- additionally expose their actual head and tail, but never their computed result.
   walk info k env (NatRec motive base step value) = walk4 info k env motive base step value
   walk info k env (NatRecRuntime motive base step value) = walk4 info k env motive base step value
   walk info k env (RecFold motive base step value) = walk4 info k env motive base step value
-  walk info k env (SeqFold motive base step value) = walk4 info k env motive base step value
+  walk info k env (SeqFold motive base step value) = do
+    a <- walk info k env motive
+    b <- walk info k env base
+    c <- walk info k env value
+    d <- walkSequenceStep info k env (tailRow k env value) step
+    Right (a ++ b ++ c ++ d)
   walk info k env (NatCase motive value base more) = do
     a <- walk info k env motive
     b <- walk info k env value
@@ -298,10 +302,23 @@ mutual
   walkCons : FieldCounts -> Nat -> List Entry -> Row -> Term m -> Either String (List Raw)
   walkCons info k env tl (Lambda _ d1 (Lambda _ d2 inner)) = do
     x <- walk info k env d1
-    y <- walk info k (Val (unknownRow k) :: env) d2
-    z <- walk info k (Val tl :: Val (unknownRow k) :: env) inner
+    let headRow = if isFamily "" d1 then tl else unknownRow k
+    y <- walk info k (Val headRow :: env) d2
+    z <- walk info k (Val tl :: Val headRow :: env) inner
     Right (x ++ y ++ z)
   walkCons info k env _ other = walk info k env other
+
+  -- The intrinsic fold binds head, erased tail, then computed result. Only
+  -- the actual head/tail are components; a fold result is never credited.
+  walkSequenceStep : FieldCounts -> Nat -> List Entry -> Row -> Term m -> Either String (List Raw)
+  walkSequenceStep info k env component (Lambda _ headTy (Lambda _ tailTy (Lambda _ resultTy inner))) = do
+    a <- walk info k env headTy
+    let headRow = if isFamily "" headTy then component else unknownRow k
+    b <- walk info k (Val headRow :: env) tailTy
+    c <- walk info k (Val component :: Val headRow :: env) resultTy
+    d <- walk info k (Val (unknownRow k) :: Val component :: Val headRow :: env) inner
+    Right (a ++ b ++ c ++ d)
+  walkSequenceStep info k env _ other = walk info k env other
 
   walkMore : FieldCounts -> Nat -> List Entry -> Row -> Term m -> Either String (List Raw)
   walkMore info k env tl (Lambda _ d inner) = do

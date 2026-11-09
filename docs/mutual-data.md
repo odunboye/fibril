@@ -2,8 +2,9 @@
 
 Status: implemented checked prototype for groups of two to eight families sharing
 one erased parameter telescope. Every recursive occurrence must be a whole member
-family applied to the unchanged parameters. Indexed mutual families and nested
-occurrences through other type constructors remain outside this slice.
+family applied to unchanged parameters, optionally beneath
+[nested fixed-list layers](nested-data.md). Indexed mutual families and unknown
+container variance remain outside this slice.
 
 ```fibril
 mutual where

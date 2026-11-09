@@ -59,7 +59,8 @@ class NativeTests(unittest.TestCase):
                     self.assertEqual(native.stdout, reference.stdout)
 
     def test_imported_module_and_package_entry(self):
-        cases = [(['--source-dir', str(ROOT / 'examples/modules/mutual-data'), str(ROOT / 'examples/modules/mutual-data/Main.fib')], b'..0\n'),
+        cases = [(['--source-dir', str(ROOT / 'examples/modules/nested-data'), str(ROOT / 'examples/modules/nested-data/Main.fib')], b'!!!\n'),
+                 (['--source-dir', str(ROOT / 'examples/modules/mutual-data'), str(ROOT / 'examples/modules/mutual-data/Main.fib')], b'..0\n'),
                  (['--source-dir', str(ROOT / 'examples/modules/index-refinement'), str(ROOT / 'examples/modules/index-refinement/Main.fib')], b'first\nsecond\n'),
                  (['--source-dir', str(ROOT / 'examples/modules/indexed-vect'), str(ROOT / 'examples/modules/indexed-vect/Main.fib')], b'first\n!!!!\n'),
                  (['--source-dir', str(ROOT / 'examples/modules/checked'), str(ROOT / 'examples/modules/checked/Main.fib')], b'Hello, Fibril!\n'),

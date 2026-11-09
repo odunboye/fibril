@@ -9261,5 +9261,72 @@ main = putStrLn (render (Node String (More String (Leaf String "leaf") (Empty St
         self.assertNotEqual(self.source(wrong).returncode, 0)
 
 
+class NestedDataTests(unittest.TestCase):
+    @staticmethod
+    def fixture():
+        return (ROOT / 'examples/modules/nested-data/Main.fib').read_text()
+
+    def check_source(self, source, accepted, diagnostic=None):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Main.fib'
+            path.write_text(source)
+            result = run_cli('check', '--source-dir', directory, str(path), timeout=120)
+        self.assertEqual(result.returncode == 0, accepted, result.stdout + result.stderr)
+        if diagnostic:
+            self.assertIn(diagnostic, result.stdout + result.stderr)
+
+    def test_rose_fold_runs_and_formats(self):
+        path = ROOT / 'examples/modules/nested-data/Main.fib'
+        result = run_cli('run', '--source-dir', str(path.parent), str(path), timeout=120)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout, '!!!\n')
+        formatted = run_cli('format', str(path))
+        self.assertEqual(formatted.returncode, 0, formatted.stderr)
+        self.check_source(formatted.stdout, True)
+
+    def test_negative_occurrence_under_sequence_is_rejected(self):
+        self.check_source(self.fixture().replace('(1 children : Items Rose)',
+            '(1 children : Items ((1 tree : Rose) -> Nat))'), False)
+
+    def test_reconstructed_root_is_not_a_decrease(self):
+        self.check_source(self.fixture().replace('size child',
+            'size (Node (Cons Rose child (Nil Rose)))'), False, 'no argument decreases')
+
+    def test_computed_fold_result_is_not_a_decrease(self):
+        source = self.fixture().split('size :')[0] + r"""
+copy : (1 tree : Rose) -> Rose
+copy tree = case tree of
+  Node children => foldItems Rose
+    (\(0 self : Items Rose) => Rose) (Node (Nil Rose))
+    (\(1 child : Rose) => \(0 tail : Items Rose) => \(1 result : Rose) =>
+      Node (Cons Rose child (Cons Rose (copy result) (Nil Rose)))) children
+"""
+        self.check_source(source, False, 'no argument decreases')
+
+    def test_parameterized_nested_recursion(self):
+        source = self.fixture().split('data Rose :')[0] + r"""
+data Tree (0 A : Type) : Type where
+  Branch : (1 children : Items (Tree A)) -> Tree A
+
+copy : (0 A : Type) -> (1 tree : Tree A) -> Tree A
+copy A tree = case tree of
+  Branch children => Branch A (foldItems (Tree A)
+    (\(0 self : Items (Tree A)) => Items (Tree A)) (Nil (Tree A))
+    (\(1 child : Tree A) => \(0 tail : Items (Tree A)) => \(1 rest : Items (Tree A)) =>
+      Cons (Tree A) (copy A child) rest) children)
+
+main : IO Unit
+main = putStrLn "nested"
+"""
+        self.check_source(source, True)
+        self.check_source(source.replace('(1 children : Items (Tree A))',
+                                         '(1 children : Items (Tree String))'), False)
+
+    def test_opaque_user_container_is_rejected(self):
+        source = self.fixture().replace('data Rose :',
+            'data Wrapper (0 A : Type) : Type where\n  Wrap : (1 left : A) -> (1 right : A) -> Wrapper A\n\ndata Rose :')
+        self.check_source(source.replace('(1 children : Items Rose)', '(1 children : Wrapper Rose)'), False)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -325,6 +325,7 @@
         "title": "Indexed inductive families",
         "path": "docs/indexed-data.md"
       },
+      { "title": "Nested recursive data", "path": "docs/nested-data.md" },
       {
         "title": "Automatic indexed-case elaboration",
         "path": "docs/index-refinement.md"

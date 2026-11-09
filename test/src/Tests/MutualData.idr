@@ -33,7 +33,13 @@ other = MkDataDecl "Other" Done [MkConstructor "Good" (Field Unrestricted (DataT
 public export
 checks : List (String, Bool)
 checks =
-  [ ("positive mutual families are admitted atomically", isRight (extendDataGroupGlobals 512 512 emptyGlobals [evenDecl, oddDecl]))
+  [ ("positive nested mutual families are admitted atomically", isRight (extendDataGroupGlobals 512 512 emptyGlobals
+       [MkDataDecl "A" Done [MkConstructor "MkA" (Field Linear (SeqType "Items" (DataType "B")) Done)],
+        MkDataDecl "B" Done [MkConstructor "MkB" (Field Linear (DataType "A") Done)]]))
+  , ("negative nested mutual partners are rejected", isLeft (admitGroup
+       [MkDataDecl "A" Done [MkConstructor "MkA" (Field Linear (SeqType "Items" (Pi Linear (DataType "B") NatType)) Done)],
+        MkDataDecl "B" Done [MkConstructor "MkB" (Field Linear (DataType "A") Done)]]))
+  , ("positive mutual families are admitted atomically", isRight (extendDataGroupGlobals 512 512 emptyGlobals [evenDecl, oddDecl]))
   , ("a family cannot refer to an unregistered partner", isLeft (extendDataGlobals 512 512 emptyGlobals evenDecl))
   , ("a mutual constructor has the declared family type", case extendDataGroupGlobals 512 512 emptyGlobals [evenDecl, oddDecl] of
        Left _ => False

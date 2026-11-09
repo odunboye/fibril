@@ -99,16 +99,23 @@ applicationSpine term = go term []
     go (Apply function argument) args = go function (argument :: args)
     go head args = (head, args)
 
+-- Intrinsic fixed sequences are strictly positive in their element type.
+-- Every group member must retain the same uniform parameter spine.
+positiveField : {n : Nat} -> Nat -> List String -> Nat -> Nat -> Term n -> Bool
+positiveField Z group count indices ty = False
+positiveField (S fuel) group count indices (SeqType _ element) = positiveField fuel group count indices element
+positiveField {n} (S fuel) group count indices ty = case applicationSpine ty of
+  (DataType other, args) => elem other group && length args == count + indices &&
+    (case selfType other count n of
+      Just expected => sameSyntax (foldl Apply (DataType other) (take count args)) expected
+      Nothing => False) && not (any (\arg => any (\member => mentionsNominal member arg) group) (drop count args))
+  _ => False
+
 checkFields : {n : Nat} -> List String -> String -> Nat -> Nat -> String -> Nat -> Telescope n -> Either String ()
 checkFields group key count indices ctor position Done = Right ()
 checkFields {n} group key count indices ctor position (Field _ ty rest) =
   let mentions = any (\member => mentionsNominal member ty) group
-      isSelf = case applicationSpine ty of
-        (DataType other, args) => elem other group && length args == count + indices &&
-          (case selfType other count n of
-            Just expected => sameSyntax (foldl Apply (DataType other) (take count args)) expected
-            Nothing => False) && not (any (\arg => any (\member => mentionsNominal member arg) group) (drop count args))
-        _ => False
+      isSelf = positiveField 64 group count indices ty
    in if mentions && not isSelf
         then Left ("constructor " ++ ctor ++ ", field " ++ show position ++ ": " ++ describe ty)
         else checkFields group key count indices ctor (S position) rest
