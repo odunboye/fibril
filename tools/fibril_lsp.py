@@ -739,27 +739,99 @@ class Server:
                 for name in sorted(names) if name.startswith(prefix)]}
 
     def project_rename(self, snapshot, view, line, column, name):
-        locations = snapshot.references(line, column, True)
-        if not locations:
+        before = snapshot.navigation("binding-graph", line, column)
+        selected = before.get("definition")
+        if not selected:
             raise LSPError(-32803, "No checked symbol at this position")
-        by_file, old = {}, set()
-        for location in locations:
-            path = uri_path(location["uri"])
+        bindings = before.get("bindings")
+        if not isinstance(bindings, list):
+            raise LSPError(-32803, "Compiler lacks the checked binding graph")
+        by_path, old = {}, set()
+        for binding in bindings:
+            if binding["destination"] != selected:
+                continue
+            origin = binding['origin']
+            path = snapshot.original(origin['path'])
             text = snapshot.text(path)
-            mapper, span = Positions(text), location["range"]
-            old.add(text[mapper.offset(span["start"]):mapper.offset(span["end"])])
-            by_file.setdefault(location["uri"], []).append({"range": span, "newText": name})
-        if len(old) != 1 or not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", next(iter(old))):
-            raise LSPError(-32803, "Project rename supports plain identifiers only; occurrences disagree or are qualified")
+            start, end = origin['range']['start']['offset'], origin['range']['end']['offset']
+            spelling = text[start:end]
+            match = re.fullmatch(r"(?:[A-Za-z][A-Za-z0-9_]*\.)*([A-Za-z][A-Za-z0-9_]*)", spelling)
+            if not match:
+                raise LSPError(-32803, "Project rename supports plain identifiers and qualified symbol suffixes only")
+            old.add(match.group(1))
+            edit = (end - len(match.group(1)), end, name)
+            if edit not in by_path.setdefault(path, []):
+                by_path[path].append(edit)
+        if len(old) != 1 or not by_path:
+            raise LSPError(-32803, "Project rename occurrences disagree; module/alias renaming is unsupported")
         if name in KEYWORDS:
             raise LSPError(-32803, f"Rename refused: {name} is a reserved word")
-        # Conservative capture guard: the compiler cannot capture-check across files, so refuse
-        # if newName appears in ANY workspace source (an importer may use it without using the old name).
-        pattern = re.compile(rf"(?<![A-Za-z0-9_']){name}(?![A-Za-z0-9_'])")
-        if any(pattern.search(snapshot.text(path)) for path in snapshot.data if path.suffix == ".fib"):
-            raise LSPError(-32803, f"Rename refused: {name} already appears in a workspace source file")
-        docs = {document.uri: document.version for document in view.documents.values()}
-        return {"documentChanges": [{"textDocument": {"uri": uri, "version": docs.get(uri)}, "edits": edits} for uri, edits in by_file.items()]}
+        # Generated/provider choices are not fully represented by authored
+        # references. Rechecking alone cannot prove that those choices stay put.
+        sources = [source["text"] for source in before["sources"]]
+        implicit_sensitive = any(re.search(r"\b(?:implementation|interface|do|data|record|projection|eliminator|mutual|case)\b|[{}]", source) for source in sources)
+        if implicit_sensitive:
+            raise LSPError(-32803, "Rename refused: implicit or generated-name choices cannot yet be verified for this checked project")
+        for edits in by_path.values():
+            edits.sort()
+            if any(left[1] > right[0] for left, right in zip(edits, edits[1:])):
+                raise LSPError(-32803, "Rename ranges overlap")
+
+        def moved(path, offset):
+            delta = 0
+            for start, end, replacement in by_path.get(path, []):
+                if offset <= start:
+                    break
+                if offset < end:
+                    return start + delta
+                delta += len(replacement) - (end - start)
+            return offset + delta
+
+        documents = dict(view.documents)
+        for path, edits in by_path.items():
+            text = snapshot.text(path)
+            for start, end, replacement in reversed(edits):
+                text = text[:start] + replacement + text[end:]
+            uri = view.uri(path)
+            version = documents[uri].version if uri in documents else 0
+            documents[uri] = Document(uri, path, version, text)
+        probe_view = View(view.epoch, documents, view.roots, view.options)
+        probe_doc = documents[snapshot.document.uri]
+        with tempfile.TemporaryDirectory(prefix="fibril-rename-") as directory:
+            probe = Snapshot(probe_view, probe_doc, directory, self.backend, snapshot.cancel)
+            source_offset = snapshot.positions(snapshot.document.path).offset({"line": line - 1, "character": 0})
+            # Compiler columns count scalars, whereas LSP positions count UTF-16.
+            source_offset += column - 1
+            query_offset = moved(snapshot.document.path, source_offset)
+            probe_mapper = Positions(probe_doc.text)
+            query_line, query_column = probe_mapper.location(probe_mapper.point(query_offset))
+            after = probe.navigation("binding-graph", query_line, query_column)
+            probe.verify_disk()
+
+            def graph(packet, owner, transport):
+                result = set()
+                for binding in packet.get('bindings', []):
+                    locations = []
+                    for key in ('origin', 'destination'):
+                        location = binding[key]
+                        path = owner.original(location['path'])
+                        start = location['range']['start']['offset']
+                        end = location['range']['end']['offset']
+                        if transport:
+                            start, end = moved(path, start), moved(path, end)
+                        locations.extend((str(path), start, end))
+                    result.add((*locations, binding['declaration']))
+                return result
+
+            before_sources = {snapshot.original(source['path']) for source in before['sources']}
+            after_sources = {probe.original(source['path']) for source in after['sources']}
+            if before_sources != after_sources or graph(before, snapshot, True) != graph(after, probe, False):
+                raise LSPError(-32803, "Rename refused: the checked authored binding graph changes")
+        versions = {document.uri: document.version for document in view.documents.values()}
+        return {"documentChanges": [{"textDocument": {"uri": view.uri(path), "version": versions.get(view.uri(path))},
+                 "edits": [{"range": {"start": snapshot.positions(path).point(start), "end": snapshot.positions(path).point(end)},
+                            "newText": replacement} for start, end, replacement in edits]}
+                for path, edits in sorted(by_path.items())]}
 
     def work(self, ident, method, params, view, cancel):
         try:

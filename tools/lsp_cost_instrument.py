@@ -59,8 +59,8 @@ def instrument(directory):
                     f'static size_t audit_allocations[{len(sites)}], audit_bytes[{len(sites)}];\n'
                     'static size_t audit_values[64];\n'
                     f'static size_t audit_arguments[{len(labels) + 1}];\n')
-    text = replace_once(text, 'static void *allocate(FRuntime *r, size_t size) {',
-                        declarations + 'static void *audit_allocate(FRuntime *r, size_t size, const char *site) {')
+    text = replace_once(text, 'static void *allocate(FRuntime *r, size_t size) {\n  if (r->error) return NULL;\n  if (size > SIZE_MAX',
+                        declarations + 'static void *audit_allocate(FRuntime *r, size_t size, const char *site) {\n  if (r->error) return NULL;\n  if (size > SIZE_MAX')
     record = ''
     for i, site in enumerate(sites):
         record += f'  if (!strcmp(site, "{site}")) {{ audit_allocations[{i}]++; audit_bytes[{i}] += size; }}\n'
@@ -77,14 +77,14 @@ def instrument(directory):
         assert count == 1, function
     text = replace_once(text, '  r->steps += length;',
                         f'  r->steps += length; audit_steps[{step_labels.index("utf8_validation_charge")}] += length;')
-    text = replace_once(text, '  if (v) { memset(v, 0, sizeof(*v)); v->tag = tag; }',
-                        '  if (v) { audit_values[tag]++; memset(v, 0, sizeof(*v)); v->tag = tag; }')
+    text = replace_once(text, '    *v = (FValue){0}; v->tag = tag;',
+                        '    audit_values[tag]++; *v = (FValue){0}; v->tag = tag;')
     path.write_text(text)
     path = directory / 'fibril_binary_runtime.c'
     text = replace_once(path.read_text(), '    if (!enter(r)) return NULL;',
                         f'    if (!enter(r)) return NULL;\n    audit_steps[{step_labels.index("interact_binary")}]++;')
     path.write_text(text)
-    tags = re.search(r'typedef enum \{ (V_UNIT,.*?) \} FTag;', (directory / 'fibril_runtime.c').read_text(), re.S)[1]
+    tags = re.search(r'typedef enum \{ (V_UNIT,.*?) \} FTag;', (directory / 'fibril_runtime_internal.h').read_text(), re.S)[1]
     tags = re.findall(r'V_\w+', tags)
     assert len(tags) <= 64
     # The existing observer prints before binary_finish destroys the arena.

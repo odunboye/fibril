@@ -13,7 +13,7 @@ prelude:
 prelude-check:
 	python3 tools/embed_prelude.py --check
 
-build: prelude-check
+build: prelude-check javascript-runtime-check
 	$(PACK) install-deps fibril
 	PACK="$(PACK)" $(IDRIS2) --build fibril.ipkg
 
@@ -197,6 +197,7 @@ examples: build
 	./build/exec/fibril eval examples/core/word-arithmetic.fib
 	./build/exec/fibril run examples/core/word-native.fib
 	./build/exec/fibril run examples/core/word-division.fib
+	./build/exec/fibril run examples/core/bytes-equal.fib
 	./build/exec/fibril eval examples/core/consume-unit.fib
 	./build/exec/fibril eval examples/core/boolean.fib
 	./build/exec/fibril eval examples/core/branch-permissions.fib
@@ -204,6 +205,8 @@ examples: build
 	./build/exec/fibril eval examples/core/declarations-polymorphic.fib
 	./build/exec/fibril check examples/core/hello-world.fib
 	./build/exec/fibril run examples/core/hello-world.fib
+	./build/exec/fibril run examples/core/javascript.fib
+	./build/exec/fibril run examples/core/embedded.fib
 	./build/exec/fibril run examples/core/console-sequence.fib
 	./build/exec/fibril eval examples/core/string-identity.fib
 	./build/exec/fibril run examples/core/console-expressions.fib
@@ -313,3 +316,17 @@ serve-docs: handbook
 
 clean:
 	rm -rf build test/build examples/build bench/build
+
+.PHONY: javascript-runtime javascript-runtime-check javascript-test
+javascript-runtime:
+	python3 tools/embed_javascript_runtime.py
+
+javascript-runtime-check:
+	python3 tools/embed_javascript_runtime.py --check
+
+javascript-test: build
+	python3 tools/test_javascript.py
+
+.PHONY: embedded-test
+embedded-test: build
+	CC="$(CC)" python3 tools/test_embedded.py

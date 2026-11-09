@@ -1,10 +1,12 @@
 -- Checked core to C, independent of file/project loading and host execution.
 module Fibril.Driver.Native.Emit
 
+import Fibril.Driver.DataLowering
 import Data.List
 import Data.Fin
 import Fibril.Core.SharedProgram
 import Fibril.Core.Term
+import Fibril.Core.OutputAdmission
 import Fibril.Core.EffectAdmission
 import Fibril.Data.Bytes
 import Fibril.Core.Quantity
@@ -20,13 +22,14 @@ import Fibril.Elaboration.Expression.Payload
 
 %default total
 
-data NativeMode = Preflight | Interactive | Resources | Binary
+data NativeMode = Preflight | Interactive | Resources | Binary | Embedded
 
 Eq NativeMode where
   Preflight == Preflight = True
   Interactive == Interactive = True
   Resources == Resources = True
   Binary == Binary = True
+  Embedded == Embedded = True
   _ == _ = False
 
 record Generated where
@@ -70,72 +73,6 @@ byteLiteral n value =
 constant : Nat -> String -> Generated
 constant n expr = Output n (S n) [function n ("(void)e; return " ++ expr ++ ";")]
 
--- General recursive data has no runtime representation of its own. A constructor is a lambda
--- chain over its parameters (erased) and fields that builds a variant value, tagged by the
--- constructor index, whose payload is the fields as right-nested pairs; a case is a variant
--- case whose branches unpack that nest. The existing native variant and pair values do the work.
-
--- The quantities of a constructor type's binders after its parameters, in order.
-fieldQuantities : Nat -> Term n -> List Quantity
-fieldQuantities Z (Pi q _ rest) = q :: fieldQuantities Z rest
-fieldQuantities (S k) (Pi _ _ rest) = fieldQuantities k rest
-fieldQuantities _ _ = []
-
--- Field `j` (1-based) of `m` is the variable m - j counting from the newest binder.
-fieldVariable : {n : Nat} -> Nat -> Nat -> Maybe (Term n)
-fieldVariable m j = map Variable (natToFin (minus m j) n)
-
-pairNest : {n : Nat} -> Nat -> Nat -> List Quantity -> Maybe (Term n)
-pairNest m j [] = Nothing
-pairNest m j [q] = fieldVariable m j
-pairNest m j [q1, q2] = do
-  a <- fieldVariable m j
-  b <- fieldVariable m (S j)
-  Just (PairValue (Sigma q1 q2 (Universe 0) (Universe 0)) a b)
-pairNest m j (q1 :: rest) = do
-  a <- fieldVariable m j
-  b <- pairNest m (S j) rest
-  Just (PairValue (Sigma q1 Unrestricted (Universe 0) (Universe 0)) a b)
-
--- The constructor as a lambda chain mirroring its Pi type: one lambda per parameter and per
--- field, ending in the variant value built from the fields in the innermost scope.
-buildConstructor : {n : Nat} -> (index : Nat) -> (leading : Nat) -> (quantities : List Quantity) -> Term n -> Maybe (Term n)
-buildConstructor index leading quantities chain = go leading chain
-  where
-    goFields : {m : Nat} -> Term m -> Maybe (Term m)
-    goFields (Pi q domain rest) = map (Lambda q domain) (goFields rest)
-    goFields _ = case quantities of
-      [] => Just (VariantValue (Universe 0) index Nothing)
-      _ => map (\payload => VariantValue (Universe 0) index (Just payload)) (pairNest (length quantities) 1 quantities)
-    go : Nat -> {m : Nat} -> Term m -> Maybe (Term m)
-    go Z term = goFields term
-    go (S k) (Pi q domain rest) = map (Lambda q domain) (go k rest)
-    go (S _) _ = Nothing
-
--- A branch takes the fields one at a time; the variant case hands it one payload. With two or
--- more fields the payload is a pair nest, so the branch is wrapped to unpack it.
-unpackBranch : List Quantity -> Term n -> Term n -> Term n
-unpackBranch [] applied payload = applied
-unpackBranch [q] applied payload = Apply applied payload
-unpackBranch [q1, q2] applied payload =
-  PairCase NatType payload (Lambda q1 (Universe 0) (Lambda q2 (Universe 0)
-    (Apply (Apply (weaken (weaken applied)) (Variable (FS FZ))) (Variable FZ))))
-unpackBranch (q1 :: rest) applied payload =
-  PairCase NatType payload (Lambda q1 (Universe 0) (Lambda Unrestricted (Universe 0)
-    (unpackBranch rest (Apply (weaken (weaken applied)) (Variable (FS FZ))) (Variable FZ))))
-
-wrapBranch : List Quantity -> Term n -> Term n
-wrapBranch [] branch = branch
-wrapBranch [q] branch = branch
-wrapBranch quantities branch = Lambda Linear (Universe 0) (unpackBranch quantities (weaken branch) (Variable FZ))
-
-wrapBranches : DataDecl -> Nat -> List (Term n) -> Maybe (List (Term n))
-wrapBranches decl index [] = Just []
-wrapBranches decl index (branch :: rest) = do
-  chain <- constructorType decl index
-  following <- wrapBranches decl (S index) rest
-  Just (wrapBranch (fieldQuantities (parameterCount decl) chain) branch :: following)
-
 wordRuntimeFunction : PrimOp -> Maybe String
 wordRuntimeFunction WordAddOp = Just "f_word_add"
 wordRuntimeFunction WordSubOp = Just "f_word_sub"
@@ -144,6 +81,7 @@ wordRuntimeFunction WordEqOp = Just "f_word_eq"
 wordRuntimeFunction WordLtOp = Just "f_word_lt"
 wordRuntimeFunction WordDivOp = Just "f_word_div"
 wordRuntimeFunction WordRemOp = Just "f_word_rem"
+wordRuntimeFunction BytesEqualOp = Just "f_bytes_equal"
 wordRuntimeFunction _ = Nothing
 
 mutual
@@ -341,6 +279,8 @@ emitEntryGlobals globals mode requests lineLimit term = do
   declarations <- reachableGlobals globals term
   let syntax : List (Term 0) = term :: concatMap (\(_, _, ty, body) => [ty, body]) declarations
   let scan = map maskGlobalRefs syntax
+  if mode == Embedded && not (all (outputOnly True) scan)
+    then Left "Embedded profile rejects input, binary transport and file references, including erased/dead syntax" else Right ()
   if mode /= Binary && any containsBinaryRequest scan then Left "Binary IO requires the explicit binary runner" else Right ()
   if mode == Binary && any containsNonBinaryIO scan then Left "Native binary entry rejects non-binary IO/references" else Right ()
   if any containsFileReference scan
@@ -358,19 +298,23 @@ emitEntryGlobals globals mode requests lineLimit term = do
   (next, definitions, globalCode) <- generateGlobals globals mode 0 declarations
   code <- generate globals mode next term
   let entry = case mode of
+        Embedded => ""
         Preflight => "fibril_native_run(" ++ name code.root ++ ")"
         Interactive => "fibril_native_interactive_run(" ++ name code.root ++ ", " ++ show requests ++ ", " ++ show lineLimit ++ ")"
         Resources => "fibril_native_resource_run(" ++ name code.root ++ ", " ++ show requests ++ ", " ++ show lineLimit ++ ")"
         Binary => "fibril_native_binary_run(" ++ name code.root ++ ", " ++ show requests ++ ", " ++ show lineLimit ++ ")"
   let mainCode = "int main(void) { return " ++ entry ++ "; }\n"
-  let entryCode = if mode == Preflight
+  let entryCode = if mode == Embedded
+        then "FNativeResult fibril_program_embed_arena(const FNativeHost *host, FEmbeddedArena *arena) { return fibril_native_embed_arena(" ++ name code.root ++ ", host, arena); }\n"
+        else if mode == Preflight
         then "FNativeResult fibril_program_embed(const FNativeHost *host) { return fibril_native_embed(" ++ name code.root ++ ", host); }\n" ++
              "#ifndef FIBRIL_EMBED_ONLY\n" ++ mainCode ++ "#endif\n"
         else if mode == Binary
           then "FBinaryResult fibril_program_binary_embed(const FByteAdapters *host) { return fibril_native_binary_embed(" ++ name code.root ++ ", " ++ show requests ++ ", " ++ show lineLimit ++ ", host); }\n" ++
                "#ifndef FIBRIL_EMBED_ONLY\n" ++ mainCode ++ "#endif\n"
           else mainCode
-  let header = if mode == Binary then "fibril_binary_embed.h" else "fibril_runtime.h"
+  let header = if mode == Binary then "fibril_binary_embed.h" else
+        if mode == Embedded then "fibril_embedded.h" else "fibril_runtime.h"
   Right ("/* Generated from checked Fibril core; experimental native subset. */\n" ++
          "#include \"" ++ header ++ "\"\n" ++ concat (map (\(key, _, _, _) => "FValue *fibril_global_" ++ show key ++ "(FRuntime *, FEnv *);\n") declarations) ++
          concat (prototypes 0 code.next) ++ concat globalCode ++ concat definitions ++
@@ -410,3 +354,12 @@ emitCheckedBinaryC = emitEntry Binary
 public export
 emitCheckedBinaryCGlobals : RuntimeGlobals -> Nat -> Nat -> Term 0 -> Either String String
 emitCheckedBinaryCGlobals globals = emitEntryGlobals globals Binary
+
+||| Portable output-only C entry using caller-owned typed pools; no default main.
+public export
+emitCheckedEmbeddedCGlobals : RuntimeGlobals -> Term 0 -> Either String String
+emitCheckedEmbeddedCGlobals globals = emitEntryGlobals globals Embedded 0 0
+
+public export
+emitCheckedEmbeddedC : Term 0 -> Either String String
+emitCheckedEmbeddedC = emitEntry Embedded 0 0

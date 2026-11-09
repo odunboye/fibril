@@ -26,6 +26,7 @@ data PrimOp
   | WordDivOp
   | WordRemOp
   | WordFromNatOp
+  | BytesEqualOp
 
 public export
 Eq PrimOp where
@@ -40,6 +41,7 @@ Eq PrimOp where
   WordDivOp == WordDivOp = True
   WordRemOp == WordRemOp = True
   WordFromNatOp == WordFromNatOp = True
+  BytesEqualOp == BytesEqualOp = True
   _ == _ = False
 
 public export
@@ -55,6 +57,7 @@ Show PrimOp where
   show WordDivOp = "wordDiv"
   show WordRemOp = "wordRem"
   show WordFromNatOp = "wordFromNat"
+  show BytesEqualOp = "bytesEqual"
 
 ||| Terms in a context of n computational variables; 0 is newest.
 ||| Binder annotations are syntax, not evidence that usage has been checked.
@@ -216,6 +219,7 @@ evalPrim WordSubOp [Prim (WordLitOp a) [], Prim (WordLitOp b) []] = Just (wordTe
 evalPrim WordMulOp [Prim (WordLitOp a) [], Prim (WordLitOp b) []] = Just (wordTerm ((a * b) `mod` wordModulus))
 evalPrim WordEqOp [Prim (WordLitOp a) [], Prim (WordLitOp b) []] = Just (if a == b then BoolTrue else BoolFalse)
 evalPrim WordLtOp [Prim (WordLitOp a) [], Prim (WordLitOp b) []] = Just (if a < b then BoolTrue else BoolFalse)
+evalPrim BytesEqualOp [BytesValue a, BytesValue b] = Just (if a == b then BoolTrue else BoolFalse)
 evalPrim WordToStringOp [Prim (WordLitOp a) []] = Just (StringValue (show a))
 evalPrim WordDivOp [Prim (WordLitOp a) [], Prim (WordLitOp b) []] = Just (wordDivision (if b == 0 then Nothing else Just (a `div` b)))
 evalPrim WordRemOp [Prim (WordLitOp a) [], Prim (WordLitOp b) []] = Just (wordDivision (if b == 0 then Nothing else Just (a `mod` b)))
@@ -230,17 +234,18 @@ primUnarySignature WordToStringOp = Just (Prim WordTypeOp [], StringType)
 primUnarySignature WordFromNatOp = Just (NatType, Prim WordTypeOp [])
 primUnarySignature _ = Nothing
 
-||| Result type of a binary Word operation; Nothing if the operation is not binary.
+||| Operand type (both operands) and result type of a binary primitive; Nothing if not binary.
 public export
-wordBinaryResult : PrimOp -> Maybe (Term n)
-wordBinaryResult WordAddOp = Just (Prim WordTypeOp [])
-wordBinaryResult WordSubOp = Just (Prim WordTypeOp [])
-wordBinaryResult WordMulOp = Just (Prim WordTypeOp [])
-wordBinaryResult WordEqOp = Just BoolType
-wordBinaryResult WordLtOp = Just BoolType
-wordBinaryResult WordDivOp = Just wordDivResultType
-wordBinaryResult WordRemOp = Just wordDivResultType
-wordBinaryResult _ = Nothing
+primBinarySignature : PrimOp -> Maybe (Term n, Term n)
+primBinarySignature WordAddOp = Just (Prim WordTypeOp [], Prim WordTypeOp [])
+primBinarySignature WordSubOp = Just (Prim WordTypeOp [], Prim WordTypeOp [])
+primBinarySignature WordMulOp = Just (Prim WordTypeOp [], Prim WordTypeOp [])
+primBinarySignature WordEqOp = Just (Prim WordTypeOp [], BoolType)
+primBinarySignature WordLtOp = Just (Prim WordTypeOp [], BoolType)
+primBinarySignature WordDivOp = Just (Prim WordTypeOp [], wordDivResultType)
+primBinarySignature WordRemOp = Just (Prim WordTypeOp [], wordDivResultType)
+primBinarySignature BytesEqualOp = Just (BytesType, BoolType)
+primBinarySignature _ = Nothing
 
 ||| Canonical unary natural; construction itself performs no external effect.
 public export

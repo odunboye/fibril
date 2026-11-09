@@ -29,7 +29,7 @@ class NativeTests(unittest.TestCase):
         return emitted.stdout, result
 
     def test_core_examples_match_reference_runner(self):
-        for example in ['hello-world', 'console-sequence', 'io-functions', 'do-let', 'do-result', 'string-append']:
+        for example in ['hello-world', 'console-sequence', 'io-functions', 'do-let', 'do-result', 'string-append', 'bytes-equal']:
             with self.subTest(example=example), tempfile.TemporaryDirectory() as directory:
                 path = ROOT / 'examples/core' / (example + '.fib')
                 _, native = self.compile_and_run([str(path)], directory)

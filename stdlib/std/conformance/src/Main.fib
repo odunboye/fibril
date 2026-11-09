@@ -3,6 +3,9 @@ module Main
 import Std.Option
 import Std.Result
 import Std.List
+import Std.Nat
+import Std.Bytes
+import Std.String
 
 three : Std.List.List Word
 three = Std.List.Cons {Word} 1w
@@ -39,6 +42,12 @@ okValue = Std.Result.Ok {String} {Word} 7w
 errValue : Std.Result.Result String Word
 errValue = Std.Result.Err {String} {Word} "bad"
 
+enc : (text : String) -> Bytes
+enc text = primUTF8Case Bytes Bytes (primUTF8Encode text) primBytesEmpty (\(1 b : Bytes) => b)
+
+nat : (n : Nat) -> Word
+nat n = primWordFromNat n
+
 report : (label : String) -> (holds : Bool) -> IO Unit
 report label holds = if holds
   then putStrLn (appendString label ": ok")
@@ -70,3 +79,27 @@ main = do
   report "mapResult transforms Ok" (primWordEq (Std.Result.fromResult String Word 0w (Std.Result.mapResult String Word Word double okValue)) 14w)
   report "isOk is true for Ok" (Std.Result.isOk String Word okValue)
   report "isOk is false for Err" (notBool (Std.Result.isOk String Word errValue))
+  report "monus subtracts" (primWordEq (nat (Std.Nat.monus 7 3)) 4w)
+  report "monus truncates at zero" (primWordEq (nat (Std.Nat.monus 3 7)) 0w)
+  report "predecessor of zero is zero" (primWordEq (nat (Std.Nat.predecessor Zero)) 0w)
+  report "Bytes byteLength counts octets" (primWordEq (nat (Std.Bytes.byteLength (enc "hello"))) 5w)
+  report "Bytes isEmpty is true for empty" (Std.Bytes.isEmpty primBytesEmpty)
+  report "Bytes isEmpty is false otherwise" (notBool (Std.Bytes.isEmpty (enc "a")))
+  report "Bytes equal for the same content" (Std.Bytes.equalBytes (enc "hello") (enc "hello"))
+  report "Bytes differ for different content" (notBool (Std.Bytes.equalBytes (enc "hello") (enc "help!")))
+  report "Bytes startsWith a prefix" (Std.Bytes.startsWith (enc "hello") (enc "he"))
+  report "Bytes startsWith the empty prefix" (Std.Bytes.startsWith (enc "hello") primBytesEmpty)
+  report "Bytes startsWith rejects a longer prefix" (notBool (Std.Bytes.startsWith (enc "he") (enc "hello")))
+  report "Bytes startsWith rejects a non-prefix" (notBool (Std.Bytes.startsWith (enc "hello") (enc "lo")))
+  report "Bytes endsWith a suffix" (Std.Bytes.endsWith (enc "hello") (enc "lo"))
+  report "Bytes endsWith the empty suffix" (Std.Bytes.endsWith (enc "hello") primBytesEmpty)
+  report "Bytes endsWith the whole value" (Std.Bytes.endsWith (enc "hello") (enc "hello"))
+  report "Bytes endsWith rejects a longer suffix" (notBool (Std.Bytes.endsWith (enc "lo") (enc "hello")))
+  report "Bytes endsWith rejects a non-suffix" (notBool (Std.Bytes.endsWith (enc "hello") (enc "he")))
+  report "String byteLength counts UTF-8 bytes" (primWordEq (nat (Std.String.byteLength "héllo")) 6w)
+  report "String isEmpty is true for empty" (Std.String.isEmpty "")
+  report "String isEmpty is false otherwise" (notBool (Std.String.isEmpty "a"))
+  report "String startsWith handles multibyte text" (Std.String.startsWith "héllo" "hé")
+  report "String startsWith rejects a non-prefix" (notBool (Std.String.startsWith "hello" "ello"))
+  report "String endsWith handles multibyte text" (Std.String.endsWith "héllo" "llo")
+  report "String endsWith rejects a longer suffix" (notBool (Std.String.endsWith "a" "ab"))

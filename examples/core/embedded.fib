@@ -1,0 +1,3 @@
+-- Closed output-only program; its host supplies fixed storage and output callbacks.
+main : IO Unit
+main = putStrLn (appendString "value=" (primWordToString (primWordMul 9w 7w)))

@@ -6,12 +6,14 @@ quantitative De Morgan cubical core, C/JavaScript backends, and embedded profile
 **Status:** a research prototype with a quantitative dependent core (erased typing
 and runtime-usage checking), named modules with transparent globals and checked
 imports, nominal data and records, explicit interfaces, and recursive functions
-that are structural or admitted by a size-change check. Cubical term checking, a
-JavaScript backend, embedded profiles and real-time guarantees are not implemented.
+that are structural or admitted by a size-change check.
+[JavaScript output-only ES modules](docs/javascript.md) are experimental.
+A [portable no-heap C profile](docs/embedded.md) uses caller-owned storage.
+Cubical term checking and real-time guarantees are not implemented.
 [Shared checked globals](docs/shared-checked-globals.md) retain named module bodies
 once and use independently admitted references through checking, hosted execution
 and native emission.
-[Experimental C emission](docs/native-c.md) produces a real native executable for a checked console subset; it is not yet an application backend.
+[Experimental C emission](docs/native-c.md) produces a real native executable for a checked subset (console and binary IO, pure data, bytes and `Word`); it is not yet an application backend: there is no native networking, storage, UI or FFI. See [guarantees](docs/guarantees.md) for what is and is not enforced.
 [Native host embedding](docs/native-embedding.md) now lets a trusted C host run that subset with explicit output callbacks and structured failure results, without process-global console IO.
 
 Fibril's HoTT direction remains a goal, not a present capability. The
@@ -48,7 +50,8 @@ diagnostics, checked project/package definitions, symbols, hover, formatting and
 guarded same-file rename. Neovim uses a thin standard LSP client in `editors/nvim`;
 other editors can launch the same stdio server. Module/file definitions and
 references across checked application/package inventories are supported.
-Project rename returns conservative checked-graph edits. Completion includes local
+Project rename rechecks proposed edits and preserves authored binding identities;
+implicit/generated-name projects are conservatively refused. Completion includes local
 binders and visible imports with checked type details; incomplete syntax falls back
 to marked symbol suggestions. The [legacy Vim runtime](docs/editor-highlighting.md)
 remains available during migration.

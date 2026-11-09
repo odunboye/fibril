@@ -1,3 +1,6 @@
+#ifdef FIBRIL_NO_HEAP
+#error "Binary transport is not part of the embedded no-heap profile"
+#endif
 /* Binary-only amalgamation. Compile this INSTEAD of fibril_runtime.c; do not
    additionally link fibril_bytes.c. Pure runtime and transport remain reusable
    standalone translation units for the legacy modes/tests. Trusted, not verified. */

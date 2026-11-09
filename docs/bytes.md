@@ -15,6 +15,7 @@ host/native transport and remaining gates.
 | `primBytesOctetMod256` | Linear `Nat -> Bytes`; singleton containing the low eight bits |
 | `primBytesAppend` | Two linear `Bytes` arguments, immutable concatenation |
 | `primBytesShare` | Linear `Bytes` input to an unrestricted immutable byte box; source view uses a one-field unrestricted record |
+| `primBytesEqual` | Two linear `Bytes` arguments; octet-for-octet equality, `Bool`. Slices compare by content; lengths differ means unequal |
 | `primBytesLength` | Linear `Bytes -> Nat`; counts octets, not characters |
 | `primBytesLengthIs` | Linear `Nat -> Bytes -> Bool`; exact byte-length comparison without constructing a unary Nat result |
 | `ByteIndexResult` | Missing or found octet (`Nat` in 0..255), never a sentinel |

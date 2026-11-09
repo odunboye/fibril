@@ -17,6 +17,7 @@ import Fibril.Driver.Interactive.Run
 import Fibril.Driver.Resource
 -- Internal byte transport is built/installed, not exposed as a source primitive.
 import Fibril.Runtime.Binary
+import Fibril.Driver.JavaScript
 import Fibril.Driver.Native
 import Fibril.Driver.Test
 import Fibril.Driver.ModuleGraph
@@ -58,6 +59,8 @@ Usage:
   fibril elaborate PATH         Inspect expanded named IR (unchecked; no effects)
   fibril reference LINE COLUMN PATH  Built-in documentation or bundled Prelude source
   fibril references LINE COLUMN PATH  Same-file lexical occurrences, including declarations
+  fibril binding-graph --source-dir ROOT --entry ENTRY LINE COLUMN PATH  Checked authored binding graph
+  fibril binding-graph --package MANIFEST LINE COLUMN PATH  Checked package binding graph
   fibril references --source-dir ROOT --entry ENTRY LINE COLUMN PATH  Checked project occurrences
   fibril references --package MANIFEST LINE COLUMN PATH  Checked package/inventory occurrences
   fibril definition --source-dir ROOT --entry ENTRY LINE COLUMN PATH  Checked project target
@@ -71,6 +74,12 @@ Usage:
   fibril test                  Check all listed modules, evaluate tests main : Bool
   fibril test --package PATH   Same pure test workflow for an explicit package
   fibril test --fuel N         Same, with evaluation fuel 0..4096 (default 128); also --package PATH --fuel N
+  fibril emit-js PATH          Check and emit a self-contained output-only ES module
+  fibril emit-js --source-dir ROOT ENTRY  Emit checked project JavaScript
+  fibril emit-js --package PATH  Emit checked package JavaScript
+  fibril emit-c-embedded PATH  Check and emit no-heap C for caller-owned arenas
+  fibril emit-c-embedded --source-dir ROOT ENTRY  Emit checked no-heap project C
+  fibril emit-c-embedded --package PATH  Emit checked no-heap package C
   fibril emit-c PATH           Check and emit experimental C source to stdout
   fibril emit-c-binary PATH      Emit explicit binary-only C (standalone)
   fibril emit-c-binary --source-dir ROOT ENTRY  Emit checked binary project C
@@ -212,6 +221,14 @@ main = do
     ["test", "--package", manifest] => testPackage 128 manifest >>= printServiceReport
     ["test", "--package", manifest, "--fuel", text] => testWithFuel text (\fuel => testPackage fuel manifest)
     ["run"] => runPackage 128 "fibril.yaml" >>= printExecution
+    ["emit-js"] => emitJSPackage "fibril.yaml" >>= printC
+    ["emit-js", "--package", manifest] => emitJSPackage manifest >>= printC
+    ["emit-js", "--source-dir", root, entry] => emitJSProject root entry >>= printC
+    ["emit-js", path] => emitJSFile path >>= printC
+    ["emit-c-embedded"] => emitEmbeddedCPackage "fibril.yaml" >>= printC
+    ["emit-c-embedded", "--package", manifest] => emitEmbeddedCPackage manifest >>= printC
+    ["emit-c-embedded", "--source-dir", root, entry] => emitEmbeddedCProject root entry >>= printC
+    ["emit-c-embedded", path] => emitEmbeddedCFile path >>= printC
     ["emit-c"] => emitCPackage "fibril.yaml" >>= printC
     ["emit-c", "--package", manifest] => emitCPackage manifest >>= printC
     ["emit-c", "--source-dir", root, entry] => emitCProject root entry >>= printC
@@ -251,6 +268,10 @@ main = do
           putStrLn "Fuel must be decimal 0..4096."
           exitFailure
     ["rename-preview", line, column, name, path] => runLocationQuery (\row, col, file => renameFile row col name file) line column path
+    ["binding-graph", "--source-dir", root, "--entry", entry, line, column, path] =>
+      runLocationQuery (projectBindingGraphFile root entry) line column path
+    ["binding-graph", "--package", manifest, line, column, path] =>
+      runLocationQuery (packageBindingGraphFile manifest) line column path
     ["references", "--source-dir", root, "--entry", entry, line, column, path] =>
       runLocationQuery (projectReferencesFile root entry) line column path
     ["references", "--package", manifest, line, column, path] =>

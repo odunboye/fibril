@@ -282,6 +282,31 @@ renderProjectReferences result =
         [("definition", maybe "null" locationJSON result.definition),
          ("references", jsonArray (map occurrenceJSON occurrences))]
 
+-- Full authored binding graph for speculative editor refactorings. A successful
+-- recheck alone cannot detect a reference that silently changes its target.
+public export
+renderProjectBindingGraph : ProjectDefinition -> String
+renderProjectBindingGraph result = navigationReport result
+  [("definition", maybe "null" locationJSON result.definition),
+   ("bindings", jsonArray (map bindingJSON result.referenceIndex))]
+  where
+    bindingJSON : NavigationOccurrence -> String
+    bindingJSON occurrence = jsonObject
+      [("origin", locationJSON occurrence.origin), ("destination", locationJSON occurrence.destination),
+       ("declaration", if occurrence.isDeclaration then "true" else "false")]
+
+public export
+projectBindingGraphFile : String -> String -> Nat -> Nat -> String -> IO (Either String (List String))
+projectBindingGraphFile root entry line column path = do
+  result <- prepareProjectDefinition root entry line column path
+  pure (map (\target => [renderProjectBindingGraph target]) result)
+
+public export
+packageBindingGraphFile : String -> Nat -> Nat -> String -> IO (Either String (List String))
+packageBindingGraphFile manifest line column path = do
+  result <- preparePackageDefinition manifest line column path
+  pure (map (\target => [renderProjectBindingGraph target]) result)
+
 public export
 projectDefinitionFile : String -> String -> Nat -> Nat -> String ->
                         IO (Either String (List String))

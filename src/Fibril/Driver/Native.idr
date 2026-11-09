@@ -54,3 +54,29 @@ emitCPackage manifest = do
   pure $ case checked of
     Left err => Left (renderGraphError err)
     Right project => emitCheckedCGlobals project.globals project.term
+
+public export
+emitEmbeddedCFile : String -> IO (Either String String)
+emitEmbeddedCFile path = do
+  loaded <- loadSource path
+  pure $ case loaded of
+    Left err => Left (renderFileError path (show err))
+    Right source => case resolveSource source of
+      Left err => Left (renderDriverError path source (FrontendFailure err))
+      Right term => emitCheckedEmbeddedC term
+
+public export
+emitEmbeddedCProject : String -> String -> IO (Either String String)
+emitEmbeddedCProject root entry = do
+  checked <- checkProject root entry
+  pure $ case checked of
+    Left err => Left (renderGraphError err)
+    Right project => emitCheckedEmbeddedCGlobals project.globals project.term
+
+public export
+emitEmbeddedCPackage : String -> IO (Either String String)
+emitEmbeddedCPackage manifest = do
+  checked <- checkPackage manifest
+  pure $ case checked of
+    Left err => Left (renderGraphError err)
+    Right project => emitCheckedEmbeddedCGlobals project.globals project.term
