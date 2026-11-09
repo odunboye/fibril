@@ -595,18 +595,16 @@ mutual
       dependentMethods [] = False
       dependentMethods (field :: rest) = any (mentions field.token.spelling) (map (\later => later.ty) rest) || dependentMethods rest
 
-  -- One getter per method. It applies the generated eliminator with a constant motive; the
-  -- eliminator path is used, not a direct `case`, because a case stops at about ten fields.
+  -- One getter per method. It applies the private non-dependent recursor to the method's type,
+  -- not a direct `case`, which stops at about ten fields.
   nominalGetter : RecordDeclaration -> Token -> RecordField -> Declaration
-  nominalGetter r eliminatorName selected =
+  nominalGetter r recursorName selected =
     let region = r.span
         typeRef = applyParameters region (NQualifiedRef r.name.span r.name.spelling) r.params
         argument = "$projection.record"
-        self = "$projection.self"
-        motive = NLambda region Erased self typeRef selected.ty
         eliminate = foldl (NApply region)
-          (applyParameters region (NQualifiedRef eliminatorName.span eliminatorName.spelling) r.params)
-          [motive, NRef region argument, fieldLambdas region r.fields (fieldRef selected)]
+          (applyParameters region (NQualifiedRef recursorName.span recursorName.spelling) r.params)
+          [selected.ty, NRef region argument, fieldLambdas region r.fields (fieldRef selected)]
         ty = NPi region Linear argument typeRef selected.ty
         value = NLambda region Linear argument typeRef eliminate
      in Declared True selected.token.span selected.token.span selected.token.span False Unrestricted selected.token.spelling
@@ -616,22 +614,18 @@ mutual
   nominalInterface qualifier budget r = do
     let region = r.span
     let result = applyParameters region (NRef r.name.span r.name.spelling) r.params
-    -- The helper is always generated: getters use it. Without a requested name it gets one no
-    -- source can write, because `$` cannot start an identifier.
-    let eliminator = case r.eliminator of
-          Just named => named
-          Nothing => (r.constructorKeyword, Located Name ("$eliminate_" ++ r.name.spelling) r.name.span)
-    let sourceData = DataSyntax region r.name r.level r.params False [] (Just eliminator)
-                       [DataConstructorSyntax region r.constructorName r.fields result] r.exported
+    -- Only a requested (dependent) eliminator goes through `lowerData`. Getters use a private
+    -- recursor whose name no source can write, because `$` cannot start an identifier.
+    let recursor = Located Name ("$recur_" ++ r.name.spelling) r.name.span
+    let ctor = DataConstructorSyntax region r.constructorName r.fields result
+    let sourceData = DataSyntax region r.name r.level r.params False [] r.eliminator [ctor] r.exported
     (used, generated) <- lowerData qualifier budget sourceData
-    -- An unrequested helper stays private, so it neither exports nor can clash with a name.
-    let hidden = isNothing r.eliminator
-    let tidy = map (\decl => if hidden && isPrefixOf "$" decl.name then { exported := False } decl else decl) generated
-    let plain = map (nominalGetter r (snd eliminator)) r.fields
+    let helper = nominalRecursor sourceData ctor recursor
+    let plain = map (nominalGetter r recursor) r.fields
     let getters = map (\decl => { exported := r.exported } decl) plain
-    let overall = foldl (\accum, decl => capped (accum + syntaxNodes decl.expected + syntaxNodes decl.value)) used getters
+    let overall = foldl (\accum, decl => capped (accum + syntaxNodes decl.expected + syntaxNodes decl.value)) used (helper :: getters)
     if overall > budget then Left (ElaborationFailure r.span.start "Generated declaration construction budget exhausted") else Right ()
-    Right (overall, tidy ++ getters)
+    Right (overall, generated ++ [helper] ++ getters)
 
   admit : Nat -> List String -> List Declaration -> Either ElaborationError (Nat, List String)
   admit slots seen [] = Right (slots, seen)
@@ -923,6 +917,54 @@ mutual
         ty = NPi region Erased p motiveType (NPi region Linear value typeRef (fieldPis region branches (app pRef (NRef region value))))
         term = NLambda region Erased p motiveType (NLambda region Linear value typeRef (fieldLambdas region branches body))
      in Declared True (Between keyword.span.start name.span.finish) name.span name.span sourceData.exported Unrestricted name.spelling
+          (parameterPis region params ty) (parameterLambdas region params term)
+
+  -- Like `consume`, but the result type does not depend on the record, so every motive is the
+  -- constant `result` and none rebuilds the enclosing pair. This keeps the generated term linear
+  -- in the number of fields times their annotation size, instead of repeating the tail types.
+  consumeConst : SourceSpan -> List RecordField -> Expr -> Expr -> Expr -> Expr -> Expr
+  consumeConst region [] result motive value branch = branch
+  consumeConst region [field] result motive value branch = NBoxCase region motive value branch
+  consumeConst region [first, second] result motive value branch = NPairCase region motive value branch
+  consumeConst region fields@(first :: rest) result motive value branch =
+    let tail = "$record.tail." ++ show (length rest)
+        self = "$record.self." ++ show (length rest)
+        tailType = recordType region rest
+        nextMotive = NLambda region Erased self tailType result
+        next = consumeConst region rest result nextMotive (NRef region tail) (NApply region branch (fieldRef first))
+     in NPairCase region motive value
+          (NLambda region first.quantity first.token.spelling first.ty (NLambda region Linear tail tailType next))
+
+  -- Non-dependent eliminator for a one-constructor data type: `recursor result value branch`.
+  -- Interface getters use it; it is private to the module unless the author asks for the
+  -- dependent eliminator separately.
+  nominalRecursor : DataDeclaration -> DataConstructor -> Token -> Declaration
+  nominalRecursor sourceData ctor name =
+    let region = sourceData.span
+        params = sourceData.params
+        shape = dataShape sourceData
+        typeRef = applyParameters region (NQualifiedRef sourceData.name.span sourceData.name.spelling) params
+        resultName = "$data.result"
+        result = NRef region resultName
+        value = "$data.value"
+        self = "$data.self"
+        packed = "$data.packed"
+        choice = "$data.choice"
+        constant = \domain => NLambda region Erased self domain result
+        branchName = dataBranchName 0
+        branchField = Field (Located Name branchName region) Unrestricted (fieldPis region ctor.fields result)
+        packType = recordType region ctor.fields
+        payload = case ctor.fields of
+          [] => NRef region branchName
+          [_] => NRef region branchName
+          _ => NLambda region Linear packed packType
+                 (consumeConst region ctor.fields result (constant packType) (NRef region packed) (NRef region branchName))
+        body = NNominalCase region (constant typeRef) (NRef region value)
+          (NLambda region Linear choice shape (NVariantCase region (constant shape) (NRef region choice) [payload]))
+        resultSort = NSort region sourceData.level
+        ty = NPi region Erased resultName resultSort (NPi region Linear value typeRef (fieldPis region [branchField] result))
+        term = NLambda region Erased resultName resultSort (NLambda region Linear value typeRef (fieldLambdas region [branchField] body))
+     in Declared True region name.span name.span False Unrestricted name.spelling
           (parameterPis region params ty) (parameterLambdas region params term)
 
   dataCost : DataDeclaration -> Nat

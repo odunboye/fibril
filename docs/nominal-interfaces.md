@@ -159,10 +159,10 @@ are the only places that must change for selection to work.
   when it has no methods, a method type mentions the interface itself, or a method type mentions an
   earlier method (the structural getters extract dependent fields; the eliminator form cannot yet).
   Interfaces outside a named module are unchanged and remain structural.
-- The synthetic data declaration goes through `lowerData`; getters apply its eliminator with a constant
-  motive (`nominalGetter`). When no eliminator is requested, a private helper named `$eliminate_Name`
-  is generated, is not exported, and is omitted from `elaborate` output because its name starts
-  with `$`.
+- The synthetic data declaration goes through `lowerData` (with the eliminator only if requested).
+  Getters apply a private non-dependent recursor, `$recur_Name` (`nominalRecursor`), with the
+  method's type as the result. It is always generated, not exported, and omitted from `elaborate`
+  output because its name starts with `$`.
 - The three gates share `dictionaryShaped` (`Box`, `Sigma`, or a nominal type with one variant).
 - An interface eliminator now has the data eliminator's type: its branch is taken unrestricted, not
   linearly. No example, test or doc called an interface eliminator.
@@ -171,10 +171,13 @@ are the only places that must change for selection to work.
   rejection, reuse, a 20-method interface, eliminator naming) and the updated operator test.
 
 `test_nominal_interface_edges` also covers: constructing and calling a 20-method dictionary (hosted
-`run`), the unrestricted eliminator branch (a method used twice), a ten-method dictionary compiled
+`run`), the unrestricted eliminator branch (a method used twice), a 20-method dictionary compiled
 and executed through native C, the dependent-method fallback, and identity through a public facade.
 
 Limits found while testing:
-- Native C admission (8192 nodes) rejects a dictionary of about eleven or more methods; the hosted
-  runner handles 20. The old structural lowering failed earlier in both.
+- Native C admission (8192 nodes) accepts a dictionary of about 25 methods; the hosted runner
+  handles more. Getters use a private non-dependent recursor (`$recur_Name`, constant motive), so the
+  term no longer repeats every enclosing pair type. Growth is still roughly quadratic through the
+  right-nested pair tails (11,306 nodes at 30 methods). A balanced pair layout would flatten that
+  further; it is not done. A requested `eliminator` is the dependent one and costs more.
 - A method that mentions its own interface is rejected with "An interface method cannot mention its own interface" (master gave "Unbound name").
