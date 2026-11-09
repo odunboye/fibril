@@ -192,6 +192,7 @@ examples: build
 	./build/exec/fibril eval examples/core/local-identity.fib
 	./build/exec/fibril eval examples/core/unit.fib
 	./build/exec/fibril eval examples/core/word-arithmetic.fib
+	./build/exec/fibril eval examples/core/word-operators.fib
 	./build/exec/fibril run examples/core/word-native.fib
 	./build/exec/fibril run examples/core/word-division.fib
 	./build/exec/fibril eval examples/core/consume-unit.fib

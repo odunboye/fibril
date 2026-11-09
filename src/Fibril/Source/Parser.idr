@@ -2,6 +2,7 @@
 module Fibril.Source.Parser
 
 import Data.List
+import Data.Maybe
 import Fibril.Core.Quantity
 import Fibril.Source.Text
 import Fibril.Source.Lexer
@@ -217,6 +218,33 @@ sequenceExpressions start first (next :: rest) = do
     Action action => Right (NSequence span action body)
     Binding _ name domain action => Right (NDoBind span name domain action body)
     LocalBinding _ q name domain value => Right (NLet span q name domain value body)
+
+operatorName : TokenKind -> Maybe String
+operatorName Plus = Just "primWordAdd"
+operatorName Minus = Just "primWordSub"
+operatorName Star = Just "primWordMul"
+operatorName _ = Nothing
+
+binary : Token -> Expr -> Expr -> Expr
+binary token left right =
+  NInfix (Between (extent left).start (extent right).finish)
+    (NRef token.span (fromMaybe "" (operatorName token.kind))) left right
+
+-- Absorb `*` operands into the right-hand side of a `+`/`-`, or into the first operand.
+foldProduct : Nat -> Expr -> List (Token, Expr) -> (Expr, List (Token, Expr))
+foldProduct (S fuel) left all@((token, right) :: rest) =
+  if token.kind == Star then foldProduct fuel (binary token left right) rest else (left, all)
+foldProduct _ left operands = (left, operands)
+
+foldSum : Nat -> Expr -> List (Token, Expr) -> Expr
+foldSum (S fuel) first operands =
+  let (left, rest) = foldProduct (length operands) first operands
+   in case rest of
+        (token, right) :: later =>
+          let (product, after) = foldProduct (length later) right later
+           in foldSum fuel (binary token left product) after
+        [] => left
+foldSum Z first _ = first
 
 mutual
   expression : Nat -> Position -> List Token -> Either ParseError (Expr, List Token)
@@ -551,7 +579,7 @@ mutual
 
   infixExpression : Nat -> Position -> List Token -> Either ParseError (Expr, List Token)
   infixExpression depth end tokens = do
-    (left, remaining) <- application depth end tokens
+    (left, remaining) <- arithmetic depth end tokens
     infixArguments depth end left remaining
 
   infixArguments : Nat -> Position -> Expr -> List Token -> Either ParseError (Expr, List Token)
@@ -561,8 +589,26 @@ mutual
     if opening.kind /= Backtick then Right (left, tokens) else do
       (operator, following) <- application depth end rest
       (closing, afterClosing) <- expect Backtick end following
-      (right, remaining) <- application depth end afterClosing
+      (right, remaining) <- arithmetic depth end afterClosing
       infixArguments depth end (NInfix (Between (extent left).start (extent right).finish) operator left right) remaining
+
+  -- `+ - *` are fixed Word operators. They are parsed as a flat operand list (one fuel unit per
+  -- operand, none per nesting level) and folded by precedence afterwards.
+  arithmetic : Nat -> Position -> List Token -> Either ParseError (Expr, List Token)
+  arithmetic depth end tokens = do
+    (first, remaining) <- application depth end tokens
+    (operands, rest) <- operatorTail depth end remaining
+    Right (foldSum (length operands) first operands, rest)
+
+  operatorTail : Nat -> Position -> List Token -> Either ParseError (List (Token, Expr), List Token)
+  operatorTail depth end [] = Right ([], [])
+  operatorTail Z end tokens = limit end tokens
+  operatorTail (S depth) end tokens@(token :: rest) =
+    if isJust (operatorName token.kind) then do
+      (operand, remaining) <- application depth end rest
+      (more, final) <- operatorTail depth end remaining
+      Right ((token, operand) :: more, final)
+    else Right ([], tokens)
 
   application : Nat -> Position -> List Token -> Either ParseError (Expr, List Token)
   application Z end tokens = limit end tokens

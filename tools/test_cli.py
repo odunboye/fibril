@@ -2988,6 +2988,17 @@ main = first Zero
             self.assertIn('n = Succ (Succ 12)', formatted.stdout)
             self.assertIn('m = 256', formatted.stdout)
 
+    def test_word_operators(self):
+        # `*` binds tighter than `+ -`; all associate left; the result is ordinary Word arithmetic.
+        evaluated = run('eval', 'examples/core/word-operators.fib')
+        self.assertEqual(evaluated.returncode, 0, evaluated.stdout + evaluated.stderr)
+        self.assertIn('Normal: True', evaluated.stdout)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Main.fib'
+            path.write_text('main : Bool\nmain = 1 + 2\n')
+            bad = run('check', str(path))
+            self.assertNotEqual(bad.returncode, 0)
+
     def test_compact_data_alternatives(self):
         source = (
             'module Main\n\n'

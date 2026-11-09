@@ -45,7 +45,7 @@ a function. Nested calls can appear inside those parentheses.
 ~~~
 
 No precedence is inferred from the function name. User fixity declarations,
-symbolic operators, sections and implicit overloaded-method insertion are not
+user-defined symbolic operators (only the fixed Word `+ - *`, see [words](words.md)), sections and implicit overloaded-method insertion are not
 implemented. A missing argument or inappropriate function type fails ordinary
 checking rather than acquiring a special operator meaning.
 

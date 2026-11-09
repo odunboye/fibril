@@ -9,7 +9,7 @@ import Fibril.Source.StringLiteral
 
 ||| Token categories for the initial explicitly annotated expression grammar.
 public export
-data TokenKind = Name | Number | StringToken | StringKeyword | TypeKeyword | UnitKeyword | BoolKeyword | TrueKeyword | FalseKeyword | IfKeyword | ThenKeyword | ElseKeyword | DoKeyword | CaseKeyword | OfKeyword | LetKeyword | InKeyword | ProjectionKeyword | ReturnKeyword | DataKeyword | RecordKeyword | InterfaceKeyword | ImplementationKeyword | MutualKeyword | ConstructorKeyword | EliminatorKeyword | WhereKeyword | ModuleKeyword | ImportKeyword | ExportKeyword | Dot | Comma | Equals | Bar | OpenParen | CloseParen | OpenBrace | DictionaryOpen | CloseBrace | Backtick | Colon | Arrow | BindArrow | BodyArrow | Lambda
+data TokenKind = Name | Number | StringToken | StringKeyword | TypeKeyword | UnitKeyword | BoolKeyword | TrueKeyword | FalseKeyword | IfKeyword | ThenKeyword | ElseKeyword | DoKeyword | CaseKeyword | OfKeyword | LetKeyword | InKeyword | ProjectionKeyword | ReturnKeyword | DataKeyword | RecordKeyword | InterfaceKeyword | ImplementationKeyword | MutualKeyword | ConstructorKeyword | EliminatorKeyword | WhereKeyword | ModuleKeyword | ImportKeyword | ExportKeyword | Dot | Comma | Equals | Bar | Plus | Minus | Star | OpenParen | CloseParen | OpenBrace | DictionaryOpen | CloseBrace | Backtick | Colon | Arrow | BindArrow | BodyArrow | Lambda
 
 public export
 Show TokenKind where
@@ -47,6 +47,9 @@ Show TokenKind where
   show Comma = ","
   show Equals = "="
   show Bar = "|"
+  show Plus = "+"
+  show Minus = "-"
+  show Star = "*"
   show Backtick = "`"
   show OpenBrace = "{"
   show DictionaryOpen = "@{"
@@ -95,6 +98,9 @@ Eq TokenKind where
   Comma == Comma = True
   Equals == Equals = True
   Bar == Bar = True
+  Plus == Plus = True
+  Minus == Minus = True
+  Star == Star = True
   Backtick == Backtick = True
   OpenBrace == OpenBrace = True
   DictionaryOpen == DictionaryOpen = True
@@ -257,6 +263,9 @@ scan (S fuel) at (c :: rest) =
       ':' => Right Colon
       '=' => Right Equals
       '|' => Right Bar
+      '+' => Right Plus
+      '-' => Right Minus
+      '*' => Right Star
       '\\' => Right Lambda
       'λ' => Right Lambda
       '→' => Right Arrow

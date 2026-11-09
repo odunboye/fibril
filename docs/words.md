@@ -38,6 +38,16 @@ pattern matching: Word has no eliminator and cannot drive `natRec`.
 | `primWordFromNat` | `(1 n : Nat) -> Word`: the Nat's value modulo 2^64 |
 | `primWordToString` | `Word -> String`: decimal digits only (`0`, `8080`, `18446744073709551615`); no sign, padding or separators |
 
+### Operators
+
+`a + b`, `a - b` and `a * b` are fixed notation for `primWordAdd`, `primWordSub` and
+`primWordMul`. `*` binds tighter than `+` and `-`; all three associate left; application
+binds tighter than any of them, and backtick calls bind looser. They elaborate to the same
+application as the prefix form (see `examples/core/word-operators.fib`), so they work on
+`Word` only: `1 + 2` on `Nat` is a type error. There are no user-defined or overloaded
+operators, no unary minus, and no `/` (division returns a result value; use `primWordDiv`).
+Write `a - b` with spaces: `a -b` and `a-b` also parse, but `--` starts a comment.
+
 Operands are **unrestricted**: Word is copyable data, so `primWordAdd x x` is accepted.
 Plain numerals stay `Nat`; there is no implicit conversion either way.
 

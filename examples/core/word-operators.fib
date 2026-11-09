@@ -1,0 +1,4 @@
+-- `+ - *` on Word are sugar for primWordAdd/Sub/Mul: `*` binds tighter, all associate left.
+-- 2 + 3 * 4 = 14, 10 - 3 - 2 = 5, and 0 - 1 wraps to the largest Word.
+main : Bool
+main = primWordEq (2w + 3w * 4w + (10w - 3w - 2w) * 2w) 24w
