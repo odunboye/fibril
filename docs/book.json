@@ -73,6 +73,9 @@
   {
     "title": "Part II · Reference",
     "pages": [
+      { "title": "Word integers", "path": "docs/words.md" },
+      { "title": "Local snapshot locks", "path": "docs/lockfile.md" },
+      { "title": "Debugger design", "path": "docs/debugger.md" },
       {
         "title": "Transactional email application target",
         "path": "docs/applications/transactional-email.md"
@@ -320,6 +323,10 @@
       {
         "title": "Indexed inductive families",
         "path": "docs/indexed-data.md"
+      },
+      {
+        "title": "Automatic indexed-case elaboration",
+        "path": "docs/index-refinement.md"
       },
       {
         "title": "Pure byte values",

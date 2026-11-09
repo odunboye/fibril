@@ -1,0 +1,30 @@
+module Main
+
+data Vect (0 A : Type) : (0 length : Nat) -> Type where
+  Nil : Vect A Zero
+  Cons : (0 n : Nat) -> (value : A) -> (rest : Vect A n) -> Vect A (Succ n)
+
+copy : (0 A : Type) -> (0 n : Nat) -> (xs : Vect A n) -> Vect A n
+copy A n xs = case xs of
+  Nil => Nil A
+  Cons k value rest => Cons A k value (copy A k rest)
+
+head : (0 A : Type) -> (0 n : Nat) -> (xs : Vect A (Succ n)) -> A
+head A n xs = case xs of
+  Cons k value rest => value
+
+tail : (0 A : Type) -> (0 n : Nat) -> (xs : Vect A (Succ n)) -> Vect A n
+tail A n xs = case xs of
+  Cons k value rest => rest
+
+empty : (xs : Vect String Zero) -> Unit
+empty xs = case xs of
+  Nil => ()
+
+sample : Vect String (Succ (Succ Zero))
+sample = Cons String (Succ Zero) "first" (Cons String Zero "second" (Nil String))
+
+main : IO Unit
+main = do
+  putStrLn (head String (Succ Zero) (copy String (Succ (Succ Zero)) sample))
+  putStrLn (head String Zero (tail String (Succ Zero) sample))
