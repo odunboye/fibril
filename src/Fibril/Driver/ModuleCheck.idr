@@ -102,13 +102,19 @@ providerCost (entry :: rest) = case entry.global.provider of
   Nothing => providerCost rest
   Just _ => max entry.size (providerCost rest)
 
+-- A call may insert one provider occurrence per inferred constraint of its head.
+constraintReserve : List Weighted -> String -> Nat
+constraintReserve globals name = case find (\entry => entry.global.name == name) globals of
+  Nothing => 0
+  Just entry => entry.global.autoConstraints * providerCost globals
+
 -- Conservative elaboration size before any global is renamed/cloned. Counts
 -- annotations and identity ascriptions; saturation avoids huge intermediate costs.
 mutual
   cost : Nat -> List Weighted -> List String -> Expr -> Nat
   cost limit globals env expression = min (S limit) $ case expression of
-    NRef _ name => if elem name env then 1 else referenceCost globals name
-    NQualifiedRef _ name => referenceCost globals name
+    NRef _ name => if elem name env then 1 else referenceCost globals name + constraintReserve globals name
+    NQualifiedRef _ name => referenceCost globals name + constraintReserve globals name
     NSort _ _ => 1
     NUnitType _ => 1
     NUnitValue _ => 1
@@ -1578,7 +1584,7 @@ compileDeclarationsGlobals shared snapshot name globals (Single decl :: rest) re
     Left message => Left ({ stage := "runtime-checking" } (problem snapshot (Just decl.nameSpan.start) message))
     else Right False
   let identity = moduleText name ++ "." ++ decl.name
-  let definition = sharedGlobal key (GlobalEntry (if provider then Just identity else Nothing) (Just identity) implicitPrefix decl.quantity decl.name ty value)
+  let definition = sharedGlobal key ({ autoConstraints := autoConstraintCount decl.expected } (GlobalEntry (if provider then Just identity else Nothing) (Just identity) implicitPrefix decl.quantity decl.name ty value))
   let local = weighted definition
   let qualified = Weight ({ name := identity } definition) local.size
   -- The estimate reserves room before construction; it is not emitted syntax.

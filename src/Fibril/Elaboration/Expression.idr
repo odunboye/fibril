@@ -263,6 +263,7 @@ mutual
     case body of
       NImplicitPi _ _ _ _ _ => Right ()
       NPi _ _ _ _ _ => Right ()
+      NConstraintPi _ _ _ _ _ => Right ()
       _ => if allowImplicitOnly then Right () else Left (CannotElaborate span.start "Implicit prefix must be followed by an explicit Pi")
     domain <- elaborateInWithGlobals shared globals context env domain
     result <- elaborateSignatureWithGlobals shared allowImplicitOnly globals (map (\ctx => Extend ctx Erased domain) context) (name :: env) body
@@ -1433,7 +1434,9 @@ mutual
         result <- elaborateApplicationGlobals shared globals (Just context) env function argument
         Right ({ applied := Just result } pending)
       Nothing => if length pending.given == pending.entry.implicitPrefix then do
-          result <- elaborateApplicationGlobals shared globals (Just context) env (foldl Apply pending.function pending.given) argument
+          filled <- insertDictionariesGlobals shared span.start globals context env pending.entry.autoConstraints
+                      (foldl Apply pending.function pending.given)
+          result <- elaborateApplicationGlobals shared globals (Just context) env filled argument
           Right ({ applied := Just result } pending)
         else do
           if length pending.ordinary >= implicitTelescopeLimit
@@ -1442,13 +1445,17 @@ mutual
           proposed <- implicitArgumentTypeGlobals shared span.start implicitProposalDepth context value
           state <- case pending.solver of
             Just state => Right state
-            Nothing => beginImplicit span.start pending.entry.implicitPrefix
+            Nothing => do
+              begun <- beginImplicit span.start pending.entry.implicitPrefix
                          (rename absurd pending.entry.declaredType) pending.given
+              skipConstraintsGlobals shared span.start pending.entry.autoConstraints begun
           state <- advanceImplicitGlobals shared span.start state proposed
           let values = pending.ordinary ++ [value]
           if implicitSolved state then do
             inferred <- finishImplicitGlobals shared span.start context state Nothing
-            Right ({ applied := Just (foldl Apply (foldl Apply pending.function inferred) values), ordinary := [], solver := Nothing } pending)
+            filled <- insertDictionariesGlobals shared span.start globals context env pending.entry.autoConstraints
+                        (foldl Apply pending.function inferred)
+            Right ({ applied := Just (foldl Apply filled values), ordinary := [], solver := Nothing } pending)
             else Right ({ ordinary := values, solver := Just state } pending)
   collectImplicitCallGlobals shared globals context env head = do
     entry <- case implicitHead globals env head of
@@ -1486,7 +1493,9 @@ mutual
             Just state => Right state
             Nothing => Left (CannotElaborate (extent source).start "Implicit inference state is unavailable")
           inferred <- finishImplicitGlobals shared (extent source).start context state expected
-          Right (foldl Apply (foldl Apply pending.function inferred) pending.ordinary)
+          filled <- insertDictionariesGlobals shared (extent source).start globals context env pending.entry.autoConstraints
+                      (foldl Apply pending.function inferred)
+          Right (foldl Apply filled pending.ordinary)
 
   elaborateApplicationGlobals : GlobalContext -> List GlobalDefinition -> Maybe (Context n) -> Vect n String -> Term n -> Expr -> Either ResolveError (Term n)
   elaborateApplicationGlobals shared globals context env function argument = do

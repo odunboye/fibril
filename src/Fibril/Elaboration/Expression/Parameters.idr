@@ -543,6 +543,14 @@ advanceImplicitGlobals shared position state proposed = do
       Right (ImplicitConstraints state.count state.signature (Prepared rest (skipExplicit mapping)) solutions budget (S state.steps))
     _ => implicitFailure position
 
+||| Step over constraint binders: no argument is written for them, a lookup fills them later.
+public export
+skipConstraintsGlobals : GlobalContext -> Position -> Nat -> ImplicitState n -> Either ResolveError (ImplicitState n)
+skipConstraintsGlobals shared position Z state = Right state
+skipConstraintsGlobals shared position (S remaining) state = do
+  next <- advanceImplicitGlobals shared position state Nothing
+  skipConstraintsGlobals shared position remaining next
+
 ||| Finish only at the complete authored spine; expected is never an
 ||| intermediate application's expected type.
 public export

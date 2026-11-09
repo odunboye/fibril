@@ -102,6 +102,29 @@ selectImplementationGlobals shared position globals context function = do
     [] => Left (CannotElaborate position "No matching visible named implementation; supply @{dictionary} explicitly")
     _ => Left (CannotElaborate position "Ambiguous visible named implementations; supply @{dictionary} explicitly")
 
+||| Fill `count` constraint binders after solved implicit arguments. The required dictionary
+||| type is read from the function's own type; a unique matching local dictionary wins, else a
+||| unique visible implementation. Missing or ambiguous matches fail, never guess.
+public export
+insertDictionariesGlobals : GlobalContext -> Position -> List GlobalDefinition -> Context n -> Vect n String ->
+                            Nat -> Term n -> Either ResolveError (Term n)
+insertDictionariesGlobals shared position globals context names Z function = Right function
+insertDictionariesGlobals shared position globals context names (S remaining) function = do
+  expected <- nextDictionaryGlobals shared position context function
+  locals <- candidatesGlobals shared position context expected [] (entries names)
+  argument <- case locals of
+    [index] => Right (Variable index)
+    _ :: _ :: _ => Left (CannotElaborate position "Ambiguous local dictionaries for an inferred constraint; supply @{dictionary} explicitly")
+    [] => do
+      available <- globalCandidatesGlobals shared position expected [] globals
+      case available of
+        [entry] => case lookupGlobal entry.name [entry] of
+          Nothing => Left (CannotElaborate position "Visible implementation has no runtime occurrence")
+          Just value => Right (rename absurd value)
+        [] => Left (CannotElaborate position "No local dictionary or visible implementation matches an inferred constraint; supply @{dictionary} explicitly")
+        _ => Left (CannotElaborate position "Ambiguous visible implementations for an inferred constraint; supply @{dictionary} explicitly")
+  insertDictionariesGlobals shared position globals context names remaining (Apply function argument)
+
 public export
 selectDictionaryGlobals : GlobalContext -> Position -> Context n -> Vect n String -> Term n -> Maybe (Term n) ->
                    Either ResolveError (Term n)

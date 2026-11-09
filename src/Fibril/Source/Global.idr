@@ -23,12 +23,14 @@ record GlobalDefinition where
   declaredType : Term 0
   value : Term 0
   sharedKey : Maybe Nat
+  ||| Constraint binders (`=>`) right after the implicit prefix; a call fills them by lookup.
+  autoConstraints : Nat
 
 ||| Compatibility constructor for raw, expanded source globals.
 public export
 GlobalEntry : Maybe String -> Maybe String -> Nat -> Quantity -> String -> Term 0 -> Term 0 -> GlobalDefinition
 GlobalEntry provider canonical count quantity name ty value =
-  StoredGlobalEntry provider canonical count quantity name ty value Nothing
+  StoredGlobalEntry provider canonical count quantity name ty value Nothing 0
 
 ||| Resolver metadata only. The core still requires an independently checked environment.
 public export

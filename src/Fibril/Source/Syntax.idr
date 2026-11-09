@@ -72,6 +72,21 @@ implicitPrefixCount : Expr -> Nat
 implicitPrefixCount (NImplicitPi _ _ _ _ body) = S (implicitPrefixCount body)
 implicitPrefixCount _ = 0
 
+||| Constraint binders directly after a non-empty implicit prefix. They are filled at call
+||| sites; without a prefix there is no type to select by, so none are counted.
+public export
+autoConstraintCount : Expr -> Nat
+autoConstraintCount signature = case implicitPrefixCount signature of
+  Z => 0
+  prefixCount => countConstraints (dropPrefix prefixCount signature)
+  where
+    dropPrefix : Nat -> Expr -> Expr
+    dropPrefix (S k) (NImplicitPi _ _ _ _ body) = dropPrefix k body
+    dropPrefix _ body = body
+    countConstraints : Expr -> Nat
+    countConstraints (NConstraintPi _ _ _ _ body) = S (countConstraints body)
+    countConstraints _ = 0
+
 ||| Source application steps retain authored argument spans and visibility.
 public export
 data CallArgument = OrdinaryArgument SourceSpan Expr | BracedArgument SourceSpan Expr
