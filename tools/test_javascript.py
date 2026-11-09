@@ -55,7 +55,7 @@ class JavaScriptTests(unittest.TestCase):
 
     def test_core_examples_agree_with_hosted_and_c(self):
         for name in ['javascript','hello-world','console-sequence','io-functions','do-let','do-result',
-                     'string-append','bytes-native','bytes-ranges','utf8-bytes','word-native']:
+                     'string-append','bytes-native','bytes-ranges','utf8-bytes','word-native','bytes-equal']:
             with self.subTest(name=name),tempfile.TemporaryDirectory() as directory:
                 self.compare([str(ROOT/'examples/core'/f'{name}.fib')],directory)
 
