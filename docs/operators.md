@@ -58,10 +58,8 @@ elaboration printer work on the unrewritten chain.
 
 - Operators work in named modules. A bare expression or single declaration file reports that
   a module is required, because its fixities cannot be known.
-- Interface types are still structural. Two interfaces with the same method shape cannot be
-  told apart by dictionary lookup, so `Add` and `Sub` over one type with identical methods
-  would be ambiguous. Overload an operator through an interface whose shape is unique, or use
-  an ordinary function. Nominal interface identity is separate future work.
+- Each overloaded operator should have its own interface (`Add`, `Sub`, `Mul`). Interfaces are
+  [nominal](nominal-interfaces.md), so equal method shapes do not make them ambiguous.
 - No sections (`(+ 1)`), unary minus, qualified operator syntax, or overloaded numeric literals.
 - Operators inside data, record and mutual declaration headers are not yet grouped.
 - `Nat` arithmetic is not provided: a unary `Nat` makes `+` look cheap when it is not

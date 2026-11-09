@@ -1,7 +1,7 @@
 # Design: nominal interfaces
 
-Status: proposal, revised after a review and a hand prototype. Nothing is implemented in the
-compiler. The "Evidence" section lists what was run; everything else is reasoning from source.
+Status: **implemented**. The "Evidence" section records the hand prototype that preceded it, and
+"As built" at the end records what differs from the proposal.
 
 ## Problem
 
@@ -151,3 +151,24 @@ are the only places that must change for selection to work.
    widths up to 20.
 3. Update the docs listed above and the structural-matching test.
 4. Give `-` and `*` interfaces in `examples/modules/operators`.
+
+## As built
+
+- `lowerItem` sends an interface to `nominalInterface` when it is in a named module and
+  `nominalEligible` holds; otherwise it keeps the structural record lowering. An interface falls back
+  when it has no methods, a method type mentions the interface itself, or a method type mentions an
+  earlier method (the structural getters extract dependent fields; the eliminator form cannot yet).
+  Interfaces outside a named module are unchanged and remain structural.
+- The synthetic data declaration goes through `lowerData`; getters apply its eliminator with a constant
+  motive (`nominalGetter`). When no eliminator is requested, a private helper named `$eliminate_Name`
+  is generated, is not exported, and is omitted from `elaborate` output because its name starts
+  with `$`.
+- The three gates share `dictionaryShaped` (`Box`, `Sigma`, or a nominal type with one variant).
+- An interface eliminator now has the data eliminator's type: its branch is taken unrestricted, not
+  linearly. No example, test or doc called an interface eliminator.
+- `examples/modules/operators` now gives `+`, `-` and `*` an interface each over `Word`.
+- Tests: `test_nominal_interfaces` (distinct same-shaped interfaces, wrong-interface and record
+  rejection, reuse, a 20-method interface, eliminator naming) and the updated operator test.
+
+Not covered by a test: the dependent-method fallback, and a re-exported interface through a facade
+(the existing public-import tests pass unchanged).

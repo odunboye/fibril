@@ -584,6 +584,55 @@ mutual
        then Left (ElaborationFailure sourceRecord.span.start "Internal record construction estimate was insufficient") else Right ()
     Right (cost, map (\decl => { exported := sourceRecord.exported } decl) generated)
 
+  -- Interfaces are nominal: one-constructor data whose fields are the methods, so two interfaces
+  -- with equal method types are different types. Methods that depend on earlier methods or on the
+  -- interface itself keep the structural record lowering, whose getters can extract them.
+  nominalEligible : RecordDeclaration -> Bool
+  nominalEligible r = not (null r.fields) && not (any (\field => mentions r.name.spelling field.ty) r.fields) &&
+    not (dependentMethods r.fields)
+    where
+      dependentMethods : List RecordField -> Bool
+      dependentMethods [] = False
+      dependentMethods (field :: rest) = any (mentions field.token.spelling) (map (\later => later.ty) rest) || dependentMethods rest
+
+  -- One getter per method. It applies the generated eliminator with a constant motive; the
+  -- eliminator path is used, not a direct `case`, because a case stops at about ten fields.
+  nominalGetter : RecordDeclaration -> Token -> RecordField -> Declaration
+  nominalGetter r eliminatorName selected =
+    let region = r.span
+        typeRef = applyParameters region (NQualifiedRef r.name.span r.name.spelling) r.params
+        argument = "$projection.record"
+        self = "$projection.self"
+        motive = NLambda region Erased self typeRef selected.ty
+        eliminate = foldl (NApply region)
+          (applyParameters region (NQualifiedRef eliminatorName.span eliminatorName.spelling) r.params)
+          [motive, NRef region argument, fieldLambdas region r.fields (fieldRef selected)]
+        ty = NPi region Linear argument typeRef selected.ty
+        value = NLambda region Linear argument typeRef eliminate
+     in Declared True selected.token.span selected.token.span selected.token.span False Unrestricted selected.token.spelling
+          (parameterPis region r.params ty) (parameterLambdas region r.params value)
+
+  nominalInterface : String -> Nat -> RecordDeclaration -> Either ElaborationError (Nat, List Declaration)
+  nominalInterface qualifier budget r = do
+    let region = r.span
+    let result = applyParameters region (NRef r.name.span r.name.spelling) r.params
+    -- The helper is always generated: getters use it. Without a requested name it gets one no
+    -- source can write, because `$` cannot start an identifier.
+    let eliminator = case r.eliminator of
+          Just named => named
+          Nothing => (r.constructorKeyword, Located Name ("$eliminate_" ++ r.name.spelling) r.name.span)
+    let sourceData = DataSyntax region r.name r.level r.params False [] (Just eliminator)
+                       [DataConstructorSyntax region r.constructorName r.fields result] r.exported
+    (used, generated) <- lowerData qualifier budget sourceData
+    -- An unrequested helper stays private, so it neither exports nor can clash with a name.
+    let hidden = isNothing r.eliminator
+    let tidy = map (\decl => if hidden && isPrefixOf "$" decl.name then { exported := False } decl else decl) generated
+    let plain = map (nominalGetter r (snd eliminator)) r.fields
+    let getters = map (\decl => { exported := r.exported } decl) plain
+    let overall = foldl (\accum, decl => capped (accum + syntaxNodes decl.expected + syntaxNodes decl.value)) used getters
+    if overall > budget then Left (ElaborationFailure r.span.start "Generated declaration construction budget exhausted") else Right ()
+    Right (overall, tidy ++ getters)
+
   admit : Nat -> List String -> List Declaration -> Either ElaborationError (Nat, List String)
   admit slots seen [] = Right (slots, seen)
   admit Z seen (decl :: _) = Left (ElaborationFailure decl.nameSpan.start "Elaborated declaration budget exhausted")
@@ -663,7 +712,11 @@ mutual
       then Left (ElaborationFailure field.token.span.start "Interface methods require unrestricted fields; method argument quantities remain explicit")
       else Right ()) sourceRecord.fields
     let methods = map (\field => Projected field.token field.token field.token) sourceRecord.fields
-    lowerRecord nodes ({ projections := methods } sourceRecord)
+    case moduleName of
+      Just qualifier => if nominalEligible sourceRecord
+        then nominalInterface qualifier nodes sourceRecord
+        else lowerRecord nodes ({ projections := methods } sourceRecord)
+      Nothing => lowerRecord nodes ({ projections := methods } sourceRecord)
   lowerItem moduleName schemas imported seen nodes (ImplementationItem decl) =
     if decl.quantity /= Unrestricted
        then Left (ElaborationFailure decl.nameSpan.start "Implementations require unrestricted named dictionary values")

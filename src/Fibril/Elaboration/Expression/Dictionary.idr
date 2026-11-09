@@ -23,14 +23,20 @@ exposeGlobals shared position ty = case weakHeadGlobals (globalValue shared) typ
   HeadForm result => Right result
   HeadLimit _ => Left (CannotElaborate position "Dictionary type exposure exhausted its reduction budget")
 
+||| A dictionary type is a structural record, or a nominal type with one constructor (an interface).
+public export
+dictionaryShaped : Term n -> Bool
+dictionaryShaped (BoxType _ _) = True
+dictionaryShaped (Sigma _ _ _ _) = True
+dictionaryShaped (NominalType _ _ (VariantType [_])) = True
+dictionaryShaped _ = False
+
 public export
 dictionaryTypeGlobals : GlobalContext -> Position -> Term n -> Either ResolveError ()
 dictionaryTypeGlobals shared position ty = do
   head <- exposeGlobals shared position ty
-  case head of
-    BoxType _ _ => Right ()
-    Sigma _ _ _ _ => Right ()
-    _ => Left (CannotElaborate position "Constraint/selection requires a dictionary-shaped unary or dependent-pair type")
+  if dictionaryShaped head then Right ()
+    else Left (CannotElaborate position "Constraint/selection requires a dictionary-shaped unary or dependent-pair type")
 
 public export
 constraintTypeGlobals : GlobalContext -> Position -> Quantity -> Term n -> Either ResolveError ()
@@ -61,10 +67,7 @@ candidatesGlobals shared position context expected seen ((name, index) :: rest) 
     if not (allows (lookupQuantity index context) Linear)
        then candidatesGlobals shared position context expected following rest else do
          ty <- exposeGlobals shared position (lookupType index context)
-         eligible <- case ty of
-           BoxType _ _ => Right True
-           Sigma _ _ _ _ => Right True
-           _ => Right False
+         let eligible = dictionaryShaped ty
          matches <- if eligible then case betaCompareGlobals (globalValue shared) typeReductionFuel ty expected of
            EqualNormalForms => Right True
            DifferentNormalForms => Right False

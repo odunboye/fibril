@@ -36,6 +36,7 @@ import Fibril.Elaboration.Expression.Scope
 import Fibril.Elaboration.Expression.Conversion
 import Fibril.Elaboration.Expression.Constructor
 import Fibril.Elaboration.Expression.Parameters
+import Fibril.Elaboration.Expression.Dictionary
 import Fibril.Elaboration.Expression.Operators
 import Fibril.Source.Fixity
 import Fibril.Driver.Limits
@@ -333,14 +334,14 @@ dictionarySignatureGlobals : RuntimeGlobals -> Nat -> Term n -> Either String Bo
 dictionarySignatureGlobals shared Z ty = Left "Implementation signature checking depth exhausted"
 dictionarySignatureGlobals shared (S depth) ty = case weakHeadGlobals (globalValue (erasedGlobals shared)) typeReductionFuel ty of
   HeadLimit _ => Left "Implementation dictionary type reduction budget exhausted"
-  HeadForm (BoxType _ _) => Right True
-  HeadForm (Sigma _ _ _ _) => Right True
+  HeadForm head@(BoxType _ _) => Right True
+  HeadForm head@(Sigma _ _ _ _) => Right True
+  HeadForm head@(NominalType _ _ (VariantType [_])) => Right True
   HeadForm (Pi q domain result) => do
     if q == Erased then Right () else case weakHeadGlobals (globalValue (erasedGlobals shared)) typeReductionFuel domain of
-      HeadForm (BoxType _ _) => Right ()
-      HeadForm (Sigma _ _ _ _) => Right ()
+      HeadForm exposed => if dictionaryShaped exposed then Right ()
+        else Left "Runtime implementation factory parameters must be dictionary-shaped"
       HeadLimit _ => Left "Implementation factory parameter type reduction budget exhausted"
-      _ => Left "Runtime implementation factory parameters must be dictionary-shaped"
     _ <- dictionarySignatureGlobals shared depth result
     Right False
   HeadForm _ => Left "Implementation signature must be a dictionary-shaped unary or dependent-pair type, or a factory returning one"

@@ -89,7 +89,7 @@ assignment headers do not pretend to be new global definitions.
 The driver publishes imported schemas only after the entire dependency module
 checks, including private and unused definitions. Generated implementations
 pass normal resolution, expanded-core admission, erased/runtime checking and
-the existing structural dictionary-shape gate before exports or IO planning.
+the dictionary-shape gate (a structural record or a one-constructor nominal type) before exports or IO planning.
 
 One block consumes one declaration slot, not one per assigned method.
 Generated expression size is admitted cumulatively before construction. Source,
