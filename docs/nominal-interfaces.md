@@ -1,7 +1,7 @@
 # Design: nominal interfaces
 
-Status: proposal, not implemented. Nothing here has been prototyped; claims about existing
-code were read from source, and open checks are listed at the end.
+Status: proposal, revised after a review and a hand prototype. Nothing is implemented in the
+compiler. The "Evidence" section lists what was run; everything else is reasoning from source.
 
 ## Problem
 
@@ -29,86 +29,125 @@ superclasses, no recursive instance search, no coherence theorem, no law checkin
 ## Options
 
 **A. Lower an interface to a one-constructor nominal `data` type (recommended).** The kernel
-already has `NominalType key params shape` with exact-key identity, built for `data` by
-`buildData`. An interface becomes a single-constructor type whose fields are the methods. The
-constructor, eliminator and case form already exist for data, and `NominalType` compares the key
-first, so `Ops.Add` and `Ops.Sub` differ with no new rule.
+already has `NominalType key params shape`, built for `data`. An interface becomes a
+single-constructor type whose fields are the methods. Types with different keys never convert, so
+`Ops.Add` and `Ops.Sub` differ with no new rule.
 
-**B. Tag providers and constraints with an interface name (metadata only).** Inferred lookup
-would filter by name. Rejected: type checking would remain structural, so an `Add` dictionary
-could still be passed where `Sub` is expected, and local dictionaries have no recorded name.
+**B. Tag providers and constraints with an interface name (metadata only).** Rejected: type
+checking would remain structural, so an `Add` dictionary could still be passed where `Sub` is
+expected, and local dictionaries have no recorded name.
 
-**C. Add an erased tag field to every dictionary.** Works, but is a hack on top of the structural
-record and needs a hidden tag type per interface. Option A is the same idea done properly.
+**C. Add an erased tag field to every dictionary.** Works, but is the same idea as A done as a hack
+on top of the structural record.
 
-**D. Make every record nominal.** Larger, and a deliberate decision in `nominal-data.md` was not
-to change record identity.
+**D. Make every record nominal.** Larger, and `nominal-data.md` deliberately left record identity
+alone.
 
 ## Proposed design (option A)
 
-For `interface Add (0 A : Type 0) : Type 0 where` with methods `m1 ... mk`:
+For `interface Add (0 A : Type 0) : Type 0 where` with constructor `MkAdd` and methods `m1 ... mk`:
 
-1. **Type.** A global `Add` whose body is `NominalType "<Module>.Add" [A] (VariantType [one arm])`.
-   The arm's payload is the method record (as today), so the shape is unchanged inside the wrapper.
-   The key is the module-qualified declaration name, as for data, so it is stable across imports and
-   facades.
-2. **Constructor.** `MkAdd` builds the nominal value, as a data constructor does.
-3. **Getters.** Each method getter becomes an ordinary function: unwrap the nominal value, then
-   project the field. It still consumes its dictionary once and takes the interface parameters
-   first, so call sites do not change.
-4. **Eliminator.** The optional `eliminator` keeps its type, generated the way data eliminators are.
-5. **Dictionary-shape gates** accept a `NominalType` whose shape is one arm holding a record, in
-   addition to `Box`/`Sigma`: `dictionaryTypeGlobals` and `candidatesGlobals`
+1. **Lowering.** `lowerItem (InterfaceItem r)` builds a synthetic `DataDeclaration` from the
+   `RecordDeclaration` and calls the existing `lowerData`. The fields map one to one:
+
+   | RecordDeclaration | DataDeclaration |
+   | --- | --- |
+   | `name`, `level`, `params`, `exported`, `span` | same |
+   | `constructorName`, `fields` | one `DataConstructor` with `result` = the type applied to its parameters |
+   | `eliminator` | `eliminator`, or a private generated name when none was requested |
+   | (none) | `implicitConstructors = False`, `indices = []` |
+
+   The type, constructor and key are then produced by the same code as ordinary data, so identity
+   is the module-qualified declaration name.
+2. **Getters.** Each method gets an ordinary function that applies the generated eliminator with the
+   method's type as its motive, selecting field *i*:
+   `get_i P1..Pn d = elim P1..Pn (\self => T_i) d (\m1 ... mk => m_i)`.
+   It consumes its dictionary once and takes the interface parameters first, as today, so call sites
+   do not change. **Do not use a direct `case` here:** it stops working between 8 and 12 fields
+   (see Evidence).
+3. **Dictionary-shape gates** accept a `NominalType` whose shape is a single arm, in addition to
+   `Box`/`Sigma`, at: `dictionaryTypeGlobals` and `candidatesGlobals`
    (`Elaboration/Expression/Dictionary.idr`) and `dictionarySignatureGlobals` (`Driver/ModuleCheck.idr`).
-6. **Implementation blocks** call the constructor, so `InterfaceSchema` stays as it is.
-7. **Selection** needs no change: candidate comparison is bounded conversion of the required type,
+   Without this, constraint binders and `implementation` items reject the new types (shown below).
+4. **Implementation blocks** call the constructor, so `InterfaceSchema` and `lowerImplementation`
+   stay as they are.
+5. **Selection** needs no change: candidate comparison is bounded conversion of the required type,
    which now includes the key.
 
-Everything is built from existing core terms and independently rechecked by the core checker.
-No term, conversion rule or runtime support is added.
+Everything is built from existing core terms and independently rechecked. No term, conversion rule
+or runtime support is added.
+
+## Evidence (hand prototype on current master, `fibril` built from this branch)
+
+Interfaces were written by hand as one-constructor `data` and exercised.
+
+| Check | Result |
+| --- | --- |
+| `Sub Word` value where `Add Word` is expected | rejected, `$global3 @ Word` vs `$global0 @ Word` |
+| getter by `case d of MkAdd method => method l r` | works, evaluates to 42 |
+| two-method getter by direct `case` and by eliminator | both work |
+| direct `case` over *n* fields | ok for 2, 3, 4, 5, 6, 8; **fails at 12, 16, 24** ("Constructor does not expose the requested fields") |
+| eliminator getter over *n* fields | ok for 2 through 24 |
+| one unrestricted dictionary used twice | works (`twice 5w` = 15) |
+| linear method arguments `(1 l : A) -> (1 r : A) -> A` | works |
+| polymorphic method `(0 B : Type 0) -> B -> B` | needs `: Type 1`, as it does for interfaces today |
+| 12 methods in one constructor | works |
+| `=>` constraint binder over the nominal type | **rejected**: "requires a dictionary-shaped unary or dependent-pair type" |
+| `implementation` over a plain data type | rejected (also expected: not an interface) |
+| hosted `run` and `emit-c` of a case-based getter with a function field | both print the right output |
+| width, all getters generated | nominal ok at 16 and 20 methods; **today's interface fails at 16** ("Generated declaration construction budget exhausted") |
+
+So the nominal form is *wider and no slower* than the current lowering, and the two gates in item 3
+are the only places that must change for selection to work.
 
 ## What changes for users
 
 - Source that declares and uses interfaces is unchanged.
 - Behavior that relied on structure stops working, deliberately: passing a record or another
-  interface's dictionary as an interface dictionary is now a type error, and `docs/constraints.md`
-  ("a same-shaped record can match") and `docs/explicit-interfaces.md` ("structural dictionary
-  type") must be rewritten.
-- Two interfaces with equal method types, in any modules, are distinct types, so `Add`, `Sub`
-  and `Mul` can each be an interface.
-- `elaborate` output for interfaces changes.
+  interface's dictionary as an interface dictionary is a type error. `docs/constraints.md` ("a
+  same-shaped record can match") and `docs/explicit-interfaces.md` ("structural dictionary type")
+  must be rewritten, and the assertion near `tools/test_cli.py:4084` changes.
+- Two interfaces with equal method types, in any modules, are distinct types, so `Add`, `Sub` and
+  `Mul` can each be an interface.
+- The optional `eliminator` helper's type changes slightly: a record eliminator takes its branch
+  with quantity 1, a data eliminator takes it unrestricted. No example, test or doc in the repo
+  calls an interface eliminator, so the risk is low. Either accept the data form or hand-write the
+  linear-branch form.
+- `elaborate` output for interfaces changes shape.
+- A single-constructor `data` type also becomes acceptable as a dictionary type, because the gate
+  looks at shape. Providers are still only values declared with `implementation`, so nothing is
+  selected implicitly that was not before. Restricting the gate to interface keys is possible but
+  needs a registry; it is not proposed.
 
-## Edge cases to settle
+## Corrections to the first draft
 
-- **Quantities.** Methods are unrestricted fields; the wrapper must not make the payload linear in a
-  way that stops a reusable (unrestricted) dictionary from serving many calls.
-- **Facades and re-exports.** `InterfaceSchema.constructorOrigin` already tracks the checked origin;
-  the key must use that origin, not the visible name.
-- **Parameters.** The record limit of 8 parameters and any data-field limit should agree, or the
-  stricter one must be documented.
-- **Dependent methods** (a later method type mentioning an earlier method) must still lower.
-- **Cost.** The shape is compared as well as the key. Compare keys first and skip the shape when equal
-  if the kernel allows it; otherwise measure dictionary-heavy examples against the existing
-  admission counters.
-- **Factories** (functions returning dictionaries) return the nominal type; check the "factory
-  returns a dictionary" test in `dictionarySignatureGlobals`.
+- "`NominalType` compares the key first" was wrong. Conversion normalizes the indices and the shape
+  and compares all three (`stepWithGlobals` in `Core/Reduction.idr`); there is no key shortcut. The
+  shape was already compared structurally before, so cost is unchanged.
+- Getters by unwrapping and `case` do not scale; use the eliminator.
+- The open question about field limits is answered: `docs/data.md` states there is no fixed
+  constructor or field count cap for data, and the nominal form passed at widths where today's
+  interface fails.
+
+## Remaining risks and checks
+
+- **Dependent methods** (a later method type mentioning an earlier method) make a getter's motive
+  mention a variable that is not in scope outside the branch. Check what `projectionDeclaration`
+  does for records today and match it.
+- **Facades and re-exports.** Verify the key comes from the defining module for a re-exported
+  interface and that `InterfaceSchema.constructorOrigin` still lines up.
+- **Zero-parameter interfaces** exist in examples (`interface Append : Type 0`); confirm they lower.
+- **Error messages and tests.** `tools/test_cli.py` mentions interfaces about 60 times; a full run
+  will show which assertions depend on the old shape.
+- **Native backend** was checked only for a hand-written dictionary with a case getter; run the
+  existing interface examples natively after the switch.
 
 ## Plan
 
-1. Prototype the lowering for one interface by hand in a test module; confirm it checks and that
-   `Add Word` and `Sub Word` become distinct.
-2. Switch `lowerItem (InterfaceItem ...)` to emit the nominal declaration set; update the three gates.
-3. Update docs and the structural-matching tests; add tests for: distinct same-shaped interfaces,
-   wrong-interface dictionary rejected, record no longer accepted, export/import and facade keys,
-   reuse of an unrestricted dictionary, `+ - *` each with its own interface.
-4. Revisit `examples/modules/operators` to give `-` and `*` interfaces.
-
-## Open checks before implementing
-
-- Does one-constructor data accept an unbounded method count, and unrestricted named fields, through
-  the *source* `data` path, or only through core `buildData`? Records have no field cap; data may.
-- Can `eliminator` and `case` over a nominal single-arm payload be generated at the `Expr` level
-  (`NNominalType`, `NNominalValue`, `NNominalCase`, `NVariant*` exist), or must interfaces use the
-  driver's `DataFamilies` route?
-- Which existing tests assert structural interface behavior? `grep` finds the one at
-  `tools/test_cli.py:4084` and the docs above; a full run will find the rest.
+1. Add the gate change and a synthetic-lowering function; keep the old path behind the same entry
+   point until the suite passes.
+2. Generate getters through the eliminator; add tests for distinct same-shaped interfaces,
+   wrong-interface and record rejection, unrestricted reuse, export/import and facade keys, and
+   widths up to 20.
+3. Update the docs listed above and the structural-matching test.
+4. Give `-` and `*` interfaces in `examples/modules/operators`.
