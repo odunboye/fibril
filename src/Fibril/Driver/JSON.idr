@@ -1,6 +1,8 @@
 -- Small JSON rendering boundary; strings are data, never diagnostic syntax.
 module Fibril.Driver.JSON
 
+import Fibril.Source.Resolve.Error
+
 import Data.List
 import Fibril.Source.Text
 
@@ -38,3 +40,15 @@ public export
 protocolJSON : List (String, String) -> String
 protocolJSON fields = jsonObject
   ([("version", "1"), ("coordinates", jsonString "unicode-scalars;offset=0;line=1;column=1")] ++ fields)
+
+public export
+completionFields : Maybe CompletionScope -> List (String, String)
+completionFields Nothing = []
+completionFields (Just scope) = [("completionScope", jsonObject
+  [("query", jsonString scope.query), ("candidates", jsonArray (map candidateJSON scope.candidates))])]
+  where
+    candidateJSON : CompletionCandidate -> String
+    candidateJSON entry = jsonObject
+      [("label", jsonString entry.label), ("detail", jsonString entry.detail),
+       ("kind", jsonString entry.kind), ("identity", maybe "null" jsonString entry.identity),
+       ("compatible", if entry.compatible then "true" else "false")]

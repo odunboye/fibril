@@ -20,6 +20,7 @@ import Fibril.Core.Reduction
 import Fibril.Core.Limits
 import Fibril.Core.WeakHead
 import Fibril.Elaboration.IndexRefinement
+import Fibril.Elaboration.Completion
 import Fibril.Elaboration.SequenceView
 import Fibril.Elaboration.DataCase
 import Fibril.Elaboration.Expression.Scope
@@ -562,6 +563,9 @@ mutual
   -- variable abstraction is a renaming, so it cannot duplicate subtrees.
   public export
   elaborateExpectedGlobals : GlobalContext -> List GlobalDefinition -> Context n -> Vect n String -> Term n -> Expr -> Either ResolveError (Term n)
+  elaborateExpectedGlobals shared globals context env expected reference@(NRef span name) =
+    if scopeProbe name && isNothing (lookupName name env) && isNothing (lookupGlobal name globals) then Left (scopeFailure shared globals (Just context) env (Just expected) span.start name)
+      else elaborateInWithGlobals shared globals (Just context) env reference
   elaborateExpectedGlobals shared globals context env expected expression@(NApply span function argument) =
     if hasImplicitCall globals env expression
       then elaborateImplicitCallGlobals shared globals context env (Just expected) expression
@@ -577,7 +581,7 @@ mutual
       Right term => Right term
       Left failure => case elaborateExpectedGlobals shared globals context env expected asData of
         Right term => Right term
-        Left _ => Left failure
+        Left other => if isJust other.completion then Left other else Left failure
   elaborateExpectedGlobals shared globals context env (Pi _ _ expected) (NLambda span q name domain body) = do
     authored <- elaborateInWithGlobals shared globals (Just context) env domain
     let domain = fromMaybe authored (familyAnnotation shared authored)
@@ -1230,7 +1234,8 @@ mutual
   public export
   elaborateInWithGlobals : GlobalContext -> List GlobalDefinition -> Maybe (Context n) -> Vect n String -> Expr -> Either ResolveError (Term n)
   elaborateInWithGlobals shared globals context env (NRef span name) =
-    if name == "_" then Left (Unbound span.start name)
+    if scopeProbe name && isNothing (lookupName name env) && isNothing (lookupGlobal name globals) then Left (scopeFailure shared globals context env Nothing span.start name)
+    else if name == "_" then Left (Unbound span.start name)
        else case lookupName name env of
          Nothing => case lookupGlobal name globals of
            Nothing => case qualifiedCandidates name globals of
@@ -1307,7 +1312,7 @@ mutual
       Right term => Right term
       Left failure => case elaborateInWithGlobals shared globals context env asData of
         Right term => Right term
-        Left _ => Left failure
+        Left other => if isJust other.completion then Left other else Left failure
   elaborateInWithGlobals shared globals context env (NConstructorCase span arity constructor scrutinee branch motive) = do
     if not (namedConstructor constructor)
        then Left (CannotElaborate (extent constructor).start "Pattern constructor must be a named function, optionally explicitly instantiated") else Right ()

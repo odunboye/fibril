@@ -47,8 +47,10 @@ The [Fibril LSP server](docs/lsp.md) supports unsaved buffers, UTF-16 positions,
 diagnostics, checked project/package definitions, symbols, hover, formatting and
 guarded same-file rename. Neovim uses a thin standard LSP client in `editors/nvim`;
 other editors can launch the same stdio server. Module/file definitions and
-references across checked application/package inventories are supported;
-project-wide rename and completion remain unsupported. The [legacy Vim runtime](docs/editor-highlighting.md)
+references across checked application/package inventories are supported.
+Project rename returns conservative checked-graph edits. Completion includes local
+binders and visible imports with checked type details; incomplete syntax falls back
+to marked symbol suggestions. The [legacy Vim runtime](docs/editor-highlighting.md)
 remains available during migration.
 
 [Implicit arguments](docs/implicit-arguments.md) infer a declared erased prefix from direct global calls and supported expected results.

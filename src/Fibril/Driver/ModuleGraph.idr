@@ -7,6 +7,7 @@ import Fibril.Project.Local
 import Fibril.Project.Manifest
 import System.Directory
 import Fibril.Runtime.Path
+import Fibril.Source.Resolve.Error
 import Fibril.Source.Text
 import Fibril.Source.UTF8
 import Fibril.Source.Lexer
@@ -28,7 +29,7 @@ record Site where
 
 public export
 record GraphError where
-  constructor DetailedGraphFailure
+  constructor ScopedGraphFailure
   path : String
   source : String
   point : Maybe Position
@@ -36,6 +37,12 @@ record GraphError where
   sourceKnown : Bool
   byteOffset : Maybe Nat
   stage : String
+  completion : Maybe CompletionScope
+
+public export
+DetailedGraphFailure : String -> String -> Maybe Position -> String -> Bool -> Maybe Nat -> String -> GraphError
+DetailedGraphFailure path source point message known byteOffset stage =
+  ScopedGraphFailure path source point message known byteOffset stage Nothing
 
 ||| Compatibility constructor for discovery errors. Empty unknown source is not
 ||| represented as a purported empty-file snapshot.

@@ -1,6 +1,7 @@
 -- Structured checking results for editor integrations, not typing certificates.
 module Fibril.Driver.CheckReport
 
+import Fibril.Source.Resolve.Error
 import Fibril.Source.Text
 import Fibril.Source.Lexer
 import Fibril.Source.UTF8
@@ -49,6 +50,10 @@ reportJSON accepted lines diagnostics = protocolJSON
 public export
 renderCheckReport : CheckReport -> String
 renderCheckReport (Checked lines) = reportJSON True lines []
+renderCheckReport (Rejected (FrontendFailure (Resolving err))) =
+  reportJSON False [] [jsonObject (completionFields err.completion ++
+    [("severity", jsonString "error"), ("stage", jsonString "resolution"),
+     ("message", jsonString ("Resolution: " ++ show err)), ("position", jsonPosition err.position), ("byteOffset", "null")])]
 renderCheckReport (Rejected err) =
   let point = map position (driverDiagnostic err)
    in reportJSON False [] [diagnosticJSON (driverStage err) (show err) point Nothing]
