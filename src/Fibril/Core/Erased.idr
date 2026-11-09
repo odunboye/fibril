@@ -556,11 +556,11 @@ mutual
   infer globals (S depth) reduction context (Prim op [left, right]) =
     case primBinarySignature op of
       Nothing => Left (PrimError ("operation " ++ show op ++ " does not take two arguments"))
-      Just (operand, result) => do
+      Just (leftOperand, rightOperand, result) => do
         leftType <- infer globals depth reduction context left
-        requireCompatible globals reduction leftType operand
+        requireCompatible globals reduction leftType leftOperand
         rightType <- infer globals depth reduction context right
-        requireCompatible globals reduction rightType operand
+        requireCompatible globals reduction rightType rightOperand
         Right result
   infer globals (S depth) reduction context (Prim op _) = Left (PrimError ("malformed application of " ++ show op))
   infer globals (S depth) reduction context StringType = Right (Universe 0)

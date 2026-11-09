@@ -11,7 +11,7 @@ export function runProgram(program, host, options = {}) {
       throw new Error('invalid JavaScript runtime limit');
     limits[key] = value;
   }
-  let steps = 0, depth = 0, bytes = 0;
+  let steps = 0, depth = 0, peak = 0, bytes = 0;
   const encoder = new TextEncoder();
   const decoder = new TextDecoder('utf-8', {fatal:true, ignoreBOM:true});
   function tick(n=1) {
@@ -25,7 +25,7 @@ export function runProgram(program, host, options = {}) {
   function enter(f) {
     tick();
     if (depth >= limits.depth) throw new Error('JavaScript depth budget exhausted');
-    depth++;
+    depth++; if (depth > peak) peak = depth;
     try { return f(); } finally { depth--; }
   }
   function value(tag, fields={}) { alloc(); return {tag,...fields}; }
@@ -47,11 +47,12 @@ export function runProgram(program, host, options = {}) {
     }
     return thunk(()=>evaluate(term,env));
   }
-  function apply(fun, arg) {
+  function frame(fun, arg) {
     if (fun.tag!=='lambda') throw new Error('JavaScript application expects a function');
     alloc(16 + fun.env.length*8);
-    return evaluate(fun.body,[fun.erased ? null : arg,...fun.env]);
+    return [fun.erased ? null : arg,...fun.env];
   }
+  function apply(fun, arg) { return evaluate(fun.body,frame(fun,arg)); }
   function expect(v, tag) {
     if (v.tag!==tag) throw new Error('JavaScript operand expects '+tag);
     return v;
@@ -86,8 +87,11 @@ export function runProgram(program, host, options = {}) {
       return apply(branch,next);
     });
   }
+  // Tail positions (apply, if, the case forms) reassign term/env and loop inside the one enter, so a
+  // tail call runs in the same depth slot; each transfer still costs one step, like a nested evaluate.
   function evaluate(term, env=[]) {
     return enter(()=>{
+     for(;;) {
       const [op,...args]=term;
       const ev=i=>evaluate(args[i],env), lazy=i=>cell(args[i],env);
       switch(op) {
@@ -110,7 +114,7 @@ export function runProgram(program, host, options = {}) {
         }
         case 'apply': {
           const fun=ev(0); expect(fun,'lambda');
-          return apply(fun,fun.erased?null:lazy(1));
+          env=frame(fun,fun.erased?null:lazy(1)); term=fun.body; tick(); continue;
         }
         case 'zero': return value('zero');
         case 'end': return value('end');
@@ -121,28 +125,30 @@ export function runProgram(program, host, options = {}) {
           return fold(op==='seqFold'?'seq':op==='recFold'?'rec':op==='natRuntimeFold'?'natRuntime':'nat',args[0],args[1],lazy(2),env);
         case 'natCase': case 'recCase': case 'seqCase': {
           const v=ev(0), seq=op==='seqCase', rec=op==='recCase';
-          if(v.tag===(seq?'nil':rec?'end':'zero')) return ev(1);
+          if(v.tag===(seq?'nil':rec?'end':'zero')) { term=args[1]; tick(); continue; }
           expect(v,seq?'cons':rec?'more':'succ');
           let branch=ev(2); if(seq) branch=apply(branch,v.head);
-          return apply(branch,v.tail);
+          env=frame(branch,v.tail); term=branch.body; tick(); continue;
         }
-        case 'if': return expect(ev(0),'bool').boolean ? ev(1) : ev(2);
-        case 'unitCase': expect(ev(0),'unit'); return ev(1);
+        case 'if': { const yes=expect(ev(0),'bool').boolean; term=yes?args[1]:args[2]; tick(); continue; }
+        case 'unitCase': expect(ev(0),'unit'); term=args[1]; tick(); continue;
         case 'nominal': return value('nominal',{payload:lazy(0)});
-        case 'nominalCase': { const v=expect(ev(0),'nominal'); return apply(ev(1),v.payload); }
+        case 'nominalCase': { const v=expect(ev(0),'nominal'), fun=ev(1); env=frame(fun,v.payload); term=fun.body; tick(); continue; }
         case 'variant': return variant(args[0],args[1]===null?null:cell(args[1],env));
         case 'variantCase': {
           const v=expect(ev(0),'variant'), branches=args[1];
           if(v.index>=branches.length) throw new Error('out of range JavaScript variant');
           const branch=evaluate(branches[v.index],env);
-          return v.payload ? apply(branch,v.payload) : branch;
+          if(!v.payload) return branch;
+          env=frame(branch,v.payload); term=branch.body; tick(); continue;
         }
         case 'pair': return value('pair',{first:args[0]?null:cell(args[2],env),second:args[1]?null:cell(args[3],env)});
-        case 'pairCase': {const p=expect(ev(0),'pair'); return apply(apply(ev(1),p.first),p.second);}
+        case 'pairCase': {const p=expect(ev(0),'pair'), g=apply(ev(1),p.first); env=frame(g,p.second); term=g.body; tick(); continue;}
         case 'append': {const a=expect(ev(0),'string'), b=expect(ev(1),'string'); alloc((a.text.length+b.text.length)*2); return value('string',{text:a.text+b.text});}
         case 'stringEq': {const a=expect(ev(0),'string'), b=expect(ev(1),'string'); tick(a.text.length+b.text.length); return value('bool',{boolean:a.text===b.text});}
         case 'bytesAppend': {const a=expect(ev(0),'bytes').data,b=expect(ev(1),'bytes').data; tick(a.length+b.length); alloc(a.length+b.length); const data=new Uint8Array(a.length+b.length);data.set(a);data.set(b,a.length);return octets(data,false);}
         case 'bytesEqual': {const a=expect(ev(0),'bytes').data,b=expect(ev(1),'bytes').data; tick(a.length+b.length); return value('bool',{boolean:a.length===b.length&&a.every((x,i)=>x===b[i])});}
+        case 'bytesWordAt': {const i=expect(ev(0),'word').word,b=expect(ev(1),'bytes').data; return word(i<BigInt(b.length)?BigInt(b[Number(i)]):256n);}
         case 'bytesShare': return value('nominal',{payload:lazy(0)});
         case 'bytesLength': return nat(expect(ev(0),'bytes').data.length);
         case 'bytesOctet': return octets(Uint8Array.of(count(ev(0))%256));
@@ -164,6 +170,7 @@ export function runProgram(program, host, options = {}) {
         case 'bind': return value('bind',{first:lazy(0),next:lazy(1)});
         default: throw new Error('unsupported JavaScript instruction: '+op);
       }
+     }
     });
   }
   const actions=[], continuations=[];
@@ -189,5 +196,5 @@ export function runProgram(program, host, options = {}) {
   }
   for(const action of actions) callback(write,action);
   callback(flush);
-  return Object.freeze({actions:actions.length,steps,allocatedBytes:bytes});
+  return Object.freeze({actions:actions.length,steps,peakDepth:peak,allocatedBytes:bytes});
 }

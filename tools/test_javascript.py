@@ -86,6 +86,36 @@ class JavaScriptTests(unittest.TestCase):
             self.assertEqual(output.count(b': ok'),48)
             self.assertNotIn(b'FAILED',output)
 
+    def run_project(self,source):
+        """Emit a one-module project as JavaScript and run it; returns (process, node stdout)."""
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)/'src';root.mkdir();path=root/'Main.fib';path.write_text(source)
+            program=self.emit(['--source-dir',str(root),str(path)],directory)
+            script='const m=await import('+json.dumps(program.resolve().as_uri())+');let out="";try{const used=m.run({write:b=>{out+=new TextDecoder().decode(b)},flush(){}});console.log(JSON.stringify({out,used}));}catch(e){console.log(JSON.stringify({error:String(e.message)}));}'
+            result=self.node(['--input-type=module','-e',script]);self.assertEqual(result.returncode,0,result.stderr)
+            return json.loads(result.stdout)
+
+    def test_tail_calls_run_in_bounded_depth_and_non_tail_recursion_still_stops(self):
+        import test_native_tail
+        loop=self.run_project(test_native_tail.LOOP)
+        self.assertEqual(loop['out'],'done\n',loop)
+        self.assertLess(loop['used']['peakDepth'],64,'2048 tail iterations must not nest (the default cap is 256)')
+        lazy=self.run_project(test_native_tail.IGNORED)
+        self.assertEqual(lazy['out'],'lazy\n',lazy)
+        self.assertLess(lazy['used']['peakDepth'],64)
+        deep=self.run_project(test_native_tail.HEADER+test_native_tail.NON_TAIL)
+        self.assertEqual(deep.get('error'),'JavaScript depth budget exhausted',deep)
+
+    def test_run_reports_the_resources_it_used(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path=self.emit([str(ROOT/'examples/core/hello-world.fib')],directory)
+            script='const m=await import('+json.dumps(path.resolve().as_uri())+');console.log(JSON.stringify(m.run({write(){},flush(){}})));'
+            result=self.node(['--input-type=module','-e',script]);self.assertEqual(result.returncode,0,result.stderr)
+            used=json.loads(result.stdout)
+            self.assertEqual(sorted(used),['actions','allocatedBytes','peakDepth','steps'])
+            self.assertEqual(used['actions'],1)
+            self.assertTrue(0<used['peakDepth']<=used['steps'] and used['allocatedBytes']>0,used)
+
     def test_host_callbacks_imports_and_symlink_launcher(self):
         with tempfile.TemporaryDirectory() as directory:
             path=self.emit([str(ROOT/'examples/core/hello-world.fib')],directory)

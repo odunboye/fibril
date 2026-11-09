@@ -55,6 +55,10 @@ FValue *f_lambda(FRuntime *r, FEnv *env, int erased, FEval body);
 /* Recursive function: body sees the function itself as variable 0. Termination is the
    checker's size-change admission; the runtime only ties the knot. */
 FValue *f_fix(FRuntime *r, FEnv *env, FEval body);
+/* Tail-position helpers (f_apply, f_apply_variable, f_bool_case, f_unit_case, f_nominal_case,
+   f_variant_case, f_pair_case, f_nat_case, f_rec_case, f_seq_case) may hand their continuation to
+   the enclosing evaluate instead of returning a value. Generated code must therefore call them only
+   as `return helper(...)` from an FEval function, and nothing may inspect their result. */
 FValue *f_apply(FRuntime *r, FEnv *env, FEval function, FEval argument);
 /* Checked variable arguments already name a lazy thunk. Forward that thunk
    without forcing it or changing its allocation owner. Erased calls skip lookup. */
@@ -65,6 +69,8 @@ FValue *f_bytes_literal(FRuntime *r, const unsigned char *bytes, size_t length);
 FValue *f_bytes_append(FRuntime *r, FEnv *env, FEval left, FEval right);
 /* Octet-for-octet equality of two Bytes values; returns Bool. */
 FValue *f_bytes_equal(FRuntime *r, FEnv *env, FEval left, FEval right);
+/* Byte at a Word position as a Word, or 256 past the end; the position is not unary. */
+FValue *f_bytes_word_at(FRuntime *r, FEnv *env, FEval index, FEval bytes);
 FValue *f_bytes_length(FRuntime *r, FEnv *env, FEval value);
 FValue *f_utf8_encode(FRuntime *r, FEnv *env, FEval value);
 FValue *f_utf8_decode(FRuntime *r, FEnv *env, FEval value);
@@ -112,16 +118,36 @@ typedef enum {
   F_NATIVE_WRITE_ERROR,
   F_NATIVE_FLUSH_ERROR
 } FNativeStatus;
+/* Per-invocation evaluation limits for the *_limited entry points. A zero field keeps the build
+   default (100000 steps, depth 512, 16 MiB; see F_MAX_* in fibril_runtime.c). Raising a limit is the
+   embedder's decision. Each limit stays finite: a value above its ceiling is rejected with
+   INVALID_ARGUMENT, never clamped. Lowering a limit is always safe.
+   The depth ceiling is a hard bound on the setting, NOT a portable safe stack depth: accepting
+   16384 does not mean 16384 nested evaluations fit. Depth is a C-stack bound (several C frames per
+   unit), so what fits depends on stack size, compiler, optimization and platform. One data point:
+   on an 8 MB stack at -O1, about 33000 ran and about 65000 overflowed; unoptimized builds and small
+   thread stacks need much less. Keep the default 512 unless you have measured your stack. */
+typedef struct { size_t steps, depth, bytes; } FNativeLimits;
+#define FIBRIL_LIMIT_CEILING_STEPS ((size_t)1073741824)
+#define FIBRIL_LIMIT_CEILING_DEPTH ((size_t)16384)
+#define FIBRIL_LIMIT_CEILING_BYTES ((size_t)1073741824)
+/* What an invocation used, reported on success and on failure: evaluation steps, peak nested
+   evaluation depth, and bytes charged against the allocation budget. */
+typedef struct { size_t steps, peak_depth, bytes; } FNativeUsage;
 typedef struct {
   FNativeStatus status;
   /* NULL on success; otherwise immutable static storage, valid after return.
      Message wording is diagnostic, not a machine-readable error code. */
   const char *message;
+  FNativeUsage usage;
 } FNativeResult;
 /* No stdio or process termination; each call owns and releases its arena.
    Both callbacks and entry are required. Existing fixed budgets still apply.
    Host callbacks are trusted native code, not a checked Fibril FFI. */
 FNativeResult fibril_native_embed(FEval entry, const FNativeHost *host);
+/* Same, with per-invocation limits (NULL keeps every default). The embedded no-heap profile
+   (fibril_native_embed_arena) keeps the default evaluation limits; its allocation bound is the arena. */
+FNativeResult fibril_native_embed_limited(FEval entry, const FNativeHost *host, const FNativeLimits *limits);
 /* Supplied by newly emitted `emit-c` console programs, NOT the runtime itself.
    Compile generated C with -DFIBRIL_EMBED_ONLY to omit its standalone main.
    One generated program per linked image; other emission modes do not expose it. */

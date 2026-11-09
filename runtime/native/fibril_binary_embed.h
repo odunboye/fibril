@@ -23,6 +23,8 @@ typedef struct {
      Nonzero only for FB_READ_FAILED / FB_WRITE_FAILED respectively. Accepted
      output is not a durability or remote-acknowledgement guarantee. */
   size_t read_prefix, write_prefix;
+  /* Resources used, on success and on failure (see FNativeUsage). */
+  FNativeUsage usage;
 } FBinaryResult;
 
 /* Link fibril_binary_runtime.c alone (it includes the pure/transport runtimes).
@@ -32,6 +34,9 @@ typedef struct {
    Host callbacks/state are borrowed for the call; they must return normally. */
 FBinaryResult fibril_native_binary_embed(FEval entry, size_t requests,
                                         size_t capacity, const FByteAdapters *host);
+/* Same, with per-invocation evaluation limits (NULL keeps every default; see FNativeLimits). */
+FBinaryResult fibril_native_binary_embed_limited(FEval entry, size_t requests, size_t capacity,
+                                                 const FByteAdapters *host, const FNativeLimits *limits);
 /* Supplied only by newly generated emit-c-binary output. Compile that output
    with FIBRIL_EMBED_ONLY to omit its standalone main. One program per image. */
 FBinaryResult fibril_program_binary_embed(const FByteAdapters *host);

@@ -48,8 +48,8 @@ static void probe_dump(FRuntime *r) {
 }
 static int enter(FRuntime *r) {''')
     text = replace_once(text,
-        '{ fail(r, "native evaluation budget exhausted"); return 0; }',
-        '{ probe_dump(r); fail(r, "native evaluation budget exhausted"); return 0; }')
+        '    fail(r, r->depth >= LIMIT_DEPTH(r) ? "native evaluation budget exhausted (depth limit)" : "native evaluation budget exhausted (step limit)");',
+        '    probe_dump(r); fail(r, r->depth >= LIMIT_DEPTH(r) ? "native evaluation budget exhausted (depth limit)" : "native evaluation budget exhausted (step limit)");')
     text = replace_once(text,
         'static FValue *evaluate(FRuntime *r, FEval code, FEnv *env) {\n  if (!enter(r)) return NULL;',
         'static FValue *evaluate(FRuntime *r, FEval code, FEnv *env) {\n'

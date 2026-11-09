@@ -7,9 +7,17 @@
 #endif
 #include <string.h>
 
+/* Default evaluation budgets. Each can be overridden at build time (-DF_MAX_STEPS='((size_t)N)')
+   and per invocation through FNativeLimits (see fibril_runtime.h); the defaults are unchanged. */
+#ifndef F_MAX_BYTES
 #define F_MAX_BYTES ((size_t)16777216)
+#endif
+#ifndef F_MAX_STEPS
 #define F_MAX_STEPS ((size_t)100000)
+#endif
+#ifndef F_MAX_DEPTH
 #define F_MAX_DEPTH ((size_t)512)
+#endif
 #define F_MAX_ACTIONS ((size_t)64)
 
 #ifdef FIBRIL_NO_HEAP
@@ -19,12 +27,17 @@ typedef struct FInput FInput;
 #include "fibril_runtime_internal.h"
 typedef struct FInput { size_t identity, generation; FILE *file; const char *close_error; struct FInput *next; } FInput;
 #endif
-struct FRuntime { FAllocation *allocations; FRegion *current; size_t bytes, steps, depth, actions; const char *error; FAction *head, *tail; FInput *inputs; size_t next_input;
+struct FRuntime { FAllocation *allocations; FRegion *current; size_t bytes, steps, depth, peak_depth, actions, max_steps, max_depth, max_bytes; FEval tail_code; FEnv *tail_env; const char *error; FAction *head, *tail; FInput *inputs; size_t next_input;
 #ifdef FIBRIL_NO_HEAP
   FEmbeddedCell *arena_cells; size_t arena_cell_capacity, arena_cells_used;
   unsigned char *arena_bytes; size_t arena_byte_capacity, arena_bytes_used;
 #endif
  int binary_rejected; };
+
+/* Effective limits: a zero field (the default for FRuntime r = {0}) keeps the build default. */
+#define LIMIT_STEPS(r) ((r)->max_steps ? (r)->max_steps : F_MAX_STEPS)
+#define LIMIT_DEPTH(r) ((r)->max_depth ? (r)->max_depth : F_MAX_DEPTH)
+#define LIMIT_BYTES(r) ((r)->max_bytes ? (r)->max_bytes : F_MAX_BYTES)
 
 static FValue *evaluate_fold(FRuntime *r, FFoldKind kind, FEnv *env,
                              FEval base, FEval step, FThunk *input);
@@ -39,7 +52,7 @@ static FEmbeddedCell *allocate_cell(FRuntime *r) {
   if (r->arena_cells_used >= r->arena_cell_capacity) {
     fail(r, "embedded cell arena exhausted"); return NULL;
   }
-  if (sizeof(FEmbeddedCell) > F_MAX_BYTES || r->bytes > F_MAX_BYTES - sizeof(FEmbeddedCell)) {
+  if (sizeof(FEmbeddedCell) > LIMIT_BYTES(r) || r->bytes > LIMIT_BYTES(r) - sizeof(FEmbeddedCell)) {
     fail(r, "embedded allocation budget exhausted"); return NULL;
   }
   r->bytes += sizeof(FEmbeddedCell);
@@ -52,7 +65,7 @@ static void *allocate(FRuntime *r, size_t size) {
   if (r->arena_bytes_used > r->arena_byte_capacity || size > r->arena_byte_capacity - r->arena_bytes_used) {
     fail(r, "embedded byte arena exhausted"); return NULL;
   }
-  if (size > F_MAX_BYTES || r->bytes > F_MAX_BYTES - size) {
+  if (size > LIMIT_BYTES(r) || r->bytes > LIMIT_BYTES(r) - size) {
     fail(r, "embedded allocation budget exhausted"); return NULL;
   }
   unsigned char *result = r->arena_bytes + r->arena_bytes_used;
@@ -66,7 +79,7 @@ static void release_region(FRuntime *r, FRegion *region) {
 }
 static void *allocate(FRuntime *r, size_t size) {
   if (r->error) return NULL;
-  if (size > SIZE_MAX - sizeof(FAllocation) || size > F_MAX_BYTES || r->bytes > F_MAX_BYTES - size) {
+  if (size > SIZE_MAX - sizeof(FAllocation) || size > LIMIT_BYTES(r) || r->bytes > LIMIT_BYTES(r) - size) {
     fail(r, "native allocation budget exhausted"); return NULL;
   }
   FAllocation *p = malloc(sizeof(FAllocation) + size);
@@ -79,13 +92,46 @@ static void *allocate(FRuntime *r, size_t size) {
 #endif
 static int enter(FRuntime *r) {
   if (r->error) return 0;
-  if (r->steps >= F_MAX_STEPS || r->depth >= F_MAX_DEPTH) { fail(r, "native evaluation budget exhausted"); return 0; }
+  if (r->steps >= LIMIT_STEPS(r) || r->depth >= LIMIT_DEPTH(r)) {
+    /* The prefix is the long-standing diagnostic; the suffix says which limit. */
+    fail(r, r->depth >= LIMIT_DEPTH(r) ? "native evaluation budget exhausted (depth limit)" : "native evaluation budget exhausted (step limit)");
+    return 0;
+  }
+  if (r->depth >= r->peak_depth) r->peak_depth = r->depth + 1;
   r->steps++; r->depth++; return 1;
+}
+#ifndef FIBRIL_NO_HEAP
+/* Opt-in resource report on stderr (FIBRIL_STATS=1); stdout is never touched. bytes is
+   total allocation charged against the allocation budget. */
+static void f_stats_report(const FRuntime *r) {
+  const char *flag = getenv("FIBRIL_STATS");
+  if (flag && *flag && strcmp(flag, "0") != 0)
+    fprintf(stderr, "fibril stats: steps=%zu peak_depth=%zu bytes=%zu\n", r->steps, r->peak_depth, r->bytes);
+}
+#endif
+/* Tail transfers. A helper in tail position does not evaluate its continuation itself: it
+   records the (code, env) pair and returns F_TAIL, and the enclosing evaluate runs it in the same
+   depth slot, charging one step like a nested evaluate would. Invariant: F_TAIL is returned only
+   by the helpers marked "tail position" below, which the emitter calls only as
+   `return helper(...)` from a generated function, and only evaluate ever receives it. Anything
+   that interprets a result as a value, memoizes it or restores a region does so on what evaluate
+   returns, which is never F_TAIL. Folds, regions, IO and thunk forcing are not tail positions. */
+static FValue f_tail_sentinel;
+#define F_TAIL (&f_tail_sentinel)
+static FValue *tail_call(FRuntime *r, FEval code, FEnv *env) {
+  r->tail_code = code; r->tail_env = env; return F_TAIL;
 }
 static FValue *evaluate(FRuntime *r, FEval code, FEnv *env) {
   if (!enter(r)) return NULL;
-  FValue *result = code(r, env);
-  r->depth--; return result;
+  for (;;) {
+    FValue *result = code(r, env);
+    if (result != F_TAIL) { r->depth--; return result; }
+    if (r->steps >= LIMIT_STEPS(r)) {
+      fail(r, "native evaluation budget exhausted (step limit)");
+      r->depth--; return NULL;
+    }
+    r->steps++; code = r->tail_code; env = r->tail_env;
+  }
 }
 
 FValue *f_global(FRuntime *r, FEval body) {
@@ -174,7 +220,7 @@ FValue *f_literal(FRuntime *r, const unsigned char *bytes, size_t length) {
   return v;
 }
 FValue *f_bytes_literal(FRuntime *r, const unsigned char *bytes, size_t length) {
-  if ((length && !bytes) || length > F_MAX_BYTES) {
+  if ((length && !bytes) || length > LIMIT_BYTES(r)) {
     fail(r, "invalid native byte literal"); return NULL;
   }
   FValue *value = new_value(r, V_BYTES);
@@ -223,6 +269,16 @@ FValue *f_bytes_equal(FRuntime *r, FEnv *env, FEval left, FEval right) {
   /* memcmp on a NULL view is undefined even for length zero, so compare lengths first. */
   return f_bool(r, a->as.bytes.length == b->as.bytes.length &&
                    (a->as.bytes.length == 0 || memcmp(a->as.bytes.data, b->as.bytes.data, a->as.bytes.length) == 0));
+}
+/* Byte at a Word position as a Word; 256 (not a byte value) past the end. O(1): no unary Nat. */
+FValue *f_bytes_word_at(FRuntime *r, FEnv *env, FEval index, FEval expression) {
+  if (!index || !expression) { fail(r, "missing native byte word-index operand"); return NULL; }
+  FValue *position = evaluate(r, index, env);
+  FValue *bytes = position ? evaluate(r, expression, env) : NULL;
+  if (!position || !bytes || position->tag != V_WORD || bytes->tag != V_BYTES) {
+    fail(r, "native byte word-index expects a Word and Bytes"); return NULL;
+  }
+  return f_word(r, position->as.word < bytes->as.bytes.length ? bytes->as.bytes.data[position->as.word] : 256);
 }
 FValue *f_bytes_length(FRuntime *r, FEnv *env, FEval expression) {
   if (!expression) { fail(r, "missing native byte length operand"); return NULL; }
@@ -327,16 +383,25 @@ static FValue *apply_thunk(FRuntime *r, FValue *function, FThunk *argument) {
   if (!env) return NULL;
   return evaluate(r, function->as.closure.body, env);
 }
+/* Tail position only: like apply_thunk, but hands the body to the enclosing evaluate. */
+static FValue *tail_apply(FRuntime *r, FValue *function, FThunk *argument) {
+  if (!function || function->tag != V_CLOSURE) { fail(r, "native application expects a function"); return NULL; }
+  FEnv *env = extend(r, function->as.closure.env, function->as.closure.erased ? NULL : argument);
+  if (!env) return NULL;
+  return tail_call(r, function->as.closure.body, env);
+}
+/* tail position */
 FValue *f_apply(FRuntime *r, FEnv *env, FEval function, FEval argument) {
   FValue *fun = evaluate(r, function, env);
   if (!fun || fun->tag != V_CLOSURE) { fail(r, "native application expects a function"); return NULL; }
   FThunk *arg = fun->as.closure.erased ? NULL : thunk(r, argument, env);
   if (!fun->as.closure.erased && !arg) return NULL;
-  return apply_thunk(r, fun, arg);
+  return tail_apply(r, fun, arg);
 }
 /* The variable's existing cell is the memoization/ownership boundary. A fresh
    forwarding thunk would only evaluate f_variable and force this same cell.
    Keep NULL erased slots lazy too: an ignored argument must not be forced. */
+/* tail position */
 FValue *f_apply_variable(FRuntime *r, FEnv *env, FEval function, size_t index) {
   FValue *fun = evaluate(r, function, env);
   if (!fun || fun->tag != V_CLOSURE) { fail(r, "native application expects a function"); return NULL; }
@@ -346,7 +411,7 @@ FValue *f_apply_variable(FRuntime *r, FEnv *env, FEval function, size_t index) {
     if (!env) { fail(r, "invalid native variable"); return NULL; }
     arg = env->value;
   }
-  return apply_thunk(r, fun, arg);
+  return tail_apply(r, fun, arg);
 }
 /* Deep-copy first-order data out of a dying region. Tails of list-like chains are
    iterated, so long Nat/sequence values do not consume C stack. */
@@ -355,7 +420,7 @@ static FValue *copy_value(FRuntime *r, FValue *source, size_t depth) {
   FValue *first = NULL, **slot = &first;
   for (;;) {
     if (!source || r->error) return NULL;
-    if (depth >= F_MAX_DEPTH || !byte_work(r)) { fail(r, "native region copy budget exhausted"); return NULL; }
+    if (depth >= LIMIT_DEPTH(r) || !byte_work(r)) { fail(r, "native region copy budget exhausted"); return NULL; }
     FValue *copy = new_value(r, source->tag);
     if (!copy) return NULL;
     *slot = copy;
@@ -464,10 +529,11 @@ FValue *f_append(FRuntime *r, FEnv *env, FEval left, FEval right) {
   memcpy(bytes + a->as.string.length, b->as.string.bytes, b->as.string.length);
   return f_literal(r, bytes, n);
 }
+/* tail position */
 FValue *f_bool_case(FRuntime *r, FEnv *env, FEval scrutinee, FEval yes, FEval no) {
   FValue *value = evaluate(r, scrutinee, env);
   if (!value || value->tag != V_BOOL) { fail(r, "native boolean case expects Bool"); return NULL; }
-  return evaluate(r, value->as.boolean ? yes : no, env);
+  return tail_call(r, value->as.boolean ? yes : no, env);
 }
 FValue *f_word(FRuntime *r, uint64_t value) {
   FValue *v = new_value(r, V_WORD);
@@ -550,11 +616,12 @@ FValue *f_nominal(FRuntime *r, FEnv *env, FEval value) {
   v->as.nominal = thunk(r, value, env);
   return v->as.nominal ? v : NULL;
 }
+/* tail position */
 FValue *f_nominal_case(FRuntime *r, FEnv *env, FEval scrutinee, FEval branch) {
   FValue *v = evaluate(r, scrutinee, env);
   if (!v || v->tag != V_NOMINAL) { fail(r, "native nominal case expects a nominal value"); return NULL; }
   FValue *f = evaluate(r, branch, env);
-  return f ? apply_thunk(r, f, v->as.nominal) : NULL;
+  return f ? tail_apply(r, f, v->as.nominal) : NULL;
 }
 FValue *f_variant(FRuntime *r, FEnv *env, size_t tag, FEval payload) {
   FValue *v = new_value(r, V_VARIANT);
@@ -566,6 +633,7 @@ FValue *f_variant(FRuntime *r, FEnv *env, size_t tag, FEval payload) {
   }
   return v;
 }
+/* tail position */
 FValue *f_variant_case(FRuntime *r, FEnv *env, FEval scrutinee, size_t count, const FEval *branches) {
   FValue *v = evaluate(r, scrutinee, env);
   if (!v || v->tag != V_VARIANT || v->as.variant.tag >= count) {
@@ -573,7 +641,7 @@ FValue *f_variant_case(FRuntime *r, FEnv *env, FEval scrutinee, size_t count, co
   }
   FValue *branch = evaluate(r, branches[v->as.variant.tag], env);
   if (!branch) return NULL;
-  return v->as.variant.payload ? apply_thunk(r, branch, v->as.variant.payload) : branch;
+  return v->as.variant.payload ? tail_apply(r, branch, v->as.variant.payload) : branch;
 }
 FValue *f_nat_zero(FRuntime *r) { return new_value(r, V_NAT_ZERO); }
 FValue *f_rec_end(FRuntime *r) { return new_value(r, V_REC_END); }
@@ -593,44 +661,48 @@ static FValue *recursive_value(FRuntime *r, FEnv *env, FTag tag, FEval head, FEv
 FValue *f_nat_succ(FRuntime *r, FEnv *env, FEval tail) { return recursive_value(r, env, V_NAT_SUCC, NULL, tail); }
 FValue *f_rec_more(FRuntime *r, FEnv *env, FEval tail) { return recursive_value(r, env, V_REC_MORE, NULL, tail); }
 FValue *f_seq_cons(FRuntime *r, FEnv *env, FEval head, FEval tail) { return recursive_value(r, env, V_SEQ_CONS, head, tail); }
+/* tail position */
 FValue *f_nat_case(FRuntime *r, FEnv *env, FEval scrutinee, FEval base, FEval more) {
   if (!scrutinee || !base || !more) { fail(r, "missing native Nat-case expression"); return NULL; }
   FValue *value = evaluate(r, scrutinee, env);
   if (!value) return NULL;
-  if (value->tag == V_NAT_ZERO) return evaluate(r, base, env);
+  if (value->tag == V_NAT_ZERO) return tail_call(r, base, env);
   if (value->tag != V_NAT_SUCC || !value->as.recursive.tail) {
     fail(r, "native Nat case expects a Nat value"); return NULL;
   }
   FValue *branch = evaluate(r, more, env);
-  return branch ? apply_thunk(r, branch, value->as.recursive.tail) : NULL;
+  return branch ? tail_apply(r, branch, value->as.recursive.tail) : NULL;
 }
+/* tail position */
 FValue *f_rec_case(FRuntime *r, FEnv *env, FEval scrutinee, FEval base, FEval more) {
   if (!scrutinee || !base || !more) { fail(r, "missing native recursive-case expression"); return NULL; }
   FValue *value = evaluate(r, scrutinee, env);
   if (!value) return NULL;
-  if (value->tag == V_REC_END) return evaluate(r, base, env);
+  if (value->tag == V_REC_END) return tail_call(r, base, env);
   if (value->tag != V_REC_MORE || !value->as.recursive.tail) {
     fail(r, "native recursive case expects a recursive value"); return NULL;
   }
   FValue *branch = evaluate(r, more, env);
-  return branch ? apply_thunk(r, branch, value->as.recursive.tail) : NULL;
+  return branch ? tail_apply(r, branch, value->as.recursive.tail) : NULL;
 }
+/* tail position */
 FValue *f_seq_case(FRuntime *r, FEnv *env, FEval scrutinee, FEval base, FEval cons) {
   if (!scrutinee || !base || !cons) { fail(r, "missing native sequence-case expression"); return NULL; }
   FValue *value = evaluate(r, scrutinee, env);
   if (!value) return NULL;
-  if (value->tag == V_SEQ_NIL) return evaluate(r, base, env);
+  if (value->tag == V_SEQ_NIL) return tail_call(r, base, env);
   if (value->tag != V_SEQ_CONS || !value->as.recursive.head || !value->as.recursive.tail) {
     fail(r, "native sequence case expects a sequence value"); return NULL;
   }
   FValue *branch = evaluate(r, cons, env);
   branch = branch ? apply_thunk(r, branch, value->as.recursive.head) : NULL;
-  return branch ? apply_thunk(r, branch, value->as.recursive.tail) : NULL;
+  return branch ? tail_apply(r, branch, value->as.recursive.tail) : NULL;
 }
+/* tail position */
 FValue *f_unit_case(FRuntime *r, FEnv *env, FEval scrutinee, FEval body) {
   FValue *value = evaluate(r, scrutinee, env);
   if (!value || value->tag != V_UNIT) { fail(r, "native unit case expects unit"); return NULL; }
-  return evaluate(r, body, env);
+  return tail_call(r, body, env);
 }
 FValue *f_pair(FRuntime *r, FEnv *env, int first_erased, int second_erased, FEval first, FEval second) {
   FValue *v = new_value(r, V_PAIR);
@@ -640,12 +712,13 @@ FValue *f_pair(FRuntime *r, FEnv *env, int first_erased, int second_erased, FEva
   if ((!first_erased && !v->as.pair.first) || (!second_erased && !v->as.pair.second)) return NULL;
   return v;
 }
+/* tail position */
 FValue *f_pair_case(FRuntime *r, FEnv *env, FEval scrutinee, FEval branch) {
   FValue *value = evaluate(r, scrutinee, env);
   if (!value || value->tag != V_PAIR) { fail(r, "native pair case expects a pair"); return NULL; }
   FValue *first = evaluate(r, branch, env);
   FValue *second = first ? apply_thunk(r, first, value->as.pair.first) : NULL;
-  return second ? apply_thunk(r, second, value->as.pair.second) : NULL;
+  return second ? tail_apply(r, second, value->as.pair.second) : NULL;
 }
 #ifndef FIBRIL_NO_HEAP
 static FValue *owned_pair(FRuntime *r, FValue *first, FValue *second) {
@@ -758,10 +831,10 @@ static FValue *convert_utf8(FRuntime *r, FEnv *env, FEval expression, int encode
   }
   const unsigned char *data = encode ? input->as.string.bytes : input->as.bytes.data;
   size_t length = encode ? input->as.string.length : input->as.bytes.length;
-  if ((length && !data) || length > F_MAX_BYTES) { fail(r, "invalid native UTF8 payload or byte budget"); return NULL; }
+  if ((length && !data) || length > LIMIT_BYTES(r)) { fail(r, "invalid native UTF8 payload or byte budget"); return NULL; }
   /* Reserve validation work even for malformed sequences; no refund on an
      early error. This is evaluator work, not the binary transport quota. */
-  if (r->steps > F_MAX_STEPS || length > F_MAX_STEPS - r->steps) {
+  if (r->steps > LIMIT_STEPS(r) || length > LIMIT_STEPS(r) - r->steps) {
     fail(r, "native UTF8 evaluation budget exhausted"); return NULL;
   }
   r->steps += length;
@@ -931,6 +1004,7 @@ int fibril_native_interactive_run(FEval entry, size_t requests, size_t line_char
   if (!r.error && fflush(stdout) == EOF) fail(&r, "native stdout flush failed");
   int status = r.error ? 1 : 0;
   if (r.error) fprintf(stderr, "fibril native: %s\n", r.error);
+  f_stats_report(&r);
   while (r.allocations) { FAllocation *next = r.allocations->next; free(r.allocations); r.allocations = next; }
   return status;
 }
@@ -952,12 +1026,28 @@ int fibril_native_resource_run(FEval entry, size_t requests, size_t line_charact
   if (r.error) fprintf(stderr, "fibril native: %s\n", r.error);
   for (FInput *input = r.inputs; input; input = input->next)
     if (input->close_error) fprintf(stderr, "fibril native cleanup: %s\n", input->close_error);
+  f_stats_report(&r);
   while (r.allocations) { FAllocation *next = r.allocations->next; free(r.allocations); r.allocations = next; }
   return status;
 }
 #endif
+#ifndef FIBRIL_NO_HEAP
+/* Installs per-invocation limits; zero keeps the default. Above a ceiling is rejected, not clamped.
+   The embedded no-heap profile keeps the default evaluation limits. */
+static int apply_limits(FRuntime *r, const FNativeLimits *limits) {
+  if (!limits) return 1;
+  if (limits->steps > FIBRIL_LIMIT_CEILING_STEPS || limits->depth > FIBRIL_LIMIT_CEILING_DEPTH ||
+      limits->bytes > FIBRIL_LIMIT_CEILING_BYTES) return 0;
+  r->max_steps = limits->steps; r->max_depth = limits->depth; r->max_bytes = limits->bytes;
+  return 1;
+}
+#endif
+static FNativeUsage usage_of(const FRuntime *r) {
+  FNativeUsage usage = { r->steps, r->peak_depth, r->bytes };
+  return usage;
+}
 static FNativeResult embed_runtime(FRuntime *r, FEval entry, const FNativeHost *host) {
-  FNativeResult result = { F_NATIVE_OK, NULL };
+  FNativeResult result = { F_NATIVE_OK, NULL, {0, 0, 0} };
   if (!entry || !host || !host->write || !host->flush) {
     result.status = F_NATIVE_INVALID_ARGUMENT;
     result.message = "native embedding requires entry, write and flush callbacks";
@@ -993,12 +1083,13 @@ static FNativeResult embed_runtime(FRuntime *r, FEval entry, const FNativeHost *
       result.message = "native host flush failed";
     }
   }
+  result.usage = usage_of(r);
   return result;
 }
 
 #ifdef FIBRIL_NO_HEAP
 FNativeResult fibril_native_embed_arena(FEval entry, const FNativeHost *host, FEmbeddedArena *arena) {
-  FNativeResult invalid = { F_NATIVE_INVALID_ARGUMENT, "invalid embedded arena" };
+  FNativeResult invalid = { F_NATIVE_INVALID_ARGUMENT, "invalid embedded arena", {0, 0, 0} };
   if (!arena || arena->busy || (arena->cell_capacity && !arena->cells) ||
       (arena->byte_capacity && !arena->bytes) ||
       arena->cell_capacity > FIBRIL_EMBEDDED_MAX_BYTES / sizeof(FEmbeddedCell) ||
@@ -1016,11 +1107,19 @@ FNativeResult fibril_native_embed_arena(FEval entry, const FNativeHost *host, FE
   return result;
 }
 #else
-FNativeResult fibril_native_embed(FEval entry, const FNativeHost *host) {
+FNativeResult fibril_native_embed_limited(FEval entry, const FNativeHost *host, const FNativeLimits *limits) {
   FRuntime r = {0};
-  FNativeResult result = embed_runtime(&r, entry, host);
+  FNativeResult result;
+  if (!apply_limits(&r, limits)) {
+    FNativeResult invalid = { F_NATIVE_INVALID_ARGUMENT, "native evaluation limit above its ceiling", {0, 0, 0} };
+    return invalid;
+  }
+  result = embed_runtime(&r, entry, host);
   while (r.allocations) { FAllocation *next = r.allocations->next; free(r.allocations); r.allocations = next; }
   return result;
+}
+FNativeResult fibril_native_embed(FEval entry, const FNativeHost *host) {
+  return fibril_native_embed_limited(entry, host, NULL);
 }
 
 int fibril_native_run(FEval entry) {
@@ -1038,6 +1137,7 @@ int fibril_native_run(FEval entry) {
   if (!r.error && fflush(stdout) == EOF) fail(&r, "native stdout flush failed");
   int status = r.error ? 1 : 0;
   if (r.error) fprintf(stderr, "fibril native: %s\n", r.error);
+  f_stats_report(&r);
   while (r.allocations) { FAllocation *next = r.allocations->next; free(r.allocations); r.allocations = next; }
   return status;
 }

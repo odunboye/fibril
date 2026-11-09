@@ -63,6 +63,17 @@ dbl x = primWordAdd x x
 main : IO Unit
 main = putStrLn (if primWordEq (dbl 9223372036854775808w) 0w then "wrapped" else "no")
 ''',
+    'bytes-word-at': '''at : (pos : Word) -> String
+at pos = primWordToString (primUTF8Case Bytes Word (primUTF8Encode "abc") 0w
+  (\\(1 bytes : Bytes) => primBytesWordAt pos bytes))
+
+main : IO Unit
+main = do
+  putStrLn (at 0w)
+  putStrLn (at 2w)
+  putStrLn (at 3w)
+  putStrLn (at (primWordSub 0w 1w))
+''',
     'function-argument-and-nesting': '''step : (acc : Word) -> (x : Word) -> Word
 step acc x = primWordAdd (primWordMul acc 31w) x
 
@@ -100,7 +111,8 @@ class WordNativeTests(unittest.TestCase):
 
     def test_programs_match_reference(self):
         expected = {'division': b'3\n2\ndivide by zero\ndivide by zero\n0\n9223372036854775807\n5\n', 'conversion': b'0\n200\n7\n256000001792\n' , 'formatting': b'0\n1000000007\n18446744073709551615\nport=8080\n', 'false-branches': b'ne\nge\nge\n', 'duplicated-argument': b'wrapped\n',
-                    'function-argument-and-nesting': b'hash\n'}
+                    'function-argument-and-nesting': b'hash\n',
+                    'bytes-word-at': b'97\n99\n256\n256\n'}
         for name, source in PROGRAMS.items():
             with self.subTest(program=name), tempfile.TemporaryDirectory() as directory:
                 path = Path(directory) / 'Main.fib'

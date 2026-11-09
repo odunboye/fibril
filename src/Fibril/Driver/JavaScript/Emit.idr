@@ -121,6 +121,7 @@ mutual
   generate (S fuel) globals (Prim WordFromNatOp [x]) = unary fuel globals "wordFromNat" x
   generate (S fuel) globals (Prim WordToStringOp [x]) = unary fuel globals "wordToString" x
   generate (S fuel) globals (Prim BytesEqualOp [a,b]) = binary fuel globals "bytesEqual" a b
+  generate (S fuel) globals (Prim BytesWordAtOp [a,b]) = binary fuel globals "bytesWordAt" a b
   generate (S fuel) globals (Prim op [a,b]) = do
     name <- maybe (Left "Unsupported JavaScript primitive") Right (wordOperation op)
     binary fuel globals name a b

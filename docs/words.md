@@ -54,7 +54,7 @@ checker, so a hand-built term cannot smuggle one in.
 
 ## Not provided
 
-No shifts, bitwise operations, `Word`-to-`Nat` conversion, String-to-Word parsing, hex or padded formatting, or signed variant; no overflow detection (wraparound is the only
+`primBytesWordAt` reads a byte at a `Word` position (see [bytes](bytes.md)). No shifts, bitwise operations, `Word`-to-`Nat` conversion, String-to-Word parsing, hex or padded formatting, or signed variant; no overflow detection (wraparound is the only
 semantics). Each is a follow-up, not a guarantee.
 
 ## Division and conversion

@@ -35,7 +35,7 @@ class HeaderLoopDepthProbeTests(unittest.TestCase):
             observed = (directory/'fibril_runtime.c').read_text()
             self.assertEqual([line for line in original.splitlines() if line.startswith('#define F_MAX_')],
                              [line for line in observed.splitlines() if line.startswith('#define F_MAX_')])
-            self.assertIn('probe_dump(r); fail(r, "native evaluation budget exhausted")', observed)
+            self.assertIn('probe_dump(r); fail(r, r->depth >= LIMIT_DEPTH(r) ? "native evaluation budget exhausted (depth limit)"', observed)
             self.assertIn('probe_peak_depth = r->depth;', observed)
         self.assertEqual((ROOT/'runtime/native/fibril_runtime.c').read_text(), original)
 

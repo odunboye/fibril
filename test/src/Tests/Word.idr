@@ -4,6 +4,7 @@ import Data.Fin
 import Data.List
 import Data.String
 import Fibril.Core.Term
+import Fibril.Data.Bytes as B
 import Fibril.Core.Quantity
 import Fibril.Core.Context
 import Fibril.Core.Erased
@@ -71,6 +72,11 @@ checks =
    ("comparison result is typed Bool", accepted (op WordLtOp 1 2) BoolType && not (accepted (op WordLtOp 1 2) wordType)),
    ("operands must both be Word", not (accepted (Prim WordAddOp [wordTerm 1, naturalTerm 2]) wordType) && not (accepted (Prim WordAddOp [StringValue "a", wordTerm 1]) wordType)),
    ("wrong arity is rejected", not (accepted (Prim WordAddOp [wordTerm 1]) wordType) && not (accepted (Prim WordTypeOp [wordTerm 1]) (Universe 0))),
+   ("byte at a Word position", normal (Prim BytesWordAtOp [wordTerm 1, BytesValue (B.fromList [10, 255])]) (wordTerm 255)),
+   ("NUL is a byte, not the end", normal (Prim BytesWordAtOp [wordTerm 0, BytesValue (B.fromList [0])]) (wordTerm 0)),
+   ("position past the end is 256", normal (Prim BytesWordAtOp [wordTerm 2, BytesValue (B.fromList [10, 255])]) (wordTerm 256) && normal (Prim BytesWordAtOp [wordTerm 0, BytesValue B.empty]) (wordTerm 256)),
+   ("maximum Word position needs no unary expansion", normal (Prim BytesWordAtOp [wordTerm 18446744073709551615, BytesValue (B.fromList [7])]) (wordTerm 256)),
+   ("byte-at is typed Word -> Bytes -> Word", accepted (Prim BytesWordAtOp [wordTerm 0, BytesValue (B.fromList [7])]) wordType && not (accepted (Prim BytesWordAtOp [naturalTerm 0, BytesValue (B.fromList [7])]) wordType) && not (accepted (Prim BytesWordAtOp [BytesValue (B.fromList [7]), wordTerm 0]) wordType) && not (accepted (Prim BytesWordAtOp [wordTerm 0]) wordType)),
    ("Word values may be duplicated", accepted dup (Pi Unrestricted wordType wordType) && normal (Apply dup (wordTerm 21)) (wordTerm 42)),
    ("Word syntax transports structurally", all (\t => sameSyntax (rename id t) t && sameSyntax (substituteTerm Variable t) t) openTerms),
    ("Word node counts agree with substitution estimator", all (\t => coreNodes t == substitutionNodes (const 1) t) openTerms),

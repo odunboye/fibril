@@ -20,6 +20,7 @@ supportedPrimitive WordDivOp = True
 supportedPrimitive WordRemOp = True
 supportedPrimitive WordFromNatOp = True
 supportedPrimitive BytesEqualOp = True
+supportedPrimitive BytesWordAtOp = True
 supportedPrimitive NetStreamTypeOp = False
 supportedPrimitive NetListenerTypeOp = False
 supportedPrimitive NetConnectOp = False

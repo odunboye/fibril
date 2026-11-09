@@ -166,6 +166,7 @@ int fibril_native_network_run(FEval entry) {
   if (cleanup.status != FN_OK) fail(&r, "network socket cleanup failed");
   int status = r.error ? 1 : 0;
   if (r.error) fprintf(stderr, "Fibril network error: %s\n", r.error);
+  f_stats_report(&r);
   while (r.allocations) { FAllocation *next = r.allocations->next; free(r.allocations); r.allocations = next; }
   return status;
 }

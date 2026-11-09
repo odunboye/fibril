@@ -34,6 +34,10 @@ bytePrimitiveGlobals =
       (Lambda Linear NatType (Lambda Linear BytesType
         (BytesIndex (Variable (FS FZ)) (Variable FZ))))
   , Global "primBytesIndexCase" indexCaseType indexCaseValue
+  -- Byte as a Word at a Word position; 256 (not a byte value) past the end. No unary Nat.
+  , Global "primBytesWordAt" (Pi Unrestricted (Prim WordTypeOp []) (Pi Linear BytesType (Prim WordTypeOp [])))
+      (Lambda Unrestricted (Prim WordTypeOp []) (Lambda Linear BytesType
+        (Prim BytesWordAtOp [Variable (FS FZ), Variable FZ])))
   , Global "primBytesSlice" (Pi Linear NatType (Pi Linear NatType (Pi Linear BytesType BytesType)))
       (Lambda Linear NatType (Lambda Linear NatType (Lambda Linear BytesType
         (BytesSlice (Variable (FS (FS FZ))) (Variable (FS FZ)) (Variable FZ)))))

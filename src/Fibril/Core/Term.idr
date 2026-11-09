@@ -27,6 +27,7 @@ data PrimOp
   | WordRemOp
   | WordFromNatOp
   | BytesEqualOp
+  | BytesWordAtOp
   | NetStreamTypeOp
   | NetListenerTypeOp
   | NetConnectOp
@@ -53,6 +54,7 @@ Eq PrimOp where
   WordRemOp == WordRemOp = True
   WordFromNatOp == WordFromNatOp = True
   BytesEqualOp == BytesEqualOp = True
+  BytesWordAtOp == BytesWordAtOp = True
   NetStreamTypeOp == NetStreamTypeOp = True
   NetListenerTypeOp == NetListenerTypeOp = True
   NetConnectOp == NetConnectOp = True
@@ -80,6 +82,7 @@ Show PrimOp where
   show WordRemOp = "wordRem"
   show WordFromNatOp = "wordFromNat"
   show BytesEqualOp = "bytesEqual"
+  show BytesWordAtOp = "bytesWordAt"
   show NetStreamTypeOp = "NetStreamType"
   show NetListenerTypeOp = "NetListenerType"
   show NetConnectOp = "NetConnect"
@@ -253,6 +256,11 @@ evalPrim WordMulOp [Prim (WordLitOp a) [], Prim (WordLitOp b) []] = Just (wordTe
 evalPrim WordEqOp [Prim (WordLitOp a) [], Prim (WordLitOp b) []] = Just (if a == b then BoolTrue else BoolFalse)
 evalPrim WordLtOp [Prim (WordLitOp a) [], Prim (WordLitOp b) []] = Just (if a < b then BoolTrue else BoolFalse)
 evalPrim BytesEqualOp [BytesValue a, BytesValue b] = Just (if a == b then BoolTrue else BoolFalse)
+-- The byte at a Word position, or 256 (not a byte value) past the end.
+evalPrim BytesWordAtOp [Prim (WordLitOp i) [], BytesValue b] =
+  Just (wordTerm (case byteAt (integerToNat i) b of
+                    Just octet => cast octet
+                    Nothing => 256))
 evalPrim WordToStringOp [Prim (WordLitOp a) []] = Just (StringValue (show a))
 evalPrim WordDivOp [Prim (WordLitOp a) [], Prim (WordLitOp b) []] = Just (wordDivision (if b == 0 then Nothing else Just (a `div` b)))
 evalPrim WordRemOp [Prim (WordLitOp a) [], Prim (WordLitOp b) []] = Just (wordDivision (if b == 0 then Nothing else Just (a `mod` b)))
@@ -260,17 +268,18 @@ evalPrim WordRemOp [Prim (WordLitOp a) [], Prim (WordLitOp b) []] = Just (wordDi
 evalPrim WordFromNatOp [chain] = map (\n => wordTerm (n `mod` wordModulus)) (natChainValue chain)
 evalPrim _ _ = Nothing
 
-||| Operand type (both operands) and result type of a binary primitive; Nothing if not binary.
+||| Left operand, right operand and result type of a binary primitive; Nothing if not binary.
 public export
-primBinarySignature : PrimOp -> Maybe (Term n, Term n)
-primBinarySignature WordAddOp = Just (Prim WordTypeOp [], Prim WordTypeOp [])
-primBinarySignature WordSubOp = Just (Prim WordTypeOp [], Prim WordTypeOp [])
-primBinarySignature WordMulOp = Just (Prim WordTypeOp [], Prim WordTypeOp [])
-primBinarySignature WordEqOp = Just (Prim WordTypeOp [], BoolType)
-primBinarySignature WordLtOp = Just (Prim WordTypeOp [], BoolType)
-primBinarySignature WordDivOp = Just (Prim WordTypeOp [], wordDivResultType)
-primBinarySignature WordRemOp = Just (Prim WordTypeOp [], wordDivResultType)
-primBinarySignature BytesEqualOp = Just (BytesType, BoolType)
+primBinarySignature : PrimOp -> Maybe (Term n, Term n, Term n)
+primBinarySignature WordAddOp = Just (Prim WordTypeOp [], Prim WordTypeOp [], Prim WordTypeOp [])
+primBinarySignature WordSubOp = Just (Prim WordTypeOp [], Prim WordTypeOp [], Prim WordTypeOp [])
+primBinarySignature WordMulOp = Just (Prim WordTypeOp [], Prim WordTypeOp [], Prim WordTypeOp [])
+primBinarySignature WordEqOp = Just (Prim WordTypeOp [], Prim WordTypeOp [], BoolType)
+primBinarySignature WordLtOp = Just (Prim WordTypeOp [], Prim WordTypeOp [], BoolType)
+primBinarySignature WordDivOp = Just (Prim WordTypeOp [], Prim WordTypeOp [], wordDivResultType)
+primBinarySignature WordRemOp = Just (Prim WordTypeOp [], Prim WordTypeOp [], wordDivResultType)
+primBinarySignature BytesEqualOp = Just (BytesType, BytesType, BoolType)
+primBinarySignature BytesWordAtOp = Just (Prim WordTypeOp [], BytesType, Prim WordTypeOp [])
 primBinarySignature _ = Nothing
 
 ||| Canonical unary natural; construction itself performs no external effect.

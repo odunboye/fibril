@@ -99,6 +99,19 @@ allocation charges; they do not guarantee wall time, physical JavaScript heap,
 garbage collection latency or hard real-time behavior. Host callbacks have their
 own resource and failure behavior.
 
+### Depth and tail calls
+
+Tail-position applications, `if` and `case` branches reassign the current term and environment
+inside the one `evaluate` rather than recursing, so a tail-recursive loop does not consume the
+`depth` bound (a 2048-iteration loop peaks near depth 20 under the default 256) while each
+transfer still costs one step. Non-tail recursion still stops at the depth bound. Folds and
+lazily accumulated arguments nest as before.
+
+A successful `run` returns `{actions, steps, peakDepth, allocatedBytes}`: the work
+actually used, so a workload can be compared with the limits above. Step, depth and
+allocation exhaustion are distinct errors (`evaluation`, `depth` and `allocation`
+budget exhausted).
+
 `make javascript-test` compares emitted JavaScript with hosted and native C output
 for checked programs, including Words, bytes, UTF-8, erased arguments, constructors,
 recursion and the standard-library conformance application. Trusted-IR runtime

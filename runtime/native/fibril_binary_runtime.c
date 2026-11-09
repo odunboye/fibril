@@ -196,6 +196,7 @@ static int binary_finish(FRuntime *r, FBinaryContext *context, FByteStatus statu
   else if (status == FB_WRITE_FAILED)
     fprintf(stderr, "fibril native binary: %s after accepting %zu bytes\n", binary_error(status), context->write_prefix);
   else if (status != FB_OK) fprintf(stderr, "fibril native binary: %s\n", binary_error(status));
+  f_stats_report(r);
   /* Session payloads are already freed. Do not inspect borrowed byte/string
      views here; only arena metadata is traversed to release the pure runtime. */
   while (r->allocations) { FAllocation *next = r->allocations->next; free(r->allocations); r->allocations = next; }
@@ -204,13 +205,23 @@ static int binary_finish(FRuntime *r, FBinaryContext *context, FByteStatus statu
 
 FBinaryResult fibril_native_binary_embed(FEval entry, size_t requests,
                                         size_t capacity, const FByteAdapters *host) {
-  FBinaryResult result = {F_BINARY_OK, FB_OK, NULL, 0, 0};
+  return fibril_native_binary_embed_limited(entry, requests, capacity, host, NULL);
+}
+
+FBinaryResult fibril_native_binary_embed_limited(FEval entry, size_t requests, size_t capacity,
+                                                 const FByteAdapters *host, const FNativeLimits *limits) {
+  FBinaryResult result = {F_BINARY_OK, FB_OK, NULL, 0, 0, {0, 0, 0}};
   if (!entry || !host || !host->read || !host->write || !host->flush) {
     result.status = F_BINARY_INVALID_ARGUMENT;
     result.message = "native binary embedding requires entry, read, write and flush callbacks";
     return result;
   }
   FRuntime runtime = {0};
+  if (!apply_limits(&runtime, limits)) {
+    result.status = F_BINARY_INVALID_ARGUMENT;
+    result.message = "native evaluation limit above its ceiling";
+    return result;
+  }
   FBinaryContext context = {&runtime, entry, FB_OK, 0, 0};
   FByteStatus status = fibril_bytes_run_with(requests, capacity, *host, binary_body, &context);
   if (runtime.error) {
@@ -223,6 +234,7 @@ FBinaryResult fibril_native_binary_embed(FEval entry, size_t requests,
     if (status == FB_READ_FAILED) result.read_prefix = context.read_prefix;
     if (status == FB_WRITE_FAILED) result.write_prefix = context.write_prefix;
   }
+  result.usage = usage_of(&runtime);
   /* The transport session has released all borrowed input slices. Only walk
      allocation metadata; never inspect values that may reference those slices. */
   while (runtime.allocations) {

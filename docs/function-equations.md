@@ -446,7 +446,7 @@ consumed exactly once. The fallback inherits
 the general elaborator's pattern resolution, which resolves a `Zero` pattern to
 the built-in constructor even when an identical `Zero` is imported. Mutual
 recursion is limited to the groups described under [mutual groups](#mutual-groups).
-Native C emission works but stays inside the runtime's fixed evaluation budget; on the hosted path
+Native C emission works but stays inside the runtime's fixed step budget (tail calls no longer use depth, see [native C](native-c.md#tail-calls)); on the hosted path
 `run --fuel` and `test --fuel` widen the evaluation budget.
 
 A refusal for a missing decrease is reported at the recursive call itself when the

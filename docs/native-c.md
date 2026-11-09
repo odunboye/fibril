@@ -11,8 +11,9 @@ support yet. Nat, fixed unary and list-shaped recursive
 values, their structural folds and direct cases are supported. A size-change-admitted
 `Fix` (general recursion, see [function equations](function-equations.md#general-recursion))
 is emitted as a recursive closure and agrees with the hosted evaluator, but it runs
-inside the same fixed evaluation budget as everything else (100000 steps, depth 512),
-so native emission does not widen how much recursion a program can do. Finite
+inside the same fixed evaluation budget as everything else (100000 steps, depth 512).
+Native emission does not widen how much work a program can do, but a [tail call](#tail-calls)
+no longer consumes depth, so only the step budget bounds a tail-recursive loop. Finite
 nullary/unary nominal variants and cases are supported, including
 [pure pair payloads and record lowering](native-pure-pairs.md). For ordinary
 development, the existing bounded reference `fibril run` remains an alternative.
@@ -33,6 +34,66 @@ existing file can truncate it even when emission subsequently fails. Do not
 redirect over source files. There is no atomic output-file or sandbox guarantee.
 
 ![Checked C emission boundary](diagrams/native-c.svg)
+
+## Tail calls
+
+A call in tail position (an application, an `if`, or a branch of a `case`, whose result is the
+function's result) runs in the same evaluator depth slot instead of nesting. Each transfer still
+costs one step, so step accounting is unchanged and only the depth limit moves: a loop of 2048
+tail calls peaks at depth about 20 where it used to exhaust the 512 depth limit. Non-tail recursion,
+such as `primWordAdd 1w (count p)`, still nests and still stops at the depth limit.
+
+Laziness is unchanged: arguments are still thunks, an ignored argument is never evaluated, and a
+thunk's memoized value is always a completed value. Folds (`natRec` and friends), regions, IO
+and thunk forcing are not tail positions. A lazily accumulated argument can still build a chain of
+deferred work that is forced later, nesting as deep as the chain is long, so an accumulator should
+be forced as it goes if the loop is long (`experiments/fib-lexer` shows one way).
+
+The mechanism is `evaluate` in `runtime/native/fibril_runtime.c`: the ten helpers marked
+"tail position" return a sentinel after recording the continuation, only `evaluate` receives it,
+and the emitter calls those helpers only as `return helper(...)`. The JavaScript backend loops
+inside its single `evaluate` instead (see [javascript](javascript.md#depth-and-tail-calls)).
+
+## Configurable limits
+
+The defaults stay 100000 steps, depth 512 and 16 MiB of allocation. Two ways change them:
+
+- **At build time**, for a standalone program: compile the runtime with
+  `-DF_MAX_STEPS='((size_t)N)'`, `-DF_MAX_DEPTH=...` or `-DF_MAX_BYTES=...`.
+- **Per invocation**, for an embedder: `fibril_native_embed_limited(entry, host, &limits)` and
+  `fibril_native_binary_embed_limited(entry, requests, capacity, host, &limits)` take an
+  `FNativeLimits {steps, depth, bytes}`. A zero field keeps the default and `NULL` keeps all of them.
+  The existing `fibril_native_embed` and `fibril_native_binary_embed` are unchanged.
+
+Raising a limit is the embedder's decision, so it is allowed, but every limit stays finite: a value
+above its ceiling (1073741824 steps, 16384 depth, 1073741824 bytes) is rejected with
+`INVALID_ARGUMENT`, never clamped, and nothing runs. The defaults are unchanged, and **lowering** a
+limit for a tighter or untrusted workload is always safe.
+
+**The depth ceiling is a hard bound on the setting, not a portable safe stack depth.** Accepting
+16384 does not mean 16384 nested evaluations fit on your stack. Depth is a C-stack bound: each unit
+is several C frames, so what fits depends on the stack size, the compiler and optimization level,
+and the platform. One data point, not a guarantee: on an 8 MB main-thread stack built at `-O1`, about
+33000 nested evaluations ran and about 65000 overflowed (roughly 120 bytes per unit). Unoptimized
+builds and small thread stacks need much less. Choose a depth for the stack the call actually runs
+on, and keep the default 512 unless you have measured that stack. The embedded no-heap profile keeps the default evaluation limits (its
+allocation bound is the arena).
+
+Embedders also learn what a run used: `FNativeResult` and `FBinaryResult` carry
+`usage {steps, peak_depth, bytes}` on success and on failure, so a limit can be chosen from
+evidence. The JavaScript backend is different: its `run(host, options)` limits can be lowered
+but not raised (see [javascript](javascript.md)).
+
+## Resource diagnostics
+
+A native run that exhausts its evaluation budget says which limit it was:
+`native evaluation budget exhausted (step limit)` or `(depth limit)`; allocation exhaustion
+reports `native allocation budget exhausted`. Set `FIBRIL_STATS=1` to make a standalone
+program (`run`, interactive, resource, binary and network entries) write one extra line to
+**stderr**, `fibril stats: steps=N peak_depth=N bytes=N`, on success and on failure. Stdout
+is never touched and nothing is printed unless the variable is set (`0` or empty counts as
+unset). `bytes` is total allocation charged against the allocation budget. The embedding APIs
+report the same numbers in their results (see [configurable limits](#configurable-limits)).
 
 ## What is compiled
 

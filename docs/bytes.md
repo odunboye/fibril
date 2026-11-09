@@ -21,6 +21,7 @@ host/native transport and remaining gates.
 | `ByteIndexResult` | Missing or found octet (`Nat` in 0..255), never a sentinel |
 | `primBytesIndex` | Linear `Nat -> Bytes -> ByteIndexResult`, zero-based |
 | `primBytesIndexCase` | Erased result type, linear result, unrestricted missing/found branches; found consumes one linear `Nat` |
+| `primBytesWordAt` | `Word -> Bytes -> Word` (position unrestricted, bytes linear): the octet at a `Word` position, or **256** (not an octet) at or beyond the end, so a NUL octet is distinguishable from the end. No unary `Nat` is built for the position or the result; native cost is O(1) where `primBytesIndex` is O(position). A `Word` computed from a linear `Bytes` cannot feed an unrestricted operand directly (share the bytes first, or keep the use inside the branch that owns them) |
 | `primBytesSlice` | Linear `start : Nat`, `count : Nat`, `Bytes -> Bytes` |
 
 The modulo operation is intentional and named explicitly: 255 gives `FF`, 256

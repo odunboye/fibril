@@ -51,7 +51,7 @@ Conversion treats `Fix` as neutral and never unfolds it. Run-mode evaluation
 and only at binder-free positions of closed terms, so an open call cannot unfold
 forever. Fix-free terms evaluate exactly as before. The C emitter lowers `Fix` to a
 recursive closure whose environment holds the function itself (`f_fix`); the result
-matches the hosted evaluator, within the runtime's fixed step and depth budget.
+matches the hosted evaluator, within the runtime's fixed step and depth budget (a tail call does not consume depth; see [native C](native-c.md#tail-calls)).
 Termination is a property of the checked graph under these
 rules; it is not a mechanized proof of the extractor or the evaluator.
 
