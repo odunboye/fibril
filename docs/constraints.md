@@ -69,6 +69,31 @@ dictionaries can permit repeated calls. No borrowing or quantity weakening
 occurs. An erased dictionary can still be mentioned by existing ordinary erased
 program constructs, but cannot be revived as a runtime constraint argument.
 
+## Inferred dictionaries after implicit arguments
+
+A signature may put `=>` binders directly after a leading implicit prefix:
+
+~~~fibril
+both : {0 A : Type 0} -> (ops : Join A) => (left : A) -> (right : A) -> A
+~~~
+
+A call `both "a" "b"` first infers `A` from the arguments exactly as in
+[implicit arguments](implicit-arguments.md); the constraint binders are skipped when
+matching arguments to parameters. Each binder is then filled by lookup, in this order:
+
+1. the unique matching lexically visible local dictionary (so generic code uses its own);
+2. otherwise the unique visible named implementation (as `@{implementation}` does);
+3. otherwise an error. Missing and ambiguous matches both fail with a source position and
+   ask for an explicit `@{dictionary}`; there is no priority, default or recursive search.
+
+Only binders directly after a non-empty implicit prefix are filled; the type argument is
+what selects the dictionary. Functions without an implicit prefix keep their explicit
+dictionary arguments, and `f {A} @{d} x` still supplies one by hand. The lookup result is
+an ordinary applied argument, so the core checker validates it like any other term, and no
+kernel rule, conversion rule or coherence guarantee is added. Uniqueness holds only among
+the providers visible at that call: importing another instance can turn a call ambiguous.
+See [the example](../examples/modules/inferred-constraints/Main.fib).
+
 ## Global calls remain explicit
 
 [The example graph](../examples/modules/constraints/Main.fib) calls:

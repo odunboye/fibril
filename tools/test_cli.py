@@ -4128,6 +4128,35 @@ main = first Zero
             self.assertNotEqual(result.returncode, 0)
             self.assertEqual(result.stdout, "")
 
+    def test_inferred_constraint_dictionaries(self):
+        example = ROOT / "examples/modules/inferred-constraints"
+        result = run("run", "--source-dir", str(example), str(example / "Main.fib"))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout, "Hello, inferred!\n42\nabab\n42\n")
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copy(example / "Combine.fib", root / "Combine.fib")
+            path = root / "Main.fib"
+            def go(body, kind="Word"):
+                path.write_text(f"module Main\nimport Combine\n\nmain : {kind}\nmain = {body}\n")
+                return run("eval", "--source-dir", str(root), str(path))
+            # Explicit braces and explicit dictionaries keep working.
+            self.assertIn("Normal: 3", go("Combine.both {Word} 1w 2w").stdout)
+            self.assertIn("Normal: 3", go("Combine.both {Word} @{Combine.wordJoin} 1w 2w").stdout)
+            # No instance: a located error, never a guess.
+            missing = go("Combine.both True False", "Bool")
+            self.assertNotEqual(missing.returncode, 0)
+            self.assertIn("No local dictionary or visible implementation", missing.stdout + missing.stderr)
+            # Two instances for one type are ambiguous.
+            library = (root / "Combine.fib")
+            library.write_text(library.read_text() + "\nexport\nimplementation wordJoinAgain : Combine.Join Word where\n  join = primWordMul\n")
+            ambiguous = go("Combine.both 1w 2w")
+            self.assertNotEqual(ambiguous.returncode, 0)
+            self.assertIn("Ambiguous visible implementations", ambiguous.stdout + ambiguous.stderr)
+            # An implicit prefix still needs a following Pi.
+            library.write_text("module Combine\n\nexport\nbad : {0 A : Type 0} -> A\nbad = \\(0 A : Type 0) => bad A\n")
+            self.assertNotEqual(go("1w").returncode, 0)
+
     def test_named_constraints_and_local_dictionary_selection(self):
         example = ROOT / "examples/modules/constraints"
         result = run("run", "--source-dir", str(example), str(example / "Main.fib"))

@@ -1,0 +1,25 @@
+module Combine
+
+export
+interface Join (0 A : Type 0) : Type 0 where
+  constructor MkJoin
+  eliminator useJoin
+  join : (left : A) -> (right : A) -> A
+
+export
+implementation wordJoin : Combine.Join Word where
+  join = primWordAdd
+
+export
+implementation textJoin : Combine.Join String where
+  join = \(left : String) => \(right : String) => appendString left right
+
+-- The type argument is inferred from the arguments; the dictionary is then looked up.
+export
+both : {0 A : Type 0} -> (ops : Join A) => (left : A) -> (right : A) -> A
+both = \(0 A : Type 0) => \(ops : Join A) => \(left : A) => \(right : A) => join A @{} left right
+
+-- Inside a generic function the local dictionary is found first.
+export
+twice : {0 A : Type 0} -> (ops : Join A) => (value : A) -> A
+twice = \(0 A : Type 0) => \(ops : Join A) => \(value : A) => both value value

@@ -1,0 +1,9 @@
+module Main
+import Combine
+
+main : IO Unit
+main = do
+  putStrLn (Combine.both "Hello, " "inferred!")
+  putStrLn (primWordToString (Combine.both 40w 2w))
+  putStrLn (Combine.twice "ab")
+  putStrLn (primWordToString (Combine.twice 21w))

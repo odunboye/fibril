@@ -89,6 +89,10 @@ become ordinary `Apply` terms; no metavariable or implicit Pi enters core syntax
 The ordinary core and runtime checkers independently validate the complete term,
 including implicit-domain types, erased-stage restrictions and linear use.
 
+An implicit prefix may be followed by `=>` constraint binders, which a call fills by
+dictionary lookup after the prefix is solved; see
+[inferred dictionaries](constraints.md#inferred-dictionaries-after-implicit-arguments).
+
 ## Bounds, tooling and evidence
 
 When inference is needed, the checked function type and each proposed
