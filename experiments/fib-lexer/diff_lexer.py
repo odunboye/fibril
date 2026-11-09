@@ -9,41 +9,31 @@ this lexer's exact stdout (for inputs the reference lexer rejects).
 
 Exit status is nonzero on any mismatch, native budget failure or crash, or if nothing was
 compared; --allow-partial accepts budget failures. The stock runtime stops after 100000
-steps, so use --raise-budgets (private copy of the runtime with larger caps) for real files. The Idris lexer reports scalar line:col, converted here to
+steps, so use --raise-budgets (build-time -DF_MAX_* overrides) for real files. The Idris lexer reports scalar line:col, converted here to
 byte offsets. Files the Idris lexer rejects, and files over the 4096-byte chunk, are skipped
 and counted; a native budget failure is reported separately from a real mismatch.
 """
-import argparse, pathlib, re, shutil, subprocess, sys, tempfile
+import argparse, pathlib, re, subprocess, sys, tempfile
 
 HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parents[1]  # worktree root: runtime/native
 CAP = 4096
 
 
-def raised_runtime(out):
-    """Copy of runtime/native with the step, depth and allocation caps lifted (measurement only)."""
-    dst = out / "runtime-raised"
-    shutil.copytree(ROOT / "runtime/native", dst, dirs_exist_ok=True)
-    c = dst / "fibril_runtime.c"
-    text = c.read_text()
-    for old, new in [("#define F_MAX_STEPS ((size_t)100000)", "#define F_MAX_STEPS ((size_t)2000000000)"),
-                     ("#define F_MAX_DEPTH ((size_t)512)", "#define F_MAX_DEPTH ((size_t)1000000)"),
-                     ("#define F_MAX_BYTES ((size_t)16777216)", "#define F_MAX_BYTES ((size_t)8589934592ULL)")]:
-        if old not in text:
-            sys.exit(f"runtime changed: {old} not found")
-        text = text.replace(old, new)
-    c.write_text(text)
-    return dst
+# The runtime's budgets can be overridden at build time; these lift step, depth and allocation limits
+# for measurement without touching or copying the runtime source.
+RAISED = ["-DF_MAX_STEPS=((size_t)2000000000)", "-DF_MAX_DEPTH=((size_t)1000000)",
+          "-DF_MAX_BYTES=((size_t)8589934592ULL)"]
 
 
-def build(fibril, out, runtime):
+def build(fibril, out, runtime, cflags=()):
     c = out / "lex.c"
     with open(c, "w") as f:
         subprocess.run([fibril, "emit-c-binary", "--source-dir", str(HERE / "src"), str(HERE / "src/Main.fib")],
                        stdout=f, check=True)
     exe = out / "lex"
     rt = pathlib.Path(runtime) if runtime else ROOT / "runtime/native"
-    subprocess.run(["cc", "-std=c11", "-O1", "-I", str(rt), str(c), str(rt / "fibril_binary_runtime.c"), "-o", str(exe)],
+    subprocess.run(["cc", "-std=c11", "-O1", *cflags, "-I", str(rt), str(c), str(rt / "fibril_binary_runtime.c"), "-o", str(exe)],
                    check=True)
     return exe
 
@@ -115,7 +105,7 @@ def main():
     ap.add_argument("--fibril", default=str(ROOT / "build/exec/fibril"))
     ap.add_argument("--keep")
     ap.add_argument("--runtime", help="directory of C runtime sources (default: runtime/native; the stock runtime stops after 100000 steps)")
-    ap.add_argument("--raise-budgets", action="store_true", help="build against a copy of the runtime with the caps lifted")
+    ap.add_argument("--raise-budgets", action="store_true", help="build with the step, depth and allocation limits lifted (-DF_MAX_*)")
     ap.add_argument("--allow-partial", action="store_true", help="exit 0 even if some files hit a native budget")
     ap.add_argument("paths", nargs="+")
     args = ap.parse_args()
@@ -124,9 +114,7 @@ def main():
         files += sorted(p.rglob("*.fib")) if p.is_dir() else [p]
     tmp = pathlib.Path(args.keep) if args.keep else pathlib.Path(tempfile.mkdtemp())
     tmp.mkdir(parents=True, exist_ok=True)
-    if args.raise_budgets and not args.runtime:
-        args.runtime = str(raised_runtime(tmp))
-    exe = build(args.fibril, tmp, args.runtime)
+    exe = build(args.fibril, tmp, args.runtime, RAISED if args.raise_budgets else ())
     counts = dict(match=0, mismatch=0, rejected=0, too_big=0, budget=0, crash=0)
     for path in files:
         data = path.read_bytes()

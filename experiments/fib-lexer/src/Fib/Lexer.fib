@@ -4,107 +4,105 @@ module Fib.Lexer
 -- comments, whitespace, strings, names/keywords, numbers, symbol runs and punctuation.
 -- Output is text, one token per line: "<start>-<end> <kind>" with half-open BYTE offsets.
 -- A lexical error ends the output with "<offset> error". Not ported: string-escape
--- validation, source-control validation, the (+) name collapse, line/column tracking.
+-- validation, control-character validation other than NUL, the (+) name collapse, and
+-- line/column tracking.
+--
+-- Positions are Words and bytes are read with primBytesWordAt, so a read costs O(1) rather
+-- than O(position) as it does with unary Nat positions. Only the loop fuel is a Nat.
 
 record SharedBytes : Type where
   constructor Shared
   bytes : Bytes
 
--- Byte at a position as a Word; 256w (not a byte value) past the end, so NUL is not end of input.
-byteAt : (pos : Nat) -> (src : Bytes) -> Word
-byteAt pos src = primBytesIndexCase Word (primBytesIndex pos src) 256w
-  (\(1 n : Nat) => primWordFromNat n)
-
-between : (lo : Word) -> (hi : Word) -> (c : Word) -> Bool
-between lo hi c = andBool (notBool (primWordLt c lo)) (primWordLt c hi)
-
 isDigit : (c : Word) -> Bool
-isDigit c = between 48w 58w c
+isDigit c = if primWordLt c 48w then False else primWordLt c 58w
 
-isLetter : (c : Word) -> Bool
-isLetter c = orBool (between 97w 123w c) (between 65w 91w c)
-
+-- The predicates are `if` trees ordered for the common case (lowercase letters), not strict
+-- andBool/orBool chains: every call and comparison costs evaluator steps.
 isNameStart : (c : Word) -> Bool
-isNameStart c = orBool (isLetter c) (primWordEq c 95w)
+isNameStart c =
+  if primWordLt c 97w then (if primWordLt c 65w then False else if primWordLt c 91w then True else primWordEq c 95w)
+  else primWordLt c 123w
 
 isNameRest : (c : Word) -> Bool
-isNameRest c = orBool (isNameStart c) (orBool (isDigit c) (primWordEq c 39w))
+isNameRest c =
+  if primWordLt c 97w then
+    (if primWordLt c 65w then (if primWordLt c 48w then primWordEq c 39w else primWordLt c 58w)
+     else if primWordLt c 91w then True else primWordEq c 95w)
+  else primWordLt c 123w
 
 isSpace : (c : Word) -> Bool
-isSpace c = orBool (primWordEq c 32w) (orBool (primWordEq c 10w) (orBool (primWordEq c 13w) (primWordEq c 9w)))
+isSpace c = if primWordEq c 32w then True else if primWordEq c 10w then True else if primWordEq c 13w then True else primWordEq c 9w
 
 -- ! # $ % & * + - / : < = > ? @ ^ | ~
 isSymbol : (c : Word) -> Bool
-isSymbol c = orBool (primWordEq c 33w) (orBool (between 35w 39w c) (orBool (between 42w 44w c)
-  (orBool (primWordEq c 45w) (orBool (primWordEq c 47w) (orBool (primWordEq c 58w)
-  (orBool (between 60w 65w c) (orBool (primWordEq c 94w) (orBool (primWordEq c 124w) (primWordEq c 126w)))))))))
+isSymbol c =
+  if primWordLt c 33w then False
+  else if primWordLt c 39w then (if primWordEq c 34w then False else True)
+  else if primWordLt c 42w then False
+  else if primWordLt c 44w then True
+  else if primWordEq c 45w then True
+  else if primWordEq c 47w then True
+  else if primWordLt c 58w then False
+  else if primWordLt c 59w then True
+  else if primWordLt c 60w then False
+  else if primWordLt c 65w then True
+  else if primWordEq c 94w then True
+  else if primWordEq c 124w then True
+  else primWordEq c 126w
 
 -- Not a line end, a NUL, or the end of input (the scanner then reports a NUL as an error).
 notEol : (c : Word) -> Bool
-notEol c = andBool (notBool (primWordEq c 10w)) (andBool (notBool (primWordEq c 13w)) (notBool (orBool (primWordEq c 0w) (primWordEq c 256w))))
+notEol c = if primWordEq c 10w then False else if primWordEq c 13w then False else if primWordEq c 0w then False else primWordLt c 256w
 
-natWord : (n : Nat) -> Word
-natWord n = primWordFromNat n
-
-natText : (n : Nat) -> String
-natText n = primWordToString (primWordFromNat n)
+inc : (w : Word) -> Word
+inc w = primWordAdd w 1w
 
 -- One output line.
-line : (start : Nat) -> (end : Nat) -> (kind : String) -> String
-line start end kind = appendString (natText start) (appendString "-"
-  (appendString (natText end) (appendString " " (appendString kind "\n"))))
+line : (start : Word) -> (end : Word) -> (kind : String) -> String
+line start end kind = appendString (primWordToString start) (appendString "-"
+  (appendString (primWordToString end) (appendString " " (appendString kind "\n"))))
 
-failure : (pos : Nat) -> String
-failure pos = appendString (natText pos) " error\n"
+failure : (pos : Word) -> String
+failure pos = appendString (primWordToString pos) " error\n"
 
--- Keyword spelling or "name".
-keyword : (text : String) -> String
-keyword text =
-  if equalString text "String" then "String"
-  else if equalString text "Type" then "Type"
-  else if equalString text "Unit" then "Unit"
-  else if equalString text "Bool" then "Bool"
-  else if equalString text "True" then "True"
-  else if equalString text "False" then "False"
-  else if equalString text "if" then "if"
-  else if equalString text "then" then "then"
-  else if equalString text "else" then "else"
-  else if equalString text "do" then "do"
-  else if equalString text "case" then "case"
-  else if equalString text "of" then "of"
-  else if equalString text "let" then "let"
-  else if equalString text "in" then "in"
-  else if equalString text "projection" then "projection"
-  else if equalString text "return" then "return"
-  else if equalString text "data" then "data"
-  else if equalString text "record" then "record"
-  else if equalString text "interface" then "interface"
-  else if equalString text "mutual" then "mutual"
-  else if equalString text "implementation" then "implementation"
-  else if equalString text "constructor" then "constructor"
-  else if equalString text "eliminator" then "eliminator"
-  else if equalString text "where" then "where"
-  else if equalString text "module" then "module"
-  else if equalString text "import" then "import"
-  else if equalString text "export" then "export"
+-- A name's first 8 bytes are packed big-endian into p1 and its next 8 into p2 (updated in scan,
+-- where k is the offset of the byte being added); that is exact for names up to 16 bytes, so
+-- keywords are recognised without slicing (a longer name is never one).
+
+-- Keyword spelling, or "name". A keyword of at most 7 bytes is recognised by p1 alone: a longer
+-- name has a nonzero top byte in p1, so it cannot equal a value below 2^56. Longer keywords
+-- compare p1 and p2; p2's leading byte is nonzero, so the pair fixes the length too.
+keyword : (p1 : Word) -> (p2 : Word) -> String
+keyword p1 p2 =
+  if primWordEq p1 91759600823911w then "String"
+  else if primWordEq p1 1417244773w then "Type"
+  else if primWordEq p1 1433299316w then "Unit"
+  else if primWordEq p1 1114599276w then "Bool"
+  else if primWordEq p1 1416787301w then "True"
+  else if primWordEq p1 302282208101w then "False"
+  else if primWordEq p1 26982w then "if"
+  else if primWordEq p1 1952998766w then "then"
+  else if primWordEq p1 1701606245w then "else"
+  else if primWordEq p1 25711w then "do"
+  else if primWordEq p1 1667330917w then "case"
+  else if primWordEq p1 28518w then "of"
+  else if primWordEq p1 7103860w then "let"
+  else if primWordEq p1 26990w then "in"
+  else if andBool (primWordEq p1 8102661182351176809w) (primWordEq p2 28526w) then "projection"
+  else if primWordEq p1 125780071117422w then "return"
+  else if primWordEq p1 1684108385w then "data"
+  else if primWordEq p1 125779785511524w then "record"
+  else if andBool (primWordEq p1 7597137600480436579w) (primWordEq p2 101w) then "interface"
+  else if primWordEq p1 120351232450924w then "mutual"
+  else if andBool (primWordEq p1 7596851757304341870w) (primWordEq p2 127961913716590w) then "implementation"
+  else if andBool (primWordEq p1 7165066974323701091w) (primWordEq p2 7630706w) then "constructor"
+  else if andBool (primWordEq p1 7308332213956665716w) (primWordEq p2 28530w) then "eliminator"
+  else if primWordEq p1 512852587109w then "where"
+  else if primWordEq p1 120325194214501w then "module"
+  else if primWordEq p1 115918758703732w then "import"
+  else if primWordEq p1 111567956832884w then "export"
   else "name"
-
--- Truncated subtraction; unary, so it costs the size of the subtrahend.
-monus : (left : Nat) -> (right : Nat) -> Nat
-monus left right = natRec (\(0 n : Nat) => Nat) left
-  (\(0 n : Nat) => \(1 previous : Nat) => case previous of
-    Zero => Zero
-    Succ k => k) right
-
--- The text of [start, end); empty if it is not valid UTF-8. Returning the linear text from
--- the branch lets the caller use it more than once.
-sliceText : (src : Bytes) -> (start : Nat) -> (end : Nat) -> String
-sliceText src start end = primUTF8Case String String
-  (primUTF8Decode (primBytesSlice start (monus end start) src)) ""
-  (\(1 text : String) => text)
-
-nameKind : (src : Bytes) -> (start : Nat) -> (end : Nat) -> String
-nameKind src start end = keyword (sliceText src start end)
 
 -- "=", "|" and ":" alone are their own kinds; any other run is an operator.
 symbolKind : (c : Word) -> (single : Bool) -> String
@@ -125,50 +123,60 @@ punct c =
   else if primWordEq c 92w then "lambda"
   else ""
 
+-- Returns m, after forcing a. Arguments are lazy, so without this the output string would be a chain
+-- of one deferred append per token that is forced only at the end, nesting as deep as there are
+-- tokens. The mode test runs every iteration, so testing through this keeps that chain at length 1.
+settled : (a : String) -> (m : Word) -> Word
+settled a m = if equalString a "" then m else m
+
 -- One flat state machine, because a general-recursive function may not call another one (the
 -- size-change gate refuses a nested Fix) and may not take a Bytes parameter (so it reads
 -- through rd instead). Modes: 0 between tokens, 2 comment, 3 name, 4 number, 5 string,
 -- 6 string escape, 7 symbol run. A run ends by emitting its token and re-reading the same
--- byte in mode 0, so the fuel is twice the input length plus 3; running out is reported as an error.
-scan : (fuel : Nat) -> (rd : (p : Nat) -> Word) -> (nk : (start : Nat) -> (end : Nat) -> String) -> (m : Word) -> (start : Nat) -> (pos : Nat) -> (acc : String) -> String
-scan fuel rd nk m start pos acc = case fuel of
+-- byte in mode 0, so the fuel is twice the input length plus 3; running out is reported as
+-- an error. rd returns 256 past the end of the input.
+scan : (fuel : Nat) -> (rd : (p : Word) -> Word) -> (m : Word) -> (start : Word) -> (pos : Word) -> (p1 : Word) -> (p2 : Word) -> (acc : String) -> String
+scan fuel rd m start pos p1 p2 acc = case fuel of
   Zero => appendString acc (failure pos)
   Succ f => (\(c : Word) => (\(d : Word) =>
-    if primWordEq m 3w then
-      (if isNameRest c then scan f rd nk 3w start (Succ pos) acc
-       else scan f rd nk 0w pos pos (appendString acc (line start pos (nk start pos))))
+    if primWordEq (settled acc m) 3w then
+      (if isNameRest c then
+         (\(k : Word) =>
+           if primWordLt k 8w then scan f rd 3w start (inc pos) (primWordAdd (primWordMul p1 256w) c) p2 acc
+           else if primWordLt k 16w then scan f rd 3w start (inc pos) p1 (primWordAdd (primWordMul p2 256w) c) acc
+           else scan f rd 3w start (inc pos) p1 p2 acc) (primWordSub pos start)
+       else scan f rd 0w pos pos 0w 0w (appendString acc (line start pos (keyword p1 p2))))
     else if primWordEq m 4w then
-      (if isDigit c then scan f rd nk 4w start (Succ pos) acc
-       else scan f rd nk 0w pos pos (appendString acc (line start pos "number")))
+      (if isDigit c then scan f rd 4w start (inc pos) 0w 0w acc
+       else scan f rd 0w pos pos 0w 0w (appendString acc (line start pos "number")))
     else if primWordEq m 7w then
-      (if isSymbol c then scan f rd nk 7w start (Succ pos) acc
-       else scan f rd nk 0w pos pos (appendString acc (line start pos
-         (symbolKind (rd start) (primWordEq (natWord pos) (primWordAdd (natWord start) 1w))))))
+      (if isSymbol c then scan f rd 7w start (inc pos) 0w 0w acc
+       else scan f rd 0w pos pos 0w 0w (appendString acc (line start pos (symbolKind (rd start) (primWordEq pos (inc start))))))
     else if primWordEq m 2w then
-      (if notEol c then scan f rd nk 2w start (Succ pos) acc else scan f rd nk 0w pos pos acc)
+      (if notEol c then scan f rd 2w start (inc pos) 0w 0w acc else scan f rd 0w pos pos 0w 0w acc)
     else if primWordEq m 5w then
       (if orBool (primWordEq c 0w) (primWordEq c 256w) then appendString acc (failure start)
-       else if primWordEq c 34w then scan f rd nk 0w (Succ pos) (Succ pos) (appendString acc (line start (Succ pos) "string"))
-       else if primWordEq c 92w then scan f rd nk 6w start (Succ pos) acc
-       else scan f rd nk 5w start (Succ pos) acc)
+       else if primWordEq c 34w then scan f rd 0w (inc pos) (inc pos) 0w 0w (appendString acc (line start (inc pos) "string"))
+       else if primWordEq c 92w then scan f rd 6w start (inc pos) 0w 0w acc
+       else scan f rd 5w start (inc pos) 0w 0w acc)
     else if primWordEq m 6w then
-      (if orBool (primWordEq c 0w) (primWordEq c 256w) then appendString acc (failure start) else scan f rd nk 5w start (Succ pos) acc)
+      (if orBool (primWordEq c 0w) (primWordEq c 256w) then appendString acc (failure start) else scan f rd 5w start (inc pos) 0w 0w acc)
     else if primWordEq c 256w then acc
-    else if primWordEq c 34w then scan f rd nk 5w pos (Succ pos) acc
-    else if andBool (primWordEq c 45w) (primWordEq d 45w) then scan f rd nk 2w pos (Succ (Succ pos)) acc
-    else if andBool (primWordEq c 45w) (primWordEq d 62w) then scan f rd nk 0w (Succ (Succ pos)) (Succ (Succ pos)) (appendString acc (line pos (Succ (Succ pos)) "->"))
-    else if andBool (primWordEq c 60w) (primWordEq d 45w) then scan f rd nk 0w (Succ (Succ pos)) (Succ (Succ pos)) (appendString acc (line pos (Succ (Succ pos)) "<-"))
-    else if andBool (primWordEq c 61w) (primWordEq d 62w) then scan f rd nk 0w (Succ (Succ pos)) (Succ (Succ pos)) (appendString acc (line pos (Succ (Succ pos)) "=>"))
-    else if andBool (primWordEq c 64w) (primWordEq d 123w) then scan f rd nk 0w (Succ (Succ pos)) (Succ (Succ pos)) (appendString acc (line pos (Succ (Succ pos)) "@{"))
-    else if isSymbol c then scan f rd nk 7w pos (Succ pos) acc
-    else if isSpace c then scan f rd nk 0w pos (Succ pos) acc
-    else if isNameStart c then scan f rd nk 3w pos (Succ pos) acc
-    else if isDigit c then scan f rd nk 4w pos (Succ pos) acc
-    else if notBool (equalString (punct c) "") then scan f rd nk 0w (Succ pos) (Succ pos) (appendString acc (line pos (Succ pos) (punct c)))
-    else if andBool (primWordEq c 206w) (primWordEq d 187w) then scan f rd nk 0w (Succ (Succ pos)) (Succ (Succ pos)) (appendString acc (line pos (Succ (Succ pos)) "lambda"))
-    else if andBool (primWordEq c 226w) (andBool (primWordEq d 134w) (primWordEq (rd (Succ (Succ pos))) 146w)) then scan f rd nk 0w (Succ (Succ (Succ pos))) (Succ (Succ (Succ pos))) (appendString acc (line pos (Succ (Succ (Succ pos))) "->"))
-    else if andBool (primWordEq c 226w) (andBool (primWordEq d 135w) (primWordEq (rd (Succ (Succ pos))) 146w)) then scan f rd nk 0w (Succ (Succ (Succ pos))) (Succ (Succ (Succ pos))) (appendString acc (line pos (Succ (Succ (Succ pos))) "=>"))
-    else appendString acc (failure pos)) (rd (Succ pos))) (rd pos)
+    else if isSpace c then scan f rd 0w pos (inc pos) 0w 0w acc
+    else if isNameStart c then scan f rd 3w pos (inc pos) c 0w acc
+    else if isDigit c then scan f rd 4w pos (inc pos) 0w 0w acc
+    else if primWordEq c 34w then scan f rd 5w pos (inc pos) 0w 0w acc
+    else if andBool (primWordEq c 45w) (primWordEq d 45w) then scan f rd 2w pos (inc (inc pos)) 0w 0w acc
+    else if andBool (primWordEq c 45w) (primWordEq d 62w) then scan f rd 0w (inc (inc pos)) (inc (inc pos)) 0w 0w (appendString acc (line pos (inc (inc pos)) "->"))
+    else if andBool (primWordEq c 60w) (primWordEq d 45w) then scan f rd 0w (inc (inc pos)) (inc (inc pos)) 0w 0w (appendString acc (line pos (inc (inc pos)) "<-"))
+    else if andBool (primWordEq c 61w) (primWordEq d 62w) then scan f rd 0w (inc (inc pos)) (inc (inc pos)) 0w 0w (appendString acc (line pos (inc (inc pos)) "=>"))
+    else if andBool (primWordEq c 64w) (primWordEq d 123w) then scan f rd 0w (inc (inc pos)) (inc (inc pos)) 0w 0w (appendString acc (line pos (inc (inc pos)) "@{"))
+    else if isSymbol c then scan f rd 7w pos (inc pos) 0w 0w acc
+    else if notBool (equalString (punct c) "") then scan f rd 0w (inc pos) (inc pos) 0w 0w (appendString acc (line pos (inc pos) (punct c)))
+    else if andBool (primWordEq c 206w) (primWordEq d 187w) then scan f rd 0w (inc (inc pos)) (inc (inc pos)) 0w 0w (appendString acc (line pos (inc (inc pos)) "lambda"))
+    else if andBool (primWordEq c 226w) (andBool (primWordEq d 134w) (primWordEq (rd (inc (inc pos))) 146w)) then scan f rd 0w (inc (inc (inc pos))) (inc (inc (inc pos))) 0w 0w (appendString acc (line pos (inc (inc (inc pos))) "->"))
+    else if andBool (primWordEq c 226w) (andBool (primWordEq d 135w) (primWordEq (rd (inc (inc pos))) 146w)) then scan f rd 0w (inc (inc (inc pos))) (inc (inc (inc pos))) 0w 0w (appendString acc (line pos (inc (inc (inc pos))) "=>"))
+    else appendString acc (failure pos)) (rd (inc pos))) (rd pos)
 
 double : (n : Nat) -> Nat
 double n = natRec (\(0 k : Nat) => Nat) Zero (\(0 k : Nat) => \(1 r : Nat) => Succ (Succ r)) n
@@ -177,8 +185,7 @@ double n = natRec (\(0 k : Nat) => Nat) Zero (\(0 k : Nat) => \(1 r : Nat) => Su
 export
 lexBytes : (1 input : Bytes) -> String
 lexBytes input = case primBytesShare input of
-  Shared src => scan (Succ (Succ (Succ (double (primBytesLength src))))) (\(p : Nat) => byteAt p src)
-    (\(start : Nat) => \(end : Nat) => nameKind src start end) 0w Zero Zero ""
+  Shared src => scan (Succ (Succ (Succ (double (primBytesLength src))))) (\(p : Word) => primBytesWordAt p src) 0w 0w 0w 0w 0w ""
 
 -- Lex source text (encodes it to UTF-8 first).
 export
