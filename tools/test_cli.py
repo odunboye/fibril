@@ -9328,5 +9328,39 @@ main = putStrLn "nested"
         self.check_source(source.replace('(1 children : Items Rose)', '(1 children : Wrapper Rose)'), False)
 
 
+class CompletionScopeTests(unittest.TestCase):
+    def report(self, source):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Main.fib'
+            path.write_text(source)
+            result = run_cli('check', '--json', str(path))
+        return json.loads(result.stdout)
+
+    def test_query_reports_checked_binders_and_expected_type_ranking(self):
+        report = self.report('copy : (1 n : Nat) -> Nat\ncopy n = fibrilScopeQuery_test\nmain : IO Unit\nmain = putStrLn "ok"\n')
+        self.assertFalse(report['accepted'])
+        scope = report['diagnostics'][0]['completionScope']
+        self.assertEqual(scope['query'], 'fibrilScopeQuery_test')
+        candidates = {candidate['label']: candidate for candidate in scope['candidates']}
+        self.assertIn('Nat', candidates['n']['detail'])
+        self.assertTrue(candidates['n']['compatible'])
+        self.assertFalse(any('$' in label for label in candidates))
+
+    def test_ordinary_unbound_diagnostic_is_unchanged(self):
+        report = self.report('main : IO Unit\nmain = putStrLn missing\n')
+        diagnostic = report['diagnostics'][0]
+        self.assertNotIn('completionScope', diagnostic)
+        self.assertTrue(diagnostic['message'].startswith('Resolution: '))
+
+    def test_probe_prefix_does_not_reserve_source_identifiers(self):
+        report = self.report('fibrilScopeQuery_value : String\nfibrilScopeQuery_value = "ok"\nmain : IO Unit\nmain = putStrLn fibrilScopeQuery_value\n')
+        self.assertTrue(report['accepted'], report)
+
+    def test_invalid_context_does_not_produce_checked_scope(self):
+        report = self.report('bad : (1 value : ()) -> Unit\nbad value = fibrilScopeQuery_test\nmain : IO Unit\nmain = putStrLn "ok"\n')
+        self.assertFalse(report['accepted'])
+        self.assertTrue(all('completionScope' not in diagnostic for diagnostic in report['diagnostics']))
+
+
 if __name__ == "__main__":
     unittest.main()

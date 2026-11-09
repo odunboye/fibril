@@ -12,6 +12,7 @@ import json
 import os
 from pathlib import Path
 import re
+import uuid
 import signal
 import stat
 import subprocess
@@ -620,7 +621,7 @@ class Server:
             invalid("Open the document before requesting language services")
         mapper = Positions(doc.text)
         with tempfile.TemporaryDirectory(prefix="fibril-lsp-") as directory:
-            local_only = method in {"textDocument/documentSymbol", "textDocument/formatting", "textDocument/completion"}
+            local_only = method in {"textDocument/documentSymbol", "textDocument/formatting"}
             snapshot = Snapshot(view, doc, directory, self.backend, cancel, local_only)
             # Keep the immutable snapshot for the final disk-freshness check.
             self.work_context.snapshot = snapshot
@@ -639,16 +640,7 @@ class Server:
             position = params.get("position")
             line, column = mapper.location(position)
             if method == "textDocument/completion":
-                # shortcut: current file + Prelude top-level names only, no scope/type awareness; upgrade with a compiler "scope" query.
-                offset = mapper.offset(position)
-                prefix = re.search(r"[A-Za-z0-9_']*$", doc.text[:offset]).group(0)
-                names = {symbol["name"] for symbol in snapshot.call(["symbols", path])["symbols"]}
-                # This script lives in <checkout>/tools; also try the layout <checkout>/build/exec/fibril.
-                candidates = [Path(__file__).resolve().parents[1], *Path(self.binary).resolve().parents[2:3]]
-                prelude = next((root / "stdlib" / "Prelude.fib" for root in candidates if (root / "stdlib" / "Prelude.fib").is_file()), None)
-                if prelude and prelude != doc.path:
-                    names |= {symbol["name"] for symbol in snapshot.call(["symbols", prelude])["symbols"]}
-                return {"isIncomplete": False, "items": [{"label": name, "kind": 3} for name in sorted(names) if name.startswith(prefix)]}
+                return self.completion(snapshot, view, doc, mapper, position, cancel)
             if method == "textDocument/definition":
                 return snapshot.definition(line, column, self.definition_links)
             if method == "textDocument/hover":
@@ -699,6 +691,52 @@ class Server:
                 edits = [{"range": mapper.compiler_range(edit["range"]), "newText": edit["newText"]} for edit in packet["edits"]]
                 return {"documentChanges": [{"textDocument": {"uri": doc.uri, "version": doc.version}, "edits": edits}]}
             raise LSPError(-32601, "Method not found")
+
+    def completion(self, snapshot, view, doc, mapper, position, cancel):
+        offset = mapper.offset(position)
+        # Replace the complete identifier, including its qualifier and any suffix
+        # after the caret. Completion edits use the original UTF-16 coordinates.
+        token = next((match for match in re.finditer(r"[A-Za-z_][A-Za-z0-9_']*(?:\.[A-Za-z_][A-Za-z0-9_']*)*\.?", doc.text)
+                      if match.start() <= offset <= match.end()), None)
+        start, end = (token.start(), token.end()) if token else (offset, offset)
+        prefix = doc.text[start:offset]
+        marker = "fibrilScopeQuery_" + uuid.uuid4().hex
+        probe_doc = Document(doc.uri, doc.path, doc.version, doc.text[:start] + marker + doc.text[end:])
+        documents = dict(view.documents)
+        documents[doc.uri] = probe_doc
+        probe_view = View(view.epoch, documents, view.roots, view.options)
+        with tempfile.TemporaryDirectory(prefix="fibril-completion-") as directory:
+            probe = Snapshot(probe_view, probe_doc, directory, self.backend, cancel)
+            packet = probe.check()
+            probe.verify_disk()
+            for diagnostic in packet.get("diagnostics", []):
+                scope = diagnostic.get("completionScope")
+                point = diagnostic.get("position") or {}
+                if not scope or scope.get("query") != marker or point.get("offset") != start:
+                    continue
+                if diagnostic.get("path") and probe.original(diagnostic["path"]) != doc.path:
+                    continue
+                items = []
+                seen = set()
+                for candidate in scope.get("candidates", []):
+                    name = candidate.get("label")
+                    if not isinstance(name, str) or not name.startswith(prefix) or name in seen:
+                        continue
+                    seen.add(name)
+                    items.append({"label": name, "kind": 6 if candidate.get("kind") == "local" else 3,
+                                  "detail": candidate.get("detail", ""),
+                                  "sortText": ("0_" if candidate.get("compatible") else "1_") + name,
+                                  "textEdit": {"range": {"start": mapper.point(start), "end": mapper.point(end)}, "newText": name}})
+                return {"isIncomplete": False, "items": sorted(items, key=lambda item: item["sortText"])}
+        # A parse error or an earlier unrelated error can prevent reaching the
+        # query. Keep the existing syntax-only fallback explicitly incomplete.
+        names = {symbol["name"] for symbol in snapshot.call(["symbols", snapshot.mapped(doc.path)])["symbols"]}
+        candidates = [Path(__file__).resolve().parents[1], *Path(self.binary).resolve().parents[2:3]]
+        prelude = next((root / "stdlib" / "Prelude.fib" for root in candidates if (root / "stdlib" / "Prelude.fib").is_file()), None)
+        if prelude and prelude != doc.path:
+            names |= {symbol["name"] for symbol in snapshot.call(["symbols", prelude])["symbols"]}
+        return {"isIncomplete": True, "items": [{"label": name, "kind": 3, "detail": "Syntax only; checked scope unavailable"}
+                for name in sorted(names) if name.startswith(prefix)]}
 
     def project_rename(self, snapshot, view, line, column, name):
         locations = snapshot.references(line, column, True)
@@ -780,7 +818,7 @@ class Server:
             self.initialized = True
             self.send({"id": ident, "result": {"serverInfo": {"name": "fibril-lsp", "version": "0.1.0"}, "capabilities": {
                 "positionEncoding": "utf-16", "textDocumentSync": {"openClose": True, "change": 2, "save": {"includeText": False}},
-                "definitionProvider": True, "referencesProvider": True, "completionProvider": {}, "hoverProvider": True,
+                "definitionProvider": True, "referencesProvider": True, "completionProvider": {"triggerCharacters": ["."]}, "hoverProvider": True,
                 "documentSymbolProvider": True, "documentFormattingProvider": True, "renameProvider": self.versioned_edits,
                 "workspace": {"workspaceFolders": {"supported": True, "changeNotifications": True}}}}})
             return None
