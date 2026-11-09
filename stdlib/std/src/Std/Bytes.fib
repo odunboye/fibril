@@ -1,0 +1,59 @@
+module Std.Bytes
+
+import Std.Nat
+
+-- The unrestricted view that primBytesShare returns; private to this module.
+record SharedBytes : Type where
+  constructor Shared
+  bytes : Bytes
+
+-- Bytes values are linear primitives. Helpers that need a value twice first share it
+-- with `primBytesShare`, which yields an unrestricted immutable copy.
+
+export
+byteLength : (1 bytes : Bytes) -> Nat
+byteLength bytes = primBytesLength bytes
+
+export
+isEmpty : (1 bytes : Bytes) -> Bool
+isEmpty bytes = primBytesLengthIs Zero bytes
+
+export
+equalBytes : (1 left : Bytes) -> (1 right : Bytes) -> Bool
+equalBytes left right = primBytesEqual left right
+
+-- True when prefix is an initial segment of bytes; every value starts with the empty prefix.
+export
+startsWith : (1 bytes : Bytes) -> (1 prefix : Bytes) -> Bool
+startsWith bytes prefix = case primBytesShare prefix
+  of
+  Shared p =>
+    primBytesEqual (primBytesSlice Zero (primBytesLength p) bytes) p
+
+-- True when suffix is a final segment of bytes. A suffix longer than bytes is never one:
+-- the truncated start offset would otherwise select the whole value.
+export
+endsWith : (1 bytes : Bytes) -> (1 suffix : Bytes) -> Bool
+endsWith bytes suffix = case primBytesShare bytes
+  of
+  Shared b =>
+    case primBytesShare suffix
+      of
+    Shared s =>
+        if primBytesLengthIs
+          (primBytesLength s)
+          (primBytesSlice
+            (Std.Nat.monus
+              (primBytesLength b)
+              (primBytesLength s))
+            (primBytesLength s)
+            b)
+          then primBytesEqual
+              (primBytesSlice
+                (Std.Nat.monus
+                  (primBytesLength b)
+                  (primBytesLength s))
+                (primBytesLength s)
+                b)
+              s
+          else False

@@ -115,6 +115,8 @@ primitiveGlobals =
   , Global "primWordDivCase" divisionCaseType divisionCaseValue
   , Global "primWordFromNat" (Pi Linear NatType (Prim WordTypeOp []))
       (Lambda Linear NatType (Prim WordFromNatOp [Variable FZ]))
+  , Global "primBytesEqual" (Pi Linear BytesType (Pi Linear BytesType BoolType))
+      (Lambda Linear BytesType (Lambda Linear BytesType (Prim BytesEqualOp [Variable (FS FZ), Variable FZ])))
   , wordBinary "primWordAdd" WordAddOp (Prim WordTypeOp [])
   , wordBinary "primWordSub" WordSubOp (Prim WordTypeOp [])
   , wordBinary "primWordMul" WordMulOp (Prim WordTypeOp [])

@@ -21,7 +21,7 @@ STD = ROOT / 'stdlib/std'
 CC = shlex.split(os.environ.get('CC', 'cc'))
 SANITIZE = (['-fsanitize=address,undefined', '-fno-omit-frame-pointer', '-g']
             if os.environ.get('FIBRIL_STD_SANITIZE') == '1' else [])
-CHECKS = 24  # one report line per conformance check; update with Main.fib
+CHECKS = 48  # one report line per conformance check; update with Main.fib
 
 
 def run_conformance(package_root):
@@ -42,7 +42,7 @@ class StdTests(unittest.TestCase):
     def test_library_checks(self):
         result = run_cli('check', '--package', str(STD / 'fibril.yaml'), timeout=120)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertIn('Modules: 3', result.stdout)
+        self.assertIn('Modules: 6', result.stdout)
 
     def test_hosted_smoke_suite_passes(self):
         result = run_cli('test', '--package', str(STD / 'fibril.yaml'), '--fuel', '4096', timeout=120)

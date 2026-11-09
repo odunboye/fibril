@@ -1,0 +1,14 @@
+-- primBytesEqual compares two Bytes octet for octet; slices are compared by content.
+encode : (text : String) -> Bytes
+encode text = primUTF8Case Bytes Bytes (primUTF8Encode text) primBytesEmpty (\(1 b : Bytes) => b)
+
+say : (label : String) -> (holds : Bool) -> IO Unit
+say label holds = putStrLn (appendString label (if holds then ": yes" else ": no"))
+
+main : IO Unit
+main = do
+  say "same" (primBytesEqual (encode "hello") (encode "hello"))
+  say "different" (primBytesEqual (encode "hello") (encode "help!"))
+  say "shorter" (primBytesEqual (encode "hello") (encode "hell"))
+  say "empty" (primBytesEqual primBytesEmpty primBytesEmpty)
+  say "slice" (primBytesEqual (primBytesSlice Zero (Succ (Succ Zero)) (encode "hello")) (encode "he"))
