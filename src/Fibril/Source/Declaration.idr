@@ -300,10 +300,10 @@ dataFields (S fuel) expressions end tokens@(opening :: afterOpen) =
     Right (Field name parameter.quantity parameter.domain :: fields, result)
 dataFields (S fuel) expressions end [] = Left (ParseFailure end "Expected constructor result type")
 
-dataConstructors : Nat -> Nat -> Nat -> Position -> List Token -> Either ParseError (List DataConstructor, List Token)
-dataConstructors fuel expressions indent end [] = Right ([], [])
-dataConstructors fuel expressions indent end tokens@(first :: _) =
-  if first.span.start.column <= 1 then Right ([], tokens) else case fuel of
+dataConstructors : Nat -> Nat -> Nat -> Nat -> Position -> List Token -> Either ParseError (List DataConstructor, List Token)
+dataConstructors fuel expressions base indent end [] = Right ([], [])
+dataConstructors fuel expressions base indent end tokens@(first :: _) =
+  if first.span.start.column <= base then Right ([], tokens) else case fuel of
     Z => Left (ParseFailure first.span.start "Data constructor token budget exhausted")
     S fuel => do
       if first.span.start.column /= indent then Left (ParseFailure first.span.start "Data constructors must align") else Right ()
@@ -311,7 +311,7 @@ dataConstructors fuel expressions indent end tokens@(first :: _) =
       (name, rest) <- expect Name end line
       (_, rest) <- expect Colon end rest
       (fields, result) <- dataFields (S (length rest)) expressions (nextPosition end remaining) rest
-      (following, rest) <- dataConstructors fuel expressions indent end remaining
+      (following, rest) <- dataConstructors fuel expressions base indent end remaining
       Right (DataConstructorSyntax (Between name.span.start (extent result).finish) name fields result :: following, rest)
 
 dataIndices : Nat -> Nat -> Position -> List Token -> Either ParseError (List RecordParameter, List Token)
@@ -385,43 +385,46 @@ dataAlternatives expressions end name params (alternative :: rest) = do
   following <- dataAlternatives expressions end name params rest
   Right (constructor :: following)
 
-parseDataAlternatives : Nat -> Position -> Token -> Token -> Bool -> List RecordParameter -> List Token ->
+parseDataAlternatives : Nat -> Nat -> Position -> Token -> Token -> Bool -> List RecordParameter -> List Token ->
                         Either ParseError (AuthoredDeclaration, List Token)
-parseDataAlternatives budget end keyword name implicitConstructors params tokens = do
-  if keyword.span.start.column /= 1 || name.spelling == "_"
+parseDataAlternatives base budget end keyword name implicitConstructors params tokens = do
+  if keyword.span.start.column /= base || name.spelling == "_"
      then Left (ParseFailure keyword.span.start "Expected a column-one data declaration") else Right ()
-  let (body, rest) = span (\token => token.span.start.column > 1) tokens
+  let (body, rest) = span (\token => token.span.start.column > base) tokens
   constructors <- dataAlternatives budget end name params (splitAlternatives body)
   let finish = case reverse body of last :: _ => last.span.finish; [] => name.span.finish
   Right (DataItem (DataSyntax (Between keyword.span.start finish) name 0 params implicitConstructors [] Nothing constructors False), rest)
 
-parseData : Nat -> Position -> List Token -> Either ParseError (AuthoredDeclaration, List Token)
-parseData budget end tokens = do
+parseDataAt : Nat -> Nat -> Position -> List Token -> Either ParseError (AuthoredDeclaration, List Token)
+parseDataAt base budget end tokens = do
   (keyword, rest) <- expect DataKeyword end tokens
   (name, rest) <- expect Name end rest
   (implicitConstructors, params, rest) <- dataParameters (S (length rest)) budget end Nothing rest
   case rest of
     equals :: afterEquals =>
-      if equals.kind == Equals then parseDataAlternatives budget end keyword name implicitConstructors params afterEquals
-      else parseDataWhere budget end keyword name implicitConstructors params rest
-    [] => parseDataWhere budget end keyword name implicitConstructors params rest
+      if equals.kind == Equals then parseDataAlternatives base budget end keyword name implicitConstructors params afterEquals
+      else parseDataWhere base budget end keyword name implicitConstructors params rest
+    [] => parseDataWhere base budget end keyword name implicitConstructors params rest
   where
-    parseDataWhere : Nat -> Position -> Token -> Token -> Bool -> List RecordParameter -> List Token ->
+    parseDataWhere : Nat -> Nat -> Position -> Token -> Token -> Bool -> List RecordParameter -> List Token ->
                      Either ParseError (AuthoredDeclaration, List Token)
-    parseDataWhere budget end keyword name implicitConstructors params rest = do
+    parseDataWhere base budget end keyword name implicitConstructors params rest = do
       (_, rest) <- expect Colon end rest
       (indices, rest) <- dataIndices (S (length rest)) budget end rest
       (universe, rest) <- expect TypeKeyword end rest
       (level, _, rest) <- universeAfterType universe rest
       (whereToken, rest) <- expect WhereKeyword end rest
-      if keyword.span.start.column /= 1 || name.spelling == "_" || whereToken.span.start.line /= keyword.span.start.line
+      if keyword.span.start.column /= base || name.spelling == "_" || whereToken.span.start.line /= keyword.span.start.line
          then Left (ParseFailure keyword.span.start "Expected column-one data header ending : Type n where on one line") else Right ()
       let indent = case rest of first :: _ => first.span.start.column; [] => 0
       (eliminator, rest) <- optionalEliminator indent end rest
-      (constructors, rest) <- dataConstructors (length rest) budget indent end rest
+      (constructors, rest) <- dataConstructors (length rest) budget base indent end rest
       if null constructors then Left (ParseFailure name.span.start "Data requires at least one constructor") else Right ()
       let finish = case reverse constructors of ctor :: _ => ctor.span.finish; [] => name.span.finish
       Right (DataItem (DataSyntax (Between keyword.span.start finish) name level params implicitConstructors indices eliminator constructors False), rest)
+
+parseData : Nat -> Position -> List Token -> Either ParseError (AuthoredDeclaration, List Token)
+parseData = parseDataAt 1
 
 parseRecordLike : TokenKind -> Nat -> Position -> List Token -> Either ParseError (AuthoredDeclaration, List Token)
 parseRecordLike kind budget end tokens = do
@@ -513,6 +516,26 @@ parseImplementation budget end (keyword :: rest) = do
        Right (ImplementationItem ({ dictionary := True, span := Between keyword.span.start decl.span.finish } decl), remaining)
 
 
+parseMutualData : Nat -> Position -> Token -> Nat -> List Token -> Either ParseError (AuthoredDeclaration, List Token)
+parseMutualData budget end keyword indent tokens = do
+  (members, remaining) <- collect 8 tokens
+  if length members < 2 then Left (ParseFailure keyword.span.start "Mutual data needs at least two families") else Right ()
+  let finish = case reverse members of last :: _ => last.span.finish; [] => keyword.span.finish
+  Right (MutualDataItem (Between keyword.span.start finish) members, remaining)
+  where
+    collect : Nat -> List Token -> Either ParseError (List DataDeclaration, List Token)
+    collect fuel [] = Right ([], [])
+    collect fuel tokens@(next :: _) =
+      if next.span.start.column <= 1 then Right ([], tokens) else case fuel of
+        Z => Left (ParseFailure next.span.start "Mutual data takes at most eight families")
+        S remaining => do
+          if next.kind /= DataKeyword || next.span.start.column /= indent
+            then Left (ParseFailure next.span.start "Expected an aligned data declaration in the mutual group") else Right ()
+          (DataItem member, rest) <- parseDataAt indent budget end tokens
+            | _ => Left (ParseFailure next.span.start "Expected data declaration")
+          (following, tail) <- collect remaining rest
+          Right (member :: following, tail)
+
 parseMutual : Nat -> Position -> List Token -> Either ParseError (AuthoredDeclaration, List Token)
 parseMutual budget end (keyword :: marker :: tokens@(first :: _)) = do
   if keyword.span.start.column /= 1 || marker.kind /= WhereKeyword ||
@@ -520,13 +543,14 @@ parseMutual budget end (keyword :: marker :: tokens@(first :: _)) = do
      first.span.start.column <= 1
     then Left (ParseFailure keyword.span.start "Expected mutual where followed by two indented declarations") else Right ()
   let indent = first.span.start.column
-  (one, rest) <- parsePairFramed indent indent budget end tokens
-  (two, afterTwo) <- parsePairFramed indent indent budget end rest
-  (others, remaining) <- moreMembers indent 6 afterTwo
-  let finish = case reverse others of
-        last :: _ => last.span.finish
-        [] => two.span.finish
-  Right (MutualItem (MutualSyntax (Between keyword.span.start finish) one two others False), remaining)
+  if first.kind == DataKeyword then parseMutualData budget end keyword indent tokens else do
+    (one, rest) <- parsePairFramed indent indent budget end tokens
+    (two, afterTwo) <- parsePairFramed indent indent budget end rest
+    (others, remaining) <- moreMembers indent 6 afterTwo
+    let finish = case reverse others of
+          last :: _ => last.span.finish
+          [] => two.span.finish
+    Right (MutualItem (MutualSyntax (Between keyword.span.start finish) one two others False), remaining)
   where
     -- A group has two to eight members. The fuel counts the extra members still allowed, so
     -- the recursion shrinks; an indented declaration beyond the limit is an error.
@@ -577,6 +601,7 @@ parseOne budget end tokens@(token :: rest) =
     (item, remaining) <- parseOne budget end rest
     let start = case item of
           MutualItem group => group.span.start
+          MutualDataItem span _ => span.start
           DataItem sourceData => sourceData.span.start
           Ordinary decl => decl.span.start
           RecordItem sourceRecord => sourceRecord.span.start
@@ -587,6 +612,7 @@ parseOne budget end tokens@(token :: rest) =
        then Left (ParseFailure start "export must precede the declaration on its own line") else Right ()
     let marked = case item of
           MutualItem group => MutualItem ({ exported := True, span := Between token.span.start group.span.finish } group)
+          MutualDataItem span members => MutualDataItem (Between token.span.start span.finish) (map (\member => { exported := True } member) members)
           DataItem sourceData => DataItem ({ exported := True, span := Between token.span.start sourceData.span.finish } sourceData)
           Ordinary decl => Ordinary ({ exported := True, span := Between token.span.start decl.span.finish } decl)
           RecordItem sourceRecord => RecordItem ({ exported := True, span := Between token.span.start sourceRecord.span.finish } sourceRecord)

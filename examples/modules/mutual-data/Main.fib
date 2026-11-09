@@ -1,0 +1,17 @@
+module Main
+
+mutual where
+  data Even : Type where
+    ZeroEven : Even
+    NextEven : (odd : Odd) -> Even
+  data Odd : Type where
+    NextOdd : (even : Even) -> Odd
+
+render : (value : Even) -> String
+render value = case value of
+  ZeroEven => "0"
+  NextEven odd => case odd of
+    NextOdd even => appendString "." (render even)
+
+main : IO Unit
+main = putStrLn (render (NextEven (NextOdd (NextEven (NextOdd ZeroEven)))))

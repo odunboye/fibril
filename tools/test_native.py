@@ -59,7 +59,8 @@ class NativeTests(unittest.TestCase):
                     self.assertEqual(native.stdout, reference.stdout)
 
     def test_imported_module_and_package_entry(self):
-        cases = [(['--source-dir', str(ROOT / 'examples/modules/indexed-vect'), str(ROOT / 'examples/modules/indexed-vect/Main.fib')], b'first\n!!!!\n'),
+        cases = [(['--source-dir', str(ROOT / 'examples/modules/mutual-data'), str(ROOT / 'examples/modules/mutual-data/Main.fib')], b'..0\n'),
+                 (['--source-dir', str(ROOT / 'examples/modules/indexed-vect'), str(ROOT / 'examples/modules/indexed-vect/Main.fib')], b'first\n!!!!\n'),
                  (['--source-dir', str(ROOT / 'examples/modules/checked'), str(ROOT / 'examples/modules/checked/Main.fib')], b'Hello, Fibril!\n'),
                  (['--source-dir', str(ROOT / 'examples/modules/implicit-arguments'), str(ROOT / 'examples/modules/implicit-arguments/Main.fib')], b'queued: receipt\nexplicit type\nphantom type\nboth inferred\npartly explicit\n'),
                  (['--package', str(ROOT / 'examples/packages/mailer/fibril.yaml')], b'accepted by relay: demo-1 (not delivery)\n')]

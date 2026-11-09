@@ -9107,5 +9107,89 @@ class CheckJSONContractTests(unittest.TestCase):
         self.assertEqual(report['version'], 2)
 
 
+class MutualDataTests(unittest.TestCase):
+    @staticmethod
+    def fixture():
+        return (ROOT / 'examples/modules/mutual-data/Main.fib').read_text()
+
+    def source(self, text, command='check'):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Main.fib'
+            path.write_text(text)
+            return run_cli(command, '--source-dir', directory, str(path), timeout=120)
+
+    def test_even_odd_construct_eliminate_recurse_and_format(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'Main.fib'
+            path.write_text(self.fixture())
+            formatted = run_cli('format', str(path))
+            self.assertEqual(formatted.returncode, 0, formatted.stderr)
+            path.write_text(formatted.stdout)
+            result = run_cli('run', '--source-dir', directory, str(path), timeout=120)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, '..0\n')
+
+    def test_negative_recursion_through_partner_is_rejected(self):
+        result = self.source(self.fixture().replace('(odd : Odd)', '(odd : (value : Odd) -> Nat)'))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('function type', result.stdout + result.stderr)
+
+    def test_nondecreasing_and_rebuilt_recursion_are_rejected(self):
+        for call in ['render value', 'render (NextEven (NextOdd even))']:
+            with self.subTest(call=call):
+                result = self.source(self.fixture().replace('render even', call))
+                self.assertNotEqual(result.returncode, 0)
+
+    def test_mutual_group_bounds_and_duplicate_names(self):
+        for count in [1,9]:
+            source = 'module Main\nmutual where\n' + ''.join(
+                f'  data T{i} : Type where\n    Mk{i} : T{i}\n' for i in range(count))
+            result = self.source(source + 'main : IO Unit\nmain = putStrLn "x"\n')
+            self.assertNotEqual(result.returncode, 0)
+        self.assertNotEqual(self.source(self.fixture().replace('data Odd : Type', 'data Even : Type')).returncode, 0)
+
+    def test_indexed_mutual_groups_remain_explicitly_unsupported(self):
+        result = self.source(self.fixture().replace('data Even : Type', 'data Even : (0 n : Nat) -> Type'))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('Indexed mutual data', result.stdout + result.stderr)
+
+    def test_mutual_group_exports_and_qualified_imports(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = self.fixture().replace('module Main', 'module Shared', 1)
+            source = source.replace('mutual where', 'export\nmutual where', 1).replace('render :', 'export\nrender :', 1)
+            (root / 'Shared.fib').write_text(source)
+            main = root / 'Main.fib'
+            main.write_text('module Main\nimport Shared as S\nmain : IO Unit\n'
+                'main = putStrLn (S.render (S.NextEven (S.NextOdd S.ZeroEven)))\n')
+            result = run_cli('run', '--source-dir', directory, str(main), timeout=120)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.stdout, '.0\n')
+
+    def test_parameterized_tree_forest_and_uniformity(self):
+        source = '''module Main
+mutual where
+  data Tree (0 A : Type) : Type where
+    Leaf : (value : A) -> Tree A
+    Node : (children : Forest A) -> Tree A
+  data Forest (0 B : Type) : Type where
+    Empty : Forest B
+    More : (first : Tree B) -> (rest : Forest B) -> Forest B
+render : (tree : Tree String) -> String
+render tree = case tree of
+  Leaf value => value
+  Node forest => case forest of
+    Empty => "empty"
+    More first rest => render first
+main : IO Unit
+main = putStrLn (render (Node String (More String (Leaf String "leaf") (Empty String))))
+'''
+        result = self.source(source, 'run')
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout, 'leaf\n')
+        wrong = source.replace('(children : Forest A)', '(children : Forest String)')
+        self.assertNotEqual(self.source(wrong).returncode, 0)
+
+
 if __name__ == "__main__":
     unittest.main()

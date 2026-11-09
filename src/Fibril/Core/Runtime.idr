@@ -359,6 +359,12 @@ extendDataRuntimeGlobals depth reduction globals decl = do
   Right (CheckedRuntimeGlobals next)
 
 public export
+extendDataGroupRuntimeGlobals : Nat -> Nat -> RuntimeGlobals -> List DataDecl -> Either RuntimeError RuntimeGlobals
+extendDataGroupRuntimeGlobals depth reduction globals group = do
+  next <- liftTyping (extendDataGroupGlobals depth reduction (erasedGlobals globals) group)
+  Right (CheckedRuntimeGlobals next)
+
+public export
 inferRuntime : {n : Nat} -> Nat -> Nat -> Context n -> Term n -> Either RuntimeError (RuntimeResult n)
 inferRuntime = inferRuntimeGlobals emptyRuntimeGlobals
 

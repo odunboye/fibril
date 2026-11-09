@@ -147,12 +147,13 @@ record MutualDeclaration where
 ||| `DataFamily` registers a general recursive family (its authored declaration and qualified key)
 ||| before the ordinary declarations that name its type and constructors.
 public export
-data LoweredItem = Single Declaration | MutualNatBool MutualDeclaration | DataFamily DataDeclaration String
+data LoweredItem = Single Declaration | MutualNatBool MutualDeclaration | DataFamily DataDeclaration String | DataFamilies (List (DataDeclaration, String))
 
 public export
 data AuthoredDeclaration = Ordinary Declaration | DataItem DataDeclaration | RecordItem RecordDeclaration
                          | InterfaceItem RecordDeclaration | ImplementationItem Declaration
                          | ImplementationBlock ImplementationDefinition | MutualItem MutualDeclaration
+                         | MutualDataItem SourceSpan (List DataDeclaration)
 
 public export
 hasPathMetadata : AuthoredDeclaration -> Bool
@@ -165,6 +166,7 @@ public export
 declarationExported : AuthoredDeclaration -> Bool
 declarationExported (MutualItem group) = group.exported
 declarationExported (DataItem sourceData) = sourceData.exported
+declarationExported (MutualDataItem _ members) = all exported members
 declarationExported (Ordinary decl) = decl.exported
 declarationExported (RecordItem sourceRecord) = sourceRecord.exported
 declarationExported (InterfaceItem sourceRecord) = sourceRecord.exported
@@ -206,18 +208,22 @@ recordSites sourceRecord =
        (Between projection.keyword.span.start projection.field.span.finish)
        projection.name.span projection.name.span sourceRecord.exported) sourceRecord.projections
 
+dataSites : DataDeclaration -> List BindingSite
+dataSites sourceData =
+  Binding sourceData.name.spelling Erased sourceData.span sourceData.name.span sourceData.name.span sourceData.exported ::
+  (map (\ctor => Binding ctor.name.spelling Unrestricted ctor.span ctor.name.span ctor.name.span sourceData.exported) sourceData.constructors ++
+   (case sourceData.eliminator of
+      Nothing => []
+      Just (keyword, name) => [Binding name.spelling Unrestricted (Between keyword.span.start name.span.finish) name.span name.span sourceData.exported]))
+
 ||| Authored binding locations only. Does not expand expressions or admit getters.
 public export
 bindingSites : AuthoredDeclaration -> List BindingSite
 bindingSites (MutualItem group) =
   map (\member => Binding member.name member.quantity member.span member.nameSpan member.definitionNameSpan group.exported)
       (group.first :: group.second :: group.others)
-bindingSites (DataItem sourceData) =
-  Binding sourceData.name.spelling Erased sourceData.span sourceData.name.span sourceData.name.span sourceData.exported ::
-  (map (\ctor => Binding ctor.name.spelling Unrestricted ctor.span ctor.name.span ctor.name.span sourceData.exported) sourceData.constructors ++
-   (case sourceData.eliminator of
-      Nothing => []
-      Just (keyword, name) => [Binding name.spelling Unrestricted (Between keyword.span.start name.span.finish) name.span name.span sourceData.exported]))
+bindingSites (DataItem sourceData) = dataSites sourceData
+bindingSites (MutualDataItem _ members) = concatMap dataSites members
 bindingSites (Ordinary decl) =
   [Binding decl.name decl.quantity decl.span decl.nameSpan decl.definitionNameSpan decl.exported]
 bindingSites (ImplementationBlock block) =
@@ -234,6 +240,7 @@ public export
 ordinaryDeclarations : List AuthoredDeclaration -> List Declaration
 ordinaryDeclarations [] = []
 ordinaryDeclarations (MutualItem _ :: rest) = ordinaryDeclarations rest
+ordinaryDeclarations (MutualDataItem _ _ :: rest) = ordinaryDeclarations rest
 ordinaryDeclarations (Ordinary decl :: rest) = decl :: ordinaryDeclarations rest
 ordinaryDeclarations (DataItem _ :: rest) = ordinaryDeclarations rest
 ordinaryDeclarations (RecordItem _ :: rest) = ordinaryDeclarations rest
