@@ -54,11 +54,27 @@ checks =
         Left (UnexpectedChar at 'é') => at.offset == 0
         _ => False)
   , ("lexer unsupported punctuation location",
-      case lexSource "->>" of
-        Left (UnexpectedChar at '>') => at.offset == 2
+      case lexSource "->;" of
+        Left (UnexpectedChar at ';') => at.offset == 2
         _ => False)
   , ("lexer text policy precedes comments",
       case lexSource ("-- " ++ pack [chr 0x202E]) of
         Left (InvalidSource _) => True
+        _ => False)
+  , ("lexer symbol run is one operator token",
+      case lexSource "a +-+ b" of
+        Right [_, op, _] => op.kind == Operator && op.spelling == "+-+"
+        _ => False)
+  , ("lexer reserved runs keep their meaning",
+      case lexSource "= | : -> => <-" of
+        Right tokens => map (\t => t.kind) tokens == [Equals, Bar, Colon, Arrow, BodyArrow, BindArrow]
+        _ => False)
+  , ("lexer parenthesised operator is one name",
+      case lexSource "(+)" of
+        Right [name] => name.kind == Name && name.spelling == "+" && name.span.finish.offset == 3
+        _ => False)
+  , ("lexer spaced parenthesised operator stays separate",
+      case lexSource "( + )" of
+        Right tokens => length tokens == 3
         _ => False)
   ]

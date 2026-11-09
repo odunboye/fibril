@@ -1227,7 +1227,7 @@ main = first Zero
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertIn("1:1-1:2 lambda", result.stdout)
             self.assertIn("1:5-1:6 =>", result.stdout)
-            path.write_text("x @ y", encoding="utf-8")
+            path.write_text("x ; y", encoding="utf-8")
             result = run("lex-source", str(path))
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("1:3", result.stdout)
@@ -6120,7 +6120,7 @@ main = first Zero
             for source, stage, located in (
                 ("missing", "resolution", True),
                 ("\\(1 x : Bool) =>", "parsing", True),
-                ("@", "lexing", True),
+                (";", "lexing", True),
                 ("(True : String)", "runtime-checking", False),
                 ('(\\(1 x : String) => "discard") "input"', "runtime-checking", False),
             ):
@@ -8075,11 +8075,11 @@ main = first Zero
             self.assertIn(f"{path}:1:16: Parsing:", result.stdout)
             self.assertIn("Expected else", result.stdout)
             self.assertIn("^", result.stdout)
-            path.write_text("@", encoding="utf-8")
+            path.write_text(";", encoding="utf-8")
             result = run("lex-source", str(path))
             self.assertNotEqual(result.returncode, 0)
             self.assertIn(f"{path}:1:1: Lexing:", result.stdout)
-            self.assertIn("  1 | @", result.stdout)
+            self.assertIn("  1 | ;", result.stdout)
             path.write_text("Bool", encoding="utf-8")
             result = run("check", str(path))
             self.assertNotEqual(result.returncode, 0)
