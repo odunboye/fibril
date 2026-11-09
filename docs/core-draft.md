@@ -12,7 +12,7 @@ kernel before named data, recursive inductives and structural recursion.
 checked constructors, direct non-recursive cases and named elimination. A
 fixed terminal/unary-self and parameterized list-shaped types with structural
 folds are implemented. General recursive data and [indexed families](indexed-data.md)
-are checked in a restricted whole-field positive fragment; nested and mutual
+are checked in a restricted whole-field positive fragment, including [nested fixed-list fields](nested-data.md). Mutual
 recursive declarations remain future work. Nullary arms have
 an explicit representation; hidden Unit padding does not support the required
 dependent motives under current Unit conversion.

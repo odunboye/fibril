@@ -19,6 +19,7 @@ import Fibril.Core.Erased
 import Fibril.Core.Reduction
 import Fibril.Core.Limits
 import Fibril.Core.WeakHead
+import Fibril.Elaboration.SequenceView
 import Fibril.Elaboration.DataCase
 import Fibril.Elaboration.Expression.Scope
 import Fibril.Elaboration.Expression.Conversion
@@ -576,7 +577,8 @@ mutual
         Right term => Right term
         Left _ => Left failure
   elaborateExpectedGlobals shared globals context env (Pi _ _ expected) (NLambda span q name domain body) = do
-    domain <- elaborateInWithGlobals shared globals (Just context) env domain
+    authored <- elaborateInWithGlobals shared globals (Just context) env domain
+    let domain = fromMaybe authored (familyAnnotation shared authored)
     body <- elaborateExpectedGlobals shared globals (Extend context q domain) (name :: env) expected body
     Right (Lambda q domain body)
   elaborateExpectedGlobals shared globals context env expected (NUnitCase span scrutinee body) = do
@@ -1318,7 +1320,8 @@ mutual
     body <- elaborateInWithGlobals shared globals (map (\ctx => Extend ctx q domain) context) (name :: env) body
     Right (Pi q domain body)
   elaborateInWithGlobals shared globals context env (NLambda span q name domain body) = do
-    domain <- elaborateInWithGlobals shared globals context env domain
+    authored <- elaborateInWithGlobals shared globals context env domain
+    let domain = fromMaybe authored (familyAnnotation shared authored)
     body <- elaborateInWithGlobals shared globals (map (\ctx => Extend ctx q domain) context) (name :: env) body
     Right (Lambda q domain body)
   elaborateInWithGlobals shared globals context env (NInfix span function left right) = do
@@ -1459,7 +1462,8 @@ mutual
           _ => elaborateInWithGlobals shared globals context env argument
         else elaborateInWithGlobals shared globals context env argument
       Nothing => elaborateInWithGlobals shared globals context env argument
-    Right (Apply function argument)
+    let applied = Apply function argument
+    Right (fromMaybe applied (sequenceApplication shared applied))
 
   elaboratePatternBranchGlobals : GlobalContext -> List GlobalDefinition -> Context n -> Vect n String -> Position ->
                            Nat -> Term n -> Expr -> Either ResolveError (Term n)

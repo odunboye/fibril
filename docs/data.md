@@ -14,7 +14,8 @@ one terminal and one direct linear self field; a [parameterized list shape](#par
 also carries a linear element. A built-in [Nat recursor](nat-recursion.md)
 supports structural computation. [General recursive data](#general-recursive-data)
 and [indexed families](indexed-data.md) support a restricted strictly positive
-fragment. Nested/mutual positivity and automatic index refinement remain future work; recursive
+fragment. [Nested fixed-list fields](nested-data.md) are supported; mutual positivity and
+automatic index refinement remain future work; recursive
 function equations are covered by the structural forms and by
 [general recursion](function-equations.md#general-recursion). [Direct multi-branch cases](direct-data-cases.md)
 support zero- and one-field alternatives and the fixed list head/tail shape,
@@ -166,8 +167,9 @@ or incompatible element types are not interchangeable.
 
 The shape is positive by construction; this is not arbitrary recursive data or
 a general positivity checker. Extra payloads, dependent field telescopes,
-multiple parameters or indices, nonuniform recursion and nested/mutual recursion
-remain unsupported. Direct `case` inspects one layer with a linear head and
+multiple parameters or indices, nonuniform recursion and mutual recursion
+remain unsupported by this fixed-list declaration shape. General data may contain
+[this list as a recursive container](nested-data.md). Direct `case` inspects one layer with a linear head and
 linear tail. For recursion, use the named fold or the restricted
 [list-shaped equation form](function-equations.md#structural-list-shaped-equations)
 with a bounded erased/unrestricted prefix telescope whose recursive arguments

@@ -321,6 +321,10 @@
         "title": "Indexed inductive families",
         "path": "docs/indexed-data.md"
       },
+      { "title": "Nested recursive data", "path": "docs/nested-data.md" },
+      { "title": "Word integers", "path": "docs/words.md" },
+      { "title": "Local snapshot locks", "path": "docs/lockfile.md" },
+      { "title": "Debugger design", "path": "docs/debugger.md" },
       {
         "title": "Pure byte values",
         "path": "docs/bytes.md"

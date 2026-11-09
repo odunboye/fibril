@@ -99,16 +99,23 @@ applicationSpine term = go term []
     go (Apply function argument) args = go function (argument :: args)
     go head args = (head, args)
 
+-- Intrinsic fixed sequences are strictly positive in their element type.
+-- Unknown user containers and function-space occurrences remain rejected.
+positiveField : {n : Nat} -> Nat -> String -> Nat -> Nat -> Term n -> Bool
+positiveField Z key count indices ty = False
+positiveField (S fuel) key count indices (SeqType _ element) = positiveField fuel key count indices element
+positiveField {n} (S fuel) key count indices ty = case applicationSpine ty of
+  (DataType other, args) => other == key && length args == count + indices &&
+    (case selfType key count n of
+      Just expected => sameSyntax (foldl Apply (DataType key) (take count args)) expected
+      Nothing => False) && not (any (mentionsNominal key) (drop count args))
+  _ => False
+
 checkFields : {n : Nat} -> String -> Nat -> Nat -> String -> Nat -> Telescope n -> Either String ()
 checkFields key count indices ctor position Done = Right ()
 checkFields {n} key count indices ctor position (Field _ ty rest) =
   let mentions = mentionsNominal key ty
-      isSelf = case applicationSpine ty of
-        (DataType other, args) => other == key && length args == count + indices &&
-          (case selfType key count n of
-            Just expected => sameSyntax (foldl Apply (DataType key) (take count args)) expected
-            Nothing => False) && not (any (mentionsNominal key) (drop count args))
-        _ => False
+      isSelf = positiveField 64 key count indices ty
    in if mentions && not isSelf
         then Left ("constructor " ++ ctor ++ ", field " ++ show position ++ ": " ++ describe ty)
         else checkFields key count indices ctor (S position) rest
