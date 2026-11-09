@@ -1,0 +1,26 @@
+module Main
+import Fib.Lexer
+
+-- Lex one stdin chunk (at most 4096 bytes) and write the token lines to stdout.
+-- Built with emit-c-binary: the hosted evaluators cannot run this (see README.md).
+double : (n : Nat) -> Nat
+double n = natRec (\(0 k : Nat) => Nat) Zero (\(0 k : Nat) => \(1 r : Nat) => Succ (Succ r)) n
+
+capacity : Nat
+capacity = double (double (double (double 256)))
+
+report : (1 text : String) -> IO Unit
+report text = primUTF8Case Bytes (IO Unit) (primUTF8Encode text) primRejectBytes
+  (\(1 out : Bytes) => bind Unit Unit (primWriteBytes out) (\(1 done : Unit) => case done of () => primFlushBytes))
+
+-- Anything left after the first chunk means the input was truncated; say so.
+truncated : IO Unit
+truncated = bind ByteReadResult Unit (primReadBytes 1)
+  (\(1 result : ByteReadResult) => primByteReadCase (IO Unit) result (pure Unit ())
+    (\(1 extra : Bytes) => if primBytesLengthIs Zero extra then pure Unit () else report "input exceeds 4096 bytes\n"))
+
+main : IO Unit
+main = bind ByteReadResult Unit (primReadBytes capacity)
+  (\(1 result : ByteReadResult) => primByteReadCase (IO Unit) result (pure Unit ())
+    (\(1 input : Bytes) => bind Unit Unit (report (Fib.Lexer.lexBytes input))
+      (\(1 done : Unit) => case done of () => truncated)))

@@ -1,0 +1,7 @@
+-- comment with unicode λ → ⇒ and "quotes"
+a+--b ->> c <-d =>e
+x@{y} (+) ( + ) (<>)
+12ab _x x'y `f` a.b, {c}
+"s\"q\\n" "" "tab\t"
+λx → y ⇒ z \w
+=|:==||::
