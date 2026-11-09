@@ -55,8 +55,8 @@ def instrument(directory):
     sites = sorted(sites)
     declarations = (f'static size_t measured_count[{len(sites)}], measured_bytes[{len(sites)}];\n'
                     'static size_t measured_peak_bytes, measured_depth, measured_globals, measured_total_bytes;\n')
-    source = replace_once(source, '#else\nstatic void *allocate(FRuntime *r, size_t size) {',
-        '#else\n' + declarations + 'static void *measured_allocate(FRuntime *r, size_t size, const char *site) {')
+    source = replace_once(source, 'static void *allocate(FRuntime *r, size_t size) {\n  if (r->error) return NULL;\n  if (size > SIZE_MAX',
+        declarations + 'static void *measured_allocate(FRuntime *r, size_t size, const char *site) {\n  if (r->error) return NULL;\n  if (size > SIZE_MAX')
     counters = '  measured_total_bytes += size;\n  if (r->bytes > measured_peak_bytes) measured_peak_bytes = r->bytes;\n'
     for index, site in enumerate(sites):
         counters += f'  if (!strcmp(site, "{site}")) {{ measured_count[{index}]++; measured_bytes[{index}] += size; }}\n'

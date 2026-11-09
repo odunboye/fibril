@@ -59,8 +59,8 @@ def instrument(directory):
                     f'static size_t audit_allocations[{len(sites)}], audit_bytes[{len(sites)}];\n'
                     'static size_t audit_values[64];\n'
                     f'static size_t audit_arguments[{len(labels) + 1}];\n')
-    text = replace_once(text, '#else\nstatic void *allocate(FRuntime *r, size_t size) {',
-                        '#else\n' + declarations + 'static void *audit_allocate(FRuntime *r, size_t size, const char *site) {')
+    text = replace_once(text, 'static void *allocate(FRuntime *r, size_t size) {\n  if (r->error) return NULL;\n  if (size > SIZE_MAX',
+                        declarations + 'static void *audit_allocate(FRuntime *r, size_t size, const char *site) {\n  if (r->error) return NULL;\n  if (size > SIZE_MAX')
     record = ''
     for i, site in enumerate(sites):
         record += f'  if (!strcmp(site, "{site}")) {{ audit_allocations[{i}]++; audit_bytes[{i}] += size; }}\n'
