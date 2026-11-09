@@ -1,0 +1,19 @@
+module Std.Nat
+
+-- The predecessor of a Nat, with zero as its own predecessor.
+export
+predecessor : (1 n : Nat) -> Nat
+predecessor n = case n of
+  Zero => Zero
+  Succ k => k
+
+-- Truncated subtraction: left - right, or zero when right exceeds left. Unary: the cost
+-- is the size of right, so use it for lengths and offsets, not for large counts.
+export
+monus : (left : Nat) -> (right : Nat) -> Nat
+monus left right = natRec
+  (\(0 n : Nat) =>
+    Nat) left
+  (\(0 n : Nat) =>
+    \(1 previous : Nat) => predecessor previous)
+  right

@@ -197,6 +197,7 @@ examples: build
 	./build/exec/fibril eval examples/core/word-arithmetic.fib
 	./build/exec/fibril run examples/core/word-native.fib
 	./build/exec/fibril run examples/core/word-division.fib
+	./build/exec/fibril run examples/core/bytes-equal.fib
 	./build/exec/fibril eval examples/core/consume-unit.fib
 	./build/exec/fibril eval examples/core/boolean.fib
 	./build/exec/fibril eval examples/core/branch-permissions.fib

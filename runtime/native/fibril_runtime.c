@@ -215,6 +215,15 @@ static FValue *byte_natural(FRuntime *r, size_t count) {
   }
   return result;
 }
+FValue *f_bytes_equal(FRuntime *r, FEnv *env, FEval left, FEval right) {
+  if (!left || !right) { fail(r, "missing native byte equality operand"); return NULL; }
+  FValue *a = evaluate(r, left, env);
+  FValue *b = a ? evaluate(r, right, env) : NULL;
+  if (!a || !b || a->tag != V_BYTES || b->tag != V_BYTES) { fail(r, "native byte equality expects Bytes"); return NULL; }
+  /* memcmp on a NULL view is undefined even for length zero, so compare lengths first. */
+  return f_bool(r, a->as.bytes.length == b->as.bytes.length &&
+                   (a->as.bytes.length == 0 || memcmp(a->as.bytes.data, b->as.bytes.data, a->as.bytes.length) == 0));
+}
 FValue *f_bytes_length(FRuntime *r, FEnv *env, FEval expression) {
   if (!expression) { fail(r, "missing native byte length operand"); return NULL; }
   FValue *bytes = evaluate(r, expression, env);

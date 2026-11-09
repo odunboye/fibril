@@ -3,6 +3,6 @@ name: std
 module-prefix: Std
 source-dir: src
 foundation: de-morgan
-modules: [Std.Option, Std.Result, Std.List]
+modules: [Std.Option, Std.Result, Std.List, Std.Nat, Std.Bytes, Std.String]
 test-package: test
 dependencies: {}

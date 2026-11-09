@@ -81,6 +81,7 @@ wordRuntimeFunction WordEqOp = Just "f_word_eq"
 wordRuntimeFunction WordLtOp = Just "f_word_lt"
 wordRuntimeFunction WordDivOp = Just "f_word_div"
 wordRuntimeFunction WordRemOp = Just "f_word_rem"
+wordRuntimeFunction BytesEqualOp = Just "f_bytes_equal"
 wordRuntimeFunction _ = Nothing
 
 mutual

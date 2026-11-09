@@ -83,7 +83,7 @@ class JavaScriptTests(unittest.TestCase):
     def test_standard_library_package_agrees_with_c(self):
         with tempfile.TemporaryDirectory() as directory:
             output=self.compare(['--package',str(ROOT/'stdlib/std/conformance/fibril.yaml')],directory,hosted=False)
-            self.assertEqual(output.count(b': ok'),24)
+            self.assertEqual(output.count(b': ok'),48)
             self.assertNotIn(b'FAILED',output)
 
     def test_host_callbacks_imports_and_symlink_launcher(self):

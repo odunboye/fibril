@@ -1,0 +1,50 @@
+module Std.String
+
+import Std.Bytes
+
+-- Text helpers measured in UTF-8 bytes, not characters. They go through Bytes, so each
+-- encodes its arguments first. Encoding fails only for host characters Fibril strings
+-- cannot contain; in that unreachable case a helper reports 0 or False.
+-- Arguments are unrestricted: a String is copyable data, and a callback may not capture
+-- a linear value.
+
+-- The unrestricted view that primBytesShare returns; private to this module. A callback
+-- cannot capture a linear Bytes, so nested conversions share the outer value first.
+record SharedBytes : Type where
+  constructor Shared
+  bytes : Bytes
+
+export
+byteLength : (text : String) -> Nat
+byteLength text = primUTF8Case Bytes Nat
+  (primUTF8Encode text) Zero
+  (\(1 bytes : Bytes) =>
+    Std.Bytes.byteLength bytes)
+
+export
+isEmpty : (text : String) -> Bool
+isEmpty text = equalString text ""
+
+export
+startsWith : (text : String) -> (prefix : String) -> Bool
+startsWith text prefix = primUTF8Case Bytes Bool
+  (primUTF8Encode text) False
+  (\(1 bytes : Bytes) =>
+    case primBytesShare bytes
+      of Shared whole =>
+        primUTF8Case Bytes Bool
+          (primUTF8Encode prefix) False
+          (\(1 head : Bytes) =>
+            Std.Bytes.startsWith whole head))
+
+export
+endsWith : (text : String) -> (suffix : String) -> Bool
+endsWith text suffix = primUTF8Case Bytes Bool
+  (primUTF8Encode text) False
+  (\(1 bytes : Bytes) =>
+    case primBytesShare bytes
+      of Shared whole =>
+        primUTF8Case Bytes Bool
+          (primUTF8Encode suffix) False
+          (\(1 tail : Bytes) =>
+            Std.Bytes.endsWith whole tail))

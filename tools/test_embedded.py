@@ -134,7 +134,7 @@ class EmbeddedTests(unittest.TestCase):
 
     def test_application_package_matches_hosted_c(self):
         output=self.compare(['--package',str(ROOT/'stdlib/std/conformance/fibril.yaml')],hosted=False)
-        self.assertEqual(output.count(b': ok'),24)
+        self.assertEqual(output.count(b': ok'),48)
 
     def test_regions_copy_results_without_region_lifetime_escape(self):
         source=r'''module Main
